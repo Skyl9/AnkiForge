@@ -113,10 +113,10 @@ def capture(
     engine = get_style_engine()
     from ankiforge.ui.layouts.layout_manager import LayoutManager
 
-    orig_theme = engine.get_saved_theme_id(profile_name)
+    orig_preference = engine.get_appearance_preference(profile_name)
     orig_layout = LayoutManager.get_saved_layout_id(profile_name)
     try:
-        engine.save_theme_preference(profile_name, theme_id)
+        engine.save_appearance_preference(profile_name, engine.preference_from_theme_id(theme_id))
         engine.apply_theme(theme_id, app)
 
         from ankiforge.ui.main_window import MainWindow
@@ -162,7 +162,7 @@ def capture(
                 window.grab().save(str(out_file))
                 print(f"✅ Capture réussie : {target_view} -> {out_file}")
     finally:
-        engine.save_theme_preference(profile_name, orig_theme)
+        engine.save_appearance_preference(profile_name, orig_preference)
         LayoutManager.save_layout_id(profile_name, orig_layout)
 
 

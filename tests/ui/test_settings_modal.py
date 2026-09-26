@@ -81,11 +81,6 @@ def test_settings_modal_creation_and_tabs(qtbot):
 
 def test_settings_modal_save_skips_when_no_changes(qtbot):
     """Aucun changement : la sauvegarde est court-circuitée et le bouton reste désactivé."""
-    from ankiforge.utils.environment import get_app_qsettings
-
-    get_app_qsettings().clear()
-    get_app_qsettings("obsidian").clear()
-
     modal = SettingsModal()
     qtbot.addWidget(modal)
 
@@ -140,6 +135,7 @@ def test_settings_modal_shows_saved_status_after_save(qtbot):
 
 def test_general_tab_save_and_mode_change(qtbot):
     """Teste la modification et la sauvegarde des paramètres généraux."""
+
     tab = GeneralTab()
     qtbot.addWidget(tab)
 
@@ -147,11 +143,130 @@ def test_general_tab_save_and_mode_change(qtbot):
     tab.cb_batch_style.setCurrentText("Kanban (Flux de tâches)")
     tab.le_export.setText("/custom/export/path")
 
-    has_change, layout_id, theme_id = tab.save_tab()
+    has_change, layout_id, family_id = tab.save_tab()
     assert has_change is True
     assert SettingsService.get("ui/language") == "English"
     assert SettingsService.get("app/batch_factory_style") == "Kanban (Flux de tâches)"
     assert SettingsService.get("app/export_path") == "/custom/export/path"
+
+
+def test_general_tab_writes_the_two_appearance_axes(qtbot):
+    """L'onglet persiste la Famille choisie et la Source du Mode, jamais une Variante."""
+    from ankiforge.ui.style_engine import ModeSource, get_style_engine
+
+    engine = get_style_engine()
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    nord_index = next(i for i in range(tab.cb_theme.count()) if tab.cb_theme.itemData(i) == "nord")
+    tab.cb_theme.setCurrentIndex(nord_index)
+    tab.cb_mode.setCurrentIndex(1)
+
+    assert tab._theme_field_changed() is True
+    assert tab._mode_field_changed() is True
+
+    _, _, selected_family_id = tab.save_tab()
+
+    assert selected_family_id == "nord"
+    preference = engine.get_appearance_preference("default")
+    assert (preference.family_id, preference.mode_source) == ("nord", ModeSource.LIGHT)
+    assert engine.resolve_appearance(preference, layout_id="ide").id == "nord_light"
+
+
+def test_general_tab_mode_change_preserves_the_selected_family(qtbot):
+    """Changer de Mode ne doit plus repeupler la liste avec les Variantes d'une autre famille."""
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    monokai_index = next(i for i in range(tab.cb_theme.count()) if tab.cb_theme.itemData(i) == "monokai")
+    tab.cb_theme.setCurrentIndex(monokai_index)
+
+    tab.cb_mode.setCurrentIndex(1)
+
+    assert tab.cb_theme.currentData() == "monokai"
+
+
+def test_general_tab_keeps_an_absent_family_absent_across_a_mode_change(qtbot):
+    """« Aucune Famille choisie » doit survivre au changement de Mode : sinon le rendu bascule.
+
+    Sans Famille persistée, le rendu suit la Famille par défaut du layout (ici `emerald` pour
+    `dashboard`). Si l'onglet écrivait la première Famille de la liste, enregistrer le Mode
+    suffirait à convertir « suit le layout » en choix explicite et à changer le rendu.
+    """
+    from ankiforge.ui.layouts.layout_manager import LayoutManager
+    from ankiforge.ui.style_engine import ModeSource, get_style_engine
+
+    engine = get_style_engine()
+    LayoutManager.save_layout_id("default", "dashboard")
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+    assert tab.cb_theme.currentData() is None
+
+    tab.cb_mode.setCurrentIndex(1)
+    tab.save_tab()
+
+    preference = engine.get_appearance_preference("default")
+    assert preference.family_id is None
+    assert preference.mode_source is ModeSource.LIGHT
+    assert engine.resolve_appearance(preference, layout_id="dashboard").id == "emerald_light"
+
+
+def test_general_tab_keeps_a_family_unknown_to_the_library(qtbot):
+    """Une Famille persistée hors bibliothèque (thème tiers, ADR 0005) ne doit pas être effacée.
+
+    Sans entrée de repli, la Famille tomberait sur « aucune » et un simple changement de Mode
+    la remplacerait définitivement en base.
+    """
+    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
+
+    engine = get_style_engine()
+    engine.save_appearance_preference(
+        "default",
+        AppearancePreference(family_id="theme_tiers", mode_source=ModeSource.DARK, last_manual_mode=ModeSource.DARK),
+    )
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+    assert tab.cb_theme.currentData() == "theme_tiers"
+
+    tab.cb_mode.setCurrentIndex(1)
+    tab.save_tab()
+
+    assert engine.get_appearance_preference("default").family_id == "theme_tiers"
+
+
+def test_general_tab_preserves_system_source_until_an_explicit_choice(qtbot):
+    """« Système » survit à un simple changement de Famille : seul un régime choisi l'écrase."""
+    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
+
+    engine = get_style_engine()
+    engine.save_appearance_preference("default", AppearancePreference(family_id="nord", mode_source=ModeSource.SYSTEM, last_manual_mode=ModeSource.DARK))
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    # Le sélecteur n'expose que les deux régimes manuels : il affiche le régime résolu.
+    assert tab.cb_mode.currentData() == "dark"
+    assert tab._mode_field_changed() is False
+
+    dracula_index = next(i for i in range(tab.cb_theme.count()) if tab.cb_theme.itemData(i) == "dracula")
+    tab.cb_theme.setCurrentIndex(dracula_index)
+    tab.save_tab()
+
+    preference = engine.get_appearance_preference("default")
+    assert (preference.family_id, preference.mode_source) == ("dracula", ModeSource.SYSTEM)
+    assert preference.last_manual_mode is ModeSource.DARK
+
+    # Un choix manuel explicite prend le relais.
+    tab.cb_mode.setCurrentIndex(1)
+    tab.save_tab()
+
+    preference = engine.get_appearance_preference("default")
+    assert preference.mode_source is ModeSource.LIGHT
+    assert preference.last_manual_mode is ModeSource.LIGHT
 
 
 def test_password_line_edit_toggle(qtbot):

@@ -26,7 +26,7 @@ def capture_views(output_dir: Path, theme_id: str = "ide") -> None:
     app = QApplication.instance() or QApplication([])
 
     engine = get_style_engine()
-    engine.save_theme_preference("default", theme_id)
+    engine.save_appearance_preference("default", engine.preference_from_theme_id(theme_id))
     engine.apply_theme(theme_id, app)
 
     from ankiforge.ui.main_window import MainWindow

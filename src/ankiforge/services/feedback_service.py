@@ -164,8 +164,9 @@ class FeedbackService:
             from ankiforge.ui.style_engine import get_style_engine
 
             engine = get_style_engine()
-            diag.active_theme = engine.get_saved_theme_id(diag.active_profile)
-            diag.active_layout = LayoutManager.get_saved_layout_id(diag.active_profile)
+            saved_layout_id = LayoutManager.get_saved_layout_id(diag.active_profile)
+            diag.active_theme = engine.resolve_appearance(engine.get_appearance_preference(diag.active_profile), layout_id=saved_layout_id).id
+            diag.active_layout = saved_layout_id
 
         # Résolution d'écran
         with contextlib.suppress(Exception):

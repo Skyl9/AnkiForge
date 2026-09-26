@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
 
+from ankiforge.ui.style_engine.appearance import AppearancePreference, ModeSource
 from ankiforge.ui.style_engine.theme_profile import ThemeProfile
 from ankiforge.ui.style_engine.themes import (
     BUILTIN_THEMES,
@@ -31,6 +32,12 @@ class StyleEngine(QObject):
     """
 
     theme_changed = Signal(ThemeProfile)
+
+    # Clés d'apparence persistées par profil (cf. ADR 0004)
+    KEY_THEME_FAMILY = "theme_family"
+    KEY_MODE_SOURCE = "mode_source"
+    KEY_LAST_MANUAL_MODE = "last_manual_mode"
+    KEY_LEGACY_THEME_ID = "theme_id"
 
     _instance: "StyleEngine | None" = None
 
@@ -1121,52 +1128,128 @@ class StyleEngine(QObject):
         return get_family_for_theme(theme_id)
 
     def set_color_mode(self, mode: str, app: QApplication | None = None) -> ThemeProfile:
-        """Définit le mode 'dark' ou 'light' pour la famille de thème active."""
-        current = self._current_theme
-        family = get_family_for_theme(current.id)
-        target = (family.light_theme if family else self.get_theme("jetbrains_light")) if mode == "light" else family.dark_theme if family else self.get_theme("ide")
-
-        self.apply_theme(target, app=app)
-        return target
+        """Bascule le régime de la famille active — calculé par les deux axes, sans persistance."""
+        return self._apply_manual_mode(ModeSource.coerce(mode, default=ModeSource.DARK), app=app)
 
     def toggle_color_mode(self, app: QApplication | None = None) -> ThemeProfile:
-        """Bascule intelligemment entre le mode Sombre et le mode Clair pour la famille active."""
-        current = self._current_theme
-        family = get_family_for_theme(current.id)
-        target = (family.light_theme if family else self.get_theme("jetbrains_light")) if current.is_dark else family.dark_theme if family else self.get_theme("ide")
+        """Bascule entre Sombre et Clair pour la famille active — sans persistance."""
+        return self._apply_manual_mode(ModeSource.LIGHT if self._current_theme.is_dark else ModeSource.DARK, app=app)
 
-        self.apply_theme(target, app=app)
-        return target
+    def _apply_manual_mode(self, source: ModeSource, app: QApplication | None = None) -> ThemeProfile:
+        """Calcule la Variante par les deux axes : famille du thème courant × régime demandé."""
+        family = self.get_family_for_theme(self._current_theme.id)
+        preference = AppearancePreference(family_id=family.id if family is not None else None, mode_source=source, last_manual_mode=source)
+        return self.apply_appearance(preference, app=app)
 
-    def save_theme_preference(self, profile_name: str, theme_id: str) -> None:
-        """Enregistre le thème sélectionné dans la BDD SQLite (SettingModel) et QSettings par profil."""
+    # ── Les deux axes d'apparence : Famille de Thème × Source du Mode (ADR 0004) ──────────
+
+    def preference_from_theme_id(self, theme_id: str) -> AppearancePreference:
+        """Interprète un identifiant de Variante comme une préférence à deux axes.
+
+        Sert à lire les préférences écrites avant le refactoring, où un scalaire unique
+        portait à la fois l'identité graphique et le régime visuel.
+        """
+        family = self.get_family_for_theme(theme_id)
+        regime = ModeSource.DARK if self.get_theme(theme_id).is_dark else ModeSource.LIGHT
+        return AppearancePreference(family_id=family.id if family is not None else None, mode_source=regime, last_manual_mode=regime)
+
+    def save_appearance_preference(self, profile_name: str, preference: AppearancePreference) -> AppearancePreference:
+        """Persiste les deux axes d'apparence du profil (BDD SQLite + QSettings) et renvoie la préférence écrite.
+
+        `AppearancePreference` est déjà normalisé à la construction : il est persisté tel quel.
+        """
         try:
             from ankiforge.database.models import SettingModel
 
-            SettingModel.set_value(f"profiles/{profile_name}/theme_id", theme_id, category="appearance")
+            SettingModel.set_value(f"profiles/{profile_name}/{self.KEY_THEME_FAMILY}", preference.family_id or "", category="appearance")
+            SettingModel.set_value(f"profiles/{profile_name}/{self.KEY_MODE_SOURCE}", preference.mode_source.value, category="appearance")
+            SettingModel.set_value(f"profiles/{profile_name}/{self.KEY_LAST_MANUAL_MODE}", preference.last_manual_mode.value, category="appearance")
         except Exception as err:
-            logger.debug("Sauvegarde du thème en BDD ignorée : %s", err)
+            logger.debug("Sauvegarde de l'apparence en BDD ignorée : %s", err)
 
         from ankiforge.utils.environment import get_app_qsettings
 
         settings = get_app_qsettings("obsidian")
-        settings.setValue(f"profiles/{profile_name}/theme_id", theme_id)
+        settings.setValue(f"profiles/{profile_name}/{self.KEY_THEME_FAMILY}", preference.family_id or "")
+        settings.setValue(f"profiles/{profile_name}/{self.KEY_MODE_SOURCE}", preference.mode_source.value)
+        settings.setValue(f"profiles/{profile_name}/{self.KEY_LAST_MANUAL_MODE}", preference.last_manual_mode.value)
+        return preference
 
-    def get_saved_theme_id(self, profile_name: str) -> str:
-        """Récupère le thème enregistré pour le profil depuis la BDD SQLite (ou QSettings)."""
+    def get_appearance_preference(self, profile_name: str) -> AppearancePreference:
+        """Lit les deux axes d'apparence du profil, en normalisant la lecture héritée.
+
+        Si aucun axe n'est persisté, l'ancien identifiant de thème unique est interprété :
+        la Famille en est déduite et la Source du Mode dérivée de son régime. Cette lecture
+        reste sans migration — ``SettingModel`` est un magasin clé/valeur sans schéma à faire
+        évoluer, et la normalisation rattrape les profils écrits par les versions antérieures.
+        """
+        family_id = self._read_appearance_key(profile_name, self.KEY_THEME_FAMILY)
+        mode_source = self._read_appearance_key(profile_name, self.KEY_MODE_SOURCE)
+        last_manual_mode = self._read_appearance_key(profile_name, self.KEY_LAST_MANUAL_MODE)
+
+        if family_id is None and mode_source is None and last_manual_mode is None:
+            legacy_theme_id = self._read_appearance_key(profile_name, self.KEY_LEGACY_THEME_ID)
+            if legacy_theme_id:
+                return self.preference_from_theme_id(legacy_theme_id)
+
+        return AppearancePreference(
+            family_id=family_id or None,
+            mode_source=ModeSource.coerce(mode_source, default=ModeSource.DARK),
+            last_manual_mode=ModeSource.coerce(last_manual_mode, default=ModeSource.DARK),
+        )
+
+    def _read_appearance_key(self, profile_name: str, key: str) -> str | None:
+        """Lit une clé d'apparence depuis la BDD SQLite, puis depuis le QSettings scopé « obsidian »."""
+        full_key = f"profiles/{profile_name}/{key}"
         try:
             from ankiforge.database.models import SettingModel
 
-            val = SettingModel.get_value(f"profiles/{profile_name}/theme_id")
-            if val:
-                return str(val)
+            value = self._clean_appearance_value(SettingModel.get_value(full_key))
+            if value is not None:
+                return value
         except Exception as err:
-            logger.debug("Lecture du thème en BDD ignorée : %s", err)
+            logger.debug("Lecture de l'apparence en BDD ignorée : %s", err)
 
         from ankiforge.utils.environment import get_app_qsettings
 
-        settings = get_app_qsettings("obsidian")
-        return str(settings.value(f"profiles/{profile_name}/theme_id", "ide"))
+        return self._clean_appearance_value(get_app_qsettings("obsidian").value(full_key, ""))
+
+    @staticmethod
+    def _clean_appearance_value(value: object) -> str | None:
+        """Normalise une valeur stockée : une chaîne vide est l'absence de choix, pas un choix."""
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    def get_default_family_for_layout(self, layout_id: str | None) -> ThemeFamily:
+        """Famille de repli d'un layout : n'est utilisée que si aucune Famille n'a été choisie."""
+        from ankiforge.ui.layouts.layout_manager import LayoutManager
+
+        family = self.get_family_for_theme(LayoutManager.get_default_family_id(layout_id or LayoutManager.DEFAULT_LAYOUT_ID))
+        if family is None:  # pragma: no cover - la table layout→famille référence toujours des familles réelles
+            fallback = self.get_family_for_theme(LayoutManager.DEFAULT_FAMILY_ID)
+            if fallback is None:  # pragma: no cover - garde-fou : aucune famille ne peut disparaître
+                raise LookupError("Aucune famille de thème disponible")
+            return fallback
+        return family
+
+    def resolve_appearance(self, preference: AppearancePreference, layout_id: str | None = None) -> ThemeProfile:
+        """Calcule la Variante effective : la Famille choisie (ou celle du layout) croisée avec le régime résolu."""
+        family = self.get_family_for_theme(preference.family_id) if preference.family_id else None
+        if family is None:
+            family = self.get_default_family_for_layout(layout_id)
+        return family.dark_theme if preference.resolve_mode() is ModeSource.DARK else family.light_theme
+
+    def apply_appearance(self, preference: AppearancePreference, layout_id: str | None = None, app: QApplication | None = None) -> ThemeProfile:
+        """Applique la Variante calculée à partir des deux axes d'apparence."""
+        variant = self.resolve_appearance(preference, layout_id=layout_id)
+        self.apply_theme(variant, app=app)
+        return variant
+
+    def apply_appearance_for_profile(self, profile_name: str, layout_id: str | None = None) -> ThemeProfile:
+        """Applique l'apparence persistée du profil ; le layout ne fournit qu'une famille de repli."""
+        return self.apply_appearance(self.get_appearance_preference(profile_name), layout_id=layout_id)
 
 
 def get_style_engine() -> StyleEngine:

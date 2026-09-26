@@ -18,6 +18,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledLineEdit,
 )
+from ankiforge.ui.style_engine.appearance import AppearancePreference, ModeSource
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
@@ -93,52 +94,82 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
                 break
         self.rows_labels.append(add_setting_row(card_app_layout, "Disposition de l'interface (Layout) :", self.cb_layout))
 
-        # 2. Mode d'Apparence
+        # 2. Mode d'Apparence (Source du Mode : manuel sombre / manuel clair / système)
         self.cb_mode = StyledComboBox()
         self.cb_mode.setMinimumWidth(260)
         self.cb_mode.setFixedHeight(30)
         self.cb_mode.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.ACCENT_PRIMARY), "Mode Sombre (Dark)", "dark")
         self.cb_mode.addItem(load_phosphor_icon("ph.sun", color=DesignTokens.COLOR_YELLOW), "Mode Clair (Light)", "light")
 
-        saved_theme_id = engine.get_saved_theme_id(profile_name)
-        current_theme_obj = engine.get_theme(saved_theme_id)
-
-        if not current_theme_obj.is_dark:
+        # Les deux axes d'apparence sont lus séparément : plus de Variante persistée (ADR 0004).
+        self._loaded_preference = engine.get_appearance_preference(profile_name)
+        if self._loaded_preference.resolve_mode() is ModeSource.LIGHT:
             self.cb_mode.setCurrentIndex(1)
         else:
             self.cb_mode.setCurrentIndex(0)
         self.rows_labels.append(add_setting_row(card_app_layout, "Mode d'Apparence :", self.cb_mode))
 
-        # 3. Thème Visuel (12 Familles)
+        # 3. Famille de Thèmes (12 Familles bivalentes) — axe indépendant du Mode
         self.cb_theme = StyledComboBox()
         self.cb_theme.setMinimumWidth(260)
         self.cb_theme.setFixedHeight(30)
 
-        def populate_theme_families() -> None:
-            is_dark_selected = self.cb_mode.currentData() == "dark"
-            self.cb_theme.clear()
-            families = engine.get_theme_families()
-            for fam in families:
-                theme_variant = fam.dark_theme if is_dark_selected else fam.light_theme
-                icon_name = "ph.moon" if is_dark_selected else "ph.sun"
-                icon_color = DesignTokens.ACCENT_PRIMARY if is_dark_selected else DesignTokens.COLOR_YELLOW
-                self.cb_theme.addItem(load_phosphor_icon(icon_name, color=icon_color), fam.name, theme_variant.id)
+        def select_family(family_id: str | None) -> None:
+            """Sélectionne la Famille donnée ; « aucune » est une entrée à part entière."""
+            for i in range(self.cb_theme.count()):
+                if self.cb_theme.itemData(i) == family_id:
+                    self.cb_theme.setCurrentIndex(i)
+                    return
 
+        # La Famille vit dans `selected_family_id`, initialisée depuis la préférence persistée
+        # puis mise à jour par les seuls choix de l'utilisateur : repeupler la liste pour un
+        # changement de Mode ne doit donc jamais y toucher.
+        selected_family_id: str | None = self._loaded_preference.family_id
+        is_repopulating = False
+
+        def on_family_changed(index: int) -> None:
+            nonlocal selected_family_id
+            if not is_repopulating:
+                selected_family_id = self.cb_theme.itemData(index)
+
+        def populate_theme_families() -> None:
+            nonlocal is_repopulating
+            is_dark_selected = self.cb_mode.currentData() == "dark"
+            is_repopulating = True
+            try:
+                self.cb_theme.clear()
+                # « Aucune Famille choisie » est un état valide : la Famille suit alors le layout actif.
+                default_family = engine.get_default_family_for_layout(LayoutManager.get_saved_layout_id(profile_name))
+                self.cb_theme.addItem(
+                    load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.TEXT_MUTED),
+                    f"Famille par défaut du layout ({default_family.name})",
+                    None,
+                )
+                families = engine.get_theme_families()
+                for fam in families:
+                    icon_name = "ph.moon" if is_dark_selected else "ph.sun"
+                    icon_color = DesignTokens.ACCENT_PRIMARY if is_dark_selected else DesignTokens.COLOR_YELLOW
+                    self.cb_theme.addItem(load_phosphor_icon(icon_name, color=icon_color), fam.name, fam.id)
+                # Une Famille persistée mais inconnue de la bibliothèque (thème tiers, ADR 0005)
+                # doit survivre à l'enregistrement du Mode : l'ajouter évite de l'effacer.
+                if selected_family_id is not None and all(fam.id != selected_family_id for fam in families):
+                    self.cb_theme.addItem(
+                        load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_YELLOW),
+                        f"{selected_family_id} (indisponible)",
+                        selected_family_id,
+                    )
+                select_family(selected_family_id)
+            finally:
+                is_repopulating = False
+
+        self.cb_theme.currentIndexChanged.connect(on_family_changed)
         populate_theme_families()
 
-        for i in range(self.cb_theme.count()):
-            if self.cb_theme.itemData(i) == current_theme_obj.id:
-                self.cb_theme.setCurrentIndex(i)
-                break
-
-        def on_mode_changed(idx: int) -> None:
-            curr_idx = self.cb_theme.currentIndex()
+        def on_mode_changed(_idx: int) -> None:
             populate_theme_families()
-            if 0 <= curr_idx < self.cb_theme.count():
-                self.cb_theme.setCurrentIndex(curr_idx)
 
         self.cb_mode.currentIndexChanged.connect(on_mode_changed)
-        self.rows_labels.append(add_setting_row(card_app_layout, "Thème visuel & Palette :", self.cb_theme))
+        self.rows_labels.append(add_setting_row(card_app_layout, "Famille de Thèmes :", self.cb_theme))
 
         # 4. Langue
         self.cb_lang = StyledComboBox()
@@ -400,8 +431,20 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         webbrowser.open(p.as_uri())
 
+    def _selected_appearance_preference(self) -> AppearancePreference:
+        """Préférence d'apparence correspondant aux deux sélecteurs.
+
+        « Système » est préservé tant que l'utilisateur n'a pas explicitement choisi un régime :
+        le sélecteur n'expose que les deux régimes manuels, l'option de suivi du système
+        appartient au ticket « Suivre le Thème Système ».
+        """
+        selected = ModeSource.coerce(self.cb_mode.currentData(), default=self._loaded_preference.mode_source)
+        if selected.value == self._initial.get("mode"):
+            selected = self._loaded_preference.mode_source
+        return AppearancePreference(family_id=self.cb_theme.currentData(), mode_source=selected, last_manual_mode=self._loaded_preference.last_manual_mode)
+
     def save_tab(self) -> tuple[bool, str | None, str | None]:
-        """Sauvegarde les paramètres de l'onglet et retourne (has_change, selected_layout_id, selected_theme_id)."""
+        """Sauvegarde les paramètres de l'onglet et retourne (has_change, selected_layout_id, selected_family_id)."""
         from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.style_engine import get_style_engine
@@ -410,7 +453,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         engine = get_style_engine()
 
         selected_layout_id = self.cb_layout.currentData()
-        selected_theme_id = self.cb_theme.currentData()
+        selected_family_id = self.cb_theme.currentData()
 
         has_change = self.has_pending_changes()
 
@@ -444,12 +487,12 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         if self._layout_field_changed():
             LayoutManager.save_layout_id(profile_name, selected_layout_id)
-        if self._theme_field_changed():
-            engine.save_theme_preference(profile_name, selected_theme_id)
+        if self._theme_field_changed() or self._mode_field_changed():
+            self._loaded_preference = engine.save_appearance_preference(profile_name, self._selected_appearance_preference())
 
         self._record_initial_state()
 
-        return has_change, selected_layout_id, selected_theme_id
+        return has_change, selected_layout_id, selected_family_id
 
     def _record_initial_state(self) -> None:
         """Capture l'état actuel des contrôles en mémoire vive pour la détection dirty à zéro coût BDD."""
@@ -457,6 +500,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self._initial: dict[str, Any] = {
             "layout": self.cb_layout.currentData(),
             "theme": self.cb_theme.currentData(),
+            "mode": self.cb_mode.currentData(),
             "lang": self.cb_lang.currentText(),
             "batch_style": self.cb_batch_style.currentText(),
             "export_path": self.le_export.text().strip(),
@@ -475,6 +519,11 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             return False
         return not values_equal(self.cb_theme.currentData(), self._initial.get("theme"))
 
+    def _mode_field_changed(self) -> bool:
+        if not hasattr(self, "_initial"):
+            return False
+        return not values_equal(self.cb_mode.currentData(), self._initial.get("mode"))
+
     def has_pending_changes(self) -> bool:
         """True si au moins un paramètre de l'onglet diffère de sa valeur initiale en mémoire."""
         if not hasattr(self, "_initial"):
@@ -483,6 +532,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         current = {
             "layout": self.cb_layout.currentData(),
             "theme": self.cb_theme.currentData(),
+            "mode": self.cb_mode.currentData(),
             "lang": self.cb_lang.currentText(),
             "batch_style": self.cb_batch_style.currentText(),
             "export_path": self.le_export.text().strip(),

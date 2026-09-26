@@ -137,9 +137,9 @@ class MainWindow(QMainWindow):
 
         self.engine = get_style_engine()
         self.engine.theme_changed.connect(self._on_theme_changed)
-        saved_theme_id = self.engine.get_saved_theme_id(self.profile_name)
-        self.engine.apply_theme(saved_theme_id)
 
+        # apply_layout() applique aussi l'apparence du profil : le layout ne fournit
+        # qu'une famille de repli, la Famille choisie par l'utilisateur prime.
         saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
         self.apply_layout(saved_layout_id)
 
@@ -461,7 +461,7 @@ class MainWindow(QMainWindow):
         new_layout.set_stacked_widget(self.stacked_widget)
         self.setCentralWidget(new_layout)
         LayoutManager.save_layout_id(self.profile_name, layout_id)
-        LayoutManager.apply_theme_for_layout(layout_id)
+        LayoutManager.apply_theme_for_layout(layout_id, profile_name=self.profile_name)
         logger.info("Application du layout '%s' (profil: '%s')", layout_id, self.profile_name)
 
         if self._current_view_id:
@@ -839,14 +839,14 @@ class MainWindow(QMainWindow):
         if self.current_layout is not None:
             self.current_layout.set_profile_name(new_profile)
 
-        # 3. Charger et appliquer le thème du nouveau profil
-        saved_theme_id = self.engine.get_saved_theme_id(self.profile_name)
-        self.engine.apply_theme(saved_theme_id)
+        # 3. Charger et appliquer l'apparence du nouveau profil
+        saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
 
         # 4. Charger et appliquer le layout du nouveau profil si différent
-        saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
         if self.current_layout is None or self.current_layout.get_layout_id() != saved_layout_id:
             self.apply_layout(saved_layout_id)
+        else:
+            self.engine.apply_appearance_for_profile(self.profile_name, saved_layout_id)
 
         # 5. Réinitialiser les vues existantes pour repartir sur la nouvelle base de données
         self._reset_view_widgets()

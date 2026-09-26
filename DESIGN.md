@@ -160,15 +160,30 @@ Pour toute surface « teintée » (badge, pastille, fond de statut, diff, hover 
 
 # 🌓 PARTIE 2 : Architecture Bivalente Sombre 🌙 / Clair ☀️
 
-L'interface repose sur une séparation claire entre :
-1. **Le Mode d'Apparence :** 🌙 Sombre ou ☀️ Clair.
-2. **La Famille de Thème :** L'une des 12 identités graphiques d'AnkiForge.
+L'interface repose sur une séparation claire entre deux axes **persistés séparément** (cf. [[docs/adr/0004-separer-famille-et-source-du-mode|ADR 0004]]) :
+1. **La Famille de Thème :** L'une des 12 identités graphiques d'AnkiForge.
+2. **La Source du Mode :** 🌙 Sombre manuel, ☀️ Clair manuel, ou 🖥️ Système.
 
-Lorsqu'un utilisateur change de mode ou de thème :
-* Le `StyleEngine` bascule vers la variante (sombre ou claire) de la famille active via `set_color_mode()` ou `toggle_color_mode()`.
+La **Variante** effectivement appliquée n'est jamais persistée : elle se **calcule** comme
+`Famille × régime résolu` par `StyleEngine.resolve_appearance()`. Le régime résolu vaut la
+Source elle-même si elle est manuelle, sinon le régime déclaré par la plateforme, sinon le
+**dernier Mode manuel choisi**, persisté comme repli.
+
+| Clé persistée (par profil) | Valeurs | Rôle |
+| :--- | :--- | :--- |
+| `profiles/<profil>/theme_family` | identifiant de famille, ou vide | Famille choisie ; vide = « suit la Famille par défaut du layout » |
+| `profiles/<profil>/mode_source` | `dark`, `light`, `system` | Source du Mode |
+| `profiles/<profil>/last_manual_mode` | `dark`, `light` | Repli quand le système ne déclare aucun régime |
+| `profiles/<profil>/theme_id` | identifiant de variante | **Hérité**, antérieur à l'ADR 0004 : lu puis normalisé, jamais écrit |
+
+Lorsqu'un utilisateur change de Mode ou de Famille :
+* Le `StyleEngine` applique la Variante calculée via `apply_appearance()` / `apply_appearance_for_profile()`.
 * `DesignTokens` est réassigné à chaud.
 * La palette Qt (`QPalette`) et la feuille de style QSS globale sont réinjectées sur `QApplication`.
 * Les ombres portées s'adaptent dynamiquement (45% d'opacité en mode sombre, 12% en mode clair).
+
+Une Famille choisie explicitement **prime** sur la Famille par défaut du layout
+(`LayoutManager.LAYOUT_DEFAULT_FAMILY`), qui ne s'applique que tant qu'aucune Famille n'a été choisie.
 
 ---
 
@@ -199,3 +214,8 @@ AnkiForge supporte **4 architectures de disposition** interchangeables à chaud 
 2. **Concept Dashboard (`dashboard`) :** Présentation en grille réactive sans barre latérale permanente, cartes d'actions rapides.
 3. **Concept Glassmorphism (`glassmorphism`) :** Navigation par pilules flottantes, conteneurs effet verre givré.
 4. **Concept macOS (`macos`) :** Barre supérieure compacte (54px) avec sélecteur segmenté horizontal.
+
+Chaque layout propose une **Famille par défaut** (`LayoutManager.LAYOUT_DEFAULT_FAMILY`) : `ide` → `jetbrains`,
+`dashboard` → `emerald`, `glassmorphism` → `glassmorphism`, `macos` → `macos`. Ce n'est qu'un repli :
+une Famille choisie par l'utilisateur n'est jamais remplacée par celle du layout, et le changement de layout
+réapplique l'apparence du profil (`LayoutManager.apply_theme_for_layout()`).

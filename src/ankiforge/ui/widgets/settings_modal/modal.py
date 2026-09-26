@@ -262,9 +262,9 @@ class SettingsModal(QDialog):
             return
 
         layout_changed = self.general_tab._layout_field_changed()
-        theme_changed = self.general_tab._theme_field_changed()
+        theme_changed = self.general_tab._theme_field_changed() or self.general_tab._mode_field_changed()
 
-        _, selected_layout_id, selected_theme_id = self.general_tab.save_tab()
+        _, selected_layout_id, _selected_family_id = self.general_tab.save_tab()
         self.ai_tab.save_tab()
         self.anki_tab.save_tab()
         self.tts_tab.save_tab()
@@ -272,20 +272,24 @@ class SettingsModal(QDialog):
 
         theme_title = self.general_tab.cb_theme.currentText() or "Nouveau Thème"
         apply_layout = bool(layout_changed and selected_layout_id)
-        apply_theme = bool(theme_changed and selected_theme_id)
+        # « Aucune Famille choisie » est une valeur valide : l'apparence reste à appliquer.
+        apply_theme = theme_changed
 
         def apply_changes() -> None:
+            from ankiforge.ui.layouts.layout_manager import LayoutManager
             from ankiforge.ui.style_engine import get_style_engine
 
             engine = get_style_engine()
             main_w = self.general_tab._get_main_window()
+            profile_name = self.general_tab._get_profile_name() or "default"
 
             # La persistance BDD/QSettings a déjà eu lieu dans save_tab() : ici on applique à chaud.
-            if apply_layout and selected_layout_id and main_w is not None and hasattr(main_w, "apply_layout"):
+            # apply_layout() réapplique déjà l'apparence du profil : inutile de le faire deux fois.
+            applied_by_layout = bool(apply_layout and selected_layout_id and main_w is not None and hasattr(main_w, "apply_layout"))
+            if applied_by_layout:
                 main_w.apply_layout(selected_layout_id)
-
-            if apply_theme and selected_theme_id:
-                engine.apply_theme(selected_theme_id)
+            elif apply_theme:
+                engine.apply_appearance_for_profile(profile_name, LayoutManager.get_saved_layout_id(profile_name))
 
             from shiboken6 import isValid
 

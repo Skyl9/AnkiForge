@@ -14,6 +14,7 @@ from ankiforge.ui.layouts.ide_layout import IdeLayout
 from ankiforge.ui.layouts.layout_manager import LayoutManager
 from ankiforge.ui.layouts.macos_layout import MacosLayout
 from ankiforge.ui.main_window import MainWindow
+from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
@@ -55,6 +56,8 @@ def test_layout_instantiation_and_theme_sync(qtbot):
 def test_main_window_layout_hot_reload_and_tokens(qtbot, mock_db):
     """Vérifie le basculement dynamique à chaud des layouts et de leurs tokens visuels sur MainWindow."""
     LayoutManager.save_layout_id("test_profile", "ide")
+    # Aucune Famille persistée : chaque layout impose donc sa Famille par défaut (ADR 0004).
+    assert get_style_engine().get_appearance_preference("test_profile").family_id is None
     with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_profile")
         qtbot.addWidget(window)

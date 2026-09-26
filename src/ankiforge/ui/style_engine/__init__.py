@@ -2,6 +2,13 @@
 Moteur de Style Centralisé pour AnkiForge.
 """
 
+from ankiforge.ui.style_engine.appearance import (
+    AppearancePreference,
+    ModeSource,
+    force_system_mode_source,
+    probe_system_mode_source,
+    release_system_mode_source,
+)
 from ankiforge.ui.style_engine.engine import StyleEngine, get_style_engine
 from ankiforge.ui.style_engine.theme_profile import ThemeProfile
 from ankiforge.ui.style_engine.themes import (
@@ -30,6 +37,11 @@ from ankiforge.ui.style_engine.themes import (
 __all__ = [
     "StyleEngine",
     "get_style_engine",
+    "AppearancePreference",
+    "ModeSource",
+    "probe_system_mode_source",
+    "force_system_mode_source",
+    "release_system_mode_source",
     "ThemeProfile",
     "ThemeFamily",
     "BUILTIN_THEMES",

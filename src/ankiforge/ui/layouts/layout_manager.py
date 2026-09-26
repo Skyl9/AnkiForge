@@ -10,7 +10,7 @@ from ankiforge.ui.layouts.dashboard_layout import DashboardLayout
 from ankiforge.ui.layouts.glass_layout import GlassmorphismLayout
 from ankiforge.ui.layouts.ide_layout import IdeLayout
 from ankiforge.ui.layouts.macos_layout import MacosLayout
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.style_engine.theme_profile import ThemeProfile
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,26 @@ class LayoutManager:
 
     DEFAULT_LAYOUT_ID = "ide"
 
+    # Famille proposée par défaut pour chaque layout. Ce n'est qu'un repli : une Famille
+    # choisie explicitement par l'utilisateur n'est jamais remplacée par celle du layout.
+    LAYOUT_DEFAULT_FAMILY: dict[str, str] = {
+        "ide": "jetbrains",
+        "dashboard": "emerald",
+        "glassmorphism": "glassmorphism",
+        "macos": "macos",
+    }
+    DEFAULT_FAMILY_ID = "jetbrains"
+
+    @classmethod
+    def resolve_layout_id(cls, layout_id: str) -> str:
+        """Normalise un identifiant de layout inconnu vers le layout par défaut."""
+        return layout_id if layout_id in cls.LAYOUTS else cls.DEFAULT_LAYOUT_ID
+
+    @classmethod
+    def get_default_family_id(cls, layout_id: str) -> str:
+        """Famille de Thème proposée par défaut pour un layout (jamais imposée)."""
+        return cls.LAYOUT_DEFAULT_FAMILY.get(cls.resolve_layout_id(layout_id), cls.DEFAULT_FAMILY_ID)
+
     @classmethod
     def get_available_layouts(cls) -> list[dict[str, str]]:
         """Renvoie la liste des métadonnées de tous les layouts disponibles pour les paramètres."""
@@ -45,24 +65,17 @@ class LayoutManager:
         return results
 
     @classmethod
-    def apply_theme_for_layout(cls, layout_id: str) -> None:
-        """Adapte le thème pour le layout donné en respectant le mode clair/sombre actif."""
+    def apply_theme_for_layout(cls, layout_id: str, profile_name: str = "default") -> ThemeProfile:
+        """Réapplique l'apparence du profil pour le layout donné.
+
+        Le layout ne fournit plus qu'une famille de repli : le régime visuel vient de la
+        Source du Mode persistée et la Famille choisie par l'utilisateur prime sur la
+        famille par défaut du layout.
+        """
         from ankiforge.ui.style_engine import get_style_engine
 
         engine = get_style_engine()
-        target_id = layout_id if layout_id in cls.LAYOUTS else cls.DEFAULT_LAYOUT_ID
-        # Résoudre la famille correspondante au layout (ex: ide -> jetbrains, dashboard -> emerald...)
-        family_map = {
-            "ide": "jetbrains",
-            "dashboard": "emerald",
-            "glassmorphism": "glassmorphism",
-            "macos": "macos",
-        }
-        family_id = family_map.get(target_id, "jetbrains")
-        family = engine.get_family_for_theme(family_id)
-        if family:
-            target_theme = family.dark_theme if DesignTokens.is_dark_mode() else family.light_theme
-            engine.apply_theme(target_theme)
+        return engine.apply_appearance_for_profile(profile_name, cls.resolve_layout_id(layout_id))
 
     @classmethod
     def create_layout(cls, layout_id: str, profile_name: str = "default") -> BaseLayout:
