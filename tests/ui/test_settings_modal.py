@@ -150,6 +150,35 @@ def test_general_tab_save_and_mode_change(qtbot):
     assert SettingsService.get("app/export_path") == "/custom/export/path"
 
 
+def test_general_tab_layout_grid_selection_and_persistence(qtbot):
+    """Vérifie la sélection de layout via la grille de miniatures et sa persistance par profil."""
+    from ankiforge.ui.layouts.layout_manager import LayoutManager
+    from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import LayoutGridSelector
+
+    LayoutManager.save_layout_id("default", "ide")
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    assert isinstance(tab.layout_selector, LayoutGridSelector)
+    assert tab.layout_selector.current_layout_id() == "ide"
+    assert not tab._layout_field_changed()
+    assert not tab.has_pending_changes()
+
+    # Sélection de la disposition macOS via la grille
+    tab.layout_selector.set_current_layout_id("macos")
+    assert tab._layout_field_changed()
+    assert tab.has_pending_changes()
+
+    # Sauvegarde
+    has_change, selected_layout_id, _ = tab.save_tab()
+    assert has_change is True
+    assert selected_layout_id == "macos"
+    assert LayoutManager.get_saved_layout_id("default") == "macos"
+    assert not tab._layout_field_changed()
+    assert not tab.has_pending_changes()
+
+
 def test_general_tab_writes_the_two_appearance_axes(qtbot):
     """L'onglet persiste la Famille choisie et la Source du Mode, jamais une Variante."""
     from ankiforge.ui.style_engine import ModeSource, get_style_engine
