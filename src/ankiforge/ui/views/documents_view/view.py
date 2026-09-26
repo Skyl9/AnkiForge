@@ -4,7 +4,7 @@ from typing import Any
 
 from peewee import fn
 from PySide6.QtCore import QPoint, Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QColor, QTextCursor
+from PySide6.QtGui import QCloseEvent, QColor, QTextCursor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -56,6 +56,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.dialogs.url_import_dialog import UrlImportDialog
 from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.ui.viewmodels.documents_viewmodel import DocumentsViewModel
 from ankiforge.ui.views.documents_view.dialogs import (
     AIDocumentStructureDialog,
     AlbumImportDialog,
@@ -114,6 +115,7 @@ class DocumentsView(QWidget):
         self.ai_manager = ai_manager
         self.profile_name = profile_name
         self.doc_repo = doc_repo or DocumentRepository()
+        self.view_model = DocumentsViewModel(doc_repo=self.doc_repo, bus=event_bus, parent=self)
         self._current_doc_id: int | None = None
         self._dirty = False
         self.worker: DocumentWorker | None = None
@@ -865,6 +867,7 @@ class DocumentsView(QWidget):
         if not items:
             self.btn_delete.setEnabled(False)
             self._current_doc_id = None
+            self.view_model.clear_selection()
             self.editor_stack.setCurrentIndex(0)
             return
 
@@ -875,6 +878,7 @@ class DocumentsView(QWidget):
             doc = DocumentModel.get_or_none(DocumentModel.id == data["id"])
             if doc:
                 self._current_doc_id = doc.id
+                self.view_model.select_document_by_id(doc.id)
                 title_to_display = doc.original_media.original_name if doc.original_media else doc.title
                 self.doc_title_lbl.setText(title_to_display)
 
@@ -1354,6 +1358,7 @@ class DocumentsView(QWidget):
             self._start_document_worker(str(pdf_path), doc_id=doc.id)
 
     def _start_document_worker(self, path_or_url: str, doc_id: int | None = None) -> None:
+        self.view_model.begin_operation("import")
         self.btn_import.setEnabled(False)
         self.btn_import_url.setEnabled(False)
         show_toast(self, "Extraction et analyse du document en cours...")
@@ -1362,6 +1367,7 @@ class DocumentsView(QWidget):
         self.worker.finished_signal.connect(self._on_worker_finished)
         self.worker.error_signal.connect(self._on_worker_error)
         self.worker.log_signal.connect(self._on_worker_log)
+        self.worker.cancelled_signal.connect(self._on_worker_cancelled)
 
         self._on_view_toggled("term")
         self.terminal_view.clear()
@@ -1370,6 +1376,7 @@ class DocumentsView(QWidget):
 
     @Slot(str)
     def _on_worker_log(self, msg: str) -> None:
+        self.view_model.report_progress(msg)
         if hasattr(self, "terminal_view"):
             self.terminal_view.append(msg)
             scrollbar = self.terminal_view.verticalScrollBar()
@@ -1378,6 +1385,7 @@ class DocumentsView(QWidget):
 
     @Slot(str, str)
     def _on_worker_finished(self, title: str, content: str) -> None:
+        self.view_model.complete_operation(title)
         if hasattr(self, "terminal_view"):
             self.terminal_view.append("--- Extraction terminée avec succès ! ---")
 
@@ -1430,9 +1438,31 @@ class DocumentsView(QWidget):
 
     @Slot(str)
     def _on_worker_error(self, error: str) -> None:
+        self.view_model.fail_operation(error)
         self.btn_import.setEnabled(True)
         self.btn_import_url.setEnabled(True)
         log_and_notify_error(error, context="Extraction du document", parent=self, title="Erreur d'importation")
+
+    @Slot()
+    def _on_worker_cancelled(self) -> None:
+        self.view_model.cancel_operation()
+        self.btn_import.setEnabled(True)
+        self.btn_import_url.setEnabled(True)
+
+    def shutdown(self) -> None:
+        """Annule les workers possédés et rend le parcours réutilisable."""
+        if self.worker is not None and self.worker.isRunning():
+            self.worker.cancel()
+        coverage_worker = self._coverage_worker
+        if coverage_worker is not None and coverage_worker.isRunning() and hasattr(coverage_worker, "cancel"):
+            coverage_worker.cancel()
+        self.view_model.cancel_operation()
+        self.view_model.dispose()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Libère les workers possédés avant la fermeture de la surface documentaire."""
+        self.shutdown()
+        super().closeEvent(event)
 
     @Slot()
     def _on_new_folder(self) -> None:
@@ -2159,6 +2189,7 @@ class DocumentsView(QWidget):
             show_toast(self, "Veuillez sélectionner un document à indexer.", is_error=True)
             return
 
+        self.view_model.begin_operation("coverage")
         self.btn_rag.setEnabled(False)
         self.btn_rag.setText("Indexation RAG...")
 
@@ -2170,6 +2201,7 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_vectorization_success(self) -> None:
+        self.view_model.complete_operation("RAG indexé")
         self.btn_rag.setEnabled(True)
         self.btn_rag.setText("Indexer (RAG)")
         show_toast(self, "Document indexé avec succès pour la recherche IA (RAG) !")
@@ -2180,6 +2212,7 @@ class DocumentsView(QWidget):
 
     @Slot(str)
     def _on_vectorization_error(self, err: str) -> None:
+        self.view_model.fail_operation(err)
         self.btn_rag.setEnabled(True)
         self.btn_rag.setText("Indexer (RAG)")
         show_toast(self, f"Échec de l'indexation RAG : {err}", is_error=True)

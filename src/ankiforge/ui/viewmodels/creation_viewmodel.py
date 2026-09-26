@@ -42,6 +42,11 @@ class CreationViewModel(BaseViewModel):
     preview_index_changed = Signal(int, dict)
     cards_saved = Signal(int)
     generation_progress = Signal(int, str)
+    generation_started = Signal()
+    generation_finished = Signal(list)
+    generation_failed = Signal(str)
+    generation_cancelled = Signal()
+    scope_changed = Signal(dict)
 
     def __init__(
         self,
@@ -75,6 +80,8 @@ class CreationViewModel(BaseViewModel):
 
         self._generated_cards: list[dict[str, Any]] = []
         self._current_preview_index: int = 0
+        self._scope_result: dict[str, Any] = {}
+        self._worker: Any | None = None
 
     @property
     def decks(self) -> list[DeckModel]:
@@ -123,6 +130,53 @@ class CreationViewModel(BaseViewModel):
     @property
     def current_preview_index(self) -> int:
         return self._current_preview_index
+
+    @property
+    def scope_result(self) -> dict[str, Any]:
+        """Portée documentaire retenue pour le parcours de génération."""
+        return dict(self._scope_result)
+
+    def restore_scope(self, scope_result: dict[str, Any] | None) -> dict[str, Any]:
+        """Restaure une portée persistante en publicationsant l'état retrouvé."""
+        self._scope_result = dict(scope_result or {})
+        self.scope_changed.emit(dict(self._scope_result))
+        return dict(self._scope_result)
+
+    def begin_generation(self) -> None:
+        """Entre dans l'état busy et purge l'erreur précédente."""
+        self.set_error(None)
+        self.set_busy(True)
+        self.generation_started.emit()
+
+    def update_generation_progress(self, progress: int, detail: str = "") -> None:
+        """Publie une progression normalisée issue de l'orchestrateur."""
+        self.generation_progress.emit(max(0, min(100, int(progress))), detail)
+
+    def finish_generation(self, cards: list[dict[str, Any]]) -> None:
+        """Termine la génération et expose les cartes via l'API de preview existante."""
+        self.set_generated_cards(cards)
+        self.set_busy(False)
+        self.generation_finished.emit(list(cards))
+
+    def fail_generation(self, message: str) -> None:
+        """Laisse le parcours réutilisable après un échec worker ou fournisseur."""
+        self.set_busy(False)
+        self.set_error(message)
+        self.generation_failed.emit(message)
+
+    def cancel_generation(self) -> None:
+        """Remet le parcours à zéro après une annulation explicite."""
+        self.set_busy(False)
+        self.generation_cancelled.emit()
+
+    def attach_worker(self, worker: Any) -> None:
+        """Enregistre l'orchestrateur actif comme worker possédé par le parcours."""
+        self._worker = worker
+
+    def cancel_worker(self) -> None:
+        """Demande l'annulation à l'orchestrateur actif s'il le supporte."""
+        if self._worker is not None and hasattr(self._worker, "cancel"):
+            self._worker.cancel()
 
     def load_data(self) -> None:
         """Load decks, note types, and pipelines."""
@@ -277,3 +331,10 @@ class CreationViewModel(BaseViewModel):
         self._current_preview_index = -1
         self.cards_generated.emit([])
         self.preview_index_changed.emit(-1, {})
+
+    def dispose(self) -> None:
+        """Annule l'orchestrateur possédé, libère busy et détache les abonnements du bus."""
+        self.cancel_worker()
+        self._worker = None
+        self.set_busy(False)
+        super().dispose()

@@ -28,6 +28,11 @@ class DocumentsViewModel(BaseViewModel):
     folder_selected = Signal(object)
     documents_list_updated = Signal(list)
     folders_list_updated = Signal(list)
+    operation_started = Signal(str)
+    progress_changed = Signal(str)
+    operation_succeeded = Signal(str)
+    operation_failed = Signal(str)
+    operation_cancelled = Signal()
 
     def __init__(
         self,
@@ -50,6 +55,10 @@ class DocumentsViewModel(BaseViewModel):
     @property
     def documents(self) -> list[DocumentModel]:
         return self._documents
+
+    @property
+    def selected_folder(self) -> FolderModel | None:
+        return self._selected_folder
 
     @property
     def selected_document(self) -> DocumentModel | None:
@@ -84,6 +93,11 @@ class DocumentsViewModel(BaseViewModel):
         self._selected_document = doc
         self.document_selected.emit(doc)
 
+    def clear_selection(self) -> None:
+        """Efface le document sélectionné quand la bibliothèque n'a plus de rangée active."""
+        self._selected_document = None
+        self.document_selected.emit(None)
+
     def create_document(self, title: str, content: str = "", file_type: str = "md") -> DocumentModel:
         """Create a new document."""
         doc = self._doc_repo.create_document(
@@ -107,3 +121,34 @@ class DocumentsViewModel(BaseViewModel):
                 self.document_selected.emit(None)
             self.load_data()
         return success
+
+    def begin_operation(self, operation: str) -> None:
+        """Entre dans un état d'opération portée par un worker (import, couverture, réindexation)."""
+        self.set_error(None)
+        self.set_busy(True)
+        self.operation_started.emit(operation)
+
+    def report_progress(self, message: str) -> None:
+        """Relaie la progression du worker à travers la frontière du parcours."""
+        self.progress_changed.emit(message)
+
+    def complete_operation(self, message: str = "") -> None:
+        """Termine une opération et rend le parcours réutilisable."""
+        self.set_busy(False)
+        self.operation_succeeded.emit(message)
+
+    def fail_operation(self, message: str) -> None:
+        """Enregistre un échec d'opération sans laisser la vue en état busy."""
+        self.set_busy(False)
+        self.set_error(message)
+        self.operation_failed.emit(message)
+
+    def cancel_operation(self) -> None:
+        """Remet l'état d'opération à zéro après l'annulation du worker."""
+        self.set_busy(False)
+        self.operation_cancelled.emit()
+
+    def dispose(self) -> None:
+        """Libère l'état busy et détache les abonnements du bus."""
+        self.set_busy(False)
+        super().dispose()

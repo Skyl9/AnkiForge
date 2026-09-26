@@ -848,6 +848,7 @@ class CreationView(QWidget):
 
     def _apply_scope_result(self, res: dict[str, Any]) -> None:
         """Applique les résultats d'une sélection de portée (DocumentScopeDialog) à l'inspecteur et à l'éditeur central."""
+        self.view_model.restore_scope(res)
         self._is_syncing_scope = True
         try:
             self.segment_inspector.apply_scope_result(res)
@@ -1885,6 +1886,7 @@ class CreationView(QWidget):
             initial_state.set_variable("scope_pages", scope_pages)
 
         self._set_all_generation_states(True)
+        self.view_model.begin_generation()
         self.generation_logs_console.clear()
         self._last_generation_thoughts = {}
         self.btn_view_thoughts.setEnabled(False)
@@ -1926,6 +1928,7 @@ class CreationView(QWidget):
             initial_state=initial_state,
             ai_provider=provider,
         )
+        self.view_model.attach_worker(self.orchestrator)
         self.orchestrator.setAutoDelete(False)
         self.orchestrator.signals.step_started.connect(self._on_orchestrator_step_started)
         self.orchestrator.signals.step_progress.connect(self._on_orchestrator_step_progress)
@@ -2005,6 +2008,8 @@ class CreationView(QWidget):
         logger.info("[Orchestrateur] Progression (%d/%d) : %s", current, total, detail)
         self._append_generation_log(f"Progression ({current}/{total}) : {detail}", level="PROGRESS")
         self._running_progress = (current, total)
+        progress = int(current * 100 / total) if total else 0
+        self.view_model.update_generation_progress(progress, detail)
         self._update_running_indicator()
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
@@ -2146,12 +2151,14 @@ class CreationView(QWidget):
             self._on_generation_finished(cleaned_notes)
         else:
             self._append_generation_log("Pipeline terminé (aucune carte générée). Vérifiez la sortie du modèle ou augmentez max_tokens.", level="ERROR")
+            self.view_model.fail_generation("Aucune carte générée par le pipeline.")
             show_toast(self, "Pipeline terminé : aucune carte générée. Vérifiez la sortie du modèle ou augmentez le budget de tokens.", is_error=True)
         logger.info("[Orchestrateur] Fin du Pipeline. %d cartes obtenues.", len(cleaned_notes))
 
     @Slot(list)
     def _on_generation_finished(self, cards: list[dict[str, Any]]) -> None:
         self._set_all_generation_states(False)
+        self.view_model.finish_generation(cards)
         self.generated_cards = cards
         self.current_preview_index = 0
 
@@ -2165,6 +2172,7 @@ class CreationView(QWidget):
     @Slot(str)
     def _on_generation_error(self, err_msg: str) -> None:
         self._set_all_generation_states(False)
+        self.view_model.fail_generation(err_msg)
         self._clear_running_indicator()
         self.results_panel.show()
         self._append_generation_log(f"Erreur de génération : {err_msg}", level="ERROR")
@@ -2177,6 +2185,7 @@ class CreationView(QWidget):
     @Slot()
     def _on_generation_cancelled(self) -> None:
         self._set_all_generation_states(False)
+        self.view_model.cancel_generation()
         self._clear_running_indicator()
         self._append_generation_log("Génération annulée.", level="CANCEL")
         show_toast(self, "Génération annulée.", is_error=False)
@@ -2199,7 +2208,8 @@ class CreationView(QWidget):
     @Slot()
     def _on_cancel_generation(self) -> None:
         if self.orchestrator:
-            self.orchestrator.cancel()
+            self.view_model.cancel_worker()
+            self.view_model.cancel_generation()
             self._set_all_generation_states(False)
             self._append_generation_log("Annulation demandée par l'utilisateur...", level="CANCEL")
             show_toast(self, "Pipeline annulé.", is_error=False)
@@ -2884,7 +2894,7 @@ class CreationView(QWidget):
         import os
 
         if os.environ.get("QT_QPA_PLATFORM") == "offscreen" or not self.isVisible() or getattr(self, "_skip_close_dialog", False):
-            self._cleanup_web_views()
+            self._release_workflow()
             event.accept()
             return
 
@@ -2900,8 +2910,13 @@ class CreationView(QWidget):
             if reply == QMessageBox.StandardButton.No:
                 event.ignore()
                 return
-        self._cleanup_web_views()
+        self._release_workflow()
         event.accept()
+
+    def _release_workflow(self) -> None:
+        """Libère les WebViews, annule l'orchestrateur et rend le ViewModel réutilisable."""
+        self._cleanup_web_views()
+        self.view_model.dispose()
 
     def _cleanup_web_views(self) -> None:
         """Arrête les WebViews avant la fermeture ou le remplacement de la vue."""

@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -59,6 +60,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.viewmodels.batch_viewmodel import BatchViewModel
 from ankiforge.ui.views.batch_view.dialogs import BatchSliceComposerDialog
 from ankiforge.ui.views.batch_view.widgets import (
     BatchActivityLog,
@@ -84,7 +86,7 @@ class BatchView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.worker: BatchWorker | None = None
-        self.queue_tasks_data: list[dict[str, Any]] = []
+        self.batch_view_model = BatchViewModel(self)
         self._batch_scope_results: dict[int, dict[str, Any]] = {}
         self._total_cards_accumulated = 0
         self.start_timestamp = 0.0
@@ -824,6 +826,16 @@ class BatchView(QWidget):
             )
         return chunks
 
+    @property
+    def queue_tasks_data(self) -> list[dict[str, Any]]:
+        """Alias public historique de la file d'attente possédée par le ViewModel."""
+        return self.batch_view_model.tasks
+
+    @queue_tasks_data.setter
+    def queue_tasks_data(self, tasks: list[dict[str, Any]]) -> None:
+        """Adopte la liste fournie par les appelants legacy et les tests existants."""
+        self.batch_view_model.set_tasks(tasks)
+
     def _ensure_queue_uids(self) -> None:
         """Garantit une clé de rangée `_queue_uid` stable à chaque rangée (résilience legacy/tests)."""
         for task in self.queue_tasks_data:
@@ -842,13 +854,13 @@ class BatchView(QWidget):
 
     def _remove_from_queue(self, row_idx: int) -> None:
         if 0 <= row_idx < len(self.queue_tasks_data):
-            self.queue_tasks_data.pop(row_idx)
+            self.batch_view_model.remove_task(row_idx)
             self._update_queue_table()
             self._update_estimates_summary()
 
     @Slot()
     def _on_clear_queue(self) -> None:
-        self.queue_tasks_data.clear()
+        self.batch_view_model.clear()
         self._update_queue_table()
         self._update_estimates_summary()
         show_toast(self, "File d'attente vidée.")
@@ -1053,6 +1065,8 @@ class BatchView(QWidget):
         self._log_formatted_line("INFO", f"🚀 {action_desc} du pipeline de traitement par lots : {len(tasks_payloads)} tâche(s) à exécuter{skip_msg}...")
 
         self.worker = BatchWorker(tasks=tasks_payloads, resume_incomplete=resume_incomplete)
+        self.batch_view_model.attach_worker(self.worker)
+        self.batch_view_model.begin_execution()
         self.worker.task_started.connect(self._on_task_started)
         self.worker.task_progress.connect(self._on_task_progress)
         self.worker.task_completed.connect(self._on_task_completed)
@@ -1087,7 +1101,7 @@ class BatchView(QWidget):
     def _on_stop_batch(self) -> None:
         if self.worker and self.worker.isRunning():
             self._log_formatted_line("WARN", "Arrêt demandé par l'utilisateur. En attente de terminaison...")
-            self.worker.cancel()
+            self.batch_view_model.cancel_worker()
 
     @Slot(int, str)
     def _on_task_started(self, task_idx: int, doc_title: str) -> None:
@@ -1259,7 +1273,7 @@ class BatchView(QWidget):
 
     def _append_queue_tasks(self, task_dicts: list[dict[str, Any]]) -> None:
         """Ajoute les tâches composées (direct/auto) à la file d'attente."""
-        added_count = 0
+        accepted: list[dict[str, Any]] = []
         for task in task_dicts:
             content = str(task.get("doc_content", "")).strip()
             if not content:
@@ -1275,9 +1289,10 @@ class BatchView(QWidget):
             task.setdefault("pipeline", self.pipeline_combo.currentData() if self.pipeline_combo.count() else None)
             task.setdefault("_queue_uid", str(uuid.uuid4()))
             task.setdefault("auto_val", True)
-            self.queue_tasks_data.append(task)
-            added_count += 1
+            accepted.append(task)
+        added_count = len(accepted)
         if added_count:
+            self.batch_view_model.add_tasks(accepted)
             self._update_queue_table()
             self._update_estimates_summary()
             show_toast(self, f"{added_count} tâche(s) ajoutée(s) à la Queue !")
@@ -1695,6 +1710,15 @@ class BatchView(QWidget):
         self.card_status.val_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 16px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
         self._log_formatted_line("ERROR", error_msg)
         log_and_notify_error(error_msg, context="Exécution du pipeline", parent=self, title="Erreur Pipeline")
+
+    def shutdown(self) -> None:
+        """Annule le batch en cours et rend le parcours réutilisable."""
+        self.batch_view_model.dispose()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Libère le batch en cours avant la fermeture de la surface."""
+        self.shutdown()
+        super().closeEvent(event)
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "metrics_bar"):
