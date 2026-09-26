@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSlider,
+    QSpinBox,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -319,6 +320,50 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         ollama_layout.addLayout(row_or)
 
         layout.addWidget(self.card_ollama)
+
+        # ── SECTION 2b : SERVEUR MCP LOCAL (MODEL CONTEXT PROTOCOL) ──────────
+        self.lbl_sec_mcp = QLabel("SERVEUR MCP LOCAL (MODEL CONTEXT PROTOCOL)")
+        self.lbl_sec_mcp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        layout.addWidget(self.lbl_sec_mcp)
+
+        self.card_mcp = SettingsCard()
+        mcp_layout = QVBoxLayout(self.card_mcp)
+        mcp_layout.setContentsMargins(14, 10, 14, 10)
+        mcp_layout.setSpacing(8)
+
+        row_mcp = QHBoxLayout()
+        row_mcp.setSpacing(10)
+
+        lbl_mcp_icon = QLabel()
+        lbl_mcp_icon.setPixmap(load_phosphor_icon("ph.plugs-connected", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        row_mcp.addWidget(lbl_mcp_icon)
+
+        from ankiforge.utils.environment import get_app_qsettings
+
+        q_settings = get_app_qsettings()
+        mcp_enabled_val = q_settings.value("mcp/enabled", True, type=bool)
+        mcp_port_val = q_settings.value("mcp/port", 8765, type=int)
+
+        self.chk_mcp_enabled = QCheckBox("Activer le serveur MCP en arrière-plan")
+        self.chk_mcp_enabled.setChecked(mcp_enabled_val)
+        self.chk_mcp_enabled.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_mcp.addWidget(self.chk_mcp_enabled)
+
+        row_mcp.addStretch()
+
+        self.lbl_mcp_port = QLabel("Port d'écoute :")
+        self.lbl_mcp_port.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        row_mcp.addWidget(self.lbl_mcp_port)
+
+        self.spin_mcp_port = QSpinBox()
+        self.spin_mcp_port.setRange(1024, 65535)
+        self.spin_mcp_port.setValue(mcp_port_val if 1024 <= mcp_port_val <= 65535 else 8765)
+        self.spin_mcp_port.setFixedHeight(28)
+        self.spin_mcp_port.setMinimumWidth(80)
+        row_mcp.addWidget(self.spin_mcp_port)
+
+        mcp_layout.addLayout(row_mcp)
+        layout.addWidget(self.card_mcp)
 
         # ── SECTION 3 : CATALOGUE DES MOTEURS IA ─────────────────────────────
         self.lbl_sec_cat = QLabel("CATALOGUE DES MOTEURS & MODÈLES")
@@ -1331,6 +1376,14 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         SettingsService.set("ai/rag_top_k", self.slider_rag_topk.value(), category="ai")
         SettingsService.set("ai/rag_similarity_threshold", round(self.slider_rag_sim.value() / 100.0, 2), category="ai")
 
+        # Sauvegarde de la configuration MCP (QSettings)
+        if hasattr(self, "chk_mcp_enabled") and hasattr(self, "spin_mcp_port"):
+            from ankiforge.utils.environment import get_app_qsettings
+
+            q_settings = get_app_qsettings()
+            q_settings.setValue("mcp/enabled", self.chk_mcp_enabled.isChecked())
+            q_settings.setValue("mcp/port", self.spin_mcp_port.value())
+
         if had_ai_changes and self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
             try:
                 self.ai_manager.reload_provider()
@@ -1356,6 +1409,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             "linter": self.toggle_linter.is_checked(),
             "rag_top_k": self.slider_rag_topk.value(),
             "rag_sim": round(self.slider_rag_sim.value() / 100.0, 2),
+            "mcp_enabled": self.chk_mcp_enabled.isChecked() if hasattr(self, "chk_mcp_enabled") else True,
+            "mcp_port": self.spin_mcp_port.value() if hasattr(self, "spin_mcp_port") else 8765,
         }
 
     def _record_initial_state(self) -> None:
@@ -1376,6 +1431,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
     def refresh_theme(self, profile: Any) -> None:
         self.lbl_sec_keys.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         self.lbl_sec_ollama.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        if hasattr(self, "lbl_sec_mcp"):
+            self.lbl_sec_mcp.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         self.lbl_sec_cat.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         if hasattr(self, "lbl_sec_global_prefs"):
             self.lbl_sec_global_prefs.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
@@ -1384,6 +1441,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         self.card_keys.refresh_theme(profile)
         self.card_ollama.refresh_theme(profile)
+        if hasattr(self, "card_mcp"):
+            self.card_mcp.refresh_theme(profile)
+        if hasattr(self, "chk_mcp_enabled"):
+            self.chk_mcp_enabled.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_mcp_port"):
+            self.lbl_mcp_port.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
         if hasattr(self, "card_global_prefs"):
             self.card_global_prefs.refresh_theme(profile)
         if hasattr(self, "sec_advanced_gen"):

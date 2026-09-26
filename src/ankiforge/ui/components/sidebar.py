@@ -183,6 +183,11 @@ class Sidebar(QWidget):
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         footer_layout.addWidget(self.settings_btn)
 
+        from ankiforge.ui.widgets.mcp_status_widget import MCPStatusWidget
+
+        self.mcp_btn = MCPStatusWidget(initial_status="stopped", parent=self)
+        footer_layout.addWidget(self.mcp_btn)
+
         self.user_widget = SidebarProfileItem(profile_name=profile_name)
         self.user_widget.clicked.connect(self.profile_switch_requested.emit)
         footer_layout.addWidget(self.user_widget)
@@ -212,6 +217,8 @@ class Sidebar(QWidget):
             self.feedback_btn.refresh_theme(profile)
         if hasattr(self, "settings_btn"):
             self.settings_btn.refresh_theme(profile)
+        if hasattr(self, "mcp_btn"):
+            self.mcp_btn.refresh_theme(profile)
         if hasattr(self, "user_widget"):
             self.user_widget.refresh_theme(profile)
 
@@ -279,6 +286,8 @@ class Sidebar(QWidget):
         if hasattr(self, "feedback_btn"):
             self.feedback_btn.set_collapsed(collapsed)
         self.settings_btn.set_collapsed(collapsed)
+        if hasattr(self, "mcp_btn"):
+            self.mcp_btn.set_collapsed(collapsed)
         if hasattr(self, "user_widget"):
             self.user_widget.set_collapsed(collapsed)
 

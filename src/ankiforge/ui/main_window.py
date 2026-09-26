@@ -6,7 +6,7 @@ import contextlib
 import logging
 from typing import Any, cast
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStackedWidget, QVBoxLayout, QWidget
 
@@ -75,10 +75,13 @@ class MainWindow(QMainWindow):
         "ab-tests": ("Laboratoire IA", "scales", "Tests A/B", ABTestsView),
     }
 
+    mcp_data_mutated = Signal(dict)
+
     def __init__(self, ai_manager: AIManager | None, profile_name: str = "default") -> None:
         super().__init__()
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self.mcp_daemon: Any | None = None
 
         from ankiforge import __version__
         from ankiforge.utils.environment import is_development
@@ -119,6 +122,7 @@ class MainWindow(QMainWindow):
         self._web_engine_prewarmer: QWidget | None = None
         self._update_worker: Any | None = None
         self._latest_update_info: Any | None = None
+        self._fallback_mcp_status_widget: Any | None = None
         self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
@@ -145,6 +149,10 @@ class MainWindow(QMainWindow):
         self._setup_global_shortcuts()
         event_bus.subscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
         event_bus.subscribe(OpenFeedbackRequestedEvent, self._on_open_feedback_requested)
+
+        # Configuration du serveur MCP et liaison avec le bouton de la sidebar
+        self._wire_mcp_ui()
+        self._init_mcp_daemon()
 
         # Restauration instantanée du badge depuis le cache QSettings (sans HTTP, dès que la topbar est rendue)
         QTimer.singleShot(300, self._restore_cached_update_badge)
@@ -236,6 +244,103 @@ class MainWindow(QMainWindow):
         """Trace l'échec de vérification au démarrage."""
         self._update_worker = None
         logger.warning("Échec de la vérification de mise à jour au démarrage : %s", error_msg)
+
+    @property
+    def mcp_status_widget(self) -> Any:
+        """Accède au bouton de statut MCP hébergé dans la barre latérale."""
+        if self.sidebar and hasattr(self.sidebar, "mcp_btn"):
+            return self.sidebar.mcp_btn
+        if not hasattr(self, "_fallback_mcp_status_widget") or self._fallback_mcp_status_widget is None:
+            from ankiforge.ui.widgets.mcp_status_widget import MCPStatusWidget
+
+            self._fallback_mcp_status_widget = MCPStatusWidget(initial_status="stopped", parent=self)
+        return self._fallback_mcp_status_widget
+
+    def _wire_mcp_ui(self) -> None:
+        """Connecte les signaux d'actions du bouton MCP hébergé dans la barre latérale."""
+        btn = self.mcp_status_widget
+        if btn is not None and not getattr(btn, "_signals_wired", False):
+            btn.start_requested.connect(self.start_mcp_server)
+            btn.stop_requested.connect(self.stop_mcp_server)
+            btn.restart_requested.connect(self.restart_mcp_server)
+            btn.open_preferences_requested.connect(lambda: self.open_settings(initial_tab=1))
+            btn._signals_wired = True
+
+    def _init_mcp_daemon(self) -> None:
+        """Initialise ou démarre automatiquement le serveur MCP selon les préférences utilisateur."""
+        from ankiforge.utils.environment import get_app_qsettings, is_testing
+
+        q_settings = get_app_qsettings()
+        mcp_enabled = q_settings.value("mcp/enabled", True, type=bool)
+        mcp_port = q_settings.value("mcp/port", 8765, type=int)
+
+        self.mcp_status_widget.set_status("stopped", port=mcp_port)
+
+        if not is_testing() and mcp_enabled:
+            QTimer.singleShot(500, lambda: self.start_mcp_server(port=mcp_port))
+
+    def start_mcp_server(self, port: int | None = None) -> bool:
+        """Démarre le serveur MCP d'arrière-plan."""
+        from ankiforge.services.ai.mcp_daemon import MCPServerDaemon
+        from ankiforge.utils.environment import get_app_qsettings
+
+        if port is None:
+            q_settings = get_app_qsettings()
+            port = q_settings.value("mcp/port", 8765, type=int)
+
+        if self.mcp_daemon is not None and self.mcp_daemon.is_running:
+            logger.info("Serveur MCP déjà actif sur le port %d.", self.mcp_daemon.port)
+            return True
+
+        self.mcp_daemon = MCPServerDaemon(base_port=port, host="127.0.0.1")
+        self.mcp_daemon.signals.mcp_data_mutated.connect(self._on_mcp_data_mutated)
+
+        ok = self.mcp_daemon.start()
+        if ok and self.mcp_daemon.port:
+            logger.info("Serveur MCP démarré sur le port %d.", self.mcp_daemon.port)
+            self.mcp_status_widget.set_status(
+                "running",
+                port=self.mcp_daemon.port,
+                token=self.mcp_daemon.token,
+            )
+            return True
+        else:
+            logger.error("Échec du démarrage du serveur MCP.")
+            self.mcp_status_widget.set_status("error", port=port, message="Échec démarrage")
+            return False
+
+    def stop_mcp_server(self) -> bool:
+        """Arrête proprement le serveur MCP d'arrière-plan."""
+        if self.mcp_daemon is not None:
+            stopped = self.mcp_daemon.stop()
+            self.mcp_status_widget.set_status("stopped", port=self.mcp_daemon.port or 8765)
+            return stopped
+        self.mcp_status_widget.set_status("stopped")
+        return True
+
+    def restart_mcp_server(self) -> bool:
+        """Redémarre le serveur MCP d'arrière-plan."""
+        self.stop_mcp_server()
+        return self.start_mcp_server()
+
+    def _on_mcp_data_mutated(self, mutation: dict[str, Any]) -> None:
+        """Traite les mutations émises par les outils MCP (apply_patch, etc.).
+
+        Actualise les vues actives et fait clignoter le badge de statut.
+        """
+        logger.info("Mutation MCP reçue : %s", mutation)
+        if hasattr(self, "mcp_status_widget") and self.mcp_status_widget is not None:
+            self.mcp_status_widget.flash_mutation()
+
+        # Rafraîchissement des vues instanciées
+        for view_id, widget in self._view_widgets.items():
+            if not isinstance(widget, DummyView) and hasattr(widget, "refresh_data"):
+                try:
+                    widget.refresh_data()
+                except Exception as e:
+                    logger.warning("Erreur rafraîchissement vue %s après mutation MCP: %s", view_id, e)
+
+        self.mcp_data_mutated.emit(mutation)
 
     def _check_uncompleted_pipeline_runs(self) -> None:
         """Détecte les runs de pipelines inachevés ou interrompus lors d'une session précédente et propose la reprise."""
@@ -367,6 +472,8 @@ class MainWindow(QMainWindow):
         if self._latest_update_info is not None:
             self._on_update_available(self._latest_update_info)
 
+        self._wire_mcp_ui()
+
     def _setup_debug_shortcuts(self) -> None:
         """Configure les raccourcis de debug (ex: Capture d'écran)."""
         screenshot_shortcut = QShortcut(QKeySequence("Ctrl+F12"), self)
@@ -440,6 +547,8 @@ class MainWindow(QMainWindow):
             self.topbar.refresh_theme(profile)
         if self._notif_popup and hasattr(self._notif_popup, "refresh_theme"):
             self._notif_popup.refresh_theme(profile)
+        if hasattr(self, "mcp_status_widget") and self.mcp_status_widget is not None:
+            self.mcp_status_widget.refresh_theme(profile)
         for view_widget in self._view_widgets.values():
             if hasattr(view_widget, "refresh_theme"):
                 try:
@@ -591,9 +700,11 @@ class MainWindow(QMainWindow):
         if self.sidebar:
             self.sidebar.set_collapsed(not self.sidebar.is_collapsed)
 
-    def _open_settings_modal(self) -> None:
+    def open_settings(self, initial_tab: int | None = None) -> None:
         """Ouvre la fenêtre de paramètres non bloquante."""
         if hasattr(self, "_settings_window") and self._settings_window is not None and self._settings_window.isVisible():
+            if initial_tab is not None and hasattr(self._settings_window, "select_tab"):
+                self._settings_window.select_tab(initial_tab)
             self._settings_window.raise_()
             self._settings_window.activateWindow()
             if self.sidebar and hasattr(self.sidebar, "settings_btn"):
@@ -603,6 +714,8 @@ class MainWindow(QMainWindow):
         from ankiforge.ui.widgets.settings_modal import SettingsModal
 
         self._settings_window = SettingsModal(ai_manager=self.ai_manager, profile_name=self.profile_name, parent=self)
+        if initial_tab is not None and hasattr(self._settings_window, "select_tab"):
+            self._settings_window.select_tab(initial_tab)
         self._settings_window.theme_applied.connect(lambda theme_id: self.engine.apply_theme(theme_id))
         self._settings_window.layout_applied.connect(self.apply_layout)
         self._settings_window.focus_changed.connect(self._on_settings_focus_changed)
@@ -612,6 +725,10 @@ class MainWindow(QMainWindow):
         self._settings_window.show()
         self._settings_window.raise_()
         self._settings_window.activateWindow()
+
+    def _open_settings_modal(self) -> None:
+        """Alias rétrocompatible pour open_settings."""
+        self.open_settings()
 
     def _on_settings_focus_changed(self, focused: bool) -> None:
         if self.sidebar and hasattr(self.sidebar, "settings_btn"):
@@ -759,6 +876,12 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: Any) -> None:
         event_bus.unsubscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
+        # Arrêt propre du serveur MCP d'arrière-plan
+        if hasattr(self, "mcp_daemon") and self.mcp_daemon is not None and self.mcp_daemon.is_running:
+            try:
+                self.mcp_daemon.stop()
+            except Exception as e:
+                logger.warning("Erreur arrêt daemon MCP lors de la fermeture : %s", e)
         # Close all floating windows
         from ankiforge.ui.components.tabs.floating_dock import _floating_windows
 

@@ -346,6 +346,12 @@ class SettingsModal(QDialog):
         if hasattr(self, "addons_tab") and hasattr(self.addons_tab, "refresh_theme"):
             self.addons_tab.refresh_theme(profile)
 
+    def select_tab(self, index: int) -> None:
+        """Sélectionne directement un onglet par son index (ex: 1 pour Moteurs IA / MCP)."""
+        if 0 <= index < len(self.nav_btns):
+            self.nav_btns[index].setChecked(True)
+            self.stacked_widget.setCurrentIndex(index)
+
 
 # Aliases de compatibilité
 SettingsDialog = SettingsModal

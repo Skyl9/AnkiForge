@@ -86,3 +86,4 @@ test_marker_out/
 *.exe
 *.zip
 AnkiForge Release Logs/
+.scratch/

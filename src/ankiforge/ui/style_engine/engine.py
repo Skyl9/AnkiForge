@@ -75,6 +75,15 @@ class StyleEngine(QObject):
         Définit tous les sélecteurs sémantiques pour éliminer le CSS codé en dur dans les composants.
         """
         p = theme or self._current_theme
+        green_bg = p.color_green_bg or "rgba(16, 185, 129, 0.15)"
+        green_text = p.color_green_text or p.color_green
+        green_border = p.color_green_border or p.color_green
+        red_bg = p.color_red_bg or "rgba(239, 68, 68, 0.15)"
+        red_text = p.color_red_text or p.color_red
+        red_border = p.color_red_border or p.color_red
+        yellow_bg = p.color_yellow_bg or "rgba(245, 158, 11, 0.15)"
+        yellow_text = p.color_yellow_text or p.color_yellow
+        yellow_border = p.color_yellow_border or p.color_yellow
 
         return f"""
         /* --- Base & Conteneurs --- */
@@ -478,7 +487,7 @@ class StyleEngine(QObject):
             background-color: {p.bg_sidebar};
             border-right: 1px solid {p.border_color};
         }}
-        SidebarItem, SidebarProfileItem, QPushButton#SidebarUserBtn {{
+        SidebarItem, SidebarProfileItem, QPushButton#SidebarUserBtn, MCPStatusWidget, QPushButton#SidebarMCPBtn {{
             background-color: transparent;
             color: {p.text_secondary};
             border: none;
@@ -487,17 +496,23 @@ class StyleEngine(QObject):
             padding-left: 12px;
             font-size: {p.font_size_base}px;
         }}
-        SidebarItem:hover, SidebarProfileItem:hover, QPushButton#SidebarUserBtn:hover {{
+        SidebarItem:hover, SidebarProfileItem:hover, QPushButton#SidebarUserBtn:hover, MCPStatusWidget:hover, QPushButton#SidebarMCPBtn:hover {{
             background-color: {p.bg_hover};
             color: {p.text_primary};
         }}
-        SidebarItem:checked, SidebarProfileItem:checked {{
+        SidebarItem:checked, SidebarProfileItem:checked, MCPStatusWidget:checked, QPushButton#SidebarMCPBtn:checked {{
             background-color: {p.bg_active};
             color: {p.accent_primary};
             font-weight: bold;
         }}
-        SidebarItem:pressed, SidebarProfileItem:pressed, QPushButton#SidebarUserBtn:pressed {{
+        SidebarItem:pressed, SidebarProfileItem:pressed, QPushButton#SidebarUserBtn:pressed, MCPStatusWidget:pressed, QPushButton#SidebarMCPBtn:pressed {{
             background-color: {p.bg_active};
+        }}
+        MCPStatusWidget[status="error"], QPushButton#SidebarMCPBtn[status="error"] {{
+            color: {red_text};
+        }}
+        MCPStatusWidget[status="mutating"], QPushButton#SidebarMCPBtn[status="mutating"] {{
+            color: {yellow_text};
         }}
 
         /* --- Sidebar sub-elements --- */
@@ -777,6 +792,39 @@ class StyleEngine(QObject):
             background-color: {p.bg_sidebar};
             color: {p.text_muted};
             border-top: 1px solid {p.border_color};
+        }}
+        /* --- MCPStatusWidget & #MCPStatusBadge --- */
+        #MCPStatusBadge {{
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 500;
+            background-color: {p.bg_input};
+            color: {p.text_muted};
+            border: 1px solid {p.border_color};
+        }}
+        #MCPStatusBadge[status="running"] {{
+            background-color: {green_bg};
+            color: {green_text};
+            border: 1px solid {green_border};
+        }}
+        #MCPStatusBadge[status="stopped"] {{
+            background-color: {p.bg_input};
+            color: {p.text_muted};
+            border: 1px solid {p.border_color};
+        }}
+        #MCPStatusBadge[status="error"] {{
+            background-color: {red_bg};
+            color: {red_text};
+            border: 1px solid {red_border};
+        }}
+        #MCPStatusBadge[status="mutating"] {{
+            background-color: {yellow_bg};
+            color: {yellow_text};
+            border: 1px solid {yellow_border};
+        }}
+        #MCPStatusBadge:hover {{
+            border-color: {p.border_focus};
         }}
         QToolBar {{
             background-color: {p.bg_panel};
