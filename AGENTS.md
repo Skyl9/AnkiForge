@@ -39,10 +39,14 @@ uv run zensical build
 
 # C Extension (Levenshtein distance - optional, auto-fallback to Python)
 gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c  # Linux/macOS
+
+# Screenshots & layout thumbnails
+uv run python script/capture_view.py --layout-thumbnails
 ```
 
 ## Architecture Highlights
 - **Multi-profile isolation**: Each profile = separate SQLite DB + media dir under `~/.ankiforge/profiles/<name>/`
+- **Layouts & Miniatures Statiques**: 4 architectures d'interface (`ide`, `macos`, `dashboard`, `glassmorphism`) sélectionnables via une grille 2x2 de miniatures d'aperçu (`LayoutGridSelector` / `LayoutThumbnailCard`) dans `GeneralTab` avec repli gracieux, navigation clavier et accessibilité WCAG. Chaque layout dispose d'une icône Phosphor distinctive et d'une capture haute résolution régénérable via `script/capture_view.py --layout-thumbnails`
 - **Document Scope & Selection Persistence**: `DocumentScopeWidget` (+ wrapper `DocumentScopeDialog`) preserves fine-grained selections (`selection_mode="sections"`, `selected_headings`, `selected_chunk_indices`) across successive generation runs in `CreationView`/`BatchView`. Its live `scope_result` also exposes an aggregated `parts` list (1 part = 1 selected branch: whole subtrees merged, parent intro fused into the first active sub-section, 1 chapter per chapter-mode selection) used by the batch composer's Direct mode
 - **Batch Slice Composer**: single modal `BatchSliceComposerDialog` (document → mode de découpage → parties → insertion) with live updates: step 1 shows a rich document info card (fiche `doc_info_card` : type, pages, sections, ~mots/~tokens, délimitation active) + two selectable mode cards (Direct / Auto, style page d'accueil) ; step 2 = Direct → `DocumentScopeWidget` (1 partie cochée = 1 tâche, branches agrégées via `scope_result["parts"]` with backward-compatible chunk fallback) or Auto → collapsible panel `_CollapsiblePanel` « Règle de découpage » hosting the `AutoSliceWidget` above the checkbox list of generated slices (`SliceUnit`), auto-expanded on entering step 2, chunk→task fallback via `resolve_chunks`, and scope-memory prefill that never overrides live selection. `DocumentSelectWindow` / `DocumentPickerButton` share `document_meta_line(doc)` (type • pages • ~mots • ~tokens) for informed document choice
 - **DAG Orchestration**: 6 step types (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`), branching (`on_success_step`, `on_failure_step`), cycle/budget guards (`max_tokens_budget`, `max_step_executions`), persistent state in SQLite (`PipelineRunModel`), and resumption

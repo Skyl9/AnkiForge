@@ -154,6 +154,7 @@ Pour toute surface « teintée » (badge, pastille, fond de statut, diff, hover 
 | **Visualiseur de Raisonnement IA (CoT)** | `ReasoningViewerDialog` | Modale 720×520px dédiée à la consultation de la chaîne de pensée (CoT)<br>En-tête avec titre, description et bouton « Copier tout »<br>`QTabWidget` par étape du pipeline DAG avec compteur de caractères<br>Zone de texte monospace `QPlainTextEdit` en lecture seule stylisée | `BG_MAIN`, `BG_PANEL`, `BORDER_COLOR`, `RADIUS_SM`, `FONT_CODE`, `FONT_MAIN`, `TEXT_PRIMARY`, `TEXT_MUTED`<br>Bouton `PrimaryButton` (« Fermer »), `SecondaryButton` (`ph.copy`, « Copier »)<br>Badge toast de confirmation de copie | Dialogue modal d'inspection approfondie des réflexions et raisonnements (`thought`, `<think>`) émis par les modèles LLM de raisonnement lors des étapes du pipeline de génération de flashcards, sans encombrer la console d'exécution principale. |
 | **Dialogue de Création de Dossiers** | `FolderCreateDialog` | Modale 480×320px de création de sous-dossier ou dossier racine<br>En-tête explicative avec icône `ph.folder-plus`<br>Sélecteur déroulant du dossier parent `StyledComboBox`<br>Saisie du sous-dossier `StyledLineEdit` avec icône `ph.folder`<br>Aperçu dynamique du chemin hiérarchique avec séparateur `::` | `BG_MAIN`, `BG_PANEL`, `BORDER_COLOR`, `RADIUS_MD`, `RADIUS_SM`, `COLOR_BLUE`, `TEXT_PRIMARY`, `TEXT_SECONDARY`, `TEXT_MUTED`<br>Bouton `PrimaryButton` (« Créer »), `SecondaryButton` (« Annuler ») | Boîte modale de création directe de dossiers et sous-dossiers dans la bibliothèque de documents, assurant l'auto-création déterministe de tous les parents intermédiaires selon la syntaxe `::` d'Anki. |
 | **Bouton & Statut Serveur MCP** | `MCPStatusWidget`, `SidebarMCPItem`, `QPushButton#SidebarMCPBtn` | Bouton de supervision dans le pied de la barre latérale (`SidebarFooter`) en dessous de Paramètres<br>Indicateur visuel 4 états (En ligne, Inactif, Erreur, Mutation)<br>Menu contextuel au clic (Copier config JSON, URL SSE, token, démarrer/arrêter/relancer, préférences)<br>Animation flash lors des mutations de cartes | `QPushButton#SidebarMCPBtn` : hauteur 36px, `radius_sm`, padding 12px, font base<br>`running` : icône `color_green`, texte `text_primary`<br>`stopped` : icône `text_secondary`, texte `text_secondary`<br>`error` : icône `color_red`, texte `color_red_text`<br>`mutating` : icône `color_yellow`, texte `color_yellow_text`<br>Hover : fond `bg_hover`<br>Menu contextuel délégué au QSS standard `QMenu` | Bouton de supervision et pilotage du serveur MCP hébergé dans le footer de la barre latérale sous Paramètres. Affiche l'état d'écoute en temps réel (`Serveur MCP :8765`, `Serveur MCP (Inactif)`, `Serveur MCP (Erreur)`), propose la copie instantanée des réglages clients IA (Claude Desktop, Antigravity agy) et réagit aux mutations de données en direct via flash visuel. |
+| **Sélecteur de Dispositions & Miniatures** | `LayoutGridSelector`, `LayoutThumbnailCard`, `QFrame#LayoutThumbnailCard`, `QFrame#LayoutCardPreview` | Cartes interactives 2x2 avec prévisualisation haute résolution (16:10)<br>Icône structurelle distinctive + nom + badge de sélection `ph.check-circle`<br>Description de l'ergonomie en texte enveloppé<br>Repli explicite si miniature absente (« Aperçu indisponible ») | `bg_panel`, bordure `border_color`, hover `accent_hover`, focus et sélection `2px solid accent_primary`<br>Coins supérieurs de miniature arrondis `radius_md`<br>Conteneur repli `bg_input`, icône et texte `text_muted` | Grille de sélection visuelle des 4 dispositions d'interface remplaçant la liste déroulante dans les paramètres généraux. Affiche les captures réelles de la disposition, l'icône distinctive et la description ergonomique, avec navigation intégrale au clavier (flèches, Entrée/Espace) et accessibilité WCAG. |
 
 
 ---
@@ -223,12 +224,25 @@ AnkiForge adosse les thèmes personnalisés à une bibliothèque de fichiers JSO
 
 AnkiForge supporte **4 architectures de disposition** interchangeables à chaud (`LayoutManager`) :
 
-1. **Concept IDE (`ide`) :** Barre latérale rétractable (68px à 260px), multi-fenêtrage détachable (`IdePanel`), omnibox `Ctrl+K`.
-2. **Concept Dashboard (`dashboard`) :** Présentation en grille réactive sans barre latérale permanente, cartes d'actions rapides.
-3. **Concept Glassmorphism (`glassmorphism`) :** Navigation par pilules flottantes, conteneurs effet verre givré.
-4. **Concept macOS (`macos`) :** Barre supérieure compacte (54px) avec sélecteur segmenté horizontal.
+1. **Concept IDE (`ide`) :** Barre latérale rétractable (68px à 260px), multi-fenêtrage détachable (`IdePanel`), omnibox `Ctrl+K`. Icône distinctive : `ph.sidebar`.
+2. **Concept Dashboard (`dashboard`) :** Présentation en grille réactive sans barre latérale permanente, cartes d'actions rapides. Icône distinctive : `ph.squares-four`.
+3. **Concept Glassmorphism (`glassmorphism`) :** Navigation par pilules flottantes, conteneurs effet verre givré. Icône distinctive : `ph.sparkle`.
+4. **Concept macOS (`macos`) :** Barre supérieure compacte (54px) avec sélecteur segmenté horizontal. Icône distinctive : `ph.app-window`.
 
 Chaque layout propose une **Famille par défaut** (`LayoutManager.LAYOUT_DEFAULT_FAMILY`) : `ide` → `jetbrains`,
 `dashboard` → `emerald`, `glassmorphism` → `glassmorphism`, `macos` → `macos`. Ce n'est qu'un repli :
 une Famille choisie par l'utilisateur n'est jamais remplacée par celle du layout, et le changement de layout
 réapplique l'apparence du profil (`LayoutManager.apply_theme_for_layout()`).
+
+### 🖼️ Miniatures d'Aperçu & Sélecteur en Grille (`LayoutGridSelector`)
+
+Dans les Paramètres Généraux (`GeneralTab`), la sélection de la disposition s'effectue via une grille de miniatures 2x2 (`LayoutGridSelector` / `LayoutThumbnailCard`) :
+- Chaque carte présente la miniature haute définition (480×300, ratio 16:10) de la disposition, son icône structurelle distinctive, son nom et son ergonomie.
+- La disposition active est mise en valeur par une bordure `accent_primary` (2px) et un badge coché `ph.check-circle`.
+- Navigation complète au clavier (touches fléchées, tabulation, sélection via Entrée/Espace) et support d'accessibilité WCAG (`accessibleName`, `accessibleDescription`).
+- Si une miniature est manquante, un repli visuel explicite affiche un conteneur stylisé centré sur l'icône de la disposition avec la mention « Aperçu indisponible ».
+- Les miniatures statiques versionnées sont stockées sous `src/ankiforge/resources/layouts/<layout_id>.png`.
+- Pour régénérer manuellement les miniatures de manière autonome sans modifier la configuration du profil réel :
+  ```bash
+  uv run python script/capture_view.py --layout-thumbnails
+  ```
