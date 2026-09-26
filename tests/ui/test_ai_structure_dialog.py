@@ -69,11 +69,12 @@ def test_ai_structure_dialog_worker_mock(qtbot: QtBot, monkeypatch: object) -> N
     dialog._on_start_structuring()
     assert dialog._worker is not None
 
-    # Attendre que le thread se termine proprement avec qtbot
-    with qtbot.waitSignal(dialog._worker.finished, timeout=3000):
-        pass
+    # Attendre que le thread se termine et affiche le résultat via l'event loop Qt
+    qtbot.waitUntil(
+        lambda: dialog.txt_result.toPlainText() == "# Cours Rapide\n\nContenu restructuré avec succès.",
+        timeout=5000,
+    )
 
-    assert dialog.txt_result.toPlainText() == "# Cours Rapide\n\nContenu restructuré avec succès."
     assert dialog.btn_apply_editor.isEnabled()
 
 
