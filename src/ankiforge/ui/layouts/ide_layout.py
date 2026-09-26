@@ -35,6 +35,9 @@ class IdeLayout(BaseLayout):
     def get_description(self) -> str:
         return "Barre latérale sombre rétractable, recherche globale Omnibox et panneaux modulaires."
 
+    def get_icon(self) -> str:
+        return "ph.sidebar"
+
     def _setup_ui(self) -> None:
         from ankiforge.ui.components.sidebar import Sidebar
         from ankiforge.ui.components.topbar import TopBar

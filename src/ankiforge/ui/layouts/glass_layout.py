@@ -104,6 +104,9 @@ class GlassmorphismLayout(BaseLayout):
     def get_description(self) -> str:
         return "Conteneurs semi-translucides effet verre dépoli, reflets lumineux et boutons arrondis."
 
+    def get_icon(self) -> str:
+        return "ph.sparkle"
+
     def _setup_ui(self) -> None:
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 

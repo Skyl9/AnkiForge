@@ -4,6 +4,7 @@ Permet d'instancier, enregistrer et basculer à chaud entre les différents layo
 """
 
 import logging
+from pathlib import Path
 
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.layouts.dashboard_layout import DashboardLayout
@@ -50,6 +51,15 @@ class LayoutManager:
         return cls.LAYOUT_DEFAULT_FAMILY.get(cls.resolve_layout_id(layout_id), cls.DEFAULT_FAMILY_ID)
 
     @classmethod
+    def get_layout_thumbnail_path(cls, layout_id: str) -> Path | None:
+        """Localise la miniature statique d'un layout sur le disque, ou None si manquante."""
+        from ankiforge.utils.paths import get_resource_path
+
+        target_id = cls.resolve_layout_id(layout_id)
+        candidate = get_resource_path("resources", "layouts", f"{target_id}.png")
+        return candidate if candidate.is_file() else None
+
+    @classmethod
     def get_available_layouts(cls) -> list[dict[str, str]]:
         """Renvoie la liste des métadonnées de tous les layouts disponibles pour les paramètres."""
         results = []
@@ -60,6 +70,8 @@ class LayoutManager:
                     "id": layout_id,
                     "name": temp.get_display_name() if hasattr(temp, "get_display_name") else layout_id.capitalize(),
                     "description": temp.get_description() if hasattr(temp, "get_description") else "",
+                    "icon": temp.get_icon() if hasattr(temp, "get_icon") else "ph.layout",
+                    "thumbnail": f"{layout_id}.png",
                 }
             )
         return results

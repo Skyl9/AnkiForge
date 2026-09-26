@@ -50,6 +50,15 @@ class BaseLayout(QWidget):
         pass
 
     @abstractmethod
+    def get_icon(self) -> str:
+        """Nom de l'icône Phosphor distinctive représentant la structure de la disposition."""
+        pass
+
+    def get_thumbnail_resource_name(self) -> str:
+        """Nom du fichier de miniature statique dans les ressources de l'application."""
+        return f"{self.get_layout_id()}.png"
+
+    @abstractmethod
     def set_stacked_widget(self, stacked_widget: QStackedWidget) -> None:
         """Intègre le conteneur de vues partagé dans la zone centrale du layout."""
         pass

@@ -166,6 +166,74 @@ def capture(
         LayoutManager.save_layout_id(profile_name, orig_layout)
 
 
+def generate_layout_thumbnails(
+    output_dir: Path | None = None,
+    thumb_width: int = 480,
+    thumb_height: int = 300,
+    view_name: str = "dashboard",
+) -> list[Path]:
+    """
+    Génère les miniatures statiques des layouts d'AnkiForge pour la modale des paramètres.
+    Enregistre les fichiers PNG sous src/ankiforge/resources/layouts/<layout_id>.png.
+    Ne modifie ni le thème ni le layout du profil utilisateur réel.
+    """
+    from PySide6.QtCore import QSize, Qt
+    from PySide6.QtGui import QFont
+    from PySide6.QtWidgets import QApplication
+
+    from ankiforge.services.profile_manager import ProfileManager
+    from ankiforge.ui.layouts.layout_manager import LayoutManager
+    from ankiforge.ui.style_engine import get_style_engine
+    from ankiforge.ui.theme import DesignTokens
+    from ankiforge.utils.paths import get_project_root
+
+    dest_dir = output_dir or (get_project_root() / "src" / "ankiforge" / "resources" / "layouts")
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    pm = ProfileManager()
+    profile_name = "default"
+    pm.switch_profile(profile_name)
+
+    app = QApplication.instance() or QApplication([])
+    app.setFont(QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE))
+
+    engine = get_style_engine()
+    orig_preference = engine.get_appearance_preference(profile_name)
+    orig_layout = LayoutManager.get_saved_layout_id(profile_name)
+
+    generated: list[Path] = []
+    try:
+        from ankiforge.ui.main_window import MainWindow
+
+        with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+            window = MainWindow(ai_manager=None, profile_name=profile_name)
+            window.resize(1440, 900)
+            window.show()
+            app.processEvents()
+
+            for layout_id in LayoutManager.LAYOUTS:
+                window.apply_layout(layout_id)
+                window._on_view_selected(view_name)
+                for _ in range(8):
+                    app.processEvents()
+
+                grabbed = window.grab()
+                scaled = grabbed.scaled(
+                    QSize(thumb_width, thumb_height),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                target_file = dest_dir / f"{layout_id}.png"
+                scaled.save(str(target_file), "PNG")
+                generated.append(target_file)
+                print(f"✅ Miniature layout générée : {layout_id} -> {target_file}")
+    finally:
+        engine.save_appearance_preference(profile_name, orig_preference)
+        LayoutManager.save_layout_id(profile_name, orig_layout)
+
+    return generated
+
+
 def main():
     parser = argparse.ArgumentParser(description="Capture d'écran autonome des vues AnkiForge")
     parser.add_argument("--view", type=str, default="creation", help="Nom de la vue à capturer")
@@ -174,6 +242,7 @@ def main():
     parser.add_argument("--theme", type=str, default="ide", help="Identifiant du thème (ex: ide, dark_modern, catppuccin_mocha, nord)")
     parser.add_argument("--layout", type=str, default="ide", help="Identifiant du layout (ide, macos, dashboard, glassmorphism)")
     parser.add_argument("--profile", type=str, default="default", help="Nom du profil / espace de travail")
+    parser.add_argument("--layout-thumbnails", action="store_true", help="Générer les 4 miniatures statiques des layouts dans src/ankiforge/resources/layouts/")
     parser.add_argument(
         "--preset", type=str, choices=["macbook13", "macbook14", "macbook16", "fhd", "hd"], default=None, help="Preset de résolution d'écran (macbook13: 1280x800, macbook14: 1512x982, etc.)"
     )
@@ -182,6 +251,11 @@ def main():
     parser.add_argument("--no-populate", action="store_true", help="Ne pas insérer de données démo")
 
     args = parser.parse_args()
+
+    if args.layout_thumbnails:
+        out_dir = Path(args.output) if args.output else None
+        generate_layout_thumbnails(output_dir=out_dir)
+        return
 
     # Appliquer les presets de résolution si spécifié
     width = args.width

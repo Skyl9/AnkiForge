@@ -104,6 +104,9 @@ class MacosLayout(BaseLayout):
     def get_description(self) -> str:
         return "Barre supérieure unifiée avec sélecteur segmenté horizontal, typographie aérée et vue plein écran."
 
+    def get_icon(self) -> str:
+        return "ph.app-window"
+
     def _setup_ui(self) -> None:
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 

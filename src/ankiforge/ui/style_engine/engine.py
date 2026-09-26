@@ -1052,6 +1052,27 @@ class StyleEngine(QObject):
             font-weight: 600;
         }}
 
+        /* --- Sélecteur de Dispositions & Miniatures (LayoutGridSelector) --- */
+        LayoutThumbnailCard, QFrame#LayoutThumbnailCard {{
+            background-color: {p.bg_panel};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_md}px;
+        }}
+        LayoutThumbnailCard:hover, QFrame#LayoutThumbnailCard:hover {{
+            border: 1px solid {p.accent_hover};
+        }}
+        LayoutThumbnailCard:focus, QFrame#LayoutThumbnailCard:focus {{
+            border: 2px solid {p.accent_primary};
+        }}
+        LayoutThumbnailCard[selected="true"], QFrame#LayoutThumbnailCard[selected="true"] {{
+            border: 2px solid {p.accent_primary};
+            background-color: {p.bg_panel};
+        }}
+        QFrame#LayoutCardPreview {{
+            border-top-left-radius: {p.radius_md}px;
+            border-top-right-radius: {p.radius_md}px;
+        }}
+
         /* --- Composants à décorants QPainter (thème-aware) ---
            Widgets qui dessinent en QPainter (paintEvent / QtCharts) et doivent
            consommer les DesignTokens pour rester conformes en clair et sombre :

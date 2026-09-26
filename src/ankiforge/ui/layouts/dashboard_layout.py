@@ -103,6 +103,9 @@ class DashboardLayout(BaseLayout):
     def get_description(self) -> str:
         return "Disposition spacieuse avec en-tête horizontal élégant et navigation par cartes de modules."
 
+    def get_icon(self) -> str:
+        return "ph.squares-four"
+
     def _setup_ui(self) -> None:
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 

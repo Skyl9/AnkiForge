@@ -21,7 +21,10 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.style_engine.appearance import AppearancePreference, ModeSource
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
+from ankiforge.ui.widgets.settings_modal.components import (
+    LayoutGridSelector,
+    SettingsCard,
+)
 from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -82,20 +85,16 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         self.rows_labels: list[QLabel] = []
 
-        # 1. Disposition (Layout)
-        self.cb_layout = StyledComboBox()
-        self.cb_layout.setMinimumWidth(260)
-        self.cb_layout.setFixedHeight(30)
-        for item in LayoutManager.get_available_layouts():
-            icon = load_phosphor_icon(item.get("icon", "ph.layout"), color=DesignTokens.ACCENT_PRIMARY)
-            self.cb_layout.addItem(icon, item["name"], item["id"])
+        # 1. Disposition de l'interface (Layout) : Grille de miniatures
+        self.lbl_layout_title = QLabel("Disposition de l'interface (Layout) :")
+        self.lbl_layout_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        card_app_layout.addWidget(self.lbl_layout_title)
 
         saved_layout_id = LayoutManager.get_saved_layout_id(profile_name)
-        for i in range(self.cb_layout.count()):
-            if self.cb_layout.itemData(i) == saved_layout_id:
-                self.cb_layout.setCurrentIndex(i)
-                break
-        self.rows_labels.append(add_setting_row(card_app_layout, "Disposition de l'interface (Layout) :", self.cb_layout))
+        self.layout_selector = LayoutGridSelector(current_layout_id=saved_layout_id)
+        card_app_layout.addWidget(self.layout_selector)
+        self.cb_layout = self.layout_selector  # Duck-typing pour compatibilité ascendante
+        self.rows_labels.append(self.lbl_layout_title)
 
         # 2. Mode d'Apparence (Source du Mode : manuel sombre / manuel clair / système)
         self.cb_mode = StyledComboBox()
