@@ -3,6 +3,8 @@
 from ankiforge.ui.views.consultant_view.widgets.chat_input import ConsultantChatInput
 from ankiforge.ui.views.consultant_view.widgets.chat_message_widget import ChatMessageWidget
 from ankiforge.ui.views.consultant_view.widgets.context_hub_widget import ContextHubWidget
+from ankiforge.ui.views.consultant_view.widgets.embedded_card_preview_widget import EmbeddedCardPreviewWidget
+from ankiforge.ui.views.consultant_view.widgets.embedded_card_table_widget import EmbeddedCardTableWidget
 from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import InlineDiffCardWidget
 from ankiforge.ui.views.consultant_view.widgets.mention_completer import MentionCompleter
 from ankiforge.ui.views.consultant_view.widgets.session_sidebar import ConsultantSessionSidebar
@@ -15,6 +17,8 @@ __all__ = [
     "ConsultantChatInput",
     "ConsultantSessionSidebar",
     "ContextHubWidget",
+    "EmbeddedCardPreviewWidget",
+    "EmbeddedCardTableWidget",
     "InlineDiffCardWidget",
     "MentionCompleter",
     "ThoughtStepWidget",

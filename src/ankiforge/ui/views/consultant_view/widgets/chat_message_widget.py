@@ -32,6 +32,8 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.views.consultant_view.constants import render_markdown_message
+from ankiforge.ui.views.consultant_view.widgets.embedded_card_preview_widget import EmbeddedCardPreviewWidget
+from ankiforge.ui.views.consultant_view.widgets.embedded_card_table_widget import EmbeddedCardTableWidget
 from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import InlineDiffCardWidget
 from ankiforge.ui.views.consultant_view.widgets.thought_step_widget import ThoughtStepWidget
 from ankiforge.ui.views.consultant_view.widgets.tool_call_widget import ToolCallWidget
@@ -326,7 +328,7 @@ class ChatMessageWidget(QWidget):
 
         # Passer toutes les pensées en état achevé
         for th in self._thought_widgets.values():
-            th.update_text(th.lbl_content.text(), is_running=False)
+            th.finish_thinking()
 
         has_steps = bool(self._thought_widgets or self._tool_widgets)
         self.steps_wrapper.setVisible(has_steps)
@@ -364,6 +366,49 @@ class ChatMessageWidget(QWidget):
         diff_card.open_editor_requested.connect(self.open_editor_requested.emit)
         self.content_layout.addWidget(diff_card)
         return diff_card
+
+    def add_card_table(
+        self,
+        card_rows: list[dict[str, Any]],
+        title: str = "Cartes retournées",
+    ) -> EmbeddedCardTableWidget:
+        """Injecte un tableau compact de cartes Anki dans le corps de ce message.
+
+        Args:
+            card_rows: Liste de dicts avec clés : id, model, front, back.
+            title: Titre facultatif affiché dans l'en-tête du tableau.
+
+        Returns:
+            L'instance EmbeddedCardTableWidget créée, pour permettre des mises à jour ultérieures.
+        """
+        table_widget = EmbeddedCardTableWidget(card_rows, title=title, parent=self)
+        table_widget.open_editor_requested.connect(self.open_editor_requested.emit)
+        self.content_layout.addWidget(table_widget)
+        return table_widget
+
+    def add_card_preview(
+        self,
+        fields: dict[str, str],
+        note_type: NoteTypeModel | None = None,
+        note_id: int | None = None,
+        title: str = "Aperçu de la carte",
+    ) -> EmbeddedCardPreviewWidget:
+        """Injecte un cartouche de rendu live KaTeX d'une carte Anki dans ce message.
+
+        Args:
+            fields: Dictionnaire des champs (nom -> contenu_html).
+            note_type: Modèle de note optionnel pour les templates et le CSS.
+            note_id: Identifiant de la note pour le bouton ↗ Éditeur.
+            title: Titre facultatif affiché dans l'en-tête.
+
+        Returns:
+            L'instance EmbeddedCardPreviewWidget créée, pour update_fields() ultérieur.
+        """
+        preview_widget = EmbeddedCardPreviewWidget(fields, note_type=note_type, note_id=note_id, title=title, parent=self)
+        if note_id:
+            preview_widget.open_editor_requested.connect(self.open_editor_requested.emit)
+        self.content_layout.addWidget(preview_widget)
+        return preview_widget
 
     def mark_as_cancelled(self) -> None:
         """Affiche un indicateur élégant d'interruption par l'utilisateur."""
