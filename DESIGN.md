@@ -204,6 +204,18 @@ Une Famille choisie explicitement **prime** sur la Famille par défaut du layout
 | **Solarized** | `solarized` | `ph.sun` | Précision colorimétrique éprouvée bleu canard et parchemin. | `SOLARIZED_DARK` (`solarized_dark`) | `SOLARIZED_LIGHT` (`solarized_light`) |
 | **One Pro Atom** | `one_pro` | `ph.atom` | Le standard Atom/VSCode neutre et équilibré. | `ONE_DARK_PRO` (`one_dark_pro`) | `ONE_LIGHT_PRO` (`one_light_pro`) |
 
+
+### 3.1 Bibliothèque de Thèmes sur Disque & Format d'Échange JSON (ADR 0005 & 0006)
+
+AnkiForge adosse les thèmes personnalisés à une bibliothèque de fichiers JSON stockée sur disque (`~/.ankiforge/themes/`, résolue via `paths.get_themes_dir()`) partagée globalement entre tous les profils de l'installation :
+
+- **Conteneur bivalent de Famille (ADR 0006) :** Tout fichier exporté est un conteneur portant l'identité de la Famille (`id`, `name`, `icon`, `description`), sa version de format (`version: "1.0"`), et ses deux variantes (`dark` et `light`).
+- **Charge utile tolérante & non-destructrice :** Chaque variante ne déclare que les jetons qu'elle définit. L'import n'écrase que les champs présents ; un jeton absent ne remet jamais une valeur à son défaut et conserve les tokens de la base (`JETBRAINS_DARK` / `JETBRAINS_LIGHT` ou base explicite). Les ajouts de champs optionnels sont absorbés sans rejet.
+- **Gestion des jetons dérivés vs exécution :** Les 18 jetons dérivés optionnels (`accent_bg`, `color_*_bg`, `color_*_text`, `text_on_accent`, `accent_border`, `color_*_border`) ne sont exportés que s'ils sont explicitement définis (`!= ""`). S'ils sont vides, ils sont omis à l'export pour être dérivés dynamiquement par `DesignTokens.apply_theme_profile()`. Les jetons d'exécution `DesignTokens` ne sont jamais exportés.
+- **Validation stricte & Sécurité :** Toute couleur présente doit respecter une syntaxe valide (`#RGB`, `#RRGGBB`, `rgba(...)`, `transparent`). Tout champ numérique ou booléen invalide est rejeté avec `ThemeValidationError`. Tout fichier dont la version majeure est supérieure à celle supportée (`> 1.x`) est rejeté avec `UnsupportedThemeVersionError` sans modifier l'état.
+- **Résolution de collision & Source unique de vérité (ADR 0005) :** L'import d'un fichier dont le nom entre en collision ajoute systématiquement un suffixe numérique (`_1`, `_2...`) sans jamais écraser un fichier existant. L'identifiant de la Famille et de ses Variantes (`stem`, `stem_dark`, `stem_light`) est réécrit pour dériver du nom de fichier final sur disque.
+- **Survie au redémarrage & Intégration UI :** `StyleEngine` scanne et charge automatiquement ce répertoire au démarrage (`load_theme_library`). La modale des paramètres (`GeneralTab`) expose des boutons d'import et d'export direct, et sélectionne automatiquement tout thème importé.
+
 ---
 
 # 📐 PARTIE 4 : Les Dispositions d'Interface (Layouts)
