@@ -15,6 +15,7 @@ import os
 import secrets
 import socket
 import stat
+import sys
 import threading
 import time
 from datetime import UTC, datetime
@@ -35,7 +36,13 @@ logger = logging.getLogger(__name__)
 def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
     """Vérifie si un port réseau TCP local est déjà occupé ou inaccessible."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if sys.platform != "win32":
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        elif hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            try:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            except OSError:
+                pass
         try:
             s.bind((host, port))
             return False
@@ -223,7 +230,7 @@ class MCPServerDaemon:
         self._thread: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._is_running: bool = False
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def _on_mutation_received(self, data: dict[str, Any]) -> None:
         """Relaye la notification de mutation vers les écouteurs Qt via Signal."""
@@ -325,7 +332,7 @@ class MCPServerDaemon:
                     self._loop = loop
                     try:
                         loop.run_until_complete(srv.serve())
-                    except (Exception, asyncio.CancelledError):
+                    except (Exception, asyncio.CancelledError, SystemExit):
                         pass
                     finally:
                         try:
@@ -391,8 +398,12 @@ class MCPServerDaemon:
         Arrête proprement le daemon MCP, ferme les sessions clientes actives et met à jour l'état.
         """
         with self._lock:
+            was_running = self._is_running
             if not self._is_running and (self._thread is None or not self._thread.is_alive()):
                 cleanup_daemon_state(token_file=self.token_file, state_file=self.state_file, mark_stopped=True)
+                self._server = None
+                self._thread = None
+                self._loop = None
                 return
 
             logger.info("Arrêt du daemon MCP AnkiForge en cours...")
@@ -432,7 +443,8 @@ class MCPServerDaemon:
             self._thread = None
             self._loop = None
 
-            self.signals.server_stopped.emit()
+            if was_running:
+                self.signals.server_stopped.emit()
             logger.info("Daemon MCP arrêté avec succès.")
 
     def __enter__(self) -> MCPServerDaemon:

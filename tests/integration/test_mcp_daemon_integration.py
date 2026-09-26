@@ -105,6 +105,43 @@ def test_mcp_server_daemon_port_collision_fallback(tmp_path):
             daemon.stop(timeout=5.0)
 
 
+def test_mcp_server_daemon_uvicorn_bind_collision_retries_without_deadlock(tmp_path, monkeypatch):
+    """Vérifie que le daemon ne deadlock pas sur self._lock si Uvicorn échoue au bind et bascule au port suivant."""
+    dummy_mcp = MCPServer("CollisionRecoveryServer")
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("127.0.0.1", 9350))
+        s.listen(1)
+
+        calls = 0
+        real_find_available_port = find_available_port
+
+        def _mock_find_available_port(start_port: int = 8765, max_attempts: int = 100, host: str = "127.0.0.1") -> int:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return 9350
+            return real_find_available_port(start_port=start_port, max_attempts=max_attempts, host=host)
+
+        monkeypatch.setattr("ankiforge.services.ai.mcp_daemon.find_available_port", _mock_find_available_port)
+
+        daemon = MCPServerDaemon(
+            mcp_server=dummy_mcp,
+            host="127.0.0.1",
+            base_port=9350,
+            data_dir=tmp_path,
+        )
+
+        try:
+            started = daemon.start(timeout=5.0)
+            assert started is True
+            assert daemon.is_running is True
+            assert daemon.port == 9351
+        finally:
+            daemon.stop(timeout=5.0)
+
+
 def test_mcp_server_daemon_real_tools_over_sse(tmp_path):
     """Vérifie l'exécution des outils MCP réels (audit_deck_wozniak, find_duplicate_cards, apply_patch) via SSE."""
     deck = DeckModel.create(name="Deck MCP Test")
