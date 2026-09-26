@@ -128,6 +128,10 @@ def mock_db():
         from ankiforge.utils.environment import get_app_qsettings
 
         get_app_qsettings().clear()
+        # Les préférences d'apparence et de layout vivent dans le scope « obsidian ».
+        get_app_qsettings("obsidian").clear()
+    with contextlib.suppress(Exception):
+        SettingModel.delete().where(SettingModel.key.startswith("profiles/")).execute()
 
     yield test_db  # Le test s'exécute ici
 
@@ -135,6 +139,9 @@ def mock_db():
         from ankiforge.utils.environment import get_app_qsettings
 
         get_app_qsettings().clear()
+        get_app_qsettings("obsidian").clear()
+    with contextlib.suppress(Exception):
+        SettingModel.delete().where(SettingModel.key.startswith("profiles/")).execute()
     with contextlib.suppress(Exception):
         test_db.execute_sql("DROP TABLE IF EXISTS note_fts;")
     with contextlib.suppress(Exception):

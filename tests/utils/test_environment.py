@@ -157,7 +157,24 @@ def test_qsettings_isolation():
 
     set_environment(AppEnvironment.TESTING)
     assert get_settings_org_name() == "AnkiForgeOrg-Test"
-    assert get_settings_app_name() == "AnkiForge-Test"
+    assert get_settings_app_name().startswith("AnkiForge-Test")
+
+
+def test_testing_qsettings_are_isolated_per_xdist_worker(monkeypatch):
+    """Deux workers xdist ne doivent jamais partager un fichier QSettings.
+
+    Un `QSettings.clear()` dans un worker effacerait sinon les préférences d'un autre.
+    Le contrat verifie est l'isolation des fichiers, pas la formule de nommage.
+    """
+    from ankiforge.utils.environment import get_app_qsettings
+
+    set_environment(AppEnvironment.TESTING)
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw0")
+    first = get_app_qsettings("obsidian").fileName()
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw1")
+    second = get_app_qsettings("obsidian").fileName()
+
+    assert first != second
 
 
 def test_profile_manager_dynamic_profiles_dir():
