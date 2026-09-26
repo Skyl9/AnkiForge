@@ -26,6 +26,7 @@ class ConsultantWorker(QThread):
     """
 
     thought_emitted = Signal(int, str, bool)  # step, content, is_running
+    thought_delta_signal = Signal(int, str)  # step, delta
     tool_started_signal = Signal(str, str)  # tool_name, args_str
     tool_finished_signal = Signal(str, str, str, bool)  # tool_name, args_str, result_str, is_error
     tool_call_emitted = Signal(str, str, str, bool)  # compatibilité historique
@@ -104,12 +105,16 @@ class ConsultantWorker(QThread):
                         break
 
                     ev_type = event.get("type")
+                    step_val = int(event.get("step", 1) or 1)
 
-                    if ev_type == "thought":
-                        step = event.get("step", 1)
+                    if ev_type == "thought_delta":
+                        delta_th = str(event.get("delta", ""))
+                        self.thought_delta_signal.emit(step_val, delta_th)
+
+                    elif ev_type == "thought":
                         content = event.get("content", "")
                         is_run = bool(event.get("is_running", False))
-                        self.thought_emitted.emit(step, content, is_run)
+                        self.thought_emitted.emit(step_val, content, is_run)
                         self.progress.emit(f"🤔 {content}")
 
                     elif ev_type == "tool_start":

@@ -1,4 +1,5 @@
 import inspect
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -86,6 +87,33 @@ class LLMProvider:
             max_tokens=max_tokens,
             temperature=temperature,
         ).content
+
+    def stream_response(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "text",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """
+        Génère un flux de streaming normalisé émettant distinctement :
+        - {"type": "thought_delta", "delta": str}
+        - {"type": "text_delta", "delta": str}
+        - {"type": "finish", "content": str, "thought": str | None}
+        """
+        res = self.generate_response(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        if res.thought:
+            yield {"type": "thought_delta", "delta": res.thought}
+        if res.content:
+            yield {"type": "text_delta", "delta": res.content}
+        yield {"type": "finish", "content": res.content, "thought": res.thought}
 
 
 class MockProvider(LLMProvider):

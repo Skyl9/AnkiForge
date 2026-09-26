@@ -1,8 +1,10 @@
+import json
 import logging
 import os
 import re
 import threading
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -618,6 +620,74 @@ class OpenAICompatibleProvider(LLMProvider):
             temperature=temperature,
         ).content
 
+    def stream_response(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "text",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """
+        Génère un flux de streaming normalisé émettant des thought_delta et text_delta
+        pour OpenAI, DeepSeek, Ollama et modèles de raisonnement compatibles.
+        """
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        effective_max = max_tokens or self.max_tokens
+        effective_max = self.clamp_max_tokens(effective_max)
+
+        kwargs: dict[str, Any] = {
+            "model": self.model_name,
+            "messages": messages,
+            "stream": True,
+        }
+        kwargs.update(self.max_tokens_kwargs(effective_max))
+        if not _uses_reasoning_params(self.model_name):
+            kwargs["temperature"] = temperature if temperature is not None else 0.2
+
+        try:
+            stream = self.client.chat.completions.create(**kwargs)
+            accumulated_thought: list[str] = []
+            accumulated_content: list[str] = []
+
+            for chunk in stream:
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                delta = getattr(choices[0], "delta", None)
+                if not delta:
+                    continue
+
+                # Extraction du raisonnement (reasoning, reasoning_content, thinking)
+                r_text = _extract_reasoning_from_message(delta)
+                if r_text:
+                    accumulated_thought.append(r_text)
+                    yield {"type": "thought_delta", "delta": r_text}
+
+                # Extraction du contenu textuel utile
+                c_text = getattr(delta, "content", None) or ""
+                if c_text:
+                    accumulated_content.append(c_text)
+                    yield {"type": "text_delta", "delta": c_text}
+
+            full_content = "".join(accumulated_content)
+            full_thought = "".join(accumulated_thought) if accumulated_thought else None
+            cleaned_content, thought_from_tags = extract_thought_tags(full_content, initial_thought=full_thought)
+            yield {"type": "finish", "content": cleaned_content, "thought": thought_from_tags}
+
+        except Exception as e:
+            logger.warning("Échec du streaming natif OpenAI (%s), repli sur super().stream_response : %s", self.model_name, e)
+            yield from super().stream_response(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_format=response_format,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+
 
 class OllamaProvider(OpenAICompatibleProvider):
     """
@@ -948,6 +1018,95 @@ class AnthropicProvider(LLMProvider):
             max_tokens=max_tokens,
             temperature=temperature,
         ).content
+
+    def stream_response(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "text",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """
+        Génère un flux de streaming normalisé émettant des thought_delta et text_delta
+        pour Anthropic Claude 3.7 Thinking Mode.
+        """
+        headers = {
+            "x-api-key": self.api_key or "",
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+        anthropic_content: list[dict[str, Any]] = []
+        if isinstance(user_prompt, str):
+            anthropic_content = [{"type": "text", "text": user_prompt}]
+        else:
+            for item in user_prompt:
+                if item.get("type") == "text":
+                    anthropic_content.append({"type": "text", "text": str(item.get("text") or "")})
+
+        effective_max = max_tokens or self.max_tokens
+        payload: dict[str, Any] = {
+            "model": self.model_name,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": anthropic_content}],
+            "temperature": temperature if temperature is not None else 0.2,
+            "stream": True,
+        }
+        if self.thinking_budget > 0:
+            payload["thinking"] = {"type": "enabled", "budget_tokens": self.thinking_budget}
+            effective_max = max(effective_max, self.thinking_budget + 4096)
+        payload["max_tokens"] = effective_max
+
+        try:
+            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, stream=True, timeout=self.timeout)
+            resp.raise_for_status()
+
+            accumulated_thought: list[str] = []
+            accumulated_content: list[str] = []
+
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                line_str = line.decode("utf-8") if isinstance(line, bytes) else str(line)
+                if not line_str.startswith("data: "):
+                    continue
+                data_str = line_str[6:].strip()
+                if data_str == "[DONE]":
+                    break
+                try:
+                    data = json.loads(data_str)
+                except Exception:
+                    continue
+
+                ev_type = data.get("type")
+                if ev_type == "content_block_delta":
+                    delta = data.get("delta", {})
+                    d_type = delta.get("type")
+                    if d_type == "thinking_delta":
+                        th_chunk = str(delta.get("thinking", ""))
+                        if th_chunk:
+                            accumulated_thought.append(th_chunk)
+                            yield {"type": "thought_delta", "delta": th_chunk}
+                    elif d_type == "text_delta":
+                        tx_chunk = str(delta.get("text", ""))
+                        if tx_chunk:
+                            accumulated_content.append(tx_chunk)
+                            yield {"type": "text_delta", "delta": tx_chunk}
+
+            full_content = "".join(accumulated_content)
+            full_thought = "".join(accumulated_thought) if accumulated_thought else None
+            cleaned_content, thought_from_tags = extract_thought_tags(full_content, initial_thought=full_thought)
+            yield {"type": "finish", "content": cleaned_content, "thought": thought_from_tags}
+
+        except Exception as e:
+            logger.warning("Échec du streaming natif Anthropic (%s), repli sur super().stream_response : %s", self.model_name, e)
+            yield from super().stream_response(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_format=response_format,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
 
 
 class AIManager:

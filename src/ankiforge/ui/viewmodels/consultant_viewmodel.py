@@ -34,6 +34,7 @@ class ConsultantViewModel(BaseViewModel):
     sessions_list_updated = Signal(list)
     message_added = Signal(dict)
     thought_added = Signal(int, str, bool)
+    thought_delta_added = Signal(int, str)
     tool_call_added = Signal(str, str, str, bool)
     tool_call_completed = Signal(str, str)
     stats_updated = Signal(int, int)
@@ -312,6 +313,18 @@ class ConsultantViewModel(BaseViewModel):
         self._current_thoughts.clear()
         self._current_tool_calls.clear()
         return msg
+
+    def record_thought_delta(self, iteration: int, delta: str) -> None:
+        """Record an incremental thought delta and emit thought_delta_added."""
+        found = False
+        for idx, (step, current_text) in enumerate(self._current_thoughts):
+            if step == iteration:
+                self._current_thoughts[idx] = (iteration, current_text + delta)
+                found = True
+                break
+        if not found:
+            self._current_thoughts.append((iteration, delta))
+        self.thought_delta_added.emit(iteration, delta)
 
     def record_thought(self, iteration: int, thought: str, is_running: bool = False) -> None:
         """Record or update an incremental thought step."""

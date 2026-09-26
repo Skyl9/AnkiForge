@@ -252,10 +252,26 @@ class ChatMessageWidget(QWidget):
             layout.addWidget(self.avatar_lbl, alignment=Qt.AlignmentFlag.AlignTop)
 
     def append_text_chunk(self, chunk: str) -> None:
-        """Ajoute un fragment de texte en direct (Streaming token-by-token)."""
+        """Ajoute un fragment de texte en direct (Streaming token-by-token) et auto-replie les réflexions."""
+        # Auto-repli instantané de la réflexion dès la réception du premier delta de réponse utile
+        for tw in self._thought_widgets.values():
+            if tw.is_running:
+                tw.finish_thinking()
+
         self.raw_text += chunk
         html = render_markdown_message(self.raw_text)
         self.msg_body.setText(html)
+
+    def append_thought_delta(self, step: int, delta: str) -> None:
+        """Ajoute un delta de pensée en streaming à l'étape spécifiée."""
+        if step in self._thought_widgets:
+            self._thought_widgets[step].append_delta(delta)
+        else:
+            w = ThoughtStepWidget(step, "", is_running=True)
+            self._thought_widgets[step] = w
+            self.steps_layout.addWidget(w)
+            w.append_delta(delta)
+        self.steps_wrapper.setVisible(True)
 
     def add_or_update_thought(self, step: int, thought_text: str, is_running: bool = False) -> None:
         """Ajoute ou met à jour un bloc de réflexion en direct."""
@@ -265,6 +281,7 @@ class ChatMessageWidget(QWidget):
             w = ThoughtStepWidget(step, thought_text, is_running=is_running)
             self._thought_widgets[step] = w
             self.steps_layout.addWidget(w)
+        self.steps_wrapper.setVisible(True)
 
     def add_tool_start(self, tool_name: str, args_str: str) -> ToolCallWidget:
         """Insère une carte d'outil en cours d'exécution avec spinner."""

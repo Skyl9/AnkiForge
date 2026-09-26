@@ -3046,7 +3046,18 @@ class ConsultantEngine:
                     # (OpenAI ``reasoning``, DeepSeek ``reasoning_content``, etc.)
                     reasoning = _extract_reasoning_from_message(resp_msg)
                     if reasoning:
-                        yield {"type": "thought", "step": step, "content": str(reasoning), "is_running": False}
+                        th_str = str(reasoning)
+                        th_chunks = re.findall(r"\S+|\s+", th_str)
+                        t_batch: list[str] = []
+                        for c in th_chunks:
+                            t_batch.append(c)
+                            if len(t_batch) >= 6 or "\n" in c:
+                                yield {"type": "thought_delta", "step": step, "delta": "".join(t_batch)}
+                                t_batch.clear()
+                                await asyncio.sleep(0.005)
+                        if t_batch:
+                            yield {"type": "thought_delta", "step": step, "delta": "".join(t_batch)}
+                        yield {"type": "thought", "step": step, "content": th_str, "is_running": False}
 
                     if resp_msg.tool_calls:
                         messages.append(resp_msg)
@@ -3140,6 +3151,16 @@ class ConsultantEngine:
                 think_match = re.search(r"<think>([\s\S]*?)</think>", content_text)
                 if think_match:
                     real_thought = think_match.group(1).strip()
+                    th_chunks = re.findall(r"\S+|\s+", real_thought)
+                    t_batch = []
+                    for c in th_chunks:
+                        t_batch.append(c)
+                        if len(t_batch) >= 6 or "\n" in c:
+                            yield {"type": "thought_delta", "step": step, "delta": "".join(t_batch)}
+                            t_batch.clear()
+                            await asyncio.sleep(0.005)
+                    if t_batch:
+                        yield {"type": "thought_delta", "step": step, "delta": "".join(t_batch)}
                     yield {"type": "thought", "step": step, "content": real_thought, "is_running": False}
                     content_text = re.sub(r"<think>[\s\S]*?</think>", "", content_text).strip()
 

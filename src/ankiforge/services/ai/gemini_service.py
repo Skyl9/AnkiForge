@@ -1,5 +1,6 @@
 import base64
 import logging
+from collections.abc import Iterator
 from typing import Any
 
 from google import genai
@@ -168,3 +169,73 @@ class GeminiService(LLMProvider):
             max_tokens=max_tokens,
             temperature=temperature,
         ).content
+
+    def stream_response(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "text",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """
+        Génère un flux de streaming normalisé émettant des thought_delta et text_delta
+        pour Google Gemini (2.0 / 2.5 Thinking).
+        """
+        effective_max = max_tokens or self.max_tokens
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=temperature if temperature is not None else 0.2,
+            max_output_tokens=effective_max,
+        )
+        if response_format == "json":
+            config.response_mime_type = "application/json"
+
+        try:
+            contents_to_send: list[Any] = []
+            if isinstance(user_prompt, str):
+                contents_to_send = [user_prompt]
+            else:
+                for item in user_prompt:
+                    if item.get("type") == "text":
+                        contents_to_send.append(item.get("text", ""))
+
+            stream = self.client.models.generate_content_stream(
+                model=self.model_name,
+                contents=contents_to_send,
+                config=config,
+            )
+
+            accumulated_thought: list[str] = []
+            accumulated_content: list[str] = []
+
+            for chunk in stream:
+                candidates = getattr(chunk, "candidates", None) or []
+                if not candidates:
+                    continue
+                content_obj = getattr(candidates[0], "content", None)
+                parts = getattr(content_obj, "parts", None) or []
+                for part in parts:
+                    is_thought = getattr(part, "thought", False)
+                    p_text = getattr(part, "text", "") or ""
+                    if is_thought and p_text:
+                        accumulated_thought.append(p_text)
+                        yield {"type": "thought_delta", "delta": p_text}
+                    elif p_text:
+                        accumulated_content.append(p_text)
+                        yield {"type": "text_delta", "delta": p_text}
+
+            full_content = "".join(accumulated_content)
+            full_thought = "".join(accumulated_thought) if accumulated_thought else None
+            cleaned_content, thought_from_tags = extract_thought_tags(full_content, initial_thought=full_thought)
+            yield {"type": "finish", "content": cleaned_content, "thought": thought_from_tags}
+
+        except Exception as e:
+            logger.warning("Échec du streaming natif Gemini (%s), repli sur super().stream_response : %s", self.model_name, e)
+            yield from super().stream_response(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_format=response_format,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )

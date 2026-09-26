@@ -1498,6 +1498,7 @@ class ConsultantView(QWidget):
             conversation_history=list(self.view_model.conversation_history),
         )
         self.worker.thought_emitted.connect(self._on_thought_received)
+        self.worker.thought_delta_signal.connect(self._on_thought_delta_received)
         self.worker.tool_started_signal.connect(self._on_tool_started)
         self.worker.tool_finished_signal.connect(self._on_tool_finished)
         self.worker.text_delta_signal.connect(self._on_text_delta)
@@ -1535,6 +1536,13 @@ class ConsultantView(QWidget):
         self.view_model.record_thought(step, thought, is_running=is_running)
         if self._active_ai_message:
             self._active_ai_message.add_or_update_thought(step, thought, is_running=is_running)
+            self.chat_scroll.verticalScrollBar().setValue(self.chat_scroll.verticalScrollBar().maximum())
+
+    @Slot(int, str)
+    def _on_thought_delta_received(self, step: int, delta: str) -> None:
+        self.view_model.record_thought_delta(step, delta)
+        if self._active_ai_message:
+            self._active_ai_message.append_thought_delta(step, delta)
             self.chat_scroll.verticalScrollBar().setValue(self.chat_scroll.verticalScrollBar().maximum())
 
     @Slot(str, str)
