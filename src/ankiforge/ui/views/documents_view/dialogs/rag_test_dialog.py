@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QProgressBar,
-    QPushButton,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
@@ -21,7 +20,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import DocumentModel
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.cards.media_manager import MediaManager
-from ankiforge.ui.components import GlowLineEdit, PrimaryButton
+from ankiforge.ui.components import GlowLineEdit, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import resolve_media_path
@@ -52,7 +51,7 @@ class _RAGResultWidget(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(4)
 
-        location = result.get("heading_path") or f"Section #{result.get('chunk_index', 0) + 1}"
+        location = result.get("heading_path") or (f"Page {result.get('page_number')}" if result.get("page_number") else f"Section #{result.get('chunk_index', 0) + 1}")
         channel = result.get("channel", "hybrid")
         score = result.get("rrf_score", result.get("score", 0.0))
         header = QLabel(f"<b>📍 {html.escape(str(location))}</b> · Pertinence : {result.get('relevance_pct', 0)}% · Score : {float(score):.6f}")
@@ -97,7 +96,8 @@ class _RAGResultWidget(QWidget):
                     preview.setPixmap(pixmap.scaled(96, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
                     preview.setToolTip("Image d'origine")
                     layout.addWidget(preview)
-                open_button = QPushButton("Ouvrir l'image d'origine")
+                open_button = SecondaryButton("Ouvrir l'image d'origine")
+                open_button.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
                 open_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(image_path))))
                 layout.addWidget(open_button)
 
