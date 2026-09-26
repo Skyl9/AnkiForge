@@ -181,6 +181,12 @@ def cleanup_qt_widgets():
     with contextlib.suppress(Exception):
         QThreadPool.globalInstance().waitForDone(1000)
 
+    with contextlib.suppress(Exception):
+        from ankiforge.ui.style_engine import StyleEngine
+
+        if StyleEngine._instance is not None:
+            StyleEngine._instance.clear_custom_library()
+
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Garantit que 100% des tests possèdent au moins un marqueur primaire (unit, integration, ui)

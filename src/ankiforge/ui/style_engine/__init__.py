@@ -11,6 +11,22 @@ from ankiforge.ui.style_engine.appearance import (
 )
 from ankiforge.ui.style_engine.engine import StyleEngine, get_style_engine
 from ankiforge.ui.style_engine.theme_profile import ThemeProfile
+from ankiforge.ui.style_engine.theme_storage import (
+    CURRENT_FORMAT_VERSION,
+    CURRENT_MAJOR_VERSION,
+    ThemeExchangeError,
+    ThemeValidationError,
+    UnsupportedThemeVersionError,
+    export_theme_file,
+    import_theme_file,
+    load_custom_theme_families,
+    resolve_unique_theme_path,
+    save_theme_family_to_library,
+    theme_family_from_dict,
+    theme_family_from_json,
+    theme_family_to_dict,
+    theme_family_to_json,
+)
 from ankiforge.ui.style_engine.themes import (
     BUILTIN_THEMES,
     CYBER_GLASS,
@@ -63,4 +79,18 @@ __all__ = [
     "get_theme_families",
     "get_family_for_theme",
     "get_unique_builtin_themes",
+    "CURRENT_FORMAT_VERSION",
+    "CURRENT_MAJOR_VERSION",
+    "ThemeExchangeError",
+    "ThemeValidationError",
+    "UnsupportedThemeVersionError",
+    "export_theme_file",
+    "import_theme_file",
+    "load_custom_theme_families",
+    "resolve_unique_theme_path",
+    "save_theme_family_to_library",
+    "theme_family_from_dict",
+    "theme_family_from_json",
+    "theme_family_to_dict",
+    "theme_family_to_json",
 ]

@@ -5,6 +5,7 @@ Génère et applique dynamiquement les règles QSS sémantiques basées sur les 
 
 import contextlib
 import logging
+from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
@@ -45,6 +46,8 @@ class StyleEngine(QObject):
         super().__init__()
         self._current_theme: ThemeProfile = JETBRAINS_DARK
         self._custom_themes: dict[str, ThemeProfile] = {}
+        self._custom_families: dict[str, ThemeFamily] = {}
+        self.load_theme_library()
 
     @classmethod
     def instance(cls) -> "StyleEngine":
@@ -1119,12 +1122,63 @@ class StyleEngine(QObject):
                 except RuntimeError as err:
                     logger.debug("Widget Qt détruit pendant la propagation de style : %s", err)
 
+    def clear_custom_library(self) -> None:
+        """Vide le registre en mémoire des familles et thèmes personnalisés."""
+        self._custom_families.clear()
+        self._custom_themes.clear()
+
+    def load_theme_library(self, themes_dir: Path | None = None) -> list[ThemeFamily]:
+        """Scanne le répertoire global de la bibliothèque de thèmes (~/.ankiforge/themes/)
+        et peuple les registres mémoire de familles et de thèmes personnalisés."""
+        from ankiforge.ui.style_engine.theme_storage import load_custom_theme_families
+
+        self.clear_custom_library()
+        custom_families = load_custom_theme_families(themes_dir=themes_dir)
+        for fam in custom_families:
+            self.register_theme_family(fam)
+        return list(self._custom_families.values())
+
+    def register_theme_family(self, family: ThemeFamily) -> None:
+        """Enregistre une famille de thème personnalisée et ses deux variantes."""
+        self._custom_families[family.id] = family
+        self.register_theme(family.dark_theme)
+        self.register_theme(family.light_theme)
+
+    def import_theme(self, source_path: Path | str, themes_dir: Path | None = None) -> tuple[ThemeFamily, Path]:
+        """Importe un fichier de thème dans la bibliothèque sur disque et l'enregistre en mémoire."""
+        from ankiforge.ui.style_engine.theme_storage import import_theme_file
+
+        family, saved_path = import_theme_file(source_path, themes_dir=themes_dir)
+        self.register_theme_family(family)
+        return family, saved_path
+
+    def export_theme(self, family_or_id: ThemeFamily | str, target_path: Path | str) -> Path:
+        """Exporte une famille de thème vers un fichier JSON externe."""
+        from ankiforge.ui.style_engine.theme_storage import export_theme_file
+
+        if isinstance(family_or_id, str):
+            family = self.get_family_for_theme(family_or_id)
+            if family is None:
+                raise LookupError(f"Famille de thème introuvable pour l'export : {family_or_id}")
+        else:
+            family = family_or_id
+
+        return export_theme_file(family, target_path)
+
     def get_theme_families(self) -> list[ThemeFamily]:
-        """Retourne la liste des 12 familles de thèmes bivalentes."""
-        return get_theme_families()
+        """Retourne la liste des familles de thèmes (12 intégrées + familles de la bibliothèque sur disque)."""
+        families = list(get_theme_families())
+        families.extend(self._custom_families.values())
+        return families
 
     def get_family_for_theme(self, theme_id: str) -> ThemeFamily | None:
-        """Retrouve la famille d'un thème."""
+        """Retrouve la famille d'un thème (personnalisé ou intégré)."""
+        theme_id_clean = theme_id.lower().strip()
+        if theme_id_clean in self._custom_families:
+            return self._custom_families[theme_id_clean]
+        for fam in self._custom_families.values():
+            if fam.dark_theme.id == theme_id_clean or fam.light_theme.id == theme_id_clean:
+                return fam
         return get_family_for_theme(theme_id)
 
     def set_color_mode(self, mode: str, app: QApplication | None = None) -> ThemeProfile:

@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,8 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.utils.icon_loader import load_phosphor_icon
+
+logger = logging.getLogger(__name__)
 
 
 class GeneralTab(SettingsDirtyMixin, QWidget):
@@ -111,8 +114,28 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # 3. Famille de Thèmes (12 Familles bivalentes) — axe indépendant du Mode
         self.cb_theme = StyledComboBox()
-        self.cb_theme.setMinimumWidth(260)
+        self.cb_theme.setMinimumWidth(200)
         self.cb_theme.setFixedHeight(30)
+
+        theme_box = QWidget()
+        theme_box_layout = QHBoxLayout(theme_box)
+        theme_box_layout.setContentsMargins(0, 0, 0, 0)
+        theme_box_layout.setSpacing(6)
+        theme_box_layout.addWidget(self.cb_theme, 1)
+
+        self.btn_import_theme = SecondaryButton("")
+        self.btn_import_theme.setIcon(load_phosphor_icon("ph.upload-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_import_theme.setToolTip("Importer une famille de thème au format JSON...")
+        self.btn_import_theme.setFixedHeight(30)
+        self.btn_import_theme.clicked.connect(self._import_theme)
+        theme_box_layout.addWidget(self.btn_import_theme)
+
+        self.btn_export_theme = SecondaryButton("")
+        self.btn_export_theme.setIcon(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_export_theme.setToolTip("Exporter la famille de thème sélectionnée au format JSON...")
+        self.btn_export_theme.setFixedHeight(30)
+        self.btn_export_theme.clicked.connect(self._export_theme)
+        theme_box_layout.addWidget(self.btn_export_theme)
 
         def select_family(family_id: str | None) -> None:
             """Sélectionne la Famille donnée ; « aucune » est une entrée à part entière."""
@@ -120,6 +143,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
                 if self.cb_theme.itemData(i) == family_id:
                     self.cb_theme.setCurrentIndex(i)
                     return
+
+        self._select_family = select_family
 
         # La Famille vit dans `selected_family_id`, initialisée depuis la préférence persistée
         # puis mise à jour par les seuls choix de l'utilisateur : repeupler la liste pour un
@@ -149,7 +174,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
                 for fam in families:
                     icon_name = "ph.moon" if is_dark_selected else "ph.sun"
                     icon_color = DesignTokens.ACCENT_PRIMARY if is_dark_selected else DesignTokens.COLOR_YELLOW
-                    self.cb_theme.addItem(load_phosphor_icon(icon_name, color=icon_color), fam.name, fam.id)
+                    self.cb_theme.addItem(load_phosphor_icon(fam.icon or icon_name, color=icon_color), fam.name, fam.id)
                 # Une Famille persistée mais inconnue de la bibliothèque (thème tiers, ADR 0005)
                 # doit survivre à l'enregistrement du Mode : l'ajouter évite de l'effacer.
                 if selected_family_id is not None and all(fam.id != selected_family_id for fam in families):
@@ -162,6 +187,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             finally:
                 is_repopulating = False
 
+        self._populate_theme_families = populate_theme_families
         self.cb_theme.currentIndexChanged.connect(on_family_changed)
         populate_theme_families()
 
@@ -169,7 +195,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             populate_theme_families()
 
         self.cb_mode.currentIndexChanged.connect(on_mode_changed)
-        self.rows_labels.append(add_setting_row(card_app_layout, "Famille de Thèmes :", self.cb_theme))
+        self.rows_labels.append(add_setting_row(card_app_layout, "Famille de Thèmes :", theme_box))
 
         # 4. Langue
         self.cb_lang = StyledComboBox()
@@ -564,6 +590,72 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             self.btn_check_updates.refresh_theme(profile)
         if hasattr(self, "btn_open_feedback") and hasattr(self.btn_open_feedback, "refresh_theme"):
             self.btn_open_feedback.refresh_theme(profile)
+        if hasattr(self, "btn_import_theme"):
+            self.btn_import_theme.setIcon(load_phosphor_icon("ph.upload-simple", color=profile.text_primary))
+        if hasattr(self, "btn_export_theme"):
+            self.btn_export_theme.setIcon(load_phosphor_icon("ph.download-simple", color=profile.text_primary))
+
+    def _import_theme(self) -> None:
+        """Importe un fichier de thème JSON dans la bibliothèque globale."""
+        from ankiforge.ui.style_engine import get_style_engine
+        from ankiforge.ui.widgets.toast import show_toast
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importer une famille de thèmes",
+            "",
+            "Thèmes AnkiForge (*.json);;Tous les fichiers (*)",
+        )
+        if not file_path:
+            return
+
+        engine = get_style_engine()
+        try:
+            family, _ = engine.import_theme(file_path)
+            if hasattr(self, "_populate_theme_families"):
+                self._populate_theme_families()
+            if hasattr(self, "_select_family"):
+                self._select_family(family.id)
+            show_toast(self, f"Thème '{family.name}' importé avec succès !", is_error=False)
+        except Exception as err:
+            logger.error("Erreur lors de l'import du thème %s : %s", file_path, err)
+            show_toast(self, f"Échec de l'import du thème : {err}", is_error=True)
+
+    def _export_theme(self) -> None:
+        """Exporte la famille de thème sélectionnée au format JSON."""
+        from ankiforge.ui.layouts.layout_manager import LayoutManager
+        from ankiforge.ui.style_engine import get_style_engine
+        from ankiforge.ui.widgets.toast import show_toast
+
+        engine = get_style_engine()
+        current_family_id = self.cb_theme.currentData()
+        if not current_family_id:
+            profile_name = self._get_profile_name()
+            layout_id = LayoutManager.get_saved_layout_id(profile_name)
+            family = engine.get_default_family_for_layout(layout_id)
+        else:
+            family = engine.get_family_for_theme(current_family_id)
+
+        if family is None:
+            show_toast(self, "Aucune famille de thème disponible pour l'export.", is_error=True)
+            return
+
+        suggested_name = f"{family.id}.json"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exporter la famille de thèmes en JSON",
+            suggested_name,
+            "Thèmes AnkiForge (*.json);;Tous les fichiers (*)",
+        )
+        if not file_path:
+            return
+
+        try:
+            engine.export_theme(family, file_path)
+            show_toast(self, f"Famille '{family.name}' exportée avec succès !", is_error=False)
+        except Exception as err:
+            logger.error("Erreur lors de l'export du thème %s : %s", file_path, err)
+            show_toast(self, f"Échec de l'export du thème : {err}", is_error=True)
 
     def _on_open_feedback_clicked(self) -> None:
         """Déclenche l'événement d'ouverture de la boîte de dialogue de feedback."""
