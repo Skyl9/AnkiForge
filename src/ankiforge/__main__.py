@@ -36,7 +36,7 @@ from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.theme import setup_dynamic_theme
 from ankiforge.utils.logger import install_crash_handlers, setup_logging, shutdown_logging
-from ankiforge.utils.paths import get_resource_path
+from ankiforge.utils.paths import get_active_profile, get_resource_path
 
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
@@ -175,6 +175,11 @@ def main(argv: list[str] | None = None) -> None:
     from ankiforge.ui.theme import DesignTokens
 
     app.setFont(QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE))
+    from ankiforge.database.maintenance import execute_clean_shutdown
+    from ankiforge.services.profile_lock_service import ProfileLockService
+
+    app.aboutToQuit.connect(lambda: execute_clean_shutdown(get_active_profile() or "default", clean_orphan_media=False))
+    app.aboutToQuit.connect(ProfileLockService.release_all_locks)
     app.aboutToQuit.connect(shutdown_logging)
 
     # Application Window & Dock Icon
@@ -216,6 +221,38 @@ def main(argv: list[str] | None = None) -> None:
         else:
             shutdown_logging()
             sys.exit(0)  # Annulé
+
+    # ── Vérification et acquisition du verrou exclusif anti double-instance ────
+    acquired, lock_info = ProfileLockService.acquire_lock(selected_profile)
+    while not acquired:
+        pid_hint = f" (PID {lock_info.pid} sur {lock_info.hostname})" if lock_info else ""
+        from PySide6.QtWidgets import QMessageBox
+
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setWindowTitle("Espace de travail en cours d'utilisation")
+        msg.setText(
+            f"Le profil « {selected_profile} » est déjà ouvert par une autre instance d'AnkiForge{pid_hint}.\n\n"
+            "L'accès simultané au même profil est formellement bloqué pour éviter toute corruption des données."
+        )
+        btn_switch = msg.addButton("Choisir un autre profil", QMessageBox.ButtonRole.ActionRole)
+        msg.addButton("Quitter", QMessageBox.ButtonRole.RejectRole)
+        msg.exec()
+
+        if msg.clickedButton() == btn_switch:
+            dialog = ProfileSelectorDialog(
+                profiles,
+                current_profile=selected_profile,
+            )
+            if dialog.exec() == ProfileSelectorDialog.DialogCode.Accepted:
+                selected_profile = dialog.get_selected_profile()
+                acquired, lock_info = ProfileLockService.acquire_lock(selected_profile)
+            else:
+                shutdown_logging()
+                sys.exit(0)
+        else:
+            shutdown_logging()
+            sys.exit(0)
 
     pm.switch_profile(selected_profile)
 

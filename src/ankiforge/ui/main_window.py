@@ -824,9 +824,28 @@ class MainWindow(QMainWindow):
 
     def switch_to_profile(self, new_profile: str) -> None:
         """Bascule l'application vers un autre profil utilisateur (BDD, thèmes, layouts, vues)."""
+        from PySide6.QtWidgets import QMessageBox
+
+        from ankiforge.services.profile_lock_service import ProfileLockService
         from ankiforge.services.profile_manager import ProfileManager
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.widgets.toast import show_toast
+
+        # Vérifier et acquérir le verrou sur le nouveau profil
+        acquired, lock_info = ProfileLockService.acquire_lock(new_profile)
+        if not acquired:
+            pid_hint = f" (PID {lock_info.pid})" if lock_info else ""
+            QMessageBox.warning(
+                self,
+                "Profil en cours d'utilisation",
+                f"Impossible de basculer vers l'espace « {new_profile} » : il est actuellement ouvert par une autre instance{pid_hint}.\n\n"
+                "L'accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.",
+            )
+            return
+
+        # Libérer l'ancien profil
+        if self.profile_name and self.profile_name != new_profile:
+            ProfileLockService.release_lock(self.profile_name)
 
         logger.info("Bascule de l'espace de travail vers le profil '%s'", new_profile)
 
@@ -887,4 +906,24 @@ class MainWindow(QMainWindow):
 
         for fw in list(_floating_windows):
             fw.close()
+
+        # Maintenance orchestrée à la fermeture propre (checkpoint WAL, purge orphelins optionnelle et libération verrous)
+        from ankiforge.database.maintenance import execute_clean_shutdown
+        from ankiforge.utils.environment import get_app_qsettings
+
+        settings = get_app_qsettings()
+        clean_media = settings.value("storage/clean_media_on_exit", False, type=bool)
+
+        if clean_media:
+            from PySide6.QtCore import Qt
+            from PySide6.QtWidgets import QApplication
+
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                execute_clean_shutdown(self.profile_name, clean_orphan_media=True)
+            finally:
+                QApplication.restoreOverrideCursor()
+        else:
+            execute_clean_shutdown(self.profile_name, clean_orphan_media=False)
+
         super().closeEvent(event)
