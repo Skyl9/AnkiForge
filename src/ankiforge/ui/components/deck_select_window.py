@@ -154,6 +154,7 @@ class DeckSelectWindow(QWidget):
             global_item.setData(0, Qt.ItemDataRole.UserRole, -1)
             global_item.setIcon(0, load_phosphor_icon("folders", color=DesignTokens.COLOR_BLUE))
             self.tree.addTopLevelItem(global_item)
+            self._items_by_id[-1] = global_item
 
         decks = list(DeckModel.select().order_by(DeckModel.name.asc()))
 

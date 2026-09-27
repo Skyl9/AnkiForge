@@ -2,7 +2,7 @@ import json
 import logging
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from ankiforge.database.models import IgnoredDuplicateModel, NoteVersionModel, db
 from ankiforge.services.workers.duplicate_worker import DuplicateWorker
@@ -18,7 +18,7 @@ class AIDuplicatesMergeTab(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.selected_deck_id: int | None = None
+        self.selected_deck_id: int = -1
         self.conflicts: list = []
         self.worker: DuplicateWorker | None = None
 
@@ -26,14 +26,23 @@ class AIDuplicatesMergeTab(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(14)
 
+        # Splitter vertical permettant d'ajuster l'espace entre la matrice et l'inspecteur
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.setChildrenCollapsible(False)
+
         # 1. Matrice des doublons
         self.matrix_table = DuplicateMatrixTable()
-        layout.addWidget(self.matrix_table, stretch=1)
+        self.splitter.addWidget(self.matrix_table)
 
         # 2. Inspecteur de fusion
         self.merge_inspector = DuplicateMergeInspector()
         self.merge_inspector.hide()
-        layout.addWidget(self.merge_inspector, stretch=1)
+        self.splitter.addWidget(self.merge_inspector)
+
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 1)
+
+        layout.addWidget(self.splitter)
 
         # Connexions
         self.matrix_table.btn_deck.clicked.connect(self.open_deck_select_dialog)
@@ -44,7 +53,7 @@ class AIDuplicatesMergeTab(QWidget):
         self.merge_inspector.ignore_requested.connect(self.on_ignore_requested)
 
     def open_deck_select_dialog(self) -> None:
-        self._deck_dialog = DeckSelectWindow(parent=self)
+        self._deck_dialog = DeckSelectWindow(parent=self, selected_deck_id=self.selected_deck_id)
         self._deck_dialog.deck_selected.connect(self._on_deck_selected)
         self._deck_dialog.show()
 
@@ -55,9 +64,16 @@ class AIDuplicatesMergeTab(QWidget):
         if hasattr(self, "_deck_dialog") and self._deck_dialog:
             self._deck_dialog.close()
 
+    def refresh_data(self) -> None:
+        """Relance l'analyse des doublons pour le paquet sélectionné."""
+        self.run_duplicate_scan()
+
     def run_duplicate_scan(self) -> None:
-        if self.selected_deck_id is None:
+        if self.worker is not None and self.worker.isRunning():
             return
+
+        if self.selected_deck_id is None:
+            self.selected_deck_id = -1
 
         self.matrix_table.btn_reanalyze.setEnabled(False)
         self.matrix_table.btn_reanalyze.setText("Recherche...")
@@ -126,7 +142,14 @@ class AIDuplicatesMergeTab(QWidget):
             return
 
         self.merge_inspector.load_conflict(row_data)
-        self.merge_inspector.show()
+        if self.merge_inspector.isHidden():
+            self.merge_inspector.show()
+            sizes = self.splitter.sizes()
+            total = sum(sizes)
+            if total > 0 and (len(sizes) < 2 or sizes[1] == 0):
+                self.splitter.setSizes([total // 2, total // 2])
+        else:
+            self.merge_inspector.show()
 
     def on_merge_requested(self, note_keep, note_del, merged_content) -> None:
         try:

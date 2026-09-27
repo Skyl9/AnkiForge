@@ -2,7 +2,7 @@ import logging
 import urllib.parse
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -26,6 +26,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import get_mathjax_script
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankiforge.utils.paths import get_media_dir
 
 logger = logging.getLogger(__name__)
 
@@ -768,7 +769,10 @@ class DuplicateMergeInspector(QFrame):
         if mode == "katex":
             web_view = self._get_or_create_web_view(source)
             html = self._build_unified_katex_html(content, color, btn_text, source)
-            web_view.setHtmlSafe(html)
+            media_dir = get_media_dir()
+            media_dir.mkdir(exist_ok=True)
+            base_url = QUrl.fromLocalFile(str(media_dir) + "/")
+            web_view.setHtmlSafe(html, base_url)
             stack.setCurrentIndex(1)
         else:
             self._populate_source_fields(layout, content, color, btn_text, source)

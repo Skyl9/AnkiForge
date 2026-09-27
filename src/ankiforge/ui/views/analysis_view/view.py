@@ -84,7 +84,11 @@ class AnalysisView(QWidget):
 
     def refresh_data(self) -> None:
         """Recalcule les données de l'onglet actif (appelé à chaque navigation)."""
-        if hasattr(self, "tab_sources") and hasattr(self.tab_sources, "refresh_data"):
+        current_widget = self.main_panel.content_stack.currentWidget()
+        if current_widget == getattr(self, "tab_duplicates", None) and hasattr(self.tab_duplicates, "refresh_data"):
+            with contextlib.suppress(Exception):
+                self.tab_duplicates.refresh_data()
+        elif hasattr(self, "tab_sources") and hasattr(self.tab_sources, "refresh_data"):
             with contextlib.suppress(Exception):
                 self.tab_sources.refresh_data()
 
