@@ -1,6 +1,7 @@
 import logging
+from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QComboBox,
@@ -11,6 +12,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTextBrowser,
@@ -31,6 +33,9 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+
+if TYPE_CHECKING:
+    from ankiforge.ui.components.linter_widgets import SourceDiagnosticCardWidget
 
 logger = logging.getLogger(__name__)
 
@@ -506,6 +511,11 @@ class AISourcesDiagnosticTab(QWidget):
 
     request_navigation = Signal(str, object)
 
+    MIN_CARD_WIDTH = 320
+    MAX_DOCUMENT_COLUMNS = 2
+
+    _doc_cards: "list[SourceDiagnosticCardWidget]"
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
@@ -686,14 +696,17 @@ class AISourcesDiagnosticTab(QWidget):
 
         grid_page_layout.addWidget(filter_bar)
 
-        # 3. Grille des Cartes de Documents (2 colonnes)
+        # 3. Grille des Cartes de Documents (colonnes responsive)
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setStyleSheet("background: transparent;")
 
         self.grid_content = QWidget()
         self.grid_content.setStyleSheet("background: transparent;")
+        self.grid_content.setMinimumWidth(0)
+        self.grid_content.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.grid_layout = QGridLayout(self.grid_content)
         self.grid_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.setSpacing(12)
@@ -701,6 +714,10 @@ class AISourcesDiagnosticTab(QWidget):
 
         self.scroll_area.setWidget(self.grid_content)
         grid_page_layout.addWidget(self.scroll_area, 1)
+
+        self._doc_cards = []
+        self._document_columns = 0
+        self.scroll_area.viewport().installEventFilter(self)
 
         self.refresh_data()
 
@@ -717,6 +734,40 @@ class AISourcesDiagnosticTab(QWidget):
 
         run_on_owner_thread(self, _schedule)
 
+    @property
+    def document_column_count(self) -> int:
+        """Nombre de colonnes actuellement retenues pour la grille des documents."""
+        return self._document_columns
+
+    def _columns_for_width(self, available_width: int) -> int:
+        """Colonnes tenant dans `available_width` px sans carte trop étroite.
+
+        On descend à une colonne unique dès que deux cartes ne peuvent plus recevoir
+        chacune `MIN_CARD_WIDTH` px : sous ce seuil, les lignes de statistiques et le
+        pied de carte seraient tronqués.
+        """
+        if available_width <= 0:
+            return 1
+        fitting = available_width // (self.MIN_CARD_WIDTH + self.grid_layout.spacing())
+        return max(1, min(fitting, self.MAX_DOCUMENT_COLUMNS))
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Recalcule les colonnes quand la largeur utile du viewport change."""
+        if watched is self.scroll_area.viewport() and event.type() == QEvent.Type.Resize:
+            self._place_doc_cards()
+        return super().eventFilter(watched, event)
+
+    def _place_doc_cards(self) -> None:
+        """Repositionne les cartes existantes selon la colonne disponible."""
+        columns = self._columns_for_width(self.scroll_area.viewport().width())
+        if columns == self._document_columns:
+            return
+        self._document_columns = columns
+        while self.grid_layout.count():
+            self.grid_layout.takeAt(0)
+        for index, card in enumerate(self._doc_cards):
+            self.grid_layout.addWidget(card, index // columns, index % columns)
+
     def _set_format_filter(self, fmt: str) -> None:
         self.current_format_filter = fmt
         self.refresh_data()
@@ -728,6 +779,7 @@ class AISourcesDiagnosticTab(QWidget):
             item = self.grid_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        self._doc_cards = []
 
         docs = list(DocumentModel.select())
         search_text = self.search_input.text().strip().lower()
@@ -815,16 +867,12 @@ class AISourcesDiagnosticTab(QWidget):
         elif sort_idx == 5:
             docs_data.sort(key=lambda d: str(d["created_at"]), reverse=True)
 
-        row = 0
-        col = 0
-        for data in docs_data:
-            card = SourceDiagnosticCardWidget(data)
+        self._doc_cards = [SourceDiagnosticCardWidget(data) for data in docs_data]
+        for card in self._doc_cards:
             card.inspect_requested.connect(self.show_inspector)
-            self.grid_layout.addWidget(card, row, col)
-            col += 1
-            if col > 1:
-                col = 0
-                row += 1
+        # Force le recalcul : le nombre de colonnes dépend de la largeur courante.
+        self._document_columns = 0
+        self._place_doc_cards()
 
     def _on_card_forge_orphan_requested(self, doc_id: int) -> None:
         doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)

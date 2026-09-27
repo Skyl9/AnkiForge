@@ -3,6 +3,8 @@ import uuid
 from typing import Any
 
 import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel
 
 from ankiforge.database.models import (
     CardModel,
@@ -30,6 +32,142 @@ from ankiforge.ui.views.analysis_view import (
 from ankiforge.utils.tags import build_document_tags
 
 pytestmark = pytest.mark.ui
+
+# Titres réalistes de cours / fichiers importés : c'est la longueur du nom de fichier qui
+# fait déborder la grille, pas un cas limite de laboratoire.
+LONG_DOC_TITLES = [
+    "Chapitre 3 - Les obligations du vendeur en droit romain des contrats.pdf",
+    "Le Manuel Complet de Droit Constitutionnel - Tome II - Institutions et Libertes.pdf",
+    "Introduction to Machine Learning and Statistical Inference - Third Edition.pdf",
+    "Notes de cours - Economie behaviourale et rationalite limitee.docx",
+]
+
+
+def _create_long_titled_documents() -> list[DocumentModel]:
+    """Crée des cours aux noms de fichiers réalistes (ceux d'un import de matière)."""
+    docs = []
+    for index, title in enumerate(LONG_DOC_TITLES):
+        doc = DocumentModel.create(title=title, content="x" * 200, file_type="pdf" if index < 3 else "docx")
+        for section in range(4 + index):
+            DocumentChunkModel.create(document=doc, chunk_index=section, heading_path=f"S{section}", content="c", content_hash=f"h{index}_{section}")
+        docs.append(doc)
+    return docs
+
+
+def test_sources_grid_never_overflows_horizontally(qtbot):
+    """La grille des documents ne doit jamais exiger un défilement horizontal.
+
+    Seam public : `AISourcesDiagnosticTab.scroll_area` / `grid_content` / `grid_layout`,
+    tels qu'affichés à l'ouverture de l'onglet. Avec des noms de fichiers réalistes
+    (et donc longs), les cartes ne doivent pas dépasser la largeur du viewport.
+    """
+    _create_long_titled_documents()
+
+    tab = AISourcesDiagnosticTab()
+    qtbot.addWidget(tab)
+    tab.resize(1200, 700)
+    tab.show()
+    qtbot.waitExposed(tab)
+    tab.refresh_data()
+    qtbot.wait(60)
+
+    scroll = tab.scroll_area
+    grid = tab.grid_content
+    assert tab.grid_layout.count() == len(LONG_DOC_TITLES)
+
+    assert scroll.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    for width in (1200, 1000, 800):
+        tab.resize(width, 700)
+        qtbot.wait(60)
+        viewport_w = scroll.viewport().width()
+        assert scroll.horizontalScrollBar().maximum() == 0, f"débordement horizontal à {width}px"
+        assert not scroll.horizontalScrollBar().isVisible()
+        assert grid.minimumSizeHint().width() <= viewport_w, f"grille plus large que le viewport à {width}px"
+        assert grid.width() <= viewport_w
+
+
+def test_sources_grid_title_wraps_instead_of_forcing_width(qtbot):
+    """Le titre d'une carte doit se replier, et non imposer sa largeur au document."""
+    _create_long_titled_documents()
+
+    tab = AISourcesDiagnosticTab()
+    qtbot.addWidget(tab)
+    tab.resize(1200, 700)
+    tab.show()
+    qtbot.waitExposed(tab)
+    tab.refresh_data()
+    qtbot.wait(60)
+
+    titles = [lbl for lbl in tab.grid_content.findChildren(QLabel) if lbl.text() in LONG_DOC_TITLES]
+    assert len(titles) == len(LONG_DOC_TITLES)
+    for lbl in titles:
+        assert lbl.wordWrap(), f"le titre {lbl.text()!r} ne se replie pas"
+        # Un QLabel sans word wrap reporte la largeur totale du texte dans son
+        # minimumSizeHint ; avec le repli, il ne retient plus que son mot le plus long.
+        assert lbl.minimumSizeHint().width() < lbl.sizeHint().width()
+
+
+def test_sources_grid_column_count_follows_available_width(qtbot):
+    """Le nombre de colonnes suit la largeur utile, sans jamais descendre sous 1."""
+    tab = AISourcesDiagnosticTab()
+    qtbot.addWidget(tab)
+
+    spacing = tab.grid_layout.spacing()
+    min_needed = tab.MIN_CARD_WIDTH + spacing
+    assert tab._columns_for_width(0) == 1
+    assert tab._columns_for_width(min_needed - 1) == 1
+    assert tab._columns_for_width(min_needed) == 1
+    assert tab._columns_for_width(2 * min_needed) == 2
+    assert tab._columns_for_width(10 * min_needed) == tab.MAX_DOCUMENT_COLUMNS
+    # Jamais plus que le maximum, quelle que soit la largeur.
+    assert tab._columns_for_width(10_000) == tab.MAX_DOCUMENT_COLUMNS
+
+
+def test_sources_grid_repacks_single_column_on_narrow_viewport(qtbot):
+    """Le réagencement des cartes suit la largeur du viewport.
+
+    L'en-tête de l'onglet (KPI + barre de filtres) impose aujourd'hui une largeur
+    minimale d'environ 780 px, donc la bande « une colonne » n'est pas atteignable en
+    redimensionnant une fenêtre. On exerce donc ici le chemin réel de reaction au
+    `QEvent.Resize` du viewport, qui est celui qui s'exécutera dès que l'en-tête
+    pourra se comprimer.
+    """
+    _create_long_titled_documents()
+
+    tab = AISourcesDiagnosticTab()
+    qtbot.addWidget(tab)
+    tab.resize(1600, 700)
+    tab.show()
+    qtbot.waitExposed(tab)
+    tab.refresh_data()
+    qtbot.wait(60)
+
+    viewport = tab.scroll_area.viewport()
+    assert tab.document_column_count > 1
+
+    # L'en-tête de l'onglet (KPI + barre de filtres) impose aujourd'hui une largeur
+    # minimale d'environ 780 px, donc la bande « une colonne » n'est pas atteignable en
+    # redimensionnant une fenêtre. On contraint donc réellement la zone de défilement
+    # pour exercer le chemin de reaction au `QEvent.Resize` du viewport, qui est celui
+    # qui s'exécutera dès que l'en-tête pourra se comprimer.
+    tab.scroll_area.setMinimumWidth(0)
+    tab.scroll_area.setMaximumWidth(tab.MIN_CARD_WIDTH)
+    qtbot.wait(60)
+
+    assert viewport.width() <= tab.MIN_CARD_WIDTH
+    assert tab.document_column_count == 1
+    grid = tab.grid_content
+    assert grid.layout().count() == len(LONG_DOC_TITLES)
+    assert tab.scroll_area.horizontalScrollBar().maximum() == 0
+
+    # Retour au large : les colonnes reviennent et le contenu est intact.
+    tab.scroll_area.setMinimumWidth(0)
+    tab.scroll_area.setMaximumWidth(16777215)
+    tab.resize(1600, 700)
+    qtbot.wait(60)
+    assert tab.document_column_count > 1
+    assert tab.grid_layout.count() == len(LONG_DOC_TITLES)
+    assert tab.scroll_area.horizontalScrollBar().maximum() == 0
 
 
 def test_document_inspector_panel_chapter_coverage(qtbot):

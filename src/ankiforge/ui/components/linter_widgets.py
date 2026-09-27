@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -783,6 +784,13 @@ class SourceDiagnosticCardWidget(QFrame):
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         lbl_title.setToolTip(title)
+        # Un QLabel sans repli reporte la largeur totale du texte dans son
+        # minimumSizeHint(). Les noms de fichiers importés étant longs, la carte
+        # imposerait alors sa largeur au voisinage et la grille déborderait
+        # horizontalement. Le repli borne cette largeur au mot le plus long.
+        lbl_title.setWordWrap(True)
+        lbl_title.setMinimumWidth(0)
+        lbl_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
 
         # Badge Couverture
         lbl_score = QLabel(f"{coverage_pct:.0f}% Couvert" if is_indexed else "Non indexé")
