@@ -17,6 +17,7 @@ class AddonStatus(StrEnum):
     """Statut d'un addon dans le gestionnaire."""
 
     ACTIVE = "active"
+    ENABLED = "active"
     DISABLED = "disabled"
     ERROR = "error"
     INCOMPATIBLE = "incompatible"
