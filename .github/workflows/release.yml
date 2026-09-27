@@ -206,12 +206,46 @@ jobs:
           sha256sum AnkiForge-x86_64.AppImage ankiforge-linux-x86_64.tar.gz > linux_checksums.sha256
 
       # ── Empaquetage macOS (.dmg + .zip) ──
-      - name: Package macOS DMG & Zip
+      - name: Package macOS DMG
         if: runner.os == 'macOS'
         run: |
           chmod +x build_script/package_dmg.sh
           ./build_script/package_dmg.sh
 
+      # ── Notarisation & Signature macOS (Conditionnelle aux secrets Apple) ──
+      - name: Code Sign & Notarize macOS Artifacts
+        if: runner.os == 'macOS' && env.APPLE_ID != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_IDENTITY }}
+        run: |
+          echo "[INFO] Signature Apple Developer ID du bundle applicatif..."
+          codesign --deep --force --verify --verbose \
+            --options runtime \
+            --sign "${APPLE_DEVELOPER_IDENTITY}" \
+            dist_prod/AnkiForge.app
+
+          echo "[INFO] Signature du fichier DMG..."
+          codesign --force --verify --verbose \
+            --sign "${APPLE_DEVELOPER_IDENTITY}" \
+            AnkiForge-macos-arm64.dmg
+
+          echo "[INFO] Soumission pour Notarisation Apple..."
+          xcrun notarytool submit AnkiForge-macos-arm64.dmg \
+            --apple-id "${APPLE_ID}" \
+            --team-id "${APPLE_TEAM_ID}" \
+            --password "${APPLE_APP_SPECIFIC_PASSWORD}" \
+            --wait
+
+          echo "[INFO] Agrafage (staple) du ticket de notarisation..."
+          xcrun stapler staple AnkiForge-macos-arm64.dmg
+          xcrun stapler staple dist_prod/AnkiForge.app
+
+      - name: Package macOS Zip & Checksums
+        if: runner.os == 'macOS'
+        run: |
           cd dist_prod
           zip -r ../ankiforge-macos-arm64.zip AnkiForge.app/
           cd ..
@@ -275,6 +309,25 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat checksums.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Sign Checksums Manifest with Ed25519
+        env:
+          ANKIFORGE_RELEASE_SIGNING_KEY_ED25519: ${{ secrets.ANKIFORGE_RELEASE_SIGNING_KEY_ED25519 }}
+        run: |
+          if [ -n "$ANKIFORGE_RELEASE_SIGNING_KEY_ED25519" ]; then
+            echo "[INFO] Signature du manifeste de release avec la clé Ed25519..."
+            PYTHONPATH=src uv run --with cryptography python script/sign_release.py release-assets/checksums.txt
+            echo "✅ **Sécurité :** Manifeste signé avec succès avec la clé Ed25519 (\`checksums.txt.sig\` généré)." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::warning::Secret ANKIFORGE_RELEASE_SIGNING_KEY_ED25519 non configuré. Le manifeste ne sera pas signé (requis pour la validation Fail-Closed en production)."
+            echo "⚠️ **Avertissement Sécurité :** Secret de signature Ed25519 absent. Aucun fichier \`checksums.txt.sig\` n'a été produit." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Generate Cryptographic Build Attestation (SLSA Level 3)
         uses: actions/attest-build-provenance@v2
