@@ -387,7 +387,25 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         self.rows_labels.append(add_setting_row(card_about_layout, "Canal de distribution des mises à jour :", self.cb_update_channel))
 
-        # 3. Action de recherche manuelle
+        # 3. Fréquence de recherche automatique
+        from ankiforge.services.update_checker import get_check_interval_seconds
+
+        self.cb_check_interval = StyledComboBox()
+        self.cb_check_interval.setMinimumWidth(260)
+        self.cb_check_interval.setFixedHeight(30)
+        self.cb_check_interval.addItem(load_phosphor_icon("ph.clock", color=DesignTokens.TEXT_PRIMARY), "Toutes les 4 heures (Recommandé)", 14400)
+        self.cb_check_interval.addItem(load_phosphor_icon("ph.calendar", color=DesignTokens.TEXT_PRIMARY), "Quotidien (Toutes les 24 heures)", 86400)
+        self.cb_check_interval.addItem(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_GREEN), "Au démarrage de l'application", 0)
+        self.cb_check_interval.addItem(load_phosphor_icon("ph.pause-circle", color=DesignTokens.COLOR_YELLOW), "Manuel uniquement (Désactivé)", -1)
+
+        saved_interval = get_check_interval_seconds()
+        int_idx = self.cb_check_interval.findData(saved_interval)
+        if int_idx >= 0:
+            self.cb_check_interval.setCurrentIndex(int_idx)
+
+        self.rows_labels.append(add_setting_row(card_about_layout, "Fréquence de recherche automatique :", self.cb_check_interval))
+
+        # 4. Action de recherche manuelle
         check_row = QHBoxLayout()
         lbl_check_title = QLabel("Recherche de mises à jour :")
         lbl_check_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
@@ -571,7 +589,11 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
     def save_tab(self) -> tuple[bool, str | None, str | None]:
         """Sauvegarde les paramètres de l'onglet et retourne (has_change, selected_layout_id, selected_family_id)."""
-        from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL
+        from ankiforge.services.update_checker import (
+            DEFAULT_CHECK_INTERVAL_SECONDS,
+            SETTINGS_KEY_CHANNEL,
+            SETTINGS_KEY_CHECK_INTERVAL,
+        )
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.style_engine import get_style_engine
 
@@ -610,6 +632,13 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         if hasattr(self, "cb_update_channel") and self.cb_update_channel.currentData() and not values_equal(q_settings.value(SETTINGS_KEY_CHANNEL, "stable"), self.cb_update_channel.currentData()):
             q_settings.setValue(SETTINGS_KEY_CHANNEL, self.cb_update_channel.currentData())
             has_change = True
+        if (
+            hasattr(self, "cb_check_interval")
+            and self.cb_check_interval.currentData() is not None
+            and not values_equal(q_settings.value(SETTINGS_KEY_CHECK_INTERVAL, DEFAULT_CHECK_INTERVAL_SECONDS), self.cb_check_interval.currentData())
+        ):
+            q_settings.setValue(SETTINGS_KEY_CHECK_INTERVAL, int(self.cb_check_interval.currentData()))
+            has_change = True
 
         if self._layout_field_changed():
             LayoutManager.save_layout_id(profile_name, selected_layout_id)
@@ -633,6 +662,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "auto_startup": self.chk_auto_startup.isChecked() if hasattr(self, "chk_auto_startup") else False,
             "default_profile": (self.cb_default_profile.currentData() or default_profile) if hasattr(self, "cb_default_profile") else default_profile,
             "update_channel": (self.cb_update_channel.currentData() or "stable") if hasattr(self, "cb_update_channel") else "stable",
+            "check_interval": (self.cb_check_interval.currentData() if hasattr(self, "cb_check_interval") else 14400),
         }
 
     def _layout_field_changed(self) -> bool:

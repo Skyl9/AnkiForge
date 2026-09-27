@@ -9,11 +9,16 @@ from ankiforge.services.update_checker import (
     SETTINGS_KEY_CACHED_METADATA,
     SETTINGS_KEY_CACHED_VERSION,
     SETTINGS_KEY_CHANNEL,
+    SETTINGS_KEY_CHECK_INTERVAL,
     SETTINGS_KEY_ETAG_NIGHTLY,
     SETTINGS_KEY_ETAG_STABLE,
     SETTINGS_KEY_LAST_CHECK,
     UpdateCheckerWorker,
     UpdateInfo,
+    get_check_interval_seconds,
+    get_update_channel,
+    set_check_interval_seconds,
+    set_update_channel,
 )
 from ankiforge.utils.environment import get_app_qsettings
 
@@ -27,6 +32,7 @@ def clean_settings() -> Any:
     settings.remove(SETTINGS_KEY_LAST_CHECK)
     settings.remove(SETTINGS_KEY_CACHED_VERSION)
     settings.remove(SETTINGS_KEY_CHANNEL)
+    settings.remove(SETTINGS_KEY_CHECK_INTERVAL)
     settings.remove(SETTINGS_KEY_CACHED_METADATA)
     settings.remove(SETTINGS_KEY_ETAG_STABLE)
     settings.remove(SETTINGS_KEY_ETAG_NIGHTLY)
@@ -34,6 +40,7 @@ def clean_settings() -> Any:
     settings.remove(SETTINGS_KEY_LAST_CHECK)
     settings.remove(SETTINGS_KEY_CACHED_VERSION)
     settings.remove(SETTINGS_KEY_CHANNEL)
+    settings.remove(SETTINGS_KEY_CHECK_INTERVAL)
     settings.remove(SETTINGS_KEY_CACHED_METADATA)
     settings.remove(SETTINGS_KEY_ETAG_STABLE)
     settings.remove(SETTINGS_KEY_ETAG_NIGHTLY)
@@ -453,3 +460,74 @@ def test_update_checker_unexpected_exception_emits_check_failed() -> None:
         worker.run()
 
     assert "Erreur réseau critique inattendue" in failed_msg
+
+
+def test_get_and_set_update_channel() -> None:
+    """Vérifie la persistance et la validation du canal de mise à jour."""
+    assert get_update_channel() in ("stable", "nightly")
+
+    set_update_channel("nightly")
+    assert get_update_channel() == "nightly"
+
+    set_update_channel("stable")
+    assert get_update_channel() == "stable"
+
+    with pytest.raises(ValueError, match="invalide"):
+        set_update_channel("invalid_channel")
+
+
+def test_get_and_set_check_interval_seconds() -> None:
+    """Vérifie la persistance et la lecture de l'intervalle de vérification."""
+    assert get_check_interval_seconds() == 14400  # Défaut 4h
+
+    set_check_interval_seconds(86400)
+    assert get_check_interval_seconds() == 86400
+
+    set_check_interval_seconds(-1)
+    assert get_check_interval_seconds() == -1
+
+
+def test_update_checker_respects_disabled_interval() -> None:
+    """Vérifie qu'aucun appel réseau n'est effectué si l'intervalle est désactivé (-1) en mode automatique."""
+    set_check_interval_seconds(-1)
+    worker = UpdateCheckerWorker(current_version="1.0.5", channel="stable", force=False)
+
+    no_update_called = False
+    worker.signals.no_update.connect(lambda _v: nonlocal_flag())
+
+    def nonlocal_flag() -> None:
+        nonlocal no_update_called
+        no_update_called = True
+
+    with (
+        patch("requests.get") as mock_get,
+        patch("ankiforge.utils.environment.is_development", return_value=False),
+    ):
+        worker.run()
+        mock_get.assert_not_called()
+
+    assert no_update_called is True
+
+
+def test_update_checker_zero_interval_always_checks() -> None:
+    """Vérifie qu'un intervalle de 0 (au démarrage) déclenche la vérification même si une vérification récente a eu lieu."""
+    import datetime
+
+    set_check_interval_seconds(0)
+    settings = get_app_qsettings()
+    # Horodatage récent (il y a 1 seconde)
+    now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
+    settings.setValue(SETTINGS_KEY_LAST_CHECK, now_ts - 1)
+
+    worker = UpdateCheckerWorker(current_version="1.0.5", channel="stable", force=False)
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.json.return_value = []
+
+    with (
+        patch("requests.get", return_value=fake_response) as mock_get,
+        patch("ankiforge.utils.environment.is_development", return_value=False),
+    ):
+        worker.run()
+        mock_get.assert_called_once()

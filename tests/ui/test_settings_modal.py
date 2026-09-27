@@ -338,6 +338,43 @@ def test_general_tab_preserves_system_source_until_an_explicit_choice(qtbot):
     assert preference.last_manual_mode is ModeSource.LIGHT
 
 
+def test_general_tab_update_channel_and_interval_persistence(qtbot, monkeypatch):
+    """Vérifie la sélection et la persistance du canal et de la fréquence de vérification des màj."""
+    from PySide6.QtCore import QSettings
+
+    from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL, SETTINGS_KEY_CHECK_INTERVAL
+
+    temp_settings = QSettings("AnkiForgeTest", "UpdateIntervalTest")
+    temp_settings.clear()
+    monkeypatch.setattr("ankiforge.utils.environment.get_app_qsettings", lambda *args, **kwargs: temp_settings)
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    # Valeurs par défaut
+    assert tab.cb_update_channel.currentData() == "stable"
+    assert tab.cb_check_interval.currentData() == 14400
+
+    # Changement des options
+    nightly_idx = next(i for i in range(tab.cb_update_channel.count()) if tab.cb_update_channel.itemData(i) == "nightly")
+    tab.cb_update_channel.setCurrentIndex(nightly_idx)
+
+    daily_idx = next(i for i in range(tab.cb_check_interval.count()) if tab.cb_check_interval.itemData(i) == 86400)
+    tab.cb_check_interval.setCurrentIndex(daily_idx)
+
+    has_change, _, _ = tab.save_tab()
+    assert has_change is True
+    assert temp_settings.value(SETTINGS_KEY_CHANNEL) == "nightly"
+    assert int(temp_settings.value(SETTINGS_KEY_CHECK_INTERVAL)) == 86400
+
+    # Vérification à la réouverture d'un nouvel onglet
+    tab2 = GeneralTab()
+    qtbot.addWidget(tab2)
+    assert tab2.cb_update_channel.currentData() == "nightly"
+    assert tab2.cb_check_interval.currentData() == 86400
+    temp_settings.clear()
+
+
 def test_password_line_edit_toggle(qtbot):
     """Teste le widget PasswordLineEdit et son basculement d'affichage."""
     from PySide6.QtWidgets import QLineEdit
