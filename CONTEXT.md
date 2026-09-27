@@ -74,3 +74,18 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : backup temporaire, dump écrasable
 - **Restauration granulaire** : opération permettant à l'utilisateur d'inspecter l'historique complet des sauvegardes horodatées d'un profil et d'en choisir une spécifiquement pour restaurer sa collection.
 - **Transfert élargi de contenu** : opération de copie de données (notes, types de notes, cartes, médias dédupliqués) entre deux profils locaux, préservant l'identité canonique (GUID) des notes et assurant la déduplication sans altérer le profil émetteur.
+
+## Mises à jour & Distribution sécurisée
+
+- **Canal de mise à jour** : régime de diffusion déterminant la stabilité et la fréquence des versions distribuées (**Stable** pour les versions éprouvées, **Nightly** pour les builds automatisés récents).
+  _Avoid_ : branche de mise à jour, feed, release channel en vrac
+- **Manifeste d'intégrité** : fichier consolidé (`checksums.txt`) recensant les empreintes cryptographiques déterministes (SHA-256) de l'ensemble des artefacts distribués pour une release donnée.
+  _Avoid_ : hash list, fichier sha, digest file
+- **Signature d'autorité** : preuve cryptographique asymétrique (Ed25519) attestant de l'authenticité et de l'intégrité du manifeste d'intégrité, produite lors du build de release via une clé privée protégée et vérifiée par le client via son trousseau de confiance.
+  _Avoid_ : hash signé, certificat SSL, signature binaire
+- **Trousseau de confiance** : ensemble des clés publiques Ed25519 réputées fiables et immuables, embarquées dans le code compilé de l'application, autorisées à valider la signature d'autorité.
+  _Avoid_ : trousseau de clés OS, keychain, liste de certs
+- **Fenêtre de cache (TTL de vérification)** : durée minimale s'écoulant entre deux interrogations distantes de l'API de distribution, configurable par l'utilisateur pour ménager les quotas et la bande passante.
+  _Avoid_ : intervalle réseau, timeout, délai
+- **Notarisation système** : certification externe délivrée par le système hôte (Apple Notary Service) garantissant l'absence de logiciels malveillants identifiés avant l'exécution du binaire.
+  _Avoid_ : signature Ed25519, code signing interne
