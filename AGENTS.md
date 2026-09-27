@@ -17,7 +17,7 @@ uv run ankiforge --smoke-test   # binary integrity check
 uv run ankiforge --clone-prod-to-dev
 
 # Tests
-uv run pytest                   # all 1245+ tests (headless Qt via pytest-qt)
+uv run pytest                   # all 1700+ tests (headless Qt via pytest-qt)
 uv run pytest -m "not slow"     # fast tests suite (pre-push hook, < 15s)
 uv run pytest -m unit           # pure unit & algorithmic tests only (< 2s)
 uv run pytest -m integration    # database & service integration tests
@@ -52,7 +52,7 @@ uv run python script/capture_view.py --layout-thumbnails
 - **DAG Orchestration**: 6 step types (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`), branching (`on_success_step`, `on_failure_step`), cycle/budget guards (`max_tokens_budget`, `max_step_executions`), persistent state in SQLite (`PipelineRunModel`), and resumption
 - **MCP Server**: In-process, exposes tools (`query_peewee`, `get_deck_stats`, `propose_css_tune`, etc.)
 - **Local RAG**: FAISS/ChromaDB vector search, semantic chunking, coverage tracking
-- **C Extension**: `c_ext/levenshtein_distance.c` → `.so`/`.dll` for fast diff; transparent Python fallback in `utils/c_bridge.py`
+- **C Extension**: `c_ext/levenshtein_distance.c` → `.so`/`.dll` for fast diff; transparent Python fallback with warning notification in `utils/c_bridge.py`
 - **Async Logging**: `QueueHandler`/`QueueListener` pipeline, `SecretRedactionFilter` masks API keys, crash dumps to `~/.ankiforge/logs/crash.log`
 
 ## Testing Constraints (Critical)

@@ -1,6 +1,6 @@
 # Tests Automatisés & Intégration Continue (CI/CD) 🧪
 
-AnkiForge dispose d'une suite de plus de **1137 tests automatisés** garantissant la non-régression, la stabilité sous charge et la compatibilité multi-systèmes.
+AnkiForge dispose d'une suite de plus de **1700 tests automatisés** (1 702 tests collectés) garantissant la non-régression, la stabilité sous charge et la compatibilité multi-systèmes.
 
 ---
 
@@ -43,7 +43,7 @@ graph TD
 
 ## ⚡ 2. Exécution Rapide en Local (`pytest-xdist`)
 
-Grâce à la parallélisation native multi-cœurs via `pytest-xdist`, l'ensemble des **1137 tests** s'exécute en une dizaine de secondes :
+Grâce à la parallélisation native multi-cœurs via `pytest-xdist`, l'ensemble des **1700+ tests** s'exécute en une quinzaine de secondes :
 
 ```bash
 # Lancer tous les tests en parallèle sur tous les cœurs CPU

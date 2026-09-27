@@ -34,7 +34,7 @@ Lorsque vous démarrez AnkiForge (`uv run ankiforge`) :
 
 1. Rendez-vous dans la vue **Hub Documentaire** (icône dossier dans la barre latérale).
 2. Cliquez sur **Importer un document** :
-   - **PDF** : Sélectionnez un fichier de cours ou un article de recherche. Le moteur `Marker` procède au découpage sémantique et extrait les formules mathématiques en LaTeX natif.
+   - **PDF** : Sélectionnez un fichier de cours ou un article de recherche. Le moteur `Marker` procède au découpage sémantique et extrait les formules mathématiques en LaTeX natif. (Note : la première utilisation télécharge les poids du modèle localement et requiert une connexion Internet active ; `pdfplumber` reste disponible en repli hors-ligne).
    - **Vidéo YouTube** : Collez simplement l'URL de la vidéo. AnkiForge télécharge les sous-titres officiels ou lance une transcription locale via Whisper.
    - **Page Web** : Entrez l'URL d'un article Wikipédia ou d'un blog technique pour en extraire un texte épuré sans publicités.
 3. Le document apparaît dans votre bibliothèque avec son taux de couverture documentaire (*Smart Coverage*).
