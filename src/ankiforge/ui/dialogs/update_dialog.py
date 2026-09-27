@@ -28,6 +28,7 @@ from ankiforge.services.auto_updater import (
     UpdateDownloaderWorker,
     apply_update_and_restart,
     find_asset_for_current_platform,
+    find_manifest_assets,
     is_standalone_app,
 )
 from ankiforge.services.update_checker import UpdateInfo
@@ -206,13 +207,23 @@ class UpdateDialog(QDialog):
             self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_RED};")
             return
 
+        # Recherche des assets du manifeste et de la signature
+        chk_asset, sig_asset = find_manifest_assets(self.update_info.assets)
+        chk_url = str(chk_asset["browser_download_url"]) if chk_asset and "browser_download_url" in chk_asset else None
+        sig_url = str(sig_asset["browser_download_url"]) if sig_asset and "browser_download_url" in sig_asset else None
+
         # Transition visuelle vers l'état DOWNLOADING
         self.progress_container.setVisible(True)
         self.action_btn.setEnabled(False)
         self.action_btn.setText("Téléchargement...")
         self.cancel_btn.setText("Annuler")
 
-        self._downloader_worker = UpdateDownloaderWorker(download_url, filename)
+        self._downloader_worker = UpdateDownloaderWorker(
+            download_url=download_url,
+            filename=filename,
+            checksums_url=chk_url,
+            signature_url=sig_url,
+        )
         self._downloader_worker.signals.progress.connect(self._on_download_progress)
         self._downloader_worker.signals.download_complete.connect(self._on_download_finished)
         self._downloader_worker.signals.download_error.connect(self._on_download_failed)
@@ -233,7 +244,7 @@ class UpdateDialog(QDialog):
         """Gestionnaire de fin de téléchargement avec vérification d'intégrité."""
         self._downloaded_file = cast(Path, dest_path)
         self.progress_bar.setValue(100)
-        self.progress_status_lbl.setText(f"✅ Téléchargement vérifié (SHA-256 : {sha256_hash[:12]}...)")
+        self.progress_status_lbl.setText(f"🔒 Signature Ed25519 & SHA-256 validés ({sha256_hash[:12]}...)")
         self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_GREEN};")
 
         self.action_btn.setEnabled(True)
@@ -246,7 +257,9 @@ class UpdateDialog(QDialog):
         else:
             self.action_btn.setText("Prêt (Mode Dev)")
             self.action_btn.setEnabled(False)
-            self.progress_status_lbl.setText("✅ Téléchargé avec succès.\nℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source.")
+            self.progress_status_lbl.setText(
+                "✅ Téléchargé avec succès (Signature Ed25519 & SHA-256 validés).\nℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source."
+            )
 
     def _on_download_failed(self, error_msg: str) -> None:
         """Gestionnaire d'erreur de téléchargement."""
