@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.badges import Badge
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
@@ -876,17 +876,17 @@ class SourceDiagnosticCardWidget(QFrame):
         # Footer
         h_foot = QHBoxLayout()
         words_cnt = data.get("word_count", 0)
-        lbl_foot = QLabel(f".{ext.upper()} · {words_cnt:,} mots")
-        lbl_foot.setFont(QFont(DesignTokens.FONT_CODE, 9))
-        lbl_foot.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.lbl_meta = QLabel(f".{ext.upper()} · {words_cnt:,} mots")
+        self.lbl_meta.setFont(QFont(DesignTokens.FONT_CODE, 9))
+        self.lbl_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 
-        btn_inspect = SecondaryButton("Inspecter l'audit")
-        btn_inspect.setIcon(load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_PRIMARY))
-        btn_inspect.setFixedHeight(26)
+        self.btn_inspect = SecondaryButton("Inspecter l'audit")
+        self.btn_inspect.setIcon(load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_inspect)
         doc_id = data.get("doc_id", -1)
-        btn_inspect.clicked.connect(lambda: self.inspect_requested.emit(doc_id))
+        self.btn_inspect.clicked.connect(lambda: self.inspect_requested.emit(doc_id))
 
-        h_foot.addWidget(lbl_foot)
+        h_foot.addWidget(self.lbl_meta)
         h_foot.addStretch()
-        h_foot.addWidget(btn_inspect)
+        h_foot.addWidget(self.btn_inspect)
         layout.addLayout(h_foot)

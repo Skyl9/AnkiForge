@@ -254,6 +254,15 @@ class StyleEngine(QObject):
             padding-top: 3px;
         }}
 
+        /* Density: Compacte — boutons inline (pieds de carte, barres d'outils) */
+        QPushButton[density="compact"] {{
+            font-size: {p.font_size_sm}px;
+            padding: 2px 12px;
+        }}
+        QPushButton[density="compact"]:pressed {{
+            padding-top: 3px;
+        }}
+
         /* --- Champs de Saisie & Formulaires --- */
         QLineEdit, QTextEdit, QPlainTextEdit, QComboBox {{
             background-color: {p.bg_input};

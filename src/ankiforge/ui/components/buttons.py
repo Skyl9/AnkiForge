@@ -14,6 +14,30 @@ def _escape_ampersand(text: str) -> str:
     return re.sub(r"(?<!&)&(?!&)", "&&", text)
 
 
+COMPACT_BUTTON_HEIGHT = 32
+"""Hauteur d'un bouton compact inline (pied de carte, barre d'outils).
+
+Le QSS global impose `padding: 8px 16px` à `QPushButton` : sous cette règle, un bouton
+contraint à 26px écrase verticalement son texte et son icône (besoin réel ≈ 39px). La densité
+`compact` (cf. `StyleEngine.generate_stylesheet`) ramène le padding vertical à 2px et la police
+à `font_size_sm`, ce qui rend 32px confortable : le contenu (texte + icône) tient sans rognage.
+"""
+
+
+def apply_compact_style(button: QPushButton, *, height: int = COMPACT_BUTTON_HEIGHT) -> None:
+    """Bascule un bouton en densité `compact` (padding vertical 2px, police `font_size_sm`)
+    et lui réserve une hauteur qui accueille texte et icône sans rognage.
+
+    Aucun style local n'est écrit : couleurs, anneau de focus et survol restent portés par le
+    QSS global (règle `role` + règle `density`). La propriété dynamique étant fixée après la
+    construction, le widget doit être re-polishé pour que la règle s'applique.
+    """
+    button.setFixedHeight(height)
+    button.setProperty("density", "compact")
+    button.style().unpolish(button)
+    button.style().polish(button)
+
+
 class PrimaryButton(QPushButton):
     """Bouton principal avec glow et affordance tactile. Usage: actions primaires."""
 
