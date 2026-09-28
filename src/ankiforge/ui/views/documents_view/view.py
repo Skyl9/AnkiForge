@@ -2022,24 +2022,23 @@ class DocumentsView(QWidget):
             return
         doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
         if chunk and chunk.heading_path and doc and (doc.file_type or "").lower() in ("md", "markdown", "txt", "text", "web"):
-            self._navigate_editor_to_heading(chunk.heading_path)
+            self._navigate_editor_to_heading(chunk.heading_path, chunk.page_number)
             return
         if chunk and chunk.page_number and doc and doc.content:
             self._scroll_editor_to_page(chunk.page_number)
 
-    def _navigate_editor_to_heading(self, heading_path: str) -> None:
-        """Déplace le curseur de l'éditeur vers le titre correspondant à la section cliquée."""
+    def _navigate_editor_to_heading(self, heading_path: str, page_number: int | None = None) -> None:
+        """Déplace le curseur de l'éditeur vers le titre correspondant à la section cliquée.
+
+        La résolution est confiée à ``MarkdownStructurer.resolve_heading_line_number`` qui
+        écarte le bloc Table des Matières et départage les titres homonymes (annonce du
+        sommaire vs corps réel) par page d'origine puis par volume de mots.
+        """
         if not hasattr(self.text_editor, "editor") or not self.text_editor.editor:
             return
         content = self.text_editor.get_content() or ""
-        outline = MarkdownStructurer.get_outline(content)
-        target_parts = [MarkdownStructurer.slugify(p.strip()) for p in heading_path.split(" > ")]
-        line_number: int | None = None
-        for oi in outline:
-            oi_parts = [MarkdownStructurer.slugify(p.strip()) for p in oi.breadcrumb.split(" > ")]
-            if oi_parts == target_parts or (len(target_parts) == 1 and oi_parts and oi_parts[-1] == target_parts[0]):
-                line_number = oi.line_number
-                break
+        line_page_map = ChunkingService.build_line_to_page_map(content) if page_number else {}
+        line_number = MarkdownStructurer.resolve_heading_line_number(content, heading_path, page_number, line_page_map=line_page_map)
         if line_number is not None:
             self._on_outline_heading_selected(line_number)
 

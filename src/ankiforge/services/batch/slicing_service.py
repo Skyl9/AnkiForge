@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import Any
 
 from ankiforge.services.markdown.structurer import MarkdownStructurer
+from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,9 @@ class SlicingService:
             return []
 
         line_to_page = cls._build_line_to_page_map(content)
+        # Les entrées du sommaire ne deviennent pas des slices ; le texte du sommaire
+        # est de plus retranché du corps de la slice qui le précède.
+        toc = TableOfContentsDetector.detect(content)
         outline = MarkdownStructurer.get_outline(content)
 
         if not outline:
@@ -207,6 +211,9 @@ class SlicingService:
                 slice_end_line = max(slice_start_line, outline[next_k].line_number - 1)
             else:
                 slice_end_line = total_lines
+
+            if toc is not None and slice_start_line < toc.end_line and slice_end_line > toc.end_line:
+                slice_end_line = max(slice_start_line, toc.start_line - 1)
 
             slice_text = "\n".join(lines[slice_start_line - 1 : slice_end_line]).strip()
             clean_path = " > ".join(MarkdownStructurer.clean_heading_title(p) for p in item.breadcrumb.split(" > ") if p.strip())
@@ -403,7 +410,11 @@ class SlicingService:
 
     @classmethod
     def get_outline_tree(cls, content: str) -> list[dict[str, Any]]:
-        """Extrait l'arborescence hiérarchique du document pour l'assistant interactif (Wizard)."""
+        """Extrait l'arborescence hiérarchique du document pour l'assistant interactif (Wizard).
+
+        Les entrées du sommaire sont écartées : le Wizard doit proposer des chapitres
+        de cours, pas les annonces du sommaire qui leur sont homonymes.
+        """
         if not content or not content.strip():
             return []
 

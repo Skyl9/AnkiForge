@@ -5,11 +5,16 @@ import re
 
 from markdown_it import MarkdownIt
 
+from ankiforge.services.markdown import text_utils
 from ankiforge.services.markdown.models import (
     DocumentSection,
     HeadingNode,
     HeadingRepairItem,
     OutlineItem,
+)
+from ankiforge.services.markdown.table_of_contents import (
+    TableOfContentsDetector,
+    TableOfContentsSpan,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,14 +32,6 @@ class MarkdownStructurer:
 
     _parser: MarkdownIt | None = None
 
-    # Balises de page générées par les parseurs (Marker notamment) : <span class="page">N</span>,
-    # <span id="page-X-Y">…</span>, ou équivalents <div>. Retirées INTÉGRALEMENT des titres
-    # (contenu inclus) pour ne pas faire fuiter un numéro de page dans le nom d'un chapitre.
-    _PAGE_ELEMENT_RE = re.compile(
-        r"<\s*(?:span|div)\b[^>]*\bpage\b[^>]*>.*?</\s*(?:span|div)\s*>",
-        re.IGNORECASE | re.DOTALL,
-    )
-
     @classmethod
     def get_parser(cls) -> MarkdownIt:
         """Fournit une instance partagée du parseur CommonMark avec support des tables."""
@@ -45,35 +42,26 @@ class MarkdownStructurer:
     @classmethod
     def clean_heading_title(cls, text: str) -> str:
         """Nettoie un titre de ses balises HTML, ancres, formatages Markdown et KaTeX."""
-        if not text:
-            return ""
-        # 0. Supprime intégralement les éléments de page HTML (span/div page) ET leur contenu
-        cleaned = cls._PAGE_ELEMENT_RE.sub("", text)
-        # 1. Supprime les balises HTML (<span id="...">...</span>, <span ...>, <br>, etc.)
-        cleaned = re.sub(r"<[^>]+>", "", cleaned)
-        # 2. Supprime les liens Markdown [texte](url) -> texte
-        cleaned = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", cleaned)
-        # 3. Supprime les délimiteurs Markdown inline (gras, italique, code: *, _, `)
-        cleaned = re.sub(r"[*_`]", "", cleaned)
-        # 4. Supprime les délimiteurs mathématiques inline ($...$)
-        cleaned = re.sub(r"\$([^$]+)\$", r"\1", cleaned)
-        # 5. Normalise les espaces
-        cleaned = re.sub(r"\s+", " ", cleaned).strip()
-        return cleaned
+        return text_utils.clean_heading_title(text)
 
     @classmethod
     def slugify(cls, text: str) -> str:
         """Génère un slug d'ancre standardisé compatible GitHub Markdown sans balises HTML résiduelles."""
-        cleaned = cls.clean_heading_title(text).lower()
-        # Conserve les lettres, chiffres, tirets et espaces (supporte l'unicode/accents)
-        cleaned = re.sub(r"[^\w\s\-]", "", cleaned)
-        # Remplace les espaces et underscores par des tirets
-        cleaned = re.sub(r"[\s_]+", "-", cleaned)
-        return cleaned.strip("-") or "section"
+        return text_utils.slugify(text)
 
     @classmethod
-    def get_outline(cls, text: str) -> list[OutlineItem]:
-        """Extrait la liste ordonnée des titres avec leur niveau, ligne et fil d'Ariane."""
+    def get_outline(cls, text: str, *, skip_toc: bool = True) -> list[OutlineItem]:
+        """Extrait la liste ordonnée des titres avec leur niveau, ligne et fil d'Ariane.
+
+        Le bloc Table des Matières est ignoré par défaut (skip_toc) : ses entrées
+        répètent les titres du corps de cours et créeraient des doublons dans
+        l'outline, le découpage sémantique et la navigation par titre.
+        """
+        return cls._outline_with_toc(text, cls._detect_toc(text) if skip_toc else None)
+
+    @classmethod
+    def _outline_with_toc(cls, text: str, toc: TableOfContentsSpan | None) -> list[OutlineItem]:
+        """Outline brute, le bloc de sommaire déjà localisé (détection partagée avec l'appelant)."""
         if not text or not text.strip():
             return []
 
@@ -85,6 +73,12 @@ class MarkdownStructurer:
             if token.type == "heading_open":
                 level = int(token.tag[1:]) if len(token.tag) > 1 and token.tag[1:].isdigit() else 1
                 line_number = (token.map[0] + 1) if token.map else 1
+
+                # Une entrée de sommaire n'est pas une section : elle est écartée de
+                # l'outline ET de la pile hiérarchique, afin que le corps réel du
+                # chapitre conserve un fil d'Ariane propre (sans préfixe « Sommaire »).
+                if toc is not None and toc.contains_line(line_number):
+                    continue
 
                 # Le contenu du titre se trouve dans le token inline suivant.
                 # On nettoie les balises HTML/Markdown résiduelles (spans de page Marker,
@@ -118,9 +112,14 @@ class MarkdownStructurer:
         return outline
 
     @classmethod
-    def get_outline_tree(cls, text: str) -> list[HeadingNode]:
-        """Construit l'arbre hiérarchique imbriqué des titres avec calcul de mots et lignes."""
-        outline = cls.get_outline(text)
+    def get_outline_tree(cls, text: str, *, skip_toc: bool = True) -> list[HeadingNode]:
+        """Construit l'arbre hiérarchique imbriqué des titres avec calcul de mots et lignes.
+
+        skip_toc=False restitue les entrées de sommaire : l'éditeur (onglet « Plan »)
+        reste ainsi fidèle au document brut, alors que les consommateurs métier
+        (découpage, portée, couverture) les ignorent.
+        """
+        outline = cls.get_outline(text, skip_toc=skip_toc)
         if not outline:
             return []
 
@@ -168,33 +167,14 @@ class MarkdownStructurer:
         return root_nodes
 
     @staticmethod
+    def _detect_toc(text: str) -> TableOfContentsSpan | None:
+        """Localise le bloc Table des Matières du document."""
+        return TableOfContentsDetector.detect(text)
+
+    @staticmethod
     def _get_code_fence_lines(lines: list[str]) -> set[int]:
         """Identifie les index de lignes (0-indexés) situés à l'intérieur de blocs de code."""
-        fence_lines: set[int] = set()
-        in_fence = False
-        fence_char = ""
-        fence_len = 0
-
-        for idx, line in enumerate(lines):
-            stripped = line.strip()
-            m = re.match(r"^(`{3,}|~{3,})", stripped)
-            if m:
-                char = m.group(1)[0]
-                length = len(m.group(1))
-                if not in_fence:
-                    in_fence = True
-                    fence_char = char
-                    fence_len = length
-                    fence_lines.add(idx)
-                elif char == fence_char and length >= fence_len:
-                    in_fence = False
-                    fence_lines.add(idx)
-                else:
-                    fence_lines.add(idx)
-            elif in_fence:
-                fence_lines.add(idx)
-
-        return fence_lines
+        return text_utils.code_fence_lines(lines)
 
     @classmethod
     def detect_heading_hierarchy_issues(cls, text: str) -> list[HeadingRepairItem]:
@@ -204,6 +184,8 @@ class MarkdownStructurer:
 
         lines = text.split("\n")
         fence_lines = cls._get_code_fence_lines(lines)
+        # Les entrées d'un sommaire ne sont pas une hiérarchie de cours : ne pas les
+        # réparer évite de « corriger » une liste à plat en cascade de niveaux.
         outline = cls.get_outline(text)
         if not outline:
             return []
@@ -274,7 +256,11 @@ class MarkdownStructurer:
 
     @classmethod
     def generate_toc(cls, text: str, max_depth: int = 3, ordered: bool = False) -> str:
-        """Génère une Table des Matières (TOC) standardisée, délimitée et propre."""
+        """Génère une Table des Matières (TOC) standardisée, délimitée et propre.
+
+        La TOC est reconstruite depuis les titres du corps de cours : un sommaire
+        préexistant n'est jamais réintégré comme entrée de lui-même.
+        """
         outline = cls.get_outline(text)
         if not outline:
             return ""
@@ -388,6 +374,10 @@ class MarkdownStructurer:
         Si max_tokens est spécifié et qu'une section dépasse ce seuil, elle est scindée
         en sous-blocs sans perdre son heading_path.
 
+        Le bloc Table des Matières ne produit aucune section : ses entrées d'index sont
+        retirées de l'outline, et son contenu est soustrait au corps de la section
+        précédente (qui ne doit jamais hériter des lignes de sommaire).
+
         Args:
             text: Contenu Markdown brut.
             max_tokens: Seuil optionnel de tokens maximum par chunk (1 token ~= 4 caractères).
@@ -398,12 +388,16 @@ class MarkdownStructurer:
         if not text or not text.strip():
             return []
 
-        outline = cls.get_outline(text)
+        toc = cls._detect_toc(text)
+        outline = cls._outline_with_toc(text, toc)
         lines = text.split("\n")
         total_lines = len(lines)
 
         # Si le document ne comporte aucun titre, retourne une section unique ou découpe par paragraphes
         if not outline:
+            if toc is not None:
+                body = "\n".join([*lines[: toc.start_line - 1], *lines[toc.end_line :]])
+                return cls._fallback_sections(body, max_tokens)
             return cls._fallback_sections(text, max_tokens)
 
         sections: list[DocumentSection] = []
@@ -411,6 +405,11 @@ class MarkdownStructurer:
         for i, item in enumerate(outline):
             start_line = item.line_number
             end_line = max(start_line, outline[i + 1].line_number - 1) if i + 1 < len(outline) else total_lines
+
+            # Le sommaire est retranché du corps : ses lignes d'index ne doivent jamais
+            # fusionner avec le contenu du cours de la section qui le précède.
+            if toc is not None and start_line < toc.end_line and end_line > toc.end_line:
+                end_line = max(start_line, toc.start_line - 1)
 
             section_lines = lines[start_line - 1 : end_line]
             section_content = "\n".join(section_lines).strip()
@@ -443,6 +442,89 @@ class MarkdownStructurer:
                 )
 
         return sections
+
+    @classmethod
+    def resolve_heading_line_number(
+        cls,
+        content: str,
+        heading_path: str,
+        page_number: int | None = None,
+        *,
+        line_page_map: dict[int, int | None] | None = None,
+    ) -> int | None:
+        """Résout la ligne d'un titre (1-indexée) en désambiguïsant ses homonymes.
+
+        Le bloc Table des Matières étant écarté de l'outline, les homonymes restants
+        sont départagés dans cet ordre (critères du ticket : « volume de mots
+        substantiel **ou** situé après la zone de sommaire ») :
+
+        1. la page d'origine du fragment, si elle est connue ;
+        2. l'occurrence située après la zone de sommaire ;
+        3. le volume de mots du corps de la section, au-delà du seuil
+           `TableOfContentsDetector.SUBSTANTIVE_WORD_COUNT` ;
+        4. à volume égal, l'ordre du document est préservé (première occurrence).
+
+        Args:
+            content: Contenu Markdown affiché par l'éditeur.
+            heading_path: Fil d'Ariane du fragment d'origine (« Chapitre 1 > Noyau »).
+            page_number: Numéro de page physique du fragment d'origine, si connu.
+            line_page_map: Mapping {numéro de ligne: page} fourni par l'appelant
+                (`ChunkingService.build_line_to_page_map`) : le structurateur reste
+                ainsi indépendant du module de découpage.
+
+        Returns:
+            int | None : la ligne visée, ou None si aucun titre ne correspond.
+        """
+        if not content or not heading_path:
+            return None
+
+        toc = cls._detect_toc(content)
+        outline = cls._outline_with_toc(content, toc)
+        if not outline:
+            return None
+
+        target_parts = [cls.slugify(part.strip()) for part in heading_path.split(" > ") if part.strip()]
+        if not target_parts:
+            return None
+
+        matches = [(i, item) for i, item in enumerate(outline) if cls._outline_item_matches(item, target_parts)]
+        if not matches:
+            return None
+        if len(matches) == 1:
+            return matches[0][1].line_number
+
+        if page_number is not None and page_number > 0 and line_page_map:
+            on_page = [(i, item) for i, item in matches if line_page_map.get(item.line_number) == page_number]
+            if on_page:
+                matches = on_page
+                if len(matches) == 1:
+                    return matches[0][1].line_number
+
+        lines = content.split("\n")
+        total_lines = len(lines)
+
+        best_line: int | None = None
+        best_score: tuple[bool, bool, int] = (False, False, -1)
+        for i, item in matches:
+            end_line = (outline[i + 1].line_number - 1) if i + 1 < len(outline) else total_lines
+            words = len("\n".join(lines[item.line_number : end_line]).split())
+            after_toc = toc is None or item.line_number > toc.end_line
+            score = (after_toc, words > TableOfContentsDetector.SUBSTANTIVE_WORD_COUNT, words)
+            # `>` strict sur le dernier critère : à volume égal, la première occurrence
+            # l'emporte (le corps réel est déjà favorisé par `after_toc`).
+            if score > best_score:
+                best_score = score
+                best_line = item.line_number
+
+        return best_line
+
+    @staticmethod
+    def _outline_item_matches(item: OutlineItem, target_parts: list[str]) -> bool:
+        """Compare un élément d'outline à un fil d'Ariane cible (comparaison par slugs)."""
+        item_parts = [MarkdownStructurer.slugify(part.strip()) for part in item.breadcrumb.split(" > ") if part.strip()]
+        if item_parts == target_parts:
+            return True
+        return len(target_parts) == 1 and bool(item_parts) and item_parts[-1] == target_parts[0]
 
     @classmethod
     def _split_large_section(

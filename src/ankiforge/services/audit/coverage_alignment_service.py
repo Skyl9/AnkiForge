@@ -21,6 +21,7 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.repositories.document_repository import DocumentRepository
+from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
 from ankiforge.services.reindex_service import mark_document_version
 from ankiforge.utils.paths import get_profile_dir
 from ankiforge.utils.tags import clean_source_slug, extract_tag_metadata
@@ -299,21 +300,32 @@ class CoverageAlignmentService:
 
         Le matching est tolérant : le slug peut correspondre au breadcrumb entier
         ("chapitre_1_la_cellule_noyau") ou seulement à un titre feuille situé en fin
-        de fil ("noyau"). Si plusieurs chunks matchent (titre répété), on privilégie
-        le plus profond (granularité la plus fine).
+        de fil ("noyau"). Si plusieurs chunks matchent (titre répété), on privilégie :
+
+        1. les fragments de cours — les entrées d'un sommaire (documents indexés avant
+           le découpage v5) sont ignorées, faute de contenu substantiel ;
+        2. le plus profond (granularité la plus fine) ;
+        3. à granularité égale, le plus riche en mots (le corps réel, pas l'annonce).
         """
         if not section_slug:
             return None
         best: DocumentChunkModel | None = None
         best_depth = 0
-        for c in DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id):
+        best_words = -1
+        for c in DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id).order_by(DocumentChunkModel.chunk_index):
             if not c.heading_path:
+                continue
+            if TableOfContentsDetector.looks_like_index_block(c.content or ""):
                 continue
             slug = clean_source_slug(c.heading_path)
             parts = [p for p in c.heading_path.split(" > ") if p.strip()]
-            if (slug == section_slug or slug.endswith(f"_{section_slug}") or any(clean_source_slug(p) == section_slug for p in parts)) and len(parts) >= best_depth:
+            if not (slug == section_slug or slug.endswith(f"_{section_slug}") or any(clean_source_slug(p) == section_slug for p in parts)):
+                continue
+            words = len((c.content or "").split())
+            if len(parts) > best_depth or (len(parts) == best_depth and words > best_words):
                 best = c
                 best_depth = len(parts)
+                best_words = words
         return best
 
     @classmethod

@@ -14,6 +14,10 @@ from ankiforge.services.markdown.models import (
     OutlineItem,
 )
 from ankiforge.services.markdown.structurer import MarkdownStructurer
+from ankiforge.services.markdown.table_of_contents import (
+    TableOfContentsDetector,
+    TableOfContentsSpan,
+)
 
 __all__ = [
     "AIDocumentStructurer",
@@ -26,4 +30,6 @@ __all__ = [
     "OutlineItem",
     "StructuringOptions",
     "StructuringProfile",
+    "TableOfContentsDetector",
+    "TableOfContentsSpan",
 ]

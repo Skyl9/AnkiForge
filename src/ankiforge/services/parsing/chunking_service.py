@@ -1,9 +1,24 @@
 import hashlib
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
 
 logger = logging.getLogger(__name__)
+
+
+def _toc_detector() -> "type[TableOfContentsDetector]":
+    """Charge le détecteur de sommaire à la demande.
+
+    Ce module est importé par `database.models.rag`, or le package
+    `ankiforge.services.markdown` importe `ai_structurer` → `services.ai` →
+    `database.models` : un import au niveau module bouclerait.
+    """
+    from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
+
+    return TableOfContentsDetector
 
 
 class ChunkingService:
@@ -35,7 +50,9 @@ class ChunkingService:
     # v3 = PDFs Marker détectés par contenu → découpage AST avec conservation des pages
     # v4 = titres nettoyés : les balises HTML/Markdown résiduelles (spans de page Marker,
     #      <b>/<em>, backticks…) sont retirées des heading_path et des arbres de titres
-    CHUNKING_VERSION: int = 4
+    # v5 = bloc Table des Matières isolé : les entrées d'index du sommaire (titres Marker
+    #      homonymes du corps réel) ne produisent plus de fragments ni de sections fantômes
+    CHUNKING_VERSION: int = 5
 
     CONTINUOUS_FILE_TYPES = ("md", "markdown", "txt", "text", "web", "youtube", "yt", "ipynb", "py")
 
@@ -146,8 +163,21 @@ class ChunkingService:
         cleaned = cls._SPAN_PAGE_HEADING_RE.sub("", text)
         return MarkdownStructurer.clean_heading_title(cleaned)
 
+    @staticmethod
+    def _line_start_offset(content: str, line_number: int) -> int:
+        """Renvoie l'offset caractère du début d'une ligne (1-indexée)."""
+        if line_number <= 1:
+            return 0
+        seen = 0
+        for idx, char in enumerate(content):
+            if char == "\n":
+                seen += 1
+                if seen == line_number - 1:
+                    return idx + 1
+        return len(content)
+
     @classmethod
-    def _build_line_to_page_map(cls, content: str) -> dict[int, int | None]:
+    def build_line_to_page_map(cls, content: str) -> dict[int, int | None]:
         """Construit {numero_ligne: page} à partir des marqueurs de page du contenu."""
         line_to_page: dict[int, int | None] = {}
         lines = content.split("\n")
@@ -193,7 +223,7 @@ class ChunkingService:
         if not content or not content.strip():
             return []
 
-        line_to_page = cls._build_line_to_page_map(content)
+        line_to_page = cls.build_line_to_page_map(content)
         sections = MarkdownStructurer.extract_sections(content, max_tokens=max_tokens)
         sec_pages = cls._assign_pages_to_sections(sections, line_to_page)
         chunks: list[dict[str, Any]] = []
@@ -385,6 +415,9 @@ class ChunkingService:
         Pour les documents convertis en Markdown (PDF avec marqueurs <!-- PAGE: X --> ou documents purs),
         permet une navigation et une sélection sémantique de chapitres complète.
 
+        Le bloc Table des Matières est isolé : ses entrées d'index ne deviennent pas des
+        nœuds de sélection et ne sont jamais comptées dans le corps du titre précédent.
+
         Returns:
             list[HeadingTreeNode]: Liste des nœuds racines (H1) contenant leurs enfants récursifs (H2, H3).
         """
@@ -415,10 +448,22 @@ class ChunkingService:
         if not heading_matches:
             return []
 
+        toc = _toc_detector().detect(content)
+        toc_start_offset = cls._line_start_offset(content, toc.start_line) if toc is not None else None
+
         flat_nodes: list[HeadingTreeNode] = []
         current_heading_stack: list[str] = []
+        heading_line = content.count("\n", 0, heading_matches[0].start()) + 1
 
         for idx, h_match in enumerate(heading_matches):
+            if idx > 0:
+                heading_line += content.count("\n", heading_matches[idx - 1].end(), h_match.start())
+
+            # Une entrée de sommaire n'est pas une section : elle est écartée de l'arbre
+            # ET de la pile hiérarchique (le corps réel garde un fil d'Ariane propre).
+            if toc is not None and toc.contains_line(heading_line):
+                continue
+
             level = len(h_match.group(1))
             title = cls._clean_heading_text(h_match.group(2))
             start_offset = h_match.start()
@@ -432,6 +477,11 @@ class ChunkingService:
                 # Si le marqueur de page est à la fin du bloc (juste avant le titre suivant)
                 if not raw_body[last_m.end() :].strip():
                     content_end_offset = h_match.end() + last_m.start()
+
+            # Le sommaire est retranché du corps : ses lignes d'index ne doivent jamais
+            # gonfler le volume de la section qui le précède.
+            if toc_start_offset is not None and start_offset < toc_start_offset:
+                content_end_offset = min(content_end_offset, toc_start_offset)
 
             clean_body = content[h_match.end() : content_end_offset].rstrip()
             word_count = len(clean_body.split()) if clean_body else 0
@@ -509,7 +559,14 @@ class ChunkingService:
 
     @classmethod
     def build_tree_from_chunks(cls, chunks: list[dict[str, Any]]) -> list["HeadingTreeNode"]:
-        """Construit un arbre HeadingTreeNode à partir d'une liste de dictionnaires de chunks."""
+        """Construit un arbre HeadingTreeNode à partir d'une liste de dictionnaires de chunks.
+
+        Les fragments qui ne sont qu'un bloc d'index (sommaire / table des matières, cas
+        des documents indexés avant le découpage v5) sont écartés : ils doublonnent les
+        sections réelles du cours dans l'arbre de portée.
+        """
+        detector = _toc_detector()
+        chunks = [c for c in chunks if not detector.looks_like_index_block(str(c.get("content") or ""))]
         if not chunks:
             return []
 

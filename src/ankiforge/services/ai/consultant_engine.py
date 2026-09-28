@@ -2053,6 +2053,8 @@ class ConsultantToolRegistry:
             if not target_text.strip():
                 return "Erreur : Le document est vide."
 
+            # Le sommaire est exclu : le plan proposé au consultant ReAct décrit le
+            # contenu réel du document, pas ses entrées d'index.
             outline = MarkdownStructurer.get_outline(target_text)
             if not outline:
                 return f"Le document '{doc_title}' ne contient aucun titre Markdown structuré."

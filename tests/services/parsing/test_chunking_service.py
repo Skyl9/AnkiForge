@@ -370,3 +370,86 @@ def test_build_tree_from_chunks_cleans_persisted_heading_path():
     assert tree[0].children[0].title == "Sous-partie B"
     assert "<span" not in tree[0].heading_path
     assert "**" not in tree[0].children[0].heading_path
+
+
+# Document Marker dont le sommaire balise ses entrées comme des titres homonymes
+# du corps réel du cours (collision P1).
+
+
+def test_chunking_marker_pdf_drops_table_of_contents_entries(marker_toc_paginated: str):
+    """Le sommaire ne produit aucun fragment : pas de section fantôme doublonnant le cours."""
+    chunks = ChunkingService.extract_chunks(marker_toc_paginated, file_type="pdf")
+
+    paths = [c["heading_path"] for c in chunks]
+    assert paths == ["Polycopié de Statistiques", "1 - Introduction aux données", "2 - Statistiques descriptives"]
+    assert all("Sommaire" not in p for p in paths)
+    # Les entrées d'index ne sont ni fusionnées au cours, ni orphelines.
+    assert "Sommaire" not in chunks[0]["content"]
+    assert "3 - Probabilités" not in chunks[0]["content"]
+    # La page physique du corps réel est conservée.
+    assert chunks[1]["page_number"] == 5
+    assert chunks[2]["page_number"] == 5
+
+
+def test_build_tree_from_chunks_omits_table_of_contents_nodes(marker_toc_paginated: str):
+    tree = ChunkingService.build_tree_from_chunks(ChunkingService.extract_chunks(marker_toc_paginated, file_type="pdf"))
+
+    titles = [node.title for node in tree]
+    assert titles == ["Polycopié de Statistiques", "1 - Introduction aux données", "2 - Statistiques descriptives"]
+    assert [node.chunk_index for node in tree] == [0, 1, 2]
+
+
+def test_build_tree_from_chunks_drops_stale_index_fragments():
+    """Filet de sécurité : les fragments de sommaire indexés en v4 disparaissent de l'arbre."""
+    chunks = [
+        {
+            "index": 0,
+            "content": "# Sommaire\n\n## 1 - Introduction .... 2\n\n## 2 - Statistiques .... 3\n\n## 3 - Probabilités .... 4",
+            "page_number": 2,
+            "heading_path": "1 - Introduction",
+        },
+        {
+            "index": 1,
+            "content": "# 1 - Introduction\n\n" + ("Un contenu de cours suffisamment riche. " * 10),
+            "page_number": 15,
+            "heading_path": "1 - Introduction",
+        },
+    ]
+
+    tree = ChunkingService.build_tree_from_chunks(chunks)
+
+    assert len(tree) == 1
+    assert tree[0].start_page == 15
+    assert tree[0].chunk_index == 1
+    assert tree[0].word_count > 50
+
+
+def test_build_tree_from_chunks_keeps_heading_only_course_section():
+    """Une section de cours faite de sous-titres sans prose n'est pas un sommaire."""
+    chunks = [
+        {
+            "index": 0,
+            "content": "## Introduction\n\n## Déroulement\n\n## Bilan",
+            "page_number": 3,
+            "heading_path": "Chapitre 1 > Méthodologie",
+        }
+    ]
+
+    tree = ChunkingService.build_tree_from_chunks(chunks)
+
+    assert [node.title for node in tree] == ["Chapitre 1"]
+    assert [child.title for child in tree[0].children] == ["Méthodologie"]
+    assert tree[0].children[0].chunk_index == 0
+    assert tree[0].children[0].start_page == 3
+
+
+def test_heading_tree_with_pages_omits_table_of_contents_nodes(marker_toc_paginated: str):
+    """L'arbre de sélection de portée ne propose pas de sections issues du sommaire."""
+    tree = ChunkingService.extract_heading_tree_with_pages(marker_toc_paginated, total_pages=5, file_type="pdf")
+
+    titles = [node.title for node in tree]
+    assert titles == ["Polycopié de Statistiques", "1 - Introduction aux données", "2 - Statistiques descriptives"]
+    # Le corps de la page de couverture n'absorbe ni le sommaire ni ses entrées d'index.
+    assert tree[0].word_count < 20
+    assert tree[1].start_page == 4
+    assert tree[1].heading_path == "1 - Introduction aux données"

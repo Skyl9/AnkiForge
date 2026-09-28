@@ -5,9 +5,13 @@ from typing import Any
 import pytest
 
 from ankiforge.services.markdown.structurer import MarkdownStructurer
+from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
 from ankiforge.services.parsing.chunking_service import ChunkingService
 
 pytestmark = pytest.mark.unit
+
+# Document Marker typique : un sommaire dont les entrées sont balisées comme des
+# titres, suivi du corps réel des chapitres sous les MÊMES titres.
 
 
 def test_slugify() -> None:
@@ -265,3 +269,153 @@ def test_insert_or_update_toc_with_ocr_header() -> None:
     h1_idx = with_toc.find("# 1 - Variables aléatoires")
     toc_idx = with_toc.find("<!-- toc -->")
     assert toc_idx > h1_idx
+
+
+class TestTableOfContentsDisambiguation:
+    """P1 — Collision entre titres du sommaire et titres réels du corps de cours."""
+
+    def test_get_outline_drops_toc_entries_and_keeps_clean_breadcrumbs(self, marker_toc_paginated: str) -> None:
+        outline = MarkdownStructurer.get_outline(marker_toc_paginated)
+
+        titles = [o.title for o in outline]
+        assert "Sommaire" not in titles
+        assert titles.count("1 - Introduction aux données") == 1
+        assert titles.count("2 - Statistiques descriptives") == 1
+        # Le corps réel garde un fil d'Ariane propre : aucun préfixe « Sommaire ».
+        assert outline[1].breadcrumb == "1 - Introduction aux données"
+        assert outline[2].breadcrumb == "2 - Statistiques descriptives"
+        # Le titre retenu pointe bien sur le corps de cours (page 5), pas sur le sommaire.
+        assert outline[1].line_number == 16
+
+    def test_get_outline_can_still_expose_toc_entries(self, marker_toc_paginated: str) -> None:
+        outline = MarkdownStructurer.get_outline(marker_toc_paginated, skip_toc=False)
+
+        titles = [o.title for o in outline]
+        assert "Sommaire" in titles
+        assert titles.count("1 - Introduction aux données") == 2
+
+    def test_get_outline_tree_respects_skip_toc(self, marker_toc_paginated: str) -> None:
+        without = MarkdownStructurer.get_outline_tree(marker_toc_paginated)
+        with_toc = MarkdownStructurer.get_outline_tree(marker_toc_paginated, skip_toc=False)
+
+        assert all(node.title != "Sommaire" for node in without)
+        assert any(node.title == "Sommaire" for node in with_toc)
+
+    def test_extract_sections_excludes_toc_block(self, marker_toc_paginated: str) -> None:
+        sections = MarkdownStructurer.extract_sections(marker_toc_paginated)
+
+        paths = [s.heading_path for s in sections]
+        assert paths == ["Polycopié de Statistiques", "1 - Introduction aux données", "2 - Statistiques descriptives"]
+        assert "Page de couverture du polycopié." in sections[0].content
+        # Les lignes d'index du sommaire ne fusionnent jamais avec le cours.
+        assert "Sommaire" not in sections[0].content
+        assert "## 3 - Probabilités" not in sections[0].content
+        assert "fonction de répartition" in sections[1].content
+
+    def test_extract_sections_still_splits_consecutive_headings(self) -> None:
+        md = "# Anatomie\n## Cellule\n### Noyau\n#### Membrane\nTexte de la membrane.\n"
+        sections = MarkdownStructurer.extract_sections(md)
+        assert len(sections) == 4
+
+    def test_resolve_heading_line_number_skips_toc_and_returns_body(self, marker_toc_paginated: str) -> None:
+        line = MarkdownStructurer.resolve_heading_line_number(marker_toc_paginated, "1 - Introduction aux données")
+        assert line == 16
+
+    def test_resolve_heading_line_number_prefers_substantive_body(self) -> None:
+        md = "\n".join(
+            [
+                "# Titre du chapitre",
+                "",
+                "Résumé de la section en une phrase.",
+                "",
+                "# Titre du chapitre",
+                "",
+                "Corps de cours très developed. " * 20,
+            ]
+        )
+
+        line = MarkdownStructurer.resolve_heading_line_number(md, "Titre du chapitre")
+
+        assert line == 5
+
+    def test_resolve_heading_line_number_uses_page_hint(self) -> None:
+        md = "\n".join(
+            [
+                "{1}------------------------------------------------",
+                "# Repechage",
+                "",
+                "Version de l'index page une, tres courte.",
+                "",
+                "{9}------------------------------------------------",
+                "# Repechage",
+                "",
+                "Corps de cours de la page neuf, consequent et bien plus long. " * 5,
+            ]
+        )
+        line_to_page = ChunkingService.build_line_to_page_map(md)
+
+        line = MarkdownStructurer.resolve_heading_line_number(md, "Repechage", page_number=9, line_page_map=line_to_page)
+        assert line == 7
+
+        # Sans la page d'origine, le corps réel l'emporte de lui-même par son volume.
+        fallback = MarkdownStructurer.resolve_heading_line_number(md, "Repechage", line_page_map=line_to_page)
+        assert fallback == 7
+
+    def test_resolve_heading_line_number_page_hint_beats_richer_other_page(self) -> None:
+        """La page d'origine prime sur le volume : c'est elle qui identifie le bon chapitre."""
+        md = "\n".join(
+            [
+                "{3}------------------------------------------------",
+                "# Repechage",
+                "",
+                "Annonce page trois. " * 30,
+                "",
+                "{9}------------------------------------------------",
+                "# Repechage",
+                "",
+                "Corps de la page neuf. " * 2,
+            ]
+        )
+        line_to_page = ChunkingService.build_line_to_page_map(md)
+
+        # Page 3 : le plus riche, mais c'est bien la page demandée.
+        assert MarkdownStructurer.resolve_heading_line_number(md, "Repechage", page_number=3, line_page_map=line_to_page) == 2
+        # Page 9 : le plus maigre, mais seul fragment de la page d'origine.
+        assert MarkdownStructurer.resolve_heading_line_number(md, "Repechage", page_number=9, line_page_map=line_to_page) == 7
+        # Sans contrainte de page : le plus riche.
+        assert MarkdownStructurer.resolve_heading_line_number(md, "Repechage", line_page_map=line_to_page) == 2
+
+    def test_resolve_heading_line_number_prefers_occurrence_after_the_toc(self) -> None:
+        """Le titre de garde en page de couverture ne doit pas l'emporter sur le corps réel."""
+        md = "\n".join(
+            [
+                "# 1 - Introduction",
+                "",
+                "Titre courant de la page de couverture.",
+                "",
+                "# Sommaire",
+                "",
+                "## 1 - Introduction ...... 5",
+                "## 2 - Statistiques ....... 9",
+                "",
+                "# 1 - Introduction",
+                "",
+                "Corps réel de l'introduction aux données. " * 4,
+            ]
+        )
+
+        assert MarkdownStructurer.resolve_heading_line_number(md, "1 - Introduction") == 10
+
+    def test_resolve_heading_line_number_leaf_fallback_and_misses(self) -> None:
+        md = "# Chapitre 1\n\nTexte.\n\n## Noyau\n\nCorps du noyau.\n"
+
+        assert MarkdownStructurer.resolve_heading_line_number(md, "Noyau") == 5
+        assert MarkdownStructurer.resolve_heading_line_number(md, "Inexistant") is None
+        assert MarkdownStructurer.resolve_heading_line_number("", "Noyau") is None
+        assert MarkdownStructurer.resolve_heading_line_number(md, "") is None
+
+    def test_toc_free_document_is_untouched(self) -> None:
+        md = "# Sommaire\n\nPage 1.\n\n# Chapitre 1 : La Cellule\n\nStructure cellulaire."
+        outline = MarkdownStructurer.get_outline(md)
+        assert [o.title for o in outline] == ["Sommaire", "Chapitre 1 : La Cellule"]
+        assert TableOfContentsDetector.detect(md) is None

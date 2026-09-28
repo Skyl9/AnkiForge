@@ -435,3 +435,95 @@ def test_resolve_media_path_bidirectional(tmp_path):
     p2 = resolve_media_path(orig_name)
     assert p2.exists()
     assert p2.name == hashed_name
+
+
+def test_find_chunk_by_section_suffix_ignores_toc_fragments():
+    """Les entrées d'un sommaire (documents indexés en v4) ne captent jamais la liaison."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Sommaire {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=2,
+        heading_path="Sommaire > 1 - Introduction",
+        content="# Sommaire\n\n## 1 - Introduction .... 2\n\n## 2 - Statistiques .... 3\n\n## 3 - Probabilités .... 4",
+        content_hash=f"toc_{uid}",
+    )
+    course = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=15,
+        heading_path="1 - Introduction",
+        content="Une variable aléatoire est une fonction qui associe chaque issue à une valeur numérique. " * 6,
+        content_hash=f"body_{uid}",
+    )
+
+    resolved = CoverageAlignmentService._find_chunk_by_section_suffix(doc.id, clean_source_slug("1 - Introduction"))
+
+    assert resolved is not None
+    assert resolved.id == course.id
+
+
+def test_find_chunk_by_section_suffix_prefers_richest_fragment():
+    """À granularité égale, la liaison va au fragment de cours, pas à l'annonce du sommaire."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Collision {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=2,
+        heading_path="1 - Introduction",
+        content="1 - Introduction",
+        content_hash=f"thin_{uid}",
+    )
+    rich = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=15,
+        heading_path="1 - Introduction",
+        content="Le cours détaillé sur les variables aléatoires et leur fonction de répartition. " * 5,
+        content_hash=f"rich_{uid}",
+    )
+
+    resolved = CoverageAlignmentService._find_chunk_by_section_suffix(doc.id, clean_source_slug("1 - Introduction"))
+
+    assert resolved is not None
+    assert resolved.id == rich.id
+
+
+def test_align_document_links_cards_to_course_chunk_not_to_toc():
+    """Bout-en-bout : une carte taguée par section pointe vers le fragment de cours."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours E2E {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=2,
+        heading_path="1 - Introduction",
+        content="# Sommaire\n\n## 1 - Introduction .... 2\n\n## 2 - Statistiques .... 3",
+        content_hash=f"e2etoc_{uid}",
+    )
+    course = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=15,
+        heading_path="1 - Introduction",
+        content="Le corps de cours de l'introduction aux données, détaillé et substantiel. " * 5,
+        content_hash=f"e2ebody_{uid}",
+    )
+    deck = DeckModel.create(name=f"Deck E2E {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(
+        name=f"Model {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style="",
+    )
+    note = _make_note_with_tags(nt, build_document_tags(doc_id=doc.id, section_name="1 - Introduction"))
+    CardModel.create(note=note, deck=deck, template_index=0)
+
+    stats = CoverageAlignmentService.align_document(doc.id)
+
+    assert stats["matched_notes"] == 1
+    links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note))
+    assert len(links) == 1
+    assert links[0].chunk_id == course.id

@@ -379,7 +379,9 @@ class DocumentOutlineWidget(QWidget):
             self.lbl_stats.setText("📑 0 section • 0 mot")
             return
 
-        tree_nodes = MarkdownStructurer.get_outline_tree(content)
+        # skip_toc=False : l'onglet « Plan » reste une navigation fidèle au document
+        # brut, sommaire compris (le découpage et la couverture, eux, l'ignorent).
+        tree_nodes = MarkdownStructurer.get_outline_tree(content, skip_toc=False)
         if not tree_nodes:
             self.lbl_empty.show()
             self.tree.hide()

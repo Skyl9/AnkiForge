@@ -862,3 +862,36 @@ def test_documents_view_rename_folder_cascades(qtbot, monkeypatch):
     # Vérifier que le document est toujours attaché au même enfant
     doc_reloaded = DocumentModel.get_by_id(doc.id)
     assert doc_reloaded.folder_id == child_folder.id
+
+
+def test_navigate_editor_to_heading_skips_table_of_contents(qtbot, marker_toc_paginated: str):
+    """Le clic sur une section du Sommaire saute au corps de cours (page 5), pas à l'index (page 2)."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Sommaire Nav {uid}",
+        content=marker_toc_paginated,
+        file_type="md",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="1 - Introduction aux données",
+        page_number=5,
+        content="Une variable aléatoire est une fonction.",
+        content_hash=f"nav_{uid}",
+    )
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view.text_editor.set_content(marker_toc_paginated)
+    view._refresh_chapters_list()
+
+    assert view.chapters_list.count() == 1
+    view._on_chapter_clicked(view.chapters_list.item(0))
+
+    block = view.text_editor.editor.textCursor().block()
+    # Le H1 du corps réel, et non l'entrée H2 du sommaire.
+    assert block.text() == "# 1 - Introduction aux données"
+    # Le document paginé place ce H1 en 16e ligne, juste après le marqueur {4}.
+    assert block.blockNumber() == 15
