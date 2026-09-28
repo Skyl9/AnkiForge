@@ -1,7 +1,7 @@
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QComboBox,
@@ -29,7 +29,7 @@ from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.dispatch import run_on_owner_thread
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -38,6 +38,16 @@ if TYPE_CHECKING:
     from ankiforge.ui.components.linter_widgets import SourceDiagnosticCardWidget
 
 logger = logging.getLogger(__name__)
+
+# Rôles personnalisés du sommaire de l'inspecteur. Les fragments portent l'essentiel de
+# leur identité dans ces rôles plutôt que dans la seule chaîne affichée, afin que les
+# actions (exclusion/ré-inclusion) restent possibles sans réinterroger la base.
+_SCOPE_HINT = "Clic droit sur une section : exclure / ré-inclure"
+
+_ROLE_CHUNK_ID = int(Qt.ItemDataRole.UserRole)
+_ROLE_HEADING = _ROLE_CHUNK_ID + 1
+_ROLE_CARDS = _ROLE_CHUNK_ID + 2
+_ROLE_TITLE = _ROLE_CHUNK_ID + 3
 
 
 class ClickableChunkWidget(QFrame):
@@ -100,6 +110,8 @@ class DocumentInspectorPanel(QWidget):
             self.doc_id = doc_or_id
             self.doc = DocumentModel.get_or_none(DocumentModel.id == doc_or_id)
 
+        self._applying_local_scope_change = False
+
         if not self.doc:
             return
 
@@ -139,6 +151,10 @@ class DocumentInspectorPanel(QWidget):
         header_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         header_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         header_lbl.setToolTip(title_to_display)
+        # Le titre du document peut être très long : il cède de la place à la pastille de
+        # couverture, dont le libellé change de longueur selon le périmètre retenu.
+        header_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        header_lbl.setMinimumWidth(120)
 
         self.lbl_doc_summary = QLabel("Couverture : 0%")
         self.lbl_doc_summary.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
@@ -209,8 +225,27 @@ class DocumentInspectorPanel(QWidget):
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
         """)
-        self.chapters_list.itemClicked.connect(self._on_chapter_item_clicked)
+        self.chapters_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.chapters_list.customContextMenuRequested.connect(self._show_chapter_context_menu)
+        self.chapters_list.currentItemChanged.connect(self._on_current_chapter_changed)
         left_layout.addWidget(self.chapters_list, 1)
+
+        scope_row = QHBoxLayout()
+        scope_row.setContentsMargins(0, 0, 0, 0)
+        scope_row.setSpacing(6)
+
+        self.btn_exclude_section = SecondaryButton("Exclure cette section", tooltip="Retirer la section sélectionnée du périmètre du document")
+        self.btn_exclude_section.setIcon(load_phosphor_icon("ph.prohibit", color=DesignTokens.TEXT_PRIMARY))
+        # `clicked` émet un `checked` booléen : on court-circuite par un slot sans argument
+        # pour que ce booléen ne soit pas pris pour un identifiant de fragment.
+        self.btn_exclude_section.clicked.connect(lambda _checked=False: self.toggle_section_exclusion())
+        scope_row.addWidget(self.btn_exclude_section)
+
+        lbl_scope_status = QLabel(self._scope_status_text(0, "sections"))
+        lbl_scope_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
+        self.lbl_scope_status = lbl_scope_status
+        scope_row.addWidget(lbl_scope_status, 1)
+        left_layout.addLayout(scope_row)
 
         lbl_text_title = QLabel("Extrait de la Section Sélectionnée")
         lbl_text_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
@@ -271,6 +306,10 @@ class DocumentInspectorPanel(QWidget):
     def _handle_coverage_synced(self, event: CoverageSyncedEvent) -> None:
         if event.doc_id is not None and event.doc_id != self.doc_id:
             return
+        if self._applying_local_scope_change:
+            # L'exclusion vient d'être appliquée ligne à ligne : reconstruire la liste
+            # ici effacerait la sélection de l'utilisateur pour rien.
+            return
         run_on_owner_thread(self, self.load_chunks)
 
     def load_chunks(self) -> None:
@@ -279,43 +318,83 @@ class DocumentInspectorPanel(QWidget):
 
         if not chunks:
             self.lbl_doc_summary.setText("Non indexé (0 section)")
+            self.lbl_scope_status.setText(self._scope_status_text(0, "sections"))
             self.text_preview.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED};'>Ce document n'a pas encore été fragmenté. Cliquez sur 'Ré-indexer FAISS'.</p>")
+            self._sync_exclusion_action()
             return
 
-        covered_count = 0
         for chunk in chunks:
             card_count = NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk).count()
-            is_covered = card_count > 0
-            if is_covered:
-                covered_count += 1
-                badge = "●"
-                status_text = f"{card_count} carte(s)"
-            else:
-                badge = "○"
-                status_text = "Trou (0 carte)"
-
             title_str = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
-            item_text = f"{badge} {title_str}  ·  {status_text}"
 
-            item = QListWidgetItem(item_text)
-            item.setData(Qt.ItemDataRole.UserRole, chunk.id)
-            if is_covered:
-                item.setForeground(QColor(DesignTokens.COLOR_GREEN))
-            else:
-                item.setForeground(QColor(DesignTokens.COLOR_YELLOW))
+            item = QListWidgetItem()
+            item.setData(_ROLE_CHUNK_ID, chunk.id)
+            item.setData(_ROLE_HEADING, chunk.heading_path or "")
+            item.setData(_ROLE_CARDS, card_count)
+            item.setData(_ROLE_TITLE, title_str)
+            self._apply_row_state(item, card_count, DocumentRepository.is_section_excluded(self.doc, chunk.heading_path or ""))
             self.chapters_list.addItem(item)
 
-        doc_repo = DocumentRepository()
-        stats = doc_repo.get_coverage_stats(self.doc.id)
+        self._refresh_coverage_summary()
+
+        if self.chapters_list.count() > 0:
+            self.chapters_list.setCurrentRow(0)
+
+    @staticmethod
+    def _row_cards(item: QListWidgetItem | None) -> int:
+        """Nombre de cartes Anki portées par la ligne du sommaire."""
+        return int(item.data(_ROLE_CARDS) or 0) if item is not None else 0
+
+    def _apply_row_state(self, item: QListWidgetItem, card_count: int, is_excluded: bool) -> None:
+        """Habille une ligne du sommaire selon sa couverture et son appartenance au périmètre."""
+        title_str = str(item.data(_ROLE_TITLE) or "")
+        if is_excluded:
+            item.setText(f"⊘ {title_str}  ·  Exclue de l'analyse")
+            item.setForeground(QColor(DesignTokens.TEXT_MUTED))
+            item.setToolTip(f"{title_str}\nHors périmètre : cette section ne compte plus dans la couverture du document.")
+            return
+        if card_count > 0:
+            item.setText(f"● {title_str}  ·  {card_count} carte(s)")
+            item.setForeground(QColor(DesignTokens.COLOR_GREEN))
+        else:
+            item.setText(f"○ {title_str}  ·  Trou (0 carte)")
+            item.setForeground(QColor(DesignTokens.COLOR_YELLOW))
+        item.setToolTip(f"{title_str}\nClic droit pour exclure cette section de l'analyse.")
+
+    def _refresh_row_states(self) -> None:
+        """Réapplique l'état d'exclusion à chaque ligne sans reconstruire le sommaire."""
+        for row in range(self.chapters_list.count()):
+            item = self.chapters_list.item(row)
+            self._apply_row_state(
+                item,
+                self._row_cards(item),
+                DocumentRepository.is_section_excluded(self.doc, str(item.data(_ROLE_HEADING) or "")),
+            )
+
+    def _covered_row_count(self) -> int:
+        """Nombre de lignes du sommaire portant au moins une carte Anki."""
+        return sum(1 for row in range(self.chapters_list.count()) if self._row_cards(self.chapters_list.item(row)) > 0)
+
+    def _refresh_coverage_summary(self) -> None:
+        """Recalcule la pastille de couverture globale à partir des unités actives du document."""
+        stats = DocumentRepository().get_coverage_stats(self.doc_id)
         unit_type = stats.get("unit_type", "sections")
         unit_label = "pages" if unit_type == "pages" else "sections"
-        covered_units = stats.get("covered_units", covered_count)
-        total_units = stats.get("total_units", len(chunks))
+        covered_units = stats.get("covered_units", self._covered_row_count())
+        total_units = stats.get("total_units", self.chapters_list.count())
         percent = stats.get("coverage_pct", 0.0)
         total_cards = stats.get("total_cards", 0)
         excluded_units = stats.get("excluded_units", 0)
-        excl_str = f" · {excluded_units} exclu(e)s" if excluded_units > 0 else ""
-        self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_units}/{total_units} {unit_label}{excl_str} · {total_cards} cartes)")
+        self.lbl_scope_status.setText(self._scope_status_text(excluded_units, unit_label))
+        if total_units == 0 and excluded_units > 0:
+            # Périmètre entièrement exclu : afficher « 0 % » en rouge sanctionnerait un choix
+            # de l'utilisateur, alors qu'aucune section active ne demande de carte.
+            self.lbl_doc_summary.setText("Périmètre vide (0 section active)")
+            self.lbl_doc_summary.setStyleSheet(
+                f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 10px;"
+            )
+            return
+        self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_units}/{total_units} {unit_label} · {total_cards} cartes)")
         if percent >= 90:
             self.lbl_doc_summary.setStyleSheet(
                 f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 4px 10px;"
@@ -329,15 +408,115 @@ class DocumentInspectorPanel(QWidget):
                 f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; border: 1px solid {DesignTokens.COLOR_RED_BORDER}; border-radius: 9999px; padding: 4px 10px;"
             )
 
-        if self.chapters_list.count() > 0:
-            self.chapters_list.setCurrentRow(0)
-            first_id = self.chapters_list.item(0).data(Qt.ItemDataRole.UserRole)
-            self.inspect_chunk(first_id)
+    @staticmethod
+    def _scope_status_text(excluded_units: int, unit_label: str) -> str:
+        """Phrase d'état du périmètre affichée sous le sommaire (accents et pluriel corrects)."""
+        if excluded_units <= 0:
+            return _SCOPE_HINT
+        noun = unit_label if excluded_units > 1 else unit_label.removesuffix("s")
+        return f"{excluded_units} {noun} hors périmètre · clic droit pour ré-inclure"
 
-    def _on_chapter_item_clicked(self, item: QListWidgetItem) -> None:
-        chunk_id = item.data(Qt.ItemDataRole.UserRole)
+    def _on_current_chapter_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+        """La sélection du sommaire pilote l'aperçu et l'action d'exclusion de section."""
+        self._sync_exclusion_action()
+        if current is None:
+            return
+        chunk_id = current.data(_ROLE_CHUNK_ID)
         if chunk_id:
             self.inspect_chunk(chunk_id)
+
+    def _exclusion_spec(self, item: QListWidgetItem | None) -> tuple[str, str, bool, bool]:
+        """Décide l'état de l'action d'exclusion pour une ligne : (libellé, icône, exclue, appliquable).
+
+        Source unique de vérité partagée par le bouton de la barre d'actions et par le menu
+        contextuel : les deux affichent donc toujours la même proposition pour une section.
+        """
+        heading = str(item.data(_ROLE_HEADING) or "") if item is not None else ""
+        if not DocumentRepository.is_excludable_heading(heading):
+            return "Exclure cette section", "ph.prohibit", False, False
+        if DocumentRepository.is_section_excluded(self.doc, heading):
+            return "Ré-inclure la section", "ph.arrow-counter-clockwise", True, True
+        return "Exclure cette section", "ph.prohibit", False, True
+
+    def _sync_exclusion_action(self) -> None:
+        """Aligne le libellé de l'action d'exclusion sur la section sélectionnée."""
+        item = self.chapters_list.currentItem()
+        title = str(item.data(_ROLE_TITLE) or "") if item is not None else ""
+        label, icon_name, is_excluded, applicable = self._exclusion_spec(item)
+
+        self.btn_exclude_section.setText(label)
+        self.btn_exclude_section.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+        self.btn_exclude_section.setEnabled(applicable)
+        if not applicable:
+            self.btn_exclude_section.setToolTip("Sélectionnez une section titrée : un fragment au libellé de page n'a pas de titre de section à exclure.")
+        elif is_excluded:
+            self.btn_exclude_section.setToolTip(f"Réintégrer « {title} » au périmètre du document et à sa couverture.")
+        else:
+            self.btn_exclude_section.setToolTip(f"Retirer « {title} » du périmètre : la section ne comptera plus comme une lacune de couverture.")
+
+    def toggle_section_exclusion(self) -> None:
+        """Exclut ou réintègre la section sélectionnée du périmètre d'analyse du document.
+
+        L'exclusion est persistée sur ``DocumentModel.excluded_headings`` puis répercutée
+        immédiatement sur le sommaire et sur la couverture globale, sans reconstruire
+        l'inspecteur : la section reste sélectionnée et inspectable.
+        """
+        item = self.chapters_list.currentItem()
+        if item is None:
+            return
+
+        heading = str(item.data(_ROLE_HEADING) or "")
+        if not DocumentRepository.is_excludable_heading(heading):
+            show_toast(self, "Cette section n'a pas de titre exploitable : elle ne peut pas être exclue de l'analyse.")
+            return
+
+        was_excluded = DocumentRepository.is_section_excluded(self.doc, heading)
+        repo = DocumentRepository()
+        if not repo.set_section_excluded(self.doc_id, heading, not was_excluded):
+            logger.warning("Exclusion de la section %r refusée pour le document %s", heading, self.doc_id)
+            return
+
+        self.doc = repo.get_document_by_id(self.doc_id) or self.doc
+        self._refresh_row_states()
+        self._refresh_coverage_summary()
+        self._sync_exclusion_action()
+        show_toast(self, f"Section « {item.data(_ROLE_TITLE) or heading} » {'réintégrée' if was_excluded else 'exclue'} de l'analyse.")
+
+        self._applying_local_scope_change = True
+        try:
+            event_bus.publish(CoverageSyncedEvent(doc_id=self.doc_id))
+        finally:
+            self._applying_local_scope_change = False
+
+    def chapter_context_menu(self, item: QListWidgetItem) -> StyledMenu | None:
+        """Menu contextuel d'une ligne du sommaire : exclure ou ré-inclure sa section.
+
+        L'action est proposée pour toute section titrée et désactivée pour un fragment au
+        libellé de page, qui n'a pas de titre de section à exclure. Un clic droit ne
+        change pas la ligne courante sous Qt : on la sélectionne donc d'abord, ce qui met
+        l'aperçu à jour et fait porter l'action à la section visée.
+        """
+        if item is None:
+            return None
+
+        label, icon_name, _is_excluded, applicable = self._exclusion_spec(item)
+        menu = StyledMenu(self)
+        toggle_action = menu.addAction(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY), label)
+        toggle_action.setEnabled(applicable)
+        toggle_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item))
+        return menu
+
+    def _toggle_chapter_from_menu(self, item: QListWidgetItem) -> None:
+        """Bascule l'exclusion de la section visée par le menu contextuel, en la sélectionnant."""
+        self.chapters_list.setCurrentItem(item)
+        self.toggle_section_exclusion()
+
+    def _show_chapter_context_menu(self, pos: QPoint) -> None:
+        """Ouvre le menu contextuel du sommaire à l'emplacement du clic droit."""
+        menu = self.chapter_context_menu(self.chapters_list.itemAt(pos))
+        if menu is None:
+            return
+        menu.exec(self.chapters_list.viewport().mapToGlobal(pos))
 
     def inspect_chunk(self, chunk_id: int) -> None:
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
