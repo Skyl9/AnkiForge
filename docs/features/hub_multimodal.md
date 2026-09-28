@@ -39,6 +39,8 @@ Pour éviter de surcharger vos modèles de langage ou de générer des cartes su
 - **Sélection par pagination** : Choisissez un intervalle précis de pages (ex. pages 14 à 42).
 - **Sélection par chapitres** : Cochez/décochez les sections dans l'arborescence du document.
 - **Estimation des coûts & tokens** : Visualisez en direct le volume de tokens estimé et le coût associé selon le modèle LLM sélectionné.
+- **Modes exclusifs (Pages / Chapitres / Sections)** : un seul mode gouverne la délimitation à la fois. Cocher un chapitre ou une section active son mode sans passer par la barre d'onglets, et le panneau de pages disparaît hors mode *Pages* : aucun filtrage croisé ne peut plus rogner la portée retenue.
+- **Réouverture fidèle** : les bornes de pages, les pages exclues (`page:N`) et les sections écartées sont restaurées telles quelles ; une exclusion de section mémorisée rouvre le dialogue sur le mode *Sections* plutôt que d'être silencieusement effacée.
 
 ---
 
