@@ -33,6 +33,56 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def close_active_connections(server: uvicorn.Server) -> int:
+    """
+    Rupture immédiate des connexions encore ouvertes afin de libérer les sessions SSE.
+
+    Le `shutdown()` gracieux de Uvicorn ne fait, pour une réponse en cours, que désactiver le
+    keep-alive : un flux SSE ne se termine donc que si le client se déconnecte de lui-même, et
+    Uvicorn reste alors bloqué sur son attente de fermeture. L'avortement du transport provoque
+    en revanche un `http.disconnect` propre : l'application ASGI retourne normalement, sans
+    `CancelledError`, et le cycle de shutdown de Uvicorn peut s'achever.
+
+    Annuler les tâches de session ne conviendrait pas ici : Uvicorn journalise au niveau ERROR
+    toute `CancelledError` remontant de `run_asgi`, ce qui reproduirait le traceback que ce
+    mécanisme sert justement à supprimer. La déconnexion coopérative le remplace donc entièrement.
+
+    Doit être appelé depuis le thread de l'event loop du serveur.
+
+    Returns:
+        int: nombre de connexions avortées.
+    """
+    closed = 0
+    for connection in list(server.server_state.connections):
+        transport = getattr(connection, "transport", None)
+        if transport is None:
+            continue
+        transport.abort()
+        closed += 1
+    if closed:
+        logger.debug("Fermeture forcée de %d connexion(s) SSE résiduelle(s) sur le serveur MCP.", closed)
+    return closed
+
+
+def drain_pending_tasks(loop: asyncio.AbstractEventLoop) -> None:
+    """
+    Annule puis absorbe les tâches résiduelles de l'event loop en fin de service.
+
+    `asyncio.CancelledError` hérite de `BaseException` et non d'`Exception` : elle doit être
+    interceptée explicitement, faute de quoi elle remonterait dans la trace du thread de travail.
+    """
+    try:
+        pending = [t for t in asyncio.all_tasks(loop) if not t.done()]
+        for task in pending:
+            task.cancel()
+        if pending:
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+    except asyncio.CancelledError:
+        logger.debug("Vidange de l'event loop MCP interrompue par une annulation.")
+    except Exception as e:
+        logger.debug("Vidange de l'event loop MCP interrompue : %s", e)
+
+
 def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
     """Vérifie si un port réseau TCP local est déjà occupé ou inaccessible."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -335,14 +385,7 @@ class MCPServerDaemon:
                     except (Exception, asyncio.CancelledError, SystemExit):
                         pass
                     finally:
-                        try:
-                            pending = [t for t in asyncio.all_tasks(loop) if not t.done()]
-                            for task in pending:
-                                task.cancel()
-                            if pending:
-                                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-                        except Exception:
-                            pass
+                        drain_pending_tasks(loop)
                         loop.close()
 
                 thread = threading.Thread(
@@ -412,28 +455,39 @@ class MCPServerDaemon:
 
             unregister_mutation_listener(self._on_mutation_received)
 
-            # 1. Fermeture des sessions clientes actives (annulation des tâches SSE dans l'event loop)
-            if self._loop is not None and self._loop.is_running():
-                try:
-
-                    def _cancel_active_sessions() -> None:
-                        if self._loop is not None and self._loop.is_running():
-                            for task in asyncio.all_tasks(self._loop):
-                                task.cancel()
-
-                    self._loop.call_soon_threadsafe(_cancel_active_sessions)
-                except Exception as e:
-                    logger.debug("Exception lors de l'annulation des sessions SSE : %s", e)
-
-            # 2. Signalisation d'arrêt à Uvicorn
+            # 1. Signalisation d'arrêt à Uvicorn AVANT toute fermeture de connexion : le serveur
+            #    doit pouvoir envoyer l'événement `lifespan.shutdown` puis fermer ses sockets.
+            #    Interrompre cette séquence fait journaliser un traceback CancelledError.
             if self._server is not None:
                 self._server.should_exit = True
 
-            # 3. Attente de la fin du thread de travail
-            if self._thread is not None and self._thread.is_alive():
-                self._thread.join(timeout=timeout)
+            # 2. Rupture des sessions SSE encore ouvertes : elles se terminent par un
+            #    `http.disconnect` propre, donc sans CancelledError journalisé par Uvicorn.
+            #    Indispensable avant l'attente : le `shutdown()` gracieux d'Uvicorn laisse
+            #    indefiniment un flux SSE ouvert, et `stop()` expirerait sur son `join`.
+            server = self._server
+            loop = self._loop
+            thread = self._thread
+            if server is not None and loop is not None and loop.is_running():
+                try:
+                    loop.call_soon_threadsafe(close_active_connections, server)
+                except Exception as e:
+                    logger.debug("Exception lors de la fermeture des sessions SSE : %s", e)
 
-            # 4. Nettoyage du jeton et marquage de l'état "stopped"
+            # 3. Attente de la fin du thread de travail
+            if thread is not None and thread.is_alive():
+                thread.join(timeout=timeout)
+
+            # 4. Filet de sécurité : une connexion a pu être acceptée entre l'étape 2 et la
+            #    fermeture des sockets par Uvicorn. On retente la rupture, ce qui reste silencieux.
+            if thread is not None and thread.is_alive() and server is not None and loop is not None and loop.is_running():
+                try:
+                    loop.call_soon_threadsafe(close_active_connections, server)
+                except Exception as e:
+                    logger.debug("Exception lors de la fermeture des sessions SSE résiduelles : %s", e)
+                thread.join(timeout=min(timeout, 1.0))
+
+            # 5. Nettoyage du jeton et marquage de l'état "stopped"
             cleanup_daemon_state(token_file=self.token_file, state_file=self.state_file, mark_stopped=True)
 
             self._is_running = False

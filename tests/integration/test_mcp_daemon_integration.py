@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import socket
+import threading
+import time
+from contextlib import contextmanager
 
 import httpx
 import pytest
@@ -78,6 +82,80 @@ def test_mcp_server_daemon_lifecycle(tmp_path):
     assert daemon.state_file.exists()
     state = json.loads(daemon.state_file.read_text(encoding="utf-8"))
     assert state["status"] == "stopped"
+
+
+@contextmanager
+def capture_uvicorn_logs():
+    """
+    Collecte les enregistrements du logger `uvicorn` pendant le bloc.
+
+    Le logger `uvicorn` est configuré avec `propagate = False` (LOGGING_CONFIG d'Uvicorn) :
+    ses enregistrements n'atteignent jamais le logger racine, donc ni `caplog` ni `ankiforge.log`
+    ne les voient. Sans ce collecteur, la régression serait invisible.
+
+    À n'englober qu'APRÈS `daemon.start()` : `uvicorn.Config.load()` appelle `fileConfig()`,
+    qui réinstalle la liste de handlers du logger et effacerait un collecteur posé avant.
+    """
+    records: list[logging.LogRecord] = []
+
+    class _Collector(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    uvicorn_logger = logging.getLogger("uvicorn")
+    collector = _Collector(level=logging.DEBUG)
+    previous_level = uvicorn_logger.level
+    uvicorn_logger.setLevel(logging.DEBUG)
+    uvicorn_logger.addHandler(collector)
+    try:
+        yield records
+    finally:
+        uvicorn_logger.removeHandler(collector)
+        uvicorn_logger.setLevel(previous_level)
+
+
+def test_mcp_server_daemon_stop_does_not_log_cancelled_error(tmp_path, caplog):
+    """Vérifie que l'arrêt du daemon n'émet aucun traceback CancelledError (Uvicorn/Starlette)."""
+    dummy_mcp = MCPServer("GracefulStopServer")
+
+    @dummy_mcp.tool()
+    def ping() -> str:
+        return "pong"
+
+    daemon = MCPServerDaemon(
+        mcp_server=dummy_mcp,
+        host="127.0.0.1",
+        base_port=9250,
+        data_dir=tmp_path,
+    )
+    assert daemon.start(timeout=5.0) is True
+
+    port = daemon.port
+    assert port is not None
+    headers = {"Authorization": f"Bearer {daemon.token}"}
+    # Session SSE réellement ouverte : c'est elle qui bloque le shutdown gracieux d'Uvicorn.
+    with capture_uvicorn_logs() as uvicorn_log_capture, httpx.stream("GET", f"http://127.0.0.1:{port}/sse", headers=headers, timeout=5.0) as resp:
+        assert resp.status_code == 200
+        time.sleep(0.3)
+        uvicorn_log_capture.clear()
+        caplog.clear()
+        daemon.stop(timeout=5.0)
+
+    # 1. Aucun traceback CancelledError journalisé par Uvicorn (donc absent du terminal).
+    formatter = logging.Formatter()
+    reported = "\n".join(formatter.format(r) if r.exc_info is None else formatter.formatException(r.exc_info) for r in uvicorn_log_capture)
+    assert "CancelledError" not in reported, f"Arrêt du daemon bruyant :\n{reported}"
+
+    # 2. Aucune exception journalisée par le code AnkiForge lui-même (donc absent d'ankiforge.log).
+    assert "CancelledError" not in caplog.text, f"Arrêt du daemon bruyant :\n{caplog.text}"
+
+    # 3. Le port réseau est libéré et le jeton d'authentification nettoyé.
+    assert daemon.is_running is False
+    assert not daemon.token_file.exists()
+    assert is_port_in_use(port, host="127.0.0.1") is False
+
+    # 4. Le thread de travail est réellement terminé (et non simplement abandonné).
+    assert [t.name for t in threading.enumerate() if t.name.startswith("MCPServerDaemon-")] == []
 
 
 def test_mcp_server_daemon_port_collision_fallback(tmp_path):

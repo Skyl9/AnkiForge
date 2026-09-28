@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import stat
 from typing import Any
@@ -16,6 +17,7 @@ from starlette.testclient import TestClient
 from ankiforge.services.ai.mcp_daemon import (
     BearerAuthMiddleware,
     cleanup_daemon_state,
+    drain_pending_tasks,
     generate_auth_token,
     read_daemon_state,
     save_auth_token,
@@ -60,8 +62,6 @@ def test_bearer_auth_middleware_unauthorized_when_invalid_token(dummy_app):
 @pytest.mark.unit
 def test_bearer_auth_middleware_unauthorized_when_non_utf8_header(dummy_app):
     """Vérifie qu'un en-tête Authorization avec des octets non-UTF8 retourne 401 et non 500."""
-    import asyncio
-
     secured_app = BearerAuthMiddleware(dummy_app, token="secret-token-123")
     sent_messages: list[dict[str, Any]] = []
 
@@ -147,3 +147,34 @@ def test_token_and_state_persistence_and_permissions(tmp_path):
     # Nettoyage complet
     cleanup_daemon_state(token_file=token_file, state_file=state_file, mark_stopped=False)
     assert not state_file.exists()
+
+
+@pytest.mark.unit
+def test_drain_pending_tasks_cancels_residual_tasks_without_raising():
+    """Vérifie que la vidange finale annule puis attend les tâches résiduelles sans rien laisser remonter."""
+    client_cancelled = False
+
+    async def _lingering_session() -> None:
+        nonlocal client_cancelled
+        try:
+            await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            client_cancelled = True
+            raise
+
+    async def _raises_cancelled_error() -> None:
+        # CancelledError est une BaseException : la vidange doit l'absorber elle aussi.
+        await asyncio.sleep(0)
+        raise asyncio.CancelledError
+
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.ensure_future(_lingering_session(), loop=loop)
+        asyncio.ensure_future(_raises_cancelled_error(), loop=loop)
+        loop.run_until_complete(asyncio.sleep(0))
+
+        drain_pending_tasks(loop)
+    finally:
+        loop.close()
+
+    assert client_cancelled is True
