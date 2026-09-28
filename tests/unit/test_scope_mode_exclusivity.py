@@ -137,6 +137,18 @@ def test_refresh_false_skips_recalculation() -> None:
     assert host.activations == []
 
 
+def test_restore_scope_mode_keeps_the_persisted_selection() -> None:
+    """La restauration réactive le mode mémorisé sans neutraliser la sélection persistée."""
+    host = _Host()
+
+    assert host.restore_scope_mode("sections") is True
+    assert host.current_mode() == "sections"
+    assert host.neutralized == []
+    assert host.views == [("sections", "all")]
+    assert host.activations == [("sections", "all")]
+    assert _checked_keys(host) == {("sections", "all")}
+
+
 def test_unknown_mode_attribute_falls_back_to_pages() -> None:
     host = _Host()
     host.selection_mode = "legacy"

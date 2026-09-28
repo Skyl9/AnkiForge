@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
@@ -327,6 +328,53 @@ def test_reopening_restores_chapters_mode_only(qtbot: Any, mock_db: Any) -> None
     assert reopened.pages_card.isHidden()
     assert [card.chapter_index for card in reopened._chapter_cards if card.is_checked()] == [0, 1]
     assert [str(c.get("heading_path") or "") for c in reopened.get_result()["chunks"]] == ALL_CHAPTERS[:2]
+
+
+def test_reopening_delimitation_restores_persisted_section_exclusions(qtbot: Any, mock_db: Any) -> None:
+    """Les exclusions de titres persistées survivent à la réouverture et restent gouvernantes.
+
+    Elles ne sont honorables que par le mode sections : les rouvrir en mode pages les effacerait
+    silencieusement de la délimitation du document.
+    """
+    doc = _make_paginated_doc("RestaurationDelimitation")
+    first = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(first)
+    first.btn_scope_mode_sections.click()
+    _row_for(first, 0).checkbox.setChecked(False)
+    first._on_apply()
+    assert "chapitre 1" in _persisted_exclusions(doc)
+
+    reopened = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(reopened)
+    assert reopened.selection_mode == "sections"
+    assert reopened.btn_scope_mode_sections.isChecked()
+    assert reopened.sections_list.item(0).checkState() == Qt.CheckState.Unchecked
+    assert reopened.sections_list.item(1).checkState() == Qt.CheckState.Checked
+    assert [str(chunk.get("heading_path") or "") for chunk in reopened._selected_chunks_for_mode()] == ALL_CHAPTERS[1:]
+
+    # Réappliquer sans rien toucher ne doit pas effacer la délimitation mémorisée.
+    reopened._on_apply()
+    assert "chapitre 1" in _persisted_exclusions(doc)
+
+
+def test_reopening_delimitation_keeps_pages_mode_without_heading_exclusions(qtbot: Any, mock_db: Any) -> None:
+    """Sans exclusion de titres persistée, la réouverture conserve le mode pages des bornes."""
+    doc = _make_paginated_doc("RestaurationBornes")
+    doc.start_page = 1
+    doc.end_page = 2
+    doc.excluded_headings = '["page:2"]'
+    doc.save()
+
+    reopened = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(reopened)
+    assert reopened.selection_mode == "pages"
+    assert not reopened.pages_card.isHidden()
+    assert reopened._selected_pages == {1}
+
+
+def _persisted_exclusions(doc: DocumentModel) -> set[str]:
+    raw = DocumentModel.get_by_id(doc.id).excluded_headings or "[]"
+    return {str(entry).lower() for entry in json.loads(raw)}
 
 
 def _row_for(dlg: Any, index: int) -> SectionRowWidget:

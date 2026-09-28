@@ -95,15 +95,20 @@ class ScopeModeExclusivityMixin:
     - ``selection_mode`` : mode de portée courant (``"pages"``, ``"chapters"`` ou ``"sections"``) ;
     - ``_page_sub_mode`` : sous-mode pages courant (``"all"`` ou ``"range"``) ;
     - ``_mode_buttons_for()`` : association ``(mode, sous-mode) -> bouton`` de la barre de modes ;
-    - ``_apply_mode_view(mode, sub_mode)`` : applique la visibilité des volets du mode
-      (ne doit pas émettre de changement de portée) ;
+    - ``_apply_mode_view(mode, sub_mode)`` : applique la visibilité des volets du mode et
+      réinitialise son panneau (ne doit pas émettre de changement de portée) ;
     - ``_neutralize_foreign_selection(mode)`` : neutralise les sélections hors mode actif ;
     - ``_on_mode_activated(mode, sub_mode)`` : recalcul KPI / aperçu après activation.
+
+    Pendant une restauration (``restore_scope_mode``), ``_restoring_scope_mode`` vaut ``True`` :
+    la sélection persistée et les curseurs de pages font alors déjà foi, et l'hôte doit se
+    dispenser de réinitialiser son panneau.
     """
 
     selection_mode: str
     _page_sub_mode: str
     _activating_scope_mode: bool
+    _restoring_scope_mode: bool = False
 
     def _mode_buttons_for(self) -> Mapping[tuple[str, str], CheckableButton]:
         raise NotImplementedError
@@ -172,7 +177,8 @@ class ScopeModeExclusivityMixin:
             if mode == "pages":
                 self._page_sub_mode = resolved_sub
             self._sync_mode_buttons(mode, resolved_sub)
-            self._neutralize_foreign_selection(mode)
+            if not self._restoring_scope_mode:
+                self._neutralize_foreign_selection(mode)
             self._apply_mode_view(mode, resolved_sub)
         finally:
             self._activating_scope_mode = False
@@ -184,6 +190,24 @@ class ScopeModeExclusivityMixin:
     def ensure_scope_mode(self, mode: ScopeMode, sub_mode: PageSubMode | None = None) -> bool:
         """Active ``mode`` seulement s'il ne l'est pas déjà (activation automatique)."""
         return self.activate_scope_mode(mode, sub_mode, force=False)
+
+    def restore_scope_mode(self, mode: ScopeMode, sub_mode: PageSubMode | None = None) -> bool:
+        """Réactive un mode à l'ouverture du dialogue en conservant l'état persisté.
+
+        Rouvrir un dialogue n'est pas une bascule d'utilisateur : ni la sélection mémorisée
+        (cases de sections, exclusions de titres) ni les bornes de pages ne doivent être
+        neutralisées, sous peine d'écraser silencieusement la délimitation enregistrée.
+
+        À réserver à l'hôte dont l'état persisté est déjà en place à l'appel. Un hôte qui
+        réapplique sa sélection mémorisée *après* le peuplement de l'interface (comme
+        ``DocumentScopeWidget``) peut s'en tenir à ``activate_scope_mode``.
+        """
+        was_restoring = self._restoring_scope_mode
+        self._restoring_scope_mode = True
+        try:
+            return self.activate_scope_mode(mode, sub_mode, force=True)
+        finally:
+            self._restoring_scope_mode = was_restoring
 
     def _sync_mode_buttons(self, mode: ScopeMode, sub_mode: PageSubMode) -> None:
         """Aligne la barre de modes sur le mode actif (bouton coché = mode gouvernant)."""

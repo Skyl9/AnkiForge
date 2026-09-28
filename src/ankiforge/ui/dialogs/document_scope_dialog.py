@@ -119,6 +119,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         self.selection_mode = "pages" if self.is_paginated else "chapters"
         self._page_sub_mode: PageSubMode = "all"
         self._activating_scope_mode: bool = False
+        self._restoring_scope_mode: bool = False
 
         # 1. Calcul des bornes utiles globales issues de la délimitation
         max_chunk_page = 1

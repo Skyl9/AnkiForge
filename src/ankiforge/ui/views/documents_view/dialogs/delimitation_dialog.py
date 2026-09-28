@@ -1770,6 +1770,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         self.selection_mode = "pages" if self.is_paginated else "chapters"
         self._page_sub_mode: PageSubMode = "all"
         self._activating_scope_mode: bool = False
+        self._restoring_scope_mode: bool = False
 
         start_val = doc.start_page if (doc.start_page and doc.start_page > 0) else 1
         end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
@@ -2609,7 +2610,9 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
 
         self._manual_exclusions.clear()
         self._set_all_checked(True)
-        self.activate_scope_mode("pages", "all", force=True)
+        # Le mode réinitialisé doit rester celui d'un onglet actif : « pages » n'existe pas
+        # sur un document non paginé, où le retour se fait par les chapitres.
+        self.activate_scope_mode("pages" if self.is_paginated else "chapters", "all", force=True)
         self._syncing_selection = True
         try:
             if hasattr(self, "input_custom_pages"):
@@ -2987,6 +2990,14 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         end_p = max(start_p, self.spin_p_end.value())
         self._selected_pages = self._pages_in_span_excluding_holes(start_p, min(end_p, self._max_page))
 
+    def _persisted_heading_exclusions(self) -> set[str]:
+        """Exclusions de *titres* mémorisées sur le document (trous de pages exclus).
+
+        Ces exclusions ne sont honorables que par le mode sections : les ignorer à la
+        réouverture reviendrait à effacer la délimitation enregistrée par l'utilisateur.
+        """
+        return {ex for ex in self._manual_exclusions if ex and not (ex.startswith("page:") or ex.startswith("page "))}
+
     def _apply_mode_view(self, mode: ScopeMode, sub_mode: PageSubMode) -> None:
         """Applique la visibilité exclusive des volets et l'état visuel du mode actif."""
         is_pages = mode == "pages"
@@ -3008,6 +3019,11 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             self.left_layout.setStretchFactor(self.pages_card, 1 if is_range else 0)
         if hasattr(self, "structure_scope_container"):
             self.structure_scope_container.setVisible(mode == "chapters")
+
+        if self._restoring_scope_mode:
+            # À la réouverture, bornes de pages, pages retenues et exclusions de titres portent
+            # déjà l'état du document : les réinitialiser écraserait la délimitation enregistrée.
+            return
 
         if mode == "chapters":
             self._sync_chapter_cards_from_range()
@@ -3384,14 +3400,16 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         self.btn_scope_mode_sections.setEnabled(has_headings)
         self.btn_scope_mode_all.setEnabled(self.is_paginated)
         self.btn_scope_mode_range.setEnabled(self.is_paginated)
-        if has_headings:
-            if self.is_paginated:
-                self.activate_scope_mode("pages", "all", force=True)
-            else:
-                self.activate_scope_mode("sections", force=True)
-                self.structure_scope_container.hide()
+        if not has_headings:
+            # Sans hiérarchie de titres, les exclusions de titres sont matérialisées dans les
+            # fragments retenus : aucun mode ne peut les exprimer, la délimitation repart des pages.
+            self.activate_scope_mode("pages" if self.is_paginated else "chapters", force=True)
+        elif self.is_paginated and not self._persisted_heading_exclusions():
+            self.restore_scope_mode("pages", "all")
         else:
-            self.activate_scope_mode("chapters" if self.combo_c_start.count() else "pages", force=True)
+            # Des exclusions de titres mémorisées ne sont honorables que par le mode sections :
+            # rouvrir en mode pages les effacerait silencieusement de la délimitation.
+            self.restore_scope_mode("sections")
 
         # 2. Peuplement récursif du QTreeWidget
         def _add_node_recursive(node: HeadingTreeNode, parent_item: QTreeWidgetItem | None = None, root_index: int = -1) -> None:
