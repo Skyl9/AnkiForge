@@ -2,6 +2,7 @@ import html
 import json
 import logging
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
@@ -48,6 +49,13 @@ from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmen
 from ankiforge.services.parsing.chunking_service import ChunkingService, HeadingTreeNode
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
+from ankiforge.ui.dialogs.scope_mode_exclusivity import (
+    CheckableButton,
+    PageSubMode,
+    ScopeMode,
+    ScopeModeExclusivityMixin,
+    sync_chapter_cards_from_range,
+)
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.creation_view.utils import format_page_ranges, parse_page_ranges
 from ankiforge.ui.widgets.toast import show_toast
@@ -1685,7 +1693,7 @@ class DocumentPreviewWidget(QWidget):
                 self.image_label.setPixmap(pix.scaledToWidth(700, Qt.TransformationMode.SmoothTransformation))
 
 
-class DocumentDelimitationDialog(QDialog):
+class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
     """
     Dialogue interactif de délimitation de documents :
     Permet de sélectionner des plages de pages utiles, de filtrer les sections
@@ -1760,6 +1768,8 @@ class DocumentDelimitationDialog(QDialog):
         has_page_chunks = any(c.get("page_number") is not None for c in self._all_chunks)
         self.is_paginated = file_type in ("pdf", "album", "pptx") or has_page_chunks or (getattr(doc, "total_pages", None) is not None and doc.total_pages > 1)
         self.selection_mode = "pages" if self.is_paginated else "chapters"
+        self._page_sub_mode: PageSubMode = "all"
+        self._activating_scope_mode: bool = False
 
         start_val = doc.start_page if (doc.start_page and doc.start_page > 0) else 1
         end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
@@ -2598,19 +2608,10 @@ class DocumentDelimitationDialog(QDialog):
             return
 
         self._manual_exclusions.clear()
-        self.selection_mode = "pages"
         self._set_all_checked(True)
-        self.btn_scope_mode_all.setChecked(True)
-        self._set_section_controls_visible(False)
-        self.structure_scope_container.hide()
-        self.slider_scope_container.hide()
-        self._selected_pages = set(range(1, self._max_page + 1))
+        self.activate_scope_mode("pages", "all", force=True)
         self._syncing_selection = True
         try:
-            self.spin_p_start.setValue(1)
-            self.spin_p_end.setValue(self._max_page)
-            self.slider_p_start.setValue(1)
-            self.slider_p_end.setValue(self._max_page)
             if hasattr(self, "input_custom_pages"):
                 self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
             self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
@@ -2649,10 +2650,16 @@ class DocumentDelimitationDialog(QDialog):
 
         selected: list[dict[str, Any]] = []
         if self.selection_mode == "chapters":
-            start = self.combo_c_start.currentIndex()
-            end = self.combo_c_end.currentIndex()
-            if start < 0 or end < 0:
-                return selected
+            if self._chapter_cards:
+                # Source de vérité unique du mode chapitres : les cartes cochées, pas la
+                # plage de combobox (qui n'en est qu'un reflet).
+                checked_chapters = {c.chapter_index for c in self._chapter_cards if c.is_checked()}
+            else:
+                start = self.combo_c_start.currentIndex()
+                end = self.combo_c_end.currentIndex()
+                if start < 0 or end < 0:
+                    return selected
+                checked_chapters = set(range(start, end + 1))
             for i in range(self.sections_list.count()):
                 item = self.sections_list.item(i)
                 if item is None:
@@ -2661,7 +2668,7 @@ class DocumentDelimitationDialog(QDialog):
                 chunk = meta.get("chunk")
                 if not isinstance(chunk, dict):
                     continue
-                if start <= meta.get("root_index", -1) <= end and (item.childCount() == 0 or has_substantive_content(chunk)):
+                if meta.get("root_index", -1) in checked_chapters and (item.childCount() == 0 or has_substantive_content(chunk)):
                     selected.append(chunk)
             return selected
 
@@ -2815,9 +2822,14 @@ class DocumentDelimitationDialog(QDialog):
         self._apply_page_selection(new_pages, trigger_jump=True, update_text=True)
 
     def _apply_page_selection(self, selected_pages: set[int], trigger_jump: bool = True, update_text: bool = True) -> None:
-        """Met à jour l'état de pagination globale, synchronise spinboxes/curseurs, barre de portée, arborescence et aperçu."""
+        """Met à jour l'état de pagination globale, synchronise spinboxes/curseurs, barre de portée, arborescence et aperçu.
+
+        C'est le point de passage unique de toute sélection de pages : il active donc le mode
+        pages (sous-mode plage) si un autre mode gouvernait la portée.
+        """
         if not self.is_paginated:
             return
+        self.ensure_scope_mode("pages", "range")
         self._selected_pages = {p for p in selected_pages if p >= 1}
         if not self._selected_pages:
             self._selected_pages = {1}
@@ -2901,6 +2913,12 @@ class DocumentDelimitationDialog(QDialog):
 
     def _on_chapter_card_toggled(self, chapter_index: int, is_checked: bool) -> None:
         """Met à jour les sections et l'aperçu lorsqu'une carte de chapitre est basculée."""
+        if self.ensure_scope_mode("chapters"):
+            # L'activation resynchronise les cartes sur la plage de chapitres : l'interaction
+            # utilisateur reste la source de vérité de la portée, on la réapplique.
+            for card in self._chapter_cards:
+                if card.chapter_index == chapter_index:
+                    card.set_checked(is_checked)
         self._syncing_selection = True
         try:
             for i in range(self.sections_list.count()):
@@ -2915,191 +2933,220 @@ class DocumentDelimitationDialog(QDialog):
                             it.setCheckState(0, Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
         finally:
             self._syncing_selection = False
+        # Le sélecteur de plage n'est qu'un reflet des cartes : il reste aligné dessus.
+        checked_indices = [c.chapter_index for c in self._chapter_cards if c.is_checked()]
+        if checked_indices and hasattr(self, "combo_c_start") and hasattr(self, "combo_c_end"):
+            self.combo_c_start.blockSignals(True)
+            self.combo_c_end.blockSignals(True)
+            self.combo_c_start.setCurrentIndex(min(checked_indices))
+            self.combo_c_end.setCurrentIndex(max(checked_indices))
+            self.combo_c_start.blockSignals(False)
+            self.combo_c_end.blockSignals(False)
         self._refresh_final_preview()
         self._update_kpi()
 
-    def _on_mode_all_clicked(self) -> None:
-        self.selection_mode = "pages"
-        self._set_section_controls_visible(False)
-        self.all_card.show()
-        self.chapters_card.hide()
+    # --- Exclusivité des modes de portée (cf. ScopeModeExclusivityMixin) -------------------
+
+    def _mode_buttons_for(self) -> Mapping[tuple[str, str], CheckableButton]:
+        return {
+            ("pages", "all"): self.btn_scope_mode_all,
+            ("pages", "range"): self.btn_scope_mode_range,
+            ("chapters", "all"): self.btn_scope_mode_structure,
+            ("sections", "all"): self.btn_scope_mode_sections,
+        }
+
+    def _pages_in_span_excluding_holes(self, start_p: int, end_p: int) -> set[int]:
+        """Pages de la délimitation utile, exclusions ``page:N`` persistées comprises.
+
+        Ces exclusions sont une délimitation de pages au sens strict (et non un filtre
+        croisé) : elles doivent survivre à toute réinitialisation du mode pages.
+        """
+        pages = {p for p in range(start_p, end_p + 1)}
+        for ex in self._manual_exclusions:
+            if ex.startswith("page:"):
+                try:
+                    pages.discard(int(ex.split(":", 1)[1]))
+                except ValueError:
+                    continue
+        return pages or {start_p}
+
+    def _neutralize_foreign_selection(self, mode: ScopeMode) -> None:
+        """Neutralise les sélections des catégories qui ne gouvernent pas le mode actif.
+
+        Seules les exclusions de *titres* sont dérivées d'une catégorie (pages, chapitres ou
+        sections) : les écarter évite que la dernière catégorie utilisée ne filtre le mode
+        nouvellement activé. Les exclusions ``page:N`` sont au contraire la délimitation de
+        pages elle-même : elles sont conservées et réappliquées par
+        ``_pages_in_span_excluding_holes``.
+        """
+        self._manual_exclusions = {ex for ex in self._manual_exclusions if ex.startswith("page:")}
+        if mode != "pages":
+            return
+        # Le mode pages repart de l'état des curseurs, jamais d'une sélection dérivée.
+        start_p = max(1, self.spin_p_start.value())
+        end_p = max(start_p, self.spin_p_end.value())
+        self._selected_pages = self._pages_in_span_excluding_holes(start_p, min(end_p, self._max_page))
+
+    def _apply_mode_view(self, mode: ScopeMode, sub_mode: PageSubMode) -> None:
+        """Applique la visibilité exclusive des volets et l'état visuel du mode actif."""
+        is_pages = mode == "pages"
+        is_range = is_pages and sub_mode == "range"
+
+        self._set_section_controls_visible(mode == "sections")
+        if mode == "chapters":
+            self.all_card.hide()
+            self.chapters_card.show()
+        else:
+            self.chapters_card.hide()
+            self.all_card.setVisible(is_pages and not is_range)
         if self.is_paginated:
-            self.pages_card.show()
-            self.slider_scope_container.hide()
-            self.range_presets_container.hide()
-            self.range_info_card.hide()
-            self.left_layout.setStretchFactor(self.pages_card, 0)
+            # Le panneau de pages n'existe qu'en mode pages : pas de filtre croisé visuel.
+            self.pages_card.setVisible(is_pages)
+            self.slider_scope_container.setVisible(is_range)
+            self.range_presets_container.setVisible(is_range)
+            self.range_info_card.setVisible(is_range)
+            self.left_layout.setStretchFactor(self.pages_card, 1 if is_range else 0)
         if hasattr(self, "structure_scope_container"):
-            self.structure_scope_container.hide()
-        self._manual_exclusions.clear()
-        self._selected_pages = set(range(1, self._max_page + 1))
+            self.structure_scope_container.setVisible(mode == "chapters")
 
-        self.spin_p_start.blockSignals(True)
-        self.spin_p_end.blockSignals(True)
-        self.slider_p_start.blockSignals(True)
-        self.slider_p_end.blockSignals(True)
+        if mode == "chapters":
+            self._sync_chapter_cards_from_range()
+            return
+        if mode == "sections":
+            self._reset_sections_to_full_scope()
+            return
+        if is_range:
+            if hasattr(self, "input_custom_pages"):
+                self.input_custom_pages.blockSignals(True)
+                self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+                self.input_custom_pages.blockSignals(False)
+            if hasattr(self, "range_bar"):
+                self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
+        else:
+            self._reset_page_controls_to_full_span()
+        self._filter_sections_by_pages(self._selected_pages)
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(min(self._selected_pages), max(self._selected_pages), included_pages=self._selected_pages)
 
-        self.spin_p_start.setValue(1)
-        self.spin_p_end.setValue(self._max_page)
-        self.slider_p_start.setValue(1)
-        self.slider_p_end.setValue(self._max_page)
+    def _reset_sections_to_full_scope(self) -> None:
+        """Réinitialise la sélection des sections : le mode sections part de « tout est coché ».
 
-        self.spin_p_start.blockSignals(False)
-        self.spin_p_end.blockSignals(False)
-        self.slider_p_start.blockSignals(False)
-        self.slider_p_end.blockSignals(False)
+        Les cases de l'arbre sont une vue dérivée d'une catégorie (pages, chapitres ou sections).
+        En entrant dans le mode sections, la dérivation précédente est donc abandonnée : sans
+        cela, la restriction de pages ou de chapitres filtrerait silencieusement le résultat.
+        Les exclusions de titres ont déjà été écartées par ``_neutralize_foreign_selection``.
+        """
+        self._set_all_checked(True)
 
+    def _reset_page_controls_to_full_span(self) -> None:
+        """Réétale les curseurs de pages sur toute la délimitation utile."""
+        self._selected_pages = self._pages_in_span_excluding_holes(1, self._max_page)
+        for widget, value in (
+            (self.spin_p_start, 1),
+            (self.spin_p_end, self._max_page),
+            (self.slider_p_start, 1),
+            (self.slider_p_end, self._max_page),
+        ):
+            widget.blockSignals(True)
+            widget.setValue(value)
+            widget.blockSignals(False)
         if hasattr(self, "input_custom_pages"):
             self.input_custom_pages.blockSignals(True)
             self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
             self.input_custom_pages.blockSignals(False)
-
         if hasattr(self, "range_bar"):
             self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
         self._set_all_checked(True)
         for card in self._chapter_cards:
             card.set_checked(True)
-        if hasattr(self, "preview_widget"):
-            self.preview_widget.set_scope_range(1, self._max_page, included_pages=self._selected_pages)
+
+    def _on_mode_activated(self, mode: ScopeMode, sub_mode: PageSubMode) -> None:
+        """Recalcule l'aperçu et les indicateurs après un changement de mode."""
         self._refresh_final_preview()
         self._update_kpi()
+
+    def _on_mode_all_clicked(self) -> None:
+        self.activate_scope_mode("pages", "all", force=True)
 
     def _on_mode_range_clicked(self) -> None:
-        self.selection_mode = "pages"
-        self._set_section_controls_visible(False)
-        self.all_card.hide()
-        self.chapters_card.hide()
-        if self.is_paginated:
-            self.pages_card.show()
-            self.slider_scope_container.show()
-            self.range_presets_container.show()
-            self.range_info_card.show()
-            self.left_layout.setStretchFactor(self.pages_card, 1)
-        if hasattr(self, "structure_scope_container"):
-            self.structure_scope_container.hide()
-        sp = self.spin_p_start.value()
-        ep = self.spin_p_end.value()
-        if not self._selected_pages:
-            self._selected_pages = set(range(sp, ep + 1))
-        if hasattr(self, "input_custom_pages"):
-            self.input_custom_pages.blockSignals(True)
-            self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
-            self.input_custom_pages.blockSignals(False)
-        if hasattr(self, "range_bar"):
-            self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
-        self._filter_sections_by_pages(self._selected_pages)
-        checked_pages = {
-            self._section_meta[i]["page_number"]
-            for i in range(self.sections_list.count())
-            if self.sections_list.item(i).checkState(0) == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
-        }
-        if hasattr(self, "preview_widget"):
-            self.preview_widget.set_scope_range(min(self._selected_pages), max(self._selected_pages), included_pages=checked_pages)
+        self.activate_scope_mode("pages", "range", force=True)
+
+    def _on_mode_structure_clicked(self) -> None:
+        self.activate_scope_mode("chapters", force=True)
+
+    def _on_mode_sections_clicked(self) -> None:
+        self.activate_scope_mode("sections", force=True)
+
+    def _on_chapter_range_changed(self) -> None:
+        """Le sélecteur de plage de chapitres est une interaction chapitre : il active son mode."""
+        if not hasattr(self, "combo_c_start") or not hasattr(self, "combo_c_end"):
+            return
+        if self.ensure_scope_mode("chapters"):
+            return
+        self._sync_chapter_cards_from_range()
         self._refresh_final_preview()
         self._update_kpi()
 
-    def _on_mode_structure_clicked(self) -> None:
-        self.selection_mode = "chapters"
-        self.all_card.hide()
-        self.chapters_card.show()
-        if self.is_paginated:
-            self.pages_card.show()
-            self.slider_scope_container.hide()
-            self.range_presets_container.hide()
-            self.range_info_card.hide()
-            self.left_layout.setStretchFactor(self.pages_card, 0)
-        self._set_section_controls_visible(False)
-        if hasattr(self, "structure_scope_container"):
-            self.structure_scope_container.show()
-        self._on_chapter_range_changed()
-
-    def _on_mode_sections_clicked(self) -> None:
-        self.selection_mode = "sections"
-        self.all_card.hide()
-        self.chapters_card.hide()
-        if self.is_paginated:
-            self.pages_card.show()
-            self.slider_scope_container.hide()
-            self.range_presets_container.hide()
-            self.range_info_card.hide()
-            self.left_layout.setStretchFactor(self.pages_card, 0)
-        if hasattr(self, "structure_scope_container"):
-            self.structure_scope_container.hide()
-        self._set_section_controls_visible(True)
-        self._update_kpi()
-
-    def _on_chapter_range_changed(self) -> None:
+    def _sync_chapter_cards_from_range(self) -> None:
+        """Aligne les cartes chapitre et l'aperçu sur la plage de chapitres courante (sans notification)."""
         if not hasattr(self, "combo_c_start") or not hasattr(self, "combo_c_end"):
             return
-        idx_start = self.combo_c_start.currentIndex()
-        idx_end = self.combo_c_end.currentIndex()
-        if idx_start < 0 or idx_end < 0:
-            return
-        if idx_start > idx_end:
-            self.combo_c_end.blockSignals(True)
-            self.combo_c_end.setCurrentIndex(idx_start)
-            self.combo_c_end.blockSignals(False)
-            idx_end = idx_start
 
-        for card in self._chapter_cards:
-            card.set_checked(idx_start <= card.chapter_index <= idx_end)
-
-        if self.selection_mode == "chapters":
+        def _sync_preview(min_chapter: int, max_chapter: int, _chapters: set[int]) -> None:
+            """Oriente l'aperçu sur les pages des lignes de chapitres de la plage (mode chapitres seulement)."""
+            if self.selection_mode != "chapters" or not self.is_paginated or not hasattr(self, "preview_widget"):
+                return
             checked_pages = [
                 self._section_meta[i]["page_number"]
                 for i in range(self.sections_list.count())
                 if self.sections_list.item(i).childCount() == 0
-                and idx_start <= self._section_meta.get(i, {}).get("root_index", -1) <= idx_end
+                and min_chapter <= self._section_meta.get(i, {}).get("root_index", -1) <= max_chapter
                 and self._section_meta.get(i, {}).get("page_number") is not None
             ]
-            if self.is_paginated and checked_pages:
-                min_p = min(checked_pages)
-                max_p = max(checked_pages)
-                if hasattr(self, "preview_widget"):
-                    self.preview_widget.set_scope_range(min_p, max_p, included_pages=set(checked_pages))
-                    self.preview_widget.jump_to_page(min_p)
-        self._update_kpi()
+            if checked_pages:
+                self.preview_widget.set_scope_range(min(checked_pages), max(checked_pages), included_pages=set(checked_pages))
+                self.preview_widget.jump_to_page(min(checked_pages))
+
+        sync_chapter_cards_from_range(self.combo_c_start, self.combo_c_end, self._chapter_cards, _sync_preview)
 
     def _on_slider_start_changed(self, val: int) -> None:
+        self.ensure_scope_mode("pages", "range")
         end_val = self.spin_p_end.value()
         if val > end_val:
             end_val = val
         self._apply_page_range(val, end_val, trigger_jump=True)
 
     def _on_slider_end_changed(self, val: int) -> None:
+        self.ensure_scope_mode("pages", "range")
         start_val = self.spin_p_start.value()
         if val < start_val:
             start_val = val
         self._apply_page_range(start_val, val, trigger_jump=True)
 
     def _on_start_page_changed(self, val: int) -> None:
-        if self._syncing_selection or self.selection_mode != "pages":
+        if self._syncing_selection:
             return
-        if hasattr(self, "btn_scope_mode_range") and (val > 1 or self.spin_p_end.value() < self._max_page):
-            self.btn_scope_mode_range.setChecked(True)
-            self.slider_scope_container.show()
-            if hasattr(self, "structure_scope_container"):
-                self.structure_scope_container.hide()
+        self.ensure_scope_mode("pages", "range")
         end_val = self.spin_p_end.value()
         if val > end_val:
             end_val = val
         self._apply_page_range(val, end_val, trigger_jump=True)
 
     def _on_end_page_changed(self, val: int) -> None:
-        if self._syncing_selection or self.selection_mode != "pages":
+        if self._syncing_selection:
             return
-        if hasattr(self, "btn_scope_mode_range") and (self.spin_p_start.value() > 1 or val < self._max_page):
-            self.btn_scope_mode_range.setChecked(True)
-            self.slider_scope_container.show()
-            if hasattr(self, "structure_scope_container"):
-                self.structure_scope_container.hide()
+        self.ensure_scope_mode("pages", "range")
         start_val = self.spin_p_start.value()
         if val < start_val:
             start_val = val
         self._apply_page_range(start_val, val, trigger_jump=True)
 
     def _filter_sections_by_pages(self, pages_or_start: set[int] | int, end_p: int | None = None) -> None:
-        """Coche ou décoche automatiquement les fragments selon leur appartenance à la plage de pages sélectionnée sans écraser les exclusions manuelles."""
+        """Coche ou décoche automatiquement les fragments selon la plage de pages-governante.
+
+        En mode pages, seule ``_selected_pages`` fait foi : les exclusions de titres
+        appartiennent au mode sections et ne doivent pas filtrer le mode pages.
+        """
         if not self.is_paginated or self.selection_mode != "pages" or self._syncing_selection:
             return
         if isinstance(pages_or_start, set):
@@ -3116,13 +3163,9 @@ class DocumentDelimitationDialog(QDialog):
                 meta = self._section_meta.get(i, {})
                 p_num = meta.get("page_number")
                 end_p_num = meta.get("end_page") or p_num
-                title = str(meta.get("title") or "").lower().strip()
-                h_path = str(meta.get("heading_path") or "").lower().strip()
                 if p_num is not None:
                     sec_end = end_p_num if end_p_num is not None and end_p_num >= p_num else p_num
-                    in_range = any(p in selected_pages for p in range(p_num, sec_end + 1))
-                    is_excluded = title in self._manual_exclusions or h_path in self._manual_exclusions
-                    should_check = in_range and not is_excluded
+                    should_check = any(p in selected_pages for p in range(p_num, sec_end + 1))
                     item = self.sections_list.item(i)
                     if item:
                         target_state = Qt.CheckState.Checked if should_check else Qt.CheckState.Unchecked
@@ -3138,7 +3181,19 @@ class DocumentDelimitationDialog(QDialog):
             self._syncing_selection = False
 
     def _on_tree_item_state_changed(self, item: QTreeWidgetItem, state: Qt.CheckState) -> None:
-        """Synchronisation dynamique unifiée arborescence -> sliders, mémorisation des exclusions et cascade parent-enfant."""
+        """Synchronisation dynamique unifiée arborescence -> sliders, mémorisation des exclusions et cascade parent-enfant.
+
+        Cocher/décocher une section est une interaction « sections » : elle active le mode
+        correspondant au lieu de laisser une exclusion décorative hors du mode gouvernant.
+        """
+        if self.ensure_scope_mode("sections") and state in (Qt.CheckState.Checked, Qt.CheckState.Unchecked) and item.checkState(0) != state:
+            # L'activation du mode sections réinitialise les cases à « tout coché » : l'interaction
+            # utilisateur reste la source de vérité de la portée, on la réapplique puis on poursuit
+            # le traitement commun (cascade, exclusions, aperçu).
+            item.setCheckState(0, state)
+            widget = self.sections_list.itemWidget(item, 0)
+            if isinstance(widget, SectionRowWidget):
+                widget.set_check_state(state)
         row = self.sections_list.row(item)
         meta = self._section_meta.get(row, {})
         title = str(meta.get("title") or "").lower().strip()
@@ -3331,25 +3386,12 @@ class DocumentDelimitationDialog(QDialog):
         self.btn_scope_mode_range.setEnabled(self.is_paginated)
         if has_headings:
             if self.is_paginated:
-                self.selection_mode = "pages"
-                if self.btn_scope_mode_range.isChecked():
-                    self._set_section_controls_visible(False)
-                else:
-                    self.btn_scope_mode_all.setChecked(True)
-                    self._set_section_controls_visible(False)
+                self.activate_scope_mode("pages", "all", force=True)
             else:
-                self.selection_mode = "sections"
-                self.btn_scope_mode_sections.setChecked(True)
+                self.activate_scope_mode("sections", force=True)
                 self.structure_scope_container.hide()
-                self._set_section_controls_visible(True)
         else:
-            self.selection_mode = "chapters" if self.combo_c_start.count() else "pages"
-            if self.is_paginated:
-                self.btn_scope_mode_all.setChecked(True)
-            elif self.combo_c_start.count():
-                self.btn_scope_mode_structure.setChecked(True)
-                self.structure_scope_container.show()
-            self._set_section_controls_visible(False)
+            self.activate_scope_mode("chapters" if self.combo_c_start.count() else "pages", force=True)
 
         # 2. Peuplement récursif du QTreeWidget
         def _add_node_recursive(node: HeadingTreeNode, parent_item: QTreeWidgetItem | None = None, root_index: int = -1) -> None:
@@ -3642,7 +3684,31 @@ class DocumentDelimitationDialog(QDialog):
                     self._manual_exclusions.discard(title)
         self.sections_list.blockSignals(False)
 
+        self._sync_preview_with_active_scope()
         self._update_kpi()
+
+    def _sync_preview_with_active_scope(self) -> None:
+        """Aligne l'aperçu sur la portée gouvernante du mode actif (pages ou sections)."""
+        if not hasattr(self, "preview_widget"):
+            return
+        if self.selection_mode == "pages":
+            pages = {p for p in self._selected_pages if p <= self._max_page}
+            if pages:
+                self.preview_widget.set_scope_range(min(pages), max(pages), included_pages=pages)
+            return
+        if self.selection_mode != "sections":
+            return
+        active_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i)
+            and self.sections_list.item(i).checkState(0) == Qt.CheckState.Checked
+            and self.sections_list.item(i).childCount() == 0
+            and self._section_meta.get(i, {}).get("page_number") is not None
+        }
+        if active_pages:
+            self._selected_pages = set(active_pages)
+            self.preview_widget.set_scope_range(min(active_pages), max(active_pages), included_pages=active_pages)
 
     def _on_apply(self) -> None:
         effective_exclusions: set[str] = set()
