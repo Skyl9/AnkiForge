@@ -467,6 +467,129 @@ def test_document_inspector_reports_an_empty_scope_instead_of_a_zero_coverage(qt
     assert "0%" not in panel.lbl_doc_summary.text()
 
 
+def _make_nested_document(uid: str) -> tuple[DocumentModel, dict[str, DocumentChunkModel]]:
+    """Cours « chapitre + sous-sections » dont une seule carte est rattachée au chapitre."""
+    doc = DocumentModel.create(
+        title=f"Cours Cellulaire {uid}",
+        content="# Biologie Cellulaire\n\n## 2 Les Structures Cellulaires\n\n### 2.1 La Membrane\n\n### 2.2 Le Noyau",
+        file_type="md",
+    )
+    chapter = "Biologie Cellulaire > 2 Les Structures Cellulaires"
+    chunks = {
+        "chapter": DocumentChunkModel.create(document=doc, chunk_index=0, heading_path=chapter, content="Ce chapitre présente les organites.", content_hash=f"nest0_{uid}"),
+        "membrane": DocumentChunkModel.create(
+            document=doc,
+            chunk_index=1,
+            heading_path=f"{chapter} > 2.1 La Membrane",
+            content="La membrane plasmique délimite la cellule.",
+            content_hash=f"nest1_{uid}",
+        ),
+        "noyau": DocumentChunkModel.create(
+            document=doc,
+            chunk_index=2,
+            heading_path=f"{chapter} > 2.2 Le Noyau",
+            content="Le noyau abrite l'information génétique.",
+            content_hash=f"nest2_{uid}",
+        ),
+    }
+    return doc, chunks
+
+
+def _card_linked_to(uid: str, doc: DocumentModel, chunk: DocumentChunkModel, front: str, back: str) -> NoteModel:
+    """Note taguée sur le fragment donné, une version active et un lien de traçabilité."""
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Affinage {uid}")
+    deck = DeckModel.get_or_none(DeckModel.name == f"Deck Affinage {uid}") or DeckModel.create(name=f"Deck Affinage {uid}")
+    tags = build_document_tags(doc_id=doc.id, doc_title=doc.title, section_name=chunk.heading_path, chunk_id=chunk.id)
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps(tags))
+    note.add_version({"Front": front, "Back": back}, source="manual")
+    CardModel.create(note=note, deck=deck, template_index=0)
+    NoteChunkLinkModel.create(note=note, chunk=chunk)
+    return note
+
+
+def test_document_inspector_refines_links_towards_sub_sections(qtbot, monkeypatch):
+    """« Affiner les liens » rattache les cartes de chapitre aux sous-sections et rafraîchit le sommaire."""
+    toasts: list[str] = []
+    monkeypatch.setattr("ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
+
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_nested_document(uid)
+    card = _card_linked_to(uid, doc, chunks["chapter"], "Quelle est la fonction de la membrane plasmique ?", "Elle délimite la cellule et contrôle les échanges.")
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    panel.chapters_list.setCurrentRow(0)
+    qtbot.wait(10)
+
+    assert "1 carte" in panel.chapters_list.item(0).text()
+    assert "0 carte" in panel.chapters_list.item(1).text()
+
+    panel.btn_refine_links.click()
+    qtbot.wait(10)
+
+    # La carte pointe désormais sur la sous-section, et son tag de provenance suit.
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == card, NoteChunkLinkModel.chunk == chunks["membrane"]).count() == 1
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == card, NoteChunkLinkModel.chunk == chunks["chapter"]).count() == 0
+    assert "section:biologie_cellulaire_2_les_structures_cellulaires_2_1_la_membrane" in NoteModel.get_by_id(card.id).tags
+
+    # Le sommaire et la pastille de couverture sont à jour, sans perdre la sélection.
+    assert "0 carte" in panel.chapters_list.item(0).text()
+    assert "1 carte" in panel.chapters_list.item(1).text()
+    assert "0 carte" in panel.chapters_list.item(2).text()
+    assert "1/3 sections" in panel.lbl_doc_summary.text()
+    assert panel.chapters_list.currentRow() == 0
+    assert "organites" in panel.text_preview.toPlainText().lower()
+
+    # Le panneau des cartes liées est synchronisé : la section sélectionnée a perdu sa carte.
+    assert any("Trou de cours" in lbl.text() for lbl in panel.findChildren(QLabel))
+
+    assert any("1 carte(s) réassignée(s)" in msg and "fausse(s) lacune(s) résolue(s)" in msg for msg in toasts)
+
+
+def test_document_inspector_reports_a_refinement_without_effect(qtbot, monkeypatch):
+    """Sans lien à affiner, l'action reste sans effet et le dit explicitement."""
+    toasts: list[str] = []
+    monkeypatch.setattr("ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
+
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_nested_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+
+    panel.btn_refine_links.click()
+    qtbot.wait(10)
+
+    assert toasts == ["Aucune carte de chapitre à rattacher à une sous-section plus fine."]
+    assert "0/3 sections" in panel.lbl_doc_summary.text()
+
+
+def test_document_inspector_keeps_sole_cards_on_a_teaching_chapter(qtbot, monkeypatch):
+    """La dernière carte d'un chapitre de contenu n'est jamais déplacée vers une sous-section."""
+    toasts: list[str] = []
+    monkeypatch.setattr("ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
+
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_nested_document(uid)
+    body = (
+        "Ce chapitre passe en revue l'ensemble des organites de la cellule eucaryote et précise, pour chacun d'eux, "
+        "le rôle qu'il joue dans la survie et le fonctionnement de l'organisme, ainsi que les échanges de matière "
+        "et d'énergie qu'il autorise avec l'environnement extérieur de la cellule."
+    )
+    DocumentChunkModel.update(chunk_index=0, content=body).where(DocumentChunkModel.id == chunks["chapter"].id).execute()
+    card = _card_linked_to(uid, doc, chunks["chapter"], "Fonction de la membrane ?", "Elle contrôle les échanges.")
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+
+    panel.btn_refine_links.click()
+    qtbot.wait(10)
+
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == card, NoteChunkLinkModel.chunk == chunks["chapter"]).count() == 1
+    assert "0 carte(s) réassignée(s)" in toasts[-1]
+    assert "1 conservée(s) sur son chapitre" in toasts[-1]
+
+
 def test_ai_sources_align_buttons(qtbot):
     """Vérifie les boutons et actions d'alignement intelligent des cartes dans AISourcesDiagnosticTab et DocumentInspectorPanel."""
     uid = uuid.uuid4().hex[:6]
