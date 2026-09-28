@@ -154,46 +154,7 @@ class BatchView(QWidget):
         scroll_area.setMinimumHeight(100)
         build_main_layout.addWidget(scroll_area, stretch=1)
 
-        # Section 1: Composer le lot (fusion document + parties + modes d'insertion)
-        compose_card = QFrame()
-        compose_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
-        compose_layout = QVBoxLayout(compose_card)
-        compose_layout.setContentsMargins(8, 8, 8, 8)
-        compose_layout.setSpacing(6)
-
-        compose_top = QHBoxLayout()
-        compose_top.setContentsMargins(0, 0, 0, 0)
-        compose_top.setSpacing(6)
-        compose_ico = QLabel()
-        compose_ico.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
-        compose_ico.setStyleSheet("border: none; background: transparent;")
-        self.lbl_compose = QLabel("COMPOSER LE LOT")
-        self.lbl_compose.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
-        compose_top.addWidget(compose_ico)
-        compose_top.addWidget(self.lbl_compose)
-        compose_top.addStretch()
-        compose_layout.addLayout(compose_top)
-
-        self.btn_compose_batch = PrimaryButton("Composer le lot…", tooltip="Choisir le document, son mode de découpage (direct / auto), puis ses parties")
-        self.btn_compose_batch.setIcon(load_on_accent_icon("ph.plus"))
-        apply_shadow(self.btn_compose_batch, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
-        self.btn_compose_batch.clicked.connect(self._on_open_batch_composer)
-        compose_layout.addWidget(self.btn_compose_batch)
-
-        compose_hint = QLabel("Flux unique : ouvrir le document → choisir le mode de découpage (Direct ou Auto) → sélectionner les parties → Ajouter à la Queue.")
-        compose_hint.setWordWrap(True)
-        compose_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-        compose_layout.addWidget(compose_hint)
-
-        build_layout.addWidget(compose_card)
-
-        # Section 2: Cibles Anki
+        # Section 1: Cibles Anki
         target_card = QFrame()
         target_card.setStyleSheet(f"""
             QFrame {{
@@ -236,7 +197,7 @@ class BatchView(QWidget):
         target_layout.addWidget(self.btn_select_model)
         build_layout.addWidget(target_card)
 
-        # Section 3: Orchestration IA
+        # Section 2: Orchestration IA
         ai_card = QFrame()
         ai_card.setStyleSheet(f"""
             QFrame {{
@@ -310,7 +271,7 @@ class BatchView(QWidget):
 
         build_layout.addWidget(ai_card)
 
-        # Section 4: Paramètres Avancés
+        # Section 3: Paramètres Avancés
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -389,6 +350,46 @@ class BatchView(QWidget):
         advanced_layout.addLayout(tokens_layout)
 
         build_layout.addWidget(self.advanced_container)
+
+        # Section 4: Composer le lot (fusion document + parties + modes d'insertion)
+        # Placé en dernier : le flux configure d'abord les cibles et l'orchestration, puis compose le lot.
+        compose_card = QFrame()
+        compose_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        compose_layout = QVBoxLayout(compose_card)
+        compose_layout.setContentsMargins(8, 8, 8, 8)
+        compose_layout.setSpacing(6)
+
+        compose_top = QHBoxLayout()
+        compose_top.setContentsMargins(0, 0, 0, 0)
+        compose_top.setSpacing(6)
+        compose_ico = QLabel()
+        compose_ico.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        compose_ico.setStyleSheet("border: none; background: transparent;")
+        self.lbl_compose = QLabel("COMPOSER LE LOT")
+        self.lbl_compose.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        compose_top.addWidget(compose_ico)
+        compose_top.addWidget(self.lbl_compose)
+        compose_top.addStretch()
+        compose_layout.addLayout(compose_top)
+
+        self.btn_compose_batch = PrimaryButton("Composer le lot…", tooltip="Choisir le document, son mode de découpage (direct / auto), puis ses parties")
+        self.btn_compose_batch.setIcon(load_on_accent_icon("ph.plus"))
+        apply_shadow(self.btn_compose_batch, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
+        self.btn_compose_batch.clicked.connect(self._on_open_batch_composer)
+        compose_layout.addWidget(self.btn_compose_batch)
+
+        compose_hint = QLabel("Flux unique : ouvrir le document → choisir le mode de découpage (Direct ou Auto) → sélectionner les parties → Ajouter à la Queue.")
+        compose_hint.setWordWrap(True)
+        compose_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        compose_layout.addWidget(compose_hint)
+
+        build_layout.addWidget(compose_card)
         build_layout.addStretch()
 
         self.build_panel.setMinimumWidth(380)

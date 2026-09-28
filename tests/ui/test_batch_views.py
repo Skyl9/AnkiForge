@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QScrollArea, QVBoxLayout, QWidget
 
 from ankiforge.database.models import (
     CardModel,
@@ -318,6 +319,47 @@ def test_batch_view_compose_button_and_hidden_full_document_option(qtbot: Any) -
     assert hasattr(view, "btn_compose_batch")
     assert "Composer le lot" in view.btn_compose_batch.text()
     assert view.cb_full_document.isHidden() is True
+
+
+def _build_panel_layout(view: BatchTab) -> QVBoxLayout:
+    """Renvoie le layout vertical défilant du panneau « Paramètres du Build »."""
+    build_content = view.build_panel.content_stack.widget(0)
+    assert build_content is not None
+    scroll_area = build_content.findChild(QScrollArea)
+    assert scroll_area is not None
+    content = scroll_area.widget()
+    assert content is not None
+    layout = content.layout()
+    assert isinstance(layout, QVBoxLayout)
+    return layout
+
+
+def _section_of(widget: QWidget) -> QWidget:
+    """Renvoie la carte de section qui héberge un widget du panneau de configuration."""
+    card = widget.parentWidget()
+    assert card is not None
+    return card
+
+
+def test_batch_view_build_panel_configures_before_composing(qtbot: Any) -> None:
+    """Le panneau de configuration suit le flux naturel : cibles, orchestration, paramètres avancés, puis composition du lot en bas."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    layout = _build_panel_layout(view)
+
+    sections = [
+        _section_of(view.btn_select_deck),
+        _section_of(view.engine_combo),
+        _section_of(view.adv_lbl),
+        _section_of(view.btn_compose_batch),
+    ]
+    indexes = [layout.indexOf(section) for section in sections]
+    assert -1 not in indexes
+    assert indexes == sorted(indexes)
+
+    # « Composer le lot » est la dernière section du panneau (seul le spacer la suit)
+    widget_indexes = [index for index in range(layout.count()) if layout.itemAt(index).widget() is not None]
+    assert indexes[-1] == widget_indexes[-1]
 
 
 def test_batch_view_chunk_to_queue_task_yields_independent_task(qtbot: Any) -> None:
