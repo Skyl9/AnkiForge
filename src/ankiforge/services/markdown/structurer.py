@@ -396,8 +396,7 @@ class MarkdownStructurer:
         # Si le document ne comporte aucun titre, retourne une section unique ou découpe par paragraphes
         if not outline:
             if toc is not None:
-                body = "\n".join([*lines[: toc.start_line - 1], *lines[toc.end_line :]])
-                return cls._fallback_sections(body, max_tokens)
+                return cls._fallback_sections(TableOfContentsDetector.strip_span(text, toc), max_tokens)
             return cls._fallback_sections(text, max_tokens)
 
         sections: list[DocumentSection] = []

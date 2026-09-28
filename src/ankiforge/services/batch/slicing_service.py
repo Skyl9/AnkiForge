@@ -171,14 +171,21 @@ class SlicingService:
         outline = MarkdownStructurer.get_outline(content)
 
         if not outline:
-            words = cls.estimate_words(content)
-            tokens = cls.estimate_tokens(content)
+            # Un document sans titre n'a qu'une tranche « Document Complet » : le sommaire
+            # en tête doit néanmoins en être retranché, faute de quoi la tranche
+            # n'alimente l'IA qu'avec un index au lieu du cours. Un document fait
+            # uniquement d'un sommaire ne produit alors aucune tranche.
+            body = TableOfContentsDetector.strip_span(content, toc) if toc is not None else content
+            if not body.strip():
+                return []
+            words = cls.estimate_words(body)
+            tokens = cls.estimate_tokens(body)
             return [
                 SliceUnit(
                     index=0,
                     title="Document Complet",
                     heading_path="Document Complet",
-                    content=content.strip(),
+                    content=body.strip(),
                     page_number=1,
                     start_page=1,
                     end_page=1,

@@ -1995,10 +1995,11 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         meta = self._section_meta.get(row, {})
         title = str(meta.get("title") or "")
         p_num = meta.get("page_number")
+        h_path = str(meta.get("heading_path") or "")
 
         # 1. Navigation immédiate vers la section concernée dans l'aperçu
         if hasattr(self, "preview_widget"):
-            self.preview_widget.jump_to_heading(title, p_num)
+            self.preview_widget.jump_to_heading(title, p_num, h_path)
 
         # 2. Cascade parent/enfant
         if not self._syncing_selection:
@@ -2190,7 +2191,8 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         meta = self._section_meta[row]
         title = str(meta.get("title") or "")
         page = meta.get("page_number")
-        self.preview_widget.jump_to_heading(title, page)
+        h_path = str(meta.get("heading_path") or "")
+        self.preview_widget.jump_to_heading(title, page, h_path)
 
     def _set_all_checked(self, checked: bool, *, refresh: bool = True) -> None:
         """Coche ou décoche toutes les sections (optionnellement sans rafraîchissement).

@@ -115,6 +115,17 @@ class TableOfContentsDetector:
         return span
 
     @classmethod
+    def strip_span(cls, markdown: str, span: TableOfContentsSpan) -> str:
+        """Retire le bloc de sommaire du texte et renvoie le corps restant.
+
+        Point d'entrée unique du retranchement : le sommaire est un index, jamais du
+        contenu de cours, et ses lignes ne doivent pas être héritées par la section
+        qui le précède. Un document fait uniquement d'un sommaire rend une chaîne vide.
+        """
+        lines = markdown.split("\n")
+        return "\n".join([*lines[: span.start_line - 1], *lines[span.end_line :]])
+
+    @classmethod
     def is_toc_title(cls, title: str) -> bool:
         """Indique si un titre (déjà nettoyé) nomme une table des matières."""
         if not title:

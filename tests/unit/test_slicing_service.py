@@ -35,6 +35,34 @@ diverses qui assurent le transport actif et passif des ions et molécules.
     assert "bicouche lipidique" in slices[1].content
 
 
+def test_slice_by_headings_drops_leading_index_when_document_has_no_heading() -> None:
+    content = """- 1 - Introduction aux données ....... 5
+- 2 - Statistiques descriptives ....... 12
+
+Une variable aléatoire est une fonction qui associe chaque issue d'une expérience
+aléatoire à une valeur numérique. Elle est décrite par une fonction de répartition
+croissante qui converge vers l'unité dans l'infini du support.
+
+La moyenne arithmétique est la somme des valeurs divisée par le nombre d'observations.
+La variance mesure la dispersion autour de cette moyenne et l'écart-type en est la racine.
+"""
+    slices = SlicingService.slice_by_headings(content)
+    # Un document sans aucun titre ne produit qu'une tranche « Document Complet »,
+    # mais le sommaire en tête n'est pas du contenu de cours : il en est retranché.
+    assert len(slices) == 1
+    assert "Introduction aux données ......." not in slices[0].content
+    assert "Statistiques descriptives ......." not in slices[0].content
+    assert "Une variable aléatoire est une fonction" in slices[0].content
+
+
+def test_slice_by_headings_yields_nothing_for_a_toc_only_document() -> None:
+    content = """- 1 - Introduction aux données ....... 5
+- 2 - Statistiques descriptives ....... 12
+"""
+    # Un document qui n'est qu'un sommaire n'a aucun contenu de cours à trancher.
+    assert SlicingService.slice_by_headings(content) == []
+
+
 def test_slice_by_headings_merges_small_sections() -> None:
     content = """# Grand Titre
 

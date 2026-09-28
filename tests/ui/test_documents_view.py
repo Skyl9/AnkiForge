@@ -17,6 +17,9 @@ from ankiforge.ui.views.documents_view import (
     DocumentsView,
     RAGTestDialog,
 )
+from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
+    DocumentPreviewWidget,
+)
 
 pytestmark = pytest.mark.ui
 
@@ -895,3 +898,44 @@ def test_navigate_editor_to_heading_skips_table_of_contents(qtbot, marker_toc_pa
     assert block.text() == "# 1 - Introduction aux données"
     # Le document paginé place ce H1 en 16e ligne, juste après le marqueur {4}.
     assert block.blockNumber() == 15
+
+
+def test_preview_jump_to_heading_skips_table_of_contents(qtbot, marker_toc_paginated: str):
+    """Le surlignage de l'aperçu vise le corps de cours, pas l'entrée homonyme du sommaire."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Sommaire Preview {uid}",
+        content=marker_toc_paginated,
+        file_type="md",
+    )
+
+    preview = DocumentPreviewWidget(doc)
+    qtbot.addWidget(preview)
+
+    viewer = preview.markdown_viewer
+    preview.jump_to_heading("1 - Introduction aux données", None)
+
+    # Le sommaire annonce le titre en bloc 5, le corps réel le rouvre en bloc 9.
+    # C'est ce second bloc qui doit être surligné, comme dans la vue Document.
+    assert viewer.document().findBlockByNumber(5).text() == "1 - Introduction aux données"
+    assert viewer.document().findBlockByNumber(9).text() == "1 - Introduction aux données"
+    assert viewer.textCursor().block().blockNumber() == 9
+
+
+def test_preview_does_not_highlight_toc_when_rendering_diverges(qtbot):
+    """Un HTML brut dupliquant le titre décale les blocs rendus : mieux vaut aucun surlignage que l'index."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Sommaire Ambigu {uid}",
+        content=("<h2>1 - Introduction</h2>\n\n# Sommaire\n\n## 1 - Introduction\n\n## 2 - Statistiques\n\n# 1 - Introduction\n\nCorps réel de la section, assez long pour faire un corps de cours.\n"),
+        file_type="md",
+    )
+
+    preview = DocumentPreviewWidget(doc)
+    qtbot.addWidget(preview)
+
+    preview.jump_to_heading("1 - Introduction", None)
+
+    # L'outline compte 2 homonymes, le rendu 3 blocs : le rang est ambigu et le
+    # surlignage est abandonné plutôt que posed sur l'entrée du sommaire.
+    assert preview.markdown_viewer.extraSelections() == []

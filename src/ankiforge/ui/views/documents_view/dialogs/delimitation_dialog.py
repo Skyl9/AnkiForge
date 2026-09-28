@@ -9,7 +9,7 @@ from typing import Any, Literal
 import markdown
 from peewee import fn
 from PySide6.QtCore import QPointF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -46,6 +46,7 @@ except ImportError:
 from ankiforge.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel, NoteChunkLinkModel
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankiforge.services.markdown.structurer import MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService, HeadingTreeNode
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
@@ -1493,7 +1494,7 @@ class DocumentPreviewWidget(QWidget):
         )
         self.lbl_scope_status.show()
 
-    def jump_to_heading(self, heading_text: str, page_number: int | None = None) -> None:
+    def jump_to_heading(self, heading_text: str, page_number: int | None = None, heading_path: str = "") -> None:
         """Navigue vers un titre ou sa page associée."""
         if self._is_paginated and page_number is not None:
             self.jump_to_page(page_number)
@@ -1502,13 +1503,23 @@ class DocumentPreviewWidget(QWidget):
             if self._is_paginated and page_number is not None:
                 self.markdown_viewer.scrollToAnchor(f"page-{page_number}")
             if heading_text:
-                self._highlight_heading(heading_text)
+                self._highlight_heading(heading_text, page_number, heading_path)
 
-    def _highlight_heading(self, heading_text: str) -> None:
-        """Surligne temporairement le titre ciblé dans l'aperçu Markdown."""
-        cursor = self.markdown_viewer.document().find(heading_text)
-        if cursor.isNull():
+    def _highlight_heading(self, heading_text: str, page_number: int | None = None, heading_path: str = "") -> None:
+        """Surligne temporairement le titre ciblé dans l'aperçu Markdown.
+
+        Le sommaire annonce les mêmes titres que le corps de cours : l'occurrence
+        visée est celle que le structurateur désigne comme corps réel, et non la
+        première — l'entrée d'index — que `QTextDocument.find` retiendrait.
+        """
+        block_number = self._resolve_heading_block_number(heading_text, page_number, heading_path)
+        if block_number is None:
             return
+        block = self.markdown_viewer.document().findBlockByNumber(block_number)
+        if not block.isValid():
+            return
+        cursor = QTextCursor(block)
+        cursor.select(QTextCursor.SelectionType.LineUnderCursor)
         selection = QTextEdit.ExtraSelection()
         selection.cursor = cursor
         selection.format.setBackground(QColor(DesignTokens.BG_ACTIVE))
@@ -1516,6 +1527,44 @@ class DocumentPreviewWidget(QWidget):
         self.markdown_viewer.setExtraSelections([selection])
         self.markdown_viewer.setTextCursor(cursor)
         self._heading_highlight_timer.start(2000)
+
+    def _resolve_heading_block_number(self, heading_text: str, page_number: int | None, heading_path: str) -> int | None:
+        """Repère le bloc rendu qui porte le corps réel du titre, pas son annonce d'index.
+
+        `resolve_heading_line_number` désigne la ligne du corps réel en écartant le
+        bloc Table des Matières et en départageant les homonymes (page d'origine, puis
+        volume de corps de cours). Il est nourri du fil d'Ariane complet quand la
+        section sélectionnée en fournit un : la correspondance est alors exacte, là où
+        le seul titre feuille ne distingue pas deux sections homonymes distinctes. Cette
+        ligne est traduite en rang d'occurrence parmi les titres de même slug, rapport à
+        l'outline complet sommaire inclus.
+
+        Le rang est ensuite appliqué au document **rendu**, dont les blocs candidats
+        sont les mêmes titres normalisés par le même `slugify`. Les deux rendus
+        provenant d'analyseurs différents (markdown-it pour l'outline, python-markdown
+        pour l'aperçu), ils peuvent diverger sur un HTML brut ou un bloc de code : le
+        nombre de candidats doit alors correspondre au nombre d'homonymes de l'outline,
+        faute de quoi le rang ne désigne plus rien de fiable et l'on s'abstient —
+        surligner l'entrée du sommaire serait précisément le défaut que l'on corrige.
+        """
+        raw_md = getattr(self.doc, "content", "") or ""
+        if not raw_md or not heading_text:
+            return None
+        target_slug = MarkdownStructurer.slugify(heading_text)
+        line_page_map = ChunkingService.build_line_to_page_map(raw_md) if page_number else {}
+        target_line = MarkdownStructurer.resolve_heading_line_number(raw_md, heading_path or heading_text, page_number, line_page_map=line_page_map)
+        if target_line is None:
+            return None
+
+        homonyms = [item for item in MarkdownStructurer.get_outline(raw_md, skip_toc=False) if item.slug == target_slug]
+        document = self.markdown_viewer.document()
+        rendered = [index for index in range(document.blockCount()) if MarkdownStructurer.slugify(document.findBlockByNumber(index).text()) == target_slug]
+        if len(rendered) != len(homonyms):
+            return None
+        for rank, item in enumerate(homonyms):
+            if item.line_number == target_line:
+                return rendered[rank]
+        return None
 
     def _clear_heading_highlight(self) -> None:
         self.markdown_viewer.setExtraSelections([])
@@ -2635,7 +2684,8 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         meta = self._section_meta[row]
         title = str(meta.get("title") or "")
         page = meta.get("page_number")
-        self.preview_widget.jump_to_heading(title, page)
+        h_path = str(meta.get("heading_path") or "")
+        self.preview_widget.jump_to_heading(title, page, h_path)
 
     def _on_view_source_clicked(self) -> None:
         self.preview_stack.setCurrentIndex(0)
@@ -3219,7 +3269,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
 
         # 1. Navigation immédiate vers la section concernée dans l'aperçu
         if hasattr(self, "preview_widget"):
-            self.preview_widget.jump_to_heading(orig_title, p_num)
+            self.preview_widget.jump_to_heading(orig_title, p_num, str(meta.get("heading_path") or ""))
 
         # 2. Cascade parent/enfant
         if not self._syncing_selection:
