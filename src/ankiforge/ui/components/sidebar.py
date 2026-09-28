@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton
+from ankiforge.ui.components.nav_badge import NavBadgeButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -37,17 +38,11 @@ class ClickableLabel(QLabel):
         super().mousePressEvent(event)
 
 
-class SidebarItem(QPushButton):
+class SidebarItem(NavBadgeButton):
     """Bouton de navigation dans la sidebar."""
 
     def __init__(self, view_id: str, icon_name: str, title: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.view_id = view_id
-        self.icon_name = icon_name
-        self.title = title
-
-        self.setCheckable(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        super().__init__(view_id, icon_name, title, parent)
         self.setFixedHeight(36)
 
         self._collapsed = False
@@ -296,3 +291,9 @@ class Sidebar(QWidget):
             is_active = vid == view_id
             btn.setChecked(is_active)
             btn._on_toggled(is_active)
+
+    def set_nav_badge(self, view_id: str, count: int | None) -> None:
+        """Affiche la pastille « travail en cours » sur l'entrée de navigation donnée."""
+        item = self._items.get(view_id)
+        if item is not None:
+            item.set_nav_badge(count)

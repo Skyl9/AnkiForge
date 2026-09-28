@@ -73,6 +73,14 @@ class BaseLayout(QWidget):
         """Construit les éléments de navigation à partir du registre central des vues."""
         pass
 
+    def set_nav_badge(self, view_id: str, count: int | None) -> None:
+        """Publie le nombre d'éléments de travail en cours pour une vue (pastille de navigation).
+
+        `count` valant None (ou <= 0) masque la pastille. Les layouts qui ne proposent pas
+        d'indicateur (ou une vue inconnue) ignorent silencieusement l'appel.
+        """
+        pass
+
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         """Met à jour l'affichage des dépenses IA."""
         pass

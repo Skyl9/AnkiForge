@@ -1205,7 +1205,12 @@ class CreationView(QWidget):
             """)
 
     def refresh_data(self) -> None:
-        """Recharge les données dynamiques depuis Peewee DB (Decks, NoteTypes, Engines, Pipelines, Docs)."""
+        """Recharge les données dynamiques depuis Peewee DB (Decks, NoteTypes, Engines, Pipelines, Docs).
+
+        Appelé à chaque navigation : ce contrat garantit que le travail en cours
+        (`generated_cards` et le statut de validation de chaque carte) survit aux
+        allers-retours entre vues. Ne jamais vider ni recalculer cet état ici.
+        """
         try:
             decks = self.deck_repo.get_all_decks()
             if not decks:
@@ -2494,6 +2499,10 @@ class CreationView(QWidget):
 
     def is_dirty(self) -> bool:
         return any(card.get("status") in ("Validée", "À valider", "En attente") for card in self.generated_cards)
+
+    def pending_work_count(self) -> int:
+        """Cartes générées restant en mémoire (non enregistrées) — alimente la pastille de navigation."""
+        return sum(1 for card in self.generated_cards if card.get("status") in ("Validée", "À valider", "En attente"))
 
     def _refresh_save_button(self) -> None:
         validated_count = self._count_validated()

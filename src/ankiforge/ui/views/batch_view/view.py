@@ -76,6 +76,9 @@ from ankiforge.utils.tags import build_document_tags
 
 logger = logging.getLogger(__name__)
 
+# Statuts de `queue_tasks_data` où la tâche est réglée : ni en cours, ni à revoir.
+SETTLED_TASK_STATUSES = ("Succès", "Acceptée")
+
 
 class BatchView(QWidget):
     """
@@ -551,6 +554,12 @@ class BatchView(QWidget):
         self.btn_no_pipeline_help.clicked.connect(lambda: show_toast(self, "Créez un pipeline dans l'onglet Pipelines."))
 
     def refresh_data(self) -> None:
+        """Recharge uniquement les caches de référence (paquets, modèles, moteurs, pipelines).
+
+        Appelé à chaque navigation : ce contrat garantit que le travail en cours
+        (`queue_tasks_data`, notes de staging, avancement des workers) survit aux
+        allers-retours entre vues. Ne jamais vider ni recalculer ces états ici.
+        """
         try:
             decks = list(DeckModel.select())
             if not decks:
@@ -690,6 +699,14 @@ class BatchView(QWidget):
 
     def is_dirty(self) -> bool:
         return len(self.queue_tasks_data) > 0
+
+    def pending_work_count(self) -> int:
+        """Tâches encore actives (en attente, en cours, à réviser, en échec) — pastille de navigation.
+
+        Les tâches déjà réglées (`Succès`/`Acceptée`) sont exclues : une frappe
+        entièrement terminée ne doit pas laisser une pastille allumée.
+        """
+        return sum(1 for task in self.queue_tasks_data if task.get("status") not in SETTLED_TASK_STATUSES)
 
     @Slot()
     def _on_click_select_deck(self) -> None:
@@ -1094,7 +1111,7 @@ class BatchView(QWidget):
         if not hasattr(self, "btn_resume_batch"):
             return
         has_incomplete = any(t.get("status") in ("Erreur", "Interrompu", "Échec", "En attente") for t in self.queue_tasks_data)
-        has_finished = any(t.get("status") in ("Succès", "Acceptée") for t in self.queue_tasks_data)
+        has_finished = any(t.get("status") in SETTLED_TASK_STATUSES for t in self.queue_tasks_data)
         has_failures = any(t.get("status") in ("Erreur", "Interrompu", "Échec") for t in self.queue_tasks_data)
         self.btn_resume_batch.setVisible(has_incomplete and (has_finished or has_failures))
 

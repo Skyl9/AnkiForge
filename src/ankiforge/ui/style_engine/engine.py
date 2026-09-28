@@ -589,6 +589,19 @@ class StyleEngine(QObject):
             background: transparent;
         }}
 
+        /* --- NavBadgeButton : pastille de travail en cours sur la navigation --- */
+        /* Teintes dérivées (§1.0) : lues sur DesignTokens, car `color_yellow_bg` /
+           `color_yellow_text` / `color_yellow_border` sont calculées par
+           `apply_theme_profile` et non stockées sur le profil brut. */
+        QLabel#NavBadge {{
+            background-color: {DesignTokens.COLOR_YELLOW_BG};
+            color: {DesignTokens.COLOR_YELLOW_TEXT};
+            border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};
+            font-size: 9px;
+            font-weight: bold;
+            border-radius: {p.radius_sm}px;
+        }}
+
         /* --- TopBar & sub-elements --- */
         TopBar, QWidget#TopBar {{
             background-color: {p.bg_sidebar};
