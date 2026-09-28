@@ -8,9 +8,15 @@ Conforme aux Règles 2, 8, 19 et 20 de GEMINI.md.
 
 from __future__ import annotations
 
+import json
 import logging
+import math
+import re
 import shutil
-from typing import Any
+import unicodedata
+from typing import Any, cast
+
+from peewee import fn
 
 from ankiforge.database.models import (
     DocumentChunkModel,
@@ -18,19 +24,113 @@ from ankiforge.database.models import (
     MediaModel,
     NoteChunkLinkModel,
     NoteModel,
+    NoteVersionModel,
     db,
 )
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
 from ankiforge.services.reindex_service import mark_document_version
 from ankiforge.utils.paths import get_profile_dir
-from ankiforge.utils.tags import clean_source_slug, extract_tag_metadata
+from ankiforge.utils.tags import clean_source_slug, extract_tag_metadata, replace_provenance_tags
 
 logger = logging.getLogger(__name__)
+
+#: Séparateur de fil d'Ariane porté par `DocumentChunkModel.heading_path`.
+_HEADING_SEPARATOR = " > "
+
+#: Mots vides écartés du scoring lexical et de la détection de titre cité (FR + EN).
+_LEXICAL_STOPWORDS = frozenset(
+    {
+        "le",
+        "la",
+        "les",
+        "un",
+        "une",
+        "des",
+        "du",
+        "de",
+        "et",
+        "ou",
+        "mais",
+        "donc",
+        "or",
+        "ni",
+        "car",
+        "est",
+        "sont",
+        "qui",
+        "que",
+        "dans",
+        "pour",
+        "sur",
+        "avec",
+        "ce",
+        "cette",
+        "ces",
+        "au",
+        "aux",
+        "à",
+        "l",
+        "d",
+        "n",
+        "en",
+        "se",
+        "sa",
+        "son",
+        "ses",
+        "par",
+        "plus",
+        "pas",
+        "ne",
+        "the",
+        "a",
+        "an",
+        "of",
+        "to",
+        "in",
+        "on",
+        "with",
+        "for",
+        "and",
+        "is",
+        "are",
+    }
+)
+
+_TOKEN_RE = re.compile(r"\b\w{3,}\b")
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_NUMBERING_RE = re.compile(r"^\d+(?:[.\-]\d+)*$")
+
+
+def _fold_accents(text: str) -> str:
+    """Supprime les diacritiques (NFKD) pour comparer des titres accentués à un texte simple."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def _flatten_note_content(raw_content: str | None) -> str:
+    """Aplatit le JSON de contenu d'une version de note en texte exploitable (recto + verso)."""
+    try:
+        content = json.loads(raw_content or "{}")
+    except (TypeError, ValueError):
+        return str(raw_content or "")
+    if isinstance(content, dict):
+        return " ".join(str(value) for value in content.values() if value)
+    return str(content)
 
 
 class CoverageAlignmentService:
     """Moteur de réconciliation déterministe de couverture documentaire par tags."""
+
+    #: Longueur minimale du corps d'un fragment parent pour qu'il soit considéré comme une
+    #: unité de cours à part entière (et non comme un simple conteneur de sous-sections).
+    MIN_PARENT_CONTENT_WORDS: int = 25
+
+    #: Score lexical minimal qu'une sous-section doit atteindre pour qu'une carte lui soit
+    #: rattachée par la seule route lexicale (une citation littérale du titre s'en passe) : le
+    #: score est une somme de poids idf, il faut au moins un terme réellement distinctif, pas
+    #: un mot vide partagé par tout le document.
+    MIN_SUBSECTION_SCORE: float = 1.0
 
     @classmethod
     def sync_coverage_from_tags(cls, doc_id: int | None = None) -> dict[str, Any]:
@@ -384,83 +484,27 @@ class CoverageAlignmentService:
         return cls._best_chunk_by_lexical_overlap(card_text, chunks)
 
     @staticmethod
-    def _best_chunk_by_lexical_overlap(card_text: str, chunks: list[DocumentChunkModel]) -> DocumentChunkModel | None:
-        """Sélectionne le fragment le plus proche lexicalement d'un texte de carte.
+    def _lexical_overlap_scores(card_text: str, chunks: list[DocumentChunkModel]) -> list[float]:
+        """Score de recouvrement lexical de chaque fragment avec le texte d'une carte.
 
-        Score = somme sur les tokens du texte de la carte du nombre d'occurrences
-        dans le fragment, pondéré par la rareté globale (idf). Les tokens courts et
-        les mots vides sont ignorés. En cas d'égalité, on privilégie le fragment le
-        plus profond (granularité la plus fine).
+        Score d'un fragment = somme, sur les tokens significatifs du texte de la carte, du poids
+        idf du token lorsqu'il apparaît dans le fragment. Les tokens courts (< 3 caractères) et
+        les mots vides du texte de la carte sont ignorés ; l'idf est calculé sur le corpus
+        fourni, ce qui rend les scores comparables d'un ensemble de fragments à l'autre. Les
+        accents sont repliés comme partout ailleurs, afin qu'un titre accentué et une carte
+        reformulée sans accent se rencontrent.
         """
-        import math
-        import re
-
         if not chunks:
-            return None
+            return []
 
-        stopwords = {
-            "le",
-            "la",
-            "les",
-            "un",
-            "une",
-            "des",
-            "du",
-            "de",
-            "et",
-            "ou",
-            "mais",
-            "donc",
-            "or",
-            "ni",
-            "car",
-            "est",
-            "sont",
-            "qui",
-            "que",
-            "dans",
-            "pour",
-            "sur",
-            "avec",
-            "ce",
-            "cette",
-            "ces",
-            "au",
-            "aux",
-            "à",
-            "l",
-            "d",
-            "n",
-            "en",
-            "se",
-            "sa",
-            "son",
-            "ses",
-            "par",
-            "plus",
-            "pas",
-            "ne",
-            "the",
-            "a",
-            "an",
-            "of",
-            "to",
-            "in",
-            "on",
-            "with",
-            "for",
-            "and",
-            "is",
-            "are",
-        }
-        tokens = [t.lower() for t in re.findall(r"\b\w{3,}\b", card_text) if t.lower() not in stopwords]
+        tokens = [t.lower() for t in _TOKEN_RE.findall(_fold_accents(card_text)) if t.lower() not in _LEXICAL_STOPWORDS]
         if not tokens:
-            return None
+            return [0.0] * len(chunks)
 
         doc_freq: dict[str, int] = {}
         chunk_token_sets: list[set[str]] = []
         for c in chunks:
-            c_tokens = {t.lower() for t in re.findall(r"\b\w{3,}\b", c.content or "")}
+            c_tokens = {t.lower() for t in _TOKEN_RE.findall(_fold_accents(c.content or ""))}
             chunk_token_sets.append(c_tokens)
             for t in c_tokens:
                 doc_freq[t] = doc_freq.get(t, 0) + 1
@@ -468,22 +512,313 @@ class CoverageAlignmentService:
         n_docs = max(1, len(chunks))
         idf = {t: math.log(1.0 + n_docs / (1.0 + df)) for t, df in doc_freq.items()}
 
+        scores: list[float] = []
+        for chunk_tokens in chunk_token_sets:
+            scores.append(sum(idf.get(t, 1.0) for t in tokens if t in chunk_tokens))
+        return scores
+
+    @classmethod
+    def _best_chunk_by_lexical_overlap(cls, card_text: str, chunks: list[DocumentChunkModel]) -> DocumentChunkModel | None:
+        """Sélectionne le fragment le plus proche lexicalement d'un texte de carte.
+
+        En cas d'égalité, on privilégie le fragment le plus profond (granularité la plus fine).
+        """
+        scores = cls._lexical_overlap_scores(card_text, chunks)
+        return cls._best_by_score_then_depth(list(zip(chunks, scores, strict=True)))
+
+    @staticmethod
+    def _best_by_score_then_depth(scored: list[tuple[DocumentChunkModel, float]]) -> DocumentChunkModel | None:
+        """Élit le fragment le mieux noté, le plus profond départageant les égalités.
+
+        Le départage par profondeur encode la granularité : à recouvrement égal, c'est la
+        sous-section la plus fine qui est la meilleure explication, et non son conteneur.
+        Les scores nuls ou négatifs ne sont jamais retenus.
+        """
         best: DocumentChunkModel | None = None
         best_score = 0.0
         best_depth = -1
-        for idx, c in enumerate(chunks):
-            score = 0.0
-            for t in tokens:
-                if t in chunk_token_sets[idx]:
-                    score += idf.get(t, 1.0)
+        for chunk, score in scored:
             if score <= 0:
                 continue
-            depth = len([p for p in (c.heading_path or "").split(" > ") if p.strip()])
-            if score > best_score or (score == best_score and depth > best_depth):
-                best = c
+            depth = len(CoverageAlignmentService._heading_parts(chunk))
+            if best is None or score > best_score or (score == best_score and depth > best_depth):
+                best = chunk
                 best_score = score
                 best_depth = depth
         return best
+
+    @staticmethod
+    def _heading_parts(chunk: DocumentChunkModel) -> list[str]:
+        """Découpe le fil d'Ariane d'un fragment en ses niveaux de titres."""
+        return [part.strip() for part in (chunk.heading_path or "").split(_HEADING_SEPARATOR) if part.strip()]
+
+    @classmethod
+    def _significant_tokens(cls, text: str) -> set[str]:
+        """Tokens significatifs d'un texte : hors numérotation et mots vides, sans accents ni casse.
+
+        La suppression des accents permet de reconnaître un titre accentué dans un texte de
+        carte reformulé sans accent, et l'élimination de la numérotation (« 2.1 », « 3-2 »)
+        comme des articles courts rend les titres numérotés comparables à leurs sous-sections.
+        """
+        folded = _fold_accents(text).lower()
+        return {token for token in _TOKEN_RE.findall(folded) if token not in _LEXICAL_STOPWORDS and not _NUMBERING_RE.match(token)}
+
+    @classmethod
+    def _quotes_subsection_title(cls, card_tokens: set[str], chunk: DocumentChunkModel) -> bool:
+        """Indique si le texte de la carte cite mot pour mot le titre de la sous-section.
+
+        Tous les tokens significatifs du titre feuille doivent figurer dans la carte : c'est le
+        signal fort du rapprochement, celui qui rattache une carte « Quelle est la fonction de
+        la membrane ? » au H3 « 2.1 La Membrane » sans appel à un modèle.
+        """
+        parts = cls._heading_parts(chunk)
+        if not parts:
+            return False
+        title_tokens = cls._significant_tokens(parts[-1])
+        return bool(title_tokens) and title_tokens.issubset(card_tokens)
+
+    @classmethod
+    def _is_admissible(cls, score: float, parent_score: float, literal: bool) -> bool:
+        """Indique si une sous-section peut recevoir une carte que son conteneur explique aussi.
+
+        Deux régimes, parce que deux régimes de preuve :
+
+        - *citation littérale* : la carte cite mot pour mot le titre de la sous-section, ce
+          qui est une citation volontaire du sous-sujet. Les mots d'usage commun que la
+          carte partage avec le conteneur ne peuvent pas annuler cette preuve, sans quoi un
+          simple « échanges » laudatif suffit à figer la carte sur son chapitre ;
+        - *inférence lexicale* : le recouvrement de vocabulaire est une présomption, qui doit
+          donc franchir le seuil de pertinence **et** expliquer la carte mieux que le
+          conteneur qu'elle quitte.
+        """
+        if literal:
+            return True
+        return score >= cls.MIN_SUBSECTION_SCORE and score > parent_score
+
+    @classmethod
+    def _narrow_to_subsection(
+        cls,
+        card_text: str,
+        parent: DocumentChunkModel,
+        descendants: list[DocumentChunkModel],
+    ) -> tuple[DocumentChunkModel | None, str]:
+        """Choisit la sous-section la plus spécifique qu'une carte rattachée à `parent` traite.
+
+        Deux niveaux de détection lexicale, tous deux déterministes et purement locaux :
+
+        1. présence littérale du titre d'une sous-section dans le texte de la carte ;
+        2. à défaut, meilleur recouvrement lexical pondéré par l'idf, calculé sur le seul
+           corpus « conteneur + descendants » pour que les scores soient comparables.
+
+        Le signal littéral est prioritaire, mais une carte qui cite *plusieurs* sous-sections
+        est par définition une carte de chapitre : elle reste sur son conteneur. Le critère
+        d'admissibilité de la sous-section retenue est celui de ``_is_admissible``.
+
+        Returns:
+            tuple[DocumentChunkModel | None, str] : le fragment cible et le signal qui l'a
+            désigné (``"titre"`` ou ``"lexique"``), ou ``(None, "")`` si aucun raffinement.
+        """
+        card_tokens = cls._significant_tokens(card_text)
+        if not card_tokens:
+            return None, ""
+
+        # Les fragments d'une même sous-section (titre répété, page de PDF scindée) ne
+        # comptent qu'une fois : une carte qui cite un seul titre n'est pas pour autant une
+        # carte de chapitre, et deux fragments du même titre n'en sont pas deux sous-sections.
+        quoted: list[DocumentChunkModel] = []
+        cited_headings: set[str] = set()
+        for candidate in descendants:
+            if not cls._quotes_subsection_title(card_tokens, candidate):
+                continue
+            heading = candidate.heading_path or ""
+            if heading in cited_headings:
+                continue
+            cited_headings.add(heading)
+            quoted.append(candidate)
+
+        if len(quoted) > 1:
+            return None, ""
+        candidates = quoted or descendants
+        signal = "titre" if quoted else "lexique"
+
+        # Le conteneur parent est inclus dans le corpus : sa colonne de score sert de
+        # référence pour exiger un gain de pertinence réel.
+        scores = cls._lexical_overlap_scores(card_text, [parent, *candidates])
+        parent_score = scores[0]
+        eligible = [pair for pair in zip(candidates, scores[1:], strict=True) if cls._is_admissible(pair[1], parent_score, bool(quoted))]
+        best = cls._best_by_score_then_depth(eligible)
+        return best, signal if best is not None else ""
+
+    @staticmethod
+    def _descendants_by_prefix(chunks: list[DocumentChunkModel]) -> dict[tuple[str, ...], list[DocumentChunkModel]]:
+        """Indexe, pour chaque préfixe de fil d'Ariane, les fragments qui lui sont strictement descendants.
+
+        Les entrées de sommaire sont écartées : elles annoncent un titre sans porter le cours
+        correspondant, et constitueraient des cibles d'affinement aberrantes.
+        """
+        descendants: dict[tuple[str, ...], list[DocumentChunkModel]] = {}
+        for chunk in chunks:
+            if TableOfContentsDetector.looks_like_index_block(chunk.content or ""):
+                continue
+            parts = tuple(CoverageAlignmentService._heading_parts(chunk))
+            for depth in range(1, len(parts)):
+                descendants.setdefault(parts[:depth], []).append(chunk)
+        return descendants
+
+    @staticmethod
+    def _links_per_heading(doc_id: int) -> dict[str, int]:
+        """Nombre de liens de couverture par fil d'Ariane, en une seule requête agrégée."""
+        rows = cast(
+            "list[tuple[Any, ...]]",
+            NoteChunkLinkModel.select(DocumentChunkModel.heading_path, fn.COUNT(NoteChunkLinkModel.id).alias("link_count"))
+            .join(DocumentChunkModel)
+            .where(DocumentChunkModel.document == doc_id)
+            .group_by(DocumentChunkModel.heading_path)
+            .tuples(),
+        )
+        return {str(heading or ""): int(count or 0) for heading, count in rows}
+
+    @staticmethod
+    def _active_version_texts(note_ids: list[int]) -> dict[int, str]:
+        """Texte (recto + verso, HTML retiré) de la version active de chaque note, en une requête."""
+        if not note_ids:
+            return {}
+        rows = cast(
+            "list[tuple[Any, ...]]",
+            NoteVersionModel.select(NoteVersionModel.note, NoteVersionModel.content).where(NoteVersionModel.note.in_(note_ids), NoteVersionModel.is_active == True).tuples(),  # noqa: E712
+        )
+        return {int(note_id): _HTML_TAG_RE.sub(" ", _flatten_note_content(content)) for note_id, content in rows}
+
+    @classmethod
+    def _empty_refinement_report(cls, doc_id: int) -> dict[str, Any]:
+        """Rapport neutre d'un affinement sans effet (document inconnu, sans lien ou sans descendant)."""
+        return {
+            "doc_id": doc_id,
+            "reassigned": 0,
+            "false_gaps_resolved": 0,
+            "new_gaps": 0,
+            "kept_on_parent": 0,
+            "details": [],
+            "coverage_before": 0.0,
+            "coverage_after": 0.0,
+        }
+
+    @classmethod
+    def refine_links_to_subsections(cls, doc_id: int) -> dict[str, Any]:
+        """Rattache les cartes d'un conteneur de cours aux sous-sections qu'elles traitent réellement.
+
+        Affinement *top-down narrowing* purement algorithmique, sans appel réseau ni LLM : pour
+        chaque lien de couverture pointant sur un fragment qui possède des sous-sections, le
+        texte de la carte est confronté aux descendants du fil d'Ariane (présence littérale
+        du titre, puis recouvrement lexical pondéré par l'idf). La liaison et les tags de
+        traçabilité `section:` / `chunk:` sont réécrits atomiquement vers la sous-section
+        retenue, ce qui résorbe les fausses lacunes d'un audit de couverture granularity.
+
+        Une carte n'est jamais retirée d'un fragment parent porteur de contenu substantiel si
+        elle en est la dernière : déplacer la seule carte d'une unité réellement enseignée
+        déplacerait la lacune au lieu de la résoudre.
+
+        Args:
+            doc_id: ID du document dont les liens de couverture doivent être affinés.
+
+        Returns:
+            dict[str, Any]: rapport ``reassigned`` / ``false_gaps_resolved`` / ``new_gaps`` /
+            ``kept_on_parent`` / ``details`` et couverture avant-après.
+        """
+        doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
+        if not doc:
+            logger.warning("CoverageAlignmentService : affinement impossible, document ID=%d introuvable.", doc_id)
+            return cls._empty_refinement_report(doc_id)
+
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index))
+        if not chunks:
+            return cls._empty_refinement_report(doc_id)
+
+        descendants = cls._descendants_by_prefix(chunks)
+        links = list(NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document == doc).order_by(NoteChunkLinkModel.note_id, NoteChunkLinkModel.chunk_id))
+        if not links:
+            return cls._empty_refinement_report(doc_id)
+
+        note_ids = sorted({link.note_id for link in links})
+        notes = {note.id: note for note in NoteModel.select().where(NoteModel.id.in_(note_ids))}
+        repo = DocumentRepository()
+        before = repo.get_coverage_stats(doc_id)
+        links_per_heading = cls._links_per_heading(doc_id)
+        card_texts = cls._active_version_texts(note_ids)
+
+        details: list[dict[str, Any]] = []
+        kept_on_parent = 0
+
+        with db.atomic():
+            for link in links:
+                parent = link.chunk
+                parent_parts = cls._heading_parts(parent)
+                candidates = descendants.get(tuple(parent_parts)) if parent_parts else None
+                if not candidates:
+                    continue
+                card_text = card_texts.get(link.note_id, "")
+                if not card_text.strip():
+                    continue
+
+                target, signal = cls._narrow_to_subsection(card_text, parent, candidates)
+                if target is None:
+                    continue
+                note = notes.get(link.note_id)
+                if note is None:
+                    continue
+
+                parent_key = parent.heading_path or ""
+                remaining = links_per_heading.get(parent_key, 0) - 1
+                if remaining <= 0 and len((parent.content or "").split()) >= cls.MIN_PARENT_CONTENT_WORDS:
+                    logger.debug("Affinement : %s conservé sur le conteneur « %s », dernière carte d'une unité de cours.", link.note_id, parent_key)
+                    kept_on_parent += 1
+                    continue
+
+                was_hallucinating = link.is_hallucinating
+                link.delete_instance()
+                NoteChunkLinkModel.get_or_create(note=note, chunk=target, defaults={"is_hallucinating": was_hallucinating})
+                note.tags = replace_provenance_tags(note.tags, {"section": clean_source_slug(target.heading_path or ""), "chunk": target.id})
+                note.save(only=[NoteModel.tags])
+
+                links_per_heading[parent_key] = max(0, remaining)
+                target_key = target.heading_path or ""
+                links_per_heading[target_key] = links_per_heading.get(target_key, 0) + 1
+                details.append(
+                    {
+                        "note_id": link.note_id,
+                        "from_chunk_id": parent.id,
+                        "from_heading": parent.heading_path,
+                        "to_chunk_id": target.id,
+                        "to_heading": target.heading_path,
+                        "signal": signal,
+                    }
+                )
+
+        after = repo.get_coverage_stats(doc_id)
+        orphans_before = {str(unit) for unit in before.get("orphan_units", [])}
+        orphans_after = {str(unit) for unit in after.get("orphan_units", [])}
+
+        report = {
+            "doc_id": doc_id,
+            "reassigned": len(details),
+            "false_gaps_resolved": len(orphans_before - orphans_after),
+            "new_gaps": len(orphans_after - orphans_before),
+            "kept_on_parent": kept_on_parent,
+            "details": details,
+            "coverage_before": before.get("coverage_pct", 0.0),
+            "coverage_after": after.get("coverage_pct", 0.0),
+        }
+
+        if details:
+            logger.info(
+                "CoverageAlignmentService : affinement de « %s » : %d carte(s) rattachée(s) à une sous-section (%d fausse(s) lacune(s) résolue(s), %d nouvelle(s)).",
+                doc.title,
+                report["reassigned"],
+                report["false_gaps_resolved"],
+                report["new_gaps"],
+            )
+            cls._notify_coverage_synced(doc_id=doc_id, scope="document")
+        return report
 
     @classmethod
     def find_matching_chunk_for_note(cls, note_id: int, min_overlap: int = 2) -> DocumentChunkModel | None:

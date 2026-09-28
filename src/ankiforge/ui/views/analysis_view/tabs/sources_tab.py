@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QFont
@@ -26,6 +26,7 @@ from ankiforge.database.models import (
     NoteChunkLinkModel,
 )
 from ankiforge.repositories.document_repository import DocumentRepository
+from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.dispatch import run_on_owner_thread
@@ -110,7 +111,7 @@ class DocumentInspectorPanel(QWidget):
             self.doc_id = doc_or_id
             self.doc = DocumentModel.get_or_none(DocumentModel.id == doc_or_id)
 
-        self._applying_local_scope_change = False
+        self._applying_local_coverage_change = False
 
         if not self.doc:
             return
@@ -175,12 +176,18 @@ class DocumentInspectorPanel(QWidget):
         self.btn_align_cards.setToolTip("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce cours")
         self.btn_align_cards.clicked.connect(self._on_align_cards)
 
+        self.btn_refine_links = SecondaryButton("Affiner les liens")
+        self.btn_refine_links.setIcon(load_phosphor_icon("ph.crosshair", color=DesignTokens.COLOR_BLUE))
+        self.btn_refine_links.setToolTip("Rattacher aux sous-sections (H3+) les cartes liées à un titre parent large (H1/H2) — affinement déterministe, local et instantané")
+        self.btn_refine_links.clicked.connect(self._on_refine_links)
+
         h_layout.addWidget(btn_back)
         h_layout.addSpacing(4)
         h_layout.addWidget(ico_doc)
         h_layout.addWidget(header_lbl, 1)
         h_layout.addWidget(self.lbl_doc_summary)
         h_layout.addWidget(self.btn_align_cards)
+        h_layout.addWidget(self.btn_refine_links)
         h_layout.addWidget(self.btn_fill_orphans)
         h_layout.addWidget(self.btn_reindex)
 
@@ -306,8 +313,8 @@ class DocumentInspectorPanel(QWidget):
     def _handle_coverage_synced(self, event: CoverageSyncedEvent) -> None:
         if event.doc_id is not None and event.doc_id != self.doc_id:
             return
-        if self._applying_local_scope_change:
-            # L'exclusion vient d'être appliquée ligne à ligne : reconstruire la liste
+        if self._applying_local_coverage_change:
+            # La modification vient d'être appliquée ligne à ligne : reconstruire la liste
             # ici effacerait la sélection de l'utilisateur pour rien.
             return
         run_on_owner_thread(self, self.load_chunks)
@@ -362,12 +369,15 @@ class DocumentInspectorPanel(QWidget):
         item.setToolTip(f"{title_str}\nClic droit pour exclure cette section de l'analyse.")
 
     def _refresh_row_states(self) -> None:
-        """Réapplique l'état d'exclusion à chaque ligne sans reconstruire le sommaire."""
+        """Recalcule les compteurs de cartes et réapplique l'état d'exclusion à chaque ligne, sans reconstruire le sommaire."""
+        counts = DocumentRepository().count_cards_by_chunk(self.doc_id)
         for row in range(self.chapters_list.count()):
             item = self.chapters_list.item(row)
+            card_count = counts.get(int(item.data(_ROLE_CHUNK_ID) or 0), 0)
+            item.setData(_ROLE_CARDS, card_count)
             self._apply_row_state(
                 item,
-                self._row_cards(item),
+                card_count,
                 DocumentRepository.is_section_excluded(self.doc, str(item.data(_ROLE_HEADING) or "")),
             )
 
@@ -482,11 +492,61 @@ class DocumentInspectorPanel(QWidget):
         self._sync_exclusion_action()
         show_toast(self, f"Section « {item.data(_ROLE_TITLE) or heading} » {'réintégrée' if was_excluded else 'exclue'} de l'analyse.")
 
-        self._applying_local_scope_change = True
+        self._applying_local_coverage_change = True
         try:
             event_bus.publish(CoverageSyncedEvent(doc_id=self.doc_id))
         finally:
-            self._applying_local_scope_change = False
+            self._applying_local_coverage_change = False
+
+    @staticmethod
+    def _refinement_report_text(report: dict[str, Any]) -> str:
+        """Phrase de synthèse de l'affinement des liens, pour le toast de synthèse."""
+        reassigned = int(report.get("reassigned", 0))
+        resolved = int(report.get("false_gaps_resolved", 0))
+        kept = int(report.get("kept_on_parent", 0))
+        new_gaps = int(report.get("new_gaps", 0))
+        if not reassigned and not kept:
+            return "Aucune carte de chapitre à rattacher à une sous-section plus fine."
+
+        parts = [f"{reassigned} carte(s) réassignée(s) vers des sous-sections plus fines ({resolved} fausse(s) lacune(s) résolue(s))"]
+        if kept:
+            parts.append(f"{kept} conservée(s) sur son chapitre faute de sous-section plus spécifique")
+        if new_gaps:
+            parts.append(f"{new_gaps} conteneur(s) laissé(s) sans carte")
+        return " · ".join(parts)
+
+    @Slot()
+    def _on_refine_links(self) -> None:
+        """Affine les liens rattachés aux titres parents larges vers leurs sous-sections (H3+).
+
+        L'affinement est déterministe, local et instantané : le service réécrit les liens et
+        les tags de provenance dans une transaction, puis l'inspecteur rafraîchit ses
+        compteurs en place — la section sélectionnée reste sélectionnée et inspectable.
+        """
+        if not self.doc:
+            return
+
+        self._applying_local_coverage_change = True
+        try:
+            report = CoverageAlignmentService.refine_links_to_subsections(self.doc_id)
+        finally:
+            self._applying_local_coverage_change = False
+
+        self._refresh_row_states()
+        self._refresh_coverage_summary()
+        self._refresh_current_chunk_panel()
+        show_toast(self, self._refinement_report_text(report))
+
+    def _refresh_current_chunk_panel(self) -> None:
+        """Recharge l'aperçu de la section sélectionnée après une modification de ses liens.
+
+        Une carte déplacée hors de la section courante doit disparaître du panneau des
+        cartes liées sans attendre que l'utilisateur resélectionne une autre ligne.
+        """
+        current = self.chapters_list.currentItem()
+        chunk_id = current.data(_ROLE_CHUNK_ID) if current is not None else None
+        if chunk_id:
+            self.inspect_chunk(chunk_id)
 
     def chapter_context_menu(self, item: QListWidgetItem) -> StyledMenu | None:
         """Menu contextuel d'une ligne du sommaire : exclure ou ré-inclure sa section.

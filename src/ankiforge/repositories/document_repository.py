@@ -7,7 +7,9 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, cast
+
+from peewee import fn
 
 from ankiforge.database.models import (
     DocumentChunkModel,
@@ -446,6 +448,22 @@ class DocumentRepository(BaseRepository):
             doc.excluded_headings = json.dumps(sorted({entry.strip() for entry in kept}), ensure_ascii=False)
             doc.save(only=[DocumentModel.excluded_headings])
         return True
+
+    def count_cards_by_chunk(self, doc_id: int) -> dict[int, int]:
+        """Nombre de cartes de couverture liées à chaque fragment d'un document.
+
+        Une seule requête agrégée : l'inspecteur s'en sert pour rafraîchir ses compteurs
+        de sommaire en place, sans reconstruire la liste ni perdre la sélection courante.
+        """
+        rows = cast(
+            "list[tuple[Any, ...]]",
+            NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id, fn.COUNT(NoteChunkLinkModel.id).alias("card_count"))
+            .join(DocumentChunkModel)
+            .where(DocumentChunkModel.document_id == doc_id)
+            .group_by(NoteChunkLinkModel.chunk_id)
+            .tuples(),
+        )
+        return {int(chunk_id): int(card_count) for chunk_id, card_count in rows}
 
     def get_coverage_stats(self, doc_id: int) -> dict[str, Any]:
         """Calculate coarse-grained coverage and gap metrics for a document (by page or section)."""

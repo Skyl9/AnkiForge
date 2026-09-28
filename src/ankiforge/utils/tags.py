@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Mapping
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -199,3 +200,53 @@ def build_document_tags(
 
 # Alias de rétro-compatibilité et clarté sémantique RAG
 build_provenance_tags = build_document_tags
+
+
+#: Préfixes de traçabilité réécrivables par :func:`replace_provenance_tags`.
+_REWRITABLE_PROVENANCE_PREFIXES: dict[str, str] = {"section": "section:", "chunk": "chunk:"}
+
+
+def replace_provenance_tags(
+    tags: str | list[str] | None,
+    overrides: Mapping[str, str | int | None] | None = None,
+) -> str:
+    """Réécrit les tags de provenance `section:` et `chunk:` d'une note, sans toucher aux autres.
+
+    Seuls les préfixes présents dans ``overrides`` sont traités : la valeur remplace le tag
+    existant à sa position d'origine (ou est ajoutée en fin de liste s'il était absent), et
+    ``None`` retire le tag correspondant. La provenance la plus fine d'une note peut ainsi
+    être resserrée sur une sous-section sans perdre les autres tags (``doc:``, ``source:``,
+    ``page:``, tags métier ou d'examen).
+
+    Args:
+        tags: Tags bruts ou liste de tags, quel que soit le format de sérialisation.
+        overrides: Clés ``"section"`` (slug de section) et ``"chunk"`` (ID de fragment).
+            Une valeur ``None`` ou vide retire le tag ; une clé absente le laisse inchangé.
+
+    Returns:
+        str: Tags re-sérialisés dans le format d'origine (JSON ou séparés par des espaces).
+    """
+    parsed = parse_note_tags(tags)
+
+    for key, raw_value in (overrides or {}).items():
+        prefix = _REWRITABLE_PROVENANCE_PREFIXES.get(key)
+        if prefix is None:
+            logger.debug("replace_provenance_tags : préfixe de provenance inconnu %r, ignoré.", key)
+            continue
+        value = "" if raw_value is None else str(raw_value).strip()
+        new_tag = f"{prefix}{value}" if value else None
+        rebuilt: list[str] = []
+        for tag in parsed:
+            if tag.lower().startswith(prefix):
+                if new_tag is not None and new_tag not in rebuilt:
+                    rebuilt.append(new_tag)
+                continue
+            rebuilt.append(tag)
+        if new_tag is not None and new_tag not in rebuilt:
+            rebuilt.append(new_tag)
+        parsed = rebuilt
+
+    raw = tags.strip() if isinstance(tags, str) else ""
+    if raw and not raw.startswith("["):
+        return " ".join(parsed)
+    return json.dumps(parsed, ensure_ascii=False)
