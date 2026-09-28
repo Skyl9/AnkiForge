@@ -4,10 +4,13 @@ Unit tests for DocumentRepository.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from ankiforge.database.models import NoteModel, NoteTypeModel
+from ankiforge.database.models import DocumentModel, NoteModel, NoteTypeModel
 from ankiforge.repositories.document_repository import DocumentRepository
+from ankiforge.services.markdown.structurer import MarkdownStructurer
 
 pytestmark = pytest.mark.integration
 
@@ -113,3 +116,152 @@ def test_rename_folder_cascades_to_children() -> None:
     assert repo.get_folder_by_name("Université::L1") is not None
     assert repo.get_folder_by_name("Université::L1::Maths") is not None
     assert repo.get_folder_by_name("Université::L1::Physique") is not None
+
+
+def _document_with_numbered_sections(title: str, sections: list[str]) -> int:
+    """Crée un cours Markdown dont chaque section porte un fragment distinct."""
+    repo = DocumentRepository()
+    doc = repo.create_document(title=title, content="\n\n".join(f"# {name}\nContenu de {name}." for name in sections), file_type="md")
+    repo.create_chunks(
+        doc,
+        [{"chunk_index": index, "heading_path": name, "content": f"Contenu de {name}.", "content_hash": f"h{index}"} for index, name in enumerate(sections)],
+    )
+    return doc.id
+
+
+def _stored_exclusions(doc_id: int) -> list[str]:
+    return DocumentRepository().get_excluded_headings(DocumentModel.get_by_id(doc_id))
+
+
+def test_excluding_a_section_removes_it_from_the_gaps_and_the_coverage_ratio() -> None:
+    """Exclure une section la sort des lacunes à combler et du dénominateur de couverture."""
+    repo = DocumentRepository()
+    doc_id = _document_with_numbered_sections("Cours exclusions 1", ["Préface", "Partie 1", "Corrigés"])
+
+    before = repo.get_coverage_stats(doc_id)
+    assert before["total_units"] == 3
+    assert before["coverage_pct"] == 0.0
+    assert before["orphan_units"] == ["Préface", "Partie 1", "Corrigés"]
+
+    assert repo.set_section_excluded(doc_id, "Corrigés", True) is True
+
+    after = repo.get_coverage_stats(doc_id)
+    assert after["total_units"] == 2
+    assert after["excluded_units"] == 1
+    assert "Corrigés" not in after["orphan_units"]
+
+
+def test_reincluding_a_section_puts_its_gap_back() -> None:
+    """Ré-inclure une section réintègre sa lacune et rétablit le ratio de couverture."""
+    repo = DocumentRepository()
+    doc_id = _document_with_numbered_sections("Cours exclusions 2", ["Préface", "Partie 1"])
+    repo.set_section_excluded(doc_id, "Préface", True)
+    assert repo.get_coverage_stats(doc_id)["total_units"] == 1
+
+    assert repo.set_section_excluded(doc_id, "Préface", False) is True
+
+    restored = repo.get_coverage_stats(doc_id)
+    assert restored["total_units"] == 2
+    assert restored["excluded_units"] == 0
+    assert "Préface" in restored["orphan_units"]
+
+
+def test_excluding_a_section_preserves_the_persisted_page_holes() -> None:
+    """Une exclusion de section ne doit pas effacer les trous de pages de la délimitation."""
+    repo = DocumentRepository()
+    doc_id = _document_with_numbered_sections("Cours exclusions 3", ["Partie 1", "Annexes"])
+    doc = DocumentModel.get_by_id(doc_id)
+    doc.excluded_headings = json.dumps(["page:2"], ensure_ascii=False)
+    doc.save()
+
+    repo.set_section_excluded(doc_id, "Annexes", True)
+    assert _stored_exclusions(doc_id) == ["Annexes", "page:2"]
+
+    repo.set_section_excluded(doc_id, "Annexes", False)
+    assert _stored_exclusions(doc_id) == ["page:2"]
+
+
+def test_reincluding_a_section_clears_the_broader_entries_that_still_cover_it() -> None:
+    """Une entrée plus large laissée persistée ne doit pas figer le bouton sur « Ré-inclure »."""
+    repo = DocumentRepository()
+    doc_id = _document_with_numbered_sections("Cours exclusions 7", ["Annexe A", "Partie 1"])
+    doc = DocumentModel.get_by_id(doc_id)
+    doc.excluded_headings = json.dumps(["annexe"], ensure_ascii=False)
+    doc.save()
+
+    assert repo.set_section_excluded(doc_id, "Annexe A", False) is True
+
+    assert repo.is_section_excluded(DocumentModel.get_by_id(doc_id), "Annexe A") is False
+    assert _stored_exclusions(doc_id) == []
+
+
+def test_excluding_a_section_stays_visible_to_the_delimitation_consumers() -> None:
+    """L'exclusion doit rester effective là où le chemin de titre est nettoyé avant comparaison."""
+    repo = DocumentRepository()
+    raw_path = '<span id="p12">Partie **1**</span> > <a href="#x">Cas limites</a>'
+    doc_id = _document_with_numbered_sections("Cours exclusions 8", [raw_path, "Annexes"])
+
+    assert repo.set_section_excluded(doc_id, raw_path, True) is True
+
+    doc = DocumentModel.get_by_id(doc_id)
+    cleaned = MarkdownStructurer.clean_heading_title(raw_path)
+    assert cleaned != raw_path
+    assert repo.is_section_excluded(doc, cleaned) is True
+    assert repo.is_section_excluded(doc, "Annexes") is False
+
+
+def test_coverage_stats_counts_the_sections_actually_removed_from_the_scope() -> None:
+    """`excluded_units` compte les sections sorties du périmètre, pas les entrées brutes.
+
+    Quatre entrées persistées ici, dont deux ne recoupent aucun fragment et une qui en
+    recouvre trois : compter les entrées donnerait 4 au lieu de 3.
+    """
+    repo = DocumentRepository()
+    doc_id = _document_with_numbered_sections("Cours exclusions 9", ["Partie 1", "Partie 1 > A", "Partie 1 > B", "Annexes"])
+    doc = DocumentModel.get_by_id(doc_id)
+    doc.excluded_headings = json.dumps(["partie 1", "page:2", "entrée orpheline", "autre annexe"], ensure_ascii=False)
+    doc.save()
+
+    stats = repo.get_coverage_stats(doc_id)
+    assert stats["total_units"] == 1
+    assert stats["excluded_units"] == 3
+
+
+def test_exclusion_matching_ignores_case_and_follows_the_heading_path() -> None:
+    """Le prédicat d'exclusion est insensible à la casse et suit le fil d'Ariane complet."""
+    repo = DocumentRepository()
+    doc_id = _document_with_numbered_sections("Cours exclusions 4", ["Remerciements", "Partie 1"])
+
+    repo.set_section_excluded(doc_id, "Remerciements", True)
+    doc = DocumentModel.get_by_id(doc_id)
+    assert repo.is_section_excluded(doc, "REMERCIEMENTS") is True
+    assert repo.is_section_excluded(doc, "Cours > Remerciements") is True
+    assert repo.is_section_excluded(doc, "Partie 1") is False
+
+    repo.set_section_excluded(doc_id, "Remerciements", False)
+    assert repo.is_section_excluded(DocumentModel.get_by_id(doc_id), "Remerciements") is False
+    assert repo.get_coverage_stats(doc_id)["excluded_units"] == 0
+
+
+def test_set_section_excluded_rejects_blank_heading_and_unknown_document() -> None:
+    """Une exclusion sans titre exploitable, ou sur un document absent, ne touche à rien."""
+    repo = DocumentRepository()
+    doc_id = _document_with_numbered_sections("Cours exclusions 5", ["Partie 1"])
+
+    assert repo.set_section_excluded(doc_id, "   ", True) is False
+    assert repo.set_section_excluded(-1, "Partie 1", True) is False
+
+    assert _stored_exclusions(doc_id) == []
+
+
+def test_set_section_excluded_rejects_a_generic_page_label() -> None:
+    """Un libellé « Page N » auto-généré ne désigne pas une section : l'écrire exclurait la page entière."""
+    repo = DocumentRepository()
+    doc_id = _document_with_numbered_sections("Cours exclusions 6", ["Partie 1"])
+
+    assert repo.is_excludable_heading("Partie 1") is True
+    assert repo.is_excludable_heading("Page 12") is False
+    assert repo.is_excludable_heading(None) is False
+
+    assert repo.set_section_excluded(doc_id, "Page 12", True) is False
+    assert _stored_exclusions(doc_id) == []

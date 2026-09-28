@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QLabel
 
 from ankiforge.database.models import (
@@ -15,12 +16,14 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.ui.components.duplicate_widgets import (
     DuplicateMatrixTable,
     DuplicateMergeInspector,
 )
 from ankiforge.ui.components.linter_widgets import WozniakCardItemWidget
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.analysis_view import (
     AIDuplicatesMergeTab,
     AISourcesDiagnosticTab,
@@ -262,6 +265,206 @@ def test_ai_sources_diagnostic_tab_grid_and_kpis(qtbot):
     # Test switch to inspector
     tab.show_inspector(doc.id)
     assert tab.stack.currentIndex() == 1
+
+
+def _make_inspectable_document(uid: str) -> tuple[DocumentModel, list[DocumentChunkModel]]:
+    """Cours de trois sections dont une seule est couverte, plus un fragment paginé non excluable."""
+    doc = DocumentModel.create(
+        title=f"Cours Delimitation {uid}",
+        content="# Preface\nRien d'utile.\n\n# Partie 1\nLe contrat.\n\n# Corriges\nLes reponses.",
+        file_type="md",
+    )
+    chunks = [
+        DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Preface", content="Rien d'utile.", content_hash=f"dp_{uid}_0"),
+        DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Partie 1", content="Le contrat.", content_hash=f"dp_{uid}_1"),
+        DocumentChunkModel.create(document=doc, chunk_index=2, heading_path="Corriges", content="Les reponses.", content_hash=f"dp_{uid}_2"),
+        DocumentChunkModel.create(document=doc, chunk_index=3, heading_path="Page 4", content="Page sans titre.", page_number=4, content_hash=f"dp_{uid}_3"),
+    ]
+    return doc, chunks
+
+
+def _make_titled_only_document(uid: str) -> DocumentModel:
+    """Document dont tous les fragments portent un titre de section, périmètre vidable."""
+    doc = DocumentModel.create(
+        title=f"Cours Entierement Exclu {uid}",
+        content="# Preface\nRien d'utile.\n\n# Partie 1\nLe contrat.",
+        file_type="md",
+    )
+    for index, name in enumerate(["Preface", "Partie 1"]):
+        DocumentChunkModel.create(document=doc, chunk_index=index, heading_path=name, content=f"Contenu {name}.", content_hash=f"dt_{uid}_{index}")
+    return doc
+
+
+def _cover_chunk_with_card(doc: DocumentModel, chunk: DocumentChunkModel, uid: str) -> None:
+    deck = DeckModel.create(name=f"Deck Delimitation {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Delimitation {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note.add_version({"Front": "Question ?", "Back": "Reponse."}, source="manual")
+    CardModel.create(note=note, deck=deck, template_index=0)
+    NoteChunkLinkModel.create(note=note, chunk=chunk)
+
+
+def _stored_exclusions(doc_id: int) -> list[str]:
+    return DocumentRepository().get_excluded_headings(DocumentModel.get_by_id(doc_id))
+
+
+def test_document_inspector_excludes_and_reincludes_a_section_in_place(qtbot):
+    """« Exclure cette section » retire la section de l'analyse sans recharger l'inspecteur."""
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_inspectable_document(uid)
+    _cover_chunk_with_card(doc, chunks[1], uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    panel.chapters_list.setCurrentRow(2)
+    qtbot.wait(10)
+
+    assert "25%" in panel.lbl_doc_summary.text()
+    assert "1/4 sections" in panel.lbl_doc_summary.text()
+    assert "Exclure cette section" in panel.btn_exclude_section.text()
+    assert panel.btn_exclude_section.isEnabled()
+
+    panel.btn_exclude_section.click()
+
+    # La section exclue n'est plus une lacune et ne plombe plus le ratio.
+    assert _stored_exclusions(doc.id) == ["Corriges"]
+    assert "33%" in panel.lbl_doc_summary.text()
+    assert "1/3 sections" in panel.lbl_doc_summary.text()
+    assert "1 section hors périmètre" in panel.lbl_scope_status.text()
+
+    # Le row porte un style d'exclusion et l'action bascule en ré-inclusion.
+    excluded_row = panel.chapters_list.item(2)
+    assert "Exclue" in excluded_row.text()
+    assert excluded_row.foreground().color() == QColor(DesignTokens.TEXT_MUTED)
+    assert "Ré-inclure la section" in panel.btn_exclude_section.text()
+
+    # Aucune relecture brutale : la sélection et l'aperçu restent sur la section traitée.
+    assert panel.chapters_list.currentRow() == 2
+    assert "Les reponses" in panel.text_preview.toPlainText()
+
+    panel.btn_exclude_section.click()
+
+    assert _stored_exclusions(doc.id) == []
+    assert "25%" in panel.lbl_doc_summary.text()
+    assert "1/4 sections" in panel.lbl_doc_summary.text()
+    assert "Exclue" not in panel.chapters_list.item(2).text()
+    assert "Exclure cette section" in panel.btn_exclude_section.text()
+
+
+def test_document_inspector_exclusion_action_follows_the_selected_section(qtbot):
+    """L'action d'exclusion décrit la section sélectionnée, et se désactive sans titre exploitable."""
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_inspectable_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+
+    panel.chapters_list.setCurrentRow(1)
+    qtbot.wait(10)
+    assert "Exclure cette section" in panel.btn_exclude_section.text()
+
+    panel.btn_exclude_section.click()
+    assert _stored_exclusions(doc.id) == ["Partie 1"]
+
+    # « Partie 1 » est désormais exclue : la même ligne propose de la réintégrer…
+    assert "Ré-inclure la section" in panel.btn_exclude_section.text()
+    # … et une autre ligne, toujours incluse, propose de l'exclure.
+    panel.chapters_list.setCurrentRow(0)
+    qtbot.wait(10)
+    assert "Exclure cette section" in panel.btn_exclude_section.text()
+
+    # Un fragment au libellé de page n'est pas une section : l'action n'a pas lieu d'être.
+    panel.chapters_list.setCurrentRow(3)
+    qtbot.wait(10)
+    assert not panel.btn_exclude_section.isEnabled()
+    assert "titre" in panel.btn_exclude_section.toolTip().lower()
+
+
+def test_document_inspector_exclusion_is_propagated_to_the_rest_of_the_app(qtbot):
+    """Changer le périmètre d'un document est notifié aux autres vues de l'application."""
+    from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_inspectable_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    panel.chapters_list.setCurrentRow(2)
+    qtbot.wait(10)
+
+    captured: list[CoverageSyncedEvent] = []
+
+    def _handler(event: CoverageSyncedEvent) -> None:
+        captured.append(event)
+
+    event_bus.subscribe(CoverageSyncedEvent, _handler)
+    try:
+        panel.btn_exclude_section.click()
+    finally:
+        event_bus.unsubscribe(CoverageSyncedEvent, _handler)
+
+    assert [event.doc_id for event in captured] == [doc.id]
+    # Le panneau a déjà rafraîchi ses propres lignes : il ne doit pas se recharger.
+    assert "Exclue" in panel.chapters_list.item(2).text()
+    assert panel.chapters_list.currentRow() == 2
+
+
+def test_document_inspector_context_menu_toggles_section_exclusion(qtbot):
+    """Le clic droit sur une section propose de l'exclure, et l'exclut réellement."""
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_inspectable_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+
+    assert panel.chapters_list.contextMenuPolicy() == Qt.ContextMenuPolicy.CustomContextMenu
+
+    menu = panel.chapter_context_menu(panel.chapters_list.item(1))
+    assert menu is not None
+    labels = [action.text() for action in menu.actions() if action.text()]
+    assert "Exclure cette section" in labels
+
+    toggle_action = next(action for action in menu.actions() if action.text() == "Exclure cette section")
+    toggle_action.trigger()
+
+    assert _stored_exclusions(doc.id) == ["Partie 1"]
+    assert "Exclue" in panel.chapters_list.item(1).text()
+    assert panel.chapters_list.currentRow() == 1
+
+    # Le menu propose ensuite la réintégration, y compris pour la section déjà traitée.
+    reinclude_labels = [action.text() for action in panel.chapter_context_menu(panel.chapters_list.item(1)).actions() if action.text()]
+    assert "Ré-inclure la section" in reinclude_labels
+
+
+def test_document_inspector_context_menu_disables_exclusion_of_a_page_row(qtbot):
+    """Une ligne au libellé de page reste inspectable mais ne propose pas d'exclusion."""
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_inspectable_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+
+    menu = panel.chapter_context_menu(panel.chapters_list.item(3))
+    assert menu is not None
+    toggle_action = next(action for action in menu.actions() if action.text() == "Exclure cette section")
+    assert not toggle_action.isEnabled()
+
+
+def test_document_inspector_reports_an_empty_scope_instead_of_a_zero_coverage(qtbot):
+    """Exclure toutes les sections affiche un périmètre vide, pas un 0 % rouge."""
+    uid = uuid.uuid4().hex[:6]
+    doc = _make_titled_only_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+
+    for row in range(panel.chapters_list.count()):
+        panel.chapters_list.setCurrentRow(row)
+        qtbot.wait(5)
+        panel.btn_exclude_section.click()
+
+    assert panel.lbl_doc_summary.text() == "Périmètre vide (0 section active)"
+    assert "0%" not in panel.lbl_doc_summary.text()
 
 
 def test_ai_sources_align_buttons(qtbot):
