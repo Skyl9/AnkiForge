@@ -9,7 +9,11 @@ from PySide6.QtCore import Qt
 from ankiforge.database.models import DocumentChunkModel, DocumentModel
 from ankiforge.services.batch.slicing_service import SliceUnit
 from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
-from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog, _RecapTaskCard
+from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import (
+    RECAP_PREVIEW_MIN_HEIGHT,
+    BatchSliceComposerDialog,
+    _RecapTaskCard,
+)
 from ankiforge.ui.views.batch_view.widgets import AutoSliceWidget
 
 pytestmark = pytest.mark.ui
@@ -58,6 +62,15 @@ def _paginated_doc() -> DocumentModel:
             content=f"Contenu page {page}",
             content_hash=f"dbg_pg{page}",
         )
+    return doc
+
+
+def _many_chapters_doc(count: int) -> DocumentModel:
+    """Document à `count` chapitres H1 indépendants (1 chapitre = 1 partie = 1 tâche en mode Direct)."""
+    body = "".join(f"# Chapitre {i}\n\n{LONG_PART1}\n\n" for i in range(1, count + 1))
+    doc = DocumentModel.create(title="Anthologie.md", file_type="md", content=body)
+    for i in range(1, count + 1):
+        DocumentChunkModel.create(document=doc, chunk_index=i - 1, heading_path=f"Chapitre {i}", content=f"# Chapitre {i}\n\n{LONG_PART1}", content_hash=f"many{i}")
     return doc
 
 
@@ -526,6 +539,54 @@ def test_composer_recap_builds_one_card_per_task_with_checked_content(qtbot: Any
     assert LONG_PART1 in cards[0].browser_source.toPlainText()
     assert LONG_PART2 in cards[1].browser_source.toPlainText()
     assert all(LONG_PART2 in card.browser_formatted.toHtml() or LONG_PART1 in card.browser_formatted.toHtml() for card in cards)
+
+
+def test_recap_step_header_has_no_frame_wrapper(qtbot: Any) -> None:
+    """L'en-tête du récapitulatif est typographique : aucune boîte intermédiaire entre les labels et la page."""
+    dlg = _composer(_markdown_doc())
+    qtbot.addWidget(dlg)
+    dlg.show()
+    dlg._chips[2].click()
+
+    # Les labels sont les enfants directs de la page de l'étape 3 (aucun QFrame d'encadrement)
+    assert dlg.lbl_recap_title.parent() is dlg.lbl_recap_stats.parent()
+    page = dlg.lbl_recap_title.parentWidget()
+    assert page is not None
+    page_layout = page.layout()
+    assert page_layout is not None
+    widgets = [page_layout.itemAt(i).widget() for i in range(page_layout.count())]
+
+    # Titre + stats directement dans le layout de la page, puis la zone de tâches
+    assert widgets == [dlg.lbl_recap_title, dlg.lbl_recap_stats, dlg.tasks_scroll]
+    assert dlg.lbl_recap_title.text()
+    assert dlg.lbl_recap_stats.text()
+
+
+def test_recap_task_card_previews_have_comfortable_minimum_height(qtbot: Any) -> None:
+    """Les fenêtres d'aperçu « Formaté » et « Source » sont assez hautes pour relire une dizaine de lignes d'un coup."""
+    card = _RecapTaskCard("Label", "~10 tokens", f"# Titre\n\n{LONG_PART1}")
+    qtbot.addWidget(card)
+
+    assert card.browser_formatted.minimumHeight() >= RECAP_PREVIEW_MIN_HEIGHT
+    assert card.browser_source.minimumHeight() >= RECAP_PREVIEW_MIN_HEIGHT
+    assert card.preview_stack.minimumSizeHint().height() >= RECAP_PREVIEW_MIN_HEIGHT
+    assert card.sizeHint().height() >= RECAP_PREVIEW_MIN_HEIGHT
+
+
+def test_composer_recap_step_scrolls_with_tall_previews(qtbot: Any) -> None:
+    """Les aperçus agrandis restent scrollables : la page du récapitulatif défile au lieu de tronquer les découpes."""
+    dlg = _composer(_many_chapters_doc(6))
+    qtbot.addWidget(dlg)
+    dlg.show()
+    dlg._chips[2].click()
+    qtbot.wait(20)
+
+    cards = [dlg.tasks_layout.itemAt(i).widget() for i in range(dlg.tasks_layout.count())]
+    cards = [c for c in cards if isinstance(c, _RecapTaskCard)]
+    assert len(cards) == 6
+    assert dlg.tasks_scroll.widget().height() > dlg.tasks_scroll.viewport().height()
+    assert dlg.tasks_scroll.verticalScrollBar().maximum() > 0
+    assert all(card.browser_formatted.height() >= RECAP_PREVIEW_MIN_HEIGHT for card in cards)
 
 
 def test_composer_step_chips_navigation_with_and_without_doc(qtbot: Any) -> None:
