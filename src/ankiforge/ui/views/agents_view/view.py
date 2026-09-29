@@ -462,7 +462,7 @@ class AgentsView(QWidget):
         self.prompt_edit.setStyleSheet(f"""
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
-                color: #a5b4fc;
+                color: {DesignTokens.TEXT_PRIMARY};
                 font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 line-height: 1.5;
@@ -610,7 +610,7 @@ class AgentsView(QWidget):
             tools = ToolService.list_tools()
             for t in tools:
                 cat = "Natif" if t.is_builtin else "Script Custom"
-                col = "#3b82f6" if t.is_builtin else "#f97316"
+                col = DesignTokens.COLOR_BLUE if t.is_builtin else DesignTokens.COLOR_YELLOW
                 card = ToolPermissionCard(
                     tool_key=t.name,
                     label=t.display_name,
@@ -900,7 +900,9 @@ class AgentsView(QWidget):
             self.editor_master_stack.setCurrentIndex(1)
 
         self.name_edit.setText(str(ag.name) if ag.name else "")
+        self.name_edit.setCursorPosition(0)
         self.desc_edit.setText(str(ag.description) if ag.description else "")
+        self.desc_edit.setCursorPosition(0)
         self.prompt_edit.setPlainText(str(ag.system_prompt) if ag.system_prompt else "")
         self._update_tokens_count()
 

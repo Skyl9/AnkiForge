@@ -299,8 +299,7 @@ class BatchView(QWidget):
         ai_layout.addWidget(self.btn_no_engine_help)
 
         self.pipeline_combo = StyledComboBox()
-        self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.pipeline_combo.setMinimumContentsLength(8)
+        self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.pipeline_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
         ai_layout.addWidget(self.pipeline_combo)
@@ -482,7 +481,7 @@ class BatchView(QWidget):
                 border-color: {DesignTokens.COLOR_GREEN_TEXT};
             }}
         """)
-        apply_shadow(self.btn_start_pipeline, blur=16, offset_y=0, color="rgba(16, 185, 129, 0.45)")
+        apply_shadow(self.btn_start_pipeline, blur=16, offset_y=0, color=DesignTokens.COLOR_GREEN_BORDER)
         self.btn_start_pipeline.clicked.connect(self._on_start_batch)
         self.queue_panel.add_header_widget(self.btn_start_pipeline)
 
@@ -712,6 +711,7 @@ class BatchView(QWidget):
                     step_cnt = PipelineStepModel.select().where(PipelineStepModel.pipeline == pipe).count()
                     display_txt = f"{pipe.name} ({step_cnt} étapes)" if step_cnt > 0 else pipe.name
                     self.pipeline_combo.addItem(load_phosphor_icon("ph.tree-structure", color=DesignTokens.COLOR_BLUE), display_txt, userData=pipe)
+                    self.pipeline_combo.setItemData(self.pipeline_combo.count() - 1, display_txt, Qt.ItemDataRole.ToolTipRole)
                 self.btn_no_pipeline_help.hide()
                 saved_pipe_id = SettingsService.get("batch/pipeline_id")
                 if saved_pipe_id is not None:
@@ -985,8 +985,8 @@ class BatchView(QWidget):
                     font-size: 12px;
                 }}
                 QPushButton:hover {{
-                    background-color: #059669;
-                    border-color: #34d399;
+                    background-color: {DesignTokens.COLOR_GREEN_TEXT};
+                    border-color: {DesignTokens.COLOR_GREEN_TEXT};
                 }}
             """)
 
@@ -1678,9 +1678,9 @@ class BatchView(QWidget):
                 page_number = raw.get("_source_page_number")
                 source_blocks = raw.get("_source_blocks")
                 card_text = " ".join(str(v) for k, v in raw.items() if not str(k).startswith("_source_") and str(v).strip()).strip()
-                resolved = CoverageAlignmentService.resolve_finest_chunk_for_card(
-                    card_text=card_text,
+                resolved, _resolution = CoverageAlignmentService.resolve_attachment(
                     doc_id=doc.id,
+                    card_text=card_text,
                     llm_section=str(heading_path) if heading_path else None,
                     source_chunk_id=int(chunk_id) if isinstance(chunk_id, int) else (int(chunk_id) if str(chunk_id).isdigit() else None),
                     page_number=int(page_number) if page_number is not None and str(page_number).isdigit() else None,
@@ -1692,12 +1692,16 @@ class BatchView(QWidget):
                         doc_title=doc.title,
                         page_number=resolved.page_number,
                         section_name=resolved.heading_path,
-                        chunk_id=resolved.id,
                         extra_tags=common_tags,
                     )
                 # Aucune route n'a désigné un fragment : la carte reste traçable jusqu'au
                 # document, mais elle ne portera aucun lien de couverture. On le signale
                 # dès maintenant plutôt que de laisser l'échec passer inaperçu.
+                # Aucune `page:` n'est étiquetée : n'ayant pas désigné de fragment, la page
+                # déduite de la portée n'est pas un fait avéré sur la source, seulement une
+                # présomption sur le périmètre envoyé. La `section:` reste en revanche
+                # étiquetée quand le LLM l'a affirmée : elle décrit la provenance déclarée
+                # par le générateur, et non un fragment que nous aurions-nous-mêmes désigné.
                 logger.warning(
                     "Carte batch sans fragment résolu (document « %s », provenance multi-blocs de %d fragment(s)) : elle apparaîtra hors couverture.",
                     doc.title,
@@ -1706,7 +1710,6 @@ class BatchView(QWidget):
                 return build_document_tags(
                     doc_id=doc.id,
                     doc_title=doc.title,
-                    page_number=int(page_number) if page_number is not None and str(page_number).isdigit() else None,
                     section_name=str(heading_path) if heading_path else None,
                     extra_tags=common_tags,
                 )

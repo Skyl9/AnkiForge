@@ -151,12 +151,12 @@ class Sidebar(QWidget):
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         self.scroll_content = QWidget()
         self.sections_layout = QVBoxLayout(self.scroll_content)
-        self.sections_layout.setContentsMargins(12, 12, 12, 12)
-        self.sections_layout.setSpacing(24)
+        self.sections_layout.setContentsMargins(12, 8, 12, 8)
+        self.sections_layout.setSpacing(16)
         self.sections_layout.addStretch()
 
         self.scroll.setWidget(self.scroll_content)
@@ -167,7 +167,7 @@ class Sidebar(QWidget):
         self.footer.setObjectName("SidebarFooter")
         self.footer.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         footer_layout = QVBoxLayout(self.footer)
-        footer_layout.setContentsMargins(12, 12, 12, 12)
+        footer_layout.setContentsMargins(12, 6, 12, 8)
         footer_layout.setSpacing(4)
 
         self.feedback_btn = SidebarItem("feedback", "chat-circle-dots", "Aide & Retours")

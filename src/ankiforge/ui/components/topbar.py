@@ -6,6 +6,7 @@ import/export et cloche de notifications.
 """
 
 import logging
+import sys
 from typing import Any
 
 from PySide6.QtCore import QEvent, QObject, Qt, Signal
@@ -122,8 +123,10 @@ class TopBar(QWidget):
 
         # Omnibox
         self.omnibox = GlowLineEdit()
-        self.omnibox.setPlaceholderText("Rechercher cartes, paquets ou commandes... (Ctrl+K)")
-        self.omnibox.setMaximumWidth(420)
+        shortcut = "⌘K" if sys.platform == "darwin" else "Ctrl+K"
+        self.omnibox.setPlaceholderText(f"Rechercher cartes, paquets, commandes... ({shortcut})")
+        self.omnibox.setMinimumWidth(260)
+        self.omnibox.setMaximumWidth(460)
         self.omnibox.installEventFilter(self)
         content_layout.addWidget(self.omnibox)
 

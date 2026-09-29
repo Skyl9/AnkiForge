@@ -38,6 +38,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledLineEdit,
 )
+from ankiforge.ui.components.buttons import apply_compact_style
 from ankiforge.ui.components.code_editor import CodeEditorWithGutter
 from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
 from ankiforge.ui.dialogs.css_conflict_dialog import CSSConflictDialog
@@ -116,12 +117,13 @@ class CardModelsView(QWidget):
         self.model_search_input = GlowLineEdit(placeholder="Rechercher...")
         self.model_search_input.setObjectName("modelSearchInput")
         self.model_search_input.setProperty("role", "search")
+        self.model_search_input.setMinimumWidth(110)
         self.model_search_input.textChanged.connect(self._filter_models_list)
         search_row.addWidget(self.model_search_input, 1)
 
-        self.btn_new = PrimaryButton("Nouveau Modèle", tooltip="Créer un nouveau modèle de cartes Anki")
+        self.btn_new = PrimaryButton("+ Nouveau", tooltip="Créer un nouveau modèle de cartes Anki")
         self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
-        self.btn_new.setFixedHeight(28)
+        apply_compact_style(self.btn_new, height=28)
         search_row.addWidget(self.btn_new)
 
         list_layout.addLayout(search_row)
@@ -486,7 +488,7 @@ class CardModelsView(QWidget):
         self.editor_panel.add_tab("Éditeur de Modèle", editor_content, "ph.pencil-simple", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
 
-        self.main_splitter.setSizes([280, 854])
+        self.main_splitter.setSizes([320, 814])
         self.main_splitter.setStretchFactor(0, 0)
         self.main_splitter.setStretchFactor(1, 1)
         self._switch_subtab(0)
@@ -512,7 +514,7 @@ class CardModelsView(QWidget):
             self._splitters_initialized = True
             total_w = self.width()
             if total_w > 500:
-                left_w = 280
+                left_w = 320
                 editor_w = total_w - left_w
                 self.main_splitter.setSizes([left_w, editor_w])
                 self.editor_horizontal_splitter.setSizes([int(editor_w * 0.55), int(editor_w * 0.45)])

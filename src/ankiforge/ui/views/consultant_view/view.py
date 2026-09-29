@@ -375,7 +375,8 @@ class ConsultantView(QWidget):
         self.chat_panel.add_header_separator()
 
         self.model_selector = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
-        self.model_selector.setMinimumWidth(220)
+        self.model_selector.setMinimumWidth(160)
+        self.model_selector.setMaximumWidth(260)
         self.chat_panel.add_header_widget(self.model_selector)
         self.chat_panel.add_header_separator()
 
@@ -538,7 +539,7 @@ class ConsultantView(QWidget):
         # ── 2. Panneau de Contexte & Cerveau de l'Agent IA (Droite) ─────────
         self.context_panel = IdePanel(detachable=True)
         self.context_panel.set_menu_button_visible(False)
-        self.context_panel.setMinimumWidth(530)
+        self.context_panel.setMinimumWidth(340)
 
         self.context_hub = ContextHubWidget(self)
         self.context_hub.add_context_requested.connect(self._on_add_context)
@@ -569,7 +570,7 @@ class ConsultantView(QWidget):
         self.splitter.addWidget(self.context_panel)
         self.splitter.setCollapsible(0, False)
         self.splitter.setCollapsible(1, True)
-        self.splitter.setSizes([840, 360])
+        self.splitter.setSizes([760, 440])
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 0)
 
