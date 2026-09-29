@@ -144,7 +144,7 @@ class ModelImportDialog(QDialog):
         self.collision_frame = QFrame()
         self.collision_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: rgba(245, 158, 11, 0.10);
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
                 border: 1px solid {DesignTokens.COLOR_YELLOW};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 10px;

@@ -54,7 +54,7 @@ class PrimaryButton(QPushButton):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "primary")
 
-        apply_shadow(self, blur=10, offset_y=0, color="rgba(99,102,241,0.4)")
+        apply_shadow(self, blur=10, offset_y=0, color=DesignTokens.ACCENT_GLOW)
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
             self.anim = QPropertyAnimation(effect, b"blurRadius", self)
@@ -112,7 +112,7 @@ class SecondaryButton(QPushButton):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "secondary")
 
-        apply_shadow(self, blur=2, offset_y=1, color="rgba(0,0,0,0.18)")
+        apply_shadow(self, blur=2, offset_y=1, color=DesignTokens.SHADOW_COLOR)
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
             self.anim = QPropertyAnimation(effect, b"blurRadius", self)
@@ -195,7 +195,7 @@ class DangerButton(QPushButton):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "danger")
 
-        apply_shadow(self, blur=2, offset_y=1, color="rgba(239,68,68,0.25)")
+        apply_shadow(self, blur=2, offset_y=1, color=DesignTokens.COLOR_RED_BORDER)
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
             self.anim = QPropertyAnimation(effect, b"blurRadius", self)
@@ -253,7 +253,7 @@ class IconButton(QPushButton):
             self.setIconSize(self.size() * 0.6)
             self.setText("")
 
-        apply_shadow(self, blur=2, offset_y=1, color="rgba(0,0,0,0.15)")
+        apply_shadow(self, blur=2, offset_y=1, color=DesignTokens.SHADOW_COLOR)
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
             self.anim = QPropertyAnimation(effect, b"blurRadius", self)

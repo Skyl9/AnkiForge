@@ -140,7 +140,7 @@ class ModelCapabilityBadgesWidget(QWidget):
             pill_think = CapabilityPill(
                 "ph.brain",
                 "Thinking" if not self.compact else "CoT",
-                "#a855f7",  # Violet vibrant pour le raisonnement
+                DesignTokens.COLOR_PURPLE,
                 tooltip="Mode réflexion approfondie par chaîne de pensée (Chain-of-Thought)",
                 parent=self,
             )

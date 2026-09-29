@@ -56,7 +56,7 @@ class CommandPalette(QDialog):
                 border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """)
-        apply_shadow(self.container, blur=32, offset_y=8, color="rgba(0,0,0,0.5)")
+        apply_shadow(self.container, blur=32, offset_y=8, color=DesignTokens.SHADOW_COLOR)
 
         container_layout = QVBoxLayout(self.container)
         container_layout.setContentsMargins(14, 14, 14, 14)

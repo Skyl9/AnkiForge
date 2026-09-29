@@ -112,7 +112,7 @@ class NativeCodeEditor(QPlainTextEdit):
                 border-top-right-radius: {DesignTokens.RADIUS_SM}px;
                 border-bottom-right-radius: {DesignTokens.RADIUS_SM}px;
                 selection-background-color: {DesignTokens.ACCENT_PRIMARY};
-                selection-color: #ffffff;
+                selection-color: {DesignTokens.TEXT_ON_ACCENT};
             }}
         """)
 

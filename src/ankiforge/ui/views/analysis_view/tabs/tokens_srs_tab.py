@@ -357,19 +357,19 @@ class AITokensSrsTab(QWidget):
 
             if "gemini" in m_lower:
                 p_icon = "ph.sparkle"
-                p_color = "#4285F4"
+                p_color = DesignTokens.COLOR_BLUE
                 p_tag = "Google Gemini"
             elif any(k in m_lower for k in ("qwen", "llama", "mistral", "ollama")):
                 p_icon = "ph.terminal"
-                p_color = "#10a37f"
+                p_color = DesignTokens.COLOR_GREEN
                 p_tag = "Ollama Local"
             elif any(k in m_lower for k in ("gpt", "openai")):
                 p_icon = "ph.brain"
-                p_color = "#10a37f"
+                p_color = DesignTokens.COLOR_GREEN
                 p_tag = "OpenAI"
             elif any(k in m_lower for k in ("claude", "anthropic")):
                 p_icon = "ph.chat-teardrop-dots"
-                p_color = "#d97706"
+                p_color = DesignTokens.COLOR_YELLOW
                 p_tag = "Anthropic"
             elif any(k in m_lower for k in ("local", "marker", "whisper")):
                 p_icon = "ph.hard-drives"

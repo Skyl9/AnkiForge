@@ -66,7 +66,7 @@ class GlowLineEdit(QLineEdit):
 
         self._apply_base_style()
 
-        apply_shadow(self, blur=4, offset_y=1, color="rgba(0,0,0,0.22)")
+        apply_shadow(self, blur=4, offset_y=1, color=DesignTokens.SHADOW_COLOR)
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
             self._shadow_effect = effect
@@ -97,7 +97,7 @@ class GlowLineEdit(QLineEdit):
                 padding: 4px 10px;
                 font-size: 12px;
                 selection-background-color: {accent_primary};
-                selection-color: #ffffff;
+                selection-color: {DesignTokens.TEXT_ON_ACCENT};
             }}
             QLineEdit:hover {{
                 background-color: {bg_hover};
@@ -257,7 +257,7 @@ class ToggleSwitch(QWidget):
         p.drawRoundedRect(0, 0, self.width(), self.height(), 10, 10)
 
         # Curseur circulaire avec coordonnées sous-pixel
-        p.setBrush(QColor("#ffffff"))
+        p.setBrush(QColor(DesignTokens.TEXT_ON_ACCENT))
         p.drawEllipse(QRectF(self._thumb_pos, 2.0, 16.0, 16.0))
 
 

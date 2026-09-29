@@ -443,7 +443,7 @@ class ABTestsView(QWidget):
         self.btn_run.setIconSize(QSize(15, 15))
         self.btn_run.setFixedHeight(34)
         self.btn_run.setMinimumWidth(200)
-        apply_shadow(self.btn_run, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
+        apply_shadow(self.btn_run, blur=14, offset_y=0, color=DesignTokens.ACCENT_GLOW)
         config_panel_layout.addWidget(self.btn_run)
 
         self._load_ab_settings()
@@ -1060,9 +1060,9 @@ class ABTestsView(QWidget):
         if provider == "ollama":
             return "ph.cpu", DesignTokens.COLOR_GREEN
         if provider == "opencode":
-            return "ph.code", "#6366f1"
+            return "ph.code", DesignTokens.COLOR_PURPLE
         if provider == "openrouter":
-            return "ph.arrows-split", "#ec4899"
+            return "ph.arrows-split", DesignTokens.FLAG_PINK
         return "ph.brain", DesignTokens.ACCENT_PRIMARY
 
     def _apply_engine_to_field(self, target: str | None, engine: LLMConfigModel | None) -> None:
@@ -1418,8 +1418,8 @@ class ABTestsView(QWidget):
             self.diff_a.set_content_diff(card_a, card_b)
             self.diff_b.set_content_diff(card_b, card_a)
         else:
-            self.diff_a.setHtml("<p style='color:#94a3b8;'>En attente des cartes des deux branches pour générer le diff.</p>")
-            self.diff_b.setHtml("<p style='color:#94a3b8;'>En attente des cartes des deux branches pour générer le diff.</p>")
+            self.diff_a.setHtml(f"<p style='color:{DesignTokens.TEXT_MUTED};'>En attente des cartes des deux branches pour générer le diff.</p>")
+            self.diff_b.setHtml(f"<p style='color:{DesignTokens.TEXT_MUTED};'>En attente des cartes des deux branches pour générer le diff.</p>")
 
     @Slot()
     def _prev_a(self) -> None:

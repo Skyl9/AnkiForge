@@ -129,7 +129,7 @@ class ActivityChartWidget(QWidget):
 
             # 1. Fond de colonne / rail arrondi fin
             rail_rect = QRectF(bar_x, top_margin + 2, bar_width, chart_height - 2)
-            rail_color = QColor(DesignTokens.BG_HOVER) if is_hovered else QColor("rgba(255, 255, 255, 0.04)")
+            rail_color = QColor(DesignTokens.BG_HOVER) if is_hovered else QColor(DesignTokens.BORDER_LIGHT)
             painter.setBrush(QBrush(rail_color))
             painter.setPen(Qt.PenStyle.NoPen)
             rail_path = QPainterPath()

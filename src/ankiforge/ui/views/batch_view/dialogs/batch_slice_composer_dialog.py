@@ -207,7 +207,7 @@ def _markdown_to_html(text: str) -> str:
         f"h1, h2, h3, h4 {{ color: {DesignTokens.ACCENT_PRIMARY}; }}"
         f"code {{ font-family: {DesignTokens.FONT_CODE}; background-color: {DesignTokens.BG_MAIN}; padding: 1px 4px; border-radius: 3px; }}"
         f"pre {{ background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_SM}px; padding: 10px; }}"
-        "a { color: #60a5fa; }"
+        f"a {{ color: {DesignTokens.COLOR_BLUE_TEXT}; }}"
         "</style></head>"
         f"<body>{body}</body></html>"
     )

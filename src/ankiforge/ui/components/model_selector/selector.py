@@ -114,10 +114,10 @@ class ModelSelectorWidget(QWidget):
                     icon_color = DesignTokens.COLOR_GREEN
                 elif m.provider == "opencode":
                     prov_icon_name = "ph.code"
-                    icon_color = "#6366f1"
+                    icon_color = DesignTokens.COLOR_PURPLE
                 elif m.provider == "openrouter":
                     prov_icon_name = "ph.arrows-split"
-                    icon_color = "#ec4899"
+                    icon_color = DesignTokens.FLAG_PINK
 
                 icon = load_phosphor_icon(prov_icon_name, color=icon_color)
                 label = f"{display}  ·  {pricing_tag}"

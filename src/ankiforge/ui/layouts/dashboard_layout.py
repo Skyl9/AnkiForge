@@ -69,7 +69,7 @@ class DashboardTabButton(NavBadgeButton):
                 QPushButton:hover {{
                     background-color: {DesignTokens.BG_HOVER};
                     color: {DesignTokens.TEXT_PRIMARY};
-                    border-color: rgba(255, 255, 255, 0.2);
+                    border-color: {DesignTokens.BORDER_FOCUS};
                 }}
             """)
 

@@ -58,7 +58,7 @@ class GlassTabButton(NavBadgeButton):
         else:
             self.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: rgba(255, 255, 255, 0.03);
+                    background-color: {DesignTokens.BORDER_LIGHT};
                     color: {DesignTokens.TEXT_MUTED};
                     border: 1px solid {DesignTokens.BORDER_LIGHT};
                     border-radius: {DesignTokens.RADIUS_MD}px;
@@ -117,7 +117,7 @@ class GlassmorphismLayout(BaseLayout):
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
-        apply_shadow(glass_header, blur=18, offset_y=3, color="rgba(0, 0, 0, 0.35)")
+        apply_shadow(glass_header, blur=18, offset_y=3, color=DesignTokens.SHADOW_COLOR)
 
         header_layout = QHBoxLayout(glass_header)
         header_layout.setContentsMargins(14, 8, 14, 8)
@@ -187,12 +187,12 @@ class GlassmorphismLayout(BaseLayout):
 
         # 2. Conteneur principal Glass
         self.stack_container = QFrame()
-        self.stack_container.setStyleSheet("""
-            QFrame {
-                background-color: rgba(18, 20, 28, 0.75);
-                border: 1px solid rgba(255, 255, 255, 0.08);
+        self.stack_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens._with_alpha(DesignTokens.BG_MAIN, 0.75)};
+                border: 1px solid {DesignTokens.BORDER_LIGHT};
                 border-radius: 14px;
-            }
+            }}
         """)
         self.stack_layout = QVBoxLayout(self.stack_container)
         self.stack_layout.setContentsMargins(4, 4, 4, 4)

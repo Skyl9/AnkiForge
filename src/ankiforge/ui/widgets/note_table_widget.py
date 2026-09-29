@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout,
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
-from ankiforge.ui.theme import StyledMenu
+from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.utils.hierarchy import descendants_prefix
 
 logger = logging.getLogger(__name__)
@@ -317,7 +317,7 @@ class NoteTableWidget(RoundedPanel):
 
                     if not recto.strip():
                         item_recto = SortableTableItem("⚠️ CARTE INVALIDE (Recto vide)")
-                        item_recto.setForeground(QColor("red"))
+                        item_recto.setForeground(QColor(DesignTokens.COLOR_RED))
                     else:
                         item_recto = SortableTableItem(recto)
 

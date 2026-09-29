@@ -172,7 +172,7 @@ class PanelPlaceholderWidget(QFrame):
             PanelPlaceholderWidget {{
                 border: 2px dashed {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                background-color: rgba(255, 255, 255, 0.01);
+                background-color: {DesignTokens.BORDER_LIGHT};
                 margin: 8px;
             }}
             QLabel {{

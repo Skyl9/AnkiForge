@@ -156,12 +156,12 @@ class NoteKaTeXHighlighter(QSyntaxHighlighter):
 
         # 1. Balises HTML : Cyan / Bleu
         html_fmt = QTextCharFormat()
-        html_fmt.setForeground(QColor("#38bdf8" if DesignTokens.is_dark_mode() else "#0284c7"))
+        html_fmt.setForeground(QColor(DesignTokens.SYNTAX_TAG))
         self.rules.append((QRegularExpression(r"</?[a-zA-Z0-9_-]+(\s+[^>]*)?/?>"), html_fmt))
 
         # 2. LaTeX inline & display : Vert Émeraude
         latex_fmt = QTextCharFormat()
-        latex_fmt.setForeground(QColor("#34d399" if DesignTokens.is_dark_mode() else "#059669"))
+        latex_fmt.setForeground(QColor(DesignTokens.SYNTAX_STRING))
         self.rules.append((QRegularExpression(r"\$\$.+?\$\$", QRegularExpression.PatternOption.DotMatchesEverythingOption), latex_fmt))
         self.rules.append((QRegularExpression(r"\\\[.+?\\\]", QRegularExpression.PatternOption.DotMatchesEverythingOption), latex_fmt))
         self.rules.append((QRegularExpression(r"\\\(.+?\\\)"), latex_fmt))
@@ -169,19 +169,19 @@ class NoteKaTeXHighlighter(QSyntaxHighlighter):
 
         # 3. Macros LaTeX isolées (\\frac, \\alpha...)
         macro_fmt = QTextCharFormat()
-        macro_fmt.setForeground(QColor("#a7f3d0" if DesignTokens.is_dark_mode() else "#047857"))
+        macro_fmt.setForeground(QColor(DesignTokens.COLOR_GREEN_TEXT))
         macro_fmt.setFontWeight(QFont.Weight.DemiBold)
         self.rules.append((QRegularExpression(r"\\[a-zA-Z]+"), macro_fmt))
 
         # 4. Variables Jinja2 standards : Orange / Ambre
         jinja_fmt = QTextCharFormat()
-        jinja_fmt.setForeground(QColor("#fbbf24" if DesignTokens.is_dark_mode() else "#d97706"))
+        jinja_fmt.setForeground(QColor(DesignTokens.SYNTAX_ATTR))
         self.rules.append((QRegularExpression(r"\{\{[^c\d][^}]*\}\}"), jinja_fmt))
         self.rules.append((QRegularExpression(r"\{%[\s\S]*?%\}"), jinja_fmt))
 
         # 5. Cloze deletions : Violet / Pourpre éclatant
         cloze_fmt = QTextCharFormat()
-        cloze_fmt.setForeground(QColor("#c084fc" if DesignTokens.is_dark_mode() else "#7c3aed"))
+        cloze_fmt.setForeground(QColor(DesignTokens.SYNTAX_KEYWORD))
         cloze_fmt.setFontWeight(QFont.Weight.Bold)
         self.rules.append((QRegularExpression(r"\{\{c\d+::[\s\S]*?\}\}"), cloze_fmt))
 
@@ -323,7 +323,7 @@ class NoteFieldTextEdit(QPlainTextEdit):
                 border-bottom-right-radius: {radius}px;
                 padding: 6px;
                 selection-background-color: {DesignTokens.ACCENT_PRIMARY};
-                selection-color: #ffffff;
+                selection-color: {DesignTokens.TEXT_ON_ACCENT};
             }}
         """)
 

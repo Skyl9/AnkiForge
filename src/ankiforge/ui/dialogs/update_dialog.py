@@ -145,7 +145,7 @@ class UpdateDialog(QDialog):
         self.progress_bar.setStyleSheet(
             f"QProgressBar {{ background-color: {DesignTokens.BG_INPUT}; "
             f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9px; "
-            "text-align: center; color: #ffffff; font-size: 11px; font-weight: 600; }\n"
+            f"text-align: center; color: {DesignTokens.TEXT_ON_ACCENT}; font-size: 11px; font-weight: 600; }}\n"
             f"QProgressBar::chunk {{ background-color: {DesignTokens.ACCENT_PRIMARY}; border-radius: 8px; }}"
         )
         progress_layout.addWidget(self.progress_bar)

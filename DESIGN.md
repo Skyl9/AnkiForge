@@ -43,19 +43,22 @@ Pour toute surface « teintée » (badge, pastille, fond de statut, diff, hover 
 | `COLOR_YELLOW_BG` / `COLOR_YELLOW_BORDER` | avertissement, état intermédiaire | `rgba(245, 158, 11, 0.15)` / `rgba(245, 158, 11, 0.3)` | dérivé de `color_yellow` |
 | `COLOR_BLUE_BG` / `COLOR_BLUE_BORDER` | information, focus explicite | `rgba(59, 130, 246, 0.15)` / `rgba(59, 130, 246, 0.3)` | dérivé de `color_blue` |
 | `COLOR_PURPLE_BG` / `COLOR_PURPLE_BORDER` | lien « branche A », variantes `cloze` | `rgba(99, 102, 241, 0.12)` / `rgba(99, 102, 241, 0.3)` | dérivé de `color_purple` |
+| `COLOR_ORANGE_BG` / `COLOR_ORANGE_BORDER` | sémantique orange, avertissements | `rgba(249, 115, 22, 0.15)` / `rgba(249, 115, 22, 0.3)` | dérivé de `color_orange` |
+| `COLOR_CYAN_BG` / `COLOR_CYAN_BORDER` | sémantique cyan, cloze, info technique | `rgba(6, 182, 212, 0.15)` / `rgba(6, 182, 212, 0.3)` | dérivé de `color_cyan` |
 | `COLOR_RED_TEXT` | texte sur teinte rouge | `#f87171` | `color_red` de base |
 | `COLOR_GREEN_TEXT` | texte sur teinte verte | `#6ee7b7` | `color_green` de base |
 | `COLOR_YELLOW_TEXT` | texte sur teinte jaune | `#fcd34d` | `color_yellow` de base |
 | `COLOR_BLUE_TEXT` | texte sur teinte bleue | `#93c5fd` | `color_blue` de base |
 | `COLOR_PURPLE_TEXT` | texte sur teinte violette | `#a5b4fc` | `color_purple` de base |
+| `COLOR_ORANGE_TEXT` | texte sur teinte orange | `#fdba74` | `color_orange` de base |
+| `COLOR_CYAN_TEXT` | texte sur teinte cyan | `#67e8f9` | `color_cyan` de base |
 | `TEXT_ON_ACCENT` | texte / icônes sur fond accent ou coloré (contraste inversé) | `#ffffff` (fixe) | `#0f1115` (fixe) |
 | `BRANCH_A_BG` / `BRANCH_A_BORDER` | variante violette rôle/étape A | `rgba(139, 92, 246, 0.12)` / `rgba(139, 92, 246, 0.45)` | dérivé de `color_purple` |
 | `BRANCH_B_BG` / `BRANCH_B_BORDER` | variante cyan rôle/étape B | `rgba(6, 182, 212, 0.12)` / `rgba(6, 182, 212, 0.45)` | dérivé de `color_cyan` |
 
 > [!NOTE]
-> - Les couleurs de marque des fournisseurs IA (`#4285F4` Google, `#10a37f` OpenAI, `#d97706` Gemini) sont des exceptions volontaires (identité), non converties en tokens.
-> - Le blanc inversé sur fond accent/coloré n'est **plus** une exception : il est unifié via le token `TEXT_ON_ACCENT` (`DesignTokens.TEXT_ON_ACCENT`, surchargé par `ThemeProfile.text_on_accent`), exposé pour les icônes via `load_on_accent_icon(name, weight="regular")` dans `ankiforge.utils.icon_loader` (équivalent couleur à `load_phosphor_icon(..., color=DesignTokens.TEXT_ON_ACCENT)`). Toute icône affichée sur une surface accent/colorée (`PrimaryButton`, badges teintés, arêtes vives du guide, segment actif) doit utiliser ce helper — zéro `color="white"` / `"#ffffff"` codé en dur.
-> - Restent des blancs **physiques** légitimes hors tokens (vérifiés et documentés) : rendu des cartes Anki (`card_model_io.py:504`, `anki_renderer.py:320`, `snippet_library.py:246`), `selection-color` des éditeurs Qt (`inputs.py:99`, `note_editor_widget.py:326`, `engine.py:235/1021`), dessin QPainter (`image_occlusion_editor.py:209/214`, `document_outline.py:137/169`, `misc.py:31`), séparateurs de pages PDF (`delimitation_dialog.py:456/785`), thèmes clairs (`themes.py`), et le handle du QSlider global (`engine.py:761`). Ces blancs sont des couleurs d'objets (fond de carte, texte sélectionné, trait) et non du texte sur accent.
+> - Le blanc inversé sur fond accent/coloré est unifié via le token `TEXT_ON_ACCENT` (`DesignTokens.TEXT_ON_ACCENT`, surchargé par `ThemeProfile.text_on_accent`), exposé pour les icônes via `load_on_accent_icon(name, weight="regular")` dans `ankiforge.utils.icon_loader` (équivalent couleur à `load_phosphor_icon(..., color=DesignTokens.TEXT_ON_ACCENT)`). Toute icône affichée sur une surface accent/colorée (`PrimaryButton`, badges teintés, arêtes vives du guide, segment actif) doit utiliser ce helper — zéro `color="white"` / `"#ffffff"` codé en dur.
+> - Restent des blancs **physiques** légitimes hors tokens (vérifiés et documentés) : rendu des cartes Anki (`card_model_io.py:504`, `anki_renderer.py:320`, `snippet_library.py:246`), séparateurs de pages PDF (`delimitation_dialog.py:456/785`), thèmes clairs (`themes.py`), et le handle du QSlider global (`engine.py:761`). Ces blancs sont des couleurs d'objets (fond de carte, trait) et non du texte sur accent.
 
 ---
 

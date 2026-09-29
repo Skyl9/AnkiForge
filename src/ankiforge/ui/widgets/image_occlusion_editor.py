@@ -193,9 +193,9 @@ class OcclusionGraphicsItem(QGraphicsRectItem):
         is_sel = self.isSelected()
 
         # Couleurs stylisées
-        fill_color = QColor("#e11d48") if is_sel else QColor("#f59e0b")
+        fill_color = QColor(DesignTokens.COLOR_RED) if is_sel else QColor(DesignTokens.COLOR_YELLOW)
         fill_color.setAlpha(180 if is_sel else 160)
-        border_color = QColor("#be123c") if is_sel else QColor("#d97706")
+        border_color = QColor(DesignTokens.COLOR_RED) if is_sel else QColor(DesignTokens.COLOR_YELLOW)
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setBrush(QBrush(fill_color))
@@ -206,13 +206,13 @@ class OcclusionGraphicsItem(QGraphicsRectItem):
         badge_text = f"[{self.box.id}]"
         badge_font = QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold)
         painter.setFont(badge_font)
-        painter.setPen(QPen(QColor("#ffffff")))
+        painter.setPen(QPen(QColor(DesignTokens.TEXT_ON_ACCENT)))
         painter.drawText(r, Qt.AlignmentFlag.AlignCenter, badge_text)
 
         # Poignées de redimensionnement si sélectionné
         if is_sel:
-            painter.setBrush(QBrush(QColor("#ffffff")))
-            painter.setPen(QPen(QColor("#be123c"), 1.5))
+            painter.setBrush(QBrush(QColor(DesignTokens.TEXT_ON_ACCENT)))
+            painter.setPen(QPen(QColor(DesignTokens.COLOR_RED), 1.5))
             for h_rect in self._get_handles().values():
                 painter.drawRect(h_rect)
 
@@ -253,8 +253,10 @@ class OcclusionCanvasView(QGraphicsView):
             self._is_drawing = True
             self._start_pos = self.mapToScene(event.pos())
             self._rubber_item = QGraphicsRectItem(QRectF(self._start_pos, QSizeF(0, 0)))
-            self._rubber_item.setPen(QPen(QColor("#e11d48"), 2.0, Qt.PenStyle.DashLine))
-            self._rubber_item.setBrush(QBrush(QColor(225, 29, 72, 60)))
+            self._rubber_item.setPen(QPen(QColor(DesignTokens.COLOR_RED), 2.0, Qt.PenStyle.DashLine))
+            rubber_brush_color = QColor(DesignTokens.COLOR_RED)
+            rubber_brush_color.setAlpha(60)
+            self._rubber_item.setBrush(QBrush(rubber_brush_color))
             self.scene().addItem(self._rubber_item)
             event.accept()
             return

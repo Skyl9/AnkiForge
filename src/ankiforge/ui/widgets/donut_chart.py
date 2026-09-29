@@ -18,7 +18,16 @@ class DonutChartWidget(QWidget):
         self.total = 0
 
         # Palette de couleurs générique (Thème moderne)
-        self.theme_colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#E7E9ED", "#8D6E63"]
+        self.theme_colors = [
+            DesignTokens.COLOR_RED,
+            DesignTokens.COLOR_BLUE,
+            DesignTokens.COLOR_YELLOW,
+            DesignTokens.COLOR_CYAN,
+            DesignTokens.COLOR_PURPLE,
+            DesignTokens.COLOR_ORANGE,
+            DesignTokens.TEXT_SECONDARY,
+            DesignTokens.TEXT_MUTED,
+        ]
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)

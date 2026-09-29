@@ -576,7 +576,7 @@ class ScopeRangeBarWidget(QWidget):
             painter.drawRoundedRect(x_start, 2, active_w, h - 4, r, r)
 
         # Texte centré
-        painter.setPen(QPen(QColor("white")))
+        painter.setPen(QPen(QColor(DesignTokens.TEXT_ON_ACCENT)))
         font = QFont(DesignTokens.FONT_MAIN, 9)
         font.setBold(True)
         painter.setFont(font)
@@ -971,7 +971,7 @@ class RangeSegmentsWidget(QWidget):
                     padding: 0;
                 }}
                 QPushButton:hover {{
-                    color: #ef4444;
+                    color: {DesignTokens.COLOR_RED};
                 }}
             """)
             btn_del.clicked.connect(lambda _, start=s, end=e: self.segment_removed.emit(start, end))
@@ -1223,7 +1223,7 @@ class DocumentPreviewWidget(QWidget):
             self.pdf_viewer.setDocument(self.pdf_document)
             self.pdf_viewer.setPageMode(QPdfView.PageMode.MultiPage)
             self.pdf_viewer.setZoomMode(QPdfView.ZoomMode.FitToWidth)
-            self.pdf_viewer.setStyleSheet("border: none; background-color: #1e1e2e;")
+            self.pdf_viewer.setStyleSheet(f"border: none; background-color: {DesignTokens.BG_MAIN};")
             self.pdf_viewer.pageNavigator().currentPageChanged.connect(self._on_pdf_page_changed)
             self.view_stack.addWidget(self.pdf_viewer)
         else:
@@ -1251,7 +1251,7 @@ class DocumentPreviewWidget(QWidget):
         # 3. Vue Image / Planches (Album)
         self.image_scroll = QScrollArea()
         self.image_scroll.setWidgetResizable(True)
-        self.image_scroll.setStyleSheet("border: none; background-color: #0f172a;")
+        self.image_scroll.setStyleSheet(f"border: none; background-color: {DesignTokens.BG_MAIN};")
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_scroll.setWidget(self.image_label)
@@ -1334,10 +1334,10 @@ class DocumentPreviewWidget(QWidget):
         def _replace_page_tag(match: re.Match[str]) -> str:
             p_num = match.group(1)
             return (
-                f'<div id="page-{p_num}" style="margin: 28px 0 14px 0; border-top: 2px dashed #475569; padding-top: 6px;">'
+                f'<div id="page-{p_num}" style="margin: 28px 0 14px 0; border-top: 2px dashed {DesignTokens.BORDER_COLOR}; padding-top: 6px;">'
                 f'<a name="page-{p_num}"></a>'
-                f'<span style="background-color: #312e81; color: #c7d2fe; font-size: 11px; font-weight: bold; '
-                f'padding: 3px 10px; border-radius:  12px; border: 1px solid #4338ca;">Page {p_num}</span>'
+                f'<span style="background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT}; font-size: 11px; font-weight: bold; '
+                f'padding: 3px 10px; border-radius: 12px; border: 1px solid {DesignTokens.ACCENT_BORDER};">Page {p_num}</span>'
                 f"</div>"
             )
 
@@ -1349,57 +1349,57 @@ class DocumentPreviewWidget(QWidget):
         <head>
         <style>
             body {{
-                color: #f1f5f9;
+                color: {DesignTokens.TEXT_PRIMARY};
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 font-size: 13px;
                 line-height: 1.6;
                 padding: 12px;
             }}
             h1, h2, h3, h4 {{
-                color: #ffffff;
+                color: {DesignTokens.TEXT_PRIMARY};
                 font-weight: 600;
                 margin-top: 18px;
                 margin-bottom: 8px;
             }}
             h1 {{
                 font-size: 18px;
-                color: #818cf8;
-                border-bottom: 1px solid #334155;
+                color: {DesignTokens.COLOR_PURPLE_TEXT};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
                 padding-bottom: 4px;
             }}
             h2 {{
                 font-size: 15px;
-                color: #93c5fd;
-                border-bottom: 1px solid #1e293b;
+                color: {DesignTokens.COLOR_BLUE_TEXT};
+                border-bottom: 1px solid {DesignTokens.BORDER_LIGHT};
                 padding-bottom: 3px;
             }}
             h3 {{
                 font-size: 13px;
-                color: #cbd5e1;
+                color: {DesignTokens.TEXT_SECONDARY};
             }}
             p {{
                 margin-bottom: 10px;
             }}
             code {{
-                background-color: #1e293b;
-                color: #a5b4fc;
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.COLOR_PURPLE_TEXT};
                 padding: 2px 4px;
                 border-radius: 4px;
                 font-family: Menlo, Monaco, monospace;
                 font-size: 12px;
             }}
             pre {{
-                background-color: #1e293b;
+                background-color: {DesignTokens.BG_PANEL};
                 padding: 10px;
-                border-radius:  6px;
-                border: 1px solid #334155;
+                border-radius: 6px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
             blockquote {{
-                border-left: 3px solid #6366f1;
+                border-left: 3px solid {DesignTokens.ACCENT_PRIMARY};
                 margin: 10px 0;
                 padding-left: 10px;
-                color: #94a3b8;
-                background-color: rgba(99, 102, 241, 0.05);
+                color: {DesignTokens.TEXT_MUTED};
+                background-color: {DesignTokens.ACCENT_BG};
             }}
             table {{
                 border-collapse: collapse;
@@ -1407,12 +1407,12 @@ class DocumentPreviewWidget(QWidget):
                 margin: 12px 0;
             }}
             th, td {{
-                border: 1px solid #334155;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
                 padding: 6px 8px;
                 text-align: left;
             }}
             th {{
-                background-color: #1e293b;
+                background-color: {DesignTokens.BG_PANEL};
                 font-weight: 600;
             }}
         </style>
@@ -2225,9 +2225,9 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         hero_banner = QFrame()
         hero_banner.setStyleSheet(f"""
             QFrame {{
-                background-color: rgba(34, 197, 94, 0.08);
-                border: 1px solid rgba(34, 197, 94, 0.25);
-                border-radius:  {DesignTokens.RADIUS_SM}px;
+                background-color: {DesignTokens.COLOR_GREEN_BG};
+                border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         hero_layout = QHBoxLayout(hero_banner)

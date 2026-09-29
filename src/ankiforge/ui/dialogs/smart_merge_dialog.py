@@ -83,8 +83,8 @@ class ConflictFieldRow(QWidget):
         self.edit_local.setReadOnly(True)
         self.edit_local.setStyleSheet(f"""
             QPlainTextEdit {{
-                background-color: rgba(239, 68, 68, 0.06);
-                border: 1px solid rgba(239, 68, 68, 0.3);
+                background-color: {DesignTokens.COLOR_RED_BG};
+                border: 1px solid {DesignTokens.COLOR_RED_BORDER};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 font-family: '{DesignTokens.FONT_CODE}';
@@ -129,8 +129,8 @@ class ConflictFieldRow(QWidget):
         self.edit_incoming.setReadOnly(True)
         self.edit_incoming.setStyleSheet(f"""
             QPlainTextEdit {{
-                background-color: rgba(16, 185, 129, 0.06);
-                border: 1px solid rgba(16, 185, 129, 0.3);
+                background-color: {DesignTokens.COLOR_GREEN_BG};
+                border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 font-family: '{DesignTokens.FONT_CODE}';

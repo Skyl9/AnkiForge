@@ -56,7 +56,7 @@ class _ToastProgressBar(QProgressBar):
         self.setTextVisible(False)
         self.setStyleSheet(f"""
             QProgressBar {{
-                background-color: rgba(255, 255, 255, 0.15);
+                background-color: {DesignTokens._with_alpha(DesignTokens.TEXT_PRIMARY, 0.15)};
                 border: none;
                 border-bottom-left-radius: {DesignTokens.RADIUS_MD}px;
                 border-bottom-right-radius: {DesignTokens.RADIUS_MD}px;

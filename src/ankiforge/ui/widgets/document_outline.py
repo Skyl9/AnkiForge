@@ -134,7 +134,7 @@ class OutlineItemDelegate(QStyledItemDelegate):
             painter.setFont(title_font)
 
             if is_selected:
-                title_color = QColor("#ffffff")
+                title_color = QColor(DesignTokens.TEXT_ON_ACCENT)
             elif is_active:
                 title_color = QColor(DesignTokens.ACCENT_PRIMARY)
             else:
@@ -166,7 +166,7 @@ class OutlineItemDelegate(QStyledItemDelegate):
             meta_font = QFont(option.font)
             meta_font.setPointSize(10)
             painter.setFont(meta_font)
-            painter.setPen(QColor(DesignTokens.TEXT_MUTED) if not is_selected else QColor("#ffffff"))
+            painter.setPen(QColor(DesignTokens.TEXT_MUTED) if not is_selected else QColor(DesignTokens.TEXT_ON_ACCENT))
 
             painter.drawText(
                 QRect(rect.left(), rect.top(), max(0, rect.width() - 8), rect.height()),

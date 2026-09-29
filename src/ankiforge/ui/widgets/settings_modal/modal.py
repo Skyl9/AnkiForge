@@ -213,7 +213,7 @@ class SettingsModal(QDialog):
         self.btn_save_all.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_all.setFixedHeight(30)
         self.btn_save_all.setMinimumWidth(200)
-        apply_shadow(self.btn_save_all, blur=12, offset_y=0, color="rgba(99, 102, 241, 0.6)")
+        apply_shadow(self.btn_save_all, blur=12, offset_y=0, color=DesignTokens.ACCENT_GLOW)
         self.btn_save_all.clicked.connect(self._save_all)
         footer_layout.addWidget(self.btn_save_all)
 

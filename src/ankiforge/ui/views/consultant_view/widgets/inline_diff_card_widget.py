@@ -633,7 +633,7 @@ class InlineDiffCardWidget(QFrame):
             QPushButton[active="true"] {{
                 background-color: {DesignTokens.ACCENT_PRIMARY};
                 border-color: {DesignTokens.ACCENT_PRIMARY};
-                color: #ffffff;
+                color: {DesignTokens.TEXT_ON_ACCENT};
                 font-weight: 600;
             }}
         """
