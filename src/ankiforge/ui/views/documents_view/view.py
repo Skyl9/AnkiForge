@@ -1,5 +1,6 @@
 import logging
 import pathlib
+from collections.abc import Sequence
 from typing import Any
 
 from peewee import fn
@@ -40,11 +41,16 @@ from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.markdown import FormatOptions, MarkdownFormatter, MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.services.parsing.document_parser import DocumentParser
+from ankiforge.services.parsing.document_parser import DocumentParser, is_web_source
 from ankiforge.services.parsing.marker_service import MarkerService
 from ankiforge.services.reindex_service import mark_document_version
 from ankiforge.services.workers.coverage_worker import CoverageWorker
-from ankiforge.services.workers.document_worker import DocumentWorker
+from ankiforge.services.workers.document_batch_worker import (
+    DocumentBatchTask,
+    DocumentBatchWorker,
+    plan_batch_tasks,
+)
+from ankiforge.services.workers.document_worker import DocumentWorker, derive_document_title
 from ankiforge.ui.components import (
     Badge,
     GlowLineEdit,
@@ -65,7 +71,7 @@ from ankiforge.ui.views.documents_view.dialogs import (
     RAGTestDialog,
 )
 from ankiforge.ui.views.documents_view.dialogs.rag_test_dialog import _RAGResultWidget
-from ankiforge.ui.views.documents_view.utils import apply_pill_style
+from ankiforge.ui.views.documents_view.utils import FileDropMixin, apply_pill_style
 from ankiforge.ui.views.documents_view.widgets import (
     AlbumViewerWidget,
     DocumentTreeWidget,
@@ -79,6 +85,18 @@ from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
+
+IMPORT_FILE_DIALOG_FILTER = "Documents (*.pdf *.epub *.txt *.md *.docx *.pptx *.ipynb *.py *.mp3 *.m4a *.wav *.ogg *.flac *.aac);;Tous les fichiers (*.*)"
+
+
+def batch_summary_message(ok: int, failed: int) -> str:
+    """Formule le récapitulatif utilisateur d'un import par lot."""
+    noun = "document" if ok <= 1 else "documents"
+    participle = "importé" if ok <= 1 else "importés"
+    summary = f"{ok} {noun} {participle}"
+    if failed:
+        return f"{summary}, {failed} en échec."
+    return f"{summary} !"
 
 
 class MarkerInstallerWorker(QThread):
@@ -97,7 +115,7 @@ class MarkerInstallerWorker(QThread):
             self.failed.emit(str(error))
 
 
-class DocumentsView(QWidget):
+class DocumentsView(FileDropMixin, QWidget):
     """
     Vue My Documents / Library — 100% Conforme au Design System AnkiForge.
     """
@@ -119,6 +137,14 @@ class DocumentsView(QWidget):
         self._current_doc_id: int | None = None
         self._dirty = False
         self.worker: DocumentWorker | None = None
+        self.batch_worker: DocumentBatchWorker | None = None
+        self._batch_running = False
+        self._batch_total = 0
+        self._batch_first_doc_id: int | None = None
+        self._batch_ingested = 0
+        self._batch_cancelled = False
+        self._batch_failures: list[tuple[str, str]] = []
+        self._batch_pending_doc_ids: dict[int, int] = {}
         self._coverage_worker: CoverageWorker | None = None
         self._outline_debounce_timer = QTimer(self)
         self._outline_debounce_timer.setSingleShot(True)
@@ -141,6 +167,7 @@ class DocumentsView(QWidget):
         self.refresh_data()
 
     def _setup_ui(self) -> None:
+        self.setAcceptDrops(True)
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -198,6 +225,62 @@ class DocumentsView(QWidget):
         self.doc_search_input.setPlaceholderText("Rechercher un document...")
         self.doc_search_input.textChanged.connect(self._on_search_filter_changed)
         explorer_layout.addWidget(self.doc_search_input)
+
+        # Conteneur de progression pour l'import par lot
+        self.batch_progress_container = QFrame()
+        self.batch_progress_container.setVisible(False)
+        self.batch_progress_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 6px;
+            }}
+        """)
+        batch_prog_layout = QVBoxLayout(self.batch_progress_container)
+        batch_prog_layout.setContentsMargins(4, 4, 4, 4)
+        batch_prog_layout.setSpacing(4)
+
+        prog_header = QHBoxLayout()
+        prog_header.setSpacing(6)
+
+        self.lbl_batch_progress = QLabel("Importation en cours...")
+        self.lbl_batch_progress.setStyleSheet(f"""
+            color: {DesignTokens.TEXT_PRIMARY};
+            font-size: 11px;
+            font-weight: 600;
+        """)
+        prog_header.addWidget(self.lbl_batch_progress, 1)
+
+        self.badge_batch_count = Badge("0 / 0", variant="status")
+        apply_pill_style(self.badge_batch_count, DesignTokens.ACCENT_PRIMARY)
+        prog_header.addWidget(self.badge_batch_count)
+
+        self.btn_cancel_batch = IconButton("ph.x", tooltip="Annuler l'import par lot", size=18)
+        self.btn_cancel_batch.clicked.connect(self._on_cancel_batch_clicked)
+        prog_header.addWidget(self.btn_cancel_batch)
+
+        batch_prog_layout.addLayout(prog_header)
+
+        self.batch_progress_bar = QProgressBar()
+        self.batch_progress_bar.setRange(0, 100)
+        self.batch_progress_bar.setValue(0)
+        self.batch_progress_bar.setFixedHeight(5)
+        self.batch_progress_bar.setTextVisible(False)
+        self.batch_progress_bar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: none;
+                border-radius: 2px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 2px;
+            }}
+        """)
+        batch_prog_layout.addWidget(self.batch_progress_bar)
+
+        explorer_layout.addWidget(self.batch_progress_container)
 
         # Tree Widget
         self.tree_explorer = DocumentTreeWidget()
@@ -665,6 +748,7 @@ class DocumentsView(QWidget):
     def _connect_signals(self) -> None:
         self.tree_explorer.itemSelectionChanged.connect(self._on_document_selected)
         self.tree_explorer.itemMoved.connect(self._on_item_moved)
+        self.tree_explorer.filesDropped.connect(self._start_batch_import)
         self.tree_explorer.customContextMenuRequested.connect(self._on_tree_context_menu)
         self.editor_stack.currentChanged.connect(self._on_editor_page_changed)
         self.text_editor.content_changed.connect(self._on_document_text_changed)
@@ -822,6 +906,10 @@ class DocumentsView(QWidget):
                 elif is_pdf:
                     if has_content:
                         item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
+                    elif hasattr(self, "_batch_pending_doc_ids") and doc.id in self._batch_pending_doc_ids.values():
+                        item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
+                        item.setText(0, f"{title_to_display} (analyse en cours)")
+                        item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
                     else:
                         item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
                         item.setText(0, f"{title_to_display} (Non extrait)")
@@ -926,13 +1014,16 @@ class DocumentsView(QWidget):
                     if pdf_path.exists():
                         self.pdf_document.load(str(pdf_path))
                         self.view_toggle_frame.show()
-                        self._on_view_toggled("pdf")
+                        if not self._batch_running:
+                            self._on_view_toggled("pdf")
                     else:
                         self.view_toggle_frame.hide()
-                        self._on_view_toggled("md")
+                        if not self._batch_running:
+                            self._on_view_toggled("md")
                 else:
                     self.view_toggle_frame.hide()
-                    self._on_view_toggled("md")
+                    if not self._batch_running:
+                        self._on_view_toggled("md")
 
                 self.editor_stack.setCurrentIndex(1)
                 self._refresh_chapters_list()
@@ -1234,20 +1325,194 @@ class DocumentsView(QWidget):
         words = len(text.split())
         self.lbl_word_count.setText(f"{words:,} mots")
 
+    def handle_files_dropped(self, paths: list[str]) -> None:
+        """Ouvre la file d'import par lot avec tous les fichiers déposés sur la vue."""
+        self._start_batch_import(paths)
+
     @Slot()
     def _on_import_file(self) -> None:
-        file_path, _ = QFileDialog.getOpenFileName(
+        file_paths, _ = QFileDialog.getOpenFileNames(
             self,
-            "Importer un document",
+            "Importer des documents",
             "",
-            "Documents (*.pdf *.epub *.txt *.md *.docx *.pptx *.ipynb *.py *.mp3 *.m4a *.wav *.ogg *.flac *.aac);;Tous les fichiers (*.*)",
+            IMPORT_FILE_DIALOG_FILTER,
         )
-        if file_path:
+        if not file_paths:
+            return
+        if len(file_paths) == 1:
+            file_path = file_paths[0]
             ext = pathlib.Path(file_path).suffix.lower()
             if ext == ".pdf":
                 self._import_pdf_directly(file_path)
             else:
                 self._start_document_worker(file_path)
+            return
+        self._start_batch_import(file_paths)
+
+    def _start_batch_import(self, paths: Sequence[str]) -> None:
+        """Enchaîne l'extraction d'une sélection multiple dans un thread dédié."""
+        if self._batch_running:
+            logger.info("Import par lot ignoré : une opération est déjà en cours.")
+            return
+
+        plan = plan_batch_tasks(paths)
+        if not plan.tasks:
+            show_toast(self, "Aucun fichier importable dans cette sélection.", level="warning")
+            return
+        if plan.skipped:
+            show_toast(self, f"{len(plan.skipped)} fichier(s) introuvable(s) ignoré(s) dans la sélection.", level="warning")
+
+        worker = DocumentBatchWorker(plan.tasks)
+        self._bind_batch_worker(worker, plan.tasks)
+        worker.start()
+
+    def _bind_batch_worker(self, worker: DocumentBatchWorker, tasks: list[DocumentBatchTask]) -> None:
+        """Branche les signaux du lot, verrouille les imports et réarme les compteurs."""
+        self.batch_worker = worker
+        self._batch_running = True
+        self._batch_total = len(tasks)
+        self._batch_first_doc_id = None
+        self._batch_ingested = 0
+        self._batch_cancelled = False
+        self._batch_failures = []
+        self._batch_pending_doc_ids.clear()
+
+        worker.document_started.connect(self._on_batch_document_started)
+        worker.document_finished.connect(self._on_batch_document_finished)
+        worker.document_failed.connect(self._on_batch_document_failed)
+        worker.log_signal.connect(self._on_worker_log)
+        worker.cancelled.connect(self._on_batch_cancelled)
+        worker.batch_finished.connect(self._on_batch_finished)
+
+        self.view_model.begin_operation("import")
+        self.btn_import.setEnabled(False)
+        self.btn_import_url.setEnabled(False)
+
+        self.batch_progress_bar.setRange(0, self._batch_total)
+        self.batch_progress_bar.setValue(0)
+        self.badge_batch_count.setText(f"0 / {self._batch_total}")
+        self.lbl_batch_progress.setText(f"Importation 0 sur {self._batch_total}")
+        self.batch_progress_container.setVisible(True)
+
+        show_toast(self, f"Import de {self._batch_total} document(s) en cours...")
+
+        self._on_view_toggled("term")
+        self.terminal_view.clear()
+        self.terminal_view.append(f"--- Import par lot de {self._batch_total} document(s) ---")
+
+    @Slot(int, str)
+    def _on_batch_document_started(self, index: int, path: str) -> None:
+        position = index + 1
+        name = pathlib.Path(path).name
+        self.lbl_batch_progress.setText(f"Importation {position} sur {self._batch_total}")
+        self.badge_batch_count.setText(f"{position} / {self._batch_total}")
+        self.batch_progress_bar.setValue(position)
+
+        message = f"Importation du document {position} sur {self._batch_total} : {name}"
+        self.view_model.report_progress(message)
+        self.terminal_view.append(message)
+
+        if pathlib.Path(path).suffix.lower() == ".pdf":
+            try:
+                title = derive_document_title(path)
+                doc = self._persist_imported_document(path, title, content="")
+                self._batch_pending_doc_ids[index] = doc.id
+                if self._batch_first_doc_id is None:
+                    self._batch_first_doc_id = doc.id
+                self.refresh_data()
+                if self._batch_first_doc_id is not None:
+                    self._current_doc_id = self._batch_first_doc_id
+                    self._select_doc_id_in_tree(self._batch_first_doc_id)
+            except Exception as e:
+                logger.exception("Création de la fiche provisoire pour %s impossible : %s", path, e)
+
+    @Slot(int, str, str, str)
+    def _on_batch_document_finished(self, index: int, path: str, title: str, content: str) -> None:
+        name = pathlib.Path(path).name
+        doc_id_to_update = self._batch_pending_doc_ids.pop(index, None)
+        try:
+            doc = self._persist_imported_document(path, title, content, doc_id_to_update=doc_id_to_update)
+        except Exception as e:
+            logger.exception("Enregistrement du document %s impossible : %s", name, e)
+            self._batch_failures.append((name, str(e)))
+            self.terminal_view.append(f"✖ Échec de l'enregistrement de {name} : {e}")
+            return
+        self._batch_ingested += 1
+        if self._batch_first_doc_id is None:
+            self._batch_first_doc_id = doc.id
+        self.terminal_view.append(f"✔ {name} importé ({doc.title}).")
+
+        self.refresh_data()
+        if self._batch_first_doc_id is not None:
+            self._current_doc_id = self._batch_first_doc_id
+            self._select_doc_id_in_tree(self._batch_first_doc_id)
+
+    @Slot(int, str, str)
+    def _on_batch_document_failed(self, index: int, path: str, error: str) -> None:
+        name = pathlib.Path(path).name
+        logger.warning("Échec de l'import par lot de %s : %s", path, error)
+        self._batch_failures.append((name, error))
+        self.terminal_view.append(f"✖ Échec de l'import de {name} : {error}")
+        pending_id = self._batch_pending_doc_ids.pop(index, None)
+        if pending_id is not None:
+            if self._batch_first_doc_id == pending_id and self._batch_ingested == 0:
+                self._batch_first_doc_id = None
+            self.refresh_data()
+            if self._batch_first_doc_id is not None:
+                self._current_doc_id = self._batch_first_doc_id
+                self._select_doc_id_in_tree(self._batch_first_doc_id)
+
+    @Slot(int, int)
+    def _on_batch_finished(self, ok: int, failed: int) -> None:
+        """Clôt le lot : rafraîchissement incrémental consolidé, sélection du 1er document, récapitulatif."""
+        self._batch_running = False
+        self._batch_pending_doc_ids.clear()
+        self.batch_progress_container.setVisible(False)
+        self.btn_import.setEnabled(True)
+        self.btn_import_url.setEnabled(True)
+
+        self.refresh_data()
+        if self._batch_first_doc_id is not None:
+            self._current_doc_id = self._batch_first_doc_id
+            self._select_doc_id_in_tree(self._batch_first_doc_id)
+
+        ingested = self._batch_ingested
+        persisted_failures = (ok + failed) - ingested
+        summary = batch_summary_message(ingested, max(persisted_failures, 0))
+        for name, error in self._batch_failures:
+            self.terminal_view.append(f"  • {name} : {error}")
+        self._batch_failures = []
+
+        if self._batch_cancelled:
+            self.terminal_view.append(f"--- Lot interrompu par l'utilisateur ({summary}) ---")
+            return
+
+        self.terminal_view.append(f"--- Lot terminé : {summary} ---")
+        if ingested:
+            self.view_model.complete_operation(summary)
+        else:
+            self.view_model.fail_operation(summary)
+        show_toast(self, summary, level="warning" if persisted_failures else "success")
+
+    @Slot()
+    def _on_batch_cancelled(self) -> None:
+        self._batch_cancelled = True
+        self._batch_pending_doc_ids.clear()
+        self.batch_progress_container.setVisible(False)
+        self.view_model.cancel_operation()
+        self.btn_import.setEnabled(True)
+        self.btn_import_url.setEnabled(True)
+        self.refresh_data()
+        if self._batch_first_doc_id is not None:
+            self._current_doc_id = self._batch_first_doc_id
+            self._select_doc_id_in_tree(self._batch_first_doc_id)
+        self.terminal_view.append("--- Import par lot annulé ---")
+
+    @Slot()
+    def _on_cancel_batch_clicked(self) -> None:
+        if self.batch_worker and self._batch_running:
+            self.batch_worker.cancel()
+            self.lbl_batch_progress.setText("Annulation en cours...")
 
     @Slot()
     def _on_import_url(self) -> None:
@@ -1318,33 +1583,29 @@ class DocumentsView(QWidget):
             self.inner_editor_stack.setCurrentIndex(2)
 
     def _import_pdf_directly(self, file_path: str) -> None:
-        from ankiforge.services.cards.media_manager import MediaManager
-
-        media_manager = MediaManager()
-        media = media_manager.store_document_source(file_path)
-        if not media:
+        title = derive_document_title(file_path)
+        try:
+            doc = self._persist_imported_document(file_path, title, content="")
+        except Exception as e:
+            logger.exception("Erreur lors de l'import du PDF %s : %s", file_path, e)
             show_toast(self, "Erreur lors de l'import du PDF.", is_error=True)
             return
 
-        file_path_obj = pathlib.Path(file_path)
-        doc = DocumentModel.create(
-            title=file_path_obj.stem,
-            content="",
-            original_media_id=media.id,
-            file_type="pdf",
-            source_url=None,
-        )
+        if not doc.original_media:
+            show_toast(self, "Erreur lors de l'import du PDF.", is_error=True)
+            return
 
         self.refresh_data()
         self._current_doc_id = doc.id
-        title_to_display = media.original_name
+        self._select_doc_id_in_tree(doc.id)
+        title_to_display = doc.original_media.original_name if doc.original_media else doc.title
         self.doc_title_lbl.setText(title_to_display)
         self.text_editor.set_content("Cliquer sur 'Marker OCR' pour extraire le texte et les formules en KaTeX...")
         self.editor_stack.setCurrentIndex(1)
 
         from ankiforge.utils.paths import resolve_media_path
 
-        pdf_path = resolve_media_path(media.filename)
+        pdf_path = resolve_media_path(doc.original_media.filename)
         if pdf_path.exists():
             self.pdf_document.load(str(pdf_path))
             self.view_toggle_frame.show()
@@ -1393,35 +1654,10 @@ class DocumentsView(QWidget):
         self.btn_import.setEnabled(True)
         self.btn_import_url.setEnabled(True)
 
+        doc_id_to_update = getattr(self.worker, "doc_id_to_update", None)
+        path_or_url = self.worker.file_path if self.worker else ""
         try:
-            doc_id_to_update = getattr(self.worker, "doc_id_to_update", None)
-            file_type = "md"
-            original_media = None
-            source_url = None
-
-            if doc_id_to_update:
-                existing_doc = self.doc_repo.get_document_by_id(doc_id_to_update)
-                file_type = (existing_doc.file_type if existing_doc else None) or "md"
-            elif self.worker and self.worker.file_path:
-                path_or_url = self.worker.file_path
-                if path_or_url.startswith("http"):
-                    source_url = path_or_url
-                    file_type = "web"
-                else:
-                    from ankiforge.services.cards.media_manager import MediaManager
-
-                    original_media = MediaManager().store_document_source(path_or_url)
-                    ext_clean = pathlib.Path(path_or_url).suffix.replace(".", "").lower()
-                    file_type = "audio" if ext_clean in ("mp3", "m4a", "wav", "ogg", "flac", "aac", "wma") else ext_clean or "txt"
-
-            doc = self.doc_repo.save_imported_document(
-                title=title,
-                content=content,
-                file_type=file_type,
-                source_url=source_url,
-                doc_id_to_update=doc_id_to_update,
-                original_media=original_media,
-            )
+            doc = self._persist_imported_document(path_or_url, title, content, doc_id_to_update=doc_id_to_update)
 
             self.refresh_data()
             self._current_doc_id = doc.id
@@ -1435,6 +1671,53 @@ class DocumentsView(QWidget):
             show_toast(self, f"Document '{title_to_display}' importé avec succès !")
         except Exception as e:
             log_and_notify_error(e, context="Enregistrement du document", parent=self, title="Erreur")
+
+    def _persist_imported_document(
+        self,
+        path_or_url: str,
+        title: str,
+        content: str,
+        doc_id_to_update: int | None = None,
+    ) -> DocumentModel:
+        """Archive la source, déduit le type de fichier et enregistre la fiche + ses chunks.
+
+        Point d'écriture unique partagé par l'import unitaire et l'import par lot.
+        Une source non archivable (fichier déjà supprimé) reste importable sans média.
+        """
+        file_type = "md"
+        original_media = None
+        source_url = None
+
+        if doc_id_to_update:
+            existing_doc = self.doc_repo.get_document_by_id(doc_id_to_update)
+            file_type = (existing_doc.file_type if existing_doc else None) or "md"
+            if existing_doc and existing_doc.original_media:
+                original_media = existing_doc.original_media
+            elif path_or_url and not is_web_source(path_or_url):
+                from ankiforge.services.cards.media_manager import MediaManager
+
+                original_media = MediaManager().store_document_source(path_or_url)
+        elif path_or_url:
+            if is_web_source(path_or_url):
+                source_url = path_or_url
+                file_type = "web"
+            else:
+                from ankiforge.services.cards.media_manager import MediaManager
+
+                original_media = MediaManager().store_document_source(path_or_url)
+                if original_media is None:
+                    logger.warning("Source non archivable pour l'import de : %s", path_or_url)
+                ext_clean = pathlib.Path(path_or_url).suffix.replace(".", "").lower()
+                file_type = "audio" if ext_clean in ("mp3", "m4a", "wav", "ogg", "flac", "aac", "wma") else ext_clean or "txt"
+
+        return self.doc_repo.save_imported_document(
+            title=title,
+            content=content,
+            file_type=file_type,
+            source_url=source_url,
+            doc_id_to_update=doc_id_to_update,
+            original_media=original_media,
+        )
 
     @Slot(str)
     def _on_worker_error(self, error: str) -> None:
@@ -1453,6 +1736,9 @@ class DocumentsView(QWidget):
         """Annule les workers possédés et rend le parcours réutilisable."""
         if self.worker is not None and self.worker.isRunning():
             self.worker.cancel()
+        batch_worker = self.batch_worker
+        if batch_worker is not None and batch_worker.isRunning():
+            batch_worker.cancel()
         coverage_worker = self._coverage_worker
         if coverage_worker is not None and coverage_worker.isRunning() and hasattr(coverage_worker, "cancel"):
             coverage_worker.cancel()
@@ -2354,6 +2640,29 @@ class DocumentsView(QWidget):
                 }}
                 QListWidget::item:hover {{
                     border-color: {profile.accent_primary};
+                }}
+            """)
+        if hasattr(self, "batch_progress_container"):
+            self.batch_progress_container.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {profile.bg_input};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_sm}px;
+                    padding: 4px 6px;
+                }}
+            """)
+        if hasattr(self, "lbl_batch_progress"):
+            self.lbl_batch_progress.setStyleSheet(f"color: {profile.text_primary}; font-size: 11px; font-weight: 600;")
+        if hasattr(self, "batch_progress_bar"):
+            self.batch_progress_bar.setStyleSheet(f"""
+                QProgressBar {{
+                    background-color: {profile.bg_panel};
+                    border: none;
+                    border-radius: 2px;
+                }}
+                QProgressBar::chunk {{
+                    background-color: {profile.accent_primary};
+                    border-radius: 2px;
                 }}
             """)
 
