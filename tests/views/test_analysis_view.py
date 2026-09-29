@@ -4,9 +4,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtWidgets import QSplitter
+from PySide6.QtWidgets import QSplitter, QWidget
 
 from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.duplicate_widgets import DuplicateMergeInspector
 from ankiforge.ui.views.analysis_view.tabs.duplicates_merge_tab import AIDuplicatesMergeTab
@@ -134,6 +135,20 @@ def test_splitter_distribution_on_conflict_selected(qtbot) -> None:
     assert len(sizes) == 2
     assert sizes[0] > 0
     assert sizes[1] > 0
+
+
+def test_analysis_view_header_has_no_orphan_settings_button(qtbot) -> None:
+    """Vérifie qu'aucun bouton de paramètres inactif ne subsiste dans le header de l'IdePanel."""
+    view = AnalysisView()
+    qtbot.addWidget(view)
+
+    assert not hasattr(view, "btn_settings")
+
+    header_zone = view.main_panel.findChild(QWidget, "extraWidgetsZone")
+    assert header_zone is not None
+    assert header_zone.findChildren(IconButton) == []
+
+    view.refresh_theme(MagicMock(color_yellow="#ffd43b"))
 
 
 def test_analysis_view_integration(qtbot) -> None:
