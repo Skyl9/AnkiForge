@@ -27,6 +27,17 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Sous-dossier** : dossier rattaché à un dossier parent, dont le nom canonique est préfixé par le chemin hiérarchique du parent suivi du séparateur `::`.
 - **Surface documentaire** : ensemble cohérent des interactions permettant de sélectionner, importer, structurer, consulter, délimiter, indexer ou auditer un document. Une surface peut traverser plusieurs vues, widgets et dialogues.
 
+## Provenance & Couverture
+
+- **Fil d'Ariane (heading path)** : la suite ordonnée des titres traversés pour atteindre un point du document, de la racine à la section. C'est l'identité d'une section.
+- **Section** : nœud du document désigné par le couple (document, fil d'Ariane). Son identité est **déterministe et durable** : elle survit à la réingestion, contrairement à celle d'un fragment.
+- **Fragment (chunk)** : portion de texte produite par le découpage, porteuse d'un `page_number` éventuellement nul. C'est une désignation **précise mais instable** : l'identifiant change à chaque réingestion.
+- **Provenance de note** : l'ensemble de tags décrivant l'origine d'une carte (`doc:`, `source:`, `section:`, `page:`). Elle est écrite par `build_document_tags` ; le rattachement aux fragments est écrit séparément, dans les liens de couverture.
+- **Lien de couverture** : l'association entre une note et un fragment de document, porteuse de la mention du fragment et du palier de résolution qui l'a désignée.
+- **Palier de résolution** : l'un des quatre régimes de désignation d'un fragment, par ordre de préférence décroissante — `exact` (identité), `section` (fil d'Ariane), `page` (numéro), `lexical` (recouvrement de contenu). Un palier n'abandonne que sur échec, jamais parce qu'une autre route est présente. Il est persisté pour rendre un lien **prouvé** indiscernable d'un lien seulement **présumé**.
+- **Couverture** : la part des fragments d'un document effectivement désignés par au moins une carte. Une carte non rattachée est laissée **hors couverture** plutôt que rattachée hors de sa partie : un faux lien est plus trompeur que son absence.
+- **Réparation de provenance** : réécriture automatique, lors d'une synchronisation, des tags de provenance obsolètes vers leur forme canonique, sans migration de données.
+
 ## Thèmes, Layouts & Design System
 
 - **Mode d'Apparence** : le régime visuel binaire de l'interface, **Sombre** ou **Clair**. C'est un axe indépendant de l'identité graphique choisie.
