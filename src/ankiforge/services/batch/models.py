@@ -32,6 +32,9 @@ class BatchSourceBlock:
     heading_path: str | None = None
     source_id: int | None = None
     source_hash: str = ""
+    #: Identifiant du ``DocumentChunkModel`` exact dont ce bloc est issu, lorsqu'il est connu.
+    #: Sans lui, une partie multi-blocs ne pourrait pas se rattacher à un fragment précis.
+    chunk_id: int | None = None
 
     def __post_init__(self) -> None:
         if not self.source_hash:
@@ -47,6 +50,7 @@ class BatchSourceBlock:
             "heading_path": self.heading_path,
             "source_id": self.source_id,
             "source_hash": self.source_hash,
+            "chunk_id": self.chunk_id,
         }
 
 

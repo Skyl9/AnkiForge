@@ -14,6 +14,7 @@ import math
 import re
 import shutil
 import unicodedata
+from collections.abc import Iterable
 from typing import Any, cast
 
 from peewee import fn
@@ -156,22 +157,32 @@ class CoverageAlignmentService:
         if doc_id is not None:
             target_doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
             if not target_doc:
-                return {"matched_notes": 0, "newly_linked": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
+                return {"matched_notes": 0, "newly_linked": 0, "unlinked_notes": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
             from ankiforge.services.parsing.chunking_service import ChunkingService
 
             if target_doc.chunk_strategy_version != ChunkingService.CHUNKING_VERSION:
-                logger.debug(
-                    "sync_coverage_from_tags : document %d est stale (v%s), synchronisation différée après re-indexation.",
+                logger.warning(
+                    "sync_coverage_from_tags : document %d « %s » est stale (chunking v%s, attendu v%s) : aucun lien créé, ré-indexez le document pour réactiver sa couverture.",
                     doc_id,
+                    target_doc.title,
                     target_doc.chunk_strategy_version,
+                    ChunkingService.CHUNKING_VERSION,
                 )
-                return {"matched_notes": 0, "newly_linked": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
+                return {
+                    "matched_notes": 0,
+                    "newly_linked": 0,
+                    "unlinked_notes": 0,
+                    "stale_documents": [doc_id],
+                    "covered_chunks": 0,
+                    "total_chunks": 0,
+                    "coverage_pct": 0.0,
+                }
             docs_by_id = {target_doc.id: target_doc}
             docs_by_slug = {clean_source_slug(target_doc.title): target_doc}
         else:
             all_docs = list(DocumentModel.select())
             if not all_docs:
-                return {"matched_notes": 0, "newly_linked": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
+                return {"matched_notes": 0, "newly_linked": 0, "unlinked_notes": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
             docs_by_id = {d.id: d for d in all_docs}
             docs_by_slug = {clean_source_slug(d.title): d for d in all_docs}
 
@@ -184,12 +195,18 @@ class CoverageAlignmentService:
             if d.chunk_strategy_version != ChunkingService.CHUNKING_VERSION:
                 stale_doc_ids.add(d.id)
         if stale_doc_ids:
-            logger.debug("sync_coverage_from_tags : %d document(s) stale ignoré(s) (re-indexation requise).", len(stale_doc_ids))
+            logger.warning(
+                "sync_coverage_from_tags : %d document(s) stale ignoré(s) (stratégie de découpage divergente, ré-indexation requise) : %s.",
+                len(stale_doc_ids),
+                ", ".join(str(i) for i in sorted(stale_doc_ids)),
+            )
 
         # Seules les notes portant des tags de traçabilité sont concernées : évite le scan O(N*M)
         all_notes = list(NoteModel.select().where((NoteModel.tags.contains("doc:")) | (NoteModel.tags.contains("source:"))))
         newly_linked = 0
         matched_notes = 0
+        unlinked_note_ids: list[int] = []
+        stale_skipped_notes = 0
 
         with db.atomic():
             for note in all_notes:
@@ -206,6 +223,7 @@ class CoverageAlignmentService:
                     continue
 
                 if matched_doc.id in stale_doc_ids:
+                    stale_skipped_notes += 1
                     continue
 
                 target_chunk: DocumentChunkModel | None = None
@@ -236,6 +254,16 @@ class CoverageAlignmentService:
                     )
                     if created:
                         newly_linked += 1
+                else:
+                    unlinked_note_ids.append(note.id)
+
+        unlinked_notes = len(unlinked_note_ids)
+        if unlinked_notes:
+            logger.warning(
+                "sync_coverage_from_tags : %d note(s) identifiée(s) sur un document mais non rattachée(s) à un fragment (provenance page/section/chunk inexploitable) : %s.",
+                unlinked_notes,
+                ", ".join(str(n) for n in unlinked_note_ids[:10]) + ("…" if unlinked_notes > 10 else ""),
+            )
 
         stale_removed = 0
         if doc_id is not None and target_doc is not None:
@@ -248,7 +276,10 @@ class CoverageAlignmentService:
             return {
                 "matched_notes": matched_notes,
                 "newly_linked": newly_linked,
+                "unlinked_notes": unlinked_notes,
                 "stale_removed": stale_removed,
+                "stale_documents": sorted(stale_doc_ids),
+                "stale_skipped_notes": stale_skipped_notes,
                 "covered_chunks": stats.get("covered_chunks", 0),
                 "total_chunks": stats.get("total_chunks", 0),
                 "coverage_pct": stats.get("coverage_pct", 0.0),
@@ -261,6 +292,9 @@ class CoverageAlignmentService:
         return {
             "matched_notes": matched_notes,
             "newly_linked": newly_linked,
+            "unlinked_notes": unlinked_notes,
+            "stale_documents": sorted(stale_doc_ids),
+            "stale_skipped_notes": stale_skipped_notes,
             "total_documents": len(docs_by_id),
         }
 
@@ -409,10 +443,18 @@ class CoverageAlignmentService:
         """
         if not section_slug:
             return None
+        ordered = DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id).order_by(DocumentChunkModel.chunk_index)
+        return CoverageAlignmentService._match_chunks_by_section(ordered, section_slug)
+
+    @staticmethod
+    def _match_chunks_by_section(chunks: Iterable[DocumentChunkModel], section_slug: str) -> DocumentChunkModel | None:
+        """Variante en mémoire de :meth:`_find_chunk_by_section_suffix` (candidates déjà chargés)."""
+        if not section_slug:
+            return None
         best: DocumentChunkModel | None = None
         best_depth = 0
         best_words = -1
-        for c in DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id).order_by(DocumentChunkModel.chunk_index):
+        for c in chunks:
             if not c.heading_path:
                 continue
             if TableOfContentsDetector.looks_like_index_block(c.content or ""):
@@ -436,6 +478,7 @@ class CoverageAlignmentService:
         llm_section: str | None = None,
         source_chunk_id: int | None = None,
         page_number: int | None = None,
+        source_blocks: list[dict[str, Any]] | None = None,
     ) -> DocumentChunkModel | None:
         """Résout le fragment le plus fin d'un document correspondant à une carte générée.
 
@@ -443,11 +486,18 @@ class CoverageAlignmentService:
         (chapitre, scope entier) ; cette méthode retrouve, pour chaque carte, la
         sous-section précise (jusqu'au niveau H5/H6) dont le contenu provient.
 
-        Priorité de résolution :
-        1. source_chunk_id : fragment source connu (le scope fourni == un seul chunk) ;
-        2. llm_section : fil d'Ariane déclaré par l'IA (suffix-match tolérant) ;
-        3. page_number : fragment de la page correspondante ;
-        4. overlap lexical : meilleur fragment par mots communs pondérés (profondeur = tie-break).
+        Trois régimes, selon la qualité de la provenance fournie :
+
+        1. *provenance mono-bloc exacte* : un seul fragment source est déclaré
+           (``source_chunk_id`` ou une entrée unique de ``source_blocks``) — il gagne ;
+        2. *provenance multi-blocs* : la carte a été générée à partir de N fragments
+           agrégés par une partie de lot. Aucun scalaire agrégé n'est alors crédible :
+           la résolution est confinée aux fragments de la partie et départagée par
+           recouvrement lexical. Une carte dont le texte n'échoque aucun fragment de
+           sa partie reste non rattachée plutôt que rattachée à un fragment qu'elle n'a
+           pas traité — l'absence est comptée et signalée par l'appelant ;
+        3. *provenance absente ou multi-blocs non résoluble* : priorité historique
+           ``source_chunk_id`` → ``llm_section`` → ``page_number`` → recouvrement lexical.
 
         Args:
             card_text: Texte de la carte (recto + verso) à localiser.
@@ -455,6 +505,8 @@ class CoverageAlignmentService:
             llm_section: Section/fil d'Ariane éventuellement déclaré par l'IA.
             source_chunk_id: ID du fragment source connu (le cas échéant).
             page_number: Numéro de page déclaré (le cas échéant).
+            source_blocks: Routes de résolution des fragments agrégés par la partie
+                (liste de dicts ``{"chunk_id", "heading_path", "page_number"}``).
 
         Returns:
             DocumentChunkModel | None : le fragment le plus pertinent, ou None si aucun match.
@@ -467,6 +519,28 @@ class CoverageAlignmentService:
             exact = next((c for c in chunks if c.id == source_chunk_id), None)
             if exact:
                 return exact
+
+        routes = [route for route in (source_blocks or []) if isinstance(route, dict)]
+        if len(routes) == 1:
+            # Partie mono-bloc : la route du bloc est la provenance la plus fine disponible.
+            only = routes[0]
+            by_block_id = cls._first_chunk_by_id(chunks, only.get("chunk_id"))
+            if by_block_id is not None:
+                return by_block_id
+            block_heading = only.get("heading_path")
+            if block_heading and str(block_heading).strip():
+                by_section = cls._find_chunk_by_section_suffix(doc_id, clean_source_slug(str(block_heading)))
+                if by_section:
+                    return by_section
+        elif len(routes) > 1:
+            # Partie multi-blocs : ni le fil d'Ariane concaténé ni la page du premier bloc
+            # ne désignent un fragment, on ne peut trancher que par le contenu de la carte.
+            # La recherche reste confinée aux fragments de la partie : rattacher la carte à
+            # un fragment qu'elle n'a pas traité produirait un faux lien de couverture, plus
+            # trompeur que son absence — l'absence est comptée et signalée par l'appelant.
+            if not card_text or not card_text.strip():
+                return None
+            return cls._best_chunk_by_lexical_overlap(card_text, cls._chunks_for_routes(chunks, routes))
 
         if llm_section and str(llm_section).strip():
             by_section = cls._find_chunk_by_section_suffix(doc_id, clean_source_slug(str(llm_section)))
@@ -482,6 +556,55 @@ class CoverageAlignmentService:
             return None
 
         return cls._best_chunk_by_lexical_overlap(card_text, chunks)
+
+    @staticmethod
+    def _coerce_positive_int(raw: Any) -> int | None:
+        """Convertit une valeur de provenance (int, chaîne, ``None``) en entier strictement positif."""
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 else None
+
+    @staticmethod
+    def _first_chunk_by_id(chunks: list[DocumentChunkModel], raw_chunk_id: Any) -> DocumentChunkModel | None:
+        """Retrouve un fragment par identifiant, en tolérant les chaînes issues des tags."""
+        chunk_id = CoverageAlignmentService._coerce_positive_int(raw_chunk_id)
+        if chunk_id is None:
+            return None
+        return next((c for c in chunks if c.id == chunk_id), None)
+
+    @classmethod
+    def _chunks_for_routes(cls, chunks: list[DocumentChunkModel], routes: list[dict[str, Any]]) -> list[DocumentChunkModel]:
+        """Fragments du document correspondant à au moins une route de partie.
+
+        Une route se résout par identifiant de fragment (voie exacte), sinon par fil
+        d'Ariane, sinon — en dernier recours, une page pouvant abriter plusieurs
+        fragments — par *tous* les fragments de cette page, que le recouvrement lexical
+        départagera ensuite. Les fragments ainsi retenus délimitent le corpus dans
+        lequel la carte est cherchée : la carte ayant été générée depuis la partie, son
+        texte y figure nécessairement.
+        """
+        matched: dict[int, DocumentChunkModel] = {}
+
+        def _keep(hit: DocumentChunkModel | None) -> DocumentChunkModel | None:
+            if hit is not None:
+                matched[hit.id] = hit
+            return hit
+
+        for route in routes:
+            hit = _keep(cls._first_chunk_by_id(chunks, route.get("chunk_id")))
+            if hit is None:
+                heading = route.get("heading_path")
+                if heading and str(heading).strip():
+                    hit = _keep(cls._match_chunks_by_section(chunks, clean_source_slug(str(heading))))
+            if hit is None:
+                page_num = cls._coerce_positive_int(route.get("page_number"))
+                if page_num is not None:
+                    for page_chunk in chunks:
+                        if page_chunk.page_number is not None and page_chunk.page_number == page_num:
+                            _keep(page_chunk)
+        return [c for c in chunks if c.id in matched]
 
     @staticmethod
     def _lexical_overlap_scores(card_text: str, chunks: list[DocumentChunkModel]) -> list[float]:

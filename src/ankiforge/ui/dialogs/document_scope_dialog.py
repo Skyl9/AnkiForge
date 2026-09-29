@@ -311,6 +311,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
                 useful.append(
                     {
                         "index": useful_idx,
+                        "chunk_id": int(c.id),
                         "title": clean_heading or (f"Page {p_num}" if p_num else f"Segment #{useful_idx + 1}"),
                         "heading_path": clean_heading,
                         "page_number": p_num,

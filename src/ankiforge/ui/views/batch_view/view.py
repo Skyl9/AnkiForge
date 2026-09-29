@@ -29,6 +29,7 @@ from ankiforge.database.models import (
     DocumentChunkModel,
     DocumentModel,
     LLMConfigModel,
+    NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
@@ -80,6 +81,62 @@ logger = logging.getLogger(__name__)
 SETTLED_TASK_STATUSES = ("Succès", "Acceptée")
 
 
+def _blocks_for_direct_part(
+    doc: Any,
+    part: dict[str, Any],
+    scope_title: str,
+    page_number: Any,
+    heading_path: Any,
+    content: str,
+) -> tuple[BatchSourceBlock, ...]:
+    """Traduit une partie du mode Direct en une ou N provenance(s) de fragment figée.
+
+    Une partie Direct agrège souvent plusieurs fragments de document (sous-arbre
+    coché, chapitre, plage de pages). Chaque fragment devient alors son propre
+    ``BatchSourceBlock``, porteur de son fil d'Ariane, de sa page et de son
+    identifiant exact : la provenance reste ainsi traçable fragment par fragment,
+    là où un bloc unique ne porterait qu'un fil d'Ariane agrégé sans cible.
+
+    À défaut de fragments listés (repli sur les résultats de portée antérieurs à la
+    notion de parties), un bloc unique décrit la partie entière.
+    """
+    doc_id = int(getattr(doc, "id", 0) or 0)
+    fragments = [f for f in (part.get("chunks") or []) if isinstance(f, dict)]
+    blocks: list[BatchSourceBlock] = []
+    for ordinal, fragment in enumerate(fragments):
+        fragment_content = str(fragment.get("content", "")).strip()
+        if not fragment_content:
+            continue
+        fragment_heading = fragment.get("heading_path")
+        fragment_page = fragment.get("page_number")
+        chunk_id = fragment.get("chunk_id")
+        blocks.append(
+            BatchSourceBlock(
+                kind="section",
+                label=str(fragment_heading or fragment.get("title") or scope_title),
+                content=fragment_content,
+                ordinal=ordinal,
+                page_number=int(fragment_page) if fragment_page is not None else None,
+                heading_path=str(fragment_heading) if fragment_heading else None,
+                source_id=doc_id,
+                chunk_id=int(chunk_id) if isinstance(chunk_id, int) else None,
+            )
+        )
+    if blocks:
+        return tuple(blocks)
+    return (
+        BatchSourceBlock(
+            kind="section",
+            label=scope_title,
+            content=content,
+            ordinal=0,
+            page_number=int(page_number) if page_number is not None else None,
+            heading_path=str(heading_path) if heading_path else None,
+            source_id=doc_id,
+        ),
+    )
+
+
 class BatchView(QWidget):
     """
     Batch Factory CI/CD View — 100% Conforme à la Maquette concept_ide/index.html (L1883-L2062).
@@ -92,6 +149,8 @@ class BatchView(QWidget):
         self.batch_view_model = BatchViewModel(self)
         self._batch_scope_results: dict[int, dict[str, Any]] = {}
         self._total_cards_accumulated = 0
+        #: Cartes enregistrées sans lien de couverture (fragment source non résolu), remonté au récapitulatif de fin de lot.
+        self._batch_unlinked_cards = 0
         self.start_timestamp = 0.0
         self._run_clock_timer: QTimer | None = None
         self.current_deck: DeckModel | None = None
@@ -1077,6 +1136,7 @@ class BatchView(QWidget):
 
         self._set_running_ui_state(True)
         self._start_run_clock()
+        self._batch_unlinked_cards = 0
         self.btn_resume_batch.setVisible(False)
         action_desc = "Reprise" if resume_incomplete else "Lancement"
         skip_msg = f" ({skipped_successful_count} tâche(s) déjà réussie(s) conservée(s))" if skipped_successful_count else ""
@@ -1380,20 +1440,12 @@ class BatchView(QWidget):
         page_number = part.get("page_number")
         heading_path = part.get("heading_path")
         scope_title = str(part.get("title") or heading_path or f"Section {part_index + 1}")
-        block = BatchSourceBlock(
-            kind="section",
-            label=scope_title,
-            content=content,
-            ordinal=part_index,
-            page_number=int(page_number) if page_number is not None else None,
-            heading_path=str(heading_path) if heading_path else None,
-            source_id=int(getattr(doc, "id", 0) or 0),
-        )
+        blocks = _blocks_for_direct_part(doc, part, scope_title, page_number, heading_path, content)
         return BatchScopeSnapshot(
             document_id=int(doc.id),
             document_title=str(getattr(doc, "title", "")),
             selection_mode=str(scope_result.get("selection_mode", "sections")),
-            blocks=(block,),
+            blocks=blocks,
             scope_title=scope_title,
             range_str=str(part.get("heading_path") or part.get("title") or ""),
             content=content,
@@ -1624,6 +1676,7 @@ class BatchView(QWidget):
                 chunk_id = raw.get("_source_chunk_id")
                 heading_path = raw.get("_source_heading_path")
                 page_number = raw.get("_source_page_number")
+                source_blocks = raw.get("_source_blocks")
                 card_text = " ".join(str(v) for k, v in raw.items() if not str(k).startswith("_source_") and str(v).strip()).strip()
                 resolved = CoverageAlignmentService.resolve_finest_chunk_for_card(
                     card_text=card_text,
@@ -1631,6 +1684,7 @@ class BatchView(QWidget):
                     llm_section=str(heading_path) if heading_path else None,
                     source_chunk_id=int(chunk_id) if isinstance(chunk_id, int) else (int(chunk_id) if str(chunk_id).isdigit() else None),
                     page_number=int(page_number) if page_number is not None and str(page_number).isdigit() else None,
+                    source_blocks=source_blocks if isinstance(source_blocks, list) else None,
                 )
                 if resolved:
                     return build_document_tags(
@@ -1641,6 +1695,14 @@ class BatchView(QWidget):
                         chunk_id=resolved.id,
                         extra_tags=common_tags,
                     )
+                # Aucune route n'a désigné un fragment : la carte reste traçable jusqu'au
+                # document, mais elle ne portera aucun lien de couverture. On le signale
+                # dès maintenant plutôt que de laisser l'échec passer inaperçu.
+                logger.warning(
+                    "Carte batch sans fragment résolu (document « %s », provenance multi-blocs de %d fragment(s)) : elle apparaîtra hors couverture.",
+                    doc.title,
+                    len(source_blocks) if isinstance(source_blocks, list) else 0,
+                )
                 return build_document_tags(
                     doc_id=doc.id,
                     doc_title=doc.title,
@@ -1650,6 +1712,7 @@ class BatchView(QWidget):
                 )
 
             created_cards_count = 0
+            created_note_ids: list[int] = []
             with db.atomic():
                 for raw_fields in notes_data:
                     tags_list = _build_note_tags(raw_fields)
@@ -1660,6 +1723,7 @@ class BatchView(QWidget):
                         tags=json.dumps(tags_list, ensure_ascii=False),
                         status="pending",
                     )
+                    created_note_ids.append(note.id)
                     NoteVersionModel.create(
                         note=note,
                         version_number=1,
@@ -1683,10 +1747,24 @@ class BatchView(QWidget):
                 try:
                     from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-                    CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+                    report = CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+                    if report.get("stale_documents"):
+                        logger.warning(
+                            "Document « %s » : stratégie de découpage divergente, ré-indexez-le pour que les cartes de ce lot entrent en couverture.",
+                            doc.title,
+                        )
                 except Exception as err:
                     logger.debug("Synchronisation de la couverture ignorée : %s", err)
 
+            # Comptage strictement lot : seules les notes créées par cet appel sont
+            # inspectées. Le rapport de synchronisation est à l'échelle du document et
+            # compterait les notes orphelines d'un lot antérieur, une fois par partie.
+            linked = NoteChunkLinkModel.select(NoteChunkLinkModel.note_id).where(NoteChunkLinkModel.note_id.in_(created_note_ids)) if created_note_ids else []
+            linked_note_ids = {row.note_id for row in linked}
+            unlinked = len(created_note_ids) - len(linked_note_ids)
+            self._batch_unlinked_cards += unlinked
+            if unlinked:
+                self._log_formatted_line("WARN", f"{unlinked} carte(s) enregistrée(s) sans lien de couverture (hors Analyse & Audit).")
             self._log_formatted_line("SUCCESS", f"Enregistrement BDD : {len(notes_data)} note(s) ({created_cards_count} carte(s)) dans '{deck.name}'.")
         except Exception as e:
             logger.exception("Erreur lors de la sauvegarde batch : %s", e)
@@ -1707,7 +1785,17 @@ class BatchView(QWidget):
             self.card_time.val_lbl.setText(f"{mins:02d}:{secs:02d}")
 
         self._log_formatted_line("SUCCESS", f"Batch terminé : {success_count} job(s) réussi(s), {error_count} erreur(s) ({total_cards} cartes créées).")
-        show_toast(self, f"Batch terminé : {success_count} réussis, {error_count} erreurs ({total_cards} cartes créées)")
+        if self._batch_unlinked_cards:
+            self._log_formatted_line(
+                "WARN",
+                f"⚠️ {self._batch_unlinked_cards} carte(s) sans lien de couverture : leur fragment source n'a pas pu être résolu, elles n'apparaîtront pas dans l'Analyse & Audit.",
+            )
+        unlinked_hint = f", {self._batch_unlinked_cards} hors couverture" if self._batch_unlinked_cards else ""
+        show_toast(
+            self,
+            f"Batch terminé : {success_count} réussis, {error_count} erreurs ({total_cards} cartes créées{unlinked_hint})",
+            level="warning" if self._batch_unlinked_cards else None,
+        )
         self._update_resume_button_visibility()
 
     @Slot()

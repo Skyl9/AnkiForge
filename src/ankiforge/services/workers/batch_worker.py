@@ -14,6 +14,7 @@ from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator, PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data, normalize_card_fields
 from ankiforge.services.batch.models import BatchTaskSnapshot, BatchTaskStatus
+from ankiforge.services.batch.provenance import stamp_scope_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -455,13 +456,7 @@ class BatchWorker(QThread):
                     raise RuntimeError("; ".join(state.errors))
                 raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
                 task.cards = self._deduplicate_notes(normalize_card_fields(extract_cards_from_data(raw_cards), list(config.note_type_fields)), list(config.note_type_fields))
-                scope_heading_path = ", ".join(filter(None, (block.heading_path for block in getattr(task.scope, "blocks", []))))
-                scope_page = next((int(b.page_number) for b in getattr(task.scope, "blocks", []) if b.page_number is not None), None)
-                for card in task.cards:
-                    card.setdefault("_source_heading_path", scope_heading_path)
-                    card.setdefault("_source_page_number", scope_page)
-                    card.setdefault("_source_chunk_id", None)
-                    card.setdefault("_documentation_enabled", True)
+                stamp_scope_provenance(task.cards, list(getattr(task.scope, "blocks", [])))
 
                 duration = time.time() - task_start_time
                 card_count = len(task.cards)
