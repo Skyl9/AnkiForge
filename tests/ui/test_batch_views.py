@@ -1643,3 +1643,275 @@ def test_batch_add_doc_after_success_only_runs_new_task(qtbot: Any, monkeypatch:
     assert view.queue_tasks_data[0]["status"] == "Succès"
     assert view.queue_tasks_data[0]["cards_count"] == 1
     assert view.queue_tasks_data[1]["cards_count"] == 1
+
+
+# ── Provenance multi-blocs des parties Direct (mode « parties » du composer) ───
+
+
+def _direct_part_document(prefix: str) -> tuple[Any, list[Any]]:
+    doc = DocumentModel.create(title=f"{prefix} Direct.md", content_markdown="x", file_type="md")
+    chunks = [
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=0,
+            page_number=4,
+            heading_path="Cellule > Membrane",
+            content="La membrane plasmique délimite la cellule et régule ses échanges avec le milieu extérieur.",
+            content_hash=f"{prefix}-m0",
+        ),
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=1,
+            page_number=5,
+            heading_path="Cellule > Noyau",
+            content="Le noyau abrite l'information génétique de la cellule sous forme d'ADN.",
+            content_hash=f"{prefix}-m1",
+        ),
+    ]
+    return doc, chunks
+
+
+def test_direct_part_scope_freezes_one_block_per_source_chunk(qtbot: Any) -> None:
+    """Une partie Direct agrégant N fragments fige N provenances, pas une provenance aplatie."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    doc, chunks = _direct_part_document("Scope")
+
+    view._batch_scope_results[doc.id] = {
+        "selection_mode": "sections",
+        "parts": [
+            {
+                "index": 0,
+                "title": "Cellule",
+                "heading_path": "Cellule",
+                "page_number": 4,
+                "content": f"{chunks[0].content}\n\n{chunks[1].content}",
+                "chunks": [
+                    {"index": 0, "chunk_id": chunks[0].id, "heading_path": chunks[0].heading_path, "page_number": 4, "content": chunks[0].content},
+                    {"index": 1, "chunk_id": chunks[1].id, "heading_path": chunks[1].heading_path, "page_number": 5, "content": chunks[1].content},
+                ],
+            }
+        ],
+    }
+    task = {"doc": doc, "chunk_index": 0, "chunk_label": "Cellule"}
+
+    scope = view._snapshot_scope_for_task(task)
+
+    assert scope is not None
+    assert len(scope.blocks) == 2
+    assert [b.chunk_id for b in scope.blocks] == [chunks[0].id, chunks[1].id]
+    assert [b.heading_path for b in scope.blocks] == [chunks[0].heading_path, chunks[1].heading_path]
+    assert [b.page_number for b in scope.blocks] == [4, 5]
+
+
+def test_direct_part_scope_falls_back_to_a_single_block(qtbot: Any) -> None:
+    """Sans fragments listés, la partie reste décrite par un bloc unique (repli compatible)."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    doc, _chunks = _direct_part_document("Repli")
+
+    view._batch_scope_results[doc.id] = {
+        "selection_mode": "sections",
+        "parts": [{"index": 0, "title": "Cellule", "heading_path": "Cellule", "page_number": 4, "content": "Texte agrégé."}],
+    }
+
+    scope = view._snapshot_scope_for_task({"doc": doc, "chunk_index": 0, "chunk_label": "Cellule"})
+
+    assert scope is not None
+    assert len(scope.blocks) == 1
+    assert scope.blocks[0].chunk_id is None
+    assert scope.blocks[0].heading_path == "Cellule"
+
+
+def test_batch_persistence_links_a_multi_block_card_to_its_own_chunk(qtbot: Any) -> None:
+    """Critère d'acceptation : la carte d'une partie multi-blocs obtient un lien de couverture réel."""
+    from ankiforge.services.batch.provenance import scope_provenance, stamp_scope_provenance
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    deck = DeckModel.create(name="Deck Multi-Blocs")
+    nt = NoteTypeModel.create(
+        name="NT Multi-Blocs",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+    )
+    doc, chunks = _direct_part_document("Lien")
+
+    from ankiforge.services.batch.models import BatchSourceBlock
+
+    parts = [
+        BatchSourceBlock(
+            kind="section",
+            label=c.heading_path or "",
+            content=c.content or "",
+            ordinal=i,
+            page_number=c.page_number,
+            heading_path=c.heading_path,
+            source_id=doc.id,
+            chunk_id=c.id,
+        )
+        for i, c in enumerate(chunks)
+    ]
+    card: dict[str, Any] = {
+        "Front": "Quel organite abrite l'information génétique ?",
+        "Back": "Le noyau, siège de l'information génétique de la cellule.",
+    }
+    stamp_scope_provenance([card], parts)
+    assert scope_provenance(parts) == card["_source_blocks"]
+
+    view._save_extracted_notes_to_db([card], deck.id, nt.id, doc.id)
+
+    note = NoteModel.get()
+    link = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note)
+    assert link is not None
+    assert link.chunk_id == chunks[1].id
+    assert "information génétique" in (link.chunk.content or "")
+    assert view._batch_unlinked_cards == 0
+
+
+def test_batch_persistence_counts_cards_without_a_coverage_link(qtbot: Any) -> None:
+    """Une provenance inexploitable est comptée et remontée au récapitulatif de fin de lot."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    deck = DeckModel.create(name="Deck Hors Couverture")
+    nt = NoteTypeModel.create(
+        name="NT Hors Couverture",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+    )
+    doc = DocumentModel.create(title="Sans Fragment.md", content_markdown="x", file_type="md")
+
+    view._save_extracted_notes_to_db(
+        [{"Front": "Question orpheline ?", "Back": "Réponse.", "_source_blocks": [{"chunk_id": 999_999, "heading_path": None, "page_number": None}]}],
+        deck.id,
+        nt.id,
+        doc.id,
+    )
+
+    assert view._batch_unlinked_cards == 1
+    assert NoteChunkLinkModel.select().count() == 0
+
+
+def test_batch_persistence_does_not_count_pre_existing_orphans(qtbot: Any) -> None:
+    """Le décompte porte sur le lot courant, pas sur les notes orphelines des lots antérieurs.
+
+    `sync_coverage_from_tags` est à l'échelle du document et s'exécute une fois par
+    partie : compter son rapport cumulerait les orphelines d'un lot précédent à chaque
+    partie du nouveau lot.
+    """
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    deck = DeckModel.create(name="Deck Sans Orphanat")
+    nt = NoteTypeModel.create(
+        name="NT Sans Orphanat",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+    )
+    doc = DocumentModel.create(title="Avec Orphanat.md", content_markdown="x", file_type="md")
+    orphan = NoteModel.create(guid="orphan", note_type=nt, tags=json.dumps([f"doc:{doc.id}"]))
+
+    view._save_extracted_notes_to_db([{"Front": "Nouvelle question ?", "Back": "Réponse."}], deck.id, nt.id, doc.id)
+
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == orphan).count() == 0
+    assert view._batch_unlinked_cards == 1
+
+
+def test_batch_finished_reports_the_unlinked_card_count(qtbot: Any, monkeypatch: Any) -> None:
+    """Le récapitulatif de fin de lot annonce les cartes restées hors couverture."""
+    shown: list[tuple[str, Any]] = []
+    monkeypatch.setattr(
+        "ankiforge.ui.views.batch_view.view.show_toast",
+        lambda parent, message, **kwargs: shown.append((str(message), kwargs)),
+    )
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view._batch_unlinked_cards = 3
+
+    view._on_batch_finished(1, 0, 5)
+
+    assert shown and "3 hors couverture" in shown[0][0]
+    assert shown[0][1].get("level") == "warning"
+
+
+def test_batch_worker_stamps_explicit_multi_block_provenance(qtbot: Any, monkeypatch: Any) -> None:
+    """Le chemin par portées n'estampe plus de fil d'Ariane concaténé ni de page du premier bloc."""
+    from ankiforge.services.ai.base import MockProvider
+    from ankiforge.services.batch.models import (
+        BatchGenerationConfig,
+        BatchScopeSnapshot,
+        BatchSourceBlock,
+        BatchTaskSnapshot,
+    )
+
+    deck = DeckModel.create(name="Deck Portee Multi")
+    nt = NoteTypeModel.create(name="NT Portee Multi", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    doc = DocumentModel.create(title="Doc Portee Multi.md", content_markdown="x", file_type="md")
+    pipe = PipelineModel.create(name="Pipeline Portee Multi")
+    PipelineStepModel.create(pipeline=pipe, step_type="LLM_PROMPT", step_order=1, config_data='{"prompt_template": "Prompt"}')
+
+    blocks = (
+        BatchSourceBlock(kind="section", label="Intro", content="Texte intro", ordinal=0, page_number=3, heading_path="Chapitre 1 > Intro", source_id=doc.id, chunk_id=101),
+        BatchSourceBlock(kind="section", label="Corps", content="Texte corps", ordinal=1, page_number=7, heading_path="Chapitre 2 > Corps", source_id=doc.id, chunk_id=202),
+    )
+    scope = BatchScopeSnapshot(document_id=doc.id, document_title=doc.title, selection_mode="sections", blocks=blocks, scope_title="Chapitres 1-2")
+    config = BatchGenerationConfig(
+        pipeline_id=pipe.id,
+        pipeline_name=pipe.name,
+        llm_id=1,
+        llm_config={"provider": "mock", "model_id": "mock-model", "api_key": ""},
+        deck_id=deck.id,
+        deck_name=deck.name,
+        model_id=nt.id,
+        model_name=nt.name,
+        note_type_fields=("Front", "Back"),
+        auto_validation=True,
+    )
+    task = BatchTaskSnapshot.create(scope=scope, config=config)
+
+    def fake_run(self_orch: Any) -> None:
+        self_orch.state.variables["generated_cards"] = [{"Front": "Q", "Back": "A"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_run)
+
+    worker = BatchWorker(tasks=[task])
+    worker.ai_provider = MockProvider()
+    with qtbot.waitSignal(worker.batch_finished, timeout=5000):
+        worker.start()
+
+    assert len(task.cards) == 1
+    card = task.cards[0]
+    assert card["_source_chunk_id"] is None
+    assert card["_source_heading_path"] is None
+    assert card["_source_page_number"] is None
+    assert card["_source_blocks"] == [
+        {"chunk_id": 101, "heading_path": "Chapitre 1 > Intro", "page_number": 3},
+        {"chunk_id": 202, "heading_path": "Chapitre 2 > Corps", "page_number": 7},
+    ]
+
+
+def test_batch_worker_stamps_exact_provenance_for_a_single_block_part(qtbot: Any, monkeypatch: Any) -> None:
+    """Une partie mono-bloc conserve la provenance exacte de son fragment."""
+    from ankiforge.services.ai.base import MockProvider
+
+    deck = DeckModel.create(name="Deck Portee Mono")
+    nt = NoteTypeModel.create(name="NT Portee Mono", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    doc = DocumentModel.create(title="Doc Portee Mono.md", content_markdown="x", file_type="md")
+    pipe = PipelineModel.create(name="Pipeline Portee Mono")
+    PipelineStepModel.create(pipeline=pipe, step_type="LLM_PROMPT", step_order=1, config_data='{"prompt_template": "Prompt"}')
+
+    task = _make_snapshot_task(deck, nt, doc, pipe, auto_validation=True)
+    object.__setattr__(task.scope.blocks[0], "chunk_id", 4242)
+
+    def fake_run(self_orch: Any) -> None:
+        self_orch.state.variables["generated_cards"] = [{"Front": "Q", "Back": "A"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_run)
+
+    worker = BatchWorker(tasks=[task])
+    worker.ai_provider = MockProvider()
+    with qtbot.waitSignal(worker.batch_finished, timeout=5000):
+        worker.start()
+
+    assert task.cards[0]["_source_chunk_id"] == 4242
+    assert task.cards[0]["_source_heading_path"] == "Intro"
+    assert task.cards[0]["_source_page_number"] == 1
