@@ -717,7 +717,28 @@ class DocumentInspectorPanel(QWidget):
             lbl_back.setWordWrap(True)
             c_layout.addWidget(lbl_back)
 
+        if hint := self._resolution_hint(link.resolution):
+            lbl_res = QLabel(hint)
+            lbl_res.setWordWrap(True)
+            lbl_res.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-style: italic; border: none; background: transparent;")
+            c_layout.addWidget(lbl_res)
+
         return card
+
+    @staticmethod
+    def _resolution_hint(resolution: str | None) -> str:
+        """Mention du palier ayant désigné le fragment, en clair ou abrégée.
+
+        Seule la section exacte est présentée comme une preuve : les trois autres paliers
+        aboutissent à un fragment plausible, pas à un fragment attesté. L'absence de mention
+        (lien écrit avant la traçabilité, cf. migration `042`) ne vaut pas soupçon.
+        """
+        return {
+            "exact": "Rattachement exact",
+            "section": "",
+            "page": "Rattachée par page, à confirmer",
+            "lexical": "Rattachée par ressemblance, à confirmer",
+        }.get(resolution or "", "")
 
     @staticmethod
     def _note_fields(note: NoteModel | None) -> dict[str, Any]:

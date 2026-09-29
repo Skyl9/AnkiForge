@@ -268,3 +268,53 @@ def test_clicking_a_linked_note_opens_it_in_the_edition_view(qtbot: Any, mock_db
     selected_row = edition.note_table_model.find_row_by_note_id(note.id)
     assert selected_row >= 0
     assert edition.card_table.currentIndex().row() == selected_row
+
+
+# Critère 1bis : un lien présumé se distingue d'un lien prouvé
+# ---------------------------------------------------------------------------
+
+
+class TestResolutionMention:
+    """La mention du palier ne qualifie que ce qui n'est pas une preuve.
+
+    Un lien désigné par `page` ou par simple ressemblance lexicale désigne un fragment
+    plausible ; le présenter comme attested sans réserve serait le même mensonge qu'un
+    `chunk:` périmé.
+    """
+
+    @pytest.mark.parametrize(
+        ("resolution", "mentioned", "reserved"),
+        [
+            ("page", True, True),
+            ("lexical", True, True),
+            ("exact", True, False),
+            ("section", False, False),
+        ],
+    )
+    def test_only_presumed_tiers_ask_for_confirmation(self, resolution: str, mentioned: bool, reserved: bool) -> None:
+        hint = DocumentInspectorPanel._resolution_hint(resolution)
+
+        assert bool(hint) is mentioned
+        assert ("à confirmer" in hint) is reserved
+
+    def test_section_tier_is_a_proof_and_states_nothing_to_confirm(self) -> None:
+        """La section exacte est l'une des deux routes qui attestent le fragment."""
+        assert DocumentInspectorPanel._resolution_hint("section") == ""
+
+    def test_exact_tier_states_no_reservation(self) -> None:
+        assert DocumentInspectorPanel._resolution_hint("exact") == "Rattachement exact"
+
+    def test_untracked_link_raises_no_suspicion(self) -> None:
+        """Un lien écrit avant la traçabilité (cf. migration 042) n'a rien à avouer."""
+        assert DocumentInspectorPanel._resolution_hint(None) == ""
+
+    def test_presumed_link_says_so_on_the_card(self, inspector: SimpleNamespace, qtbot: Any) -> None:
+        """La mention est bien rendue dans la carte, et pas seulement calculée."""
+        NoteChunkLinkModel.update(resolution="lexical").where(NoteChunkLinkModel.note_id == inspector.note.id).execute()
+
+        panel = DocumentInspectorPanel(inspector.panel.doc)
+        qtbot.addWidget(panel)
+        panel.inspect_chunk(inspector.chunk.id)
+
+        texts = [label.text() for label in panel.findChildren(QLabel)]
+        assert any("à confirmer" in text for text in texts), texts
