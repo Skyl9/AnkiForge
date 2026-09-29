@@ -4,7 +4,6 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.panels import IdePanel
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.analysis_view.tabs import (
@@ -45,20 +44,6 @@ class AnalysisView(QWidget):
         self.main_panel.add_tab("Jetons && SRS", self.tab_tokens, icon_name="currency-dollar", icon_color=DesignTokens.COLOR_GREEN)
         self.main_panel.add_tab("Fusions && Doublons", self.tab_duplicates, icon_name="git-merge", icon_color=DesignTokens.COLOR_PURPLE)
 
-        # Bouton de paramètres ajouté au header
-        self.btn_settings = IconButton("gear", "Paramètres de l'Analyse", 24)
-        self.btn_settings.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                border-radius: 4px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
-        self.main_panel.add_header_widget(self.btn_settings)
-
         layout.addWidget(self.main_panel)
         self.main_panel.set_active_tab(0)
 
@@ -75,8 +60,6 @@ class AnalysisView(QWidget):
             for idx, color in color_map.items():
                 if hasattr(self.main_panel, "set_tab_icon_color"):
                     self.main_panel.set_tab_icon_color(idx, color)
-        if hasattr(self, "btn_settings") and hasattr(self.btn_settings, "refresh_theme"):
-            self.btn_settings.refresh_theme(profile)
         for tab in [getattr(self, "tab_wozniak", None), getattr(self, "tab_sources", None), getattr(self, "tab_tokens", None), getattr(self, "tab_duplicates", None)]:
             if tab and hasattr(tab, "refresh_theme"):
                 with contextlib.suppress(Exception):
