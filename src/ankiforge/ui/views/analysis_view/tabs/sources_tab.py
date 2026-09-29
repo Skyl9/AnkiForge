@@ -1,8 +1,9 @@
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal, Slot
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -24,8 +25,10 @@ from ankiforge.database.models import (
     DocumentChunkModel,
     DocumentModel,
     NoteChunkLinkModel,
+    NoteModel,
 )
 from ankiforge.repositories.document_repository import DocumentRepository
+from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit
@@ -94,6 +97,48 @@ class ClickableChunkWidget(QFrame):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.chunk_id)
         super().mousePressEvent(event)
+
+
+class LinkedNoteCard(QFrame):
+    """Carte Anki liée à une section, cliquable pour ouvrir la note dans l'éditeur.
+
+    Le panneau inspecteur n'affiche plus des blocs statiques : chaque carte est une cible
+    d'ouverture vers `EditionView`. L'activation (clic gauche, ou Entrée/Espace au clavier)
+    émet l'identifiant de la note représentée, que le panneau relaie à la navigation
+    applicative. Seule la pression gauche active : le clic droit reste disponible pour un
+    menu contextuel ultérieur.
+
+    Le style (fond, survol, focus) est déclaré dans le `StyleEngine` sous
+    `QFrame#LinkedNoteCard`, comme toute carte cliquable du design system.
+    """
+
+    activated = Signal(int)
+
+    def __init__(self, note_id: int, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.note_id = note_id
+
+        self.setObjectName("LinkedNoteCard")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAccessibleName(f"Carte Anki liée à la note #{note_id}")
+        self.setAccessibleDescription("Clic ou Entrée pour ouvrir cette note dans l'éditeur de cartes")
+        self.setToolTip("Ouvrir cette note dans l'éditeur de cartes")
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+            self.activated.emit(self.note_id)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            self.activated.emit(self.note_id)
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
 
 class DocumentInspectorPanel(QWidget):
@@ -629,70 +674,90 @@ class DocumentInspectorPanel(QWidget):
             self.cards_layout.addWidget(lbl_cnt)
 
             for link in links:
-                note = link.note
-                card_box = QFrame()
-                card_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_INPUT}; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 10px; }}")
-                c_layout = QVBoxLayout(card_box)
-                c_layout.setContentsMargins(8, 8, 8, 8)
-                c_layout.setSpacing(6)
-
-                import json
-
-                from ankiforge.database.models import CardModel, NoteVersionModel
-
-                fields = {}
-                if note:
-                    active_ver = NoteVersionModel.get_or_none(
-                        NoteVersionModel.note == note,
-                        NoteVersionModel.is_active == True,  # noqa: E712
-                    )
-                    if active_ver and active_ver.content:
-                        try:
-                            fields = json.loads(active_ver.content)
-                        except Exception as e:
-                            logger.debug("Erreur parsing active_ver content: %s", e)
-
-                    if not fields and hasattr(note, "fields_data") and getattr(note, "fields_data", None):
-                        try:
-                            fields = json.loads(note.fields_data)
-                        except Exception as e:
-                            logger.debug("Erreur parsing fields_data: %s", e)
-
-                front = fields.get("Front") or fields.get("Recto") or fields.get("Question") or "Carte Anki"
-                back = fields.get("Back") or fields.get("Verso") or fields.get("Answer") or ""
-
-                deck_name = "Général"
-                if note:
-                    card = CardModel.get_or_none(CardModel.note == note)
-                    if card and card.deck:
-                        deck_name = card.deck.name
-                    elif hasattr(note, "deck") and getattr(note, "deck", None):
-                        deck_name = getattr(note.deck, "name", "Général")
-
-                top_row = QHBoxLayout()
-                lbl_deck = QLabel(f"Paquet : {deck_name}")
-                lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; background: transparent;")
-                top_row.addWidget(lbl_deck)
-                top_row.addStretch()
-                c_layout.addLayout(top_row)
-
-                lbl_front = QLabel(f"Q : {front}")
-                lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
-                lbl_front.setWordWrap(True)
-                c_layout.addWidget(lbl_front)
-
-                if back:
-                    lbl_back = QLabel(f"R : {back}")
-                    lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
-                    lbl_back.setWordWrap(True)
-                    c_layout.addWidget(lbl_back)
-
-                self.cards_layout.addWidget(card_box)
+                self.cards_layout.addWidget(self._build_linked_note_card(link))
 
             btn_more = SecondaryButton("+ Générer plus de cartes pour ce chapitre")
             btn_more.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
             btn_more.clicked.connect(lambda: self._on_forge_chunk(chunk.id))
             self.cards_layout.addWidget(btn_more)
+
+    def _build_linked_note_card(self, link: NoteChunkLinkModel) -> LinkedNoteCard:
+        """Compose la carte cliquable d'une note liée : paquet, question, réponse.
+
+        La version active de la note fait foi ; `fields_data` n'est lu qu'en repli, pour les
+        notes importées d'une base antérieure à la versioning. Un contenu illisible n'empêche
+        jamais l'affichage : la carte est alors présentée par son seul paquet.
+        """
+        note = link.note
+        card = LinkedNoteCard(link.note_id)
+        card.activated.connect(self._open_note_in_editor)
+        c_layout = QVBoxLayout(card)
+        c_layout.setContentsMargins(8, 8, 8, 8)
+        c_layout.setSpacing(6)
+
+        fields = self._note_fields(note)
+        front = fields.get("Front") or fields.get("Recto") or fields.get("Question") or "Carte Anki"
+        back = fields.get("Back") or fields.get("Verso") or fields.get("Answer") or ""
+
+        top_row = QHBoxLayout()
+        lbl_deck = QLabel(f"Paquet : {self._note_deck_name(note)}")
+        lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; background: transparent;")
+        top_row.addWidget(lbl_deck)
+        top_row.addStretch()
+        c_layout.addLayout(top_row)
+
+        lbl_front = QLabel(f"Q : {front}")
+        lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
+        lbl_front.setWordWrap(True)
+        c_layout.addWidget(lbl_front)
+
+        if back:
+            lbl_back = QLabel(f"R : {back}")
+            lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
+            lbl_back.setWordWrap(True)
+            c_layout.addWidget(lbl_back)
+
+        return card
+
+    @staticmethod
+    def _note_fields(note: NoteModel | None) -> dict[str, Any]:
+        """Champs d'une note, lus depuis sa version active puis, à défaut, son `fields_data`."""
+        if not note:
+            return {}
+
+        active_ver = NoteRepository().get_active_version(note)
+        for raw in (active_ver.content if active_ver else None, getattr(note, "fields_data", None)):
+            if not raw:
+                continue
+            try:
+                fields = json.loads(raw)
+            except Exception as e:
+                logger.debug("Lecture des champs de la note %s impossible: %s", note.id, e)
+                continue
+            if isinstance(fields, dict) and fields:
+                return fields
+        return {}
+
+    @staticmethod
+    def _note_deck_name(note: NoteModel | None) -> str:
+        """Paquet de la carte liée, à défaut le paquet « Général »."""
+        if not note:
+            return "Général"
+        for anki_card in NoteRepository().get_cards_by_note(note.id):
+            if anki_card.deck:
+                return anki_card.deck.name
+        if getattr(note, "deck", None):
+            return str(getattr(note.deck, "name", "Général"))
+        return "Général"
+
+    @Slot(int)
+    def _open_note_in_editor(self, note_id: int) -> None:
+        """Demande à l'application d'ouvrir la note sélectionnée dans l'éditeur de cartes.
+
+        L'inspecteur ne connaît pas `EditionView` : il émet la demande de navigation, que la
+        fenêtre principale route vers la vue en chargeant la note dans son formulaire.
+        """
+        self.request_navigation.emit("edition", {"note_id": note_id})
 
     def _on_forge_chunk(self, chunk_id: int) -> None:
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)

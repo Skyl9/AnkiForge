@@ -1107,6 +1107,21 @@ class StyleEngine(QObject):
             background: transparent;
             color: {p.text_primary};
         }}
+
+        /* --- Inspecteur de Document : cartes liées cliquables (LinkedNoteCard) --- */
+        QFrame#LinkedNoteCard {{
+            background-color: {p.bg_input};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_md}px;
+            padding: 10px;
+        }}
+        QFrame#LinkedNoteCard:hover {{
+            background-color: {p.bg_hover};
+            border: 1px solid {p.accent_primary};
+        }}
+        QFrame#LinkedNoteCard:focus {{
+            border: 1px solid {p.accent_primary};
+        }}
         """
 
     def apply_theme(self, theme_or_id: str | ThemeProfile, app: QApplication | None = None) -> None:

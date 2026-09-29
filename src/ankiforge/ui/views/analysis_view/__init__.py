@@ -10,6 +10,7 @@ from ankiforge.ui.views.analysis_view.tabs import (
     AIWozniakLinterTab,
     ClickableChunkWidget,
     DocumentInspectorPanel,
+    LinkedNoteCard,
 )
 from ankiforge.ui.views.analysis_view.view import AnalysisView
 
@@ -19,6 +20,7 @@ __all__ = [
     "AISourcesDiagnosticTab",
     "ClickableChunkWidget",
     "DocumentInspectorPanel",
+    "LinkedNoteCard",
     "AITokensSrsTab",
     "AIDuplicatesMergeTab",
 ]
