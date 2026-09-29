@@ -86,24 +86,26 @@ def test_build_document_tags() -> None:
     assert "examen_2026" in tags
 
 
-def test_replace_provenance_tags_rewrites_the_finest_section_and_chunk() -> None:
-    """La réécriture de provenance remplace section:/chunk: sans toucher aux autres tags."""
-    tags = json.dumps(build_document_tags(doc_id=10, doc_title="Cellulaire", page_number=4, section_name="Chapitre 2", chunk_id=11, extra_tags=["examen_2026"]))
+def test_replace_provenance_tags_rewrites_section_page_and_drops_the_legacy_chunk() -> None:
+    """La réécriture remplace section:/page: et purge le `chunk:` hérité, sans toucher aux autres tags."""
+    tags = json.dumps(["ankiforge_generated", "doc:10", "source:cellulaire", "page:4", "section:chapitre_2", "chunk:11", "examen_2026"])
 
-    rewritten = replace_provenance_tags(tags, {"section": "chapitre_2_2_1_la_membrane", "chunk": 42})
+    rewritten = replace_provenance_tags(tags, {"section": "chapitre_2_2_1_la_membrane", "page": 7, "chunk": None})
     parsed = parse_note_tags(rewritten)
 
     assert "section:chapitre_2_2_1_la_membrane" in parsed
-    assert "chunk:42" in parsed
-    # L'ancien couple est complètement remplacé, jamais coexisté.
+    assert "page:7" in parsed
+    # Le `chunk:` hérité disparaît : il n'est plus écrit nulle part, et un cache périmé est
+    # plus coûteux qu'un cache absent parce qu'il est indiscernable d'un cache valide.
+    assert not [t for t in parsed if t.startswith("chunk:")]
+    # L'ancienne valeur ne coexiste jamais avec la nouvelle.
     assert "section:chapitre_2" not in parsed
-    assert "chunk:11" not in parsed
+    assert "page:4" not in parsed
     assert len([t for t in parsed if t.startswith("section:")]) == 1
-    assert len([t for t in parsed if t.startswith("chunk:")]) == 1
+    assert len([t for t in parsed if t.startswith("page:")]) == 1
     # Le reste de la traçabilité est préservé.
     assert "doc:10" in parsed
     assert "source:cellulaire" in parsed
-    assert "page:4" in parsed
     assert "examen_2026" in parsed
     # Le format de sérialisation d'origine (JSON) est conservé.
     assert rewritten.startswith("[")
@@ -111,15 +113,16 @@ def test_replace_provenance_tags_rewrites_the_finest_section_and_chunk() -> None
 
 def test_replace_provenance_tags_is_partial_and_removable() -> None:
     """Chaque préfixe est traité indépendamment ; None retire le tag correspondant."""
-    tags = json.dumps(build_document_tags(doc_id=10, section_name="Chapitre 2", chunk_id=11))
+    tags = json.dumps(["ankiforge_generated", "doc:10", "page:3", "section:chapitre_2", "chunk:11"])
 
     only_section = parse_note_tags(replace_provenance_tags(tags, {"section": "noyau"}))
     assert "section:noyau" in only_section
+    assert "page:3" in only_section
     assert "chunk:11" in only_section
 
-    only_chunk = parse_note_tags(replace_provenance_tags(tags, {"chunk": 12}))
-    assert "chunk:12" in only_chunk
-    assert "section:chapitre_2" in only_chunk
+    without_page = parse_note_tags(replace_provenance_tags(tags, {"page": None}))
+    assert not [t for t in without_page if t.startswith("page:")]
+    assert "section:chapitre_2" in without_page
 
     without_section = parse_note_tags(replace_provenance_tags(tags, {"section": None}))
     assert not [t for t in without_section if t.startswith("section:")]
@@ -282,21 +285,24 @@ def test_sync_coverage_from_tags_continuous() -> None:
     assert stats["coverage_pct"] == 50.0
 
 
-def test_build_and_parse_chunk_tag():
-    """Le tag chunk:<id> est généré puis ré-extrai par extract_tag_metadata."""
-    tags = build_document_tags(doc_id=7, section_name="Noyau > Ribosomes", chunk_id=123, extra_tags=["forge"])
-    assert "chunk:123" in tags
+def test_build_document_tags_never_writes_a_chunk_tag():
+    """Invariant : `build_document_tags` n'écrit plus de `chunk:` — la section est l'identité durable."""
+    tags = build_document_tags(doc_id=7, section_name="Noyau > Ribosomes", extra_tags=["forge"])
+    assert not [t for t in tags if t.startswith("chunk:")]
     assert "section:noyau_ribosomes" in tags
 
     meta = extract_tag_metadata(tags)
-    assert meta["chunk_id"] == 123
+    assert meta["chunk_id"] is None
     assert meta["doc_id"] == 7
     assert meta["section_slug"] == "noyau_ribosomes"
 
+
+def test_extract_tag_metadata_still_reads_a_legacy_chunk_tag():
+    """Lecture par tolérance : un `chunk:` historique est extrait, puis écarté par le resolver s'il est périmé."""
+    assert extract_tag_metadata(["doc:5", "chunk:88"])["chunk_id"] == 88
     # chunk_id ignoré si invalide (négatif / non numérique)
     assert extract_tag_metadata(["chunk:-5"])["chunk_id"] is None
     assert extract_tag_metadata(["chunk:abc"])["chunk_id"] is None
-
     # chunk_id absent par défaut
     assert extract_tag_metadata([f"doc:{9}"])["chunk_id"] is None
 

@@ -92,6 +92,12 @@ class NoteChunkLinkModel(BaseModel):
     """
     Liaison de traçabilité entre une Note Anki (NoteModel) et son fragment source (DocumentChunkModel).
     Permet le calcul de complétion de cours et l'audit anti-hallucination.
+
+    `chunk_id` est la désignation **précise** (instantanée), tandis que le tag `section:` est
+    l'identité **durable** d'un bout de document, stable à travers les réingestions.
+    `resolution` trace le palier qui a désigné le fragment : un rattachement permissif doit
+    rester visible pour que l'utilisateur sache combien de ses liens sont prouvés et combien
+    ne sont que présumés.
     """
 
     note_id: Any
@@ -100,6 +106,9 @@ class NoteChunkLinkModel(BaseModel):
     note = ForeignKeyField(NoteModel, backref="chunk_links", on_delete="CASCADE")
     chunk = ForeignKeyField(DocumentChunkModel, backref="note_links", on_delete="CASCADE")
     is_hallucinating = BooleanField(default=False)
+    #: Palier de résolution ayant désigné le fragment : `exact`, `section`, `page`, `lexical`.
+    #: NULL sur les liens écrits avant l'introduction de la traçabilité du palier.
+    resolution = CharField(null=True, index=True)
 
     class Meta:
         table_name = "note_chunk_links"

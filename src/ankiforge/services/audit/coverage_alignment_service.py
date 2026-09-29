@@ -3,6 +3,17 @@ Service de réconciliation déterministe et de traçabilité entre documents sou
 
 Établit les correspondances NoteModel <-> DocumentChunkModel (NoteChunkLinkModel)
 exclusivement à partir des tags de traçabilité (doc:<id>, source:<slug>, page:<num>, section:<slug>).
+
+Invariant central — **une seule implémentation du rattachement** : la création d'une carte
+(:meth:`CoverageAlignmentService.resolve_attachment`) et la réconciliation d'un profil
+(:meth:`CoverageAlignmentService.sync_coverage_from_tags`) appellent le même
+:func:`resolve_attachment`. Deux implémentations de la même question produisent
+invariablement des divergences, et c'est précisément une divergence de ce genre qui laissait
+des notes portant une `section:` parfaitement résoluble sans aucun lien.
+
+Le rattachement est **permissif mais tracé** : chaque palier est tenté jusqu'au premier
+succès (exact → section → page → lexical), et le palier gagnant est persisté dans
+``NoteChunkLinkModel.resolution``. Un lien présumé reste donc distinguable d'un lien prouvé.
 Conforme aux Règles 2, 8, 19 et 20 de GEMINI.md.
 """
 
@@ -32,7 +43,14 @@ from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
 from ankiforge.services.reindex_service import mark_document_version
 from ankiforge.utils.paths import get_profile_dir
-from ankiforge.utils.tags import clean_source_slug, extract_tag_metadata, replace_provenance_tags
+from ankiforge.utils.tags import (
+    HEADING_SEPARATOR,
+    clean_source_slug,
+    extract_tag_metadata,
+    legacy_section_key,
+    replace_provenance_tags,
+    section_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +120,16 @@ _TOKEN_RE = re.compile(r"\b\w{3,}\b")
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _NUMBERING_RE = re.compile(r"^\d+(?:[.\-]\d+)*$")
 
+#: Paliers de rattachement, du plus probant au plus présumé. L'ordre est significatif :
+#: le premier palier qui désigne un fragment l'emporte, et le suivant n'est jamais tenté.
+RESOLUTION_EXACT = "exact"
+RESOLUTION_SECTION = "section"
+RESOLUTION_PAGE = "page"
+RESOLUTION_LEXICAL = "lexical"
+
+#: Tous les paliers, dans l'ordre. Exposé pour les rapports et les tests d'invariant.
+RESOLUTION_TIERS: tuple[str, ...] = (RESOLUTION_EXACT, RESOLUTION_SECTION, RESOLUTION_PAGE, RESOLUTION_LEXICAL)
+
 
 def _fold_accents(text: str) -> str:
     """Supprime les diacritiques (NFKD) pour comparer des titres accentués à un texte simple."""
@@ -120,6 +148,22 @@ def _flatten_note_content(raw_content: str | None) -> str:
     return str(content)
 
 
+def _empty_sync_report(**extra: Any) -> dict[str, Any]:
+    """Rapport neutre de réconciliation : mêmes clés qu'un passage having abouti."""
+    report: dict[str, Any] = {
+        "matched_notes": 0,
+        "newly_linked": 0,
+        "unlinked_notes": 0,
+        "repaired_notes": 0,
+        "resolution_breakdown": dict.fromkeys(RESOLUTION_TIERS, 0),
+        "covered_chunks": 0,
+        "total_chunks": 0,
+        "coverage_pct": 0.0,
+    }
+    report.update(extra)
+    return report
+
+
 class CoverageAlignmentService:
     """Moteur de réconciliation déterministe de couverture documentaire par tags."""
 
@@ -136,12 +180,20 @@ class CoverageAlignmentService:
     @classmethod
     def sync_coverage_from_tags(cls, doc_id: int | None = None) -> dict[str, Any]:
         """
-        Synchronise déterministement les liaisons NoteModel <-> DocumentChunkModel à partir des tags des notes.
+        Synchronise de manière déterministe les liaisons NoteModel <-> DocumentChunkModel à partir des tags des notes.
+
+        Réconciliation et **auto-réparation** : elle délègue chaque décision de rattachement à
+        :meth:`resolve_attachment` — le même resolver que la création de carte — puis réécrit
+        les tags traversés dans la forme canonique (clé de section sans horodatage, `chunk:`
+        hérité retiré, `page:` seulement si le fragment est réellement paginé). C'est ce qui
+        permet d'absorber les notes antérieures sans migration de données : une note dont le
+        `chunk:` est périmé et dont la `section:` est directement résoluble est rattachée *et*
+        réparée dans le même passage.
 
         Recherche et exploite les tags :
         - doc:<id> ou source:<slug>
         - page:<num>
-        - section:<slug>
+        - section:<slug> (clé canonique ou clé historique, lues indifféremment)
 
         En mode ciblé (doc_id), les liens résiduels dont la note ne porte plus de tags
         concordants vers ce document sont retirés (déliaison des liens "stale").
@@ -150,14 +202,16 @@ class CoverageAlignmentService:
             doc_id: Optionnel. Si spécifié, restreint la réconciliation à ce document.
 
         Returns:
-            dict[str, Any]: Rapport statistique de réconciliation.
+            dict[str, Any]: Rapport ``matched_notes`` / ``newly_linked`` / ``unlinked_notes`` /
+            ``repaired_notes`` / ``resolution_breakdown`` (répartition par palier) et métriques
+            de couverture.
         """
         doc_repo = DocumentRepository()
 
         if doc_id is not None:
             target_doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
             if not target_doc:
-                return {"matched_notes": 0, "newly_linked": 0, "unlinked_notes": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
+                return _empty_sync_report()
             from ankiforge.services.parsing.chunking_service import ChunkingService
 
             if target_doc.chunk_strategy_version != ChunkingService.CHUNKING_VERSION:
@@ -173,6 +227,8 @@ class CoverageAlignmentService:
                     "newly_linked": 0,
                     "unlinked_notes": 0,
                     "stale_documents": [doc_id],
+                    "repaired_notes": 0,
+                    "resolution_breakdown": dict.fromkeys(RESOLUTION_TIERS, 0),
                     "covered_chunks": 0,
                     "total_chunks": 0,
                     "coverage_pct": 0.0,
@@ -182,7 +238,7 @@ class CoverageAlignmentService:
         else:
             all_docs = list(DocumentModel.select())
             if not all_docs:
-                return {"matched_notes": 0, "newly_linked": 0, "unlinked_notes": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
+                return _empty_sync_report()
             docs_by_id = {d.id: d for d in all_docs}
             docs_by_slug = {clean_source_slug(d.title): d for d in all_docs}
 
@@ -207,6 +263,9 @@ class CoverageAlignmentService:
         matched_notes = 0
         unlinked_note_ids: list[int] = []
         stale_skipped_notes = 0
+        repaired_notes = 0
+        resolution_counts: dict[str, int] = dict.fromkeys(RESOLUTION_TIERS, 0)
+        card_texts = cls._active_version_texts([note.id for note in all_notes])
 
         with db.atomic():
             for note in all_notes:
@@ -226,43 +285,53 @@ class CoverageAlignmentService:
                     stale_skipped_notes += 1
                     continue
 
-                target_chunk: DocumentChunkModel | None = None
-                page_num = meta["page_number"]
-                section_slug = meta["section_slug"]
-                chunk_id = meta["chunk_id"]
+                # Le même resolver que la création : exact → section → page → lexical, chaque
+                # palier étant abandonné parce qu'il a échoué — jamais parce qu'un palier
+                # antérieur était présent. Un tag `chunk:` périmé ne verrouille donc plus la
+                # note hors couverture alors que sa `section:` désigne un fragment réel.
+                target_chunk, resolution = cls.resolve_attachment(
+                    doc_id=matched_doc.id,
+                    card_text=card_texts.get(note.id, ""),
+                    llm_section=meta["section_slug"],
+                    source_chunk_id=meta["chunk_id"],
+                    page_number=meta["page_number"],
+                )
 
-                if chunk_id is not None and chunk_id > 0:
-                    target_chunk = (
-                        DocumentChunkModel.select()
-                        .where(
-                            DocumentChunkModel.id == chunk_id,
-                            DocumentChunkModel.document == matched_doc,
-                        )
-                        .first()
-                    )
-                elif page_num is not None and page_num > 0:
-                    target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == matched_doc, DocumentChunkModel.page_number == page_num).first()
-                elif section_slug:
-                    target_chunk = cls._find_chunk_by_section_suffix(matched_doc.id, section_slug)
-
-                if target_chunk:
+                if target_chunk and resolution:
                     matched_notes += 1
+                    resolution_counts[resolution] = resolution_counts.get(resolution, 0) + 1
                     _, created = NoteChunkLinkModel.get_or_create(
                         note=note,
                         chunk=target_chunk,
-                        defaults={"is_hallucinating": False},
+                        defaults={"is_hallucinating": False, "resolution": resolution},
                     )
                     if created:
                         newly_linked += 1
+                    else:
+                        # Lien préexistant : le palier est rafraîchi pour que la traçabilité
+                        # reste exacte, sans quoi un lien ancien porterait un palier faux.
+                        link = NoteChunkLinkModel.get(NoteChunkLinkModel.note == note, NoteChunkLinkModel.chunk == target_chunk)
+                        if link.resolution != resolution:
+                            link.resolution = resolution
+                            link.save(only=[NoteChunkLinkModel.resolution])
+
+                    if cls._canonicalize_note_provenance(note, target_chunk):
+                        repaired_notes += 1
                 else:
                     unlinked_note_ids.append(note.id)
 
         unlinked_notes = len(unlinked_note_ids)
         if unlinked_notes:
             logger.warning(
-                "sync_coverage_from_tags : %d note(s) identifiée(s) sur un document mais non rattachée(s) à un fragment (provenance page/section/chunk inexploitable) : %s.",
+                "sync_coverage_from_tags : %d note(s) identifiée(s) sur un document mais non rattachée(s) à un fragment "
+                "(aucun palier — exact, section, page, lexical — n'a désigné de fragment réel) : %s.",
                 unlinked_notes,
                 ", ".join(str(n) for n in unlinked_note_ids[:10]) + ("…" if unlinked_notes > 10 else ""),
+            )
+        if repaired_notes:
+            logger.info(
+                "sync_coverage_from_tags : %d note(s) réécrite(s) en provenance canonique (clé de section sans horodatage, `chunk:` hérité retiré, `page:` corrigée).",
+                repaired_notes,
             )
 
         stale_removed = 0
@@ -280,6 +349,8 @@ class CoverageAlignmentService:
                 "stale_removed": stale_removed,
                 "stale_documents": sorted(stale_doc_ids),
                 "stale_skipped_notes": stale_skipped_notes,
+                "repaired_notes": repaired_notes,
+                "resolution_breakdown": dict(resolution_counts),
                 "covered_chunks": stats.get("covered_chunks", 0),
                 "total_chunks": stats.get("total_chunks", 0),
                 "coverage_pct": stats.get("coverage_pct", 0.0),
@@ -295,8 +366,37 @@ class CoverageAlignmentService:
             "unlinked_notes": unlinked_notes,
             "stale_documents": sorted(stale_doc_ids),
             "stale_skipped_notes": stale_skipped_notes,
+            "repaired_notes": repaired_notes,
+            "resolution_breakdown": dict(resolution_counts),
             "total_documents": len(docs_by_id),
         }
+
+    @staticmethod
+    def _canonicalize_note_provenance(note: NoteModel, chunk: DocumentChunkModel) -> bool:
+        """Réécrit les tags de provenance d'une note dans la forme canonique du fragment retenu.
+
+        C'est le mécanisme d'**auto-réparation** de la réconciliation : à chaque passage, les
+        notes traversées sont ramenées à l'état courant des conventions — clé de section sans
+        horodatage, `chunk:` hérité retiré, `page:` présent seulement si le fragment est
+        réellement paginé. C'est ce qui permet de ne pas écrire de migration de données pour
+        les notes antérieures : elles se réparent d'elles-mêmes dès la prochaine
+        réconciliation, qui est de toute façon le moment où l'on constate qu'elles sont
+        inrattachables.
+
+        Returns:
+            bool: ``True`` si les tags ont effectivement été modifiés (et persistés).
+        """
+        overrides: dict[str, str | int | None] = {
+            "section": section_key(chunk.heading_path) or None,
+            "page": chunk.page_number,
+            "chunk": None,
+        }
+        rewritten = replace_provenance_tags(note.tags, overrides)
+        if rewritten == note.tags:
+            return False
+        note.tags = rewritten
+        note.save(only=[NoteModel.tags])
+        return True
 
     @staticmethod
     def _notify_coverage_synced(doc_id: int | None, scope: str) -> None:
@@ -446,11 +546,51 @@ class CoverageAlignmentService:
         ordered = DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id).order_by(DocumentChunkModel.chunk_index)
         return CoverageAlignmentService._match_chunks_by_section(ordered, section_slug)
 
-    @staticmethod
-    def _match_chunks_by_section(chunks: Iterable[DocumentChunkModel], section_slug: str) -> DocumentChunkModel | None:
-        """Variante en mémoire de :meth:`_find_chunk_by_section_suffix` (candidates déjà chargés)."""
+    @classmethod
+    def _section_key_candidates(cls, chunk: DocumentChunkModel) -> set[str]:
+        """Clés de section sous lesquelles un fragment est adressable.
+
+        Un fragment est désigné par son fil d'Ariane, mais trois formes coexistent et
+        doivent rester résolvables :
+
+        1. la **clé canonique** (``section_key``) : fil d'Ariane sans horodatage de
+           transcription — la forme écrite aujourd'hui ;
+        2. la **clé historique** (``legacy_section_key``) : fil d'Ariane brut — la forme
+           écrite avant l'adoption de la section comme identité. Sans elle, toutes les
+           notes antérieures deviendraient inrattachables d'un seul coup ;
+        3. le slug de **chaque niveau isolément** et de **chaque sous-fil d'Ariane
+           consécutif**, pour les étiquettes qui ne portent qu'une partie du fil — le titre
+           feuille (« noyau ») ou un extrait à partir d'un niveau intermédiaire.
+
+        Exemples pour ``"Titre > [00:01] Sous-titre > Détail"`` :
+
+        - ``"titre_sous_titre_détail"``              (canonique, complet)
+        - ``"titre_0001_sous_titre_détail"``         (historique, complet)
+        - ``"sous_titre_détail"``, ``"détail"``      (sous-fils et niveau isolé)
+        """
+        heading = chunk.heading_path or ""
+        if not heading.strip():
+            return set()
+        candidates = {section_key(heading), legacy_section_key(heading)}
+        parts = cls._heading_parts(chunk)
+        for start in range(len(parts)):
+            tail = HEADING_SEPARATOR.join(parts[start:])
+            candidates.add(section_key(tail))
+            candidates.add(legacy_section_key(tail))
+        return {c for c in candidates if c}
+
+    @classmethod
+    def _match_chunks_by_section(cls, chunks: Iterable[DocumentChunkModel], section_slug: str) -> DocumentChunkModel | None:
+        """Variante en mémoire de :meth:`_find_chunk_by_section_suffix` (candidates déjà chargés).
+
+        Le rapprochement est symétrique : le fragment est adresse par l'une de ses clés
+        (:meth:`_section_key_candidates`) et l'étiquette peut être l'une ou l'autre
+        génération de la même clé. C'est ce qui rend les notes anciennes — dont l'étiquette
+        ``section:`` porte l'horodatage — rattachables sans migration de données.
+        """
         if not section_slug:
             return None
+        wanted = section_slug.strip().lower()
         best: DocumentChunkModel | None = None
         best_depth = 0
         best_words = -1
@@ -459,16 +599,124 @@ class CoverageAlignmentService:
                 continue
             if TableOfContentsDetector.looks_like_index_block(c.content or ""):
                 continue
-            slug = clean_source_slug(c.heading_path)
-            parts = [p for p in c.heading_path.split(" > ") if p.strip()]
-            if not (slug == section_slug or slug.endswith(f"_{section_slug}") or any(clean_source_slug(p) == section_slug for p in parts)):
+            if wanted not in cls._section_key_candidates(c):
                 continue
             words = len((c.content or "").split())
-            if len(parts) > best_depth or (len(parts) == best_depth and words > best_words):
+            depth = len(cls._heading_parts(c))
+            if depth > best_depth or (depth == best_depth and words > best_words):
                 best = c
-                best_depth = len(parts)
+                best_depth = depth
                 best_words = words
         return best
+
+    @classmethod
+    def resolve_attachment(
+        cls,
+        doc_id: int,
+        card_text: str | None = None,
+        llm_section: str | None = None,
+        source_chunk_id: int | None = None,
+        page_number: int | None = None,
+        source_blocks: list[dict[str, Any]] | None = None,
+    ) -> tuple[DocumentChunkModel | None, str | None]:
+        """Rattache une carte a un fragment de document, en remontant des paliers de preuve.
+
+        **Unique point de decision du rattachement** dans AnkiForge : la creation d'une carte
+        et la reconciliation d'un profil appellent tous deux cette fonction. Deux
+        implementations de la meme question divergent inexorablement, et c'est precisement
+        une divergence de ce genre qui laissait des notes portant une `section:` parfaitement
+        resoluble sans le moindre lien.
+
+        Le rattachement est **permissif mais trace** : chaque palier est tente jusqu'a en
+        trouver un qui designe un fragment reel, et le palier gagnant est persiste dans
+        ``NoteChunkLinkModel.resolution``. Il n'est jamais approximatif : la fonction ne
+        renvoie jamais un fragment qu'aucun palier n'a designe.
+
+        Les paliers, du plus probant au plus presume :
+
+        - ``exact`` : provenance mono-bloc (``source_chunk_id``, ou entree unique de
+          ``source_blocks``). Une partie de lot compilee depuis un seul fragment le
+          designe : le fragment est un fait, pas une deduction ;
+        - ``section`` : la cle de section. C'est l'identite **durable** d'un bout de
+          document — elle survit aux reingestions, ce que ne fait pas l'identifiant de
+          fragment, qui est un entier de base reattribue a chaque decoupage ;
+        - ``page`` : le numero de page, pour les documents pagines ;
+        - ``lexical`` : le recouvrement de vocabulaire entre la carte et le fragment.
+
+        **Un palier n'est abandonne que parce qu'il a echoue**, jamais parce qu'un palier
+        anterieur etait present. C'est la distinction qui manquait : une etiquette ``chunk:``
+        perimee ne doit pas interdire d'exploiter la ``section:`` resoluble qu'elle masque.
+
+        Cas particulier des parties multi-blocs (``source_blocks`` de plus d'une entree) :
+        ni le fil d'Ariane concatene ni la page du premier bloc ne designent un fragment,
+        la recherche est donc confinee aux fragments de la partie et departagee au
+        recouvrement lexical. Une carte dont le texte n'echoque aucun fragment de sa partie
+        reste **non rattachee** plutot que rattachee hors partie — l'absence est comptee et
+        signalee par l'appelant.
+
+        Args:
+            doc_id: ID du document source.
+            card_text: Texte de la carte (recto + verso) a localiser lexicalement.
+            llm_section: Cle ou fil d'Ariane de la section source (declaree par l'IA, ou
+                lue dans un tag ``section:``).
+            source_chunk_id: ID du fragment source connu (le cas echeant).
+            page_number: Numero de page declare (le cas echeant).
+            source_blocks: Routes de resolution des fragments agreges par la partie de lot
+                (liste de dicts ``{"chunk_id", "heading_path", "page_number"}``).
+
+        Returns:
+            tuple[DocumentChunkModel | None, str | None] : le fragment retenu et le palier
+            qui l'a designe, ou ``(None, None)`` si aucun palier n'a abouti.
+        """
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id))
+        if not chunks:
+            return None, None
+
+        # --- Palier 1 : identite mono-bloc exacte --------------------------------------
+        exact_chunk_id = cls._coerce_positive_int(source_chunk_id)
+        if exact_chunk_id is not None:
+            exact = next((c for c in chunks if c.id == exact_chunk_id), None)
+            if exact is not None:
+                return exact, RESOLUTION_EXACT
+
+        routes = [route for route in (source_blocks or []) if isinstance(route, dict)]
+        if len(routes) == 1:
+            # Partie mono-bloc : la route du bloc est la provenance la plus fine disponible.
+            only = routes[0]
+            by_block_id = cls._first_chunk_by_id(chunks, only.get("chunk_id"))
+            if by_block_id is not None:
+                return by_block_id, RESOLUTION_EXACT
+            block_heading = only.get("heading_path")
+            if block_heading and str(block_heading).strip():
+                by_section = cls._match_chunks_by_section(chunks, clean_source_slug(str(block_heading)))
+                if by_section:
+                    return by_section, RESOLUTION_EXACT
+        elif len(routes) > 1:
+            # Partie multi-blocs : la carte est cherchee dans le seul perimetre de la partie,
+            # jamais au-dela. Rattacher hors partie produirait un faux lien plus trompeur
+            # qu'une absence, dont l'appelant est comptable (note hors couverture).
+            if not card_text or not card_text.strip():
+                return None, None
+            return cls._best_chunk_by_lexical_overlap(card_text, cls._chunks_for_routes(chunks, routes)), RESOLUTION_LEXICAL
+
+        # --- Palier 2 : identite de section (durable) ----------------------------------
+        section_slug = clean_source_slug(str(llm_section)) if llm_section and str(llm_section).strip() else ""
+        if section_slug:
+            by_section = cls._match_chunks_by_section(chunks, section_slug)
+            if by_section:
+                return by_section, RESOLUTION_SECTION
+
+        # --- Palier 3 : page -------------------------------------------------------------
+        page = cls._coerce_positive_int(page_number)
+        if page is not None:
+            by_page = next((c for c in chunks if c.page_number is not None and c.page_number == page), None)
+            if by_page:
+                return by_page, RESOLUTION_PAGE
+
+        # --- Palier 4 : recouvrement lexical (presomption) -------------------------------
+        if not card_text or not card_text.strip():
+            return None, None
+        return cls._best_chunk_by_lexical_overlap(card_text, chunks), RESOLUTION_LEXICAL
 
     @classmethod
     def resolve_finest_chunk_for_card(
@@ -480,82 +728,22 @@ class CoverageAlignmentService:
         page_number: int | None = None,
         source_blocks: list[dict[str, Any]] | None = None,
     ) -> DocumentChunkModel | None:
-        """Résout le fragment le plus fin d'un document correspondant à une carte générée.
+        """Rattache une carte a un fragment et retourne le seul fragment (enveloppe de compatibilite).
 
-        L'utilisateur fournit généralement une grande partie du document à l'IA
-        (chapitre, scope entier) ; cette méthode retrouve, pour chaque carte, la
-        sous-section précise (jusqu'au niveau H5/H6) dont le contenu provient.
-
-        Trois régimes, selon la qualité de la provenance fournie :
-
-        1. *provenance mono-bloc exacte* : un seul fragment source est déclaré
-           (``source_chunk_id`` ou une entrée unique de ``source_blocks``) — il gagne ;
-        2. *provenance multi-blocs* : la carte a été générée à partir de N fragments
-           agrégés par une partie de lot. Aucun scalaire agrégé n'est alors crédible :
-           la résolution est confinée aux fragments de la partie et départagée par
-           recouvrement lexical. Une carte dont le texte n'échoque aucun fragment de
-           sa partie reste non rattachée plutôt que rattachée à un fragment qu'elle n'a
-           pas traité — l'absence est comptée et signalée par l'appelant ;
-        3. *provenance absente ou multi-blocs non résoluble* : priorité historique
-           ``source_chunk_id`` → ``llm_section`` → ``page_number`` → recouvrement lexical.
-
-        Args:
-            card_text: Texte de la carte (recto + verso) à localiser.
-            doc_id: ID du document source.
-            llm_section: Section/fil d'Ariane éventuellement déclaré par l'IA.
-            source_chunk_id: ID du fragment source connu (le cas échéant).
-            page_number: Numéro de page déclaré (le cas échéant).
-            source_blocks: Routes de résolution des fragments agrégés par la partie
-                (liste de dicts ``{"chunk_id", "heading_path", "page_number"}``).
-
-        Returns:
-            DocumentChunkModel | None : le fragment le plus pertinent, ou None si aucun match.
+        Raccourci en lecture seule vers :meth:`resolve_attachment`, pour les appelants qui
+        n'ont pas besoin de savoir *comment* le fragment a ete designe. Les appelants qui
+        ecrivent un lien doivent utiliser :meth:`resolve_attachment` directement, afin de
+        persister le palier dans ``NoteChunkLinkModel.resolution``.
         """
-        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id))
-        if not chunks:
-            return None
-
-        if source_chunk_id is not None and source_chunk_id > 0:
-            exact = next((c for c in chunks if c.id == source_chunk_id), None)
-            if exact:
-                return exact
-
-        routes = [route for route in (source_blocks or []) if isinstance(route, dict)]
-        if len(routes) == 1:
-            # Partie mono-bloc : la route du bloc est la provenance la plus fine disponible.
-            only = routes[0]
-            by_block_id = cls._first_chunk_by_id(chunks, only.get("chunk_id"))
-            if by_block_id is not None:
-                return by_block_id
-            block_heading = only.get("heading_path")
-            if block_heading and str(block_heading).strip():
-                by_section = cls._find_chunk_by_section_suffix(doc_id, clean_source_slug(str(block_heading)))
-                if by_section:
-                    return by_section
-        elif len(routes) > 1:
-            # Partie multi-blocs : ni le fil d'Ariane concaténé ni la page du premier bloc
-            # ne désignent un fragment, on ne peut trancher que par le contenu de la carte.
-            # La recherche reste confinée aux fragments de la partie : rattacher la carte à
-            # un fragment qu'elle n'a pas traité produirait un faux lien de couverture, plus
-            # trompeur que son absence — l'absence est comptée et signalée par l'appelant.
-            if not card_text or not card_text.strip():
-                return None
-            return cls._best_chunk_by_lexical_overlap(card_text, cls._chunks_for_routes(chunks, routes))
-
-        if llm_section and str(llm_section).strip():
-            by_section = cls._find_chunk_by_section_suffix(doc_id, clean_source_slug(str(llm_section)))
-            if by_section:
-                return by_section
-
-        if page_number is not None and page_number > 0:
-            by_page = next((c for c in chunks if c.page_number is not None and c.page_number == page_number), None)
-            if by_page:
-                return by_page
-
-        if not card_text or not card_text.strip():
-            return None
-
-        return cls._best_chunk_by_lexical_overlap(card_text, chunks)
+        chunk, _resolution = cls.resolve_attachment(
+            doc_id=doc_id,
+            card_text=card_text,
+            llm_section=llm_section,
+            source_chunk_id=source_chunk_id,
+            page_number=page_number,
+            source_blocks=source_blocks,
+        )
+        return chunk
 
     @staticmethod
     def _coerce_positive_int(raw: Any) -> int | None:
@@ -834,7 +1022,7 @@ class CoverageAlignmentService:
         chaque lien de couverture pointant sur un fragment qui possède des sous-sections, le
         texte de la carte est confronté aux descendants du fil d'Ariane (présence littérale
         du titre, puis recouvrement lexical pondéré par l'idf). La liaison et les tags de
-        traçabilité `section:` / `chunk:` sont réécrits atomiquement vers la sous-section
+        traçabilité `section:` / `page:` sont réécrits atomiquement vers la sous-section
         retenue, ce qui résorbe les fausses lacunes d'un audit de couverture granularity.
 
         Une carte n'est jamais retirée d'un fragment parent porteur de contenu substantiel si
@@ -899,8 +1087,13 @@ class CoverageAlignmentService:
 
                 was_hallucinating = link.is_hallucinating
                 link.delete_instance()
-                NoteChunkLinkModel.get_or_create(note=note, chunk=target, defaults={"is_hallucinating": was_hallucinating})
-                note.tags = replace_provenance_tags(note.tags, {"section": clean_source_slug(target.heading_path or ""), "chunk": target.id})
+                # Le palier `section` est le seul qui survit à une réingestion : le fragment
+                # déplacé n'est plus le même, mais la section cible, elle, est restée la même.
+                NoteChunkLinkModel.get_or_create(note=note, chunk=target, defaults={"is_hallucinating": was_hallucinating, "resolution": RESOLUTION_SECTION})
+                note.tags = replace_provenance_tags(
+                    note.tags,
+                    {"section": section_key(target.heading_path) or None, "page": target.page_number, "chunk": None},
+                )
                 note.save(only=[NoteModel.tags])
 
                 links_per_heading[parent_key] = max(0, remaining)

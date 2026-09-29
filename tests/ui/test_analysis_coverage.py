@@ -499,7 +499,7 @@ def _card_linked_to(uid: str, doc: DocumentModel, chunk: DocumentChunkModel, fro
     """Note taguée sur le fragment donné, une version active et un lien de traçabilité."""
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Affinage {uid}")
     deck = DeckModel.get_or_none(DeckModel.name == f"Deck Affinage {uid}") or DeckModel.create(name=f"Deck Affinage {uid}")
-    tags = build_document_tags(doc_id=doc.id, doc_title=doc.title, section_name=chunk.heading_path, chunk_id=chunk.id)
+    tags = build_document_tags(doc_id=doc.id, doc_title=doc.title, section_name=chunk.heading_path, page_number=chunk.page_number)
     note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps(tags))
     note.add_version({"Front": front, "Back": back}, source="manual")
     CardModel.create(note=note, deck=deck, template_index=0)

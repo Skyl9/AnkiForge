@@ -2814,7 +2814,6 @@ class CreationView(QWidget):
                     card_page = scope_pages[0]
                 card_section = card.get("section") or card.get("heading_path")
 
-                resolved_chunk_id = None
                 resolved_heading = None
                 resolved_page = None
 
@@ -2824,27 +2823,27 @@ class CreationView(QWidget):
 
                     card_text = " ".join(str(v) for v in fields.values() if v).strip()
                     source_chunk_id = card.get("_source_chunk_id") or getattr(self, "current_source_chunk_id", None)
-                    resolved = CoverageAlignmentService.resolve_finest_chunk_for_card(
-                        card_text=card_text,
+                    resolved, _resolution = CoverageAlignmentService.resolve_attachment(
                         doc_id=active_doc.id,
+                        card_text=card_text,
                         llm_section=str(card_section) if card_section else None,
                         source_chunk_id=source_chunk_id if isinstance(source_chunk_id, int) else (int(source_chunk_id) if str(source_chunk_id).isdigit() else None),
                         page_number=int(card_page) if card_page is not None and str(card_page).isdigit() else None,
                     )
                     if resolved:
-                        resolved_chunk_id = resolved.id
                         resolved_heading = resolved.heading_path
                         resolved_page = resolved.page_number
 
-                # Construction déterministe des tags
-                final_page = resolved_page if resolved_page is not None else (int(card_page) if card_page is not None and str(card_page).isdigit() else None)
-                final_section = resolved_heading or (str(card_section) if card_section else None)
+                # Construction déterministe des tags : seuls des faits résolus sont étiquetés.
+                # Une page de portée (« la sélection ne couvre que la page 1 ») décrit le
+                # périmètre envoyé à l'IA, pas l'emplacement de la carte : l'étiqueter
+                # `page:1` quand aucun fragment ne porte cette page produirait une
+                # provenance fausse, que la réconciliation lirait ensuite comme une preuve.
                 tags = build_document_tags(
                     doc_id=active_doc.id if active_doc else None,
                     doc_title=active_doc.title if active_doc else getattr(self, "current_source_title", None),
-                    page_number=final_page,
-                    section_name=final_section,
-                    chunk_id=resolved_chunk_id,
+                    page_number=resolved_page,
+                    section_name=resolved_heading or (str(card_section) if card_section else None),
                 )
 
                 deck_obj = self.deck_repo.get_or_create_deck(name=deck_name)

@@ -19,7 +19,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.utils.paths import get_media_dir, resolve_media_path
-from ankiforge.utils.tags import build_document_tags, clean_source_slug, parse_note_tags
+from ankiforge.utils.tags import build_document_tags, clean_source_slug, parse_note_tags, section_key
 
 pytestmark = pytest.mark.integration
 
@@ -596,7 +596,7 @@ def _make_card(
     """Crée une carte taguée sur le fragment donné et la lui lie."""
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Affinement {uid}")
     deck = DeckModel.get_or_none(DeckModel.name == f"Deck Affinement {uid}") or DeckModel.create(name=f"Deck Affinement {uid}")
-    tags = build_document_tags(doc_id=doc.id, doc_title=doc.title, section_name=chunk.heading_path, chunk_id=chunk.id)
+    tags = build_document_tags(doc_id=doc.id, doc_title=doc.title, section_name=chunk.heading_path, page_number=chunk.page_number)
     note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps(tags))
     note.add_version({"Front": front, "Back": back}, source="manual")
     CardModel.create(note=note, deck=deck, template_index=0)
@@ -607,6 +607,17 @@ def _make_card(
 def _linked_chunk(note: NoteModel) -> DocumentChunkModel | None:
     link = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note)
     return link.chunk if link else None
+
+
+def _linked_chunk_in_doc(note: NoteModel, doc: DocumentModel) -> DocumentChunkModel | None:
+    """Fragment lié à la note *au sein d'un document donné*.
+
+    Une carte peut porter plusieurs liens (c'est même le cas dans les tests d'affinement,
+    où l'on rattache volontairement à la main un fragment d'un autre document). Sans cette
+    restriction, l'assertion dépendrait de l'ordre arbitraire d'un `get_or_none`.
+    """
+    link = NoteChunkLinkModel.select().join(DocumentChunkModel, on=(NoteChunkLinkModel.chunk == DocumentChunkModel.id)).where(NoteChunkLinkModel.note == note, DocumentChunkModel.document == doc).get()
+    return link.chunk
 
 
 def test_refine_links_moves_a_chapter_card_to_its_sub_section():
@@ -626,12 +637,15 @@ def test_refine_links_moves_a_chapter_card_to_its_sub_section():
     assert _linked_chunk(membrane).id == chunks["membrane"].id
     assert _linked_chunk(overview).id == chunks["chapter"].id
 
-    # Les tags de traçabilité suivent la nouvelle granularité.
+    # Les tags de traçabilité suivent la nouvelle granularité : la section canonique du
+    # fragment retenu, et plus aucun `chunk:` — l'identifiant de fragment n'est pas une
+    # identité durable, la désignation précise est portée par le lien lui-même.
     tags = parse_note_tags(NoteModel.get_by_id(membrane.id).tags)
-    assert f"section:{clean_source_slug(chunks['membrane'].heading_path)}" in tags
-    assert f"chunk:{chunks['membrane'].id}" in tags
+    assert f"section:{section_key(chunks['membrane'].heading_path)}" in tags
+    assert not [t for t in tags if t.startswith("chunk:")]
     assert f"doc:{doc.id}" in tags
     assert "ankiforge_generated" in tags
+    assert NoteChunkLinkModel.get(NoteChunkLinkModel.note == membrane).resolution == "section"
 
     assert report["details"] == [
         {
@@ -820,7 +834,7 @@ def test_refine_links_ignores_toc_announcements_and_unrelated_documents():
     report = CoverageAlignmentService.refine_links_to_subsections(doc.id)
 
     assert report["reassigned"] == 1
-    assert _linked_chunk(card).id == membrane.id
+    assert _linked_chunk_in_doc(card, doc).id == membrane.id
     assert NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == card, NoteChunkLinkModel.chunk == foreign) is not None
 
 

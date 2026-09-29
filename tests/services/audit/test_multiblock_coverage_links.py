@@ -161,7 +161,6 @@ def test_multi_block_card_gets_an_effective_coverage_link() -> None:
                 doc_title=doc.title,
                 page_number=resolved.page_number,
                 section_name=resolved.heading_path,
-                chunk_id=resolved.id,
             )
         ),
     )
@@ -202,7 +201,7 @@ def test_stale_document_raises_an_alert_instead_of_a_silent_zero(caplog: pytest.
     note = NoteModel.create(
         guid=uuid.uuid4().hex,
         note_type=nt,
-        tags=json.dumps(build_document_tags(doc_id=doc.id, doc_title=doc.title, chunk_id=chunks[0].id)),
+        tags=json.dumps(build_document_tags(doc_id=doc.id, doc_title=doc.title, section_name=chunks[0].heading_path)),
     )
 
     with caplog.at_level(logging.WARNING, logger="ankiforge.services.audit.coverage_alignment_service"):
