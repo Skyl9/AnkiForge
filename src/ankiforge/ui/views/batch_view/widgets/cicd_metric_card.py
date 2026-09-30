@@ -13,7 +13,7 @@ class CicdMetricCard(QFrame):
 
     clicked = Signal()
 
-    def __init__(self, title: str, value: str, icon_name: str, color: str = "#10b981", parent: QWidget | None = None, clickable: bool = False) -> None:
+    def __init__(self, title: str, value: str, icon_name: str, color: str = DesignTokens.COLOR_GREEN, parent: QWidget | None = None, clickable: bool = False) -> None:
         super().__init__(parent)
         self.title_text = title
         self.icon_name = icon_name

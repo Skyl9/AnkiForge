@@ -126,7 +126,8 @@ class BatchActivityLog(QWidget):
         for level in ("ALL", "INFO", "SUCCESS", "WARN", "ERROR"):
             _, color = _LEVEL_STYLE.get(level, ("ph.circle", DesignTokens.TEXT_MUTED))
             btn_label = QLabel(level)
-            btn_label.setStyleSheet(f"color: {color}; font-size: 10px; font-weight: bold; padding: 2px 6px; border: 1px solid {color}; border-radius: 8px; background: transparent; cursor: pointer;")
+            btn_label.setStyleSheet(f"color: {color}; font-size: 10px; font-weight: bold; padding: 2px 6px; border: 1px solid {color}; border-radius: 8px; background: transparent;")
+            btn_label.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_label.setFixedHeight(18)
             btn_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             # NOTE: wrapping labels as clickable filters via mousePressEvent

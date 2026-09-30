@@ -28,6 +28,7 @@ from ankiforge.utils.tags import (
     clean_source_slug,
     extract_tag_metadata,
     parse_note_tags,
+    replace_provenance_tags,
 )
 
 pytestmark = pytest.mark.integration
@@ -83,6 +84,78 @@ def test_build_document_tags() -> None:
     assert "page:4" in tags
     assert "section:introduction" in tags
     assert "examen_2026" in tags
+
+
+def test_replace_provenance_tags_rewrites_section_page_and_drops_the_legacy_chunk() -> None:
+    """La réécriture remplace section:/page: et purge le `chunk:` hérité, sans toucher aux autres tags."""
+    tags = json.dumps(["ankiforge_generated", "doc:10", "source:cellulaire", "page:4", "section:chapitre_2", "chunk:11", "examen_2026"])
+
+    rewritten = replace_provenance_tags(tags, {"section": "chapitre_2_2_1_la_membrane", "page": 7, "chunk": None})
+    parsed = parse_note_tags(rewritten)
+
+    assert "section:chapitre_2_2_1_la_membrane" in parsed
+    assert "page:7" in parsed
+    # Le `chunk:` hérité disparaît : il n'est plus écrit nulle part, et un cache périmé est
+    # plus coûteux qu'un cache absent parce qu'il est indiscernable d'un cache valide.
+    assert not [t for t in parsed if t.startswith("chunk:")]
+    # L'ancienne valeur ne coexiste jamais avec la nouvelle.
+    assert "section:chapitre_2" not in parsed
+    assert "page:4" not in parsed
+    assert len([t for t in parsed if t.startswith("section:")]) == 1
+    assert len([t for t in parsed if t.startswith("page:")]) == 1
+    # Le reste de la traçabilité est préservé.
+    assert "doc:10" in parsed
+    assert "source:cellulaire" in parsed
+    assert "examen_2026" in parsed
+    # Le format de sérialisation d'origine (JSON) est conservé.
+    assert rewritten.startswith("[")
+
+
+def test_replace_provenance_tags_is_partial_and_removable() -> None:
+    """Chaque préfixe est traité indépendamment ; None retire le tag correspondant."""
+    tags = json.dumps(["ankiforge_generated", "doc:10", "page:3", "section:chapitre_2", "chunk:11"])
+
+    only_section = parse_note_tags(replace_provenance_tags(tags, {"section": "noyau"}))
+    assert "section:noyau" in only_section
+    assert "page:3" in only_section
+    assert "chunk:11" in only_section
+
+    without_page = parse_note_tags(replace_provenance_tags(tags, {"page": None}))
+    assert not [t for t in without_page if t.startswith("page:")]
+    assert "section:chapitre_2" in without_page
+
+    without_section = parse_note_tags(replace_provenance_tags(tags, {"section": None}))
+    assert not [t for t in without_section if t.startswith("section:")]
+    assert "chunk:11" in without_section
+
+    without_chunk = parse_note_tags(replace_provenance_tags(tags, {"chunk": None}))
+    assert not [t for t in without_chunk if t.startswith("chunk:")]
+    assert "section:chapitre_2" in without_chunk
+
+    # Un préfixe inconnu est ignoré sans altérer les tags existants.
+    assert parse_note_tags(replace_provenance_tags(tags, {"facet": "x"})) == parse_note_tags(tags)
+    assert replace_provenance_tags(tags) == tags
+
+
+def test_replace_provenance_tags_preserves_the_space_delimited_format() -> None:
+    """Les tags sérialisés en espace (format Anki) ne basculent pas en JSON."""
+    rewritten = replace_provenance_tags("ankiforge_generated doc:10 section:chapitre_2 chunk:11", {"section": "noyau", "chunk": 12})
+
+    assert not rewritten.startswith("[")
+    assert parse_note_tags(rewritten) == ["ankiforge_generated", "doc:10", "section:noyau", "chunk:12"]
+
+
+def test_replace_provenance_tags_adds_missing_provenance() -> None:
+    """Un tag absent est inséré, en fin de liste, sans dupliquer les autres."""
+    rewritten = replace_provenance_tags(json.dumps(["manuel", "doc:10"]), {"section": "noyau", "chunk": 12})
+
+    assert parse_note_tags(rewritten) == ["manuel", "doc:10", "section:noyau", "chunk:12"]
+
+
+def test_replace_provenance_tags_handles_empty_input() -> None:
+    assert parse_note_tags(replace_provenance_tags(None, {"section": "noyau"})) == ["section:noyau"]
+    assert parse_note_tags(replace_provenance_tags("", {"section": "noyau"})) == ["section:noyau"]
+    assert parse_note_tags(replace_provenance_tags("manuel")) == ["manuel"]
 
 
 def test_sync_coverage_from_tags_paginated() -> None:
@@ -212,21 +285,24 @@ def test_sync_coverage_from_tags_continuous() -> None:
     assert stats["coverage_pct"] == 50.0
 
 
-def test_build_and_parse_chunk_tag():
-    """Le tag chunk:<id> est généré puis ré-extrai par extract_tag_metadata."""
-    tags = build_document_tags(doc_id=7, section_name="Noyau > Ribosomes", chunk_id=123, extra_tags=["forge"])
-    assert "chunk:123" in tags
+def test_build_document_tags_never_writes_a_chunk_tag():
+    """Invariant : `build_document_tags` n'écrit plus de `chunk:` — la section est l'identité durable."""
+    tags = build_document_tags(doc_id=7, section_name="Noyau > Ribosomes", extra_tags=["forge"])
+    assert not [t for t in tags if t.startswith("chunk:")]
     assert "section:noyau_ribosomes" in tags
 
     meta = extract_tag_metadata(tags)
-    assert meta["chunk_id"] == 123
+    assert meta["chunk_id"] is None
     assert meta["doc_id"] == 7
     assert meta["section_slug"] == "noyau_ribosomes"
 
+
+def test_extract_tag_metadata_still_reads_a_legacy_chunk_tag():
+    """Lecture par tolérance : un `chunk:` historique est extrait, puis écarté par le resolver s'il est périmé."""
+    assert extract_tag_metadata(["doc:5", "chunk:88"])["chunk_id"] == 88
     # chunk_id ignoré si invalide (négatif / non numérique)
     assert extract_tag_metadata(["chunk:-5"])["chunk_id"] is None
     assert extract_tag_metadata(["chunk:abc"])["chunk_id"] is None
-
     # chunk_id absent par défaut
     assert extract_tag_metadata([f"doc:{9}"])["chunk_id"] is None
 

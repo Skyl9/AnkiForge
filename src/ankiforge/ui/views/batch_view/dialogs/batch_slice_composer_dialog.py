@@ -38,6 +38,9 @@ from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
+# Hauteur minimale des fenêtres d'aperçu du récapitulatif : une dizaine de lignes lisibles sans défiler.
+RECAP_PREVIEW_MIN_HEIGHT = 220
+
 
 class _ModeCard(QFrame):
     """Carte cliquable de choix du mode de découpage (style page d'accueil du Studio de Création)."""
@@ -204,7 +207,7 @@ def _markdown_to_html(text: str) -> str:
         f"h1, h2, h3, h4 {{ color: {DesignTokens.ACCENT_PRIMARY}; }}"
         f"code {{ font-family: {DesignTokens.FONT_CODE}; background-color: {DesignTokens.BG_MAIN}; padding: 1px 4px; border-radius: 3px; }}"
         f"pre {{ background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_SM}px; padding: 10px; }}"
-        "a { color: #60a5fa; }"
+        f"a {{ color: {DesignTokens.COLOR_BLUE_TEXT}; }}"
         "</style></head>"
         f"<body>{body}</body></html>"
     )
@@ -266,6 +269,7 @@ class _RecapTaskCard(QFrame):
         self.browser_formatted = QTextBrowser()
         self.browser_source = QTextBrowser()
         for browser in (self.browser_formatted, self.browser_source):
+            browser.setMinimumHeight(RECAP_PREVIEW_MIN_HEIGHT)
             browser.setStyleSheet(
                 f"QTextBrowser {{ background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY}; "
                 f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_SM}px; font-size: 12px; }}"
@@ -648,24 +652,17 @@ class BatchSliceComposerDialog(QDialog):
         p_layout.setContentsMargins(0, 8, 0, 0)
         p_layout.setSpacing(10)
 
-        recap_card = QFrame()
-        recap_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 14px;
-            }}
-        """)
-        r_layout = QVBoxLayout(recap_card)
-        r_layout.setSpacing(6)
+        # En-tête typographique épuré : titre + volume directement dans le layout, sans boîte ni bordure.
         self.lbl_recap_title = QLabel("Aucune tâche à générer.")
-        self.lbl_recap_title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
+        self.lbl_recap_title.setWordWrap(True)
+        self.lbl_recap_title.setStyleSheet(
+            f"color: {DesignTokens.TEXT_PRIMARY}; background: transparent; border: none; font-family: {DesignTokens.FONT_MAIN}; font-size: 15px; font-weight: bold; letter-spacing: 0.2px;"
+        )
         self.lbl_recap_stats = QLabel("")
-        self.lbl_recap_stats.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY}; font-family: {DesignTokens.FONT_CODE};")
-        r_layout.addWidget(self.lbl_recap_title)
-        r_layout.addWidget(self.lbl_recap_stats)
-        p_layout.addWidget(recap_card)
+        self.lbl_recap_stats.setWordWrap(True)
+        self.lbl_recap_stats.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; background: transparent; border: none; font-family: {DesignTokens.FONT_CODE}; font-size: 12px;")
+        p_layout.addWidget(self.lbl_recap_title)
+        p_layout.addWidget(self.lbl_recap_stats)
 
         self.tasks_scroll = QScrollArea()
         self.tasks_scroll.setWidgetResizable(True)

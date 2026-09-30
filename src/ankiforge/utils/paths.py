@@ -135,6 +135,17 @@ def get_app_data_dir() -> Path:
     return app_dir
 
 
+def get_themes_dir() -> Path:
+    """
+    Retourne le chemin vers le répertoire de la bibliothèque globale de thèmes JSON (~/.ankiforge/themes).
+    Garantit l'existence du dossier sur le disque.
+    Conforme à l'ADR 0005.
+    """
+    themes_dir = get_app_data_dir() / "themes"
+    themes_dir.mkdir(parents=True, exist_ok=True)
+    return themes_dir
+
+
 def get_tools_search_dirs() -> list[Path]:
     """
     Retourne la liste ordonnée des répertoires de recherche d'outils et modèles d'IA déportés (Piper TTS, Kokoro, Marker).

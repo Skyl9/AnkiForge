@@ -74,6 +74,7 @@ class CardPreviewWidget(QWidget):
                 border: 1px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
+        self.card_selector.hide()
         self.controls_layout.addWidget(self.card_selector)
 
         self.controls_layout.addStretch()
@@ -296,6 +297,7 @@ class CardPreviewWidget(QWidget):
             current_fields=self.current_fields,
         )
         self.card_selector.blockSignals(False)
+        self.card_selector.setVisible(self.card_selector.count() > 1)
 
         self._render()
 

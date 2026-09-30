@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QScrollArea,
     QStackedWidget,
     QVBoxLayout,
@@ -17,22 +16,17 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton
+from ankiforge.ui.components.nav_badge import NavBadgeButton
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
 
 
-class DashboardTabButton(QPushButton):
+class DashboardTabButton(NavBadgeButton):
     """Bouton d'onglet pour le Dashboard Layout."""
 
     def __init__(self, view_id: str, icon_name: str, title: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.view_id = view_id
-        self.icon_name = icon_name
-        self.title = title
-
-        self.setCheckable(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        super().__init__(view_id, icon_name, title, parent)
         self.setFixedHeight(34)
         self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
         self.setIconSize(QSize(18, 18))
@@ -75,7 +69,7 @@ class DashboardTabButton(QPushButton):
                 QPushButton:hover {{
                     background-color: {DesignTokens.BG_HOVER};
                     color: {DesignTokens.TEXT_PRIMARY};
-                    border-color: rgba(255, 255, 255, 0.2);
+                    border-color: {DesignTokens.BORDER_FOCUS};
                 }}
             """)
 
@@ -102,6 +96,9 @@ class DashboardLayout(BaseLayout):
 
     def get_description(self) -> str:
         return "Disposition spacieuse avec en-tête horizontal élégant et navigation par cartes de modules."
+
+    def get_icon(self) -> str:
+        return "ph.squares-four"
 
     def _setup_ui(self) -> None:
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -217,6 +214,12 @@ class DashboardLayout(BaseLayout):
         btn = self._nav_buttons.get(view_id)
         if btn:
             btn.setChecked(True)
+
+    def set_nav_badge(self, view_id: str, count: int | None) -> None:
+        """Affiche la pastille « travail en cours » sur le bouton de navigation donné."""
+        btn = self._nav_buttons.get(view_id)
+        if btn is not None:
+            btn.set_nav_badge(count)
 
     def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
         for btn in self._nav_buttons.values():

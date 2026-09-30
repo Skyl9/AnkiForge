@@ -17,6 +17,9 @@ from ankiforge.ui.views.documents_view import (
     DocumentsView,
     RAGTestDialog,
 )
+from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
+    DocumentPreviewWidget,
+)
 
 pytestmark = pytest.mark.ui
 
@@ -862,3 +865,77 @@ def test_documents_view_rename_folder_cascades(qtbot, monkeypatch):
     # Vérifier que le document est toujours attaché au même enfant
     doc_reloaded = DocumentModel.get_by_id(doc.id)
     assert doc_reloaded.folder_id == child_folder.id
+
+
+def test_navigate_editor_to_heading_skips_table_of_contents(qtbot, marker_toc_paginated: str):
+    """Le clic sur une section du Sommaire saute au corps de cours (page 5), pas à l'index (page 2)."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Sommaire Nav {uid}",
+        content=marker_toc_paginated,
+        file_type="md",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="1 - Introduction aux données",
+        page_number=5,
+        content="Une variable aléatoire est une fonction.",
+        content_hash=f"nav_{uid}",
+    )
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view.text_editor.set_content(marker_toc_paginated)
+    view._refresh_chapters_list()
+
+    assert view.chapters_list.count() == 1
+    view._on_chapter_clicked(view.chapters_list.item(0))
+
+    block = view.text_editor.editor.textCursor().block()
+    # Le H1 du corps réel, et non l'entrée H2 du sommaire.
+    assert block.text() == "# 1 - Introduction aux données"
+    # Le document paginé place ce H1 en 16e ligne, juste après le marqueur {4}.
+    assert block.blockNumber() == 15
+
+
+def test_preview_jump_to_heading_skips_table_of_contents(qtbot, marker_toc_paginated: str):
+    """Le surlignage de l'aperçu vise le corps de cours, pas l'entrée homonyme du sommaire."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Sommaire Preview {uid}",
+        content=marker_toc_paginated,
+        file_type="md",
+    )
+
+    preview = DocumentPreviewWidget(doc)
+    qtbot.addWidget(preview)
+
+    viewer = preview.markdown_viewer
+    preview.jump_to_heading("1 - Introduction aux données", None)
+
+    # Le sommaire annonce le titre en bloc 5, le corps réel le rouvre en bloc 9.
+    # C'est ce second bloc qui doit être surligné, comme dans la vue Document.
+    assert viewer.document().findBlockByNumber(5).text() == "1 - Introduction aux données"
+    assert viewer.document().findBlockByNumber(9).text() == "1 - Introduction aux données"
+    assert viewer.textCursor().block().blockNumber() == 9
+
+
+def test_preview_does_not_highlight_toc_when_rendering_diverges(qtbot):
+    """Un HTML brut dupliquant le titre décale les blocs rendus : mieux vaut aucun surlignage que l'index."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Sommaire Ambigu {uid}",
+        content=("<h2>1 - Introduction</h2>\n\n# Sommaire\n\n## 1 - Introduction\n\n## 2 - Statistiques\n\n# 1 - Introduction\n\nCorps réel de la section, assez long pour faire un corps de cours.\n"),
+        file_type="md",
+    )
+
+    preview = DocumentPreviewWidget(doc)
+    qtbot.addWidget(preview)
+
+    preview.jump_to_heading("1 - Introduction", None)
+
+    # L'outline compte 2 homonymes, le rendu 3 blocs : le rang est ambigu et le
+    # surlignage est abandonné plutôt que posed sur l'entrée du sommaire.
+    assert preview.markdown_viewer.extraSelections() == []

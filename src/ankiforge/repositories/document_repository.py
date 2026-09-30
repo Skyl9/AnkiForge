@@ -7,7 +7,9 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, cast
+
+from peewee import fn
 
 from ankiforge.database.models import (
     DocumentChunkModel,
@@ -18,6 +20,7 @@ from ankiforge.database.models import (
     NoteModel,
 )
 from ankiforge.repositories.base import BaseRepository
+from ankiforge.services.markdown.structurer import MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.reindex_service import mark_document_version
 
@@ -360,10 +363,107 @@ class DocumentRepository(BaseRepository):
     @staticmethod
     def _is_heading_excluded(heading_path: str, low_exclusions: set[str]) -> bool:
         """Vérifie si une section correspond à une exclusion (titre exact ou sous-chaîne du fil d'Ariane)."""
+        return any(DocumentRepository._entry_covers_heading(ex, heading_path) for ex in low_exclusions)
+
+    @staticmethod
+    def _entry_covers_heading(low_entry: str, heading_path: str) -> bool:
+        """Indique si une exclusion normalisée recouvre le chemin de titre fourni.
+
+        Point d'entrée unique du prédicat d'exclusion : il est appliqué aussi bien pour
+        décider qu'une section est hors périmètre que pour la retirer des exclusions lors
+        d'une ré-inclusion, afin que les deux opérations restent strictement inverses.
+        """
         low_path = heading_path.lower().strip()
-        if low_path in low_exclusions:
-            return True
-        return any(ex and ex in low_path for ex in low_exclusions)
+        if not low_entry or not low_path:
+            return False
+        return low_entry in low_path
+
+    @classmethod
+    def _normalized_exclusions(cls, doc: DocumentModel | None) -> set[str]:
+        """Exclusions persistées, normalisées pour la comparaison (casse et espaces ignorés)."""
+        return {str(entry).lower().strip() for entry in cls._parse_excluded_headings(doc) if str(entry).strip()}
+
+    @classmethod
+    def get_excluded_headings(cls, doc: DocumentModel | None) -> list[str]:
+        """Exclusions persistées telles qu'écrites, pour inspection et vérification."""
+        return cls._parse_excluded_headings(doc)
+
+    @classmethod
+    def is_section_excluded(cls, doc: DocumentModel | None, heading_path: str) -> bool:
+        """Indique si une section est hors périmètre, d'après les exclusions persistées.
+
+        Même prédicat que celui appliqué au dénominateur de couverture par
+        :meth:`get_coverage_stats` : l'interface et le diagnostic ne peuvent donc pas
+        diverger sur ce qu'est une section exclue.
+        """
+        if not heading_path or not heading_path.strip():
+            return False
+        return cls._is_heading_excluded(heading_path, cls._normalized_exclusions(doc))
+
+    @classmethod
+    def is_excludable_heading(cls, heading_path: str | None) -> bool:
+        """Indique si un libellé de fragment désigne une section exprimable comme exclusion.
+
+        Un libellé de page auto-généré (« Page 12 ») n'en est pas une : le stocker
+        exclurait la page entière dans tous les consommateurs de la délimitation.
+        """
+        if not heading_path or not heading_path.strip():
+            return False
+        return cls._PAGE_LABEL_RE.match(heading_path.strip()) is None
+
+    def set_section_excluded(self, doc_id: int, heading_path: str, excluded: bool) -> bool:
+        """Ajoute ou retire une section des exclusions persistées du document.
+
+        L'écriture est atomique et préserve les entrées existantes qui ne concernent pas
+        cette section — notamment les trous de pages ``page:N``, qui sont une délimitation
+        du périmètre et non un filtre croisé.
+
+        Exclure écrit le chemin brut *et* sa version nettoyée, car les consommateurs de la
+        délimitation (Studio, Batch) comparent l'exclusion au chemin nettoyé : n'écrire que
+        le brut rendrait l'exclusion silencieusement inopérante hors de l'inspecteur.
+
+        Ré-inclure retire toutes les entrées que le prédicat d'exclusion applique encore à
+        cette section — une entrée plus large (par exemple « annexe ») resterait sinon
+        appliquée à des sections voisines sans que l'utilisateur puisse la débloquer depuis
+        l'interface. Le retrait est le strict symétrique du test d'exclusion.
+
+        :returns: ``True`` si le document a été mis à jour, ``False`` si le document est
+            introuvable ou si le libellé fourni ne désigne pas une section.
+        """
+        doc = self.get_document_by_id(doc_id)
+        if doc is None or not self.is_excludable_heading(heading_path):
+            return False
+
+        target = heading_path.strip()
+        kept = [str(entry) for entry in self._parse_excluded_headings(doc) if str(entry).strip() and not self._entry_covers_heading(str(entry).lower().strip(), target)]
+        if excluded:
+            cleaned = MarkdownStructurer.clean_heading_title(target)
+            kept.append(target)
+            # Le chemin nettoyé est ce que comparent les autres consommateurs : on l'écrit
+            # en plus du brut pour que l'exclusion reste effective dans toute l'application.
+            if cleaned and cleaned != target:
+                kept.append(cleaned)
+
+        with self.atomic():
+            doc.excluded_headings = json.dumps(sorted({entry.strip() for entry in kept}), ensure_ascii=False)
+            doc.save(only=[DocumentModel.excluded_headings])
+        return True
+
+    def count_cards_by_chunk(self, doc_id: int) -> dict[int, int]:
+        """Nombre de cartes de couverture liées à chaque fragment d'un document.
+
+        Une seule requête agrégée : l'inspecteur s'en sert pour rafraîchir ses compteurs
+        de sommaire en place, sans reconstruire la liste ni perdre la sélection courante.
+        """
+        rows = cast(
+            "list[tuple[Any, ...]]",
+            NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id, fn.COUNT(NoteChunkLinkModel.id).alias("card_count"))
+            .join(DocumentChunkModel)
+            .where(DocumentChunkModel.document_id == doc_id)
+            .group_by(NoteChunkLinkModel.chunk_id)
+            .tuples(),
+        )
+        return {int(chunk_id): int(card_count) for chunk_id, card_count in rows}
 
     def get_coverage_stats(self, doc_id: int) -> dict[str, Any]:
         """Calculate coarse-grained coverage and gap metrics for a document (by page or section)."""
@@ -406,7 +506,7 @@ class DocumentRepository(BaseRepository):
         if use_section_units:
             distinct_headings = list(dict.fromkeys(headings_in_chunks))
             covered_headings = {c.heading_path for c in chunks if c.id in linked_chunk_ids and c.heading_path}
-            low_exclusions = {e.lower().strip() for e in self._parse_excluded_headings(doc)}
+            low_exclusions = self._normalized_exclusions(doc)
             active_headings = [h for h in distinct_headings if not self._is_heading_excluded(h, low_exclusions)]
             covered_active = {h for h in covered_headings if not self._is_heading_excluded(h, low_exclusions)}
             total_sections = len(active_headings)
@@ -423,7 +523,10 @@ class DocumentRepository(BaseRepository):
                 "total_units": total_sections,
                 "covered_units": covered_sections,
                 "orphan_units": orphan_headings,
-                "excluded_units": len(low_exclusions),
+                # Sections effectivement sorties du périmètre, et non entrées brutes : une
+                # entrée peut recouvrir plusieurs sections, et une entrée devenue obsolète
+                # (trou de page, ancien titre) ne doit pas gonfler le compteur.
+                "excluded_units": len(distinct_headings) - total_sections,
             }
 
         if is_paginated:

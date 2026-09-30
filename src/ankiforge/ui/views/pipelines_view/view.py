@@ -123,7 +123,7 @@ class PipelinesView(QWidget):
         pipeline_sel_row.addWidget(self.pipeline_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.lbl_pipeline_steps_badge = Badge("0 étapes", variant="neutral")
-        apply_pill_style(self.lbl_pipeline_steps_badge, "#94a3b8")
+        apply_pill_style(self.lbl_pipeline_steps_badge, DesignTokens.TEXT_MUTED)
         self.lbl_pipeline_steps_badge.setFixedHeight(20)
         pipeline_sel_row.addWidget(self.lbl_pipeline_steps_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -145,7 +145,7 @@ class PipelinesView(QWidget):
         self.btn_save_pipeline.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_pipeline.setIconSize(QSize(14, 14))
         self.btn_save_pipeline.setFixedHeight(30)
-        apply_shadow(self.btn_save_pipeline, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
+        apply_shadow(self.btn_save_pipeline, blur=14, offset_y=0, color=DesignTokens.ACCENT_GLOW)
         pipeline_sel_row.addWidget(self.btn_save_pipeline, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Menu d'Actions Groupées (•••)

@@ -30,7 +30,50 @@ SETTINGS_KEY_CACHED_METADATA = "updates/cached_latest_metadata"
 SETTINGS_KEY_ETAG_STABLE = "updates/etag/stable"
 SETTINGS_KEY_ETAG_NIGHTLY = "updates/etag/nightly"
 SETTINGS_KEY_CHANNEL = "updates/channel"
-CHECK_INTERVAL_SECONDS = 14400  # 4 heures
+SETTINGS_KEY_CHECK_INTERVAL = "updates/check_interval_seconds"
+DEFAULT_CHECK_INTERVAL_SECONDS = 14400  # 4 heures
+CHECK_INTERVAL_SECONDS = DEFAULT_CHECK_INTERVAL_SECONDS  # Alias de compatibilité ascendante
+
+
+def get_update_channel() -> str:
+    """Retourne le canal de mise à jour actif configuré ('stable' ou 'nightly')."""
+    from ankiforge.utils.environment import get_app_qsettings
+
+    settings = get_app_qsettings()
+    fallback = VERSION_INFO.build_channel if VERSION_INFO.build_channel in ("stable", "nightly") else "stable"
+    val = str(settings.value(SETTINGS_KEY_CHANNEL, fallback)).strip().lower()
+    return val if val in ("stable", "nightly") else "stable"
+
+
+def set_update_channel(channel: str) -> None:
+    """Définit le canal de mise à jour ('stable' ou 'nightly')."""
+    cleaned = channel.strip().lower()
+    if cleaned not in ("stable", "nightly"):
+        raise ValueError(f"Canal de mise à jour invalide : '{channel}'. Attendu : 'stable' ou 'nightly'.")
+    from ankiforge.utils.environment import get_app_qsettings
+
+    settings = get_app_qsettings()
+    settings.setValue(SETTINGS_KEY_CHANNEL, cleaned)
+
+
+def get_check_interval_seconds() -> int:
+    """Retourne l'intervalle de vérification en secondes (-1 pour désactivé, 0 au démarrage, 14400 pour 4h)."""
+    from ankiforge.utils.environment import get_app_qsettings
+
+    settings = get_app_qsettings()
+    val = settings.value(SETTINGS_KEY_CHECK_INTERVAL, DEFAULT_CHECK_INTERVAL_SECONDS)
+    try:
+        return int(str(val))
+    except (ValueError, TypeError):
+        return DEFAULT_CHECK_INTERVAL_SECONDS
+
+
+def set_check_interval_seconds(interval: int) -> None:
+    """Définit l'intervalle de vérification en secondes."""
+    from ankiforge.utils.environment import get_app_qsettings
+
+    settings = get_app_qsettings()
+    settings.setValue(SETTINGS_KEY_CHECK_INTERVAL, int(interval))
 
 
 def parse_semver_tuple(version_str: str) -> tuple[int, int, int] | None:
@@ -163,20 +206,31 @@ class UpdateCheckerWorker(QRunnable):
         settings = get_app_qsettings()
 
         # Résolution du canal actif (Paramètres utilisateur ou métadonnées de build)
-        active_channel = self.channel or str(settings.value(SETTINGS_KEY_CHANNEL, VERSION_INFO.build_channel if VERSION_INFO.build_channel in ("stable", "nightly") else "stable"))
+        active_channel = self.channel or get_update_channel()
 
-        # Vérification du cache de 24h si force=False
+        # Vérification du TTL / intervalle de cache si force=False
         if not self.force:
-            last_check_val = settings.value(SETTINGS_KEY_LAST_CHECK, 0)
-            try:
-                last_check_raw = int(str(last_check_val))
-            except (ValueError, TypeError):
-                last_check_raw = 0
-            now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
-            if now_ts - last_check_raw < CHECK_INTERVAL_SECONDS:
-                logger.debug("Vérification des mises à jour ignorée (dernière vérification récente il y a < 24h).")
+            check_interval = get_check_interval_seconds()
+            if check_interval < 0:
+                logger.debug("Vérification automatique des mises à jour désactivée par l'utilisateur.")
                 self.signals.no_update.emit(self.current_version)
                 return
+
+            if check_interval > 0:
+                last_check_val = settings.value(SETTINGS_KEY_LAST_CHECK, 0)
+                try:
+                    last_check_raw = int(str(last_check_val))
+                except (ValueError, TypeError):
+                    last_check_raw = 0
+                now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
+                if now_ts - last_check_raw < check_interval:
+                    logger.debug(
+                        "Vérification des mises à jour ignorée (dernière vérification il y a %ds < intervalle %ds).",
+                        now_ts - last_check_raw,
+                        check_interval,
+                    )
+                    self.signals.no_update.emit(self.current_version)
+                    return
 
         headers = {
             "Accept": "application/vnd.github.v3+json",

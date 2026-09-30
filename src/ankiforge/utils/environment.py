@@ -160,8 +160,11 @@ def get_settings_app_name() -> str:
     env = get_current_environment()
     if env == AppEnvironment.DEVELOPMENT:
         return "AnkiForge-Dev"
-    elif env == AppEnvironment.TESTING:
-        return "AnkiForge-Test"
+    if env == AppEnvironment.TESTING:
+        # Chaque worker xdist possède son propre fichier QSettings : sans ce suffixe, un
+        # `QSettings.clear()` dans un worker efface les préférences d'un autre worker.
+        worker = os.environ.get("PYTEST_XDIST_WORKER", "")
+        return f"AnkiForge-Test-{worker}" if worker else "AnkiForge-Test"
     return "AnkiForge"
 
 

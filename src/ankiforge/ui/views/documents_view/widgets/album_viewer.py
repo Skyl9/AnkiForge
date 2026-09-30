@@ -500,7 +500,7 @@ class AlbumViewerWidget(QWidget):
         row1.addWidget(self.btn_ocr)
 
         self.btn_rag = SecondaryButton("RAG Visuel")
-        self.btn_rag.setIcon(load_phosphor_icon("ph.eye", color="#10b981"))
+        self.btn_rag.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_GREEN))
         self.btn_rag.setToolTip("Indexer les planches et schémas dans FAISS pour la recherche multimodale")
         self.btn_rag.setFixedHeight(28)
         self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 3px 10px; border: 1px solid {DesignTokens.BORDER_COLOR};")

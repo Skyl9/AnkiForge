@@ -14,19 +14,31 @@ from ankiforge.ui.layouts.ide_layout import IdeLayout
 from ankiforge.ui.layouts.layout_manager import LayoutManager
 from ankiforge.ui.layouts.macos_layout import MacosLayout
 from ankiforge.ui.main_window import MainWindow
+from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
 
 def test_layout_manager_available_layouts():
-    """Vérifie que tous les 4 layouts sont correctement enregistrés."""
+    """Vérifie que tous les 4 layouts sont correctement enregistrés avec icônes distinctes et miniatures."""
     layouts = LayoutManager.get_available_layouts()
     layout_ids = [item["id"] for item in layouts]
     assert "ide" in layout_ids
     assert "macos" in layout_ids
     assert "dashboard" in layout_ids
     assert "glassmorphism" in layout_ids
+
+    # Chaque layout doit avoir une icône et une référence de miniature distinctes
+    icons = [item["icon"] for item in layouts]
+    assert len(icons) == len(set(icons)), "Chaque disposition doit avoir une icône distincte"
+    assert all(item["icon"].startswith("ph.") for item in layouts)
+    assert all(item["thumbnail"] == f"{item['id']}.png" for item in layouts)
+
+    # get_layout_thumbnail_path doit retourner un Path valide ou None
+    for item in layouts:
+        p = LayoutManager.get_layout_thumbnail_path(item["id"])
+        assert p is None or p.name == f"{item['id']}.png"
 
 
 @pytest.mark.slow
@@ -55,6 +67,8 @@ def test_layout_instantiation_and_theme_sync(qtbot):
 def test_main_window_layout_hot_reload_and_tokens(qtbot, mock_db):
     """Vérifie le basculement dynamique à chaud des layouts et de leurs tokens visuels sur MainWindow."""
     LayoutManager.save_layout_id("test_profile", "ide")
+    # Aucune Famille persistée : chaque layout impose donc sa Famille par défaut (ADR 0004).
+    assert get_style_engine().get_appearance_preference("test_profile").family_id is None
     with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_profile")
         qtbot.addWidget(window)
@@ -158,3 +172,28 @@ def test_flow_layout_wrapping_and_crud(qtbot):
     assert item is not None
     assert layout.count() == 9
     assert layout.itemAt(0) is not None
+
+
+@pytest.mark.slow
+def test_generate_layout_thumbnails_preserves_profile_settings(tmp_path, mock_db):
+    """Vérifie la génération des miniatures statiques et la préservation de la configuration du profil."""
+    from ankiforge.ui.style_engine import get_style_engine
+    from script.capture_view import generate_layout_thumbnails
+
+    engine = get_style_engine()
+    LayoutManager.save_layout_id("default", "ide")
+    pref_before = engine.get_appearance_preference("default")
+
+    generated = generate_layout_thumbnails(output_dir=tmp_path, thumb_width=200, thumb_height=125)
+
+    assert len(generated) == len(LayoutManager.LAYOUTS)
+    for lid in LayoutManager.LAYOUTS:
+        target = tmp_path / f"{lid}.png"
+        assert target.is_file()
+        assert target.stat().st_size > 0
+
+    # Vérification stricte de non-altération du profil utilisateur
+    assert LayoutManager.get_saved_layout_id("default") == "ide"
+    pref_after = engine.get_appearance_preference("default")
+    assert pref_after.family_id == pref_before.family_id
+    assert pref_after.mode_source == pref_before.mode_source

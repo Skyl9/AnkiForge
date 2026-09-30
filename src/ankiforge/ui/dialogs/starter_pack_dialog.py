@@ -62,9 +62,9 @@ class StarterModelCardWidget(QFrame):
 
         cat_badge = QLabel(pack.get("category", "Général"))
         cat_badge.setStyleSheet(f"""
-            background-color: rgba(99, 102, 241, 0.15);
+            background-color: {DesignTokens.ACCENT_BG};
             color: {DesignTokens.ACCENT_PRIMARY};
-            border: 1px solid rgba(99, 102, 241, 0.35);
+            border: 1px solid {DesignTokens.ACCENT_BORDER};
             border-radius: 9999px;
             padding: 2px 8px;
             font-size: 10px;

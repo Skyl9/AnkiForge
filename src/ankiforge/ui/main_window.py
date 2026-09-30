@@ -137,9 +137,9 @@ class MainWindow(QMainWindow):
 
         self.engine = get_style_engine()
         self.engine.theme_changed.connect(self._on_theme_changed)
-        saved_theme_id = self.engine.get_saved_theme_id(self.profile_name)
-        self.engine.apply_theme(saved_theme_id)
 
+        # apply_layout() applique aussi l'apparence du profil : le layout ne fournit
+        # qu'une famille de repli, la Famille choisie par l'utilisateur prime.
         saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
         self.apply_layout(saved_layout_id)
 
@@ -340,6 +340,7 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     logger.warning("Erreur rafraîchissement vue %s après mutation MCP: %s", view_id, e)
 
+        self._refresh_nav_badges()
         self.mcp_data_mutated.emit(mutation)
 
     def _check_uncompleted_pipeline_runs(self) -> None:
@@ -461,7 +462,7 @@ class MainWindow(QMainWindow):
         new_layout.set_stacked_widget(self.stacked_widget)
         self.setCentralWidget(new_layout)
         LayoutManager.save_layout_id(self.profile_name, layout_id)
-        LayoutManager.apply_theme_for_layout(layout_id)
+        LayoutManager.apply_theme_for_layout(layout_id, profile_name=self.profile_name)
         logger.info("Application du layout '%s' (profil: '%s')", layout_id, self.profile_name)
 
         if self._current_view_id:
@@ -473,6 +474,8 @@ class MainWindow(QMainWindow):
             self._on_update_available(self._latest_update_info)
 
         self._wire_mcp_ui()
+        # `populate_navigation` reconstruit les boutons : republier les pastilles.
+        self._refresh_nav_badges()
 
     def _setup_debug_shortcuts(self) -> None:
         """Configure les raccourcis de debug (ex: Capture d'écran)."""
@@ -606,7 +609,13 @@ class MainWindow(QMainWindow):
             self.topbar.update_token_tracker(f"{cost_val:.2f}", f"{tokens_val:,}")
 
     def _on_view_selected(self, view_id: str, data: dict | None = None) -> None:
-        """Navigation: instancie la vue à la demande (Lazy Loading), vérifie dirty state et switch."""
+        """Navigation: instancie la vue à la demande (Lazy Loading) et switch.
+
+        La navigation est volontairement libre : les vues vivent dans un `QStackedWidget`
+        et survivent au switch, changer d'onglet n'est pas une action destructive. Le
+        contrôle `is_dirty()` est réservé à `closeEvent` et `switch_to_profile` via
+        `_confirm_discard_unsaved_work()`.
+        """
         if view_id == "settings":
             self._open_settings_modal()
             return
@@ -615,12 +624,6 @@ class MainWindow(QMainWindow):
             return
 
         if self._current_view_id == view_id and not data:
-            return
-
-        if self._current_view_id != view_id and not self._can_switch_view():
-            # Reset sidebar selection visually if rejected
-            if self._current_view_id and self.sidebar:
-                self.sidebar.set_active_view(self._current_view_id)
             return
 
         # Lazy Instantiation de la vue réelle si c'est encore un DummyView
@@ -679,22 +682,61 @@ class MainWindow(QMainWindow):
             if view_id == "documents" and isinstance(data, dict) and "doc_id" in data and hasattr(widget, "_select_doc_id_in_tree"):
                 cast(Any, widget)._select_doc_id_in_tree(data["doc_id"])
 
-    def _can_switch_view(self) -> bool:
-        """Vérifie is_dirty() sur la vue courante. Dialogue de confirmation si sale."""
-        if not self._current_view_id:
-            return True
+        self._refresh_nav_badges()
 
-        current_widget = self._view_widgets.get(self._current_view_id)
-        if current_widget and hasattr(current_widget, "is_dirty") and cast(Any, current_widget).is_dirty():
-            reply = QMessageBox.question(
-                self,
-                "Modifications non sauvegardées",
-                "Vous avez des modifications en cours. Voulez-vous vraiment quitter ?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            return reply == QMessageBox.StandardButton.Yes
-        return True
+    def _refresh_nav_badges(self) -> None:
+        """Publie vers la navigation le nombre d'éléments de travail en cours de chaque vue.
+
+        Les vues exposent `pending_work_count()` (contrat optionnel) ; celles qui ne le
+        déclarent pas sont simplement publiées sans pastille. Les placeholders jamais
+        instanciés ne sont pas interrogés.
+        """
+        layout = self.current_layout
+        if layout is None:
+            return
+        for view_id, widget in self._view_widgets.items():
+            count: int | None = None
+            if not isinstance(widget, DummyView) and hasattr(widget, "pending_work_count"):
+                try:
+                    reported = cast(Any, widget).pending_work_count()
+                except Exception as e:
+                    logger.debug("Pastille de navigation indisponible pour '%s' : %s", view_id, e)
+                else:
+                    count = int(reported) if reported else None
+            with contextlib.suppress(Exception):
+                layout.set_nav_badge(view_id, count)
+
+    def _dirty_views(self) -> list[str]:
+        """Titres des vues instanciées déclarant un état de travail non sauvegardé."""
+        dirty: list[str] = []
+        for view_id, widget in self._view_widgets.items():
+            if isinstance(widget, DummyView) or not hasattr(widget, "is_dirty"):
+                continue
+            try:
+                if cast(Any, widget).is_dirty():
+                    dirty.append(self._view_registry.get(view_id, ("", "", view_id, DummyView))[2])
+            except Exception as e:
+                logger.debug("is_dirty() en échec sur la vue '%s' : %s", view_id, e)
+        return dirty
+
+    def _confirm_discard_unsaved_work(self, action_label: str) -> bool:
+        """Demande confirmation avant une action destructrice (fermeture, changement de profil).
+
+        Réservé à la perte effective de l'état en mémoire : la navigation entre vues
+        n'appelle jamais ce garde-fou.
+        """
+        dirty = self._dirty_views()
+        if not dirty:
+            return True
+        titles = "\n".join(f"• {title}" for title in dirty)
+        reply = QMessageBox.question(
+            self,
+            "Modifications non sauvegardées",
+            f"Vous avez du travail non enregistré dans :\n{titles}\n\nVoulez-vous vraiment {action_label} ? Ce travail sera perdu.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return reply == QMessageBox.StandardButton.Yes
 
     def _toggle_sidebar(self) -> None:
         if self.sidebar:
@@ -824,9 +866,34 @@ class MainWindow(QMainWindow):
 
     def switch_to_profile(self, new_profile: str) -> None:
         """Bascule l'application vers un autre profil utilisateur (BDD, thèmes, layouts, vues)."""
+        from PySide6.QtWidgets import QMessageBox
+
+        from ankiforge.services.profile_lock_service import ProfileLockService
         from ankiforge.services.profile_manager import ProfileManager
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.widgets.toast import show_toast
+
+        # Action destructive : changer de profil détruit les instances de vues (donc la
+        # file batch et les cartes générées) via `_reset_view_widgets`.
+        if not self._confirm_discard_unsaved_work(f"basculer vers l'espace « {new_profile} »"):
+            logger.info("Bascule de profil annulée : travail non enregistré détecté.")
+            return
+
+        # Vérifier et acquérir le verrou sur le nouveau profil
+        acquired, lock_info = ProfileLockService.acquire_lock(new_profile)
+        if not acquired:
+            pid_hint = f" (PID {lock_info.pid})" if lock_info else ""
+            QMessageBox.warning(
+                self,
+                "Profil en cours d'utilisation",
+                f"Impossible de basculer vers l'espace « {new_profile} » : il est actuellement ouvert par une autre instance{pid_hint}.\n\n"
+                "L'accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.",
+            )
+            return
+
+        # Libérer l'ancien profil
+        if self.profile_name and self.profile_name != new_profile:
+            ProfileLockService.release_lock(self.profile_name)
 
         logger.info("Bascule de l'espace de travail vers le profil '%s'", new_profile)
 
@@ -839,14 +906,14 @@ class MainWindow(QMainWindow):
         if self.current_layout is not None:
             self.current_layout.set_profile_name(new_profile)
 
-        # 3. Charger et appliquer le thème du nouveau profil
-        saved_theme_id = self.engine.get_saved_theme_id(self.profile_name)
-        self.engine.apply_theme(saved_theme_id)
+        # 3. Charger et appliquer l'apparence du nouveau profil
+        saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
 
         # 4. Charger et appliquer le layout du nouveau profil si différent
-        saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
         if self.current_layout is None or self.current_layout.get_layout_id() != saved_layout_id:
             self.apply_layout(saved_layout_id)
+        else:
+            self.engine.apply_appearance_for_profile(self.profile_name, saved_layout_id)
 
         # 5. Réinitialiser les vues existantes pour repartir sur la nouvelle base de données
         self._reset_view_widgets()
@@ -875,6 +942,13 @@ class MainWindow(QMainWindow):
             self._view_widgets[view_id] = placeholder
 
     def closeEvent(self, event: Any) -> None:
+        # Action destructive : on interroge les vues AVANT tout arrêt de service,
+        # pour ne pas couper le serveur MCP ni purger la base si l'utilisateur renonce.
+        if not self._confirm_discard_unsaved_work("quitter l'application"):
+            logger.info("Fermeture annulée : travail non enregistré détecté.")
+            event.ignore()
+            return
+
         event_bus.unsubscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
         # Arrêt propre du serveur MCP d'arrière-plan
         if hasattr(self, "mcp_daemon") and self.mcp_daemon is not None and self.mcp_daemon.is_running:
@@ -887,4 +961,24 @@ class MainWindow(QMainWindow):
 
         for fw in list(_floating_windows):
             fw.close()
+
+        # Maintenance orchestrée à la fermeture propre (checkpoint WAL, purge orphelins optionnelle et libération verrous)
+        from ankiforge.database.maintenance import execute_clean_shutdown
+        from ankiforge.utils.environment import get_app_qsettings
+
+        settings = get_app_qsettings()
+        clean_media = settings.value("storage/clean_media_on_exit", False, type=bool)
+
+        if clean_media:
+            from PySide6.QtCore import Qt
+            from PySide6.QtWidgets import QApplication
+
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                execute_clean_shutdown(self.profile_name, clean_orphan_media=True)
+            finally:
+                QApplication.restoreOverrideCursor()
+        else:
+            execute_clean_shutdown(self.profile_name, clean_orphan_media=False)
+
         super().closeEvent(event)

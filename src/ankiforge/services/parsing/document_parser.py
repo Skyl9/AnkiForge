@@ -24,6 +24,17 @@ from ankiforge.services.cards.media_manager import MediaManager
 
 logger = logging.getLogger(__name__)
 
+WEB_SOURCE_PREFIXES = ("http://", "https://")
+
+
+def is_web_source(source: str) -> bool:
+    """Indique si la source est une URL web plutôt qu'un fichier local.
+
+    Prédicat partagé par le parseur, la déduction de titre et la persistance :
+    une seule definition de « source web » dans le produit.
+    """
+    return str(source).lower().startswith(WEB_SOURCE_PREFIXES)
+
 
 class DocumentParser:
     """
@@ -69,7 +80,7 @@ class DocumentParser:
         source_str = str(source_file_path).strip()
         logger.info("Extraction de document démarrée pour : %s", source_str)
 
-        if source_str.startswith("http"):
+        if is_web_source(source_str):
             if progress_callback:
                 progress_callback("Téléchargement et extraction de la page Web...")
             res = self._parse_web(source_str, progress_callback, check_cancel)

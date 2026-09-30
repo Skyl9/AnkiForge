@@ -23,7 +23,7 @@ def test_transition():
     app = QApplication.instance() or QApplication([])
 
     engine = get_style_engine()
-    engine.save_theme_preference("default", "ide")
+    engine.save_appearance_preference("default", engine.preference_from_theme_id("ide"))
     engine.apply_theme("ide", app)
 
     from ankiforge.ui.main_window import MainWindow

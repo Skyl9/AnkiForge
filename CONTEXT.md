@@ -27,6 +27,40 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Sous-dossier** : dossier rattaché à un dossier parent, dont le nom canonique est préfixé par le chemin hiérarchique du parent suivi du séparateur `::`.
 - **Surface documentaire** : ensemble cohérent des interactions permettant de sélectionner, importer, structurer, consulter, délimiter, indexer ou auditer un document. Une surface peut traverser plusieurs vues, widgets et dialogues.
 
+## Provenance & Couverture
+
+- **Fil d'Ariane (heading path)** : la suite ordonnée des titres traversés pour atteindre un point du document, de la racine à la section. C'est l'identité d'une section.
+- **Section** : nœud du document désigné par le couple (document, fil d'Ariane). Son identité est **déterministe et durable** : elle survit à la réingestion, contrairement à celle d'un fragment.
+- **Fragment (chunk)** : portion de texte produite par le découpage, porteuse d'un `page_number` éventuellement nul. C'est une désignation **précise mais instable** : l'identifiant change à chaque réingestion.
+- **Provenance de note** : l'ensemble de tags décrivant l'origine d'une carte (`doc:`, `source:`, `section:`, `page:`). Elle est écrite par `build_document_tags` ; le rattachement aux fragments est écrit séparément, dans les liens de couverture.
+- **Lien de couverture** : l'association entre une note et un fragment de document, porteuse de la mention du fragment et du palier de résolution qui l'a désignée.
+- **Palier de résolution** : l'un des quatre régimes de désignation d'un fragment, par ordre de préférence décroissante — `exact` (identité), `section` (fil d'Ariane), `page` (numéro), `lexical` (recouvrement de contenu). Un palier n'abandonne que sur échec, jamais parce qu'une autre route est présente. Il est persisté pour rendre un lien **prouvé** indiscernable d'un lien seulement **présumé**.
+- **Couverture** : la part des fragments d'un document effectivement désignés par au moins une carte. Une carte non rattachée est laissée **hors couverture** plutôt que rattachée hors de sa partie : un faux lien est plus trompeur que son absence.
+- **Réparation de provenance** : réécriture automatique, lors d'une synchronisation, des tags de provenance obsolètes vers leur forme canonique, sans migration de données.
+
+## Thèmes, Layouts & Design System
+
+- **Mode d'Apparence** : le régime visuel binaire de l'interface, **Sombre** ou **Clair**. C'est un axe indépendant de l'identité graphique choisie.
+  _Avoid_ : thème sombre, thème clair, is_dark, palette
+
+- **Famille de Thème** : l'une des 12 identités graphiques d'AnkiForge. Chaque famille possède **exactement une variante sombre et une variante claire** — c'est une garantie structurelle, pas une convention. C'est le second axe, indépendant du Mode d'Apparence.
+  _Avoid_ : thème, preset, palette, style
+
+- **Variante** : un jeu concret de jetons de design, sombre ou clair, appartenant à une Famille. C'est la seule unité qui porte des valeurs de couleur.
+  _Avoid_ : thème, profil, template
+
+- **Jetons de design** : les valeurs sémantiques consommées au rendu. Elles sont **toujours dérivées** d'une Variante active : backgrounds, accents, textes, bordures, sémantiques, rayons, typographie, coloration syntaxique, plus les fonds et bordures teintés. Les jetons dérivés ne sont jamais une source de vérité et ne sont jamais échangés.
+  _Avoid_ : constantes de thème, variables CSS, couleurs du design system
+
+- **Source du Mode** : l'origine de la valeur du Mode d'Apparence — **Sombre manuel**, **Clair manuel**, ou **Système**. C'est ce qui est persisté côté préférence ; la Variante effective en est calculée.
+  _Avoid_ : booléen dark, mode auto, thème système
+
+- **Disposition d'interface (layout)** : l'une des 4 coquilles d'interface interchangeables à chaud, qui redistribue navigation et contenu sans jamais dupliquer les vues métier.
+  _Avoid_ : coquille, vue, thème, écran, page
+
+- **Bibliothèque de thèmes** : l'ensemble des Variantes et Familles personnalisées, propre à l'installation et partagé entre tous les profils. Un profil ne *sélectionne* pas dans la bibliothèque, il y *pointe*.
+  _Avoid_ : thèmes du profil, registre, cache
+
 ## Architecture de l’interface
 
 - **Vue monolithique** : vue qui combine dans une même unité la composition visuelle, la coordination d’état, les opérations métier et la gestion des workers, au point de rendre ses parcours difficiles à isoler.
@@ -42,3 +76,27 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Validation en deux phases (Two-Phase Commit)** : principe de sécurité selon lequel aucune opération chirurgicale ou destructive initiée par un agent n'altère directement la collection, chaque mutation devant obligatoirement être soumise sous forme de patch intermédiaire puis validée par l'utilisateur.
 - **Bloc de réflexion étendu (Extended Thinking / Thought Block)** : flux de raisonnement intermédiaire émis par un modèle d'IA avant de formuler sa réponse finale, streamé en temps réel dans l'interface avec des métriques de temps et de tokens, et distinct du contenu final des cartes.
 - **Composant de discussion riche (Rich Chat Widget)** : élément d'interface interactif (tableau de cartes, prévisualisation avec formules KaTeX, sélecteur de modèle) inséré directement dans le fil de conversation du Consultant IA pour manipuler la collection au-delà du simple texte.
+
+## Profils, Sauvegardes & Durcissement
+
+- **Verrou de profil** : mécanisme de protection mono-instance par profil garantissant l'exclusivité d'accès d'un processus à la base de données et aux médias d'un profil donné, tout en autorisant l'exécution simultanée d'instances sur des profils distincts.
+  _Avoid_ : verrou global, lock app, instance unique globale
+- **Sauvegarde pré-restauration** : instantané de sécurité généré obligatoirement et automatiquement avant le remplacement de la base de données par une sauvegarde antérieure, exclu de la politique de rotation standard pour permettre un retour arrière immédiat.
+  _Avoid_ : backup temporaire, dump écrasable
+- **Restauration granulaire** : opération permettant à l'utilisateur d'inspecter l'historique complet des sauvegardes horodatées d'un profil et d'en choisir une spécifiquement pour restaurer sa collection.
+- **Transfert élargi de contenu** : opération de copie de données (notes, types de notes, cartes, médias dédupliqués) entre deux profils locaux, préservant l'identité canonique (GUID) des notes et assurant la déduplication sans altérer le profil émetteur.
+
+## Mises à jour & Distribution sécurisée
+
+- **Canal de mise à jour** : régime de diffusion déterminant la stabilité et la fréquence des versions distribuées (**Stable** pour les versions éprouvées, **Nightly** pour les builds automatisés récents).
+  _Avoid_ : branche de mise à jour, feed, release channel en vrac
+- **Manifeste d'intégrité** : fichier consolidé (`checksums.txt`) recensant les empreintes cryptographiques déterministes (SHA-256) de l'ensemble des artefacts distribués pour une release donnée.
+  _Avoid_ : hash list, fichier sha, digest file
+- **Signature d'autorité** : preuve cryptographique asymétrique (Ed25519) attestant de l'authenticité et de l'intégrité du manifeste d'intégrité, produite lors du build de release via une clé privée protégée et vérifiée par le client via son trousseau de confiance.
+  _Avoid_ : hash signé, certificat SSL, signature binaire
+- **Trousseau de confiance** : ensemble des clés publiques Ed25519 réputées fiables et immuables, embarquées dans le code compilé de l'application, autorisées à valider la signature d'autorité.
+  _Avoid_ : trousseau de clés OS, keychain, liste de certs
+- **Fenêtre de cache (TTL de vérification)** : durée minimale s'écoulant entre deux interrogations distantes de l'API de distribution, configurable par l'utilisateur pour ménager les quotas et la bande passante.
+  _Avoid_ : intervalle réseau, timeout, délai
+- **Notarisation système** : certification externe délivrée par le système hôte (Apple Notary Service) garantissant l'absence de logiciels malveillants identifiés avant l'exécution du binaire.
+  _Avoid_ : signature Ed25519, code signing interne

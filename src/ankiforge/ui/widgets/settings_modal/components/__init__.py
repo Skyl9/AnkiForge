@@ -1,4 +1,8 @@
 from ankiforge.ui.widgets.settings_modal.components.collapsible_section import CollapsibleSection
+from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import (
+    LayoutGridSelector,
+    LayoutThumbnailCard,
+)
 from ankiforge.ui.widgets.settings_modal.components.password_line_edit import PasswordLineEdit
 from ankiforge.ui.widgets.settings_modal.components.settings_card import (
     SettingsCard,
@@ -14,4 +18,6 @@ __all__ = [
     "PasswordLineEdit",
     "SettingsNavButton",
     "StorageMetricCard",
+    "LayoutGridSelector",
+    "LayoutThumbnailCard",
 ]

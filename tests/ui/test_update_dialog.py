@@ -74,3 +74,22 @@ def test_update_dialog_download_ui_transitions(qtbot: QtBot, tmp_path: Path) -> 
     dialog._on_download_finished(dummy_dest, "abcdef1234567890")
     assert dialog.progress_bar.value() == 100
     assert "Téléchargement vérifié" in dialog.progress_status_lbl.text() or "Téléchargé avec succès" in dialog.progress_status_lbl.text()
+
+
+def test_update_dialog_download_failure_transition(qtbot: QtBot) -> None:
+    """Vérifie l'affichage de l'état d'erreur de sécurité en cas d'échec de vérification cryptographique."""
+    info = UpdateInfo(
+        version="0.3.0",
+        title="AnkiForge 0.3.0",
+        release_notes="Notes",
+        html_url="https://github.com/Skyl9/AnkiForge/releases/tag/v0.3.0",
+        published_at="2026-09-01T08:00:00Z",
+    )
+    dialog = UpdateDialog(info)
+    qtbot.addWidget(dialog)
+    dialog.show()
+
+    dialog._on_download_failed("Échec de validation cryptographique : la signature officielle d'AnkiForge est invalide ou corrompue.")
+    assert "Échec de validation cryptographique" in dialog.progress_status_lbl.text()
+    assert dialog.action_btn.text() == "Réessayer"
+    assert dialog.action_btn.isEnabled() is True

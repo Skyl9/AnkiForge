@@ -28,7 +28,7 @@ class UserAvatar(QWidget):
         p.setBrush(grad)
         p.drawEllipse(0, 0, self.width(), self.height())
 
-        p.setPen(QColor("#ffffff"))
+        p.setPen(QColor(DesignTokens.TEXT_ON_ACCENT))
         font = QFont(DesignTokens.FONT_MAIN, self.size_val // 3, QFont.Weight.Bold)
         p.setFont(font)
         p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.initials)

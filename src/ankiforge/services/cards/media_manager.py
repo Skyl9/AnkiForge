@@ -233,6 +233,8 @@ class MediaManager:
         logger.info("Nettoyage des médias orphelins terminé : %d fichier(s) supprimé(s)", deleted_count)
         return deleted_count
 
+    clean_orphan_media = clean_orphaned_media
+
     def purge_tts_audio_cache(self, only_orphans: bool = False) -> tuple[int, int]:
         """
         Purger les fichiers de cache audio TTS générés (commençant par 'tts_').

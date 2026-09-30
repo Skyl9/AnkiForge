@@ -107,8 +107,8 @@ class ModelCardWidget(QFrame):
             provider_display = "Anthropic"
         elif provider == "groq":
             prov_icon = "ph.lightning"
-            prov_fg_color = "#06b6d4"
-            prov_bg_color = "rgba(6, 182, 212, 0.15)"
+            prov_fg_color = DesignTokens.COLOR_CYAN
+            prov_bg_color = DesignTokens.COLOR_CYAN_BG
             provider_display = "Groq"
         elif provider == "ollama":
             prov_icon = "ph.cpu"
@@ -117,18 +117,18 @@ class ModelCardWidget(QFrame):
             provider_display = "Ollama Local"
         elif provider == "openai":
             prov_icon = "ph.brain"
-            prov_fg_color = "#10b981"
-            prov_bg_color = "rgba(16, 185, 129, 0.15)"
+            prov_fg_color = DesignTokens.COLOR_GREEN
+            prov_bg_color = DesignTokens.COLOR_GREEN_BG
             provider_display = "OpenAI"
         elif provider == "opencode":
             prov_icon = "ph.code"
-            prov_fg_color = "#6366f1"
-            prov_bg_color = "rgba(99, 102, 241, 0.15)"
+            prov_fg_color = DesignTokens.COLOR_PURPLE
+            prov_bg_color = DesignTokens.COLOR_PURPLE_BG
             provider_display = "OpenCode"
         elif provider == "openrouter":
             prov_icon = "ph.arrows-split"
-            prov_fg_color = "#ec4899"
-            prov_bg_color = "rgba(236, 72, 153, 0.15)"
+            prov_fg_color = DesignTokens.FLAG_PINK
+            prov_bg_color = DesignTokens._with_alpha(DesignTokens.FLAG_PINK, 0.15)
             provider_display = "OpenRouter"
 
         # Badge rond / capsule pour l'icône du fournisseur

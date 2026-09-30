@@ -2,7 +2,7 @@
 
 ![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)
 ![PySide6](https://img.shields.io/badge/PySide6-Qt%206-green.svg)
-![Tests](https://img.shields.io/badge/tests-146%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg)
 ![Database](https://img.shields.io/badge/database-SQLite%20%7C%20Peewee-orange.svg)
 ![Protocol](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -61,7 +61,7 @@ Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une co
 ## Fonctionnalités Principales
 
 ### 1. Moteur d'Orchestration, Branches et Reprise
-* **Workflows par étapes (DAG) :** Découpage de la tâche en 6 types d'étapes claires (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`).
+* **Workflows par étapes (DAG) :** Découpage de la tâche en 6 types d'étapes claires (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS` avec synthèse vocale neuronale Kokoro / Piper).
 * **Branchements conditionnels & Garde-fous :** Sauts dynamiques en cas de succès ou d'échec (`on_success_step`, `on_failure_step`), plafonds de tokens et limitation d'exécutions par étape pour prévenir les boucles infinies.
 * **Persistance & Reprise d'exécution :** Sauvegarde automatique de l'état d'exécution en base de données, permettant de reprendre un traitement interrompu sans recalculer les étapes déjà achevées.
 * **Pause interactive :** L'IA ne génère pas de cartes à l'aveugle. Une fenêtre interactive permet d'ajuster le squelette du cours avant d'engager la création finale.
@@ -82,7 +82,9 @@ Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une co
 * **Indicateurs en direct :** Suivi du temps de traitement, du volume de cartes générées et de l'estimation de coût en jetons.
 * **Importation directe :** Sélection de la version la plus convaincante pour intégration immédiate dans votre espace de travail.
 
-### 5. Hub Documentaire et Recherche Sémantique Locale
+### 5. Hub Documentaire et Ingestion Multimodale
+* **Ingestion multi-sources :** Prise en charge des PDF haute fidélité (Marker OCR avec formules LaTeX), documents bureautiques (DOCX, PPTX, EPUB), vidéos et playlists YouTube avec transcription automatique, podcasts/audio et albums visuels de médias.
+* **Vision & Multimodalité :** Analyse native des schémas, illustrations et diapositives via les modèles LLM multimodaux.
 * **Délimitation de document :** Découpage par plages de pages ou sections pour ne cibler que le contenu pertinent d'un cours.
 * **Indexation locale (RAG) :** Stockage vectoriel local (FAISS/ChromaDB) pour retrouver les passages clés sans dépendre d'un service externe.
 * **Couverture documentaire :** Suivi des sections de cours déjà converties en flashcards pour identifier les lacunes du paquet.
@@ -90,7 +92,7 @@ Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une co
 ### 6. Gestion des Conflits et Résolution Visuelle
 * **Protection du contenu :** Les changements de dossiers ou les métadonnées de révision sont fusionnés automatiquement ; seules les divergences de texte déclenchent un arbitrage.
 * **Dialogue de fusion à 3 panneaux :** Vue différentielle (version locale vs version importée vs version fusionnée) pour accepter les modifications ligne par ligne.
-* **Accélération native :** Comparaison textuelle optimisée en C avec solution de repli transparente en Python pur.
+* **Accélération native :** Comparaison textuelle optimisée en C avec solution de repli transparente en Python pur (et avertissement explicite).
 
 ### 7. Atelier de Styles et Rendu Mathématique
 * **Édition native et LaTeX :** Saisie mathématique en direct avec aperçu KaTeX et assistant de texte à trous (Cloze).
@@ -106,13 +108,14 @@ Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une co
 ## Stack Technique
 
 * **Interface Graphique :** Python 3.12+ / PySide6 (Qt 6) / QtWebEngine
-* **Base de Données & Migrations :** SQLite / Peewee ORM / `peewee-migrate` (37 migrations)
+* **Base de Données & Migrations :** SQLite / Peewee ORM / `peewee-migrate` (41 migrations)
 * **Gestionnaire de Projet :** `uv` (Astral)
 * **Moteur Vectoriel & RAG :** FAISS CPU / ChromaDB / Embeddings locaux (Ollama) ou Cloud
 * **Protocole & Moteurs IA :** Model Context Protocol (MCP) in-process / Ollama / Google Gemini / OpenAI / Anthropic
 * **Accélération Bas Niveau :** Extension C native (`c_ext/levenshtein_distance.c`) avec fallback Python pur
 * **Documentation & Site Statique :** Zensical
-* **Qualité & CI/CD :** `pytest` (146 tests unitaires et UI), `pytest-qt`, `ruff`, `mypy`, `bandit`, compilation native Nuitka
+* **Qualité & CI/CD :** `pytest` (1 700+ tests unitaires et UI), `pytest-qt`, `ruff`, `mypy`, `bandit`, compilation native Nuitka
+
 
 ---
 
@@ -158,7 +161,7 @@ uv run ankiforge
 Le projet intègre une suite de tests automatisés couvrant le backend, la base de données, l'orchestrateur et l'interface graphique (mode headless via `pytest-qt`) :
 
 ```bash
-# Exécuter les 146 tests unitaires et UI
+# Exécuter les 1 700+ tests unitaires et UI
 uv run pytest
 
 # Vérifier le formatage et le style du code
@@ -241,7 +244,7 @@ Distribué sous licence MIT. Consultez le fichier [LICENSE.md](LICENSE.md) pour 
 
 ![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)
 ![PySide6](https://img.shields.io/badge/PySide6-Qt%206-green.svg)
-![Tests](https://img.shields.io/badge/tests-146%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg)
 ![Database](https://img.shields.io/badge/database-SQLite%20%7C%20Peewee-orange.svg)
 ![Protocol](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -300,7 +303,7 @@ Every tool serves a specific purpose in learning workflows. Here is an objective
 ## Key Features
 
 ### 1. DAG Workflow Orchestration & Human Supervision
-* **Step-based pipelines:** Modular step types including `LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, and `PYTHON_TOOL`.
+* **Step-based pipelines:** Modular step types including `LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, and `AUDIO_TTS` (neural TTS with Kokoro / Piper).
 * **Interactive copiloting:** The orchestrator pauses at validation steps, enabling users to inspect, adjust, or prune concepts before mass generation.
 * **Deterministic Python tools:** Built-in sandboxed tools for LaTeX cleaning, JSON validation, and metric computations.
 
@@ -319,7 +322,9 @@ Every tool serves a specific purpose in learning workflows. Here is an objective
 * **Live metrics:** Real-time benchmark banner displaying runtime duration, card yield, token count, and cost estimation.
 * **Direct import:** One-click integration of winning configurations directly into your Forge workspace.
 
-### 5. Document Hub & Local Semantic RAG
+### 5. Document Hub & Multimodal Ingestion
+* **Multi-format support:** High-fidelity PDF ingestion (Marker OCR with LaTeX math formula recovery), office documents (DOCX, PPTX, EPUB), YouTube videos & playlists with automated transcription, audio/podcasts, and media albums.
+* **Vision & Multimodality:** Native visual inspection of figures, diagrams, and slides through vision-capable LLMs.
 * **Smart delimitation:** Select specific page ranges and headings to exclude boilerplate text.
 * **Local vector search:** FAISS and ChromaDB indexing for retrieving course context without cloud dependencies.
 * **Coverage tracking:** Live document section statuses (`Covered` vs `Uncovered`) and instant section forging.
@@ -327,7 +332,7 @@ Every tool serves a specific purpose in learning workflows. Here is an objective
 ### 6. Smart Conflict Resolution (3-Panel Merge)
 * **Content-first safety:** Deck movements and review statistics are merged silently; only raw text field edits trigger manual review.
 * **3-panel merge dialog:** Side-by-side view (Local vs Incoming vs Merged) with selective line-by-line acceptance.
-* **Native C acceleration:** Compiled Levenshtein C extension with transparent Python fallback.
+* **Native C acceleration:** Compiled Levenshtein C extension with transparent Python fallback (and explicit notification).
 
 ### 7. Note Styling & KaTeX Rendering
 * **Native Qt editor:** Live LaTeX KaTeX rendering, autocomplete, and Cloze deletion tooling.
@@ -343,13 +348,13 @@ Every tool serves a specific purpose in learning workflows. Here is an objective
 ## Technical Stack
 
 * **GUI Framework:** Python 3.12+ / PySide6 (Qt 6) / QtWebEngine
-* **Database & ORM:** SQLite / Peewee ORM / `peewee-migrate` (37 migrations)
+* **Database & ORM:** SQLite / Peewee ORM / `peewee-migrate` (41 migrations)
 * **Package Manager:** `uv` (Astral)
 * **Vector Store & RAG:** FAISS CPU / ChromaDB / Local (Ollama) or Cloud embeddings
 * **AI Protocol & Providers:** In-process Model Context Protocol (MCP) / Ollama / Google Gemini / OpenAI / Anthropic
 * **Native Optimization:** Compiled C extension (`c_ext/levenshtein_distance.c`) with Python fallback
 * **Documentation Generator:** Zensical
-* **Quality Assurance:** `pytest` (146 unit & UI tests), `pytest-qt`, `ruff`, `mypy`, `bandit`, Nuitka compiler
+* **Quality Assurance:** `pytest` (1,700+ unit & UI tests), `pytest-qt`, `ruff`, `mypy`, `bandit`, Nuitka compiler
 
 ---
 
@@ -395,7 +400,7 @@ uv run ankiforge
 Run the test suite covering backend logic, database operations, DAG workflows, and headless GUI components (`pytest-qt`):
 
 ```bash
-# Run all 146 unit and UI tests
+# Run all 1,700+ unit and UI tests
 uv run pytest
 
 # Check code style and linting

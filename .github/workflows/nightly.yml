@@ -198,6 +198,23 @@ jobs:
           sha256sum * > checksums.txt 2>/dev/null || true
           cat checksums.txt
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Sign Checksums Manifest with Ed25519
+        env:
+          ANKIFORGE_RELEASE_SIGNING_KEY_ED25519: ${{ secrets.ANKIFORGE_RELEASE_SIGNING_KEY_ED25519 }}
+        run: |
+          if [ -n "$ANKIFORGE_RELEASE_SIGNING_KEY_ED25519" ]; then
+            echo "[INFO] Signature du manifeste Nightly avec la clé Ed25519..."
+            PYTHONPATH=src uv run --with cryptography python script/sign_release.py release-assets/checksums.txt
+          else
+            echo "::warning::Secret ANKIFORGE_RELEASE_SIGNING_KEY_ED25519 non configuré pour la Nightly."
+          fi
+
       - name: Create or Update Nightly GitHub Release
         uses: softprops/action-gh-release@v2
         with:

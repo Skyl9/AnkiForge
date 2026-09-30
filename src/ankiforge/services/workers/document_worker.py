@@ -5,9 +5,29 @@ from urllib.parse import urlparse
 
 from PySide6.QtCore import QThread, Signal
 
-from ankiforge.services.parsing.document_parser import DocumentParser
+from ankiforge.services.parsing.document_parser import DocumentParser, is_web_source
 
 logger = logging.getLogger(__name__)
+
+MAX_TITLE_LENGTH = 50
+
+
+def derive_document_title(source: str) -> str:
+    """Déduit le titre d'un document depuis son chemin local ou son URL.
+
+    Point de partage entre le worker unitaire et le worker par lot pour garantir
+    qu'une même source produit toujours la même fiche quel que soit le chemin d'import.
+    """
+    if is_web_source(source):
+        parsed_url = urlparse(source)
+        # On essaie de prendre le dernier mot de l'URL, sinon le nom de domaine
+        raw_title = parsed_url.path.strip("/").split("/")[-1]
+        if not raw_title:
+            raw_title = parsed_url.netloc
+        title = f"Web - {raw_title}"
+    else:
+        title = pathlib.Path(source).stem
+    return title[:MAX_TITLE_LENGTH]
 
 
 class DocumentWorker(QThread):
@@ -50,16 +70,7 @@ class DocumentWorker(QThread):
         t0 = time.perf_counter()
         try:
             parser = DocumentParser()
-            if self.file_path.startswith("http"):
-                parsed_url = urlparse(self.file_path)
-                # On essaie de prendre le dernier mot de l'URL, sinon le nom de domaine
-                raw_title = parsed_url.path.strip("/").split("/")[-1]
-                if not raw_title:
-                    raw_title = parsed_url.netloc
-                title = f"Web - {raw_title}"
-            else:
-                title = pathlib.Path(self.file_path).stem
-            title = title[:50]
+            title = derive_document_title(self.file_path)
             content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit, check_cancel=self.is_cancelled)
             if not self._is_cancelled:
                 elapsed = time.perf_counter() - t0

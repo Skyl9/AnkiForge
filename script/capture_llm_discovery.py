@@ -32,7 +32,7 @@ def main() -> None:
 
     # Appliquer le thème sombre JetBrains par défaut
     style_engine = get_style_engine()
-    style_engine.apply_theme("jetbrains", "ide")
+    style_engine.apply_theme("ide")
 
     # 1. Capture de la modale de découverte et comparateur
     dlg = ModelDiscoveryDialog(current_model_id="gemini-3.5-flash-lite", picker_mode=False)

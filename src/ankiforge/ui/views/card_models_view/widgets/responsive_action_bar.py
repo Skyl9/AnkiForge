@@ -2,6 +2,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from ankiforge.ui.components import Badge, IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import apply_compact_style
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
@@ -53,7 +54,7 @@ class ResponsiveTopActionBar(QFrame):
 
         self.btn_toggle_preview = SecondaryButton("Aperçu en direct")
         self.btn_toggle_preview.setIcon(load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_toggle_preview.setFixedHeight(28)
+        apply_compact_style(self.btn_toggle_preview, height=28)
         self.btn_toggle_preview.setToolTip("Afficher / Masquer l'aperçu en direct à côté du code")
         self.btn_toggle_preview.clicked.connect(self.preview_toggle_requested.emit)
 
@@ -61,8 +62,7 @@ class ResponsiveTopActionBar(QFrame):
 
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
-        self.btn_save.setFixedHeight(28)
-        self.btn_save.setMinimumWidth(110)
+        apply_compact_style(self.btn_save, height=28)
         self.btn_save.setToolTip("Sauvegarder les modifications du modèle")
 
         layout.addWidget(self.btn_export_json)

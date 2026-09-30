@@ -553,14 +553,18 @@ def test_document_scope_dialog_bidirectional_sync_and_assembled_view(qtbot: Any,
     assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Checked  # Chap 3
     assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Unchecked  # Chap 4
 
-    # 2. En mode pages, cocher une section ne modifie pas la plage.
+    # 2. Cocher une section active le mode sections (auto-activation) sans toucher la plage.
     row_w4 = dlg.sections_list.itemWidget(dlg.sections_list.item(3))
     assert isinstance(row_w4, SectionRowWidget)
     row_w4.checkbox.setChecked(True)
+    assert dlg.selection_mode == "sections"
+    assert dlg.btn_mode_sections.isChecked()
     assert dlg.spin_p_end.value() == 3
 
-    # 3. Vue Finale Assemblée
+    # 3. Vue Finale Assemblée : le mode pages redevient gouvernant pour la plage 2-3.
     assert dlg.preview_stack.currentIndex() == 0  # Document Source par défaut
+    dlg.btn_mode_range.click()
+    assert dlg.selection_mode == "pages"
     dlg.btn_view_final.click()
     assert dlg.preview_stack.currentIndex() == 1
 
@@ -639,7 +643,7 @@ def test_delimitation_modification_and_modal_refresh_sync(qtbot: Any, mock_db: A
 
 
 def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mock_db: Any) -> None:
-    """Vérifie que les exclusions manuelles de sections restent fidèlement mémorisées et ne sont pas écrasées par le slider."""
+    """Vérifie qu'une exclusion de section issue de l'arbre devient gouvernante, est persistée, et survit à la manipulation des curseurs de pages."""
     from ankiforge.database.models import DocumentChunkModel
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
@@ -668,36 +672,38 @@ def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mo
     w_row3 = dlg1.sections_list.itemWidget(dlg1.sections_list.item(2))
     assert isinstance(w_row3, SectionRowWidget)
     w_row3.checkbox.setChecked(False)
+    # L'interaction avec l'arbre active le mode sections : l'exclusion devient gouvernante.
+    assert dlg1.selection_mode == "sections"
     assert "page 3" in dlg1._manual_exclusions
 
     # Appliquer
     dlg1._on_apply()
 
-    # En mode pages, l'interaction avec l'arbre n'est pas persistée comme exclusion.
+    # Le mode sections gouvernant, l'exclusion est persistée.
     fresh_doc = DocumentModel.get_by_id(doc.id)
-    assert fresh_doc.excluded_headings == "[]"
+    assert "Page 3" in fresh_doc.excluded_headings
 
-    # 2. Réouverture de DocumentDelimitationDialog : toutes les pages restent retenues.
+    # 2. Réouverture : l'exclusion a été matérialisée (chunk retiré), les pages restantes
+    #    sont toutes cochées et les bornes de pages ne sont pas marquées par une exclusion.
     dlg2 = DocumentDelimitationDialog(doc)
     qtbot.addWidget(dlg2)
-    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Checked
-    assert dlg2.sections_list.item(0).checkState() == Qt.CheckState.Checked  # Page 1 cochée
-    assert dlg2.sections_list.item(1).checkState() == Qt.CheckState.Checked  # Page 2 cochée
+    assert all(dlg2.sections_list.item(i).checkState() == Qt.CheckState.Checked for i in range(dlg2.sections_list.count()))
+    assert dlg2._selected_pages == {1, 2, 3, 4, 5}
 
     # 3. Manipulation du slider de pages (déplacer puis ré-étendre à toute la portée)
     dlg2.btn_scope_mode_range.click()
     dlg2.spin_p_start.setValue(1)
     dlg2.spin_p_end.setValue(5)
 
-    # Page 3 reste cochée dans la plage complète.
-    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Checked
+    # Le slider n'introduit aucune exclusion de titre.
+    assert not [ex for ex in dlg2._manual_exclusions if not ex.startswith("page:")]
 
-    # 4. DocumentScopeDialog conserve toutes les pages car l'exclusion était décorative en mode pages.
+    # 4. DocumentScopeDialog ne voit plus le chunk dont le titre a été exclu.
     scope_dlg = DocumentScopeDialog(doc)
     qtbot.addWidget(scope_dlg)
     useful_titles = [u["title"] for u in scope_dlg._useful_chunks]
-    assert "Page 3" in useful_titles
-    assert len(scope_dlg._useful_chunks) == 5
+    assert "Page 3" not in useful_titles
+    assert len(scope_dlg._useful_chunks) == 4
 
 
 def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
@@ -776,7 +782,7 @@ def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, m
 
 
 def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
-    """Vérifie le saut immédiat de la vue PDF et l'ajustement dynamique des sliders dans DocumentScopeDialog."""
+    """Vérifie le saut immédiat de la vue PDF, l'activation automatique du mode sections au décochage, et l'ajustement des sliders dans DocumentScopeDialog."""
     from ankiforge.database.models import DocumentChunkModel
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog, SectionRowWidget
 
@@ -818,16 +824,18 @@ def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any,
     assert isinstance(w_row1, SectionRowWidget)
     w_row1.checkbox.setChecked(False)
 
-    # La plage reste la source de vérité en mode pages.
+    # Les curseurs de pages restent intacts, mais l'interaction a activé le mode sections :
+    # l'aperçu suit désormais les cases cochées et la page 1 est exclue de la portée.
     assert scope_dlg.spin_p_start.value() == 1
     assert scope_dlg.slider_p_start.value() == 1
     assert scope_dlg.range_bar._start == 1
     assert scope_dlg.preview_widget._current_page == 1
-    assert "Page 1 INCLUSE" in scope_dlg.preview_widget.lbl_scope_status.text()
+    assert "Page 1 EXCLUE" in scope_dlg.preview_widget.lbl_scope_status.text()
 
-    # La vue finale assemblée ne doit plus contenir Segment 1
+    # La vue finale assemblée ne doit plus contenir Segment 1 : le mode sections est devenu gouvernant.
+    assert scope_dlg.selection_mode == "sections"
     scope_dlg._refresh_final_preview()
-    assert "Segment 1" in scope_dlg.final_preview_browser.toPlainText()
+    assert "Segment 1" not in scope_dlg.final_preview_browser.toPlainText()
     assert "Segment 2" in scope_dlg.final_preview_browser.toPlainText()
 
     # 3. Décocher la section 5 (page 5)
@@ -838,7 +846,8 @@ def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any,
     assert scope_dlg.spin_p_end.value() == 5
     assert scope_dlg.slider_p_end.value() == 5
     assert scope_dlg.preview_widget._current_page == 5
-    assert "Page 5 INCLUSE" in scope_dlg.preview_widget.lbl_scope_status.text()
+    # En mode sections, les cases cochées gouvernent la portée : la page 5 est désormais exclue.
+    assert "Page 5 EXCLUE" in scope_dlg.preview_widget.lbl_scope_status.text()
 
     # 4. Action Tout cocher
     scope_dlg._set_all_checked(True)

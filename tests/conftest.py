@@ -59,6 +59,57 @@ os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu 
 os.environ.setdefault("ANKIFORGE_MOCK_WEBENGINE", "1")
 os.environ.setdefault("ANKIFORGE_ENV", "testing")
 
+# Document Marker typique (fixture partagée) : un sommaire dont les entrées sont
+# balisées comme des titres Markdown, suivi du corps réel des chapitres sous les
+# MÊMES titres — la collision à laquelle le ticket P1 s'applique.
+MARKER_TOC_PAGINATED = "\n".join(
+    [
+        "{0}------------------------------------------------",
+        "# Polycopié de Statistiques",
+        "",
+        "Page de couverture du polycopié.",
+        "",
+        "{1}------------------------------------------------",
+        "# Sommaire",
+        "",
+        "## 1 - Introduction aux données",
+        "",
+        "## 2 - Statistiques descriptives",
+        "",
+        "## 3 - Probabilités",
+        "",
+        "{4}------------------------------------------------",
+        "# 1 - Introduction aux données",
+        "",
+        "Une variable aléatoire est une fonction qui associe chaque issue d'une expérience "
+        "aléatoire à une valeur numérique. Elle est décrite par une fonction de répartition "
+        "croissante qui converge vers l'unité en l'infini du support.",
+        "",
+        "# 2 - Statistiques descriptives",
+        "",
+        "La moyenne arithmétique est la somme des valeurs divisée par le nombre d'observations. La variance mesure la dispersion autour de cette moyenne et l'écart-type en est la racine.",
+    ]
+)
+
+# Même document sans les marqueurs de page : pour les consommateurs Markdown.
+MARKER_TOC_PLAIN = (
+    MARKER_TOC_PAGINATED.replace("{0}------------------------------------------------\n", "")
+    .replace("{1}------------------------------------------------\n", "")
+    .replace("{4}------------------------------------------------\n", "")
+)
+
+
+@pytest.fixture(scope="session")
+def marker_toc_paginated() -> str:
+    """Markdown Marker paginé dont le sommaire duplique les titres du corps de cours."""
+    return MARKER_TOC_PAGINATED
+
+
+@pytest.fixture(scope="session")
+def marker_toc_plain() -> str:
+    """Variante non paginée du même document (consommateurs Markdown)."""
+    return MARKER_TOC_PLAIN
+
 
 @pytest.fixture(autouse=True)
 def mock_db():
@@ -128,6 +179,10 @@ def mock_db():
         from ankiforge.utils.environment import get_app_qsettings
 
         get_app_qsettings().clear()
+        # Les préférences d'apparence et de layout vivent dans le scope « obsidian ».
+        get_app_qsettings("obsidian").clear()
+    with contextlib.suppress(Exception):
+        SettingModel.delete().where(SettingModel.key.startswith("profiles/")).execute()
 
     yield test_db  # Le test s'exécute ici
 
@@ -135,6 +190,9 @@ def mock_db():
         from ankiforge.utils.environment import get_app_qsettings
 
         get_app_qsettings().clear()
+        get_app_qsettings("obsidian").clear()
+    with contextlib.suppress(Exception):
+        SettingModel.delete().where(SettingModel.key.startswith("profiles/")).execute()
     with contextlib.suppress(Exception):
         test_db.execute_sql("DROP TABLE IF EXISTS note_fts;")
     with contextlib.suppress(Exception):
@@ -173,6 +231,12 @@ def cleanup_qt_widgets():
 
     with contextlib.suppress(Exception):
         QThreadPool.globalInstance().waitForDone(1000)
+
+    with contextlib.suppress(Exception):
+        from ankiforge.ui.style_engine import StyleEngine
+
+        if StyleEngine._instance is not None:
+            StyleEngine._instance.clear_custom_library()
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

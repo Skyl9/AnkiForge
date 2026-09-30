@@ -107,7 +107,7 @@ class ThemeTransitionOverlay(QWidget):
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Fond assombri
-        self.setStyleSheet("background-color: rgba(10, 12, 16, 0.75);")
+        self.setStyleSheet(f"background-color: {DesignTokens._with_alpha(DesignTokens.BG_MAIN, 0.75)};")
 
         # Carte centrale
         self.card = QFrame()

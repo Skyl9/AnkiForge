@@ -211,7 +211,7 @@ class NotificationMenuPopup(QFrame):
         footer_layout.addStretch(1)
         layout.addLayout(footer_layout)
 
-        apply_shadow(self, blur=24, offset_y=6, color="rgba(0, 0, 0, 0.4)")
+        apply_shadow(self, blur=24, offset_y=6, color=DesignTokens.SHADOW_COLOR)
 
     def _on_report_bug_clicked(self) -> None:
         self.hide()

@@ -1774,12 +1774,14 @@ class ConsultantToolRegistry:
                     parts.append(str(c["section_slug"]))
                 citation = f"[{' | '.join(parts)}]"
 
+                # Tags *suggérés* au consultant, jamais écrits en base : la page n'est
+                # proposée que si elle est connue, et l'identité du fragment reste la
+                # section (l'identifiant de fragment n'est pas exportable, cf. Q7-C).
                 prov_tags = build_provenance_tags(
                     doc_id=c["doc_id"],
                     doc_title=c["doc_title"],
                     page_number=p_int,
                     section_name=c["section_slug"],
-                    chunk_id=c["chunk_id"],
                 )
 
                 formatted_lines.append(f"### {citation}\n> {c['content']}\n*(Métadonnées : doc_id={c['doc_id']} | score={c['score']:.3f} | tags_suggérés={' '.join(prov_tags)})*")
@@ -2053,6 +2055,8 @@ class ConsultantToolRegistry:
             if not target_text.strip():
                 return "Erreur : Le document est vide."
 
+            # Le sommaire est exclu : le plan proposé au consultant ReAct décrit le
+            # contenu réel du document, pas ses entrées d'index.
             outline = MarkdownStructurer.get_outline(target_text)
             if not outline:
                 return f"Le document '{doc_title}' ne contient aucun titre Markdown structuré."

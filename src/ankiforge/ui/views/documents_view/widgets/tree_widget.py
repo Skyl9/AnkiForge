@@ -7,11 +7,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ankiforge.ui.views.documents_view.utils import FileDropMixin
 
-class DocumentTreeWidget(QTreeWidget):
+
+class DocumentTreeWidget(FileDropMixin, QTreeWidget):
     """QTreeWidget customisé pour supporter le Drag & Drop, l'arborescence et le filtrage rapide."""
 
     itemMoved = Signal(object, object)
+    filesDropped = Signal(list)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -21,7 +24,12 @@ class DocumentTreeWidget(QTreeWidget):
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
 
-    def dropEvent(self, event: QDropEvent) -> None:
+    def handle_files_dropped(self, paths: list[str]) -> None:
+        """Publie les fichiers du système déposés sur l'arbre (import par lot)."""
+        self.filesDropped.emit(paths)
+
+    def handle_internal_drop(self, event: QDropEvent) -> None:
+        """Repositionnement d'un item existant (dossier/document déplacé vers un autre parent)."""
         source_item = self.currentItem()
         if not source_item:
             event.ignore()

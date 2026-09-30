@@ -287,7 +287,7 @@ class PersonaCreationWizardDialog(QDialog):
         self.edit_prompt_preview.setStyleSheet(f"""
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
-                color: #a5b4fc;
+                color: {DesignTokens.COLOR_PURPLE_TEXT};
                 font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 11px;
                 line-height: 1.4;

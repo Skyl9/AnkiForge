@@ -79,7 +79,7 @@ class CheckboxItemDelegate(QStyledItemDelegate):
             painter.drawRoundedRect(box_rect, 4, 4)
 
             # Coche blanche vectorielle
-            pen = QPen(QColor("white"), 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+            pen = QPen(QColor(DesignTokens.TEXT_ON_ACCENT), 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
             painter.setPen(pen)
             path = QPainterPath()
             path.moveTo(x + 4, y + 8)
@@ -214,12 +214,13 @@ class FlagItemDelegate(QStyledItemDelegate):
         return QSize(32, 34)
 
 
-def parse_qcolor(color_val: Any, fallback: str = "#6366f1") -> QColor:
+def parse_qcolor(color_val: Any, fallback: str | None = None) -> QColor:
     """Parse une chaîne hexadécimale, rgb(), rgba() ou QColor de manière sûre avec gestion alpha."""
+    actual_fallback = fallback or DesignTokens.ACCENT_PRIMARY
     if isinstance(color_val, QColor):
         return color_val
     if not color_val or not isinstance(color_val, str):
-        return QColor(fallback)
+        return QColor(actual_fallback)
     val = color_val.strip()
     if val.startswith("rgba(") and val.endswith(")"):
         try:
@@ -241,7 +242,7 @@ def parse_qcolor(color_val: Any, fallback: str = "#6366f1") -> QColor:
     col = QColor(val)
     if col.isValid():
         return col
-    return QColor(fallback)
+    return QColor(actual_fallback)
 
 
 class BadgeItemDelegate(QStyledItemDelegate):
@@ -341,9 +342,9 @@ class TagItemDelegate(QStyledItemDelegate):
         badge_h = 20
         y = option.rect.y() + (option.rect.height() - badge_h) // 2
 
-        tag_bg = QColor(192, 132, 252, 35)  # Violet translucide
-        tag_border = QPen(QColor(192, 132, 252, 100), 1)
-        tag_text_color = QColor("#c084fc")
+        tag_bg = QColor(DesignTokens.COLOR_PURPLE_BG)
+        tag_border = QPen(QColor(DesignTokens.COLOR_PURPLE_BORDER), 1)
+        tag_text_color = QColor(DesignTokens.COLOR_PURPLE_TEXT)
 
         for tag in tags_list:
             tag_label = f"#{tag}"

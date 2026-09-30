@@ -52,10 +52,15 @@ class DiffViewerWidget(QTextBrowser):
 
     def set_content_diff(self, old_dict: dict[str, str], current_dict: dict[str, str]) -> None:
         """Génère le diff HTML comparant la version historique (old) à la version active (current)."""
+        legend = (
+            f"COMPARAISON AVEC LA VERSION ACTUELLE : "
+            f"<span style='color: {DesignTokens.COLOR_RED};'>[ROUGE = SUPPRESSION]</span> | "
+            f"<span style='color: {DesignTokens.COLOR_GREEN};'>[VERT = AJOUT]</span>"
+        )
         html: list[str] = [
             f"<div style='font-family: {DesignTokens.FONT_CODE}; line-height: 1.5;'>",
             f"<div style='padding-bottom: 8px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 11px;'>",
-            "COMPARAISON AVEC LA VERSION ACTUELLE : <span style='color: #ef4444;'>[ROUGE = SUPPRESSION]</span> | <span style='color: #10b981;'>[VERT = AJOUT]</span>",
+            legend,
             "</div>",
         ]
 
@@ -88,11 +93,11 @@ class DiffViewerWidget(QTextBrowser):
                     )
                 elif code == "- ":
                     # Présent dans l'actuel mais absent de l'historique (sera supprimé si restauré)
-                    del_style = "background-color: rgba(239, 68, 68, 0.15); color: #f87171;"
+                    del_style = f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT};"
                     html.append(f"<tr style='{del_style}'><td style='width: 25px; user-select: none; font-weight: bold;'>-</td><td style='padding: 2px 6px;'>{escaped_text}</td></tr>")
                 elif code == "+ ":
                     # Présent dans l'historique mais absent de l'actuel (sera restauré)
-                    add_style = "background-color: rgba(16, 185, 129, 0.15); color: #34d399;"
+                    add_style = f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT};"
                     html.append(f"<tr style='{add_style}'><td style='width: 25px; user-select: none; font-weight: bold;'>+</td><td style='padding: 2px 6px;'>{escaped_text}</td></tr>")
 
             html.append("</table>")
@@ -194,7 +199,7 @@ class TimeMachineDialog(QDialog):
                 border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
             }}
             QListWidget::item:selected {{
-                background-color: rgba(99, 102, 241, 0.15);
+                background-color: {DesignTokens.ACCENT_BG};
                 border-left: 3px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)

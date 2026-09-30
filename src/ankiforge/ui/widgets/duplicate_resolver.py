@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QProgre
 
 from ankiforge.database.models import IgnoredDuplicateModel, NoteModel, db
 from ankiforge.ui.components import ActionButton, PrimaryButton, RoundedPanel
-from ankiforge.ui.theme import DesignTokens, is_dark_mode
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
@@ -149,10 +149,9 @@ class DuplicateResolverDialog(QDialog):
         full_html_a = ""
         full_html_b = ""
 
-        dark = is_dark_mode()
-        header_color_a = "#64B5F6" if dark else "#1976D2"
-        header_color_b = "#81C784" if dark else "#388E3C"
-        text_color = "#E0E0E0" if dark else "#333333"
+        header_color_a = DesignTokens.COLOR_BLUE_TEXT
+        header_color_b = DesignTokens.COLOR_GREEN_TEXT
+        text_color = DesignTokens.TEXT_PRIMARY
 
         for field_name in content_a:
             text_a = str(content_a.get(field_name, ""))

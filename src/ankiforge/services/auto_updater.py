@@ -23,6 +23,10 @@ from typing import Any
 import requests
 from PySide6.QtCore import QObject, QRunnable, Signal
 
+from ankiforge.security.signatures import (
+    parse_checksums_manifest,
+    verify_manifest_signature,
+)
 from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
@@ -147,6 +151,27 @@ def find_asset_for_current_platform(assets: list[dict[str, Any]]) -> dict[str, A
     return None
 
 
+def find_manifest_assets(assets: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Extrait l'asset du manifeste de hashes (checksums.txt) et son fichier de signature (checksums.txt.sig).
+
+    Returns:
+        tuple[checksums_asset, signature_asset]
+    """
+    checksums_asset: dict[str, Any] | None = None
+    signature_asset: dict[str, Any] | None = None
+
+    for asset in assets:
+        name = str(asset.get("name", "")).strip().lower()
+        if name in ("checksums.txt.sig", "sha256sums.sig"):
+            signature_asset = asset
+        elif name in ("checksums.txt", "sha256sums"):
+            checksums_asset = asset
+        elif name.endswith(".sig") and signature_asset is None:
+            signature_asset = asset
+
+    return checksums_asset, signature_asset
+
+
 class DownloaderSignals(QObject):
     """Signaux émis lors de la progression et de la fin du téléchargement."""
 
@@ -156,12 +181,25 @@ class DownloaderSignals(QObject):
 
 
 class UpdateDownloaderWorker(QRunnable):
-    """Worker QRunnable téléchargeant un asset de mise à jour avec calcul de hash SHA-256."""
+    """Worker QRunnable téléchargeant un asset de mise à jour avec vérification cryptographique Ed25519 et SHA-256."""
 
-    def __init__(self, download_url: str, filename: str) -> None:
+    def __init__(
+        self,
+        download_url: str,
+        filename: str,
+        checksums_url: str | None = None,
+        signature_url: str | None = None,
+        *,
+        require_signature: bool = True,
+        trusted_public_keys: tuple[str, ...] | None = None,
+    ) -> None:
         super().__init__()
         self.download_url = download_url
         self.filename = filename
+        self.checksums_url = checksums_url
+        self.signature_url = signature_url
+        self.require_signature = require_signature
+        self.trusted_public_keys = trusted_public_keys
         self.signals = DownloaderSignals()
         self._is_cancelled = False
 
@@ -170,17 +208,62 @@ class UpdateDownloaderWorker(QRunnable):
         self._is_cancelled = True
 
     def run(self) -> None:
-        """Exécute le téléchargement par flux avec émission de progression."""
+        """Exécute le téléchargement par flux avec émission de progression et vérification cryptographique."""
         target_dir = get_updates_storage_dir()
         safe_filename = Path(self.filename).name  # Élimine toute tentative de Path Traversal dans le nom
         dest_path = (target_dir / safe_filename).resolve()
 
         try:
-            # ISSUE 6 : Validation HTTPS + domaine de confiance avant tout appel réseau
+            # 1. Validation HTTPS + domaine de confiance avant tout appel réseau
             _validate_download_url(self.download_url)
+            if self.checksums_url:
+                _validate_download_url(self.checksums_url)
+            if self.signature_url:
+                _validate_download_url(self.signature_url)
 
-            logger.info("Début du téléchargement de la mise à jour depuis %s vers %s", self.download_url, dest_path)
             headers = {"User-Agent": "AnkiForge-AutoUpdater"}
+            expected_sha256: str | None = None
+
+            # 2. Vérification cryptographique préalable du manifeste d'intégrité
+            if self.require_signature:
+                if not self.checksums_url or not self.signature_url:
+                    logger.error("Vérification de sécurité rejetée : release sans manifeste ou signature Ed25519.")
+                    self.signals.download_error.emit("Mise à jour rejetée : signature officielle ou manifeste d'intégrité manquant pour cette release.")
+                    return
+
+                # Téléchargement du manifeste checksums.txt
+                with requests.get(self.checksums_url, headers=headers, timeout=(10.0, 30.0)) as resp_chk:
+                    if resp_chk.status_code != 200:
+                        self.signals.download_error.emit(f"Erreur HTTP {resp_chk.status_code} lors du téléchargement du manifeste d'intégrité.")
+                        return
+                    manifest_bytes = resp_chk.content
+
+                # Téléchargement de la signature Ed25519 checksums.txt.sig
+                with requests.get(self.signature_url, headers=headers, timeout=(10.0, 30.0)) as resp_sig:
+                    if resp_sig.status_code != 200:
+                        self.signals.download_error.emit(f"Erreur HTTP {resp_sig.status_code} lors du téléchargement de la signature du manifeste.")
+                        return
+                    signature_bytes = resp_sig.content
+
+                # Validation asymétrique Ed25519
+                if not verify_manifest_signature(manifest_bytes, signature_bytes, public_keys=self.trusted_public_keys):
+                    logger.critical("ÉCHEC CRITIQUE : Signature Ed25519 invalide pour le manifeste de release !")
+                    self.signals.download_error.emit("Échec de validation cryptographique : la signature officielle d'AnkiForge est invalide ou corrompue.")
+                    return
+
+                # Parsing du manifeste et vérification de la présence du binaire cible
+                manifest_text = manifest_bytes.decode("utf-8", errors="replace")
+                checksums = parse_checksums_manifest(manifest_text)
+                if safe_filename not in checksums:
+                    logger.error("Le fichier '%s' est absent du manifeste d'intégrité validé.", safe_filename)
+                    self.signals.download_error.emit(f"Le fichier '{safe_filename}' est introuvable dans le manifeste d'intégrité officiel.")
+                    return
+
+                expected_sha256 = checksums[safe_filename]
+                logger.info("Manifeste authentifié via Ed25519. Empreinte attendue pour %s : %s", safe_filename, expected_sha256)
+
+            # 3. Téléchargement par flux du binaire cible
+            logger.info("Début du téléchargement de la mise à jour depuis %s vers %s", self.download_url, dest_path)
             # ISSUE 9 : timeout en tuple (connexion, lecture) — évite les blocages sur connexions très lentes
             with requests.get(self.download_url, headers=headers, stream=True, timeout=(10.0, 120.0)) as response:
                 if response.status_code != 200:
@@ -201,6 +284,8 @@ class UpdateDownloaderWorker(QRunnable):
                     for chunk in response.iter_content(chunk_size=65536):
                         if self._is_cancelled:
                             logger.info("Téléchargement annulé par l'utilisateur.")
+                            f.close()
+                            dest_path.unlink(missing_ok=True)
                             return
 
                         if chunk:
@@ -211,6 +296,8 @@ class UpdateDownloaderWorker(QRunnable):
                             # ISSUE 7 : Vérification en continu de la taille réelle reçue
                             if downloaded_size > MAX_DOWNLOAD_SIZE_BYTES:
                                 logger.error("Taille réelle téléchargée dépasse le plafond de 2 Go. Abandon.")
+                                f.close()
+                                dest_path.unlink(missing_ok=True)
                                 self.signals.download_error.emit("Taille reçue dépasse le plafond de sécurité de 2 Go. Téléchargement abandonné.")
                                 return
 
@@ -218,15 +305,31 @@ class UpdateDownloaderWorker(QRunnable):
                             self.signals.progress.emit(pct, downloaded_size, total_size)
 
             computed_hash = hasher.hexdigest()
-            logger.info("Téléchargement achevé avec succès. SHA-256: %s", computed_hash)
+
+            # 4. Vérification de conformité d'empreinte SHA-256 avec politique Fail-Closed
+            if self.require_signature and expected_sha256 and computed_hash != expected_sha256.lower():
+                logger.critical(
+                    "ÉCHEC D'INTÉGRITÉ : Empreinte SHA-256 discordante pour %s (reçu : %s, attendu : %s). PURGE IMMÉDIATE.",
+                    safe_filename,
+                    computed_hash,
+                    expected_sha256,
+                )
+                dest_path.unlink(missing_ok=True)
+                self.signals.download_error.emit("Intégrité compromise : l'empreinte SHA-256 du fichier téléchargé ne correspond pas au manifeste officiel. Fichier supprimé par sécurité.")
+                return
+
+            logger.info("Téléchargement achevé et intégrité validée avec succès. SHA-256: %s", computed_hash)
             self.signals.download_complete.emit(dest_path, computed_hash)
 
         except ValueError as err:
-            # Erreur de validation URL (ISSUE 6) — non critique, pas de stack trace complète
             logger.error("URL de téléchargement rejetée pour raison de sécurité : %s", err)
+            if dest_path.exists():
+                dest_path.unlink(missing_ok=True)
             self.signals.download_error.emit(str(err))
         except Exception as err:
             logger.exception("Erreur lors du téléchargement de la mise à jour : %s", err)
+            if dest_path.exists():
+                dest_path.unlink(missing_ok=True)
             self.signals.download_error.emit(str(err))
 
 

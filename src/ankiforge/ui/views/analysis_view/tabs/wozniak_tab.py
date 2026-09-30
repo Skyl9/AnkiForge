@@ -98,8 +98,8 @@ class AIWozniakLinterTab(QWidget):
         self.btn_deck.clicked.connect(self.open_deck_select_dialog)
 
         self.engine_combo = QComboBox()
-        self.engine_combo.setMinimumWidth(150)
-        self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.engine_combo.setMinimumWidth(190)
+        self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.engine_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -126,6 +126,7 @@ class AIWozniakLinterTab(QWidget):
         for c in configs:
             display_name = getattr(c, "display_name", getattr(c, "name", str(c)))
             self.engine_combo.addItem(f"{display_name}", userData=c)
+            self.engine_combo.setItemData(self.engine_combo.count() - 1, display_name, Qt.ItemDataRole.ToolTipRole)
 
         self.btn_rules = SecondaryButton("Règles", tooltip="Activer, désactiver ou ajuster les 20 règles de formulation de Wozniak")
         self.btn_rules.setIcon(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_PRIMARY))

@@ -50,6 +50,15 @@ class BaseLayout(QWidget):
         pass
 
     @abstractmethod
+    def get_icon(self) -> str:
+        """Nom de l'icône Phosphor distinctive représentant la structure de la disposition."""
+        pass
+
+    def get_thumbnail_resource_name(self) -> str:
+        """Nom du fichier de miniature statique dans les ressources de l'application."""
+        return f"{self.get_layout_id()}.png"
+
+    @abstractmethod
     def set_stacked_widget(self, stacked_widget: QStackedWidget) -> None:
         """Intègre le conteneur de vues partagé dans la zone centrale du layout."""
         pass
@@ -62,6 +71,14 @@ class BaseLayout(QWidget):
     @abstractmethod
     def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
         """Construit les éléments de navigation à partir du registre central des vues."""
+        pass
+
+    def set_nav_badge(self, view_id: str, count: int | None) -> None:
+        """Publie le nombre d'éléments de travail en cours pour une vue (pastille de navigation).
+
+        `count` valant None (ou <= 0) masque la pastille. Les layouts qui ne proposent pas
+        d'indicateur (ou une vue inconnue) ignorent silencieusement l'appel.
+        """
         pass
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:

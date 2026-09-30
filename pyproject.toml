@@ -28,11 +28,14 @@ dependencies = [
     "peewee-migrate>=1.15.0",
     "youtube-transcript-api>=0.6.0",
     "mcp>=2.0.0",
+    "uvicorn>=0.30.0",
+    "starlette>=0.40.0",
     "faiss-cpu>=1.14.3",
     "numpy>=2.4.4",
     "pillow>=12.3.0",
     "edge-tts>=7.0.0",
     "keyring>=25.0.0",
+    "cryptography>=43.0.0",
 ]
 
 [project.gui-scripts]

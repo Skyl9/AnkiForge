@@ -16,7 +16,7 @@ class ToolPermissionCard(QFrame):
         label: str = "",
         description: str = "",
         category: str = "Natif",
-        category_color: str = "#3b82f6",
+        category_color: str = DesignTokens.COLOR_BLUE,
         is_checked: bool = False,
         parent: QWidget | None = None,
         tool_name: str = "",

@@ -35,6 +35,9 @@ class IdeLayout(BaseLayout):
     def get_description(self) -> str:
         return "Barre latérale sombre rétractable, recherche globale Omnibox et panneaux modulaires."
 
+    def get_icon(self) -> str:
+        return "ph.sidebar"
+
     def _setup_ui(self) -> None:
         from ankiforge.ui.components.sidebar import Sidebar
         from ankiforge.ui.components.topbar import TopBar
@@ -117,6 +120,11 @@ class IdeLayout(BaseLayout):
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         self.topbar.update_token_tracker(cost, tokens)
+
+    def set_nav_badge(self, view_id: str, count: int | None) -> None:
+        """Relaie la pastille « travail en cours » vers l'entrée correspondante de la Sidebar."""
+        if hasattr(self, "sidebar") and self.sidebar:
+            self.sidebar.set_nav_badge(view_id, count)
 
     def set_profile_name(self, profile_name: str) -> None:
         super().set_profile_name(profile_name)

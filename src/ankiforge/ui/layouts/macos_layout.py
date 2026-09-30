@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QScrollArea,
     QStackedWidget,
     QVBoxLayout,
@@ -17,22 +16,17 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton
+from ankiforge.ui.components.nav_badge import NavBadgeButton
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_logo_icon, load_on_accent_icon, load_phosphor_icon
 
 
-class MacosSegmentButton(QPushButton):
+class MacosSegmentButton(NavBadgeButton):
     """Bouton pour la barre segmentée de style macOS natif."""
 
     def __init__(self, view_id: str, icon_name: str, title: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.view_id = view_id
-        self.icon_name = icon_name
-        self.title = title
-
-        self.setCheckable(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        super().__init__(view_id, icon_name, title, parent)
         self.setFixedHeight(30)
         self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
         self.setIconSize(QSize(16, 16))
@@ -74,7 +68,7 @@ class MacosSegmentButton(QPushButton):
                     font-weight: 500;
                 }}
                 QPushButton:hover {{
-                    background-color: rgba(255, 255, 255, 0.06);
+                    background-color: {DesignTokens.BG_HOVER};
                     color: {DesignTokens.TEXT_PRIMARY};
                 }}
             """)
@@ -103,6 +97,9 @@ class MacosLayout(BaseLayout):
 
     def get_description(self) -> str:
         return "Barre supérieure unifiée avec sélecteur segmenté horizontal, typographie aérée et vue plein écran."
+
+    def get_icon(self) -> str:
+        return "ph.app-window"
 
     def _setup_ui(self) -> None:
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -233,6 +230,12 @@ class MacosLayout(BaseLayout):
         btn = self._nav_buttons.get(view_id)
         if btn:
             btn.setChecked(True)
+
+    def set_nav_badge(self, view_id: str, count: int | None) -> None:
+        """Affiche la pastille « travail en cours » sur le bouton de navigation donné."""
+        btn = self._nav_buttons.get(view_id)
+        if btn is not None:
+            btn.set_nav_badge(count)
 
     def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
         # Nettoyer

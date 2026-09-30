@@ -29,6 +29,7 @@ from ankiforge.database.models import (
     DocumentChunkModel,
     DocumentModel,
     LLMConfigModel,
+    NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
@@ -76,6 +77,65 @@ from ankiforge.utils.tags import build_document_tags
 
 logger = logging.getLogger(__name__)
 
+# Statuts de `queue_tasks_data` où la tâche est réglée : ni en cours, ni à revoir.
+SETTLED_TASK_STATUSES = ("Succès", "Acceptée")
+
+
+def _blocks_for_direct_part(
+    doc: Any,
+    part: dict[str, Any],
+    scope_title: str,
+    page_number: Any,
+    heading_path: Any,
+    content: str,
+) -> tuple[BatchSourceBlock, ...]:
+    """Traduit une partie du mode Direct en une ou N provenance(s) de fragment figée.
+
+    Une partie Direct agrège souvent plusieurs fragments de document (sous-arbre
+    coché, chapitre, plage de pages). Chaque fragment devient alors son propre
+    ``BatchSourceBlock``, porteur de son fil d'Ariane, de sa page et de son
+    identifiant exact : la provenance reste ainsi traçable fragment par fragment,
+    là où un bloc unique ne porterait qu'un fil d'Ariane agrégé sans cible.
+
+    À défaut de fragments listés (repli sur les résultats de portée antérieurs à la
+    notion de parties), un bloc unique décrit la partie entière.
+    """
+    doc_id = int(getattr(doc, "id", 0) or 0)
+    fragments = [f for f in (part.get("chunks") or []) if isinstance(f, dict)]
+    blocks: list[BatchSourceBlock] = []
+    for ordinal, fragment in enumerate(fragments):
+        fragment_content = str(fragment.get("content", "")).strip()
+        if not fragment_content:
+            continue
+        fragment_heading = fragment.get("heading_path")
+        fragment_page = fragment.get("page_number")
+        chunk_id = fragment.get("chunk_id")
+        blocks.append(
+            BatchSourceBlock(
+                kind="section",
+                label=str(fragment_heading or fragment.get("title") or scope_title),
+                content=fragment_content,
+                ordinal=ordinal,
+                page_number=int(fragment_page) if fragment_page is not None else None,
+                heading_path=str(fragment_heading) if fragment_heading else None,
+                source_id=doc_id,
+                chunk_id=int(chunk_id) if isinstance(chunk_id, int) else None,
+            )
+        )
+    if blocks:
+        return tuple(blocks)
+    return (
+        BatchSourceBlock(
+            kind="section",
+            label=scope_title,
+            content=content,
+            ordinal=0,
+            page_number=int(page_number) if page_number is not None else None,
+            heading_path=str(heading_path) if heading_path else None,
+            source_id=doc_id,
+        ),
+    )
+
 
 class BatchView(QWidget):
     """
@@ -89,6 +149,8 @@ class BatchView(QWidget):
         self.batch_view_model = BatchViewModel(self)
         self._batch_scope_results: dict[int, dict[str, Any]] = {}
         self._total_cards_accumulated = 0
+        #: Cartes enregistrées sans lien de couverture (fragment source non résolu), remonté au récapitulatif de fin de lot.
+        self._batch_unlinked_cards = 0
         self.start_timestamp = 0.0
         self._run_clock_timer: QTimer | None = None
         self.current_deck: DeckModel | None = None
@@ -154,46 +216,7 @@ class BatchView(QWidget):
         scroll_area.setMinimumHeight(100)
         build_main_layout.addWidget(scroll_area, stretch=1)
 
-        # Section 1: Composer le lot (fusion document + parties + modes d'insertion)
-        compose_card = QFrame()
-        compose_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
-        compose_layout = QVBoxLayout(compose_card)
-        compose_layout.setContentsMargins(8, 8, 8, 8)
-        compose_layout.setSpacing(6)
-
-        compose_top = QHBoxLayout()
-        compose_top.setContentsMargins(0, 0, 0, 0)
-        compose_top.setSpacing(6)
-        compose_ico = QLabel()
-        compose_ico.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
-        compose_ico.setStyleSheet("border: none; background: transparent;")
-        self.lbl_compose = QLabel("COMPOSER LE LOT")
-        self.lbl_compose.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
-        compose_top.addWidget(compose_ico)
-        compose_top.addWidget(self.lbl_compose)
-        compose_top.addStretch()
-        compose_layout.addLayout(compose_top)
-
-        self.btn_compose_batch = PrimaryButton("Composer le lot…", tooltip="Choisir le document, son mode de découpage (direct / auto), puis ses parties")
-        self.btn_compose_batch.setIcon(load_on_accent_icon("ph.plus"))
-        apply_shadow(self.btn_compose_batch, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
-        self.btn_compose_batch.clicked.connect(self._on_open_batch_composer)
-        compose_layout.addWidget(self.btn_compose_batch)
-
-        compose_hint = QLabel("Flux unique : ouvrir le document → choisir le mode de découpage (Direct ou Auto) → sélectionner les parties → Ajouter à la Queue.")
-        compose_hint.setWordWrap(True)
-        compose_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-        compose_layout.addWidget(compose_hint)
-
-        build_layout.addWidget(compose_card)
-
-        # Section 2: Cibles Anki
+        # Section 1: Cibles Anki
         target_card = QFrame()
         target_card.setStyleSheet(f"""
             QFrame {{
@@ -236,7 +259,7 @@ class BatchView(QWidget):
         target_layout.addWidget(self.btn_select_model)
         build_layout.addWidget(target_card)
 
-        # Section 3: Orchestration IA
+        # Section 2: Orchestration IA
         ai_card = QFrame()
         ai_card.setStyleSheet(f"""
             QFrame {{
@@ -276,8 +299,7 @@ class BatchView(QWidget):
         ai_layout.addWidget(self.btn_no_engine_help)
 
         self.pipeline_combo = StyledComboBox()
-        self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.pipeline_combo.setMinimumContentsLength(8)
+        self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.pipeline_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
         ai_layout.addWidget(self.pipeline_combo)
@@ -310,7 +332,7 @@ class BatchView(QWidget):
 
         build_layout.addWidget(ai_card)
 
-        # Section 4: Paramètres Avancés
+        # Section 3: Paramètres Avancés
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -389,6 +411,46 @@ class BatchView(QWidget):
         advanced_layout.addLayout(tokens_layout)
 
         build_layout.addWidget(self.advanced_container)
+
+        # Section 4: Composer le lot (fusion document + parties + modes d'insertion)
+        # Placé en dernier : le flux configure d'abord les cibles et l'orchestration, puis compose le lot.
+        compose_card = QFrame()
+        compose_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        compose_layout = QVBoxLayout(compose_card)
+        compose_layout.setContentsMargins(8, 8, 8, 8)
+        compose_layout.setSpacing(6)
+
+        compose_top = QHBoxLayout()
+        compose_top.setContentsMargins(0, 0, 0, 0)
+        compose_top.setSpacing(6)
+        compose_ico = QLabel()
+        compose_ico.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        compose_ico.setStyleSheet("border: none; background: transparent;")
+        self.lbl_compose = QLabel("COMPOSER LE LOT")
+        self.lbl_compose.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        compose_top.addWidget(compose_ico)
+        compose_top.addWidget(self.lbl_compose)
+        compose_top.addStretch()
+        compose_layout.addLayout(compose_top)
+
+        self.btn_compose_batch = PrimaryButton("Composer le lot…", tooltip="Choisir le document, son mode de découpage (direct / auto), puis ses parties")
+        self.btn_compose_batch.setIcon(load_on_accent_icon("ph.plus"))
+        apply_shadow(self.btn_compose_batch, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
+        self.btn_compose_batch.clicked.connect(self._on_open_batch_composer)
+        compose_layout.addWidget(self.btn_compose_batch)
+
+        compose_hint = QLabel("Flux unique : ouvrir le document → choisir le mode de découpage (Direct ou Auto) → sélectionner les parties → Ajouter à la Queue.")
+        compose_hint.setWordWrap(True)
+        compose_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        compose_layout.addWidget(compose_hint)
+
+        build_layout.addWidget(compose_card)
         build_layout.addStretch()
 
         self.build_panel.setMinimumWidth(380)
@@ -419,7 +481,7 @@ class BatchView(QWidget):
                 border-color: {DesignTokens.COLOR_GREEN_TEXT};
             }}
         """)
-        apply_shadow(self.btn_start_pipeline, blur=16, offset_y=0, color="rgba(16, 185, 129, 0.45)")
+        apply_shadow(self.btn_start_pipeline, blur=16, offset_y=0, color=DesignTokens.COLOR_GREEN_BORDER)
         self.btn_start_pipeline.clicked.connect(self._on_start_batch)
         self.queue_panel.add_header_widget(self.btn_start_pipeline)
 
@@ -550,6 +612,12 @@ class BatchView(QWidget):
         self.btn_no_pipeline_help.clicked.connect(lambda: show_toast(self, "Créez un pipeline dans l'onglet Pipelines."))
 
     def refresh_data(self) -> None:
+        """Recharge uniquement les caches de référence (paquets, modèles, moteurs, pipelines).
+
+        Appelé à chaque navigation : ce contrat garantit que le travail en cours
+        (`queue_tasks_data`, notes de staging, avancement des workers) survit aux
+        allers-retours entre vues. Ne jamais vider ni recalculer ces états ici.
+        """
         try:
             decks = list(DeckModel.select())
             if not decks:
@@ -643,6 +711,7 @@ class BatchView(QWidget):
                     step_cnt = PipelineStepModel.select().where(PipelineStepModel.pipeline == pipe).count()
                     display_txt = f"{pipe.name} ({step_cnt} étapes)" if step_cnt > 0 else pipe.name
                     self.pipeline_combo.addItem(load_phosphor_icon("ph.tree-structure", color=DesignTokens.COLOR_BLUE), display_txt, userData=pipe)
+                    self.pipeline_combo.setItemData(self.pipeline_combo.count() - 1, display_txt, Qt.ItemDataRole.ToolTipRole)
                 self.btn_no_pipeline_help.hide()
                 saved_pipe_id = SettingsService.get("batch/pipeline_id")
                 if saved_pipe_id is not None:
@@ -689,6 +758,14 @@ class BatchView(QWidget):
 
     def is_dirty(self) -> bool:
         return len(self.queue_tasks_data) > 0
+
+    def pending_work_count(self) -> int:
+        """Tâches encore actives (en attente, en cours, à réviser, en échec) — pastille de navigation.
+
+        Les tâches déjà réglées (`Succès`/`Acceptée`) sont exclues : une frappe
+        entièrement terminée ne doit pas laisser une pastille allumée.
+        """
+        return sum(1 for task in self.queue_tasks_data if task.get("status") not in SETTLED_TASK_STATUSES)
 
     @Slot()
     def _on_click_select_deck(self) -> None:
@@ -908,8 +985,8 @@ class BatchView(QWidget):
                     font-size: 12px;
                 }}
                 QPushButton:hover {{
-                    background-color: #059669;
-                    border-color: #34d399;
+                    background-color: {DesignTokens.COLOR_GREEN_TEXT};
+                    border-color: {DesignTokens.COLOR_GREEN_TEXT};
                 }}
             """)
 
@@ -1059,6 +1136,7 @@ class BatchView(QWidget):
 
         self._set_running_ui_state(True)
         self._start_run_clock()
+        self._batch_unlinked_cards = 0
         self.btn_resume_batch.setVisible(False)
         action_desc = "Reprise" if resume_incomplete else "Lancement"
         skip_msg = f" ({skipped_successful_count} tâche(s) déjà réussie(s) conservée(s))" if skipped_successful_count else ""
@@ -1093,7 +1171,7 @@ class BatchView(QWidget):
         if not hasattr(self, "btn_resume_batch"):
             return
         has_incomplete = any(t.get("status") in ("Erreur", "Interrompu", "Échec", "En attente") for t in self.queue_tasks_data)
-        has_finished = any(t.get("status") in ("Succès", "Acceptée") for t in self.queue_tasks_data)
+        has_finished = any(t.get("status") in SETTLED_TASK_STATUSES for t in self.queue_tasks_data)
         has_failures = any(t.get("status") in ("Erreur", "Interrompu", "Échec") for t in self.queue_tasks_data)
         self.btn_resume_batch.setVisible(has_incomplete and (has_finished or has_failures))
 
@@ -1362,20 +1440,12 @@ class BatchView(QWidget):
         page_number = part.get("page_number")
         heading_path = part.get("heading_path")
         scope_title = str(part.get("title") or heading_path or f"Section {part_index + 1}")
-        block = BatchSourceBlock(
-            kind="section",
-            label=scope_title,
-            content=content,
-            ordinal=part_index,
-            page_number=int(page_number) if page_number is not None else None,
-            heading_path=str(heading_path) if heading_path else None,
-            source_id=int(getattr(doc, "id", 0) or 0),
-        )
+        blocks = _blocks_for_direct_part(doc, part, scope_title, page_number, heading_path, content)
         return BatchScopeSnapshot(
             document_id=int(doc.id),
             document_title=str(getattr(doc, "title", "")),
             selection_mode=str(scope_result.get("selection_mode", "sections")),
-            blocks=(block,),
+            blocks=blocks,
             scope_title=scope_title,
             range_str=str(part.get("heading_path") or part.get("title") or ""),
             content=content,
@@ -1606,13 +1676,15 @@ class BatchView(QWidget):
                 chunk_id = raw.get("_source_chunk_id")
                 heading_path = raw.get("_source_heading_path")
                 page_number = raw.get("_source_page_number")
+                source_blocks = raw.get("_source_blocks")
                 card_text = " ".join(str(v) for k, v in raw.items() if not str(k).startswith("_source_") and str(v).strip()).strip()
-                resolved = CoverageAlignmentService.resolve_finest_chunk_for_card(
-                    card_text=card_text,
+                resolved, _resolution = CoverageAlignmentService.resolve_attachment(
                     doc_id=doc.id,
+                    card_text=card_text,
                     llm_section=str(heading_path) if heading_path else None,
                     source_chunk_id=int(chunk_id) if isinstance(chunk_id, int) else (int(chunk_id) if str(chunk_id).isdigit() else None),
                     page_number=int(page_number) if page_number is not None and str(page_number).isdigit() else None,
+                    source_blocks=source_blocks if isinstance(source_blocks, list) else None,
                 )
                 if resolved:
                     return build_document_tags(
@@ -1620,18 +1692,30 @@ class BatchView(QWidget):
                         doc_title=doc.title,
                         page_number=resolved.page_number,
                         section_name=resolved.heading_path,
-                        chunk_id=resolved.id,
                         extra_tags=common_tags,
                     )
+                # Aucune route n'a désigné un fragment : la carte reste traçable jusqu'au
+                # document, mais elle ne portera aucun lien de couverture. On le signale
+                # dès maintenant plutôt que de laisser l'échec passer inaperçu.
+                # Aucune `page:` n'est étiquetée : n'ayant pas désigné de fragment, la page
+                # déduite de la portée n'est pas un fait avéré sur la source, seulement une
+                # présomption sur le périmètre envoyé. La `section:` reste en revanche
+                # étiquetée quand le LLM l'a affirmée : elle décrit la provenance déclarée
+                # par le générateur, et non un fragment que nous aurions-nous-mêmes désigné.
+                logger.warning(
+                    "Carte batch sans fragment résolu (document « %s », provenance multi-blocs de %d fragment(s)) : elle apparaîtra hors couverture.",
+                    doc.title,
+                    len(source_blocks) if isinstance(source_blocks, list) else 0,
+                )
                 return build_document_tags(
                     doc_id=doc.id,
                     doc_title=doc.title,
-                    page_number=int(page_number) if page_number is not None and str(page_number).isdigit() else None,
                     section_name=str(heading_path) if heading_path else None,
                     extra_tags=common_tags,
                 )
 
             created_cards_count = 0
+            created_note_ids: list[int] = []
             with db.atomic():
                 for raw_fields in notes_data:
                     tags_list = _build_note_tags(raw_fields)
@@ -1642,6 +1726,7 @@ class BatchView(QWidget):
                         tags=json.dumps(tags_list, ensure_ascii=False),
                         status="pending",
                     )
+                    created_note_ids.append(note.id)
                     NoteVersionModel.create(
                         note=note,
                         version_number=1,
@@ -1665,10 +1750,24 @@ class BatchView(QWidget):
                 try:
                     from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-                    CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+                    report = CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+                    if report.get("stale_documents"):
+                        logger.warning(
+                            "Document « %s » : stratégie de découpage divergente, ré-indexez-le pour que les cartes de ce lot entrent en couverture.",
+                            doc.title,
+                        )
                 except Exception as err:
                     logger.debug("Synchronisation de la couverture ignorée : %s", err)
 
+            # Comptage strictement lot : seules les notes créées par cet appel sont
+            # inspectées. Le rapport de synchronisation est à l'échelle du document et
+            # compterait les notes orphelines d'un lot antérieur, une fois par partie.
+            linked = NoteChunkLinkModel.select(NoteChunkLinkModel.note_id).where(NoteChunkLinkModel.note_id.in_(created_note_ids)) if created_note_ids else []
+            linked_note_ids = {row.note_id for row in linked}
+            unlinked = len(created_note_ids) - len(linked_note_ids)
+            self._batch_unlinked_cards += unlinked
+            if unlinked:
+                self._log_formatted_line("WARN", f"{unlinked} carte(s) enregistrée(s) sans lien de couverture (hors Analyse & Audit).")
             self._log_formatted_line("SUCCESS", f"Enregistrement BDD : {len(notes_data)} note(s) ({created_cards_count} carte(s)) dans '{deck.name}'.")
         except Exception as e:
             logger.exception("Erreur lors de la sauvegarde batch : %s", e)
@@ -1689,7 +1788,17 @@ class BatchView(QWidget):
             self.card_time.val_lbl.setText(f"{mins:02d}:{secs:02d}")
 
         self._log_formatted_line("SUCCESS", f"Batch terminé : {success_count} job(s) réussi(s), {error_count} erreur(s) ({total_cards} cartes créées).")
-        show_toast(self, f"Batch terminé : {success_count} réussis, {error_count} erreurs ({total_cards} cartes créées)")
+        if self._batch_unlinked_cards:
+            self._log_formatted_line(
+                "WARN",
+                f"⚠️ {self._batch_unlinked_cards} carte(s) sans lien de couverture : leur fragment source n'a pas pu être résolu, elles n'apparaîtront pas dans l'Analyse & Audit.",
+            )
+        unlinked_hint = f", {self._batch_unlinked_cards} hors couverture" if self._batch_unlinked_cards else ""
+        show_toast(
+            self,
+            f"Batch terminé : {success_count} réussis, {error_count} erreurs ({total_cards} cartes créées{unlinked_hint})",
+            level="warning" if self._batch_unlinked_cards else None,
+        )
         self._update_resume_button_visibility()
 
     @Slot()

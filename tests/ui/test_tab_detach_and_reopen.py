@@ -316,7 +316,6 @@ class TestTransverseNavigationRouting:
         mock_doc_view._select_doc_id_in_tree = MagicMock()
 
         window._current_view_id = None
-        window._can_switch_view.return_value = True
         window._view_registry = {}
         window._view_widgets = {"documents": mock_doc_view}
         window.stacked_widget = MagicMock()

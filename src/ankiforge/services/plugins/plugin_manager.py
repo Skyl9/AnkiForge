@@ -68,7 +68,7 @@ class PluginManager:
 
     _instance: PluginManager | None = None
 
-    def __init__(self, addons_dir: Path | None = None, meta_file: Path | None = None) -> None:
+    def __init__(self, addons_dir: Path | None = None, meta_file: Path | None = None, safe_mode: bool = False) -> None:
         if addons_dir is None:
             from ankiforge.utils.paths import get_app_data_dir
 
@@ -84,7 +84,7 @@ class PluginManager:
         self._apis: dict[str, AnkiForgeAPI] = {}
         self._modules: dict[str, Any] = {}
         self._disabled_addon_ids: set[str] = set()
-        self._safe_mode: bool = False
+        self._safe_mode: bool = safe_mode
 
         self._load_meta()
 
@@ -209,15 +209,13 @@ class PluginManager:
             elif not hash_valid:
                 status = AddonStatus.ERROR
                 error_message = hash_err
-            elif not is_enabled:
+            elif self._safe_mode or not is_enabled:
                 status = AddonStatus.DISABLED
-            elif manifest.id in self._modules:
-                status = AddonStatus.ACTIVE
             elif manifest.id in old_addons and old_addons[manifest.id].status == AddonStatus.ERROR:
                 status = AddonStatus.ERROR
                 error_message = old_addons[manifest.id].error_message
             else:
-                status = AddonStatus.DISABLED
+                status = AddonStatus.ACTIVE
 
             addon_info = AddonInfo(
                 manifest=manifest,
@@ -259,10 +257,10 @@ class PluginManager:
         """
         Découvre et initialise tous les addons activés.
         """
-        if safe_mode is None:
-            self._safe_mode = self.check_safe_mode_trigger()
-        else:
+        if safe_mode is not None:
             self._safe_mode = safe_mode
+        elif not self._safe_mode:
+            self._safe_mode = self.check_safe_mode_trigger()
 
         self.discover_addons()
 
@@ -298,6 +296,17 @@ class PluginManager:
 
         if info.status == AddonStatus.INCOMPATIBLE:
             logger.warning("Addon '%s' incompatible avec la version courante : %s", addon_id, info.error_message)
+            return False
+
+        is_compat, compat_err = check_version_compatibility(
+            info.manifest.min_ankiforge_version,
+            info.manifest.max_ankiforge_version,
+            VERSION_INFO.version,
+        )
+        if not is_compat:
+            info.status = AddonStatus.INCOMPATIBLE
+            info.error_message = compat_err
+            logger.warning("Addon '%s' incompatible avec la version courante : %s", addon_id, compat_err)
             return False
 
         if info.manifest.sha256:

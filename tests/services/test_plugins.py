@@ -202,6 +202,12 @@ def test_safe_mode(temp_addons_dir):
     assert results["addon_safe"] is False
     assert pm.get_addon("addon_safe").status == AddonStatus.DISABLED
 
+    # Découverte sous safe mode initialisé à l'instanciation
+    pm_safe = PluginManager(addons_dir=temp_addons_dir, safe_mode=True)
+    discovered = pm_safe.discover_addons()
+    assert len(discovered) == 1
+    assert discovered[0].status == AddonStatus.DISABLED
+
 
 def test_zip_installation_and_uninstall(temp_addons_dir):
     """Teste l'installation d'un addon depuis une archive ZIP et sa désinstallation."""
@@ -413,3 +419,181 @@ def init_addon(api):
     assert "STEP_LIFECYCLE" not in PipelineHooksAPI.get_registered_steps()
     assert "tool_lifecycle" not in MCPHooksAPI.get_registered_tools()
     assert not addon_folder.exists()
+
+
+def test_discovered_addon_status_reflects_enabled_state(temp_addons_dir):
+    """Vérifie que la découverte rapporte le statut activé (ACTIVE/ENABLED) ou désactivé (DISABLED) fidèlement selon addons_meta.json."""
+    # 1. Créer addon_1 (activé par défaut)
+    a1 = temp_addons_dir / "addon_one"
+    a1.mkdir(parents=True)
+    m1 = {"id": "addon_one", "name": "Addon One", "version": "1.0.0"}
+    (a1 / "manifest.json").write_text(json.dumps(m1), encoding="utf-8")
+    (a1 / "__init__.py").write_text("def init_addon(api): pass", encoding="utf-8")
+
+    # 2. Créer addon_2 (désactivé via addons_meta.json)
+    a2 = temp_addons_dir / "addon_two"
+    a2.mkdir(parents=True)
+    m2 = {"id": "addon_two", "name": "Addon Two", "version": "1.0.0"}
+    (a2 / "manifest.json").write_text(json.dumps(m2), encoding="utf-8")
+    (a2 / "__init__.py").write_text("def init_addon(api): pass", encoding="utf-8")
+
+    meta_file = temp_addons_dir / "addons_meta.json"
+    meta_file.write_text(json.dumps({"disabled": ["addon_two"]}), encoding="utf-8")
+
+    pm = PluginManager(addons_dir=temp_addons_dir, meta_file=meta_file)
+    discovered = pm.discover_addons()
+    assert len(discovered) == 2
+
+    info1 = pm.get_addon("addon_one")
+    assert info1 is not None
+    assert info1.is_enabled is True
+    # Ce test doit échouer si le bug est présent (rapportait DISABLED)
+    assert info1.status == AddonStatus.ACTIVE
+    assert info1.status == AddonStatus.ENABLED
+
+    info2 = pm.get_addon("addon_two")
+    assert info2 is not None
+    assert info2.is_enabled is False
+    assert info2.status == AddonStatus.DISABLED
+
+
+def test_load_addon_enforces_version_compatibility_refusal(temp_addons_dir):
+    """Vérifie que load_addon refuse immédiatement et explicitement un addon incompatible (INCOMPATIBLE)."""
+    addon_folder = temp_addons_dir / "incompat_direct"
+    addon_folder.mkdir(parents=True)
+    manifest = {
+        "id": "incompat_direct",
+        "name": "Direct Incompatible",
+        "version": "1.0.0",
+        "min_ankiforge_version": "999.0.0",
+    }
+    (addon_folder / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (addon_folder / "__init__.py").write_text("def init_addon(api): pass", encoding="utf-8")
+
+    pm = PluginManager(addons_dir=temp_addons_dir)
+    # Découverte manuelle de l'addon
+    discovered = pm.discover_addons()
+    assert len(discovered) == 1
+    assert discovered[0].status == AddonStatus.INCOMPATIBLE
+
+    # Tentative d'appel direct à load_addon
+    success = pm.load_addon("incompat_direct")
+    assert success is False
+    addon_info = pm.get_addon("incompat_direct")
+    assert addon_info is not None
+    assert addon_info.status == AddonStatus.INCOMPATIBLE
+    assert "999.0.0" in (addon_info.error_message or "")
+
+
+def test_demo_addon_e2e_discovery_activation_ui_injection_and_deactivation(temp_addons_dir):
+    """Test d'intégration end-to-end complet : découverte → activation → vue injectée / action exposée → désactivation."""
+    demo_dir = temp_addons_dir / "super_annotator"
+    demo_dir.mkdir(parents=True)
+
+    manifest_content = {
+        "id": "super_annotator",
+        "name": "Super Annotator",
+        "version": "1.2.0",
+        "author": "AnkiForge Community",
+        "description": "Ajoute des outils d'annotation et une vue dédiée.",
+        "min_ankiforge_version": "0.1.0",
+    }
+    (demo_dir / "manifest.json").write_text(json.dumps(manifest_content), encoding="utf-8")
+
+    init_code = """
+executed_actions = []
+
+def sample_action():
+    executed_actions.append("clicked")
+
+def make_custom_widget():
+    class DummyWidget:
+        def __init__(self):
+            self.rendered = True
+    return DummyWidget()
+
+def init_addon(api):
+    # Action d'éditeur
+    api.ui.add_editor_action(
+        action_id="highlight_text",
+        label="Surligner",
+        icon_name="highlighter",
+        callback=sample_action,
+        tooltip="Surligner le texte sélectionné",
+    )
+    # Vue personnalisée
+    api.ui.add_custom_view(
+        view_id="annotator_panel",
+        title="Panneau d'Annotations",
+        icon_name="pencil-simple",
+        widget_factory=make_custom_widget,
+    )
+    # Notifications de base
+    api.ui.notify_info("Addon initialisé !")
+    api.ui.notify_success("Succès !")
+    api.ui.notify_warning("Attention !")
+    api.ui.notify_error("Erreur !")
+"""
+    (demo_dir / "__init__.py").write_text(init_code, encoding="utf-8")
+
+    meta_file = temp_addons_dir / "addons_meta.json"
+    pm = PluginManager(addons_dir=temp_addons_dir, meta_file=meta_file)
+
+    # 1. Découverte initiale : statut ACTIVE/ENABLED (activé par défaut)
+    discovered = pm.discover_addons()
+    assert len(discovered) == 1
+    assert discovered[0].id == "super_annotator"
+    assert discovered[0].status == AddonStatus.ACTIVE
+    assert discovered[0].is_enabled is True
+    # Pas encore d'API initialisée avant chargement
+    assert pm.get_addon_api("super_annotator") is None
+
+    # 2. Activation / Chargement
+    loaded = pm.load_addon("super_annotator")
+    assert loaded is True
+    info = pm.get_addon("super_annotator")
+    assert info is not None
+    assert info.status == AddonStatus.ACTIVE
+
+    # Vérification des hooks UI injectés
+    api = pm.get_addon_api("super_annotator")
+    assert api is not None
+
+    actions = api.ui.get_registered_editor_actions()
+    assert len(actions) == 1
+    assert actions[0]["action_id"] == "super_annotator:highlight_text"
+    assert actions[0]["label"] == "Surligner"
+    # Exécuter l'action pour vérifier le callback
+    actions[0]["callback"]()
+
+    views = api.ui.get_registered_custom_views()
+    assert len(views) == 1
+    assert views[0]["view_id"] == "super_annotator:annotator_panel"
+    assert views[0]["title"] == "Panneau d'Annotations"
+    widget = views[0]["widget_factory"]()
+    assert getattr(widget, "rendered", False) is True
+
+    # 3. Désactivation
+    disabled = pm.disable_addon("super_annotator")
+    assert disabled is True
+    assert pm.get_addon("super_annotator").status == AddonStatus.DISABLED
+    assert pm.get_addon("super_annotator").is_enabled is False
+    assert pm.get_addon_api("super_annotator") is None
+
+    # Vérifier persistance dans addons_meta.json
+    meta_data = json.loads(meta_file.read_text(encoding="utf-8"))
+    assert "super_annotator" in meta_data.get("disabled", [])
+
+    # 4. Redécouverte : doit rester DISABLED tant qu'il est dans meta_file
+    pm.discover_addons()
+    assert pm.get_addon("super_annotator").status == AddonStatus.DISABLED
+    assert pm.get_addon("super_annotator").is_enabled is False
+
+    # 5. Réactivation
+    enabled = pm.enable_addon("super_annotator")
+    assert enabled is True
+    assert pm.get_addon("super_annotator").status == AddonStatus.ACTIVE
+    assert pm.get_addon("super_annotator").is_enabled is True
+    assert pm.get_addon_api("super_annotator") is not None
+    meta_data_updated = json.loads(meta_file.read_text(encoding="utf-8"))
+    assert "super_annotator" not in meta_data_updated.get("disabled", [])

@@ -40,12 +40,16 @@ class ProfileItemWidget(QFrame):
         name: str,
         is_current: bool = False,
         is_selected: bool = False,
+        is_locked: bool = False,
+        lock_pid: int | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.name = name
         self.is_current = is_current
         self.is_selected = is_selected
+        self.is_locked = is_locked
+        self.lock_pid = lock_pid
         self.setObjectName("ProfileItemCard")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedHeight(58)
@@ -84,7 +88,7 @@ class ProfileItemWidget(QFrame):
         text_layout.addWidget(self.path_lbl)
         layout.addLayout(text_layout, 1)
 
-        # 3. Badge Actif
+        # 3. Badge Actif / Verrouillé
         if is_current:
             self.active_badge = QLabel("ACTIF")
             self.active_badge.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
@@ -93,6 +97,20 @@ class ProfileItemWidget(QFrame):
                     background-color: {DesignTokens.BG_ACTIVE};
                     color: {DesignTokens.COLOR_GREEN};
                     border: 1px solid {DesignTokens.COLOR_GREEN};
+                    border-radius: 9px;
+                    padding: 2px 8px;
+                }}
+            """)
+            layout.addWidget(self.active_badge)
+        elif is_locked:
+            badge_text = f"EN COURS (PID {lock_pid})" if lock_pid else "VERROUILLÉ"
+            self.active_badge = QLabel(badge_text)
+            self.active_badge.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+            self.active_badge.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    color: {DesignTokens.COLOR_YELLOW};
+                    border: 1px solid {DesignTokens.COLOR_YELLOW};
                     border-radius: 9px;
                     padding: 2px 8px;
                 }}
@@ -342,6 +360,12 @@ class ProfileSelectorDialog(QDialog):
         self.delete_btn.setEnabled(False)
         bottom_layout.addWidget(self.delete_btn)
 
+        self.btn_transfer = SecondaryButton("Transférer...", tooltip="Transférer du contenu depuis un autre profil")
+        self.btn_transfer.setFixedHeight(36)
+        self.btn_transfer.setIcon(load_phosphor_icon("arrows-left-right", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_transfer.clicked.connect(self._on_open_transfer)
+        bottom_layout.addWidget(self.btn_transfer)
+
         bottom_layout.addStretch()
 
         self.btn_cancel = SecondaryButton("Annuler", tooltip="Fermer sans changer d'espace")
@@ -358,7 +382,22 @@ class ProfileSelectorDialog(QDialog):
         layout.addLayout(bottom_layout)
 
     def accept(self) -> None:
-        """Enregistre les préférences de bascule automatique avant d'accepter."""
+        """Enregistre les préférences de bascule automatique avant d'accepter si le profil n'est pas verrouillé."""
+        if self.selected_profile and self.selected_profile != self.current_profile:
+            from ankiforge.services.profile_lock_service import ProfileLockService
+
+            is_locked, lock_info = ProfileLockService.is_locked(self.selected_profile, profiles_dir=self.pm.profiles_dir)
+            if is_locked:
+                pid_hint = f" (PID {lock_info.pid})" if lock_info else ""
+                QMessageBox.warning(
+                    self,
+                    "Profil en cours d'utilisation",
+                    f"Le profil « {self.selected_profile} » est déjà ouvert par une autre instance{pid_hint}.\n\n"
+                    "L'accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.\n"
+                    "Veuillez fermer l'autre instance ou sélectionner un autre espace de travail.",
+                )
+                return
+
         from ankiforge.utils.environment import get_app_qsettings
 
         settings = get_app_qsettings()
@@ -371,6 +410,8 @@ class ProfileSelectorDialog(QDialog):
 
     def _populate_profiles(self) -> None:
         """Remplit la liste avec tous les profils disponibles."""
+        from ankiforge.services.profile_lock_service import ProfileLockService
+
         self.list_widget.clear()
         self._card_widgets.clear()
         target_row = 0
@@ -378,12 +419,24 @@ class ProfileSelectorDialog(QDialog):
         for idx, p in enumerate(self.profiles):
             is_cur = p == self.current_profile
             is_sel = p == self.selected_profile
+            is_locked = False
+            lock_pid: int | None = None
+            if not is_cur:
+                is_locked, lock_info = ProfileLockService.is_locked(p, profiles_dir=self.pm.profiles_dir)
+                if is_locked and lock_info:
+                    lock_pid = lock_info.pid
 
             item = QListWidgetItem(self.list_widget)
             item.setSizeHint(QSize(0, 58))
             item.setData(Qt.ItemDataRole.UserRole, p)
 
-            card = ProfileItemWidget(name=p, is_current=is_cur, is_selected=is_sel)
+            card = ProfileItemWidget(
+                name=p,
+                is_current=is_cur,
+                is_selected=is_sel,
+                is_locked=is_locked,
+                lock_pid=lock_pid,
+            )
             self.list_widget.addItem(item)
             self.list_widget.setItemWidget(item, card)
             self._card_widgets.append(card)
@@ -466,6 +519,13 @@ class ProfileSelectorDialog(QDialog):
             except Exception as e:
                 logger.error("Erreur lors de la suppression du profil '%s': %s", self.selected_profile, e, exc_info=True)
                 QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le profil : {e}")
+
+    def _on_open_transfer(self) -> None:
+        """Ouvre le dialogue de transfert inter-profils."""
+        from ankiforge.ui.dialogs.profile_transfer_dialog import ProfileTransferDialog
+
+        dialog = ProfileTransferDialog(profiles_dir=self.pm.profiles_dir, parent=self)
+        dialog.exec()
 
     def get_selected_profile(self) -> str:
         return self.selected_profile

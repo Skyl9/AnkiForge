@@ -2,7 +2,7 @@ import logging
 import urllib.parse
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -26,6 +26,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import get_mathjax_script
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankiforge.utils.paths import get_media_dir
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +363,9 @@ class DuplicateMergeInspector(QFrame):
 
         self.lbl_sim = QLabel("Similitude : --%")
         self.lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        self.lbl_sim.setStyleSheet(f"background: rgba(239,68,68,0.2); color: {DesignTokens.COLOR_RED}; padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(239,68,68,0.4);")
+        self.lbl_sim.setStyleSheet(
+            f"background: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
+        )
         h_header.addWidget(self.lbl_sim)
 
         layout.addLayout(h_header)
@@ -434,7 +437,7 @@ class DuplicateMergeInspector(QFrame):
         self.btn_false = SecondaryButton("Faux Doublon")
         self.btn_false.setIcon(load_phosphor_icon("ph.prohibit", color=DesignTokens.COLOR_RED))
         self.btn_false.setFixedHeight(28)
-        self.btn_false.setStyleSheet(f"border-color: rgba(239,68,68,0.5); color: {DesignTokens.COLOR_RED}; padding: 0 6px;")
+        self.btn_false.setStyleSheet(f"border-color: {DesignTokens.COLOR_RED_BORDER}; color: {DesignTokens.COLOR_RED}; padding: 0 6px;")
 
         f_actions.addWidget(self.btn_valid, 1)
         f_actions.addWidget(self.btn_ignore, 1)
@@ -494,7 +497,7 @@ class DuplicateMergeInspector(QFrame):
 
         lbl_srs_state = QLabel("🟢 Maîtrisée")
         lbl_srs_state.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
-        lbl_srs_state.setStyleSheet(f"background: rgba(16,185,129,0.2); color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
+        lbl_srs_state.setStyleSheet(f"background: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
 
         lbl_srs_ivl = QLabel("35 j")
         lbl_srs_ivl.setFont(QFont(DesignTokens.FONT_MAIN, 8))
@@ -549,9 +552,7 @@ class DuplicateMergeInspector(QFrame):
 
         def _update_styles():
             mode = self.view_modes.get(source, "source")
-            rgba_bg = active_color.replace("rgb", "rgba").replace(")", ", 0.25)") if "rgb" in active_color else f"{active_color}40"
-            if active_color.startswith("#"):
-                rgba_bg = f"rgba({int(active_color[1:3], 16)}, {int(active_color[3:5], 16)}, {int(active_color[5:7], 16)}, 0.25)"
+            rgba_bg = DesignTokens._with_alpha(active_color, 0.25)
 
             if mode == "source":
                 btn_source.setStyleSheet(f"background: {rgba_bg}; color: {active_color}; border: 1px solid {active_color}; padding: 0 6px;")
@@ -768,7 +769,10 @@ class DuplicateMergeInspector(QFrame):
         if mode == "katex":
             web_view = self._get_or_create_web_view(source)
             html = self._build_unified_katex_html(content, color, btn_text, source)
-            web_view.setHtmlSafe(html)
+            media_dir = get_media_dir()
+            media_dir.mkdir(exist_ok=True)
+            base_url = QUrl.fromLocalFile(str(media_dir) + "/")
+            web_view.setHtmlSafe(html, base_url)
             stack.setCurrentIndex(1)
         else:
             self._populate_source_fields(layout, content, color, btn_text, source)
@@ -802,13 +806,13 @@ class DuplicateMergeInspector(QFrame):
             reps = getattr(note, "srs_reps", 0)
             if reps > 21:
                 srs_dict["state"].setText("🟢 Maîtrisée")
-                srs_dict["state"].setStyleSheet(f"background: rgba(16,185,129,0.2); color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
+                srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
             elif reps > 5:
                 srs_dict["state"].setText("🟡 Apprentissage")
-                srs_dict["state"].setStyleSheet(f"background: rgba(245,158,11,0.2); color: {DesignTokens.COLOR_YELLOW}; padding: 2px 6px; border-radius: 4px;")
+                srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW}; padding: 2px 6px; border-radius: 4px;")
             else:
                 srs_dict["state"].setText("🔴 Nouvelle")
-                srs_dict["state"].setStyleSheet(f"background: rgba(239,68,68,0.2); color: {DesignTokens.COLOR_RED}; padding: 2px 6px; border-radius: 4px;")
+                srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; padding: 2px 6px; border-radius: 4px;")
 
             srs_dict["ivl"].setText(f"{getattr(note, 'srs_ivl', 0)} j")
             srs_dict["ease"].setText(f"{getattr(note, 'srs_ease', 250)}%")

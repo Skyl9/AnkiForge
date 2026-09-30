@@ -389,8 +389,8 @@ class KaTeXEditor(QWidget):
             table {{ border-collapse: collapse; width: 100%; }}
             th, td {{ border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 8px; text-align: left; }}
             th {{ background-color: {DesignTokens.BG_HOVER}; }}
-            .cloze {{ color: #38bdf8; font-weight: bold; }}
-            .katex .cloze {{ color: #38bdf8 !important; font-weight: bold; background: rgba(56, 189, 248, 0.15); border-radius: 3px; padding: 0 3px; }}
+            .cloze {{ color: {DesignTokens.COLOR_CYAN}; font-weight: bold; }}
+            .katex .cloze {{ color: {DesignTokens.COLOR_CYAN} !important; font-weight: bold; background: {DesignTokens.COLOR_CYAN_BG}; border-radius: 3px; padding: 0 3px; }}
         </style>
         </head>
         <body>

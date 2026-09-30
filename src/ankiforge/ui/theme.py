@@ -67,6 +67,8 @@ class DesignTokens:
     COLOR_YELLOW = "#f59e0b"
     COLOR_RED = "#ef4444"
     COLOR_PURPLE = "#6366f1"
+    COLOR_ORANGE = "#f97316"
+    COLOR_CYAN = "#06b6d4"
 
     # Semantic tinted backgrounds (alpha variants dérivés de color_* à l'application du profil)
     ACCENT_BG = "rgba(99, 102, 241, 0.15)"
@@ -75,6 +77,8 @@ class DesignTokens:
     COLOR_YELLOW_BG = "rgba(245, 158, 11, 0.15)"
     COLOR_BLUE_BG = "rgba(59, 130, 246, 0.15)"
     COLOR_PURPLE_BG = "rgba(99, 102, 241, 0.12)"
+    COLOR_ORANGE_BG = "rgba(249, 115, 22, 0.15)"
+    COLOR_CYAN_BG = "rgba(6, 182, 212, 0.15)"
 
     # Semantic tinted borders (bordure teintée par alpha, dérivées comme les *_BG)
     ACCENT_BORDER = "rgba(99, 102, 241, 0.3)"
@@ -83,6 +87,8 @@ class DesignTokens:
     COLOR_YELLOW_BORDER = "rgba(245, 158, 11, 0.3)"
     COLOR_BLUE_BORDER = "rgba(59, 130, 246, 0.3)"
     COLOR_PURPLE_BORDER = "rgba(168, 85, 247, 0.3)"
+    COLOR_ORANGE_BORDER = "rgba(249, 115, 22, 0.3)"
+    COLOR_CYAN_BORDER = "rgba(6, 182, 212, 0.3)"
 
     # Semantic text-on-tint (texte lisible sur fond teinté ; sombre → teinte claire, claire → couleur de base)
     COLOR_RED_TEXT = "#f87171"
@@ -90,6 +96,8 @@ class DesignTokens:
     COLOR_YELLOW_TEXT = "#fcd34d"
     COLOR_BLUE_TEXT = "#93c5fd"
     COLOR_PURPLE_TEXT = "#a5b4fc"
+    COLOR_ORANGE_TEXT = "#fdba74"
+    COLOR_CYAN_TEXT = "#67e8f9"
 
     # Anki Card Flags (1..7)
     FLAG_NONE = 0
@@ -181,6 +189,8 @@ class DesignTokens:
         cls.COLOR_YELLOW = profile.color_yellow
         cls.COLOR_RED = profile.color_red
         cls.COLOR_PURPLE = profile.color_purple
+        cls.COLOR_ORANGE = getattr(profile, "color_orange", "#f97316")
+        cls.COLOR_CYAN = getattr(profile, "color_cyan", "#06b6d4")
 
         # Semantic tinted backgrounds — dérivés des couleurs sémantiques actives (réassignés à chaud)
         cls.ACCENT_BG = profile.accent_bg or cls._with_alpha(profile.accent_primary, 0.15)
@@ -189,6 +199,8 @@ class DesignTokens:
         cls.COLOR_YELLOW_BG = profile.color_yellow_bg or cls._with_alpha(profile.color_yellow, 0.15)
         cls.COLOR_BLUE_BG = profile.color_blue_bg or cls._with_alpha(profile.color_blue, 0.15)
         cls.COLOR_PURPLE_BG = profile.color_purple_bg or cls._with_alpha(profile.color_purple, 0.12)
+        cls.COLOR_ORANGE_BG = getattr(profile, "color_orange_bg", "") or cls._with_alpha(cls.COLOR_ORANGE, 0.15)
+        cls.COLOR_CYAN_BG = getattr(profile, "color_cyan_bg", "") or cls._with_alpha(cls.COLOR_CYAN, 0.15)
 
         # Semantic tinted borders — dérivées des couleurs sémantiques actives
         cls.ACCENT_BORDER = profile.accent_border or cls._with_alpha(profile.accent_primary, 0.3)
@@ -197,6 +209,8 @@ class DesignTokens:
         cls.COLOR_YELLOW_BORDER = profile.color_yellow_border or cls._with_alpha(profile.color_yellow, 0.3)
         cls.COLOR_BLUE_BORDER = profile.color_blue_border or cls._with_alpha(profile.color_blue, 0.3)
         cls.COLOR_PURPLE_BORDER = profile.color_purple_border or cls._with_alpha(profile.color_purple, 0.3)
+        cls.COLOR_ORANGE_BORDER = cls._with_alpha(cls.COLOR_ORANGE, 0.3)
+        cls.COLOR_CYAN_BORDER = cls._with_alpha(cls.COLOR_CYAN, 0.3)
 
         # Branch A/B — couleurs fixes du design system, teintes alpha dérivées
         cls.BRANCH_A_BG = cls._with_alpha(cls.BRANCH_A, 0.12)
@@ -210,6 +224,8 @@ class DesignTokens:
         cls.COLOR_YELLOW_TEXT = profile.color_yellow_text or ("#fcd34d" if cls.IS_DARK else profile.color_yellow)
         cls.COLOR_BLUE_TEXT = profile.color_blue_text or ("#93c5fd" if cls.IS_DARK else profile.color_blue)
         cls.COLOR_PURPLE_TEXT = profile.color_purple_text or ("#a5b4fc" if cls.IS_DARK else profile.color_purple)
+        cls.COLOR_ORANGE_TEXT = getattr(profile, "color_orange_text", "") or ("#fdba74" if cls.IS_DARK else cls.COLOR_ORANGE)
+        cls.COLOR_CYAN_TEXT = getattr(profile, "color_cyan_text", "") or ("#67e8f9" if cls.IS_DARK else cls.COLOR_CYAN)
 
         # Syntax Highlighting Tokens
         cls.SYNTAX_TAG = getattr(profile, "syntax_tag", "#38bdf8" if cls.IS_DARK else "#0284c7")
@@ -266,7 +282,7 @@ def setup_dynamic_theme(app: QApplication) -> None:
 
 def is_dark_mode() -> bool:
     """Returns whether the application is in dark mode."""
-    return True
+    return DesignTokens.is_dark_mode()
 
 
 def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: str | QColor = "rgba(0,0,0,0.5)") -> None:

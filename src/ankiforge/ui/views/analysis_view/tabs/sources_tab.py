@@ -1,7 +1,9 @@
+import json
 import logging
+from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Qt, QTimer, Signal, Slot
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal, Slot
+from PySide6.QtGui import QColor, QFont, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -11,6 +13,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTextBrowser,
@@ -22,17 +25,33 @@ from ankiforge.database.models import (
     DocumentChunkModel,
     DocumentModel,
     NoteChunkLinkModel,
+    NoteModel,
 )
 from ankiforge.repositories.document_repository import DocumentRepository
+from ankiforge.repositories.note_repository import NoteRepository
+from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.dispatch import run_on_owner_thread
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
+if TYPE_CHECKING:
+    from ankiforge.ui.components.linter_widgets import SourceDiagnosticCardWidget
+
 logger = logging.getLogger(__name__)
+
+# Rôles personnalisés du sommaire de l'inspecteur. Les fragments portent l'essentiel de
+# leur identité dans ces rôles plutôt que dans la seule chaîne affichée, afin que les
+# actions (exclusion/ré-inclusion) restent possibles sans réinterroger la base.
+_SCOPE_HINT = "Clic droit sur une section : exclure / ré-inclure"
+
+_ROLE_CHUNK_ID = int(Qt.ItemDataRole.UserRole)
+_ROLE_HEADING = _ROLE_CHUNK_ID + 1
+_ROLE_CARDS = _ROLE_CHUNK_ID + 2
+_ROLE_TITLE = _ROLE_CHUNK_ID + 3
 
 
 class ClickableChunkWidget(QFrame):
@@ -80,6 +99,48 @@ class ClickableChunkWidget(QFrame):
         super().mousePressEvent(event)
 
 
+class LinkedNoteCard(QFrame):
+    """Carte Anki liée à une section, cliquable pour ouvrir la note dans l'éditeur.
+
+    Le panneau inspecteur n'affiche plus des blocs statiques : chaque carte est une cible
+    d'ouverture vers `EditionView`. L'activation (clic gauche, ou Entrée/Espace au clavier)
+    émet l'identifiant de la note représentée, que le panneau relaie à la navigation
+    applicative. Seule la pression gauche active : le clic droit reste disponible pour un
+    menu contextuel ultérieur.
+
+    Le style (fond, survol, focus) est déclaré dans le `StyleEngine` sous
+    `QFrame#LinkedNoteCard`, comme toute carte cliquable du design system.
+    """
+
+    activated = Signal(int)
+
+    def __init__(self, note_id: int, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.note_id = note_id
+
+        self.setObjectName("LinkedNoteCard")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAccessibleName(f"Carte Anki liée à la note #{note_id}")
+        self.setAccessibleDescription("Clic ou Entrée pour ouvrir cette note dans l'éditeur de cartes")
+        self.setToolTip("Ouvrir cette note dans l'éditeur de cartes")
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+            self.activated.emit(self.note_id)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            self.activated.emit(self.note_id)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class DocumentInspectorPanel(QWidget):
     """Panneau pour inspecter l'audit et la couverture détaillée d'un document."""
 
@@ -94,6 +155,8 @@ class DocumentInspectorPanel(QWidget):
         else:
             self.doc_id = doc_or_id
             self.doc = DocumentModel.get_or_none(DocumentModel.id == doc_or_id)
+
+        self._applying_local_coverage_change = False
 
         if not self.doc:
             return
@@ -134,6 +197,10 @@ class DocumentInspectorPanel(QWidget):
         header_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         header_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         header_lbl.setToolTip(title_to_display)
+        # Le titre du document peut être très long : il cède de la place à la pastille de
+        # couverture, dont le libellé change de longueur selon le périmètre retenu.
+        header_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        header_lbl.setMinimumWidth(120)
 
         self.lbl_doc_summary = QLabel("Couverture : 0%")
         self.lbl_doc_summary.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
@@ -154,12 +221,18 @@ class DocumentInspectorPanel(QWidget):
         self.btn_align_cards.setToolTip("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce cours")
         self.btn_align_cards.clicked.connect(self._on_align_cards)
 
+        self.btn_refine_links = SecondaryButton("Affiner les liens")
+        self.btn_refine_links.setIcon(load_phosphor_icon("ph.crosshair", color=DesignTokens.COLOR_BLUE))
+        self.btn_refine_links.setToolTip("Rattacher aux sous-sections (H3+) les cartes liées à un titre parent large (H1/H2) — affinement déterministe, local et instantané")
+        self.btn_refine_links.clicked.connect(self._on_refine_links)
+
         h_layout.addWidget(btn_back)
         h_layout.addSpacing(4)
         h_layout.addWidget(ico_doc)
         h_layout.addWidget(header_lbl, 1)
         h_layout.addWidget(self.lbl_doc_summary)
         h_layout.addWidget(self.btn_align_cards)
+        h_layout.addWidget(self.btn_refine_links)
         h_layout.addWidget(self.btn_fill_orphans)
         h_layout.addWidget(self.btn_reindex)
 
@@ -204,8 +277,27 @@ class DocumentInspectorPanel(QWidget):
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
         """)
-        self.chapters_list.itemClicked.connect(self._on_chapter_item_clicked)
+        self.chapters_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.chapters_list.customContextMenuRequested.connect(self._show_chapter_context_menu)
+        self.chapters_list.currentItemChanged.connect(self._on_current_chapter_changed)
         left_layout.addWidget(self.chapters_list, 1)
+
+        scope_row = QHBoxLayout()
+        scope_row.setContentsMargins(0, 0, 0, 0)
+        scope_row.setSpacing(6)
+
+        self.btn_exclude_section = SecondaryButton("Exclure cette section", tooltip="Retirer la section sélectionnée du périmètre du document")
+        self.btn_exclude_section.setIcon(load_phosphor_icon("ph.prohibit", color=DesignTokens.TEXT_PRIMARY))
+        # `clicked` émet un `checked` booléen : on court-circuite par un slot sans argument
+        # pour que ce booléen ne soit pas pris pour un identifiant de fragment.
+        self.btn_exclude_section.clicked.connect(lambda _checked=False: self.toggle_section_exclusion())
+        scope_row.addWidget(self.btn_exclude_section)
+
+        lbl_scope_status = QLabel(self._scope_status_text(0, "sections"))
+        lbl_scope_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
+        self.lbl_scope_status = lbl_scope_status
+        scope_row.addWidget(lbl_scope_status, 1)
+        left_layout.addLayout(scope_row)
 
         lbl_text_title = QLabel("Extrait de la Section Sélectionnée")
         lbl_text_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
@@ -266,6 +358,10 @@ class DocumentInspectorPanel(QWidget):
     def _handle_coverage_synced(self, event: CoverageSyncedEvent) -> None:
         if event.doc_id is not None and event.doc_id != self.doc_id:
             return
+        if self._applying_local_coverage_change:
+            # La modification vient d'être appliquée ligne à ligne : reconstruire la liste
+            # ici effacerait la sélection de l'utilisateur pour rien.
+            return
         run_on_owner_thread(self, self.load_chunks)
 
     def load_chunks(self) -> None:
@@ -274,43 +370,86 @@ class DocumentInspectorPanel(QWidget):
 
         if not chunks:
             self.lbl_doc_summary.setText("Non indexé (0 section)")
+            self.lbl_scope_status.setText(self._scope_status_text(0, "sections"))
             self.text_preview.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED};'>Ce document n'a pas encore été fragmenté. Cliquez sur 'Ré-indexer FAISS'.</p>")
+            self._sync_exclusion_action()
             return
 
-        covered_count = 0
         for chunk in chunks:
             card_count = NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk).count()
-            is_covered = card_count > 0
-            if is_covered:
-                covered_count += 1
-                badge = "●"
-                status_text = f"{card_count} carte(s)"
-            else:
-                badge = "○"
-                status_text = "Trou (0 carte)"
-
             title_str = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
-            item_text = f"{badge} {title_str}  ·  {status_text}"
 
-            item = QListWidgetItem(item_text)
-            item.setData(Qt.ItemDataRole.UserRole, chunk.id)
-            if is_covered:
-                item.setForeground(QColor(DesignTokens.COLOR_GREEN))
-            else:
-                item.setForeground(QColor(DesignTokens.COLOR_YELLOW))
+            item = QListWidgetItem()
+            item.setData(_ROLE_CHUNK_ID, chunk.id)
+            item.setData(_ROLE_HEADING, chunk.heading_path or "")
+            item.setData(_ROLE_CARDS, card_count)
+            item.setData(_ROLE_TITLE, title_str)
+            self._apply_row_state(item, card_count, DocumentRepository.is_section_excluded(self.doc, chunk.heading_path or ""))
             self.chapters_list.addItem(item)
 
-        doc_repo = DocumentRepository()
-        stats = doc_repo.get_coverage_stats(self.doc.id)
+        self._refresh_coverage_summary()
+
+        if self.chapters_list.count() > 0:
+            self.chapters_list.setCurrentRow(0)
+
+    @staticmethod
+    def _row_cards(item: QListWidgetItem | None) -> int:
+        """Nombre de cartes Anki portées par la ligne du sommaire."""
+        return int(item.data(_ROLE_CARDS) or 0) if item is not None else 0
+
+    def _apply_row_state(self, item: QListWidgetItem, card_count: int, is_excluded: bool) -> None:
+        """Habille une ligne du sommaire selon sa couverture et son appartenance au périmètre."""
+        title_str = str(item.data(_ROLE_TITLE) or "")
+        if is_excluded:
+            item.setText(f"⊘ {title_str}  ·  Exclue de l'analyse")
+            item.setForeground(QColor(DesignTokens.TEXT_MUTED))
+            item.setToolTip(f"{title_str}\nHors périmètre : cette section ne compte plus dans la couverture du document.")
+            return
+        if card_count > 0:
+            item.setText(f"● {title_str}  ·  {card_count} carte(s)")
+            item.setForeground(QColor(DesignTokens.COLOR_GREEN))
+        else:
+            item.setText(f"○ {title_str}  ·  Trou (0 carte)")
+            item.setForeground(QColor(DesignTokens.COLOR_YELLOW))
+        item.setToolTip(f"{title_str}\nClic droit pour exclure cette section de l'analyse.")
+
+    def _refresh_row_states(self) -> None:
+        """Recalcule les compteurs de cartes et réapplique l'état d'exclusion à chaque ligne, sans reconstruire le sommaire."""
+        counts = DocumentRepository().count_cards_by_chunk(self.doc_id)
+        for row in range(self.chapters_list.count()):
+            item = self.chapters_list.item(row)
+            card_count = counts.get(int(item.data(_ROLE_CHUNK_ID) or 0), 0)
+            item.setData(_ROLE_CARDS, card_count)
+            self._apply_row_state(
+                item,
+                card_count,
+                DocumentRepository.is_section_excluded(self.doc, str(item.data(_ROLE_HEADING) or "")),
+            )
+
+    def _covered_row_count(self) -> int:
+        """Nombre de lignes du sommaire portant au moins une carte Anki."""
+        return sum(1 for row in range(self.chapters_list.count()) if self._row_cards(self.chapters_list.item(row)) > 0)
+
+    def _refresh_coverage_summary(self) -> None:
+        """Recalcule la pastille de couverture globale à partir des unités actives du document."""
+        stats = DocumentRepository().get_coverage_stats(self.doc_id)
         unit_type = stats.get("unit_type", "sections")
         unit_label = "pages" if unit_type == "pages" else "sections"
-        covered_units = stats.get("covered_units", covered_count)
-        total_units = stats.get("total_units", len(chunks))
+        covered_units = stats.get("covered_units", self._covered_row_count())
+        total_units = stats.get("total_units", self.chapters_list.count())
         percent = stats.get("coverage_pct", 0.0)
         total_cards = stats.get("total_cards", 0)
         excluded_units = stats.get("excluded_units", 0)
-        excl_str = f" · {excluded_units} exclu(e)s" if excluded_units > 0 else ""
-        self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_units}/{total_units} {unit_label}{excl_str} · {total_cards} cartes)")
+        self.lbl_scope_status.setText(self._scope_status_text(excluded_units, unit_label))
+        if total_units == 0 and excluded_units > 0:
+            # Périmètre entièrement exclu : afficher « 0 % » en rouge sanctionnerait un choix
+            # de l'utilisateur, alors qu'aucune section active ne demande de carte.
+            self.lbl_doc_summary.setText("Périmètre vide (0 section active)")
+            self.lbl_doc_summary.setStyleSheet(
+                f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 10px;"
+            )
+            return
+        self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_units}/{total_units} {unit_label} · {total_cards} cartes)")
         if percent >= 90:
             self.lbl_doc_summary.setStyleSheet(
                 f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 4px 10px;"
@@ -324,15 +463,165 @@ class DocumentInspectorPanel(QWidget):
                 f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; border: 1px solid {DesignTokens.COLOR_RED_BORDER}; border-radius: 9999px; padding: 4px 10px;"
             )
 
-        if self.chapters_list.count() > 0:
-            self.chapters_list.setCurrentRow(0)
-            first_id = self.chapters_list.item(0).data(Qt.ItemDataRole.UserRole)
-            self.inspect_chunk(first_id)
+    @staticmethod
+    def _scope_status_text(excluded_units: int, unit_label: str) -> str:
+        """Phrase d'état du périmètre affichée sous le sommaire (accents et pluriel corrects)."""
+        if excluded_units <= 0:
+            return _SCOPE_HINT
+        noun = unit_label if excluded_units > 1 else unit_label.removesuffix("s")
+        return f"{excluded_units} {noun} hors périmètre · clic droit pour ré-inclure"
 
-    def _on_chapter_item_clicked(self, item: QListWidgetItem) -> None:
-        chunk_id = item.data(Qt.ItemDataRole.UserRole)
+    def _on_current_chapter_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+        """La sélection du sommaire pilote l'aperçu et l'action d'exclusion de section."""
+        self._sync_exclusion_action()
+        if current is None:
+            return
+        chunk_id = current.data(_ROLE_CHUNK_ID)
         if chunk_id:
             self.inspect_chunk(chunk_id)
+
+    def _exclusion_spec(self, item: QListWidgetItem | None) -> tuple[str, str, bool, bool]:
+        """Décide l'état de l'action d'exclusion pour une ligne : (libellé, icône, exclue, appliquable).
+
+        Source unique de vérité partagée par le bouton de la barre d'actions et par le menu
+        contextuel : les deux affichent donc toujours la même proposition pour une section.
+        """
+        heading = str(item.data(_ROLE_HEADING) or "") if item is not None else ""
+        if not DocumentRepository.is_excludable_heading(heading):
+            return "Exclure cette section", "ph.prohibit", False, False
+        if DocumentRepository.is_section_excluded(self.doc, heading):
+            return "Ré-inclure la section", "ph.arrow-counter-clockwise", True, True
+        return "Exclure cette section", "ph.prohibit", False, True
+
+    def _sync_exclusion_action(self) -> None:
+        """Aligne le libellé de l'action d'exclusion sur la section sélectionnée."""
+        item = self.chapters_list.currentItem()
+        title = str(item.data(_ROLE_TITLE) or "") if item is not None else ""
+        label, icon_name, is_excluded, applicable = self._exclusion_spec(item)
+
+        self.btn_exclude_section.setText(label)
+        self.btn_exclude_section.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+        self.btn_exclude_section.setEnabled(applicable)
+        if not applicable:
+            self.btn_exclude_section.setToolTip("Sélectionnez une section titrée : un fragment au libellé de page n'a pas de titre de section à exclure.")
+        elif is_excluded:
+            self.btn_exclude_section.setToolTip(f"Réintégrer « {title} » au périmètre du document et à sa couverture.")
+        else:
+            self.btn_exclude_section.setToolTip(f"Retirer « {title} » du périmètre : la section ne comptera plus comme une lacune de couverture.")
+
+    def toggle_section_exclusion(self) -> None:
+        """Exclut ou réintègre la section sélectionnée du périmètre d'analyse du document.
+
+        L'exclusion est persistée sur ``DocumentModel.excluded_headings`` puis répercutée
+        immédiatement sur le sommaire et sur la couverture globale, sans reconstruire
+        l'inspecteur : la section reste sélectionnée et inspectable.
+        """
+        item = self.chapters_list.currentItem()
+        if item is None:
+            return
+
+        heading = str(item.data(_ROLE_HEADING) or "")
+        if not DocumentRepository.is_excludable_heading(heading):
+            show_toast(self, "Cette section n'a pas de titre exploitable : elle ne peut pas être exclue de l'analyse.")
+            return
+
+        was_excluded = DocumentRepository.is_section_excluded(self.doc, heading)
+        repo = DocumentRepository()
+        if not repo.set_section_excluded(self.doc_id, heading, not was_excluded):
+            logger.warning("Exclusion de la section %r refusée pour le document %s", heading, self.doc_id)
+            return
+
+        self.doc = repo.get_document_by_id(self.doc_id) or self.doc
+        self._refresh_row_states()
+        self._refresh_coverage_summary()
+        self._sync_exclusion_action()
+        show_toast(self, f"Section « {item.data(_ROLE_TITLE) or heading} » {'réintégrée' if was_excluded else 'exclue'} de l'analyse.")
+
+        self._applying_local_coverage_change = True
+        try:
+            event_bus.publish(CoverageSyncedEvent(doc_id=self.doc_id))
+        finally:
+            self._applying_local_coverage_change = False
+
+    @staticmethod
+    def _refinement_report_text(report: dict[str, Any]) -> str:
+        """Phrase de synthèse de l'affinement des liens, pour le toast de synthèse."""
+        reassigned = int(report.get("reassigned", 0))
+        resolved = int(report.get("false_gaps_resolved", 0))
+        kept = int(report.get("kept_on_parent", 0))
+        new_gaps = int(report.get("new_gaps", 0))
+        if not reassigned and not kept:
+            return "Aucune carte de chapitre à rattacher à une sous-section plus fine."
+
+        parts = [f"{reassigned} carte(s) réassignée(s) vers des sous-sections plus fines ({resolved} fausse(s) lacune(s) résolue(s))"]
+        if kept:
+            parts.append(f"{kept} conservée(s) sur son chapitre faute de sous-section plus spécifique")
+        if new_gaps:
+            parts.append(f"{new_gaps} conteneur(s) laissé(s) sans carte")
+        return " · ".join(parts)
+
+    @Slot()
+    def _on_refine_links(self) -> None:
+        """Affine les liens rattachés aux titres parents larges vers leurs sous-sections (H3+).
+
+        L'affinement est déterministe, local et instantané : le service réécrit les liens et
+        les tags de provenance dans une transaction, puis l'inspecteur rafraîchit ses
+        compteurs en place — la section sélectionnée reste sélectionnée et inspectable.
+        """
+        if not self.doc:
+            return
+
+        self._applying_local_coverage_change = True
+        try:
+            report = CoverageAlignmentService.refine_links_to_subsections(self.doc_id)
+        finally:
+            self._applying_local_coverage_change = False
+
+        self._refresh_row_states()
+        self._refresh_coverage_summary()
+        self._refresh_current_chunk_panel()
+        show_toast(self, self._refinement_report_text(report))
+
+    def _refresh_current_chunk_panel(self) -> None:
+        """Recharge l'aperçu de la section sélectionnée après une modification de ses liens.
+
+        Une carte déplacée hors de la section courante doit disparaître du panneau des
+        cartes liées sans attendre que l'utilisateur resélectionne une autre ligne.
+        """
+        current = self.chapters_list.currentItem()
+        chunk_id = current.data(_ROLE_CHUNK_ID) if current is not None else None
+        if chunk_id:
+            self.inspect_chunk(chunk_id)
+
+    def chapter_context_menu(self, item: QListWidgetItem) -> StyledMenu | None:
+        """Menu contextuel d'une ligne du sommaire : exclure ou ré-inclure sa section.
+
+        L'action est proposée pour toute section titrée et désactivée pour un fragment au
+        libellé de page, qui n'a pas de titre de section à exclure. Un clic droit ne
+        change pas la ligne courante sous Qt : on la sélectionne donc d'abord, ce qui met
+        l'aperçu à jour et fait porter l'action à la section visée.
+        """
+        if item is None:
+            return None
+
+        label, icon_name, _is_excluded, applicable = self._exclusion_spec(item)
+        menu = StyledMenu(self)
+        toggle_action = menu.addAction(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY), label)
+        toggle_action.setEnabled(applicable)
+        toggle_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item))
+        return menu
+
+    def _toggle_chapter_from_menu(self, item: QListWidgetItem) -> None:
+        """Bascule l'exclusion de la section visée par le menu contextuel, en la sélectionnant."""
+        self.chapters_list.setCurrentItem(item)
+        self.toggle_section_exclusion()
+
+    def _show_chapter_context_menu(self, pos: QPoint) -> None:
+        """Ouvre le menu contextuel du sommaire à l'emplacement du clic droit."""
+        menu = self.chapter_context_menu(self.chapters_list.itemAt(pos))
+        if menu is None:
+            return
+        menu.exec(self.chapters_list.viewport().mapToGlobal(pos))
 
     def inspect_chunk(self, chunk_id: int) -> None:
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
@@ -385,70 +674,111 @@ class DocumentInspectorPanel(QWidget):
             self.cards_layout.addWidget(lbl_cnt)
 
             for link in links:
-                note = link.note
-                card_box = QFrame()
-                card_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_INPUT}; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 10px; }}")
-                c_layout = QVBoxLayout(card_box)
-                c_layout.setContentsMargins(8, 8, 8, 8)
-                c_layout.setSpacing(6)
-
-                import json
-
-                from ankiforge.database.models import CardModel, NoteVersionModel
-
-                fields = {}
-                if note:
-                    active_ver = NoteVersionModel.get_or_none(
-                        NoteVersionModel.note == note,
-                        NoteVersionModel.is_active == True,  # noqa: E712
-                    )
-                    if active_ver and active_ver.content:
-                        try:
-                            fields = json.loads(active_ver.content)
-                        except Exception as e:
-                            logger.debug("Erreur parsing active_ver content: %s", e)
-
-                    if not fields and hasattr(note, "fields_data") and getattr(note, "fields_data", None):
-                        try:
-                            fields = json.loads(note.fields_data)
-                        except Exception as e:
-                            logger.debug("Erreur parsing fields_data: %s", e)
-
-                front = fields.get("Front") or fields.get("Recto") or fields.get("Question") or "Carte Anki"
-                back = fields.get("Back") or fields.get("Verso") or fields.get("Answer") or ""
-
-                deck_name = "Général"
-                if note:
-                    card = CardModel.get_or_none(CardModel.note == note)
-                    if card and card.deck:
-                        deck_name = card.deck.name
-                    elif hasattr(note, "deck") and getattr(note, "deck", None):
-                        deck_name = getattr(note.deck, "name", "Général")
-
-                top_row = QHBoxLayout()
-                lbl_deck = QLabel(f"Paquet : {deck_name}")
-                lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; background: transparent;")
-                top_row.addWidget(lbl_deck)
-                top_row.addStretch()
-                c_layout.addLayout(top_row)
-
-                lbl_front = QLabel(f"Q : {front}")
-                lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
-                lbl_front.setWordWrap(True)
-                c_layout.addWidget(lbl_front)
-
-                if back:
-                    lbl_back = QLabel(f"R : {back}")
-                    lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
-                    lbl_back.setWordWrap(True)
-                    c_layout.addWidget(lbl_back)
-
-                self.cards_layout.addWidget(card_box)
+                self.cards_layout.addWidget(self._build_linked_note_card(link))
 
             btn_more = SecondaryButton("+ Générer plus de cartes pour ce chapitre")
             btn_more.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
             btn_more.clicked.connect(lambda: self._on_forge_chunk(chunk.id))
             self.cards_layout.addWidget(btn_more)
+
+    def _build_linked_note_card(self, link: NoteChunkLinkModel) -> LinkedNoteCard:
+        """Compose la carte cliquable d'une note liée : paquet, question, réponse.
+
+        La version active de la note fait foi ; `fields_data` n'est lu qu'en repli, pour les
+        notes importées d'une base antérieure à la versioning. Un contenu illisible n'empêche
+        jamais l'affichage : la carte est alors présentée par son seul paquet.
+        """
+        note = link.note
+        card = LinkedNoteCard(link.note_id)
+        card.activated.connect(self._open_note_in_editor)
+        c_layout = QVBoxLayout(card)
+        c_layout.setContentsMargins(8, 8, 8, 8)
+        c_layout.setSpacing(6)
+
+        fields = self._note_fields(note)
+        front = fields.get("Front") or fields.get("Recto") or fields.get("Question") or "Carte Anki"
+        back = fields.get("Back") or fields.get("Verso") or fields.get("Answer") or ""
+
+        top_row = QHBoxLayout()
+        lbl_deck = QLabel(f"Paquet : {self._note_deck_name(note)}")
+        lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; background: transparent;")
+        top_row.addWidget(lbl_deck)
+        top_row.addStretch()
+        c_layout.addLayout(top_row)
+
+        lbl_front = QLabel(f"Q : {front}")
+        lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
+        lbl_front.setWordWrap(True)
+        c_layout.addWidget(lbl_front)
+
+        if back:
+            lbl_back = QLabel(f"R : {back}")
+            lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
+            lbl_back.setWordWrap(True)
+            c_layout.addWidget(lbl_back)
+
+        if hint := self._resolution_hint(link.resolution):
+            lbl_res = QLabel(hint)
+            lbl_res.setWordWrap(True)
+            lbl_res.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-style: italic; border: none; background: transparent;")
+            c_layout.addWidget(lbl_res)
+
+        return card
+
+    @staticmethod
+    def _resolution_hint(resolution: str | None) -> str:
+        """Mention du palier ayant désigné le fragment, en clair ou abrégée.
+
+        Seule la section exacte est présentée comme une preuve : les trois autres paliers
+        aboutissent à un fragment plausible, pas à un fragment attesté. L'absence de mention
+        (lien écrit avant la traçabilité, cf. migration `042`) ne vaut pas soupçon.
+        """
+        return {
+            "exact": "Rattachement exact",
+            "section": "",
+            "page": "Rattachée par page, à confirmer",
+            "lexical": "Rattachée par ressemblance, à confirmer",
+        }.get(resolution or "", "")
+
+    @staticmethod
+    def _note_fields(note: NoteModel | None) -> dict[str, Any]:
+        """Champs d'une note, lus depuis sa version active puis, à défaut, son `fields_data`."""
+        if not note:
+            return {}
+
+        active_ver = NoteRepository().get_active_version(note)
+        for raw in (active_ver.content if active_ver else None, getattr(note, "fields_data", None)):
+            if not raw:
+                continue
+            try:
+                fields = json.loads(raw)
+            except Exception as e:
+                logger.debug("Lecture des champs de la note %s impossible: %s", note.id, e)
+                continue
+            if isinstance(fields, dict) and fields:
+                return fields
+        return {}
+
+    @staticmethod
+    def _note_deck_name(note: NoteModel | None) -> str:
+        """Paquet de la carte liée, à défaut le paquet « Général »."""
+        if not note:
+            return "Général"
+        for anki_card in NoteRepository().get_cards_by_note(note.id):
+            if anki_card.deck:
+                return anki_card.deck.name
+        if getattr(note, "deck", None):
+            return str(getattr(note.deck, "name", "Général"))
+        return "Général"
+
+    @Slot(int)
+    def _open_note_in_editor(self, note_id: int) -> None:
+        """Demande à l'application d'ouvrir la note sélectionnée dans l'éditeur de cartes.
+
+        L'inspecteur ne connaît pas `EditionView` : il émet la demande de navigation, que la
+        fenêtre principale route vers la vue en chargeant la note dans son formulaire.
+        """
+        self.request_navigation.emit("edition", {"note_id": note_id})
 
     def _on_forge_chunk(self, chunk_id: int) -> None:
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
@@ -505,6 +835,11 @@ class AISourcesDiagnosticTab(QWidget):
     """Onglet de diagnostic et santé des documents : synthèse globale et inspection détaillée."""
 
     request_navigation = Signal(str, object)
+
+    MIN_CARD_WIDTH = 320
+    MAX_DOCUMENT_COLUMNS = 2
+
+    _doc_cards: "list[SourceDiagnosticCardWidget]"
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -686,14 +1021,17 @@ class AISourcesDiagnosticTab(QWidget):
 
         grid_page_layout.addWidget(filter_bar)
 
-        # 3. Grille des Cartes de Documents (2 colonnes)
+        # 3. Grille des Cartes de Documents (colonnes responsive)
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setStyleSheet("background: transparent;")
 
         self.grid_content = QWidget()
         self.grid_content.setStyleSheet("background: transparent;")
+        self.grid_content.setMinimumWidth(0)
+        self.grid_content.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.grid_layout = QGridLayout(self.grid_content)
         self.grid_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.setSpacing(12)
@@ -701,6 +1039,10 @@ class AISourcesDiagnosticTab(QWidget):
 
         self.scroll_area.setWidget(self.grid_content)
         grid_page_layout.addWidget(self.scroll_area, 1)
+
+        self._doc_cards = []
+        self._document_columns = 0
+        self.scroll_area.viewport().installEventFilter(self)
 
         self.refresh_data()
 
@@ -717,6 +1059,40 @@ class AISourcesDiagnosticTab(QWidget):
 
         run_on_owner_thread(self, _schedule)
 
+    @property
+    def document_column_count(self) -> int:
+        """Nombre de colonnes actuellement retenues pour la grille des documents."""
+        return self._document_columns
+
+    def _columns_for_width(self, available_width: int) -> int:
+        """Colonnes tenant dans `available_width` px sans carte trop étroite.
+
+        On descend à une colonne unique dès que deux cartes ne peuvent plus recevoir
+        chacune `MIN_CARD_WIDTH` px : sous ce seuil, les lignes de statistiques et le
+        pied de carte seraient tronqués.
+        """
+        if available_width <= 0:
+            return 1
+        fitting = available_width // (self.MIN_CARD_WIDTH + self.grid_layout.spacing())
+        return max(1, min(fitting, self.MAX_DOCUMENT_COLUMNS))
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Recalcule les colonnes quand la largeur utile du viewport change."""
+        if watched is self.scroll_area.viewport() and event.type() == QEvent.Type.Resize:
+            self._place_doc_cards()
+        return super().eventFilter(watched, event)
+
+    def _place_doc_cards(self) -> None:
+        """Repositionne les cartes existantes selon la colonne disponible."""
+        columns = self._columns_for_width(self.scroll_area.viewport().width())
+        if columns == self._document_columns:
+            return
+        self._document_columns = columns
+        while self.grid_layout.count():
+            self.grid_layout.takeAt(0)
+        for index, card in enumerate(self._doc_cards):
+            self.grid_layout.addWidget(card, index // columns, index % columns)
+
     def _set_format_filter(self, fmt: str) -> None:
         self.current_format_filter = fmt
         self.refresh_data()
@@ -728,6 +1104,7 @@ class AISourcesDiagnosticTab(QWidget):
             item = self.grid_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        self._doc_cards = []
 
         docs = list(DocumentModel.select())
         search_text = self.search_input.text().strip().lower()
@@ -815,16 +1192,12 @@ class AISourcesDiagnosticTab(QWidget):
         elif sort_idx == 5:
             docs_data.sort(key=lambda d: str(d["created_at"]), reverse=True)
 
-        row = 0
-        col = 0
-        for data in docs_data:
-            card = SourceDiagnosticCardWidget(data)
+        self._doc_cards = [SourceDiagnosticCardWidget(data) for data in docs_data]
+        for card in self._doc_cards:
             card.inspect_requested.connect(self.show_inspector)
-            self.grid_layout.addWidget(card, row, col)
-            col += 1
-            if col > 1:
-                col = 0
-                row += 1
+        # Force le recalcul : le nombre de colonnes dépend de la largeur courante.
+        self._document_columns = 0
+        self._place_doc_cards()
 
     def _on_card_forge_orphan_requested(self, doc_id: int) -> None:
         doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)

@@ -81,11 +81,6 @@ def test_settings_modal_creation_and_tabs(qtbot):
 
 def test_settings_modal_save_skips_when_no_changes(qtbot):
     """Aucun changement : la sauvegarde est court-circuitée et le bouton reste désactivé."""
-    from ankiforge.utils.environment import get_app_qsettings
-
-    get_app_qsettings().clear()
-    get_app_qsettings("obsidian").clear()
-
     modal = SettingsModal()
     qtbot.addWidget(modal)
 
@@ -140,6 +135,7 @@ def test_settings_modal_shows_saved_status_after_save(qtbot):
 
 def test_general_tab_save_and_mode_change(qtbot):
     """Teste la modification et la sauvegarde des paramètres généraux."""
+
     tab = GeneralTab()
     qtbot.addWidget(tab)
 
@@ -147,11 +143,236 @@ def test_general_tab_save_and_mode_change(qtbot):
     tab.cb_batch_style.setCurrentText("Kanban (Flux de tâches)")
     tab.le_export.setText("/custom/export/path")
 
-    has_change, layout_id, theme_id = tab.save_tab()
+    has_change, layout_id, family_id = tab.save_tab()
     assert has_change is True
     assert SettingsService.get("ui/language") == "English"
     assert SettingsService.get("app/batch_factory_style") == "Kanban (Flux de tâches)"
     assert SettingsService.get("app/export_path") == "/custom/export/path"
+
+
+def test_general_tab_layout_grid_selection_and_persistence(qtbot):
+    """Vérifie la sélection de layout via la grille de miniatures et sa persistance par profil."""
+    from ankiforge.ui.layouts.layout_manager import LayoutManager
+    from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import LayoutGridSelector
+
+    LayoutManager.save_layout_id("default", "ide")
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    assert isinstance(tab.layout_selector, LayoutGridSelector)
+    assert tab.layout_selector.current_layout_id() == "ide"
+    assert not tab._layout_field_changed()
+    assert not tab.has_pending_changes()
+
+    # Sélection de la disposition macOS via la grille
+    tab.layout_selector.set_current_layout_id("macos")
+    assert tab._layout_field_changed()
+    assert tab.has_pending_changes()
+
+    # Sauvegarde
+    has_change, selected_layout_id, _ = tab.save_tab()
+    assert has_change is True
+    assert selected_layout_id == "macos"
+    assert LayoutManager.get_saved_layout_id("default") == "macos"
+    assert not tab._layout_field_changed()
+    assert not tab.has_pending_changes()
+
+
+def test_general_tab_writes_the_two_appearance_axes(qtbot):
+    """L'onglet persiste la Famille choisie et la Source du Mode, jamais une Variante."""
+    from ankiforge.ui.style_engine import ModeSource, get_style_engine
+
+    engine = get_style_engine()
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    nord_index = next(i for i in range(tab.cb_theme.count()) if tab.cb_theme.itemData(i) == "nord")
+    tab.cb_theme.setCurrentIndex(nord_index)
+    tab.cb_mode.setCurrentIndex(1)
+
+    assert tab._theme_field_changed() is True
+    assert tab._mode_field_changed() is True
+
+    _, _, selected_family_id = tab.save_tab()
+
+    assert selected_family_id == "nord"
+    preference = engine.get_appearance_preference("default")
+    assert (preference.family_id, preference.mode_source) == ("nord", ModeSource.LIGHT)
+    assert engine.resolve_appearance(preference, layout_id="ide").id == "nord_light"
+
+
+def test_general_tab_mode_change_preserves_the_selected_family(qtbot):
+    """Changer de Mode ne doit plus repeupler la liste avec les Variantes d'une autre famille."""
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    monokai_index = next(i for i in range(tab.cb_theme.count()) if tab.cb_theme.itemData(i) == "monokai")
+    tab.cb_theme.setCurrentIndex(monokai_index)
+
+    tab.cb_mode.setCurrentIndex(1)
+
+    assert tab.cb_theme.currentData() == "monokai"
+
+
+def test_general_tab_keeps_an_absent_family_absent_across_a_mode_change(qtbot):
+    """« Aucune Famille choisie » doit survivre au changement de Mode : sinon le rendu bascule.
+
+    Sans Famille persistée, le rendu suit la Famille par défaut du layout (ici `emerald` pour
+    `dashboard`). Si l'onglet écrivait la première Famille de la liste, enregistrer le Mode
+    suffirait à convertir « suit le layout » en choix explicite et à changer le rendu.
+    """
+    from ankiforge.ui.layouts.layout_manager import LayoutManager
+    from ankiforge.ui.style_engine import ModeSource, get_style_engine
+
+    engine = get_style_engine()
+    LayoutManager.save_layout_id("default", "dashboard")
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+    assert tab.cb_theme.currentData() is None
+
+    tab.cb_mode.setCurrentIndex(1)
+    tab.save_tab()
+
+    preference = engine.get_appearance_preference("default")
+    assert preference.family_id is None
+    assert preference.mode_source is ModeSource.LIGHT
+    assert engine.resolve_appearance(preference, layout_id="dashboard").id == "emerald_light"
+
+
+def test_general_tab_keeps_a_family_unknown_to_the_library(qtbot):
+    """Une Famille persistée hors bibliothèque (thème tiers, ADR 0005) ne doit pas être effacée.
+
+    Sans entrée de repli, la Famille tomberait sur « aucune » et un simple changement de Mode
+    la remplacerait définitivement en base.
+    """
+    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
+
+    engine = get_style_engine()
+    engine.save_appearance_preference(
+        "default",
+        AppearancePreference(family_id="theme_tiers", mode_source=ModeSource.DARK, last_manual_mode=ModeSource.DARK),
+    )
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+    assert tab.cb_theme.currentData() == "theme_tiers"
+
+    tab.cb_mode.setCurrentIndex(1)
+    tab.save_tab()
+
+    assert engine.get_appearance_preference("default").family_id == "theme_tiers"
+
+
+def test_general_tab_mode_source_offers_three_options(qtbot):
+    """La Source du Mode propose 3 valeurs : Sombre manuel, Clair manuel et Système."""
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    items = [tab.cb_mode.itemData(i) for i in range(tab.cb_mode.count())]
+    assert items == ["dark", "light", "system"]
+
+
+def test_general_tab_system_source_displays_summary_and_neutral_families(qtbot):
+    """Quand la Source est « Système », les familles sont neutres et le résumé séparé est visible."""
+    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, force_system_mode_source, get_style_engine
+
+    engine = get_style_engine()
+    force_system_mode_source(ModeSource.DARK)
+    engine.save_appearance_preference(
+        "default",
+        AppearancePreference(family_id="nord", mode_source=ModeSource.SYSTEM, last_manual_mode=ModeSource.DARK),
+    )
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    assert tab.cb_mode.currentData() == "system"
+    assert tab.row_effective_variant.isHidden() is False
+    assert "Nord Polar Arctic" in tab.lbl_effective_variant_badge.text()
+    assert "Système (Sombre)" in tab.lbl_effective_variant_badge.text()
+
+    # Changement dynamique du système pendant que l'onglet est ouvert
+    force_system_mode_source(ModeSource.LIGHT)
+    assert "Nord Snow Storm" in tab.lbl_effective_variant_badge.text()
+    assert "Système (Clair)" in tab.lbl_effective_variant_badge.text()
+
+    # Le système ne déclare rien : repli sur le dernier mode manuel
+    force_system_mode_source(None)
+    assert "Système non déclaré" in tab.lbl_effective_variant_badge.text()
+    assert "Nord Polar Arctic" in tab.lbl_effective_variant_badge.text()
+
+
+def test_general_tab_preserves_system_source_until_an_explicit_choice(qtbot):
+    """« Système » survit à un simple changement de Famille : seul un choix manuel l'écrase."""
+    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
+
+    engine = get_style_engine()
+    engine.save_appearance_preference("default", AppearancePreference(family_id="nord", mode_source=ModeSource.SYSTEM, last_manual_mode=ModeSource.DARK))
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    # Le sélecteur expose explicitement « system »
+    assert tab.cb_mode.currentData() == "system"
+    assert tab._mode_field_changed() is False
+
+    dracula_index = next(i for i in range(tab.cb_theme.count()) if tab.cb_theme.itemData(i) == "dracula")
+    tab.cb_theme.setCurrentIndex(dracula_index)
+    tab.save_tab()
+
+    preference = engine.get_appearance_preference("default")
+    assert (preference.family_id, preference.mode_source) == ("dracula", ModeSource.SYSTEM)
+    assert preference.last_manual_mode is ModeSource.DARK
+
+    # Un choix manuel explicite prend le relais et masque le résumé
+    tab.cb_mode.setCurrentIndex(1)  # Clair
+    assert tab.row_effective_variant.isHidden() is True
+    tab.save_tab()
+
+    preference = engine.get_appearance_preference("default")
+    assert preference.mode_source is ModeSource.LIGHT
+    assert preference.last_manual_mode is ModeSource.LIGHT
+
+
+def test_general_tab_update_channel_and_interval_persistence(qtbot, monkeypatch):
+    """Vérifie la sélection et la persistance du canal et de la fréquence de vérification des màj."""
+    from PySide6.QtCore import QSettings
+
+    from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL, SETTINGS_KEY_CHECK_INTERVAL
+
+    temp_settings = QSettings("AnkiForgeTest", "UpdateIntervalTest")
+    temp_settings.clear()
+    monkeypatch.setattr("ankiforge.utils.environment.get_app_qsettings", lambda *args, **kwargs: temp_settings)
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    # Valeurs par défaut
+    assert tab.cb_update_channel.currentData() == "stable"
+    assert tab.cb_check_interval.currentData() == 14400
+
+    # Changement des options
+    nightly_idx = next(i for i in range(tab.cb_update_channel.count()) if tab.cb_update_channel.itemData(i) == "nightly")
+    tab.cb_update_channel.setCurrentIndex(nightly_idx)
+
+    daily_idx = next(i for i in range(tab.cb_check_interval.count()) if tab.cb_check_interval.itemData(i) == 86400)
+    tab.cb_check_interval.setCurrentIndex(daily_idx)
+
+    has_change, _, _ = tab.save_tab()
+    assert has_change is True
+    assert temp_settings.value(SETTINGS_KEY_CHANNEL) == "nightly"
+    assert int(temp_settings.value(SETTINGS_KEY_CHECK_INTERVAL)) == 86400
+
+    # Vérification à la réouverture d'un nouvel onglet
+    tab2 = GeneralTab()
+    qtbot.addWidget(tab2)
+    assert tab2.cb_update_channel.currentData() == "nightly"
+    assert tab2.cb_check_interval.currentData() == 86400
+    temp_settings.clear()
 
 
 def test_password_line_edit_toggle(qtbot):

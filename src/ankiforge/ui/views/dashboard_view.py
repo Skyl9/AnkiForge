@@ -89,7 +89,7 @@ class DashboardHeroBanner(QFrame):
         self.subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.subtitle)
 
-        apply_shadow(self, blur=14, offset_y=3, color="rgba(0, 0, 0, 0.14)")
+        apply_shadow(self, blur=14, offset_y=3, color=DesignTokens.SHADOW_COLOR)
 
     def _apply_style(self) -> None:
         self.setStyleSheet(f"""

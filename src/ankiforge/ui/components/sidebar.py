@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton
+from ankiforge.ui.components.nav_badge import NavBadgeButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -37,17 +38,11 @@ class ClickableLabel(QLabel):
         super().mousePressEvent(event)
 
 
-class SidebarItem(QPushButton):
+class SidebarItem(NavBadgeButton):
     """Bouton de navigation dans la sidebar."""
 
     def __init__(self, view_id: str, icon_name: str, title: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.view_id = view_id
-        self.icon_name = icon_name
-        self.title = title
-
-        self.setCheckable(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        super().__init__(view_id, icon_name, title, parent)
         self.setFixedHeight(36)
 
         self._collapsed = False
@@ -156,12 +151,12 @@ class Sidebar(QWidget):
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         self.scroll_content = QWidget()
         self.sections_layout = QVBoxLayout(self.scroll_content)
-        self.sections_layout.setContentsMargins(12, 12, 12, 12)
-        self.sections_layout.setSpacing(24)
+        self.sections_layout.setContentsMargins(12, 8, 12, 8)
+        self.sections_layout.setSpacing(16)
         self.sections_layout.addStretch()
 
         self.scroll.setWidget(self.scroll_content)
@@ -172,7 +167,7 @@ class Sidebar(QWidget):
         self.footer.setObjectName("SidebarFooter")
         self.footer.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         footer_layout = QVBoxLayout(self.footer)
-        footer_layout.setContentsMargins(12, 12, 12, 12)
+        footer_layout.setContentsMargins(12, 6, 12, 8)
         footer_layout.setSpacing(4)
 
         self.feedback_btn = SidebarItem("feedback", "chat-circle-dots", "Aide & Retours")
@@ -296,3 +291,9 @@ class Sidebar(QWidget):
             is_active = vid == view_id
             btn.setChecked(is_active)
             btn._on_toggled(is_active)
+
+    def set_nav_badge(self, view_id: str, count: int | None) -> None:
+        """Affiche la pastille « travail en cours » sur l'entrée de navigation donnée."""
+        item = self._items.get(view_id)
+        if item is not None:
+            item.set_nav_badge(count)

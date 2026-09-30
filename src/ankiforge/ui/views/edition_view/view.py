@@ -755,8 +755,8 @@ class EditionView(QWidget):
             source_badge = QFrame()
             source_badge.setStyleSheet(f"""
                 QFrame {{
-                    background-color: rgba(56, 189, 248, 0.08);
-                    border: 1px solid rgba(56, 189, 248, 0.25);
+                    background-color: {DesignTokens.COLOR_BLUE_BG};
+                    border: 1px solid {DesignTokens.COLOR_BLUE_BORDER};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     padding: 4px 8px;
                     margin-bottom: 6px;
@@ -1076,7 +1076,7 @@ class EditionView(QWidget):
             self.btn_open_folder.setIcon(load_phosphor_icon("folder", color=DesignTokens.ACCENT_PRIMARY))
             self.btn_open_folder.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: rgba(99, 102, 241, 0.15);
+                    background-color: {DesignTokens.ACCENT_BG};
                     border: 1px solid {DesignTokens.ACCENT_PRIMARY};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     padding: 4px 10px;
@@ -1395,7 +1395,7 @@ class EditionView(QWidget):
             self.btn_open_model.setText(f"Modèle : {model_name} ▾")
             self.btn_open_model.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: rgba(99, 102, 241, 0.15);
+                    background-color: {DesignTokens.ACCENT_BG};
                     border: 1px solid {DesignTokens.ACCENT_PRIMARY};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     padding: 4px 10px;
@@ -1458,8 +1458,8 @@ class EditionView(QWidget):
 
                     deck_col = 2 + len(current_fields)
                     tags_col = deck_col + 1
-                    self.card_table.setColumnWidth(deck_col, 140)
-                    self.card_table.setColumnWidth(tags_col, 140)
+                    self.card_table.setColumnWidth(deck_col, 185)
+                    self.card_table.setColumnWidth(tags_col, 130)
                     self.card_table.setItemDelegateForColumn(deck_col, self.badge_delegate)
                     self.card_table.setItemDelegateForColumn(tags_col, self.tag_delegate)
                     return
@@ -1474,8 +1474,8 @@ class EditionView(QWidget):
         self.card_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.card_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.card_table.setColumnWidth(4, 110)
-        self.card_table.setColumnWidth(5, 140)
-        self.card_table.setColumnWidth(6, 140)
+        self.card_table.setColumnWidth(5, 185)
+        self.card_table.setColumnWidth(6, 130)
         self.card_table.setItemDelegateForColumn(0, self.checkbox_delegate)
         self.card_table.setItemDelegateForColumn(1, self.flag_delegate)
         self.card_table.setItemDelegateForColumn(2, self.text_code_delegate)
@@ -1683,7 +1683,7 @@ class EditionView(QWidget):
             self.btn_filter_flag.setIcon(load_phosphor_icon("flag", color=flag_color))
             self.btn_filter_flag.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: rgba(99, 102, 241, 0.15);
+                    background-color: {DesignTokens.ACCENT_BG};
                     border: 1px solid {flag_color};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     padding: 4px 10px;
@@ -1786,7 +1786,7 @@ class EditionView(QWidget):
             accent_color = DesignTokens.COLOR_YELLOW if suspended_val else DesignTokens.COLOR_GREEN
             icon_name = "pause" if suspended_val else "play"
             self.btn_filter_status.setIcon(load_phosphor_icon(icon_name, color=accent_color))
-            bg_color = "rgba(234, 179, 8, 0.15)" if suspended_val else "rgba(34, 197, 94, 0.15)"
+            bg_color = DesignTokens.COLOR_YELLOW_BG if suspended_val else DesignTokens.COLOR_GREEN_BG
             self.btn_filter_status.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {bg_color};

@@ -46,7 +46,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
   * `time_machine_dialog.py` & `version_history_dialog.py` : Visualiseur d'historique de versions (`NoteVersionModel`).
   * `auto_tag_dialog.py` : Modale de suggestion et d'attribution automatique de tags par IA.
   * `batch_edit_dialog.py` : Dialogue d'édition groupée de notes.
-  * `settings_modal.py` : Configuration globale (fournisseurs LLM, paramètres généraux, chemins).
+  * `settings_modal/` : Configuration globale modulaire en 5 onglets (fournisseurs LLM, paramètres généraux avec sélecteur de dispositions en grille de miniatures `LayoutGridSelector`, chemins, maintenance, extensions).
   * `toast.py` : Notifications système éphémères non-bloquantes.
 
 ---

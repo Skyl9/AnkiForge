@@ -169,7 +169,7 @@ class FeedbackDialog(QDialog):
         self.btn_github = PrimaryButton("🚀 Ouvrir sur GitHub Issues ↗")
         self.btn_github.setToolTip("Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis")
         self.btn_github.setFixedHeight(32)
-        apply_shadow(self.btn_github, blur=10, offset_y=0, color="rgba(99, 102, 241, 0.4)")
+        apply_shadow(self.btn_github, blur=10, offset_y=0, color=DesignTokens.ACCENT_GLOW)
         self.btn_github.clicked.connect(self._on_github_clicked)
         footer_layout.addWidget(self.btn_github)
 

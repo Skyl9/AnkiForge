@@ -20,19 +20,40 @@ lib_path: Path = next((p for p in _candidates if p.exists()), _candidates[0])
 _matcher_lib: ctypes.CDLL | None = None
 C_MATCHER_LOADED = False
 
-try:
-    if lib_path.exists():
-        _matcher_lib = ctypes.CDLL(str(lib_path))
-        _matcher_lib.calculate_similarity.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
-        _matcher_lib.calculate_similarity.restype = ctypes.c_double
-        C_MATCHER_LOADED = True
-        logger.info("Extension C Levenshtein chargée avec succès depuis %s", lib_path)
-    else:
-        logger.debug("Extension C Levenshtein non trouvée à %s, repli transparent sur difflib.", lib_path)
+
+def init_c_matcher(custom_path: Path | None = None) -> bool:
+    """
+    Initialise la librairie C native Levenshtein.
+
+    Si la librairie est absente ou si son chargement échoue, émet un avertissement explicite
+    et bascule sur le repli pur Python difflib (performances réduites).
+    """
+    global _matcher_lib, C_MATCHER_LOADED
+    target = custom_path if custom_path is not None else lib_path
+    try:
+        if target.exists():
+            _matcher_lib = ctypes.CDLL(str(target))
+            _matcher_lib.calculate_similarity.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+            _matcher_lib.calculate_similarity.restype = ctypes.c_double
+            C_MATCHER_LOADED = True
+            logger.info("Extension C Levenshtein chargée avec succès depuis %s", target)
+            return True
+        else:
+            logger.warning(
+                "Extension C Levenshtein non trouvée à %s, repli transparent sur difflib (performances réduites).",
+                target,
+            )
+            _matcher_lib = None
+            C_MATCHER_LOADED = False
+            return False
+    except Exception as e:
+        logger.warning("Erreur lors du chargement de l'extension C (%s) : %s. Repli sur difflib.", target, e)
+        _matcher_lib = None
         C_MATCHER_LOADED = False
-except Exception as e:
-    logger.warning("Erreur lors du chargement de l'extension C (%s) : %s. Repli sur difflib.", lib_path, e)
-    C_MATCHER_LOADED = False
+        return False
+
+
+C_MATCHER_LOADED = init_c_matcher()
 
 
 def get_similarity(text1: str, text2: str) -> float:

@@ -230,3 +230,59 @@ def test_addon_toggle_enable_disable_lifecycle_ui(qtbot, dummy_plugin_env):
     assert addon_active.status == AddonStatus.ACTIVE
     assert detail.badge_status.text() == "Actif"
     assert detail.btn_toggle_enable.text() == "Désactiver"
+
+
+def test_addon_manager_install_and_uninstall_live_ui(qtbot, dummy_plugin_env):
+    """Vérifie l'installation et la désinstallation d'un addon via l'IHM avec mise à jour immédiate sans redémarrage."""
+    import zipfile
+
+    widget = AddonManagerWidget(plugin_manager=dummy_plugin_env)
+    qtbot.addWidget(widget)
+
+    initial_count = widget.table.rowCount()
+
+    # Création d'une archive zip pour un nouvel addon
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        zip_path = tmp_path / "new_addon.zip"
+
+        manifest = {
+            "id": "new_live_addon",
+            "name": "New Live Addon",
+            "version": "1.0.0",
+            "description": "Addon installé en direct",
+        }
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("manifest.json", json.dumps(manifest))
+            zf.writestr("__init__.py", "def init_addon(api): pass")
+
+        # Installation en direct
+        success, _ = dummy_plugin_env.install_addon_from_zip(zip_path)
+        assert success is True
+
+        # Rechargement de l'IHM
+        widget.refresh_addons_list()
+        assert widget.table.rowCount() == initial_count + 1
+
+        # Trouver la ligne du nouvel addon et vérifier son statut immédiat 'Actif'
+        new_row = -1
+        for r in range(widget.table.rowCount()):
+            item = widget.table.item(r, 0)
+            if item and item.data(Qt.ItemDataRole.UserRole) == "new_live_addon":
+                new_row = r
+                break
+        assert new_row != -1
+        assert widget.table.item(new_row, 1).text() == "Actif"
+
+        # Sélectionner et vérifier les détails
+        widget.table.selectRow(new_row)
+        assert widget.detail_widget.current_addon is not None
+        assert widget.detail_widget.current_addon.id == "new_live_addon"
+        assert widget.detail_widget.badge_status.text() == "Actif"
+        assert widget.detail_widget.btn_toggle_enable.text() == "Désactiver"
+
+        # Désinstallation
+        dummy_plugin_env.uninstall_addon("new_live_addon")
+        widget.refresh_addons_list()
+        assert widget.table.rowCount() == initial_count
+        assert dummy_plugin_env.get_addon("new_live_addon") is None
