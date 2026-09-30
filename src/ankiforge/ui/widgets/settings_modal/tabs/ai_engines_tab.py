@@ -1167,7 +1167,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                 sort_order=sort_order,
                 api_key=api_key,
                 is_free=is_free,
-                supports_vision=spec.supports_vision if spec else False,
+                # `spec` est une fiche *approchée* (contexte, tarification, affichage) ; la Vision,
+                # elle, ne s'écrit que sur preuve. Écrire une inférence ici produirait un
+                # « Vision native » définitif, affiché tel quel et appliqué à la génération.
+                supports_vision=ModelCatalog.declares_vision(provider, model_id),
                 supports_thinking=spec.supports_thinking if spec else False,
                 supports_json=spec.supports_json if spec else True,
                 speed_rating=spec.speed_rating if spec else "Moyen",

@@ -16,6 +16,7 @@ from ankiforge.database.models import (
     PromptModel,
 )
 from ankiforge.repositories.base import BaseRepository
+from ankiforge.services.ai.model_catalog import ModelCatalog
 
 logger = logging.getLogger(__name__)
 
@@ -176,8 +177,34 @@ class PersonaRepository(BaseRepository):
         prompt_pricing: float = 0.0,
         completion_pricing: float = 0.0,
         is_free: bool = False,
+        supports_vision: bool | None = None,
     ) -> LLMConfigModel:
-        """Create a new LLM configuration."""
+        """Create a new LLM configuration.
+
+        Les capacités (Vision, Thinking, JSON…) sont déduites du catalogue au moment de la création,
+        sauf valeur imposée — un moteur local détecté avec un projecteur CLIP, que le catalogue hors
+        ligne ignore, doit pouvoir déclarer sa Vision. Le catalogue est donc l'**écrivain** de ces
+        colonnes : la lecture n'y revient jamais (voir `vision_capability.resolve_vision_support`).
+
+        Seul un modèle dont la Vision est *prouvée* est enregistré comme tel : voir
+        `ModelCatalog.declares_vision`, seule politique d'écriture. Un modèle hébergé absent du
+        catalogue reste « texte seul » — un remède existe (ajouter sa fiche à `CURATED_MODELS`), mais
+        il est hors de portée de l'utilisateur, d'où le choix de l'honnêteté sur l'optimisme.
+        """
+        spec = ModelCatalog.get_declared_capabilities(provider, model_id)
+        vision = supports_vision if supports_vision is not None else ModelCatalog.declares_vision(provider, model_id)
+
+        fields: dict[str, Any] = {"supports_vision": vision}
+        if spec is not None:
+            fields |= {
+                "supports_thinking": spec.supports_thinking,
+                "supports_json": spec.supports_json,
+                "speed_rating": spec.speed_rating,
+                "quality_tier": spec.quality_tier,
+                "recommended_tasks": json.dumps(spec.recommended_tasks),
+                "description": spec.description,
+            }
+
         with self.atomic():
             return LLMConfigModel.create(
                 display_name=display_name,
@@ -191,6 +218,7 @@ class PersonaRepository(BaseRepository):
                 prompt_pricing=prompt_pricing,
                 completion_pricing=completion_pricing,
                 is_free=is_free,
+                **fields,
             )
 
     def update_llm_config(self, config_id: int, **kwargs: Any) -> LLMConfigModel | None:

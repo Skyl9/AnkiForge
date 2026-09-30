@@ -225,6 +225,28 @@ CURATED_MODELS: dict[str, ModelSpec] = {
         ankiforge_use_case="Le sommet du raisonnement formel avec vision pour les problèmes scientifiques, diagnostics médicaux et synthèses complexes.",
         description="Modèle phare de réflexion approfondie d'OpenAI avec chaîne de pensée complète.",
     ),
+    # `o1` est multimodal, `o1-mini` ne l'est pas. Sans cette fiche, l'inférence par nom s'appuierait
+    # sur les marqueurs de réflexion (`o1`) et laisserait la Vision au hasard d'un marqueur plus large :
+    # une famille de raisonnement ne doit hériter de la Vision d'aucune autre. Fiche explicite = plus
+    # rien à inférer.
+    "openai:o1-mini": ModelSpec(
+        provider="openai",
+        model_id="o1-mini",
+        display_name="o1-mini (OpenAI Raisonnement)",
+        context_window=128000,
+        max_tokens=65536,
+        supports_vision=False,
+        supports_thinking=True,
+        supports_json=True,
+        speed_rating="deliberate",
+        quality_tier="reasoning",
+        is_free=False,
+        prompt_pricing=3.00,
+        completion_pricing=12.00,
+        recommended_tasks=["audit", "reasoning"],
+        ankiforge_use_case="Raisonnement économique pour l'audit de cartes ambiguës, sans lecture d'images.",
+        description="Variante compacte et économique de o1 : raisonnement seul, sans capacité Vision.",
+    ),
     # ── ANTHROPIC ──
     "anthropic:claude-3-7-sonnet-20250219": ModelSpec(
         provider="anthropic",
@@ -261,6 +283,26 @@ CURATED_MODELS: dict[str, ModelSpec] = {
         recommended_tasks=["flashcards", "audit", "vision"],
         ankiforge_use_case="Style de rédaction et clarté pédagogique incomparables pour reformuler des concepts littéraires, médicaux et juridiques.",
         description="Modèle de référence d'Anthropic pour la nuance d'écriture, l'analyse de code et la vision.",
+    ),
+    # AnkiForge propose ce modèle comme moteur par défaut (cf. `_default_llm_configs`) : sans fiche
+    # curatée, la politique d'écriture le déclarerait « texte seul » et lui retirerait la Vision.
+    "anthropic:claude-3-5-sonnet-20240620": ModelSpec(
+        provider="anthropic",
+        model_id="claude-3-5-sonnet-20240620",
+        display_name="Claude 3.5 Sonnet (Anthropic)",
+        context_window=200000,
+        max_tokens=8192,
+        supports_vision=True,
+        supports_thinking=False,
+        supports_json=True,
+        speed_rating="fast",
+        quality_tier="flagship",
+        is_free=False,
+        prompt_pricing=3.00,
+        completion_pricing=15.00,
+        recommended_tasks=["flashcards", "audit", "vision"],
+        ankiforge_use_case="Style de rédaction et clarté pédagogique incomparables pour reformuler des concepts littéraires, médicaux et juridiques.",
+        description="Version initiale du modèle de référence d'Anthropic pour la vision et l'analyse de code.",
     ),
     "anthropic:claude-3-5-haiku-20241022": ModelSpec(
         provider="anthropic",
@@ -485,6 +527,16 @@ ANKIFORGE_TASKS: dict[str, dict[str, str]] = {
 class ModelCatalog:
     """Gestionnaire central de découverte et de recommandation des modèles LLM."""
 
+    # Marqueurs de nom qui trahissent un modèle *local* multimodal. L'écart avec la détection
+    # `detect_ollama_model_capabilities` (qui interroge `/api/show`) est assumé : ce liste sert
+    # d'amorce « ça vaut la peine d'afficher Vision » hors ligne, pas de verdict. Le booléen écrit en
+    # base reste la valeur de référence, et le scan Ollama la confirme ou l'infirme à l'ajout.
+    LOCAL_VISION_NAME_MARKERS = ("vision", "llava", "-vl", "vl:", "vl-", "minicpm", "internvl", "multimodal", "moondream", "gemma3n", "pixtral", "idefics")
+
+    # Marqueurs de nom propres aux familles hébergées, trop vagues pour un id local (un « 4o » ou un
+    # « gemini » faced à une chaîne aléatoire ne prouverait rien). Complétés par le catalogue exact.
+    HOSTED_VISION_NAME_MARKERS = ("vision", "llava", "4o", "gemini", "claude-3", "claude-4", "sonnet", "gpt-4.1", "pixtral")
+
     @classmethod
     def get_model_spec(cls, provider: str, model_id: str) -> ModelSpec:
         """Retourne la spécification d'un modèle depuis le catalogue ou l'infère si inconnu."""
@@ -503,9 +555,9 @@ class ModelCatalog:
         m_id_low = model_id.lower()
         p_low = provider.lower()
 
-        is_vision = any(v in m_id_low for v in ("vision", "llava", "4o", "gemini", "claude-3", "sonnet"))
+        is_vision = any(v in m_id_low for v in cls.HOSTED_VISION_NAME_MARKERS) or (cls.is_local_provider(provider) and cls._local_name_looks_multimodal(model_id))
         is_thinking = any(t in m_id_low for t in ("r1", "o1", "o3", "thinking", "reasoning", "qwq"))
-        is_local = p_low == "ollama" or "localhost" in p_low
+        is_local = cls.is_local_provider(provider)
         is_free = is_local or ("flash-lite" in m_id_low and p_low == "gemini") or ":free" in m_id_low or m_id_low.endswith("-free")
 
         context = 128000
@@ -549,6 +601,59 @@ class ModelCatalog:
     def get_curated_catalog(cls) -> list[ModelSpec]:
         """Retourne la liste ordonnée de tous les modèles du catalogue officiel."""
         return list(CURATED_MODELS.values())
+
+    @classmethod
+    def get_declared_capabilities(cls, provider: str, model_id: str) -> ModelSpec | None:
+        """Fiche curatée *exacte* du catalogue, ou None si le modèle n'y figure pas.
+
+        Contrairement à `get_model_spec`, aucune approximation n'est appliquée. Cette distinction
+        est normative : `get_model_spec` sert à *suggérer* un modèle proche à l'utilisateur (dialogue
+        de découverte, appariement tolérant aux suffixes de date), alors qu'écrire `supports_vision`
+        sur une ligne de configuration est une *affirmation*. Le rapprochement ignore le fournisseur
+        — `get_model_spec("azure-openai", "gpt-4o")` recopie la fiche OpenAI, capacités et tarifs —
+        donc aucune de ces réponses ne prouve quoi que ce soit sur une ligne de base.
+        """
+        return CURATED_MODELS.get(f"{provider.lower()}:{model_id.lower()}")
+
+    @classmethod
+    def declares_vision(cls, provider: str, model_id: str) -> bool:
+        """Politique d'écriture de `supports_vision` : n'affirmer la Vision que sur une preuve.
+
+        Deux preuves seulement sont admises :
+        1. le modèle figure *exactement* au catalogue curated — son alignement est vérifié ;
+        2. le modèle est **local** et son nom porte une marque Vision explicite — hors ligne, le
+           catalogue n'a aucune fiche pour un VLM téléchargé (`bakllava`, `llava-13b`,
+           `qwen-vl`, `minicpm-v`…), et l'inférence par nom est alors le seul signal disponible.
+
+        Un fournisseur hébergé non catalogué est donc déclaré « texte seul » : une correspondance
+        approximative peut lui prêter les capacités d'un autre modèle (le rapprochement de
+        `get_model_spec` ignore jusqu'au fournisseur), et une affirmation fausse se paie en erreur
+        d'API au moment de la génération. La contrepartie — un modèle multimodal hébergé released
+        après la dernière mise à jour du catalogue — se corrige en l'ajoutant à `CURATED_MODELS`, pas
+        en réactivant un appariement par sous-chaîne.
+        """
+        spec = cls.get_declared_capabilities(provider, model_id)
+        if spec is not None:
+            return spec.supports_vision
+        if not cls.is_local_provider(provider):
+            return False
+        return cls._local_name_looks_multimodal(model_id)
+
+    @classmethod
+    def _local_name_looks_multimodal(cls, model_id: str) -> bool:
+        """Signal « ce modèle vaut la peine d'être présenté comme multimodal », sans réseau.
+
+        Volontairement optimiste : afficher Vision sur un modèle texte local se corrige d'un clic,
+        alors qu'une carte dont l'image n'est jamais lue, non.
+        """
+        model_lower = (model_id or "").lower()
+        return any(marker in model_lower for marker in cls.LOCAL_VISION_NAME_MARKERS)
+
+    @classmethod
+    def is_local_provider(cls, provider: str) -> bool:
+        """Vrai pour les moteurs hébergés sur la machine de l'utilisateur."""
+        p_low = (provider or "").lower()
+        return p_low == "ollama" or "localhost" in p_low or p_low.startswith("lm_studio") or p_low.startswith("llama_cpp")
 
     @classmethod
     def recommend_models_for_task(cls, task_key: str) -> list[ModelSpec]:
