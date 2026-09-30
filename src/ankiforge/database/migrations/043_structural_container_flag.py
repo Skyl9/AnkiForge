@@ -87,13 +87,18 @@ def backfill(database: pw.Database) -> None:
     if not container_ids:
         return
 
-    # Lots bornés : un `IN (...)` de plusieurs milliers de placeholders dépasse la limite
-    # de variables liées de SQLite (SQLITE_MAX_VARIABLE_NUMBER).
+    # peewee génère lui-même les placeholders du `IN (...)` : aucune chaîne SQL n'est
+    # construite ici, donc rien à masquer d'un "# nosec B608". Les lots restent bornés
+    # car SQLite plafonne le nombre de variables liées (SQLITE_MAX_VARIABLE_NUMBER).
+    # `bind_ctx` (et non `bind`) car ce dernier rebind le modèle globalement et fuirait
+    # la base du migrateur dans le reste du processus.
+    from ankiforge.database.models.rag import DocumentChunkModel
+
     batch_size = 500
-    for offset in range(0, len(container_ids), batch_size):
-        batch = container_ids[offset : offset + batch_size]
-        placeholders = ", ".join("?" * len(batch))
-        database.execute_sql(f"UPDATE document_chunks SET is_structural_container = 1 WHERE id IN ({placeholders})", batch)
+    with DocumentChunkModel.bind_ctx(database):
+        for offset in range(0, len(container_ids), batch_size):
+            batch = container_ids[offset : offset + batch_size]
+            DocumentChunkModel.update(is_structural_container=True).where(DocumentChunkModel.id << batch).execute()
 
 
 def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
