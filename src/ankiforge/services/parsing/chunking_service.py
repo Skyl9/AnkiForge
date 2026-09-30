@@ -1,7 +1,11 @@
 import hashlib
 import logging
 import re
+from collections.abc import Iterable
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
+
+from ankiforge.utils.region_address import RegionAddress, parse_region_addresses
 
 if TYPE_CHECKING:
     from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
@@ -19,6 +23,19 @@ def _toc_detector() -> "type[TableOfContentsDetector]":
     from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
 
     return TableOfContentsDetector
+
+
+class ContainerOrigin(StrEnum):
+    """Origine d'une neutralisation de région : déduite de la structure, ou déclarée.
+
+    Le drapeau `is_structural_container` reste dichotomique ; cet axe en dit la **cause**, que
+    le booléen seul ne pouvait pas exprimer (ADR 0010).
+    """
+
+    #: Déduit : titre parent maigre au-dessus de sous-sections substantielles.
+    DERIVED = "derived"
+    #: Déclaré par l'utilisateur : la région est neutralisée quoi qu'en dise la structure.
+    DECLARED = "declared"
 
 
 class ChunkingService:
@@ -99,6 +116,7 @@ class ChunkingService:
         content: str,
         file_type: str | None = None,
         strategy: str | None = None,
+        declared_addresses: Iterable[RegionAddress | str] | None = None,
     ) -> list[dict[str, Any]]:
         """Découpe un document en chunks cohérents et exploitables pour la Forge et le RAG.
 
@@ -111,6 +129,10 @@ class ChunkingService:
             content (str): Le contenu Markdown brut du document.
             file_type (str | None): Extension/type du fichier ('pdf', 'pptx', 'md', etc.).
             strategy (str | None): Stratégie optionnelle ('markdown_ast', etc.).
+            declared_addresses (Iterable[RegionAddress | str] | None): Adresses de région **neutralisées** par
+                l'utilisateur. Elles sont réévaluées à chaque extraction : la neutralisation est
+                une règle attachée au document, jamais un drapeau mémorisé sur un fragment dont
+                l'identifiant est réattribué à la réingestion suivante.
 
         Returns:
             list[dict[str, Any]]: Liste des fragments avec :
@@ -121,6 +143,8 @@ class ChunkingService:
             - start_time: float | None
             - end_time: float | None
             - content_hash: str
+            - is_structural_container: bool
+            - container_origin: str | None ('derived', 'declared', ou None)
         """
         if not content or not content.strip():
             return []
@@ -155,7 +179,7 @@ class ChunkingService:
             result = cls._extract_by_page(content, markers) if is_paginated and markers else cls._extract_by_section(content)
             log_msg = "Extraction de chunks achevée : %d fragments créés"
 
-        result = cls.flag_structural_containers(result)
+        result = cls.flag_structural_containers(result, declared_addresses=declared_addresses)
         logger.info(log_msg, len(result))
         return result
 
@@ -222,7 +246,7 @@ class ChunkingService:
         return pages
 
     @classmethod
-    def is_structural_container(cls, heading_path: str | None, content: str | None, *, has_descendants: bool) -> bool:
+    def is_structural_container(cls, heading_path: str | None, content: str | None, *, has_descendants: bool, origin: ContainerOrigin | str | None = None) -> bool:
         """Vrai si ce fragment n'est qu'un nœud d'organisation posé au-dessus de sous-sections.
 
         Un titre parent réduit à sa ligne de titre et à moins de
@@ -231,43 +255,81 @@ class ChunkingService:
         unité qui ne se couvre pas, et l'affinement de liens doit alors y loger une carte
         pour solder un trou qui n'existait pas.
 
+        Une origine `DECLARED` prime sur les deux heuristiques : la déclaration de l'utilisateur
+        est un fait, et ni le seuil de mots ni l'absence de descendants ne peuvent la
+        contredire. Le seuil reste une aide à la déclaration
+        (:meth:`container_candidates`), jamais un critère de calcul.
+
         Règle unique, partagée par le découpage et par ses consommateurs (couverture,
         arbre de l'inspecteur, affinement de liens) : trois définitions légèrement
         différentes donneraient des profils migrés et réingérés qui ne se ressemblent plus.
         """
-        if not heading_path or not has_descendants:
+        if not heading_path:
+            return False
+        if origin == ContainerOrigin.DECLARED:
+            return True
+        if not has_descendants:
             return False
         own_words = " ".join(line for line in (content or "").split("\n") if not cls.HEADING_REGEX.match(line)).split()
         return len(own_words) < cls.MIN_STRUCTURAL_CONTAINER_WORDS
 
     @classmethod
-    def flag_structural_containers(cls, chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Marque chaque fragment comme conteneur structurel ou unité de cours.
+    def _descendant_prefixes(cls, chunks: list[dict[str, Any]]) -> set[str]:
+        """Fil d'Ariane ouvrant au moins une sous-section.
 
-        Un fil `P` ouvre des sous-sections si et seulement si `P + " > "` est le préfixe
-        d'un autre fil. Recenser ces préfixes une fois pour toutes évite de confronter
-        chaque fragment à tous les autres, coût qui devient quadratique sur un cours de
-        plusieurs milliers de fragments.
+        Un fil `P` a des descendants si et seulement si `P + " > "` est le préfixe d'un autre
+        fil. Recenser ces préfixes une fois pour toutes évite de confronter chaque fragment à
+        tous les autres, coût qui devient quadratique sur un cours de plusieurs milliers de
+        fragments.
         """
-        descendant_prefixes: set[str] = set()
+        prefixes: set[str] = set()
         for chunk in chunks:
             heading_path = chunk.get("heading_path")
             if not heading_path:
                 continue
             start = 0
             while (index := heading_path.find(cls.HEADING_SEPARATOR, start)) >= 0:
-                descendant_prefixes.add(heading_path[: index + len(cls.HEADING_SEPARATOR)])
+                prefixes.add(heading_path[: index + len(cls.HEADING_SEPARATOR)])
                 start = index + len(cls.HEADING_SEPARATOR)
+        return prefixes
+
+    @classmethod
+    def flag_structural_containers(cls, chunks: list[dict[str, Any]], *, declared_addresses: Iterable[RegionAddress | str] | None = None) -> list[dict[str, Any]]:
+        """Marque chaque fragment comme conteneur structurel ou unité de cours, et d'où vient le verdict.
+
+        `declared_addresses` porte les adresses de région que l'utilisateur a **neutralisées**.
+        Elles sont réévaluées à chaque appel : le drapeau n'est jamais figé, il se recalcule
+        depuis les déclarations courantes du document.
+        """
+        declared = parse_region_addresses(declared_addresses)
+        descendant_prefixes = cls._descendant_prefixes(chunks)
 
         for chunk in chunks:
             heading_path = chunk.get("heading_path") or ""
-            chunk["is_structural_container"] = cls.is_structural_container(
-                heading_path,
-                chunk.get("content"),
-                has_descendants=bool(heading_path) and heading_path + cls.HEADING_SEPARATOR in descendant_prefixes,
-            )
+            page_number = chunk.get("page_number")
+            is_declared = any(address.covers(heading_path=heading_path, page_number=page_number) for address in declared)
+            has_descendants = bool(heading_path) and heading_path + cls.HEADING_SEPARATOR in descendant_prefixes
+            is_derived = cls.is_structural_container(heading_path, chunk.get("content"), has_descendants=has_descendants)
+            origin = ContainerOrigin.DECLARED if is_declared else (ContainerOrigin.DERIVED if is_derived else None)
+            chunk["is_structural_container"] = origin is not None
+            chunk["container_origin"] = origin.value if origin is not None else None
 
         return chunks
+
+    @classmethod
+    def container_candidates(cls, chunks: list[dict[str, Any]], *, declared_addresses: Iterable[RegionAddress | str] | None = None) -> list[str]:
+        """Titres dont la neutralisation peut être **proposée** à l'utilisateur.
+
+        Ce sont les fils d'Ariane qui ouvrent une sous-section : un parent est, par construction,
+        un nœud d'organisation possible. Le seuil de 25 mots n'est pas appliqué ici — il rendrait
+        la suggestion muette sur un parent bien rédigé, alors que c'est précisément celui dont
+        l'utilisateur peut vouloir exiger la neutralité.
+        """
+        declared = parse_region_addresses(declared_addresses)
+        separator = cls.HEADING_SEPARATOR
+        return sorted(
+            {prefix[: -len(separator)] for prefix in cls._descendant_prefixes(chunks) if not any(address.covers(heading_path=prefix[: -len(separator)], page_number=None) for address in declared)}
+        )
 
     @classmethod
     def extract_chunks_markdown_ast(cls, content: str, max_tokens: int | None = None) -> list[dict[str, Any]]:

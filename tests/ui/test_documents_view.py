@@ -12,6 +12,7 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.ui.views.documents_view import (
     DocumentDelimitationDialog,
     DocumentsView,
@@ -20,6 +21,7 @@ from ankiforge.ui.views.documents_view import (
 from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
     DocumentPreviewWidget,
 )
+from ankiforge.utils.region_address import RegionAddress, RegionScope, parse_region_addresses
 
 pytestmark = pytest.mark.ui
 
@@ -206,10 +208,13 @@ def test_document_delimitation_dialog(qtbot):
     dlg.chk_revectorize.setChecked(False)
     dlg._on_apply()
 
-    # Vérifier les chunks mis à jour en base
+    # L'écartement est non destructif : les trois fragments restent en base…
     chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc))
-    assert len(chunks) == 1
-    assert "Cellule" in chunks[0].heading_path
+    assert len(chunks) == 3
+    # …et ce sont les adresses persistées qui définissent le périmètre.
+    assert parse_region_addresses(DocumentModel.get_by_id(doc.id).excluded_headings) == [RegionAddress(RegionScope.HEADING, "Bibliographie"), RegionAddress(RegionScope.HEADING, "Sommaire")]
+    assert DocumentRepository.is_section_excluded(DocumentModel.get_by_id(doc.id), "Chapitre 1 : La Cellule") is False
+    assert DocumentRepository.is_section_excluded(DocumentModel.get_by_id(doc.id), "Sommaire") is True
 
 
 def test_document_delimitation_applies_pdf_page_range(qtbot):
@@ -235,10 +240,15 @@ def test_document_delimitation_applies_pdf_page_range(qtbot):
     dlg.chk_revectorize.setChecked(False)
     dlg._on_apply()
 
+    # La matière des trois pages est conservée : la délimitation est une règle de périmètre…
     chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc))
-    assert len(chunks) == 1
-    assert chunks[0].page_number == 2
-    assert "Contenu du chapitre" in chunks[0].content
+    assert sorted(c.page_number for c in chunks) == [1, 2, 3]
+    # …dont la plage, désormais lue comme telle au lieu d'être la suppression des autres pages.
+    fresh = DocumentModel.get_by_id(doc.id)
+    assert (fresh.start_page, fresh.end_page) == (2, 2)
+    assert DocumentRepository.is_region_excluded(fresh, page_number=1) is True
+    assert DocumentRepository.is_region_excluded(fresh, page_number=2) is False
+    assert DocumentRepository.is_region_excluded(fresh, page_number=3) is True
 
 
 def test_document_delimitation_rejects_page_range_outside_markdown(qtbot):

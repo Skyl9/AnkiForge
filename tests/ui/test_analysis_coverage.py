@@ -34,6 +34,7 @@ from ankiforge.ui.views.analysis_view import (
     DocumentInspectorPanel,
 )
 from ankiforge.ui.views.analysis_view.tabs.sources_tab import _ROLE_HEADING
+from ankiforge.utils.region_address import RegionScope
 from ankiforge.utils.tags import build_document_tags
 
 pytestmark = pytest.mark.ui
@@ -363,7 +364,7 @@ def test_document_inspector_excludes_and_reincludes_a_section_in_place(qtbot):
     panel.btn_exclude_section.click()
 
     # La section exclue n'est plus une lacune et ne plombe plus le ratio.
-    assert _stored_exclusions(doc.id) == ["Corriges"]
+    assert _stored_exclusions(doc.id) == ["heading:Corriges"]
     assert "33%" in panel.lbl_doc_summary.text()
     assert "1/3 sections" in panel.lbl_doc_summary.text()
     assert "1 section hors périmètre" in panel.lbl_scope_status.text()
@@ -400,7 +401,7 @@ def test_document_inspector_exclusion_action_follows_the_selected_section(qtbot)
     assert "Exclure cette section" in panel.btn_exclude_section.text()
 
     panel.btn_exclude_section.click()
-    assert _stored_exclusions(doc.id) == ["Partie 1"]
+    assert _stored_exclusions(doc.id) == ["heading:Partie 1"]
 
     # « Partie 1 » est désormais exclue : la même ligne propose de la réintégrer…
     assert "Ré-inclure la section" in panel.btn_exclude_section.text()
@@ -463,7 +464,7 @@ def test_document_inspector_context_menu_toggles_section_exclusion(qtbot):
     toggle_action = next(action for action in menu.actions() if action.text() == "Exclure cette section")
     toggle_action.trigger()
 
-    assert _stored_exclusions(doc.id) == ["Partie 1"]
+    assert _stored_exclusions(doc.id) == ["heading:Partie 1"]
     assert "Exclue" in _all_tree_items(panel)[1].text(0)
     assert panel.chapters_tree.currentItem() == _all_tree_items(panel)[1]
 
@@ -917,3 +918,241 @@ def test_analysis_view_main_container(qtbot):
 
     assert view is not None
     assert view.main_panel.content_stack.count() == 4  # 4 onglets : Wozniak, Sources, Jetons/SRS, Doublons
+
+
+def _stored_neutralized(doc_id: int) -> list[str]:
+    return [address.render() for address in DocumentRepository().get_neutralized_regions(DocumentModel.get_by_id(doc_id))]
+
+
+def test_document_inspector_neutralizes_a_section_without_removing_its_content(qtbot):
+    """« Neutraliser cette section » sort la section du dénominateur sans toucher à sa matière.
+
+    Second verbe, distinct de l'exclusion : ici le contenu reste dans le document et
+    dans l'index — l'unité de cours est déclarée non couvrable par une carte à elle seule,
+    ce qui est différent d'une section retirée du périmètre.
+    """
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_inspectable_document(uid)
+    _cover_chunk_with_card(doc, chunks[1], uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[2])
+    qtbot.wait(10)
+
+    assert "25%" in panel.lbl_doc_summary.text()
+    assert "1/4 sections" in panel.lbl_doc_summary.text()
+    assert "Neutraliser cette section" in panel.btn_neutralize_section.text()
+    assert panel.btn_neutralize_section.isEnabled()
+
+    panel.btn_neutralize_section.click()
+
+    # Déclaration persistée comme adresse typée, et non comme fragment de la matière.
+    assert _stored_neutralized(doc.id) == ["heading:Corriges"]
+    assert _stored_exclusions(doc.id) == []
+
+    # Le conteneur sort du dénominateur de couverture : 4 → 3 unités, la carte reste comptée.
+    assert "1/3 sections" in panel.lbl_doc_summary.text()
+    # …mais sa matière et sa carte restent en base, et l'action propose de la réactiver.
+    assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc, DocumentChunkModel.heading_path == "Corriges").exists()
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunks[1]).exists()
+    assert "Réactiver cette section" in panel.btn_neutralize_section.text()
+
+    # Les deux verbes restent distincts sur la même ligne.
+    assert "Exclure cette section" in panel.btn_exclude_section.text()
+
+    panel.btn_neutralize_section.click()
+
+    assert _stored_neutralized(doc.id) == []
+    assert "1/4 sections" in panel.lbl_doc_summary.text()
+    assert "Neutraliser cette section" in panel.btn_neutralize_section.text()
+
+
+def test_document_inspector_neutralization_action_follows_the_selected_section(qtbot):
+    """L'action de neutralisation décrit la section sélectionnée, comme celle d'exclusion."""
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_inspectable_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[1])
+    qtbot.wait(10)
+    panel.btn_neutralize_section.click()
+    assert _stored_neutralized(doc.id) == ["heading:Partie 1"]
+    assert "Réactiver cette section" in panel.btn_neutralize_section.text()
+
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[0])
+    qtbot.wait(10)
+    assert "Neutraliser cette section" in panel.btn_neutralize_section.text()
+
+    # Un fragment au libellé de page n'a pas de titre de section à neutraliser.
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[3])
+    qtbot.wait(10)
+    assert not panel.btn_neutralize_section.isEnabled()
+    assert "titre" in panel.btn_neutralize_section.toolTip().lower()
+
+
+def _make_granularity_document(uid: str) -> tuple[DocumentModel, list[DocumentChunkModel]]:
+    """Chapitre avec préambule propre et sous-section : la granularité `node:` y a un sens."""
+    doc = DocumentModel.create(
+        title=f"Cours Imbrique {uid}",
+        content="# Chapitre\nPreambule de garde.\n\n## Detail\nLe detail du chapitre.",
+        file_type="md",
+    )
+    chunks = [
+        DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Chapitre", content="Preambule de garde.", content_hash=f"dn_{uid}_0"),
+        DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Chapitre > Detail", content="Le detail du chapitre.", content_hash=f"dn_{uid}_1"),
+        # Un chapitre voisin, sans lien avec la ligne visée : c'est lui que la granularité
+        # `node:` ne doit pas embarquer.
+        DocumentChunkModel.create(document=doc, chunk_index=2, heading_path="Annexe", content="Hors sujet.", content_hash=f"dn_{uid}_2"),
+    ]
+    return doc, chunks
+
+
+def test_neutralizing_a_node_leaves_its_subsections_in_coverage(qtbot):
+    """Neutraliser le contenu propre d'un titre n'efface pas ses sous-sections de la couverture.
+
+    Sans cette granularité, désigner le préambule d'un chapitre revenait à déclarer toute sa
+    lignée conteneur : la couverture disparaissait pour des sections qui, elles, ont du contenu
+    propre. C'est le besoin utilisateur qui a fait naître la valeur `node:`.
+    """
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_granularity_document(uid)
+    _cover_chunk_with_card(doc, chunks[1], uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    parent_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre")
+    panel.chapters_tree.setCurrentItem(parent_row)
+    qtbot.wait(10)
+
+    panel.toggle_section_neutralization(scope=RegionScope.NODE)
+
+    assert _stored_neutralized(doc.id) == ["node:Chapitre"]
+    # Le préambule seul devient conteneur ; la sous-section, qui a son contenu, reste une unité.
+    parent_chunk = DocumentChunkModel.get_by_id(chunks[0].id)
+    child_chunk = DocumentChunkModel.get_by_id(chunks[1].id)
+    assert (parent_chunk.is_structural_container, parent_chunk.container_origin) == (True, "declared")
+    assert (child_chunk.is_structural_container, child_chunk.container_origin) == (False, None)
+    annex = DocumentChunkModel.get(DocumentChunkModel.document == doc.id, DocumentChunkModel.heading_path == "Annexe")
+    assert (annex.is_structural_container, annex.container_origin) == (False, None)
+    # Le chapitre seul est neutralisé ; la sous-section couverte et l'annexe restent au dénominateur.
+    assert "1/2 sections" in panel.lbl_doc_summary.text()
+
+    # La granularité de lignée reste disponible, et elle emporte bien les descendants.
+    panel.toggle_section_neutralization(scope=RegionScope.HEADING)
+    # L'ordre de rendu est canonique : `node:` avant `heading:`, quelle que soit la chronology.
+    assert _stored_neutralized(doc.id) == ["node:Chapitre", "heading:Chapitre"]
+    child_chunk = DocumentChunkModel.get_by_id(chunks[1].id)
+    assert child_chunk.is_structural_container is True
+    assert "0/1 sections" in panel.lbl_doc_summary.text()
+
+
+def test_excluding_a_node_leaves_its_subsections_in_scope(qtbot):
+    """Écarter le contenu propre d'un titre ne sort pas ses sous-sections du périmètre."""
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_granularity_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    parent_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre")
+    panel.chapters_tree.setCurrentItem(parent_row)
+    qtbot.wait(10)
+
+    panel.toggle_section_exclusion(scope=RegionScope.NODE)
+
+    assert _stored_exclusions(doc.id) == ["node:Chapitre"]
+    assert DocumentRepository.is_region_excluded(DocumentModel.get_by_id(doc.id), heading_path="Chapitre") is True
+    assert DocumentRepository.is_region_excluded(DocumentModel.get_by_id(doc.id), heading_path="Chapitre > Detail") is False
+
+    # L'exclusion de lignée, elle, couvre la lignée entière.
+    panel.toggle_section_exclusion(scope=RegionScope.HEADING)
+    assert DocumentRepository.is_region_excluded(DocumentModel.get_by_id(doc.id), heading_path="Chapitre > Detail") is True
+
+
+def test_inspector_context_menu_offers_both_granularities(qtbot):
+    """Le menu contextuel propose la lignée et le nœud seul, sur un titre qui a des enfants."""
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_granularity_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    parent_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre")
+    labels = [action.text() for action in panel.chapter_context_menu(parent_row).actions()]
+
+    assert "Neutraliser" in labels
+    assert "Neutraliser le contenu seul de ce titre" in labels
+
+    # Une feuille ne propose pas la granularité : elle dirait exactement la même chose.
+    child_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre > Detail")
+    leaf_labels = [action.text() for action in panel.chapter_context_menu(child_row).actions()]
+    assert "Neutraliser le contenu seul de ce titre" not in leaf_labels
+
+
+def test_the_neutralization_label_never_promises_more_than_the_action_writes(qtbot):
+    """Une ligne héritée d'une déclaration de parent s'affiche neutralisée, et se réactive elle-même.
+
+    Le bouton disait « Réactiver » parce que la ligne était couverte par la déclaration de son
+    parent, mais l'action écrivait une clé exacte qui n'existait pas : rien n'était retiré, et
+    un toast annonçait pourtant une réactivation. Le libellé et l'écriture doivent lire la même
+    granularité.
+    """
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_granularity_document(uid)
+    _cover_chunk_with_card(doc, chunks[1], uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    parent_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre")
+    child_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre > Detail")
+
+    # Le parent est déclaré : l'enfant est couvert par héritage, sans le déclarer lui-même.
+    panel.chapters_tree.setCurrentItem(parent_row)
+    qtbot.wait(10)
+    panel.toggle_section_neutralization(scope=RegionScope.HEADING)
+    panel.chapters_tree.setCurrentItem(child_row)
+    qtbot.wait(10)
+    assert panel.btn_neutralize_section.text().startswith("Neutraliser aussi")
+
+    panel.toggle_section_neutralization(scope=RegionScope.HEADING)
+
+    assert _stored_neutralized(doc.id) == ["heading:Chapitre", "heading:Chapitre > Detail"]
+    panel.chapters_tree.setCurrentItem(child_row)
+    qtbot.wait(10)
+    assert panel.btn_neutralize_section.text().startswith("Réactiver")
+
+
+def test_reactivating_a_lineage_keeps_an_independently_declared_descendant(qtbot):
+    """Réactiver la lignée d'un titre ne déneutralise pas une sous-section déclarée par ailleurs.
+
+    La déclaration d'un parent et celle de son enfant sont deux choix distincts ; retirer le
+    premier ne peut pas effacer le second. Sans quoi la sous-section réapparaît dans le
+    dénominateur de couverture alors que la règle persistée dit toujours le contraire.
+    """
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_granularity_document(uid)
+    _cover_chunk_with_card(doc, chunks[1], uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    parent_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre")
+    child_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre > Detail")
+
+    panel.chapters_tree.setCurrentItem(parent_row)
+    qtbot.wait(10)
+    panel.toggle_section_neutralization(scope=RegionScope.HEADING)
+    panel.chapters_tree.setCurrentItem(child_row)
+    qtbot.wait(10)
+    panel.toggle_section_neutralization(scope=RegionScope.HEADING)
+
+    # Le parent est réactivé, sa sous-section reste neutralisée par sa propre déclaration.
+    panel.chapters_tree.setCurrentItem(parent_row)
+    qtbot.wait(10)
+    panel.toggle_section_neutralization(scope=RegionScope.HEADING)
+
+    child_chunk = DocumentChunkModel.get(DocumentChunkModel.document == doc.id, DocumentChunkModel.heading_path == "Chapitre > Detail")
+    assert (child_chunk.is_structural_container, child_chunk.container_origin) == (True, "declared")
+    assert DocumentRepository.is_region_neutralized(DocumentModel.get_by_id(doc.id), heading_path="Chapitre > Detail") is True
+    # La sous-section neutralisée sort du dénominateur : il n'y reste que le chapitre.
+    assert "0/1 sections" in panel.lbl_doc_summary.text()

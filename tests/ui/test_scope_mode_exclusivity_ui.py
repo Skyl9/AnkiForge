@@ -8,6 +8,7 @@ import pytest
 from PySide6.QtCore import Qt
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
     DocumentDelimitationDialog,
@@ -342,7 +343,8 @@ def test_reopening_delimitation_restores_persisted_section_exclusions(qtbot: Any
     first.btn_scope_mode_sections.click()
     _row_for(first, 0).checkbox.setChecked(False)
     first._on_apply()
-    assert "chapitre 1" in _persisted_exclusions(doc)
+    # Adresse canonique typée : le persisté est une règle lisible, pas un sous-chaîne.
+    assert "heading:chapitre 1" in _persisted_exclusions(doc)
 
     reopened = DocumentDelimitationDialog(doc)
     qtbot.addWidget(reopened)
@@ -354,7 +356,7 @@ def test_reopening_delimitation_restores_persisted_section_exclusions(qtbot: Any
 
     # Réappliquer sans rien toucher ne doit pas effacer la délimitation mémorisée.
     reopened._on_apply()
-    assert "chapitre 1" in _persisted_exclusions(doc)
+    assert "heading:chapitre 1" in _persisted_exclusions(doc)
 
 
 def test_reopening_delimitation_keeps_pages_mode_without_heading_exclusions(qtbot: Any, mock_db: Any) -> None:
@@ -381,3 +383,55 @@ def _row_for(dlg: Any, index: int) -> SectionRowWidget:
     row = dlg.sections_list.itemWidget(dlg.sections_list.item(index))
     assert isinstance(row, SectionRowWidget)
     return row
+
+
+def test_reincluding_a_section_actually_clears_its_persisted_exclusion(qtbot: Any, mock_db: Any) -> None:
+    """Réintégrer une section efface son exclusion persistée, casse d'affichage comprise.
+
+    L'exclusion est relue dans la casse du document, mais comparée à la casse du titre courant :
+    une comparaison de chaînes brutes laissait l'entrée périmée en place, si bien que la case
+    se ré-cochait sans que la région revienne au périmètre — un état que rien n'affichait et que
+    seul un réexamen de la règle persistée pouvait révéler.
+    """
+    doc = _make_paginated_doc("Reintegration")
+    first = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(first)
+    first.btn_scope_mode_sections.click()
+    _row_for(first, 0).checkbox.setChecked(False)
+    first._on_apply()
+    assert "heading:chapitre 1" in _persisted_exclusions(doc)
+
+    reopened = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(reopened)
+    assert reopened.selection_mode == "sections"
+    assert reopened.sections_list.item(0).checkState() == Qt.CheckState.Unchecked
+
+    _row_for(reopened, 0).checkbox.setChecked(True)
+    reopened._on_apply()
+
+    assert not _persisted_exclusions(doc)
+    assert [str(chunk.get("heading_path") or "") for chunk in reopened._selected_chunks_for_mode()] == ALL_CHAPTERS
+    assert DocumentRepository.is_section_excluded(DocumentModel.get_by_id(doc.id), ALL_CHAPTERS[0]) is False
+
+
+def test_reincluding_a_legacy_unprefixed_exclusion_clears_it(qtbot):
+    """Une exclusion héritée, sans préfixe, disparaît réellement quand on décoche sa section.
+
+    Les profils d'avant les adresses typées stockent « chapitre 1 » : la réintégration doit
+    reconnaître cette forme, sinon la case se décoche, la matière reste écartée, et Apply
+    réinscrit l'exclusion que l'utilisateur vient d'annuler.
+    """
+    doc = _make_paginated_doc("ReintegrationLegacy")
+    DocumentModel.update(excluded_headings=json.dumps(["chapitre 1"])).where(DocumentModel.id == doc.id).execute()
+
+    dialog = DocumentDelimitationDialog(DocumentModel.get_by_id(doc.id))
+    qtbot.addWidget(dialog)
+    dialog.btn_scope_mode_sections.click()
+    assert _row_for(dialog, 0).checkbox.isChecked() is False
+
+    _row_for(dialog, 0).checkbox.setChecked(True)
+    dialog._on_apply()
+
+    assert not _persisted_exclusions(doc)
+    assert DocumentRepository.is_section_excluded(DocumentModel.get_by_id(doc.id), ALL_CHAPTERS[0]) is False
+    assert [str(chunk.get("heading_path") or "") for chunk in dialog._selected_chunks_for_mode()] == ALL_CHAPTERS

@@ -26,8 +26,12 @@ class VectorWorker(QThread):
             success = self.manager.index_document(document)
             collection_name = f"doc_{document.id}" if success else ""
             elapsed = time.perf_counter() - t0
+            # `False` signifie « plus rien à indexer » — périmètre entièrement écarté, ou
+            # document sans matière — et non « échec » : l'annoncer comme une réussite
+            # mentirait sur un index qui n'existe pas.
             logger.info(
-                "VectorWorker: Indexation RAG terminée avec succès pour '%s' (collection: %s) en %.2fs",
+                "VectorWorker: Indexation RAG %s pour '%s' (collection: %s) en %.2fs",
+                "terminée" if success else "sans matière à indexer",
                 document.title,
                 collection_name,
                 elapsed,

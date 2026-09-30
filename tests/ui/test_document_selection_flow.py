@@ -20,6 +20,7 @@ from ankiforge.ui.views.creation_view import CreationView
 from ankiforge.ui.views.creation_view.widgets.document_editor import (
     DocumentEditorWidget,
 )
+from ankiforge.utils.region_address import RegionAddress, RegionScope, parse_region_addresses
 
 pytestmark = pytest.mark.ui
 
@@ -417,7 +418,7 @@ def test_document_scope_dialog_filtered_access_and_contextual_slider(qtbot: Any,
         total_pages=15,
         start_page=3,
         end_page=8,
-        excluded_headings='["sommaire"]',
+        excluded_headings='["heading:Sommaire général"]',
     )
     # Création de chunks : p.2 (exclue), p.3 (utile), p.4 sommaire (exclu), p.5 (utile), p.10 (exclue)
     DocumentChunkModel.create(document=doc, chunk_index=0, page_number=2, heading_path="Intro", content="Hors délimitation", content_hash="h0")
@@ -459,6 +460,7 @@ def test_document_scope_dialog_filtered_access_and_contextual_slider(qtbot: Any,
 def test_delimitation_dialog_differential_update_preserves_card_links(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que la mise à jour différentielle de délimitation préserve les NoteChunkLinkModel."""
     from ankiforge.database.models import DocumentChunkModel, NoteChunkLinkModel, NoteModel, NoteTypeModel
+    from ankiforge.repositories.document_repository import DocumentRepository
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
@@ -488,8 +490,12 @@ def test_delimitation_dialog_differential_update_preserves_card_links(qtbot: Any
     assert preserved_link.chunk.id == c2.id
     assert preserved_link.chunk.heading_path == "Ventricules"
 
-    # Vérifier que le chunk c1 a été supprimé
-    assert DocumentChunkModel.select().where(DocumentChunkModel.id == c1.id).first() is None
+    # L'écartement est non destructif : le fragment de la page 1 reste en base, réintégrable.
+    # Le supprimer était irréversible — `NoteChunkLinkModel.chunk` est en `on_delete="CASCADE"`,
+    # et une carte déjà produite depuis ce fragment perdait son lien de couverture sans remède.
+    assert DocumentChunkModel.select().where(DocumentChunkModel.id == c1.id).first() is not None
+    # …et la page 1 est bien sortie du périmètre, par la règle persistée.
+    assert DocumentRepository.is_region_excluded(DocumentModel.get_by_id(doc.id), page_number=1) is True
 
 
 def test_delimitation_bidirectional_sync_slider_sections(qtbot: Any, mock_db: Any) -> None:
@@ -674,36 +680,46 @@ def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mo
     w_row3.checkbox.setChecked(False)
     # L'interaction avec l'arbre active le mode sections : l'exclusion devient gouvernante.
     assert dlg1.selection_mode == "sections"
-    assert "page 3" in dlg1._manual_exclusions
+    # Une page sans titre est enregistrée comme exclusion de page, pas comme exclusion de
+    # titre « Page 3 » : le libellé est synthétique, la règle doit nommer la page.
+    assert "page:3" in dlg1._manual_exclusions
 
     # Appliquer
     dlg1._on_apply()
 
     # Le mode sections gouvernant, l'exclusion est persistée.
     fresh_doc = DocumentModel.get_by_id(doc.id)
-    assert "Page 3" in fresh_doc.excluded_headings
+    assert parse_region_addresses(fresh_doc.excluded_headings) == [RegionAddress(RegionScope.PAGE, "3")]
 
-    # 2. Réouverture : l'exclusion a été matérialisée (chunk retiré), les pages restantes
-    #    sont toutes cochées et les bornes de pages ne sont pas marquées par une exclusion.
+    # 2. Réouverture : la matière est intacte, seul le périmètre a changé — la page 3 est un
+    #    trou, les autres restent cochées et les bornes de pages ne sont pas marquées.
+    assert [c.page_number for c in DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index)] == [1, 2, 3, 4, 5]
     dlg2 = DocumentDelimitationDialog(doc)
     qtbot.addWidget(dlg2)
-    assert all(dlg2.sections_list.item(i).checkState() == Qt.CheckState.Checked for i in range(dlg2.sections_list.count()))
-    assert dlg2._selected_pages == {1, 2, 3, 4, 5}
+    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Unchecked
+    assert all(dlg2.sections_list.item(i).checkState() == Qt.CheckState.Checked for i in (0, 1, 3, 4))
+    # La page 3 réintégrée par défaut dans l'aperçu, mais toujours un trou dans les pages.
+    assert dlg2._selected_pages == {1, 2, 4, 5}
+    assert "page:3" in dlg2._manual_exclusions
 
     # 3. Manipulation du slider de pages (déplacer puis ré-étendre à toute la portée)
     dlg2.btn_scope_mode_range.click()
     dlg2.spin_p_start.setValue(1)
     dlg2.spin_p_end.setValue(5)
 
-    # Le slider n'introduit aucune exclusion de titre.
+    # Le slider n'introduit aucune exclusion de titre : ré-étendre la plage ne ressuscite rien
+    # par accident, et n'efface pas l'exclusion manuelle de page.
     assert not [ex for ex in dlg2._manual_exclusions if not ex.startswith("page:")]
+    assert "page:3" in dlg2._manual_exclusions
 
-    # 4. DocumentScopeDialog ne voit plus le chunk dont le titre a été exclu.
+    # 4. DocumentScopeDialog ne voit plus le fragment de la page écartée — par le prédicat
+    #    partagé, alors que la matière est toujours en base et réintégrable.
     scope_dlg = DocumentScopeDialog(doc)
     qtbot.addWidget(scope_dlg)
     useful_titles = [u["title"] for u in scope_dlg._useful_chunks]
     assert "Page 3" not in useful_titles
     assert len(scope_dlg._useful_chunks) == 4
+    assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count() == 5
 
 
 def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
@@ -1185,7 +1201,7 @@ def test_delimitation_reset_requires_confirmation_and_clears_persistent_scope(qt
         total_pages=5,
         start_page=2,
         end_page=4,
-        excluded_headings='["sommaire"]',
+        excluded_headings='["heading:Sommaire général"]',
         content="# Chapitre\nContenu suffisamment long pour une section.",
     )
     dialog = DocumentDelimitationDialog(doc)
@@ -1716,6 +1732,7 @@ def test_document_delimitation_dialog_non_contiguous_pages(qtbot: Any, mock_db: 
     import json
 
     from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.repositories.document_repository import DocumentRepository
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
@@ -1757,10 +1774,11 @@ def test_document_delimitation_dialog_non_contiguous_pages(qtbot: Any, mock_db: 
     exclusions = json.loads(fresh_doc.excluded_headings)
     assert "page:3" in exclusions
 
-    # Vérification des chunks restants en BDD
+    # Vérification de la matière en BDD : rien n'est supprimé, la page 3 est un trou persisté.
     remaining = list(DocumentChunkModel.select().where(DocumentChunkModel.document == fresh_doc).order_by(DocumentChunkModel.chunk_index))
-    remaining_pages = [c.page_number for c in remaining]
-    assert remaining_pages == [1, 2, 4, 5]
+    assert [c.page_number for c in remaining] == [1, 2, 3, 4, 5]
+    assert DocumentRepository.is_region_excluded(fresh_doc, page_number=3) is True
+    assert DocumentRepository.is_region_excluded(fresh_doc, page_number=4) is False
 
 
 def test_preview_widget_page_toggle_button(qtbot: Any, mock_db: Any) -> None:

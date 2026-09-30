@@ -31,6 +31,7 @@ from ankiforge.database.models import (
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.dispatch import run_on_owner_thread
@@ -38,6 +39,7 @@ from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankiforge.utils.region_address import RegionAddress, RegionScope
 
 if TYPE_CHECKING:
     from ankiforge.ui.components.linter_widgets import SourceDiagnosticCardWidget
@@ -161,6 +163,7 @@ class DocumentInspectorPanel(QWidget):
             self.doc = DocumentModel.get_or_none(DocumentModel.id == doc_or_id)
 
         self._applying_local_coverage_change = False
+        self._container_candidates: set[str] = set()
 
         if not self.doc:
             return
@@ -302,6 +305,11 @@ class DocumentInspectorPanel(QWidget):
         self.btn_exclude_section.clicked.connect(lambda _checked=False: self.toggle_section_exclusion())
         scope_row.addWidget(self.btn_exclude_section)
 
+        self.btn_neutralize_section = SecondaryButton("Neutraliser cette section", tooltip="Retirer la section du dénominateur de couverture sans sortir sa matière du document")
+        self.btn_neutralize_section.setIcon(load_phosphor_icon("ph.minus-circle", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_neutralize_section.clicked.connect(lambda _checked=False: self.toggle_section_neutralization())
+        scope_row.addWidget(self.btn_neutralize_section)
+
         lbl_scope_status = QLabel(self._scope_status_text(0, "sections"))
         lbl_scope_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         self.lbl_scope_status = lbl_scope_status
@@ -376,12 +384,23 @@ class DocumentInspectorPanel(QWidget):
     def load_chunks(self) -> None:
         self.chapters_tree.clear()
         chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
+        # Les titres candidats sont calculés une fois par chargement, par la règle du service :
+        # l'infobulle n'a plus qu'à lire l'ensemble, et la règle du seuil de 25 mots n'existe
+        # qu'à un seul endroit.
+        self._container_candidates = {
+            str(heading).casefold()
+            for heading in ChunkingService.container_candidates(
+                [{"heading_path": c.heading_path, "content": c.content} for c in chunks],
+                declared_addresses=DocumentRepository.get_neutralized_regions(self.doc),
+            )
+        }
 
         if not chunks:
             self.lbl_doc_summary.setText("Non indexé (0 section)")
             self.lbl_scope_status.setText(self._scope_status_text(0, "sections"))
             self.text_preview.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED};'>Ce document n'a pas encore été fragmenté. Cliquez sur 'Ré-indexer FAISS'.</p>")
             self._sync_exclusion_action()
+            self._sync_neutralization_action()
             return
 
         # Détecte si le document a une hiérarchie de titres ou un découpage plat (pages).
@@ -714,8 +733,9 @@ class DocumentInspectorPanel(QWidget):
         return f"{excluded_units} {noun} hors périmètre · clic droit pour ré-inclure"
 
     def _on_current_chapter_changed(self, current: QTreeWidgetItem | None, _previous: QTreeWidgetItem | None) -> None:
-        """La sélection du sommaire pilote l'aperçu et l'action d'exclusion de section."""
+        """La sélection du sommaire pilote l'aperçu et les deux actions de périmètre."""
         self._sync_exclusion_action()
+        self._sync_neutralization_action()
         if current is None:
             return
         chunk_id = current.data(0, _ROLE_CHUNK_ID)
@@ -758,12 +778,106 @@ class DocumentInspectorPanel(QWidget):
         else:
             self.btn_exclude_section.setToolTip(f"Retirer « {title} » du périmètre : la section ne comptera plus comme une lacune de couverture.")
 
-    def toggle_section_exclusion(self) -> None:
-        """Exclut ou réintègre la section sélectionnée du périmètre d'analyse du document.
+    def _neutralization_spec(self, item: QTreeWidgetItem | None) -> tuple[str, str, bool, bool]:
+        """Libellé, icône, état et applicabilité de l'action de neutralisation.
+
+        Même source de vérité que :meth:`_exclusion_spec` pour les deux verbes voisins : ils
+        décrivent la même région, et l'un ne doit pas pouvoir dire « exclue » quand l'autre dit
+        « réactivable » sur la même ligne.
+        """
+        heading = str(item.data(0, _ROLE_HEADING) or "") if item is not None else ""
+        if not DocumentRepository.is_excludable_heading(heading):
+            return "Neutraliser cette section", "ph.minus-circle", False, False
+        # L'état affiché est celui de la granularité que l'action va écrire : une ligne
+        # héritée par la déclaration de son parent affiche « neutralisée », et le bouton doit
+        # alors la réactiver elle-même. Le contraire — annoncer « réactiver » et n'écrire
+        # rien — était une promesse que l'action ne tenait pas.
+        target = RegionAddress(RegionScope.HEADING, heading)
+        declared = any(entry.key == target.key for entry in DocumentRepository.get_neutralized_regions(self.doc))
+        inherited = any(entry.key != target.key and entry.covers(heading_path=heading, page_number=None) for entry in DocumentRepository.get_neutralized_regions(self.doc))
+        if declared:
+            return "Réactiver cette section", "ph.arrow-counter-clockwise", True, True
+        if inherited:
+            return "Neutraliser aussi cette sous-section", "ph.minus-circle", False, True
+        return "Neutraliser cette section", "ph.minus-circle", False, True
+
+    def _sync_neutralization_action(self) -> None:
+        """Aligne le libellé de l'action de neutralisation sur la section sélectionnée."""
+        item = self.chapters_tree.currentItem()
+        title = str(item.data(0, _ROLE_TITLE) or "") if item is not None else ""
+        heading = str(item.data(0, _ROLE_HEADING) or "") if item is not None else ""
+        label, icon_name, is_neutralized, applicable = self._neutralization_spec(item)
+
+        self.btn_neutralize_section.setText(label)
+        self.btn_neutralize_section.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+        self.btn_neutralize_section.setEnabled(applicable)
+        if not applicable:
+            self.btn_neutralize_section.setToolTip("Sélectionnez une section titrée : un fragment au libellé de page n'a pas de titre de section à neutraliser.")
+        elif is_neutralized:
+            self.btn_neutralize_section.setToolTip(f"Réactiver « {title} » : la section redevient une unité de couverture, ses sous-sections comprises.")
+        else:
+            effect = "la section cesse de compter comme une unité de couverture — sa matière, ses cartes et ses sous-sections restent dans le document"
+            self.btn_neutralize_section.setToolTip(f"Neutraliser « {title} » : {effect}.{self._candidate_hint(heading)}")
+
+    def _candidate_hint(self, heading: str) -> str:
+        """Rappelle le seuil de 25 mots quand il qualifie le titre comme candidat.
+
+        Le seuil est une *aide* à la déclaration, pas une règle : c'est à l'utilisateur de
+        décider si un titre mérite le statut de conteneur. Le lui rappeler à l'endroit exact
+        où la décision se prend est le seul moyen que la suggestion ne reste une constante
+        employée nulle part.
+        """
+        if not heading or heading.casefold() not in self._container_candidates:
+            return ""
+        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.document == self.doc_id, DocumentChunkModel.heading_path == heading)
+        words = len(str(chunk.content or "").split()) if chunk else 0
+        return f" Contenu court ({words} mots) : titre candidat au statut de conteneur."
+
+    def toggle_section_neutralization(self, *, scope: RegionScope = RegionScope.HEADING) -> None:
+        """Déclare la région sélectionnée comme conteneur structurel, ou retire la déclaration.
+
+        Le second verbe : là où l'exclusion sort une région du périmètre — et donc des
+        générations —, la neutralisation ne la sort que du dénominateur de couverture. Le
+        contenu reste indexable et rattachable ; c'est l'unité de cours, et non sa matière,
+        que l'utilisateur déclare ne pas devoir être couverte par une carte à elle seule.
+
+        ``scope`` porte la **granularité** : ``HEADING`` couvre la lignée, ``NODE`` seulement
+        le contenu propre du titre. Sans ce second choix, neutraliser le préambule d'un
+        chapitre revenait à effacer de la couverture toutes ses sous-sections.
+        """
+        item = self.chapters_tree.currentItem()
+        if item is None:
+            return
+
+        heading = str(item.data(0, _ROLE_HEADING) or "")
+        if not DocumentRepository.is_excludable_heading(heading):
+            show_toast(self, "Cette section n'a pas de titre exploitable : elle ne peut pas être neutralisée.")
+            return
+
+        target = RegionAddress(scope, heading)
+        was_neutralized = any(entry.key == target.key for entry in DocumentRepository.get_neutralized_regions(self.doc))
+        repo = DocumentRepository()
+        if not repo.set_region_neutralized(self.doc_id, target, not was_neutralized):
+            logger.warning("Neutralisation de la section %r refusée pour le document %s", heading, self.doc_id)
+            return
+
+        self.doc = repo.get_document_by_id(self.doc_id) or self.doc
+        # Les deux sens se matérialisent : déclarer comme réactiver, sans quoi la réactivation
+        # ne laisserait pas le conteneur dans le dénominateur jusqu'à la prochaine réingestion.
+        self._reindex_declared_containers(heading, neutralized=not was_neutralized, target=target)
+        self._refresh_row_states()
+        self._refresh_coverage_summary()
+        self._sync_neutralization_action()
+        grain = " et ses sous-sections" if scope is RegionScope.HEADING else " seul"
+        show_toast(self, f"Section « {item.data(0, _ROLE_TITLE) or heading} » {'réactivée' if was_neutralized else 'neutralisée'}{grain}.")
+
+    def toggle_section_exclusion(self, *, scope: RegionScope = RegionScope.HEADING) -> None:
+        """Exclut ou réintègre la région sélectionnée du périmètre d'analyse du document.
 
         L'exclusion est persistée sur ``DocumentModel.excluded_headings`` puis répercutée
         immédiatement sur le sommaire et sur la couverture globale, sans reconstruire
-        l'inspecteur : la section reste sélectionnée et inspectable.
+        l'inspecteur : la section reste sélectionnée et inspectable. ``scope`` choisit la
+        granularité, comme pour la neutralisation.
         """
         item = self.chapters_tree.currentItem()
         if item is None:
@@ -774,9 +888,10 @@ class DocumentInspectorPanel(QWidget):
             show_toast(self, "Cette section n'a pas de titre exploitable : elle ne peut pas être exclue de l'analyse.")
             return
 
-        was_excluded = DocumentRepository.is_section_excluded(self.doc, heading)
+        target = RegionAddress(scope, heading)
+        was_excluded = any(entry.key == target.key for entry in DocumentRepository.get_excluded_regions(self.doc))
         repo = DocumentRepository()
-        if not repo.set_section_excluded(self.doc_id, heading, not was_excluded):
+        if not repo.set_region_excluded(self.doc_id, target, not was_excluded):
             logger.warning("Exclusion de la section %r refusée pour le document %s", heading, self.doc_id)
             return
 
@@ -784,6 +899,7 @@ class DocumentInspectorPanel(QWidget):
         self._refresh_row_states()
         self._refresh_coverage_summary()
         self._sync_exclusion_action()
+        self._sync_neutralization_action()
         show_toast(self, f"Section « {item.data(0, _ROLE_TITLE) or heading} » {'réintégrée' if was_excluded else 'exclue'} de l'analyse.")
 
         self._applying_local_coverage_change = True
@@ -791,6 +907,43 @@ class DocumentInspectorPanel(QWidget):
             event_bus.publish(CoverageSyncedEvent(doc_id=self.doc_id))
         finally:
             self._applying_local_coverage_change = False
+
+    def _reindex_declared_containers(self, heading: str, *, neutralized: bool, target: RegionAddress) -> None:
+        """Réévalue les origines de conteneur du document, sans réextraire son contenu.
+
+        La déclaration est une règle, pas un drapeau figé au moment de l'extraction : la
+        matérialiser tout de suite évite d'attendre la prochaine réingestion pour que l'effet
+        soit visible, tout en laissant celle-ci la réévaluer.
+
+        La règle est recalculée sur le document entier — c'est le seul endroit où « ce titre a
+        des descendants » est connu — mais **seule la région visée est écrite**. Réactiver la
+        lignée d'un titre ne peut pas déneutraliser une sous-section déclarée par ailleurs, et
+        un fragment que le geste ne concerne pas garde l'origine que la dernière ingestion lui
+        a donnée.
+        """
+        if not self.doc:
+            return
+        try:
+            fresh = DocumentModel.get_or_none(DocumentModel.id == self.doc_id) or self.doc
+            chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc))
+            ruled = ChunkingService.flag_structural_containers(
+                [{"heading_path": chunk.heading_path, "content": chunk.content, "page_number": chunk.page_number} for chunk in chunks],
+                declared_addresses=DocumentRepository.get_neutralized_regions(fresh),
+            )
+            with DocumentChunkModel._meta.database.atomic():
+                for chunk, rule in zip(chunks, ruled, strict=True):
+                    if not target.covers(heading_path=chunk.heading_path, page_number=chunk.page_number):
+                        continue
+                    is_container = bool(rule.get("is_structural_container"))
+                    origin = rule.get("container_origin")
+                    if (chunk.is_structural_container, chunk.container_origin) == (is_container, origin):
+                        continue
+                    chunk.is_structural_container = is_container
+                    chunk.container_origin = origin
+                    chunk.save(only=[DocumentChunkModel.is_structural_container, DocumentChunkModel.container_origin])
+            logger.debug("Origines de conteneur réévaluées pour la région %r (neutralized=%s)", target.key, neutralized)
+        except Exception:
+            logger.exception("Réévaluation de l'origine déclarée impossible pour %r (document %s)", heading, self.doc_id)
 
     @staticmethod
     def _refinement_report_text(report: dict[str, Any]) -> str:
@@ -844,12 +997,16 @@ class DocumentInspectorPanel(QWidget):
             self.inspect_chunk(chunk_id, is_container=is_container)
 
     def chapter_context_menu(self, item: QTreeWidgetItem) -> StyledMenu | None:
-        """Menu contextuel d'une ligne du sommaire : exclure ou ré-inclure sa section.
+        """Menu contextuel d'une ligne du sommaire : les deux verbes, à leurs deux granularités.
 
         L'action est proposée pour toute section titrée et désactivée pour un fragment au
-        libellé de page, qui n'a pas de titre de section à exclure. Un clic droit ne
-        change pas la ligne courante sous Qt : on la sélectionne donc d'abord, ce qui met
-        l'aperçu à jour et fait porter l'action à la section visée.
+        libellé de page, qui n'a pas de titre de section à traiter. Un clic droit ne change pas la
+        ligne courante sous Qt : on la sélectionne donc d'abord, ce qui met l'aperçu à jour et
+        fait porter l'action à la section visée.
+
+        La granularité `node:` n'est proposée qu'à un titre qui a des descendants : sur une
+        feuille, elle dirait exactement la même chose que `heading:`, et deux entrées identiques
+        dans un menu sont une invite à choisir au hasard.
         """
         if item is None:
             return None
@@ -858,13 +1015,22 @@ class DocumentInspectorPanel(QWidget):
         menu = StyledMenu(self)
         toggle_action = menu.addAction(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY), label)
         toggle_action.setEnabled(applicable)
-        toggle_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item))
+        toggle_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item, RegionScope.HEADING, neutralize=False))
+
+        if applicable and item.childCount() > 0:
+            menu.addSeparator()
+            for scope, verb in ((RegionScope.HEADING, "Neutraliser"), (RegionScope.NODE, "Neutraliser le contenu seul de ce titre")):
+                entry = menu.addAction(load_phosphor_icon("ph.minus-circle", color=DesignTokens.TEXT_SECONDARY), verb)
+                entry.triggered.connect(lambda _checked=False, sc=scope: self._toggle_chapter_from_menu(item, sc, neutralize=True))
         return menu
 
-    def _toggle_chapter_from_menu(self, item: QTreeWidgetItem) -> None:
-        """Bascule l'exclusion de la section visée par le menu contextuel, en la sélectionnant."""
+    def _toggle_chapter_from_menu(self, item: QTreeWidgetItem, scope: RegionScope, *, neutralize: bool) -> None:
+        """Bascule le verbe demandé sur la région visée par le menu contextuel, en la sélectionnant."""
         self.chapters_tree.setCurrentItem(item)
-        self.toggle_section_exclusion()
+        if neutralize:
+            self.toggle_section_neutralization(scope=scope)
+        else:
+            self.toggle_section_exclusion(scope=scope)
 
     def _show_chapter_context_menu(self, pos: QPoint) -> None:
         """Ouvre le menu contextuel du sommaire à l'emplacement du clic droit."""

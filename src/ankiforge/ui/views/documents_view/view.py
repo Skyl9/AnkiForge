@@ -2031,47 +2031,17 @@ class DocumentsView(FileDropMixin, QWidget):
                 if getattr(doc, "file_type", "") != "album" and not DocumentPageModel.select().where(DocumentPageModel.document == doc).exists():
                     extracted = ChunkingService.extract_chunks(content, file_type=doc.file_type, strategy=ChunkingService.preferred_strategy(doc.file_type))
                     if extracted:
-                        start_p = getattr(doc, "start_page", None)
-                        end_p = getattr(doc, "end_page", None)
-                        raw_excl = getattr(doc, "excluded_headings", None)
-                        excl_headings: list[str] = []
-                        if raw_excl:
-                            try:
-                                import json
-
-                                parsed = json.loads(raw_excl)
-                                if isinstance(parsed, list):
-                                    excl_headings = [str(x).lower() for x in parsed]
-                            except Exception as err:
-                                logger.debug("Parsing des titres exclus ignoré : %s", err)
-
-                        retained = []
-                        for c in extracted:
-                            pn = c.get("page_number")
-                            if pn is not None:
-                                if start_p is not None and pn < start_p:
-                                    continue
-                                if end_p is not None and pn > end_p:
-                                    continue
-                            hp = (c.get("heading_path") or "").lower()
-                            if excl_headings and any(eh in hp for eh in excl_headings):
-                                continue
-                            retained.append(c)
-
-                        with DocumentChunkModel._meta.database.atomic():
-                            DocumentChunkModel.delete().where(DocumentChunkModel.document == doc).execute()
-                            for idx, chunk_data in enumerate(retained):
-                                DocumentChunkModel.create(
-                                    document=doc,
-                                    chunk_index=idx,
-                                    content=chunk_data["content"],
-                                    page_number=chunk_data.get("page_number"),
-                                    heading_path=chunk_data.get("heading_path"),
-                                    start_time=chunk_data.get("start_time"),
-                                    end_time=chunk_data.get("end_time"),
-                                    is_structural_container=chunk_data.get("is_structural_container", False),
-                                    content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
-                                )
+                        # Réécrire le contenu réaligne le découpage sans le remplacer : la matière
+                        # écartée reste en base — une exclusion est une règle de périmètre, pas un
+                        # filtre de matière — et l'origine de conteneur est persistée avec.
+                        chunk_report = DocumentRepository().sync_extracted_chunks(doc, extracted)
+                        logger.info(
+                            "Réécriture du document %s : %d fragments conservés, %d créés, %d disparus",
+                            doc.id,
+                            chunk_report.preserved,
+                            chunk_report.created,
+                            chunk_report.deleted,
+                        )
                         mark_document_version(doc)
                         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 

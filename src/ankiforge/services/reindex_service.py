@@ -119,7 +119,18 @@ def reindex_document(
 
         # 2. CAS TEXTUEL : DÉCOUPAGE DU DOCUMENT via ChunkingService
         strategy = ChunkingService.preferred_strategy(doc.file_type)
-        extracted_chunks = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type, strategy=strategy)
+        # Les déclarations de neutralisation sont relues depuis le document : la ré-indexation
+        # est une réingestion, et une règle ne doit pas survivre sous forme d'identifiants de
+        # fragments — réattribués à chaque découpage. Import local : `document_repository`
+        # importe ce module pour `mark_document_version`.
+        from ankiforge.repositories.document_repository import DocumentRepository
+
+        extracted_chunks = ChunkingService.extract_chunks(
+            doc.content,
+            file_type=doc.file_type,
+            strategy=strategy,
+            declared_addresses=DocumentRepository.get_neutralized_regions(doc),
+        )
         if not extracted_chunks:
             logger.warning("Document '%s' vide ou trop court pour générer des chunks.", doc.title)
             return REINDEX_EMPTY
@@ -144,6 +155,7 @@ def reindex_document(
                     # sans jamais le réparer, ce qui rendait la perte définitive. Le chemin
                     # d'ingestion (`DocumentRepository._regenerate_chunks`) le propageait déjà.
                     is_structural_container=chunk_data.get("is_structural_container", False),
+                    container_origin=chunk_data.get("container_origin"),
                     content_hash=chunk_data["content_hash"],
                 )
         logger.info("Persistance de %d chunks en BDD pour le document '%s'", len(extracted_chunks), doc.title)
@@ -155,7 +167,11 @@ def reindex_document(
 
         # 4. Construction de l'index vectoriel FAISS local
         _emit("Génération de l'index vectoriel FAISS...")
-        vector_mgr.index_document(doc)
+        if not vector_mgr.index_document(doc):
+            # Rien d'indexable : un périmètre entièrement écarté laisse le document sans index,
+            # ce qui est un résultat et non une panne. Le dire, plutôt que laisser un succès
+            # annoncé sur un index absent.
+            _emit("Aucune matière à indexer : le périmètre du document est entièrement écarté.")
 
         # 5. Synchronisation déterministe des fiches existantes via tags de traçabilité
         _emit("Synchronisation des fiches Anki existantes via les tags...")

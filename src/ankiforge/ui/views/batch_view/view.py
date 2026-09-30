@@ -39,6 +39,7 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.repositories.deck_repository import DeckRepository
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.repositories.persona_repository import PersonaRepository
 from ankiforge.services.batch.models import (
     BatchGenerationConfig,
@@ -874,13 +875,6 @@ class BatchView(QWidget):
     @staticmethod
     def _resolve_batch_chunks(doc: DocumentModel) -> list[dict[str, Any]]:
         """Retourne les chunks du périmètre documentaire dans un ordre stable."""
-        excluded: set[str] = set()
-        raw_excluded = getattr(doc, "excluded_headings", None)
-        if raw_excluded:
-            try:
-                excluded = {str(value).strip().casefold() for value in json.loads(raw_excluded) if str(value).strip()}
-            except (TypeError, ValueError, json.JSONDecodeError):
-                logger.warning("Exclusions de titres invalides pour le document %s.", getattr(doc, "id", None))
 
         chunks: list[dict[str, Any]] = []
         persisted = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index.asc()))
@@ -899,8 +893,6 @@ class BatchView(QWidget):
         else:
             raw_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md", strategy=ChunkingService.preferred_strategy(doc.file_type))
 
-        start_page = getattr(doc, "start_page", None)
-        end_page = getattr(doc, "end_page", None)
         for index, chunk in enumerate(raw_chunks):
             content = str(chunk.get("content", "")).strip()
             heading_path_raw = str(chunk.get("heading_path") or "").strip()
@@ -910,10 +902,12 @@ class BatchView(QWidget):
             page_number = chunk.get("page_number")
             if not content:
                 continue
-            if page_number is not None and ((start_page is not None and page_number < start_page) or (end_page is not None and page_number > end_page)):
-                continue
-            heading_lower = heading_path.casefold()
-            if excluded and any(item == heading_lower or item in heading_lower for item in excluded):
+            # Même prédicat que le dépôt et l'éditeur : le lot ne peut pas produire de cartes
+            # depuis une région que l'utilisateur a écartée ailleurs dans l'application. Un seul
+            # oracle pour une règle — lire la règle une seconde fois ailleurs créait deux
+            # vérités, dont aucune ne pouvait être tenue responsable de l'autre.
+            page = int(page_number) if isinstance(page_number, int | float) else None
+            if DocumentRepository.is_region_excluded(doc, heading_path=heading_path, page_number=page):
                 continue
             chunks.append(
                 {

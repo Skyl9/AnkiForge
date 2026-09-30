@@ -36,7 +36,15 @@ class DocumentModel(BaseModel):
     total_pages = IntegerField(default=1)
     start_page = IntegerField(null=True)
     end_page = IntegerField(null=True)
+    #: Adresses de région **écartées** (ADR 0010), en JSON : la région sort du document, de son
+    #: dénominateur de couverture et du rattachement des cartes. Entrées sans préfixe tolérées à la
+    #: lecture, réécrites préfixées à l'écriture. L'écartement est une *règle* réévaluée à chaque
+    #: réingestion, jamais un identifiant de fragment mémorisé — d'où la non-destruction de la matière.
     excluded_headings = TextField(null=True)
+    #: Adresses de région **neutralisées** (ADR 0010) : elles ne sortent que du dénominateur de
+    #: couverture, le document les conservant. Colonne distincte d'`excluded_headings` parce que les
+    #: deux verbes ne se confondent pas — un seul drapeau ne pourrait pas les porter.
+    neutralized_regions = TextField(null=True)
     chunk_strategy_version = IntegerField(default=ChunkingService.CHUNKING_VERSION)
 
 
@@ -87,6 +95,12 @@ class DocumentChunkModel(BaseModel):
     #: justifier la création de flashcards, mais qui sert de nœud d'organisation pour
     #: des sous-sections substantielles. Neutre dans le calcul de couverture.
     is_structural_container = BooleanField(default=False)
+
+    #: Cause de cette neutralisation : `derived` (déduite de la structure) ou `declared`
+    #: (exigée par l'utilisateur via une adresse de région). `NULL` = unité de cours.
+    #: Axe du drapeau, pas second drapeau : les deux verbes de l'ADR 0010 — écarter et
+    #: neutraliser — ne partagent pas cet axe, ils ont chacun leur colonne au niveau document.
+    container_origin = CharField(null=True)
 
     class Meta:
         table_name = "document_chunks"

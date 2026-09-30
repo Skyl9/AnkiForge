@@ -112,14 +112,14 @@ def test_delimitation_dialog_persists_settings_and_filters_chunks(qtbot):
     assert reloaded_doc.end_page == 3
     assert reloaded_doc.excluded_headings == "[]"
 
-    # Vérification des chunks actifs restants en BDD
+    # Vérification de la matière : les quatre pages restent en base, l'écartement est une règle
     active_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc))
-    assert len(active_chunks) == 2
-    pages_active = [c.page_number for c in active_chunks]
-    assert 2 in pages_active
-    assert 3 in pages_active
-    assert 1 not in pages_active
-    assert 4 not in pages_active
+    assert len(active_chunks) == 4
+    # Le périmètre, lui, est bien la plage 2..3.
+    assert DocumentRepository.is_region_excluded(reloaded_doc, page_number=1) is True
+    assert DocumentRepository.is_region_excluded(reloaded_doc, page_number=2) is False
+    assert DocumentRepository.is_region_excluded(reloaded_doc, page_number=3) is False
+    assert DocumentRepository.is_region_excluded(reloaded_doc, page_number=4) is True
 
 
 def test_delimitation_dialog_markdown_document_without_pages(qtbot):

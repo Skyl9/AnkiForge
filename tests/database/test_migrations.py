@@ -295,3 +295,87 @@ def test_migration_044_is_idempotent(mock_db):
     Router(db, migrate_dir=MIGRATIONS_DIR).run()
 
     assert LLMConfigModel.select().where(LLMConfigModel.id == stale.id).dicts().get() == repaired
+
+
+def _rewind_before_migration_045() -> None:
+    """Ramène la base juste avant la 045 : les deux colonnes absentes, migration non enregistrée.
+
+    La base de test est créée depuis les modèles, elle possède donc déjà les colonnes et la 045
+    n'y a plus rien à faire — le chemin le moins intéressant, celui d'une base neuve. C'est le
+    vrai, celui d'un profil existant qui redémarre, qu'il faut forcer ici. À n'appeler qu'une
+    fois les fragments créés : sans les colonnes, le modèle ne peut plus insérer.
+    """
+    db.execute_sql("ALTER TABLE document_chunks DROP COLUMN container_origin;")
+    db.execute_sql("ALTER TABLE documentmodel DROP COLUMN neutralized_regions;")
+    db.execute_sql("DELETE FROM migratehistory WHERE name = '045_region_addresses';")
+    assert "container_origin" not in [col.name for col in db.get_columns("document_chunks")]
+
+
+def test_migration_045_adds_both_columns_then_stamps_the_derived_origin(mock_db):
+    """La 045 crée les deux colonnes *puis* estampille l'origine des conteneurs déjà marqués.
+
+    Sans ce remplissage, un profil existant verrait ses conteners retomber en « unité de cours »
+    — donc réintégrés au dénominateur — entre la migration et la prochaine réingestion.
+    """
+    run_migrations()
+
+    doc = DocumentModel.create(title="Cours Conteneurs 045", file_type="md")
+    chapter = "Cours Conteneurs 045 > 2 Structures"
+    container = DocumentChunkModel.create(
+        document=doc, chunk_index=0, heading_path=chapter, content="# 2 Structures\n\nCe chapitre présente les organites.", content_hash="c045_0", is_structural_container=True
+    )
+    teaching = DocumentChunkModel.create(document=doc, chunk_index=1, heading_path=chapter, content="# 2bis Structures\n\n" + " ".join(["mot"] * 50), content_hash="c045_1")
+    doc.neutralized_regions = '["heading:Cours Conteneurs 045"]'
+
+    _rewind_before_migration_045()
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert "container_origin" in [col.name for col in db.get_columns("document_chunks")]
+    assert "neutralized_regions" in [col.name for col in db.get_columns("documentmodel")]
+    assert DocumentChunkModel.get_by_id(container.id).container_origin == "derived"
+    # Une unité de cours n'a pas d'origine : `NULL` = « aucune neutralisation ».
+    assert DocumentChunkModel.get_by_id(teaching.id).container_origin is None
+
+
+def test_migration_045_never_overwrites_a_declared_origin(mock_db):
+    """Le remplissage ne vise que les lignes *sans* origine : une déclaration n'est pas dérivée.
+
+    C'est la borne qui distingue un axe de cause d'un second drapeau : si le backfill
+    réécrivait toutes les lignes marquées, une neutralisation exigée par l'utilisateur
+    serait reléguée en déduction de structure à la réingestion suivante.
+    """
+    run_migrations()
+
+    doc = DocumentModel.create(title="Cours Declare 045", file_type="md")
+    chapter = "Cours Declare 045 > 2 Structures"
+    derived = DocumentChunkModel.create(
+        document=doc, chunk_index=0, heading_path=chapter, content="# 2 Structures\n\n" + " ".join(["mot"] * 80), content_hash="c045_d", is_structural_container=True, container_origin="declared"
+    )
+    undecided = DocumentChunkModel.create(
+        document=doc, chunk_index=1, heading_path=f"{chapter} > 2.1 La Membrane", content="# 2.1\n\n" + " ".join(["mot"] * 80), content_hash="c045_u", is_structural_container=True
+    )
+
+    # Le nom de fichier d'une migration commence par un chiffre : seul `importlib` l'atteint.
+    backfill = importlib.import_module("ankiforge.database.migrations.045_region_addresses").backfill
+    backfill(db)
+
+    assert DocumentChunkModel.get_by_id(derived.id).container_origin == "declared"
+    assert DocumentChunkModel.get_by_id(undecided.id).container_origin == "derived"
+
+
+def test_migration_045_is_idempotent(mock_db):
+    """Rejouer la 045 ne réécrit rien : seules les lignes sans origine sont estampillées."""
+    run_migrations()
+
+    doc = DocumentModel.create(title="Cours Idempotent 045", file_type="md")
+    chapter = "Cours Idempotent 045 > 2 Structures"
+    container = DocumentChunkModel.create(
+        document=doc, chunk_index=0, heading_path=chapter, content="# 2 Structures\n\nCe chapitre présente les organites.", content_hash="c045_i", is_structural_container=True
+    )
+
+    _rewind_before_migration_045()
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+    _rewind_before_migration_045()
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert DocumentChunkModel.get_by_id(container.id).container_origin == "derived"

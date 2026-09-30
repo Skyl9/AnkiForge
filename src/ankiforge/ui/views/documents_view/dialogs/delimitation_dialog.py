@@ -44,6 +44,7 @@ except ImportError:
     HAVE_QTPDF = False
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel, NoteChunkLinkModel
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.services.markdown.structurer import MarkdownStructurer
@@ -62,6 +63,13 @@ from ankiforge.ui.views.creation_view.utils import format_page_ranges, parse_pag
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_resource_path, resolve_media_path
+from ankiforge.utils.region_address import (
+    RegionAddress,
+    RegionScope,
+    covers_region,
+    parse_region_address,
+    render_region_addresses,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1771,7 +1779,11 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             try:
                 parsed = json.loads(raw_excl)
                 if isinstance(parsed, list):
-                    self._manual_exclusions = {str(x).lower().strip() for x in parsed if str(x).strip()}
+                    # La casse d'affichage est conservée telle qu'elle a été persistée : c'est
+                    # l'identité de l'adresse (son `key` replié) qui sert aux comparaisons, jamais
+                    # la chaîne brute. Lowercaser ici retirait la moitié des réintégrations —
+                    # la case cochée, puis « discard » d'une clé qu'on ne retrouvait pas.
+                    self._manual_exclusions = {str(x).strip() for x in parsed if str(x).strip()}
             except Exception:
                 self._manual_exclusions = set()
 
@@ -1825,7 +1837,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
         all_pages_in_span = set(range(start_val, end_val + 1))
         for p in list(all_pages_in_span):
-            if f"page:{p}" in self._manual_exclusions or f"page {p}" in self._manual_exclusions:
+            if self._is_page_hole(p):
                 all_pages_in_span.discard(p)
         self._selected_pages: set[int] = all_pages_in_span or set(range(start_val, end_val + 1))
 
@@ -2740,9 +2752,8 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
                     selected.append(chunk)
             else:
                 meta = self._section_meta.get(i, {})
-                low_h_path = (chunk.get("heading_path") or meta.get("heading_path") or "").lower().strip()
-                is_excluded = bool(low_h_path and low_h_path in self._manual_exclusions)
-                if not is_excluded and has_substantive_content(chunk):
+                h_path = chunk.get("heading_path") or meta.get("heading_path")
+                if not self._is_region_excluded(h_path, chunk.get("page_number")) and has_substantive_content(chunk):
                     selected.append(chunk)
         return selected
 
@@ -3040,13 +3051,72 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         end_p = max(start_p, self.spin_p_end.value())
         self._selected_pages = self._pages_in_span_excluding_holes(start_p, min(end_p, self._max_page))
 
+    def _is_region_excluded(self, heading_path: str | None, page_number: int | None = None) -> bool:
+        """Prédicat d'appartenance partagé avec le dépôt et les autres vues.
+
+        L'arbre affichait ses cases selon un test de sous-chaîne tandis que le dépôt appliquait
+        le sien : les deux lectures d'une même exclusion divergeaient, et décocher une case pouvait
+        laisser la matière dans le périmètre — ou l'inverse. Une seule implémentation, ici.
+        """
+        return covers_region(self._manual_exclusions, heading_path=heading_path, page_number=page_number)
+
+    def _row_region_address(self, title: str, heading_path: str, page_number: int | None) -> RegionAddress | None:
+        """Adresse de région d'une ligne de l'arbre, dans la portée qui la décrit réellement.
+
+        Une page sans titre porte le libellé synthétique ``Page N`` : l'enregistrer comme
+        exclusion de titre affirmait une section qui n'existe pas, et ne touchait aucune
+        matière. La règle est celle du dépôt — un libellé de page est une page.
+        """
+        if heading_path.strip() and DocumentRepository.is_excludable_heading(heading_path):
+            return RegionAddress(RegionScope.HEADING, heading_path)
+        if page_number is None:
+            return RegionAddress(RegionScope.HEADING, heading_path or title) if (heading_path or title).strip() else None
+        return RegionAddress(RegionScope.PAGE, str(page_number))
+
+    def _row_region_keys(self, meta: Mapping[str, Any]) -> list[str]:
+        """Clés de région d'une ligne, telles qu'attendu par ``_manual_exclusions`` (une forme rendue)."""
+        return [address.render() for address in self._row_addresses(meta)]
+
+    def _set_row_excluded(self, meta: Mapping[str, Any], excluded: bool) -> None:
+        """Mémorise ou oublie l'exclusion d'une ligne, sans se fier à la casse de la chaîne.
+
+        ``_manual_exclusions`` mêle des adresses relues (casse d'origine) et des adresses
+        nouvellement rendues (casse du document courant) : une comparaison brute laissait
+        l'entrée périmée en place, et la région restait écartée alors que sa case était cochée.
+        """
+        keys = self._row_region_keys(meta)
+        if excluded:
+            self._manual_exclusions.update(keys)
+            return
+        # Comparaison par adresse résolue, pas par chaîne : un profil hérité stocke des
+        # libellés sans préfixe (« Cours > Ch1 »), qu'aucune forme rendue ne rejoint
+        # littéralement — la case se cochait, la matière restait écartée, et Apply
+        # réinscrivait l'exclusion que l'utilisateur venait d'annuler.
+        targets = [address for address in (parse_region_address(key) for key in keys) if address is not None]
+        kept: set[str] = set()
+        for existing in self._manual_exclusions:
+            parsed = parse_region_address(existing)
+            if parsed is not None and any(parsed.covers_address(target) or target.covers_address(parsed) for target in targets):
+                continue
+            kept.add(existing)
+        self._manual_exclusions = kept
+
+    def _is_page_hole(self, page_number: int) -> bool:
+        """Vrai si cette page est un trou persisté, au sens des adresses de région."""
+        return covers_region(self._manual_exclusions, heading_path=None, page_number=page_number)
+
     def _persisted_heading_exclusions(self) -> set[str]:
         """Exclusions de *titres* mémorisées sur le document (trous de pages exclus).
 
         Ces exclusions ne sont honorables que par le mode sections : les ignorer à la
         réouverture reviendrait à effacer la délimitation enregistrée par l'utilisateur.
         """
-        return {ex for ex in self._manual_exclusions if ex and not (ex.startswith("page:") or ex.startswith("page "))}
+        non_page: set[str] = set()
+        for entry in self._manual_exclusions:
+            address = parse_region_address(entry)
+            if address is not None and address.value and address.scope is not RegionScope.PAGE:
+                non_page.add(entry)
+        return non_page
 
     def _apply_mode_view(self, mode: ScopeMode, sub_mode: PageSubMode) -> None:
         """Applique la visibilité exclusive des volets et l'état visuel du mode actif."""
@@ -3131,17 +3201,31 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         self._refresh_final_preview()
         self._update_kpi()
 
+    def _reactivate_scope_mode(self, mode: ScopeMode, sub_mode: PageSubMode | None = None) -> None:
+        """Réinitialise le volet d'un mode, sauf si c'est déjà le mode actif.
+
+        Rejouer l'activation d'un mode inactif abandonne la sélection dérivée de la catégorie
+        précédente — c'est voulu. Rejouer celle du mode *déjà* actif n'abandonne rien : cela
+        effacerait les exclusions que l'utilisateur vient de poser dans ce mode, pour un geste
+        qui ne demandait rien. La réinitialisation d'un même mode reste possible en quittant
+        le mode puis en y revenant.
+        """
+        if self.is_mode_active(mode, sub_mode):
+            self._on_mode_activated(mode, sub_mode or self.current_page_sub_mode())
+            return
+        self.activate_scope_mode(mode, sub_mode, force=True)
+
     def _on_mode_all_clicked(self) -> None:
-        self.activate_scope_mode("pages", "all", force=True)
+        self._reactivate_scope_mode("pages", "all")
 
     def _on_mode_range_clicked(self) -> None:
-        self.activate_scope_mode("pages", "range", force=True)
+        self._reactivate_scope_mode("pages", "range")
 
     def _on_mode_structure_clicked(self) -> None:
-        self.activate_scope_mode("chapters", force=True)
+        self._reactivate_scope_mode("chapters")
 
     def _on_mode_sections_clicked(self) -> None:
-        self.activate_scope_mode("sections", force=True)
+        self._reactivate_scope_mode("sections")
 
     def _on_chapter_range_changed(self) -> None:
         """Le sélecteur de plage de chapitres est une interaction chapitre : il active son mode."""
@@ -3262,8 +3346,6 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
                 widget.set_check_state(state)
         row = self.sections_list.row(item)
         meta = self._section_meta.get(row, {})
-        title = str(meta.get("title") or "").lower().strip()
-        h_path = str(meta.get("heading_path") or "").lower().strip()
         orig_title = str(meta.get("title") or "")
         p_num = meta.get("page_number")
 
@@ -3279,16 +3361,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
                     self._cascade_down(item, state)
                 self._cascade_up(item)
 
-                if state == Qt.CheckState.Unchecked:
-                    if h_path:
-                        self._manual_exclusions.add(h_path)
-                    if title:
-                        self._manual_exclusions.add(title)
-                elif state == Qt.CheckState.Checked:
-                    if h_path:
-                        self._manual_exclusions.discard(h_path)
-                    if title:
-                        self._manual_exclusions.discard(title)
+                self._set_row_excluded(meta, state == Qt.CheckState.Unchecked)
             finally:
                 self._syncing_selection = False
 
@@ -3306,18 +3379,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             if isinstance(w, SectionRowWidget):
                 w.set_check_state(state)
             child_meta = self._section_meta.get(self.sections_list.row(child), {})
-            child_title = str(child_meta.get("title") or "").lower().strip()
-            child_h_path = str(child_meta.get("heading_path") or "").lower().strip()
-            if state == Qt.CheckState.Unchecked:
-                if child_h_path:
-                    self._manual_exclusions.add(child_h_path)
-                if child_title:
-                    self._manual_exclusions.add(child_title)
-            elif state == Qt.CheckState.Checked:
-                if child_h_path:
-                    self._manual_exclusions.discard(child_h_path)
-                if child_title:
-                    self._manual_exclusions.discard(child_title)
+            self._set_row_excluded(child_meta, state == Qt.CheckState.Unchecked)
             self._cascade_down(child, state)
 
     def _cascade_up(self, item: QTreeWidgetItem) -> None:
@@ -3501,8 +3563,6 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             elif page_num is not None:
                 cards_count = self._page_cards.get(page_num, 0)
 
-            low_title = node.title.lower().strip()
-            low_h_path = (node.heading_path or "").lower().strip()
             is_noise = False
 
             self._section_meta[flat_idx] = {
@@ -3524,7 +3584,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             in_range = True
             if self.is_paginated and page_num is not None and hasattr(self, "spin_p_start") and hasattr(self, "spin_p_end"):
                 in_range = self.spin_p_start.value() <= page_num <= self.spin_p_end.value()
-            is_checked = in_range and (low_title not in self._manual_exclusions) and (low_h_path not in self._manual_exclusions)
+            is_checked = in_range and not self._is_region_excluded(node.heading_path, page_num)
 
             item.setCheckState(0, Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
             item.setData(0, Qt.ItemDataRole.UserRole, title_str)
@@ -3743,13 +3803,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             if isinstance(widget, SectionRowWidget):
                 widget.set_checked(checked)
             meta = self._section_meta.get(i, {})
-            title = str(meta.get("title") or "").lower().strip()
-            if not checked:
-                if title:
-                    self._manual_exclusions.add(title)
-            else:
-                if title:
-                    self._manual_exclusions.discard(title)
+            self._set_row_excluded(meta, not checked)
         self.sections_list.blockSignals(False)
 
         self._sync_preview_with_active_scope()
@@ -3778,134 +3832,135 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             self._selected_pages = set(active_pages)
             self.preview_widget.set_scope_range(min(active_pages), max(active_pages), included_pages=active_pages)
 
-    def _on_apply(self) -> None:
-        effective_exclusions: set[str] = set()
+    def _validate_page_scope(self) -> bool:
+        """Vérifie la cohérence de la plage de pages saisie, et refuse l'application.
 
-        if self.selection_mode == "pages" and self.is_paginated:
-            page_start_val = self.spin_p_start.value()
-            page_end_val = self.spin_p_end.value()
-            if page_start_val > page_end_val:
-                show_toast(self, "La page de début doit être inférieure ou égale à la page de fin.", is_error=True)
-                return
-            if page_end_val > self._max_page or any(p > self._max_page for p in self._selected_pages):
-                show_toast(self, f"La page de fin ne peut pas dépasser la dernière page détectée ({self._max_page}).", is_error=True)
-                return
-            if not self._selected_pages:
-                show_toast(self, "Veuillez sélectionner au moins une page.", is_error=True)
-                return
-            page_start: int | None = min(self._selected_pages)
-            page_end: int | None = max(self._selected_pages)
-            if hasattr(self, "btn_scope_mode_all") and self.btn_scope_mode_all.isChecked() and self._selected_pages == set(range(1, self._max_page + 1)):
-                page_start = None
-                page_end = None
+        Séparé du calcul des adresses parce qu'un refus et « aucun trou » ne se ressemblent
+        pas : confondus, une plage invalide s'appliquait silencieusement, et une plage valide
+        sans trou perdait sa trace.
+        """
+        if self.selection_mode != "pages" or not self.is_paginated:
+            return True
+        page_start_val, page_end_val = self.spin_p_start.value(), self.spin_p_end.value()
+        if page_start_val > page_end_val:
+            show_toast(self, "La page de début doit être inférieure ou égale à la page de fin.", is_error=True)
+            return False
+        if page_end_val > self._max_page or any(p > self._max_page for p in self._selected_pages):
+            show_toast(self, f"La page de fin ne peut pas dépasser la dernière page détectée ({self._max_page}).", is_error=True)
+            return False
+        if not self._selected_pages:
+            show_toast(self, "Veuillez sélectionner au moins une page.", is_error=True)
+            return False
+        return True
+
+    def _current_page_span(self) -> tuple[int | None, int | None]:
+        """Bornes de la sélection de pages courante, ou ``(None, None)`` si elle les couvre toutes.
+
+        Un seul calcul pour l'application et pour les adresses : deux appels qui dérivent
+        décrivent des périmètres différents au même instant, dont l'un gagne et l'autre non.
+        """
+        if self.selection_mode != "pages" or not self.is_paginated or not self._selected_pages:
+            return None, None
+        if hasattr(self, "btn_scope_mode_all") and self.btn_scope_mode_all.isChecked() and self._selected_pages == set(range(1, self._max_page + 1)):
+            return None, None
+        return min(self._selected_pages), max(self._selected_pages)
+
+    def _excluded_addresses_for_apply(self) -> list[RegionAddress]:
+        """Adresses de région écartées par la délimitation courante.
+
+        Chaque mode s'exprime dans sa propre portée, et **tous** les modes laissent une trace
+        persistée : décocher un chapitre sans rien écrire revenait à matérialiser le choix par la
+        seule suppression des fragments, donc à l'oublier au prochain réindex. Or une exclusion
+        n'est pas un trou dans la matière, c'est une règle.
+        """
+        addresses: list[RegionAddress] = []
+
+        if self.selection_mode == "pages" and self.is_paginated and self._selected_pages:
+            page_start, page_end = self._current_page_span()
             # Enregistrer uniquement les trous à l'intérieur de la plage comme exclusions effectives
             if page_start is not None and page_end is not None:
                 excluded_pages_set = set(range(page_start, page_end + 1)) - self._selected_pages
             else:
                 excluded_pages_set = set(range(1, self._max_page + 1)) - self._selected_pages
-            for p in sorted(excluded_pages_set):
-                effective_exclusions.add(f"page:{p}")
-            effective_exclusions.update(ex for ex in self._manual_exclusions if ex.startswith("page:"))
-        else:
-            page_start = None
-            page_end = None
+            addresses.extend(RegionAddress(RegionScope.PAGE, str(p)) for p in sorted(excluded_pages_set))
 
+        for raw in self._manual_exclusions:
+            parsed = parse_region_address(raw)
+            if parsed is not None and parsed.value:
+                addresses.append(parsed)
+
+        # Les cases de l'arbre sont la source de vérité de l'utilisateur, pas la mémoire
+        # interne : l'activation d'un mode réinitialise ses cases, et une exclusion ne doit
+        # pas disparaître parce qu'un objet de ligne a été reconstruite entre-temps.
         if self.selection_mode == "sections":
             for i in range(self.sections_list.count()):
                 item = self.sections_list.item(i)
-                val = str(item.data(Qt.ItemDataRole.UserRole) or "").strip()
-                if item.checkState() == Qt.CheckState.Unchecked and val:
-                    effective_exclusions.add(val)
-                    effective_exclusions.add(val.lower())
-            effective_exclusions.update(ex for ex in self._manual_exclusions if ex)
-
-        retained_chunks = []
-        selected_chunks = self._selected_chunks_for_mode()
-        selected_ids = {id(chunk) for chunk in selected_chunks}
-        low_exclusions = {e.lower().strip() for e in effective_exclusions}
-        for chunk in self._all_chunks:
-            if self.selection_mode in ("sections", "chapters") and id(chunk) not in selected_ids:
-                continue
-            if self.selection_mode == "pages" and self.is_paginated:
-                page_number = chunk.get("page_number") or 1
-                if page_number not in self._selected_pages:
+                if item is None or item.checkState(0) != Qt.CheckState.Unchecked:
                     continue
-            h_path = (chunk.get("heading_path") or "").strip()
-            title_str = h_path or (f"Page {chunk.get('page_number')}" if chunk.get("page_number") else f"Section #{chunk.get('index', 0) + 1}")
-            low_title = title_str.lower().strip()
-            low_h_path = h_path.lower()
-            if self.selection_mode == "sections" and (low_title in low_exclusions or (low_h_path and any(ex in low_h_path for ex in low_exclusions))):
-                continue
-            retained_chunks.append(chunk)
+                for address in self._row_addresses(self._section_meta.get(i, {})):
+                    addresses.append(address)
+        elif self.selection_mode == "chapters":
+            addresses.extend(self._unchecked_chapter_addresses())
 
-        if not retained_chunks:
+        return addresses
+
+    def _row_addresses(self, meta: Mapping[str, Any]) -> list[RegionAddress]:
+        """Adresse de région d'une ligne : une seule, celle que la ligne décrit.
+
+        Le repli sur le titre ne vaut que pour une section sans fil d'Ariane. Sur une page sans
+        titre, il produirait ``heading:Page 3`` : une adresse de section désignant une section
+        qui n'existe pas, et que personne ne saurait réintégrer.
+        """
+        address = self._row_region_address(str(meta.get("title") or ""), str(meta.get("heading_path") or ""), meta.get("page_number"))
+        return [] if address is None else [address]
+
+    def _unchecked_chapter_addresses(self) -> list[RegionAddress]:
+        """Adresses des chapitres décochés, pour que le mode cartes laisse une trace persistée."""
+        unchecked = {card.chapter_index for card in self._chapter_cards if not card.is_checked()}
+        if not unchecked:
+            return []
+        return [RegionAddress(RegionScope.HEADING, node.heading_path or node.title) for index, node in enumerate(self._tree_nodes) if index in unchecked and (node.heading_path or node.title).strip()]
+
+    def _on_apply(self) -> None:
+        # La validation passe avant tout calcul de bornes : une sélection vide est un refus
+        # explicite, pas une `ValueError` remontée depuis `min()` sur le fil de l'interface.
+        if not self._validate_page_scope():
+            return
+        page_start, page_end = self._current_page_span()
+
+        if not self._selected_chunks_for_mode():
             show_toast(self, "Aucun contenu ne correspond à cette sélection.", is_error=True)
             return
 
-        # 1. Persistance durable sur DocumentModel
+        effective_exclusions = self._excluded_addresses_for_apply()
+
+        # 1. Persistance durable sur DocumentModel : la portée est une règle, la matière reste.
         self.doc.start_page = page_start
         self.doc.end_page = page_end
-        self.doc.excluded_headings = json.dumps(sorted(list(effective_exclusions)), ensure_ascii=False)
+        self.doc.excluded_headings = render_region_addresses(effective_exclusions)
         if getattr(self, "_max_page", 0) and self._max_page > 1:
             self.doc.total_pages = self._max_page
         self.doc.save()
 
-        # 2. Mise à jour différentielle atomique des chunks actifs en base (préserve NoteChunkLinkModel !)
-        with DocumentChunkModel._meta.database.atomic():
-            existing_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
-            existing_by_hash: dict[str, list[DocumentChunkModel]] = {}
-            existing_by_heading_page: dict[tuple[str | None, int | None], list[DocumentChunkModel]] = {}
-            for c in existing_chunks:
-                if c.content_hash:
-                    existing_by_hash.setdefault(c.content_hash, []).append(c)
-                if c.heading_path:
-                    existing_by_heading_page.setdefault((c.heading_path, c.page_number), []).append(c)
-
-            matched_chunk_ids: set[int] = set()
-
-            for idx, c_data in enumerate(retained_chunks):
-                c_content = c_data["content"]
-                c_hash = c_data.get("content_hash") or ChunkingService.hash_content(c_content)
-                c_page = c_data.get("page_number")
-                c_heading = c_data.get("heading_path")
-
-                matched_chunk: DocumentChunkModel | None = None
-                if c_hash in existing_by_hash:
-                    for cand in existing_by_hash[c_hash]:
-                        if cand.id not in matched_chunk_ids:
-                            matched_chunk = cand
-                            break
-
-                if matched_chunk is None and (c_heading, c_page) in existing_by_heading_page:
-                    for cand in existing_by_heading_page[(c_heading, c_page)]:
-                        if cand.id not in matched_chunk_ids:
-                            matched_chunk = cand
-                            break
-
-                if matched_chunk is not None:
-                    matched_chunk_ids.add(matched_chunk.id)
-                    matched_chunk.chunk_index = idx
-                    matched_chunk.content = c_content
-                    matched_chunk.page_number = c_page
-                    matched_chunk.heading_path = c_heading
-                    matched_chunk.content_hash = c_hash
-                    matched_chunk.is_structural_container = c_data.get("is_structural_container", False)
-                    matched_chunk.save()
-                else:
-                    created = DocumentChunkModel.create(
-                        document=self.doc,
-                        chunk_index=idx,
-                        content=c_content,
-                        page_number=c_page,
-                        heading_path=c_heading,
-                        is_structural_container=c_data.get("is_structural_container", False),
-                        content_hash=c_hash,
-                    )
-                    matched_chunk_ids.add(created.id)
-
-            chunks_to_delete = [c.id for c in existing_chunks if c.id not in matched_chunk_ids]
-            if chunks_to_delete:
-                DocumentChunkModel.delete().where(DocumentChunkModel.id.in_(chunks_to_delete)).execute()
+        # 2. Mise à jour différentielle atomique des fragments ré-extraits.
+        #
+        #    Le périmètre est désormais exprimé par la règle ci-dessus, et non par la suppression
+        #    des fragments hors sélection : les conserver était nécessaire, car
+        #    `NoteChunkLinkModel.chunk` est en `on_delete="CASCADE"` — une exclusion destructrice
+        #    emportait les liens de couverture du sous-arbre, rendant l'écartement irréversible
+        #    depuis l'interface. Seuls les fragments que la ré-extraction ne retrouve plus sont
+        #    supprimés : ceux-là ont réellement disparu du document.
+        # Une seule couture d'écriture pour tout rédecoupage : l'appariement préserve les
+        # fragments inchangés, donc leurs rattachements de cartes, et la matière écartée reste
+        # en base. L'exclusion est une règle de périmètre, pas un filtre de matière.
+        chunk_report = DocumentRepository().sync_extracted_chunks(self.doc, self._all_chunks)
+        logger.info(
+            "Délimitation du document %s : %d fragments conservés, %d créés, %d disparus",
+            getattr(self.doc, "id", None),
+            chunk_report.preserved,
+            chunk_report.created,
+            chunk_report.deleted,
+        )
 
         from ankiforge.services.reindex_service import mark_document_version
 

@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.markdown.structurer import MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService, HeadingTreeNode
@@ -67,6 +68,7 @@ from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_resource_path
+from ankiforge.utils.region_address import RegionScope, covers_region, parse_region_addresses
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +146,10 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
             try:
                 parsed = json.loads(raw_excl)
                 if isinstance(parsed, list):
-                    self._excluded_headings = [str(x).lower().strip() for x in parsed]
+                    # La casse est conservée comme partout ailleurs : la comparaison est
+                    # insensible à la casse, et normaliser à la lecture effacerait la preuve
+                    # de ce que le document porte réellement.
+                    self._excluded_headings = [str(x).strip() for x in parsed]
             except Exception:
                 self._excluded_headings = []
 
@@ -167,13 +172,8 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
                 self._doc_total_pages = max(self._doc_total_pages, max(chunk_pages_useful))
 
         self._selected_pages: set[int] = set(range(self._delimited_start_page, self._delimited_end_page + 1))
-        for ex in self._excluded_headings:
-            if ex.startswith("page:"):
-                try:
-                    p_ex = int(ex.split(":", 1)[1])
-                    self._selected_pages.discard(p_ex)
-                except ValueError:
-                    pass
+        for p_ex in sorted(self._persisted_page_holes()):
+            self._selected_pages.discard(p_ex)
         if not self._selected_pages:
             self._selected_pages = {self._delimited_start_page}
 
@@ -268,19 +268,17 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         """)
 
     def _is_item_excluded(self, p_num: int | None, heading_path: str | None) -> bool:
-        """Détermine si une page ou un chemin de titre est exclu par la configuration persistée."""
-        if not self._excluded_headings:
-            return False
-        if p_num is not None:
-            p_str = str(p_num)
-            if any(ex in (f"page:{p_str}", f"page {p_str}", p_str) for ex in self._excluded_headings):
-                return True
-        if heading_path:
-            clean_heading = MarkdownStructurer.clean_heading_title(heading_path)
-            h_path = (clean_heading or heading_path).lower().strip()
-            if any(ex in h_path or h_path == ex for ex in self._excluded_headings):
-                return True
-        return False
+        """Détermine si une page ou un chemin de titre est exclu par la configuration persistée.
+
+        Le test local comparait des sous-chaînes : ``heading:"Chapitre 1"`` écartait
+        ``"Chapitre 10"``, et une exclusion par page ne pouvait pas sortir de son champ. Le
+        prédicat est désormais celui du dépôt, sur les adresses typées — la plage de pages
+        comprise, puisque l'écartement non destructif l'a rendue partie de la règle.
+        """
+        if p_num is not None and DocumentRepository.is_page_outside_span(self.doc, p_num):
+            return True
+        clean_heading = MarkdownStructurer.clean_heading_title(heading_path) if heading_path else None
+        return covers_region(self._excluded_headings, heading_path=clean_heading or heading_path, page_number=p_num)
 
     def _load_filtered_chunks(self) -> list[dict[str, Any]]:
         """Charge et filtre les fragments du document en respectant strictement les bornes et exclusions."""
@@ -1753,19 +1751,25 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
             ("sections", "all"): self.btn_mode_sections,
         }
 
+    def _persisted_page_holes(self) -> set[int]:
+        """Trous de page persistés, lus comme adresses typées.
+
+        Une entrée mal formée est ignorée plutôt que devinée : une valeur illisible ne doit
+        pas retirer une page du périmètre sur la foi d'un ``int()`` qui « réussit » par accident.
+        """
+        holes: set[int] = set()
+        for address in parse_region_addresses(self._excluded_headings):
+            if address.scope is RegionScope.PAGE and address.value.isdigit():
+                holes.add(int(address.value))
+        return holes
+
     def _pages_in_span_excluding_holes(self, start_p: int, end_p: int) -> set[int]:
         """Pages de la délimitation utile, exclusions ``page:N`` persistées comprises.
 
         Ces exclusions sont une délimitation de pages au sens strict (et non un filtre
         croisé) : elles doivent survivre à toute réinitialisation du mode pages.
         """
-        pages = {p for p in range(start_p, end_p + 1)}
-        for ex in self._excluded_headings:
-            if ex.startswith("page:"):
-                try:
-                    pages.discard(int(ex.split(":", 1)[1]))
-                except ValueError:
-                    continue
+        pages = {p for p in range(start_p, end_p + 1)} - self._persisted_page_holes()
         return pages or {start_p}
 
     def _neutralize_foreign_selection(self, mode: ScopeMode) -> None:

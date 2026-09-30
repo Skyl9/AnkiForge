@@ -35,6 +35,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.batch_view.widgets import AutoSliceWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankiforge.utils.region_address import RegionScope, parse_region_addresses
 
 logger = logging.getLogger(__name__)
 
@@ -571,12 +572,17 @@ class BatchSliceComposerDialog(QDialog):
 
         start_page = getattr(doc, "start_page", None)
         end_page = getattr(doc, "end_page", None)
-        excluded = (getattr(doc, "excluded_headings", "") or "").strip()
+        # La délimitation est une liste d'adresses typées : un compte de lignes sur la
+        # chaîne JSON annonçait toujours « 1 section exclue », quelle que soit la vérité.
+        excluded = parse_region_addresses(getattr(doc, "excluded_headings", None))
         delim_parts: list[str] = []
         if start_page or end_page:
             delim_parts.append(f"plage de pages active : {start_page or 1} → {end_page or pages or '?'}")
         if excluded:
-            delim_parts.append(f"{len([h for h in excluded.splitlines() if h.strip()])} section(s) exclue(s)")
+            page_excluded = sum(1 for address in excluded if address.scope is RegionScope.PAGE)
+            section_excluded = len(excluded) - page_excluded
+            counts = [f"{page_excluded} page(s)", f"{section_excluded} section(s)"] if page_excluded else [f"{section_excluded} section(s)"]
+            delim_parts.append(f"{' • '.join(counts)} écartée(s)")
         if delim_parts:
             self.doc_info_delim.setText("Délimitation : " + " • ".join(delim_parts))
             self.doc_info_delim.show()

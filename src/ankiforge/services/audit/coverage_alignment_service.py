@@ -691,9 +691,9 @@ class CoverageAlignmentService:
             # Partie multi-blocs : la carte est cherchee dans le seul perimetre de la partie,
             # jamais au-dela. Rattacher hors partie produirait un faux lien plus trompeur
             # qu'une absence, dont l'appelant est comptable (note hors couverture).
-            if not card_text or not card_text.strip():
-                return None, None
-            return cls._best_chunk_by_lexical_overlap(card_text, cls._chunks_for_routes(chunks, routes)), RESOLUTION_LEXICAL
+            # Même borne que le palier 4 du mono-bloc : la présomption lexicale ne franchit pas
+            # une région écartée, y compris à l'intérieur du périmètre de sa propre partie.
+            return cls._lexical_attachment(card_text, cls._chunks_for_routes(chunks, routes), doc_id)
 
         # --- Palier 2 : identite de section (durable) ----------------------------------
         section_slug = clean_source_slug(str(llm_section)) if llm_section and str(llm_section).strip() else ""
@@ -710,9 +710,41 @@ class CoverageAlignmentService:
                 return by_page, RESOLUTION_PAGE
 
         # --- Palier 4 : recouvrement lexical (presomption) -------------------------------
+        return cls._lexical_attachment(card_text, chunks, doc_id)
+
+    @classmethod
+    def _lexical_attachment(cls, card_text: str | None, chunks: list[DocumentChunkModel], doc_id: int) -> tuple[DocumentChunkModel | None, str | None]:
+        """Palier lexical, avec l'abandon explicite qu'il doit signaler.
+
+        Aucun fragment candidat ne signifie pas « rattaché au mieux » : cela signifie *abandon*.
+        Le palier n'est donc annoncé que lorsqu'un fragment a réellement été désigné, faute de quoi
+        un appelant pressé verrait un « rattachement lexical » là où il n'y a qu'un silence.
+        """
         if not card_text or not card_text.strip():
             return None, None
-        return cls._best_chunk_by_lexical_overlap(card_text, chunks), RESOLUTION_LEXICAL
+        target = cls._best_chunk_by_lexical_overlap(card_text, cls._lexical_candidates(chunks, doc_id))
+        if target is None:
+            return None, None
+        return target, RESOLUTION_LEXICAL
+
+    @classmethod
+    def _lexical_candidates(cls, chunks: list[DocumentChunkModel], doc_id: int) -> list[DocumentChunkModel]:
+        """Fragments que le palier lexical a le droit de désigner.
+
+        Le recouvrement de vocabulaire est une **présomption** : elle ne doit jamais faire porter
+        un lien de couverture à une région que l'utilisateur a écartée. Sans cette borne,
+        l'écartement non destructif ne serait qu'un commentaire — la matière reste en base, le
+        lexique la retrouve, et la carte y est rattachée comme si de rien n'était.
+
+        Les paliers antérieurs (`exact`, `section`, `page`) sont volontairement laissés intacts :
+        ils constatent une provenance *prouvée* — la carte a été produite depuis ce fragment — et
+        l'écarter reviendrait à détruire une information vérifiable, ce qu'un énoncé d'exclusion
+        n'a pas à faire.
+        """
+        doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
+        if doc is None:
+            return chunks
+        return [chunk for chunk in chunks if not DocumentRepository.is_region_excluded(doc, heading_path=chunk.heading_path, page_number=chunk.page_number)]
 
     @classmethod
     def resolve_finest_chunk_for_card(
@@ -1060,7 +1092,17 @@ class CoverageAlignmentService:
             for link in links:
                 parent = link.chunk
                 parent_parts = cls._heading_parts(parent)
-                candidates = descendants.get(tuple(parent_parts)) if parent_parts else None
+                # L'affinement de liens est un rattachement : il doit obéir aux mêmes bornes que
+                # `resolve_attachment`. Un fragment écarté ne peut être ni la source ni la cible
+                # d'un déplacement — sans quoi une carte y serait réinstallée par le seul fait
+                # qu'on l'affine, réintroduisant un lien vers une région retirée du périmètre.
+                if DocumentRepository.is_region_excluded(doc, heading_path=parent.heading_path, page_number=parent.page_number):
+                    continue
+                candidates = (
+                    [chunk for chunk in descendants.get(tuple(parent_parts), []) if not DocumentRepository.is_region_excluded(doc, heading_path=chunk.heading_path, page_number=chunk.page_number)]
+                    if parent_parts
+                    else None
+                )
                 if not candidates:
                     continue
                 card_text = card_texts.get(link.note_id, "")

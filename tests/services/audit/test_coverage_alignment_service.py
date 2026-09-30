@@ -17,7 +17,12 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankiforge.services.audit.coverage_alignment_service import (
+    RESOLUTION_LEXICAL,
+    RESOLUTION_PAGE,
+    RESOLUTION_SECTION,
+    CoverageAlignmentService,
+)
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.utils.paths import get_media_dir, resolve_media_path
 from ankiforge.utils.tags import build_document_tags, clean_source_slug, parse_note_tags, section_key
@@ -887,3 +892,123 @@ def test_refine_links_publishes_coverage_synced_event():
     assert len(captured) == 1
     assert captured[0].doc_id == doc.id
     assert captured[0].scope == "document"
+
+
+def _document_with_one_excluded_region(title: str, *, excluded: str | None, uid: str) -> tuple[DocumentModel, DocumentChunkModel, DocumentChunkModel]:
+    """Deux fragments jumeaux, dont un seul hors périmètre, pour isoler l'effet de l'écartement."""
+    doc = DocumentModel.create(title=f"{title} {uid}", file_type="md", excluded_headings=json.dumps([excluded], ensure_ascii=False) if excluded else None)
+    kept = DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Genese > Membrane", content="La membrane mitochondriale borde la cellule.", content_hash=f"hk_{uid}")
+    out = DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Genese > Paroi", content="La membrane mitochondriale borde la cellule.", content_hash=f"ho_{uid}")
+    return doc, kept, out
+
+
+def test_lexical_tier_never_designates_an_excluded_region():
+    """Le palier lexical s'abstient d'une région écartée.
+
+    Sans cela, l'écartement non destructif n'est qu'un commentaire : la matière reste en base,
+    donc le recouvrement de vocabulaire la retrouve et la carte y est rattachée comme si de rien
+    n'était — un lien de couverture vers une région que l'utilisateur a expressly retirée.
+    """
+    uid = uuid.uuid4().hex[:6]
+    doc, kept, out = _document_with_one_excluded_region("Cours Ecarte Lexical", excluded="heading:Genese > Paroi", uid=uid)
+
+    resolved, resolution = CoverageAlignmentService.resolve_attachment(
+        card_text="La membrane mitochondriale borde la cellule.",
+        doc_id=doc.id,
+    )
+
+    assert resolution == RESOLUTION_LEXICAL
+    assert resolved is not None and resolved.id == kept.id
+    assert resolved.id != out.id
+
+
+def test_lexical_tier_falls_back_to_a_page_inside_the_scope():
+    """Le refus de la région écartée ne fait pas perdre le rattachement : il reporte le choix."""
+    uid = uuid.uuid4().hex[:6]
+    doc, kept, _out = _document_with_one_excluded_region("Cours Ecarte Report", excluded="heading:Genese > Paroi", uid=uid)
+    DocumentChunkModel.update(page_number=7).where(DocumentChunkModel.id == kept.id).execute()
+
+    resolved, resolution = CoverageAlignmentService.resolve_attachment(
+        card_text="La membrane mitochondriale borde la cellule.",
+        doc_id=doc.id,
+        page_number=7,
+    )
+
+    assert resolution == RESOLUTION_PAGE
+    assert resolved is not None and resolved.id == kept.id
+
+
+def test_a_card_matching_only_an_excluded_region_stays_unlinked():
+    """Hors présomption, une carte reste « hors couverture » plutôt que rattachée hors périmètre."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Ecarte Isolé {uid}", file_type="md", excluded_headings=json.dumps(["heading:Genese > Paroi"], ensure_ascii=False))
+    DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Genese > Paroi", content="La paroi végétale est rigide.", content_hash=f"hw_{uid}")
+
+    resolved, resolution = CoverageAlignmentService.resolve_attachment(
+        card_text="La paroi végétale est rigide et chlorophyllienne.",
+        doc_id=doc.id,
+    )
+
+    assert resolved is None
+    assert resolution is None
+
+
+def test_a_multi_block_card_cannot_be_routed_into_an_excluded_fragment():
+    """La partie multi-blocs reste confinée à ses fragments, et à ceux qui sont encore en scope."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Ecarte Blocs {uid}", file_type="md", excluded_headings=json.dumps(["heading:Genese > Paroi"], ensure_ascii=False))
+    kept = DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Genese > Membrane", content="La membrane mitochondriale borde la cellule.", content_hash=f"hb1_{uid}")
+    out = DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Genese > Paroi", content="La membrane plasmique enclose le cytoplasme.", content_hash=f"hb2_{uid}")
+
+    resolved, resolution = CoverageAlignmentService.resolve_attachment(
+        card_text="La membrane plasmique enclose le cytoplasme de la cellule.",
+        doc_id=doc.id,
+        source_blocks=[{"chunk_id": kept.id, "heading_path": kept.heading_path}, {"chunk_id": out.id, "heading_path": out.heading_path}],
+    )
+
+    assert resolved is not None and resolved.id == kept.id
+    assert resolution == RESOLUTION_LEXICAL
+
+
+def test_refine_links_never_moves_a_card_into_an_excluded_region():
+    """L'affinement de liens n'est pas un second rattachement : il doit respecter l'écartement aussi."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Affine Ecarte {uid}", file_type="md", excluded_headings=json.dumps(["heading:Genese > Paroi"], ensure_ascii=False))
+    parent = DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Genese", content="# Genese\n\nSix mots ici.", content_hash=f"ha0_{uid}")
+    excluded_child = DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Genese > Paroi", content="La paroi végétale est rigide et chlorophyllienne.", content_hash=f"ha1_{uid}")
+    kept_child = DocumentChunkModel.create(
+        document=doc, chunk_index=2, heading_path="Genese > Membrane", content="La membrane plasmique enclose le cytoplasme de la cellule.", content_hash=f"ha2_{uid}"
+    )
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    note = _make_note_with_tags(nt, build_document_tags(doc_id=doc.id, section_name="Genese"))
+    link = NoteChunkLinkModel.create(note=note, chunk=parent, resolution=RESOLUTION_SECTION)
+
+    CoverageAlignmentService.refine_links_to_subsections(doc.id)
+
+    assert NoteChunkLinkModel.get_by_id(link.id).chunk_id in {parent.id, kept_child.id}
+    assert NoteChunkLinkModel.get_by_id(link.id).chunk_id != excluded_child.id
+
+
+def test_refine_links_protects_a_declared_region_like_a_derived_container():
+    """Une région neutralisée est protégée au même titre qu'un conteneur déduit.
+
+    Les deux partagent le drapeau, mais pas la cause : sans la protection déclarée, l'affinement
+    réintroduirait dans la région neutralisée la carte qu'elle était précisément supposée
+    n'héberger pas.
+    """
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Neutre Affine {uid}", file_type="md")
+    parent = DocumentChunkModel.create(
+        document=doc, chunk_index=0, heading_path="Genese", content="# Genese\n\n" + " ".join(["mot"] * 80), content_hash=f"hn0_{uid}", is_structural_container=True, container_origin="declared"
+    )
+    child = DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Genese > Paroi", content="La paroi végétale est rigide et chlorophyllienne.", content_hash=f"hn1_{uid}")
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    note = _make_note_with_tags(nt, build_document_tags(doc_id=doc.id, section_name="Genese"))
+    link = NoteChunkLinkModel.create(note=note, chunk=parent, resolution=RESOLUTION_SECTION)
+
+    CoverageAlignmentService.refine_links_to_subsections(doc.id)
+
+    assert NoteChunkLinkModel.get_by_id(link.id).chunk_id == parent.id
+    assert NoteChunkLinkModel.get_by_id(link.id).chunk_id != child.id

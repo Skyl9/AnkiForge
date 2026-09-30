@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -143,6 +144,26 @@ class VectorManager:
 
         return np.array([r for r in results if r is not None], dtype=np.float32)
 
+    def delete_document_index(self, document_id: int) -> bool:
+        """Retire l'index d'un document. Un index périmé répond au nom de son document.
+
+        Appeler cette méthode plutôt que se contenter d'écrire un index vide laisse intact le
+        dossier si l'index n'existait pas, ce qui distingue « rien à dire » de « à reconstruire ».
+
+        :returns: ``True`` si un index a effectivement été retiré.
+        """
+        doc_dir = self.faiss_dir / f"doc_{document_id}"
+        if not doc_dir.exists():
+            return False
+        shutil.rmtree(doc_dir)
+        # Le dossier a disparu : on ne renvoie « retiré » que lorsque la suppression a
+        # réellement eu lieu, faute de quoi l'appelant/journal raconte une réussite.
+        if doc_dir.exists():
+            logger.warning("Index RAG du document %s présent après suppression.", document_id)
+            return False
+        logger.info("Index RAG du document %s retiré.", document_id)
+        return True
+
     def clear_embedding_cache(self) -> int:
         """Vide le cache des embeddings pour le modèle actif ou globalement."""
         try:
@@ -209,8 +230,18 @@ class VectorManager:
                     visual_rag = VisualRAGService(llm_config=self.llm_config)
                     chunks = visual_rag.prepare_visual_chunks(document)
                 else:
+                    from ankiforge.repositories.document_repository import DocumentRepository
+
                     strategy = ChunkingService.preferred_strategy(str(document.file_type or ""))
-                    extracted = ChunkingService.extract_chunks(str(document.content or ""), file_type=str(document.file_type or ""), strategy=strategy)
+                    # Troisième chemin d'ingestion : la neutralisation déclarée doit y être
+                    # réévaluée comme partout ailleurs, sinon la déclaration ne survit pas à la
+                    # première réindexation d'un document qui n'avait encore aucun fragment.
+                    extracted = ChunkingService.extract_chunks(
+                        str(document.content or ""),
+                        file_type=str(document.file_type or ""),
+                        strategy=strategy,
+                        declared_addresses=DocumentRepository.get_neutralized_regions(document),
+                    )
                     from ankiforge.database.base import db
 
                     with db.atomic():
@@ -222,6 +253,7 @@ class VectorManager:
                                 page_number=item["page_number"],
                                 heading_path=item["heading_path"],
                                 is_structural_container=item.get("is_structural_container", False),
+                                container_origin=item.get("container_origin"),
                                 content_hash=item["content_hash"],
                             )
                             chunks.append(c)
@@ -232,6 +264,27 @@ class VectorManager:
             if not chunks:
                 logger.warning("Aucun fragment à indexer pour le document %s", document.id)
                 return False
+
+            # L'index est un artefact dérivé : c'est le bon endroit pour ne pas y faire entrer
+            # une région écartée. La matière, elle, reste en base — l'écartement est une règle
+            # de périmètre, pas une suppression. Indexer quand même la région écartée la
+            # issait revenir par la porte de la récupération, et une carte pouvait être
+            # produite depuis une section que l'utilisateur a explicitement retirée du document.
+            # La réintégration redevient effective à la réindexation suivante.
+            from ankiforge.repositories.document_repository import DocumentRepository
+
+            indexable = [c for c in chunks if not DocumentRepository.is_region_excluded(document, heading_path=c.heading_path, page_number=c.page_number)]
+            if len(indexable) < len(chunks):
+                logger.info("Document %s : %d fragment(s) écarté(s) de l'index RAG.", document.id, len(chunks) - len(indexable))
+            if not indexable:
+                # Un index périmé répondrait encore au nom du document, et la règle d'exclusion
+                # ne s'appliquerait qu'aux documents réindexés *après* l'avoir posée. Retirer
+                # l'artefact est la seule manière de tenir la promesse : ce que le document
+                # n'a plus à dire, il ne doit plus le dire.
+                logger.info("Tous les fragments du document %s sont écartés : index RAG retiré.", document.id)
+                self.delete_document_index(document.id)
+                return False
+            chunks = indexable
 
             doc_dir = self.faiss_dir / f"doc_{document.id}"
             doc_dir.mkdir(parents=True, exist_ok=True)
@@ -280,12 +333,49 @@ class VectorManager:
         w_sparse: float = DEFAULT_WEIGHT_SPARSE,
         rrf_k: int = DEFAULT_RRF_K,
     ) -> list[dict[str, Any]]:
-        """
-        Recherche RAG multimodale dans un document :
+        """Recherche RAG multimodale dans un document, sous le périmètre actuellement en vigueur.
+
         - mode="hybrid" (défaut) : Fusion Dense (FAISS) + Sparse (BM25) par RRF
         - mode="dense" : Recherche vectorielle sémantique pure FAISS
         - mode="sparse" : Recherche lexicale pure BM25
+
+        La réponse est filtrée par les règles d'exclusion du document au moment où elle est
+        rendue. Filtrer seulement à l'indexation laisserait une exclusion posée sur un index
+        déjà construit sans effet jusqu'au prochain rebuild — un rebuild que rien n'impose.
         """
+        return self._drop_excluded_results(document_id, self._search_indexed(document_id, query, top_k, mode, w_dense, w_sparse, rrf_k))
+
+    def _drop_excluded_results(self, document_id: int, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Retire de la réponse les fragments que le périmètre du document écarte aujourd'hui."""
+        if not results:
+            return results
+        document = DocumentModel.get_or_none(DocumentModel.id == document_id)
+        if document is None:
+            return results
+        from ankiforge.repositories.document_repository import DocumentRepository
+
+        chunk_ids = [int(result["chunk_id"]) for result in results if result.get("chunk_id") is not None]
+        chunks = {c.id: c for c in DocumentChunkModel.select().where(DocumentChunkModel.id.in_(chunk_ids))}
+        kept = [
+            result
+            for result in results
+            if (chunk := chunks.get(int(result["chunk_id"]))) is None or not DocumentRepository.is_region_excluded(document, heading_path=chunk.heading_path, page_number=chunk.page_number)
+        ]
+        if len(kept) < len(results):
+            logger.info("Recherche RAG du document %s : %d résultat(s) écarté(s) du périmètre.", document_id, len(results) - len(kept))
+        return kept
+
+    def _search_indexed(
+        self,
+        document_id: int,
+        query: str,
+        top_k: int = 5,
+        mode: str = "hybrid",
+        w_dense: float = DEFAULT_WEIGHT_DENSE,
+        w_sparse: float = DEFAULT_WEIGHT_SPARSE,
+        rrf_k: int = DEFAULT_RRF_K,
+    ) -> list[dict[str, Any]]:
+        """Parcours des canaux d'index, sans filtrage de périmètre : voir :meth:`search`."""
         if not query or not query.strip():
             return []
 
@@ -337,7 +427,14 @@ class VectorManager:
             else:
                 # Si BM25 n'a pas encore été sérialisé, on le construit à la volée depuis la BDD
                 try:
-                    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == document_id))
+                    from ankiforge.repositories.document_repository import DocumentRepository
+
+                    document = DocumentModel.get_or_none(DocumentModel.id == document_id)
+                    chunks = [
+                        c
+                        for c in DocumentChunkModel.select().where(DocumentChunkModel.document == document_id)
+                        if document is None or not DocumentRepository.is_region_excluded(document, heading_path=c.heading_path, page_number=c.page_number)
+                    ]
                     if chunks:
                         corpus_dict = {c.id: c.content for c in chunks}
                         bm25 = BM25OkapiIndex()
@@ -448,6 +545,20 @@ class VectorManager:
 
         if query_filter is not None:
             q = q.where(query_filter)
+        # Le repli en base est une porte de secours, pas une exception à la règle : sans ce
+        # filtre, un document sans index retrievait la matière écartée, et la génération
+        # dépendait alors du seul fait qu'un index existe ou non.
+        from ankiforge.repositories.document_repository import DocumentRepository
+
+        document = DocumentModel.get_or_none(DocumentModel.id == document_id)
+        if document is not None:
+            excluded_ids = [
+                c.id
+                for c in DocumentChunkModel.select().where(DocumentChunkModel.document == document_id)
+                if DocumentRepository.is_region_excluded(document, heading_path=c.heading_path, page_number=c.page_number)
+            ]
+            if excluded_ids:
+                q = q.where(DocumentChunkModel.id.not_in(excluded_ids))
         chunks = list(q.limit(top_k))
 
         return [
