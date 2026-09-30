@@ -265,3 +265,26 @@ def test_set_section_excluded_rejects_a_generic_page_label() -> None:
 
     assert repo.set_section_excluded(doc_id, "Page 12", True) is False
     assert _stored_exclusions(doc_id) == []
+
+
+def test_ingestion_persists_the_structural_container_flag() -> None:
+    """Le drapeau calculé au découpage doit atteindre la base, sur les deux chemins d'écriture.
+
+    Sans cela, la colonne reste à zéro pour tout document nouvellement indexé : la
+    couverture compterait comme unité à couvrir un titre qui n'est qu'un nœud
+    d'organisation, et l'affinement lui logerait une carte pour solde un trou fictif.
+    """
+    repo = DocumentRepository()
+    markdown = "\n\n".join(["# Cours", "## 2 Structures", "### 2.1 La Membrane", "### 2.2 Le Noyau"])
+
+    doc = repo.save_imported_document(title="Cours drapeaux 1", content=markdown, file_type="md")
+    stored = {chunk.heading_path: chunk.is_structural_container for chunk in repo.get_chunks_for_document(doc.id)}
+    assert stored["Cours > 2 Structures"] is True
+    assert stored["Cours > 2 Structures > 2.1 La Membrane"] is False
+
+    chunks_data = [
+        {"chunk_index": 0, "heading_path": "Thème > Section", "content": "Six mots ici.", "content_hash": "f1", "is_structural_container": True},
+        {"chunk_index": 1, "heading_path": "Thème > Section > 2.1 La Membrane", "content": "La membrane délimite la cellule.", "content_hash": "f2", "is_structural_container": False},
+    ]
+    created = repo.create_chunks(DocumentModel.create(title="Cours drapeaux 2", file_type="md"), chunks_data)
+    assert [chunk.is_structural_container for chunk in created] == [True, False]

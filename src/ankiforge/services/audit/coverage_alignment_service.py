@@ -167,10 +167,6 @@ def _empty_sync_report(**extra: Any) -> dict[str, Any]:
 class CoverageAlignmentService:
     """Moteur de réconciliation déterministe de couverture documentaire par tags."""
 
-    #: Longueur minimale du corps d'un fragment parent pour qu'il soit considéré comme une
-    #: unité de cours à part entière (et non comme un simple conteneur de sous-sections).
-    MIN_PARENT_CONTENT_WORDS: int = 25
-
     #: Score lexical minimal qu'une sous-section doit atteindre pour qu'une carte lui soit
     #: rattachée par la seule route lexicale (une citation littérale du titre s'en passe) : le
     #: score est une somme de poids idf, il faut au moins un terme réellement distinctif, pas
@@ -1080,8 +1076,8 @@ class CoverageAlignmentService:
 
                 parent_key = parent.heading_path or ""
                 remaining = links_per_heading.get(parent_key, 0) - 1
-                if remaining <= 0 and len((parent.content or "").split()) >= cls.MIN_PARENT_CONTENT_WORDS:
-                    logger.debug("Affinement : %s conservé sur le conteneur « %s », dernière carte d'une unité de cours.", link.note_id, parent_key)
+                if remaining <= 0 and not getattr(parent, "is_structural_container", False):
+                    logger.debug("Affinement : %s conservé sur le conteneur « %s » (unité de cours substantielle).", link.note_id, parent_key)
                     kept_on_parent += 1
                     continue
 

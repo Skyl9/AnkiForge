@@ -40,6 +40,13 @@ class ChunkingService:
     )
     HEADING_REGEX = re.compile(r"^(#{1,6})\s+(.*)", re.MULTILINE)
 
+    #: Séparateur de niveaux dans un fil d'Ariane (« Chapitre > Sous-chapitre »).
+    HEADING_SEPARATOR = " > "
+
+    #: Un titre parent sous ce nombre de mots propres (hors lignes de titre) n'est qu'un
+    #: nœud d'organisation, et non une unité de cours à couvrir.
+    MIN_STRUCTURAL_CONTAINER_WORDS: int = 25
+
     STRATEGY_DEFAULT = "default"
     STRATEGY_MARKDOWN_AST = "markdown_ast"
 
@@ -138,12 +145,13 @@ class ChunkingService:
 
         if strategy == cls.STRATEGY_MARKDOWN_AST:
             result = cls.extract_chunks_markdown_ast(content)
-            logger.info("Extraction AST Markdown achevée : %d fragments créés", len(result))
-            return result
+            log_msg = "Extraction AST Markdown achevée : %d fragments créés"
+        else:
+            result = cls._extract_by_page(content, markers) if is_paginated and markers else cls._extract_by_section(content)
+            log_msg = "Extraction de chunks achevée : %d fragments créés"
 
-        result = cls._extract_by_page(content, markers) if is_paginated and markers else cls._extract_by_section(content)
-
-        logger.info("Extraction de chunks achevée : %d fragments créés", len(result))
+        result = cls.flag_structural_containers(result)
+        logger.info(log_msg, len(result))
         return result
 
     @classmethod
@@ -207,6 +215,54 @@ class ChunkingService:
                     break
             pages.append(page)
         return pages
+
+    @classmethod
+    def is_structural_container(cls, heading_path: str | None, content: str | None, *, has_descendants: bool) -> bool:
+        """Vrai si ce fragment n'est qu'un nœud d'organisation posé au-dessus de sous-sections.
+
+        Un titre parent réduit à sa ligne de titre et à moins de
+        `MIN_STRUCTURAL_CONTAINER_WORDS` mots propres n'est pas une unité de cours : le
+        compter comme une section à couvrir gonfle le dénominateur de la couverture d'une
+        unité qui ne se couvre pas, et l'affinement de liens doit alors y loger une carte
+        pour solder un trou qui n'existait pas.
+
+        Règle unique, partagée par le découpage et par ses consommateurs (couverture,
+        arbre de l'inspecteur, affinement de liens) : trois définitions légèrement
+        différentes donneraient des profils migrés et réingérés qui ne se ressemblent plus.
+        """
+        if not heading_path or not has_descendants:
+            return False
+        own_words = " ".join(line for line in (content or "").split("\n") if not cls.HEADING_REGEX.match(line)).split()
+        return len(own_words) < cls.MIN_STRUCTURAL_CONTAINER_WORDS
+
+    @classmethod
+    def flag_structural_containers(cls, chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Marque chaque fragment comme conteneur structurel ou unité de cours.
+
+        Un fil `P` ouvre des sous-sections si et seulement si `P + " > "` est le préfixe
+        d'un autre fil. Recenser ces préfixes une fois pour toutes évite de confronter
+        chaque fragment à tous les autres, coût qui devient quadratique sur un cours de
+        plusieurs milliers de fragments.
+        """
+        descendant_prefixes: set[str] = set()
+        for chunk in chunks:
+            heading_path = chunk.get("heading_path")
+            if not heading_path:
+                continue
+            start = 0
+            while (index := heading_path.find(cls.HEADING_SEPARATOR, start)) >= 0:
+                descendant_prefixes.add(heading_path[: index + len(cls.HEADING_SEPARATOR)])
+                start = index + len(cls.HEADING_SEPARATOR)
+
+        for chunk in chunks:
+            heading_path = chunk.get("heading_path") or ""
+            chunk["is_structural_container"] = cls.is_structural_container(
+                heading_path,
+                chunk.get("content"),
+                has_descendants=bool(heading_path) and heading_path + cls.HEADING_SEPARATOR in descendant_prefixes,
+            )
+
+        return chunks
 
     @classmethod
     def extract_chunks_markdown_ast(cls, content: str, max_tokens: int | None = None) -> list[dict[str, Any]]:

@@ -10,13 +10,14 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QScrollArea,
     QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTextBrowser,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QTreeWidgetItemIterator,
     QVBoxLayout,
     QWidget,
 )
@@ -52,6 +53,9 @@ _ROLE_CHUNK_ID = int(Qt.ItemDataRole.UserRole)
 _ROLE_HEADING = _ROLE_CHUNK_ID + 1
 _ROLE_CARDS = _ROLE_CHUNK_ID + 2
 _ROLE_TITLE = _ROLE_CHUNK_ID + 3
+_ROLE_IS_CONTAINER = _ROLE_CHUNK_ID + 4
+_ROLE_IS_VIRTUAL = _ROLE_CHUNK_ID + 5
+_ROLE_FULL_PATH = _ROLE_CHUNK_ID + 6
 
 
 class ClickableChunkWidget(QFrame):
@@ -255,32 +259,37 @@ class DocumentInspectorPanel(QWidget):
         )
         left_layout.addWidget(lbl_toc)
 
-        self.chapters_list = QListWidget()
-        self.chapters_list.setStyleSheet(f"""
-            QListWidget {{
+        self.chapters_tree = QTreeWidget()
+        self.chapters_tree.setHeaderHidden(True)
+        self.chapters_tree.setColumnCount(1)
+        self.chapters_tree.setIndentation(20)
+        self.chapters_tree.setAnimated(True)
+        self.chapters_tree.setExpandsOnDoubleClick(True)
+        self.chapters_tree.setStyleSheet(f"""
+            QTreeWidget {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 padding: 4px;
             }}
-            QListWidget::item {{
-                padding: 8px;
+            QTreeWidget::item {{
+                padding: 8px 4px;
                 border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
             }}
-            QListWidget::item:hover {{
+            QTreeWidget::item:hover {{
                 background-color: {DesignTokens.BG_HOVER};
             }}
-            QListWidget::item:selected {{
+            QTreeWidget::item:selected {{
                 background-color: {DesignTokens.BG_HOVER};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
         """)
-        self.chapters_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.chapters_list.customContextMenuRequested.connect(self._show_chapter_context_menu)
-        self.chapters_list.currentItemChanged.connect(self._on_current_chapter_changed)
-        left_layout.addWidget(self.chapters_list, 1)
+        self.chapters_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.chapters_tree.customContextMenuRequested.connect(self._show_chapter_context_menu)
+        self.chapters_tree.currentItemChanged.connect(self._on_current_chapter_changed)
+        left_layout.addWidget(self.chapters_tree, 1)
 
         scope_row = QHBoxLayout()
         scope_row.setContentsMargins(0, 0, 0, 0)
@@ -365,7 +374,7 @@ class DocumentInspectorPanel(QWidget):
         run_on_owner_thread(self, self.load_chunks)
 
     def load_chunks(self) -> None:
-        self.chapters_list.clear()
+        self.chapters_tree.clear()
         chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
 
         if not chunks:
@@ -375,60 +384,293 @@ class DocumentInspectorPanel(QWidget):
             self._sync_exclusion_action()
             return
 
+        # Détecte si le document a une hiérarchie de titres ou un découpage plat (pages).
+        has_hierarchy = any(c.heading_path and " > " in c.heading_path for c in chunks)
+
+        if has_hierarchy:
+            self._build_tree_hierarchy(chunks)
+        else:
+            self._build_flat_list(chunks)
+
+        self._refresh_coverage_summary()
+        self._smart_expand_collapse()
+
+        # Sélectionne le premier item visible.
+        first = self._first_leaf_item()
+        if first is not None:
+            self.chapters_tree.setCurrentItem(first)
+
+    def _first_leaf_item(self) -> QTreeWidgetItem | None:
+        """Retourne le premier item feuille (ou le premier item de l'arbre)."""
+        it = QTreeWidgetItemIterator(self.chapters_tree)
+        while it.value():
+            item = it.value()
+            if item is not None and item.childCount() == 0:
+                return item
+            it += 1
+        # Repli sur le premier item, même conteneur.
+        return self.chapters_tree.topLevelItem(0)
+
+    def _build_flat_list(self, chunks: list[DocumentChunkModel]) -> None:
+        """Construit une liste plate (pas d'arborescence) pour les documents sans hiérarchie."""
         for chunk in chunks:
             card_count = NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk).count()
             title_str = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
 
-            item = QListWidgetItem()
-            item.setData(_ROLE_CHUNK_ID, chunk.id)
-            item.setData(_ROLE_HEADING, chunk.heading_path or "")
-            item.setData(_ROLE_CARDS, card_count)
-            item.setData(_ROLE_TITLE, title_str)
+            item = QTreeWidgetItem(self.chapters_tree)
+            item.setData(0, _ROLE_CHUNK_ID, chunk.id)
+            item.setData(0, _ROLE_HEADING, chunk.heading_path or "")
+            item.setData(0, _ROLE_CARDS, card_count)
+            item.setData(0, _ROLE_TITLE, title_str)
+            item.setData(0, _ROLE_FULL_PATH, chunk.heading_path or title_str)
+            item.setData(0, _ROLE_IS_CONTAINER, False)
+            item.setData(0, _ROLE_IS_VIRTUAL, False)
             self._apply_row_state(item, card_count, DocumentRepository.is_section_excluded(self.doc, chunk.heading_path or ""))
-            self.chapters_list.addItem(item)
 
-        self._refresh_coverage_summary()
+    def _build_tree_hierarchy(self, chunks: list[DocumentChunkModel]) -> None:
+        """Construit un arbre hiérarchique à partir des heading_path (séparateur ' > ').
 
-        if self.chapters_list.count() > 0:
-            self.chapters_list.setCurrentRow(0)
+        Crée des nœuds virtuels pour les niveaux intermédiaires n'ayant pas de chunk propre
+        en BDD, et marque les conteneurs structurels (flag persisté ou nœud virtuel).
+        """
+        # Index chunk_id par heading_path pour un accès direct.
+        path_to_chunks: dict[str, list[DocumentChunkModel]] = {}
+        for chunk in chunks:
+            hp = chunk.heading_path or ""
+            path_to_chunks.setdefault(hp, []).append(chunk)
+
+        # Compteurs de cartes par chunk_id.
+        card_counts: dict[int, int] = DocumentRepository().count_cards_by_chunk(self.doc_id)
+
+        # Construit la structure arborescente en parcourant les segments de heading_path.
+        # node_map : tuple de segments → QTreeWidgetItem
+        node_map: dict[tuple[str, ...], QTreeWidgetItem] = {}
+
+        for chunk in chunks:
+            hp = chunk.heading_path or ""
+            if not hp:
+                # Chunk sans titre : ajout à la racine comme feuille plate.
+                card_count = card_counts.get(chunk.id, 0)
+                title_str = f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}"
+                item = QTreeWidgetItem(self.chapters_tree)
+                self._populate_item(item, chunk.id, "", title_str, title_str, card_count, is_container=False, is_virtual=False)
+                self._apply_row_state(item, card_count, False)
+                continue
+
+            segments = tuple(hp.split(" > "))
+
+            # Crée les nœuds parents intermédiaires s'ils n'existent pas encore.
+            for depth in range(1, len(segments)):
+                prefix = segments[:depth]
+                if prefix in node_map:
+                    continue
+                parent_item = node_map.get(prefix[:-1])
+                parent_widget = parent_item if parent_item is not None else self.chapters_tree
+                virtual_item = QTreeWidgetItem(parent_widget)
+
+                # Vérifie si un chunk réel existe pour ce chemin intermédiaire.
+                full_path = " > ".join(prefix)
+                real_chunks = path_to_chunks.get(full_path, [])
+                if real_chunks:
+                    real_chunk = real_chunks[0]
+                    real_card_count = card_counts.get(real_chunk.id, 0)
+                    is_container = getattr(real_chunk, "is_structural_container", False)
+                    self._populate_item(
+                        virtual_item,
+                        real_chunk.id,
+                        real_chunk.heading_path or "",
+                        prefix[-1],
+                        full_path,
+                        real_card_count,
+                        is_container=is_container,
+                        is_virtual=False,
+                    )
+                    is_excluded = DocumentRepository.is_section_excluded(self.doc, real_chunk.heading_path or "")
+                    self._apply_row_state(virtual_item, real_card_count, is_excluded, is_container=is_container)
+                else:
+                    # Nœud purement virtuel : pas de chunk en BDD.
+                    self._populate_item(virtual_item, None, full_path, prefix[-1], full_path, 0, is_container=True, is_virtual=True)
+                    self._apply_row_state(virtual_item, 0, False, is_container=True)
+
+                node_map[prefix] = virtual_item
+
+            # Crée le nœud feuille (le chunk lui-même).
+            full_segments = segments
+            if full_segments not in node_map:
+                parent_item = node_map.get(full_segments[:-1])
+                parent_widget = parent_item if parent_item is not None else self.chapters_tree
+                leaf_item = QTreeWidgetItem(parent_widget)
+                card_count = card_counts.get(chunk.id, 0)
+                is_container = getattr(chunk, "is_structural_container", False)
+                self._populate_item(
+                    leaf_item,
+                    chunk.id,
+                    chunk.heading_path or "",
+                    segments[-1],
+                    hp,
+                    card_count,
+                    is_container=is_container,
+                    is_virtual=False,
+                )
+                is_excluded = DocumentRepository.is_section_excluded(self.doc, chunk.heading_path or "")
+                self._apply_row_state(leaf_item, card_count, is_excluded, is_container=is_container)
+                node_map[full_segments] = leaf_item
+
+        # Met à jour les compteurs agrégés des conteneurs (somme des cartes des descendants).
+        self._update_container_aggregates()
+
+    def _populate_item(
+        self,
+        item: QTreeWidgetItem,
+        chunk_id: int | None,
+        heading: str,
+        title: str,
+        full_path: str,
+        card_count: int,
+        *,
+        is_container: bool,
+        is_virtual: bool,
+    ) -> None:
+        """Remplit les données d'un QTreeWidgetItem avec les métadonnées du fragment."""
+        item.setData(0, _ROLE_CHUNK_ID, chunk_id)
+        item.setData(0, _ROLE_HEADING, heading)
+        item.setData(0, _ROLE_CARDS, card_count)
+        item.setData(0, _ROLE_TITLE, title)
+        item.setData(0, _ROLE_FULL_PATH, full_path)
+        item.setData(0, _ROLE_IS_CONTAINER, is_container)
+        item.setData(0, _ROLE_IS_VIRTUAL, is_virtual)
+        item.setToolTip(0, full_path)
+
+    def _update_container_aggregates(self) -> None:
+        """Recalcule le texte des conteneurs : nombre de sous-sections et total de cartes.
+
+        Le total inclut les cartes que le conteneur porte lui-même : un conteneur n'est
+        pas forcément vide, et n'afficher que la somme de ses descendants afficherait « 0
+        carte » sur une ligne qui en porte une.
+        """
+        it = QTreeWidgetItemIterator(self.chapters_tree)
+        while it.value():
+            item = it.value()
+            if item is not None and item.data(0, _ROLE_IS_CONTAINER):
+                child_count = item.childCount()
+                total_cards = int(item.data(0, _ROLE_CARDS) or 0) + self._aggregate_descendant_cards(item)
+                title = str(item.data(0, _ROLE_TITLE) or "")
+                carte_label = "carte" if total_cards <= 1 else "cartes"
+                section_label = "sous-section" if child_count <= 1 else "sous-sections"
+                item.setText(0, f"{title}  ·  {child_count} {section_label} · {total_cards} {carte_label}")
+            it += 1
+
+    def _aggregate_descendant_cards(self, item: QTreeWidgetItem) -> int:
+        """Somme récursive des cartes de tous les descendants, conteneurs compris."""
+        total = 0
+        for i in range(item.childCount()):
+            child = item.child(i)
+            if child is None:
+                continue
+            total += int(child.data(0, _ROLE_CARDS) or 0)
+            if child.data(0, _ROLE_IS_CONTAINER):
+                total += self._aggregate_descendant_cards(child)
+        return total
+
+    def _smart_expand_collapse(self) -> None:
+        """Expand/collapse intelligent : plié si branche 100% couverte, déplié sinon."""
+        it = QTreeWidgetItemIterator(self.chapters_tree)
+        while it.value():
+            item = it.value()
+            if item is not None and item.childCount() > 0:
+                if self._branch_fully_covered(item):
+                    item.setExpanded(False)
+                else:
+                    item.setExpanded(True)
+            it += 1
+
+    def _branch_fully_covered(self, item: QTreeWidgetItem) -> bool:
+        """Vérifie si tous les descendants feuilles non-exclus de cet item sont couverts."""
+        for i in range(item.childCount()):
+            child = item.child(i)
+            if child is None:
+                continue
+            if child.childCount() > 0:
+                if not self._branch_fully_covered(child):
+                    return False
+            else:
+                # Feuille : doit être couverte ou conteneur ou exclue.
+                is_container = bool(child.data(0, _ROLE_IS_CONTAINER))
+                is_excluded = DocumentRepository.is_section_excluded(self.doc, str(child.data(0, _ROLE_HEADING) or ""))
+                if is_container or is_excluded:
+                    continue
+                card_count = int(child.data(0, _ROLE_CARDS) or 0)
+                if card_count <= 0:
+                    return False
+        return True
 
     @staticmethod
-    def _row_cards(item: QListWidgetItem | None) -> int:
+    def _row_cards(item: QTreeWidgetItem | None) -> int:
         """Nombre de cartes Anki portées par la ligne du sommaire."""
-        return int(item.data(_ROLE_CARDS) or 0) if item is not None else 0
+        return int(item.data(0, _ROLE_CARDS) or 0) if item is not None else 0
 
-    def _apply_row_state(self, item: QListWidgetItem, card_count: int, is_excluded: bool) -> None:
-        """Habille une ligne du sommaire selon sa couverture et son appartenance au périmètre."""
-        title_str = str(item.data(_ROLE_TITLE) or "")
+    def _apply_row_state(self, item: QTreeWidgetItem, card_count: int, is_excluded: bool, *, is_container: bool = False) -> None:
+        """Habille une ligne du sommaire selon son état : conteneur, couvert, trou ou exclu.
+
+        Les conteneurs structurels (flag persisté ou nœud virtuel) sont neutres dans le score
+        et affichés en gris discret. Le texte des conteneurs est géré par
+        ``_update_container_aggregates`` après la construction complète de l'arbre.
+        """
+        title_str = str(item.data(0, _ROLE_TITLE) or "")
+        full_path = str(item.data(0, _ROLE_FULL_PATH) or title_str)
+
         if is_excluded:
-            item.setText(f"⊘ {title_str}  ·  Exclue de l'analyse")
-            item.setForeground(QColor(DesignTokens.TEXT_MUTED))
-            item.setToolTip(f"{title_str}\nHors périmètre : cette section ne compte plus dans la couverture du document.")
+            item.setText(0, f"⊘ {title_str}  ·  Exclue de l'analyse")
+            item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
+            item.setToolTip(0, f"{full_path}\nHors périmètre : cette section ne compte plus dans la couverture du document.")
             return
+
+        if is_container:
+            # Le texte définitif est appliqué par _update_container_aggregates.
+            item.setText(0, title_str)
+            item.setForeground(0, QColor(DesignTokens.TEXT_SECONDARY))
+            item.setToolTip(0, f"{full_path}\nConteneur structural : neutre dans le calcul de couverture.")
+            return
+
         if card_count > 0:
-            item.setText(f"● {title_str}  ·  {card_count} carte(s)")
-            item.setForeground(QColor(DesignTokens.COLOR_GREEN))
+            item.setText(0, f"● {title_str}  ·  {card_count} carte(s)")
+            item.setForeground(0, QColor(DesignTokens.COLOR_GREEN))
         else:
-            item.setText(f"○ {title_str}  ·  Trou (0 carte)")
-            item.setForeground(QColor(DesignTokens.COLOR_YELLOW))
-        item.setToolTip(f"{title_str}\nClic droit pour exclure cette section de l'analyse.")
+            item.setText(0, f"○ {title_str}  ·  Trou (0 carte)")
+            item.setForeground(0, QColor(DesignTokens.COLOR_YELLOW))
+        item.setToolTip(0, f"{full_path}\nClic droit pour exclure cette section de l'analyse.")
 
     def _refresh_row_states(self) -> None:
-        """Recalcule les compteurs de cartes et réapplique l'état d'exclusion à chaque ligne, sans reconstruire le sommaire."""
+        """Recalcule les compteurs de cartes et réapplique l'état à chaque ligne, sans reconstruire le sommaire."""
         counts = DocumentRepository().count_cards_by_chunk(self.doc_id)
-        for row in range(self.chapters_list.count()):
-            item = self.chapters_list.item(row)
-            card_count = counts.get(int(item.data(_ROLE_CHUNK_ID) or 0), 0)
-            item.setData(_ROLE_CARDS, card_count)
-            self._apply_row_state(
-                item,
-                card_count,
-                DocumentRepository.is_section_excluded(self.doc, str(item.data(_ROLE_HEADING) or "")),
-            )
+        it = QTreeWidgetItemIterator(self.chapters_tree)
+        while it.value():
+            item = it.value()
+            if item is not None:
+                chunk_id = item.data(0, _ROLE_CHUNK_ID)
+                if chunk_id is not None:
+                    card_count = counts.get(int(chunk_id), 0)
+                    item.setData(0, _ROLE_CARDS, card_count)
+                    is_container = bool(item.data(0, _ROLE_IS_CONTAINER))
+                    self._apply_row_state(
+                        item,
+                        card_count,
+                        DocumentRepository.is_section_excluded(self.doc, str(item.data(0, _ROLE_HEADING) or "")),
+                        is_container=is_container,
+                    )
+            it += 1
+        self._update_container_aggregates()
 
     def _covered_row_count(self) -> int:
-        """Nombre de lignes du sommaire portant au moins une carte Anki."""
-        return sum(1 for row in range(self.chapters_list.count()) if self._row_cards(self.chapters_list.item(row)) > 0)
+        """Nombre de lignes feuilles du sommaire portant au moins une carte Anki."""
+        count = 0
+        it = QTreeWidgetItemIterator(self.chapters_tree)
+        while it.value():
+            item = it.value()
+            if item is not None and item.childCount() == 0 and not item.data(0, _ROLE_IS_CONTAINER) and self._row_cards(item) > 0:
+                count += 1
+            it += 1
+        return count
 
     def _refresh_coverage_summary(self) -> None:
         """Recalcule la pastille de couverture globale à partir des unités actives du document."""
@@ -436,7 +678,7 @@ class DocumentInspectorPanel(QWidget):
         unit_type = stats.get("unit_type", "sections")
         unit_label = "pages" if unit_type == "pages" else "sections"
         covered_units = stats.get("covered_units", self._covered_row_count())
-        total_units = stats.get("total_units", self.chapters_list.count())
+        total_units = stats.get("total_units", 0)
         percent = stats.get("coverage_pct", 0.0)
         total_cards = stats.get("total_cards", 0)
         excluded_units = stats.get("excluded_units", 0)
@@ -471,22 +713,29 @@ class DocumentInspectorPanel(QWidget):
         noun = unit_label if excluded_units > 1 else unit_label.removesuffix("s")
         return f"{excluded_units} {noun} hors périmètre · clic droit pour ré-inclure"
 
-    def _on_current_chapter_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+    def _on_current_chapter_changed(self, current: QTreeWidgetItem | None, _previous: QTreeWidgetItem | None) -> None:
         """La sélection du sommaire pilote l'aperçu et l'action d'exclusion de section."""
         self._sync_exclusion_action()
         if current is None:
             return
-        chunk_id = current.data(_ROLE_CHUNK_ID)
-        if chunk_id:
-            self.inspect_chunk(chunk_id)
+        chunk_id = current.data(0, _ROLE_CHUNK_ID)
+        is_virtual = bool(current.data(0, _ROLE_IS_VIRTUAL))
+        is_container = bool(current.data(0, _ROLE_IS_CONTAINER))
 
-    def _exclusion_spec(self, item: QListWidgetItem | None) -> tuple[str, str, bool, bool]:
+        if is_virtual:
+            # Nœud virtuel sans chunk en BDD.
+            full_path = str(current.data(0, _ROLE_FULL_PATH) or "")
+            self._show_virtual_node_panel(full_path, current.childCount())
+        elif chunk_id:
+            self.inspect_chunk(chunk_id, is_container=is_container)
+
+    def _exclusion_spec(self, item: QTreeWidgetItem | None) -> tuple[str, str, bool, bool]:
         """Décide l'état de l'action d'exclusion pour une ligne : (libellé, icône, exclue, appliquable).
 
         Source unique de vérité partagée par le bouton de la barre d'actions et par le menu
         contextuel : les deux affichent donc toujours la même proposition pour une section.
         """
-        heading = str(item.data(_ROLE_HEADING) or "") if item is not None else ""
+        heading = str(item.data(0, _ROLE_HEADING) or "") if item is not None else ""
         if not DocumentRepository.is_excludable_heading(heading):
             return "Exclure cette section", "ph.prohibit", False, False
         if DocumentRepository.is_section_excluded(self.doc, heading):
@@ -495,8 +744,8 @@ class DocumentInspectorPanel(QWidget):
 
     def _sync_exclusion_action(self) -> None:
         """Aligne le libellé de l'action d'exclusion sur la section sélectionnée."""
-        item = self.chapters_list.currentItem()
-        title = str(item.data(_ROLE_TITLE) or "") if item is not None else ""
+        item = self.chapters_tree.currentItem()
+        title = str(item.data(0, _ROLE_TITLE) or "") if item is not None else ""
         label, icon_name, is_excluded, applicable = self._exclusion_spec(item)
 
         self.btn_exclude_section.setText(label)
@@ -516,11 +765,11 @@ class DocumentInspectorPanel(QWidget):
         immédiatement sur le sommaire et sur la couverture globale, sans reconstruire
         l'inspecteur : la section reste sélectionnée et inspectable.
         """
-        item = self.chapters_list.currentItem()
+        item = self.chapters_tree.currentItem()
         if item is None:
             return
 
-        heading = str(item.data(_ROLE_HEADING) or "")
+        heading = str(item.data(0, _ROLE_HEADING) or "")
         if not DocumentRepository.is_excludable_heading(heading):
             show_toast(self, "Cette section n'a pas de titre exploitable : elle ne peut pas être exclue de l'analyse.")
             return
@@ -535,7 +784,7 @@ class DocumentInspectorPanel(QWidget):
         self._refresh_row_states()
         self._refresh_coverage_summary()
         self._sync_exclusion_action()
-        show_toast(self, f"Section « {item.data(_ROLE_TITLE) or heading} » {'réintégrée' if was_excluded else 'exclue'} de l'analyse.")
+        show_toast(self, f"Section « {item.data(0, _ROLE_TITLE) or heading} » {'réintégrée' if was_excluded else 'exclue'} de l'analyse.")
 
         self._applying_local_coverage_change = True
         try:
@@ -588,12 +837,13 @@ class DocumentInspectorPanel(QWidget):
         Une carte déplacée hors de la section courante doit disparaître du panneau des
         cartes liées sans attendre que l'utilisateur resélectionne une autre ligne.
         """
-        current = self.chapters_list.currentItem()
-        chunk_id = current.data(_ROLE_CHUNK_ID) if current is not None else None
+        current = self.chapters_tree.currentItem()
+        chunk_id = current.data(0, _ROLE_CHUNK_ID) if current is not None else None
         if chunk_id:
-            self.inspect_chunk(chunk_id)
+            is_container = bool(current.data(0, _ROLE_IS_CONTAINER)) if current is not None else False
+            self.inspect_chunk(chunk_id, is_container=is_container)
 
-    def chapter_context_menu(self, item: QListWidgetItem) -> StyledMenu | None:
+    def chapter_context_menu(self, item: QTreeWidgetItem) -> StyledMenu | None:
         """Menu contextuel d'une ligne du sommaire : exclure ou ré-inclure sa section.
 
         L'action est proposée pour toute section titrée et désactivée pour un fragment au
@@ -611,19 +861,19 @@ class DocumentInspectorPanel(QWidget):
         toggle_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item))
         return menu
 
-    def _toggle_chapter_from_menu(self, item: QListWidgetItem) -> None:
+    def _toggle_chapter_from_menu(self, item: QTreeWidgetItem) -> None:
         """Bascule l'exclusion de la section visée par le menu contextuel, en la sélectionnant."""
-        self.chapters_list.setCurrentItem(item)
+        self.chapters_tree.setCurrentItem(item)
         self.toggle_section_exclusion()
 
     def _show_chapter_context_menu(self, pos: QPoint) -> None:
         """Ouvre le menu contextuel du sommaire à l'emplacement du clic droit."""
-        menu = self.chapter_context_menu(self.chapters_list.itemAt(pos))
+        menu = self.chapter_context_menu(self.chapters_tree.itemAt(pos))
         if menu is None:
             return
-        menu.exec(self.chapters_list.viewport().mapToGlobal(pos))
+        menu.exec(self.chapters_tree.viewport().mapToGlobal(pos))
 
-    def inspect_chunk(self, chunk_id: int) -> None:
+    def inspect_chunk(self, chunk_id: int, *, is_container: bool = False) -> None:
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
         if not chunk:
             return
@@ -631,7 +881,8 @@ class DocumentInspectorPanel(QWidget):
         header_title = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
         safe_content = chunk.content.replace("\n", "<br>")
         html_preview = (
-            f"<h4 style='color: {DesignTokens.TEXT_PRIMARY}; margin-bottom: 6px;'>{header_title}</h4>"
+            f"<p style='color: {DesignTokens.TEXT_MUTED}; font-size: 10px; margin-bottom: 4px;'>{header_title}</p>"
+            f"<h4 style='color: {DesignTokens.TEXT_PRIMARY}; margin-bottom: 6px;'>{header_title.rsplit(' > ', 1)[-1]}</h4>"
             f"<hr style='border: 1px solid {DesignTokens.BORDER_COLOR};'/>"
             f"<p style='color: {DesignTokens.TEXT_SECONDARY}; line-height: 1.5;'>{safe_content}</p>"
         )
@@ -641,6 +892,15 @@ class DocumentInspectorPanel(QWidget):
             item = self.cards_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
+        if is_container:
+            # Conteneur structural : message neutre, pas de bouton « Forger ».
+            child_count = 0
+            current = self.chapters_tree.currentItem()
+            if current is not None:
+                child_count = current.childCount()
+            self._show_container_info_panel(child_count)
+            return
 
         links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk))
 
@@ -680,6 +940,44 @@ class DocumentInspectorPanel(QWidget):
             btn_more.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
             btn_more.clicked.connect(lambda: self._on_forge_chunk(chunk.id))
             self.cards_layout.addWidget(btn_more)
+
+    def _show_container_info_panel(self, child_count: int) -> None:
+        """Affiche un message neutre dans le panneau droit pour un conteneur structural."""
+        box = QFrame()
+        box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_INPUT}; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 16px; }}")
+        b_layout = QVBoxLayout(box)
+        b_layout.setSpacing(10)
+
+        lbl_title = QLabel("Conteneur structural")
+        lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
+        b_layout.addWidget(lbl_title)
+
+        section_label = "sous-section" if child_count <= 1 else "sous-sections"
+        lbl_desc = QLabel(f"Ce titre regroupe {child_count} {section_label}. Consultez les sous-sections pour identifier les trous de couverture.")
+        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        lbl_desc.setWordWrap(True)
+        b_layout.addWidget(lbl_desc)
+
+        self.cards_layout.addWidget(box)
+
+    def _show_virtual_node_panel(self, full_path: str, child_count: int) -> None:
+        """Affiche le panneau droit pour un nœud virtuel (sans chunk en BDD)."""
+        html_preview = (
+            f"<p style='color: {DesignTokens.TEXT_MUTED}; font-size: 10px; margin-bottom: 4px;'>{full_path}</p>"
+            f"<h4 style='color: {DesignTokens.TEXT_PRIMARY}; margin-bottom: 6px;'>{full_path.rsplit(' > ', 1)[-1]}</h4>"
+            f"<hr style='border: 1px solid {DesignTokens.BORDER_COLOR};'/>"
+            f"<p style='color: {DesignTokens.TEXT_MUTED}; line-height: 1.5;'>"
+            f"Nœud d'organisation. Sélectionnez une sous-section pour voir son contenu.</p>"
+        )
+        self.text_preview.setHtml(html_preview)
+
+        while self.cards_layout.count():
+            item = self.cards_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        self._show_container_info_panel(child_count)
 
     def _build_linked_note_card(self, link: NoteChunkLinkModel) -> LinkedNoteCard:
         """Compose la carte cliquable d'une note liée : paquet, question, réponse.

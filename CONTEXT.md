@@ -36,6 +36,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Lien de couverture** : l'association entre une note et un fragment de document, porteuse de la mention du fragment et du palier de résolution qui l'a désignée.
 - **Palier de résolution** : l'un des quatre régimes de désignation d'un fragment, par ordre de préférence décroissante — `exact` (identité), `section` (fil d'Ariane), `page` (numéro), `lexical` (recouvrement de contenu). Un palier n'abandonne que sur échec, jamais parce qu'une autre route est présente. Il est persisté pour rendre un lien **prouvé** indiscernable d'un lien seulement **présumé**.
 - **Couverture** : la part des fragments d'un document effectivement désignés par au moins une carte. Une carte non rattachée est laissée **hors couverture** plutôt que rattachée hors de sa partie : un faux lien est plus trompeur que son absence.
+- **Conteneur structural** : fragment d'un document dont le contenu textuel est insuffisant (< 25 mots hors titres) pour justifier la création de flashcards, mais qui sert de nœud d'organisation pour des sous-sections substantielles. Un conteneur structural est neutre dans le calcul de couverture : il n'est ni un trou, ni une section couverte, ni une section exclue. Il est affiché comme un nœud collapsible dans l'inspecteur documentaire.
+  _Avoid_ : section vide, titre fantôme, heading stub
 - **Réparation de provenance** : réécriture automatique, lors d'une synchronisation, des tags de provenance obsolètes vers leur forme canonique, sans migration de données.
 
 ## Thèmes, Layouts & Design System

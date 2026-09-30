@@ -5,7 +5,7 @@ import pytest
 from peewee_migrate import Router
 
 from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import PersonaModel, db
+from ankiforge.database.models import DocumentChunkModel, DocumentModel, PersonaModel, db
 
 pytestmark = pytest.mark.integration
 
@@ -123,3 +123,81 @@ def test_seed_initial_data_repairs_empty_existing_persona_prompts(mock_db):
         assert persona.system_prompt
         assert len(persona.system_prompt) > 50
     assert PersonaModel.get(PersonaModel.name == "Juge Fact-Checker").system_prompt == "Prompt personnalisé conservé"
+
+
+def _rewind_before_migration_043() -> None:
+    """Ramène la base juste avant la 043 : colonne absente, migration non enregistrée.
+
+    La base de test est créée depuis les modèles, elle possède donc déjà la colonne et la
+    043 n'y a plus rien à faire — le chemin le moins intéressant, celui d'une base neuve.
+    C'est le vrai, celui d'un profil existant qui redémarre, qu'il faut forcer ici.
+    À n'appeler qu'une fois les fragments créés : sans la colonne, le modèle ne peut plus
+    insérer.
+    """
+    db.execute_sql("ALTER TABLE document_chunks DROP COLUMN is_structural_container;")
+    db.execute_sql("DELETE FROM migratehistory WHERE name = '043_structural_container_flag';")
+    assert "is_structural_container" not in [col.name for col in db.get_columns("document_chunks")]
+
+
+def test_migration_043_adds_the_column_then_backfills_it(mock_db):
+    """La 043 crée la colonne *puis* la peuple, sur les documents déjà indexés.
+
+    `migrator.add_fields` diffère son `ALTER TABLE` au flush du migrateur : un
+    remplissage exécuté dans `migrate` viserait une colonne qui n'existe pas encore.
+    """
+    run_migrations()
+
+    doc = DocumentModel.create(title="Cours Conteneurs 043", file_type="md")
+    chapter = "Cours Conteneurs 043 > 2 Structures"
+    # Six mots sous deux sous-sections : conteneur structurel.
+    container = DocumentChunkModel.create(document=doc, chunk_index=0, heading_path=chapter, content="# 2 Structures\n\nCe chapitre présente les organites.", content_hash="c043_0")
+    # Cinquante mots : unité de cours, malgré la même parenté.
+    teaching = DocumentChunkModel.create(document=doc, chunk_index=1, heading_path=chapter, content="# 2bis Structures\n\n" + " ".join(["mot"] * 50), content_hash="c043_1")
+    leaf = DocumentChunkModel.create(document=doc, chunk_index=2, heading_path=f"{chapter} > 2.1 La Membrane", content="La membrane délimite la cellule.", content_hash="c043_2")
+
+    _rewind_before_migration_043()
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert "is_structural_container" in [col.name for col in db.get_columns("document_chunks")]
+    assert DocumentChunkModel.get_by_id(container.id).is_structural_container is True
+    assert DocumentChunkModel.get_by_id(teaching.id).is_structural_container is False
+    # Une feuille n'ouvre rien : elle reste une unité de cours, conteneur ou non.
+    assert DocumentChunkModel.get_by_id(leaf.id).is_structural_container is False
+
+
+def test_migration_043_backfill_does_not_span_documents(mock_db):
+    """Un fil d'Ariane n'est conteneur que s'il ouvre des sous-sections de son document."""
+    run_migrations()
+
+    loner_doc = DocumentModel.create(title="Cours Isolé 043", file_type="md")
+    other = DocumentModel.create(title="Cours Voisin 043", file_type="md")
+    loner = DocumentChunkModel.create(document=loner_doc, chunk_index=0, heading_path="Thème Commun > Section", content="# Section\n\nSix mots ici.", content_hash="c043_loner")
+    # Le voisin porte les sous-sections qui feraient de « Thème Commun > Section » un parent.
+    DocumentChunkModel.create(document=other, chunk_index=0, heading_path="Thème Commun", content="# Thème Commun\n\nSix mots ici.", content_hash="c043_other0")
+    DocumentChunkModel.create(document=other, chunk_index=1, heading_path="Thème Commun > Section > 2.1 La Membrane", content="La membrane délimite la cellule.", content_hash="c043_other1")
+
+    _rewind_before_migration_043()
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert DocumentChunkModel.get_by_id(loner.id).is_structural_container is False
+
+
+def test_migration_043_is_idempotent_on_an_already_backfilled_base(mock_db):
+    """Rejouer la 043 sur une base déjà peuplée ne doit ni planter ni tout re-marquer."""
+    run_migrations()
+
+    doc = DocumentModel.create(title="Cours Idempotent 043", file_type="md")
+    chapter = "Cours Idempotent 043 > 2 Structures"
+    DocumentChunkModel.create(document=doc, chunk_index=0, heading_path=chapter, content="# 2 Structures\n\nCe chapitre présente les organites.", content_hash="c043_i0")
+    DocumentChunkModel.create(document=doc, chunk_index=1, heading_path=f"{chapter} > 2.1 La Membrane", content="La membrane délimite la cellule.", content_hash="c043_i1")
+
+    _rewind_before_migration_043()
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+    chapter_chunk = DocumentChunkModel.get(DocumentChunkModel.heading_path == chapter)
+    assert chapter_chunk.is_structural_container is True
+    before = DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count()
+
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert DocumentChunkModel.get_by_id(chapter_chunk.id).is_structural_container is True
+    assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count() == before
