@@ -136,6 +136,14 @@ def reindex_document(
                     content=chunk_data["content"],
                     page_number=chunk_data["page_number"],
                     heading_path=chunk_data["heading_path"],
+                    start_time=chunk_data.get("start_time"),
+                    end_time=chunk_data.get("end_time"),
+                    # Cette ré-indexation EST le mécanisme de mise à jour des documents
+                    # d'une version à l'autre : omettre ce drapeau revenait à effacer le
+                    # remplissage de la migration 043, puis à stamper la version courante
+                    # sans jamais le réparer, ce qui rendait la perte définitive. Le chemin
+                    # d'ingestion (`DocumentRepository._regenerate_chunks`) le propageait déjà.
+                    is_structural_container=chunk_data.get("is_structural_container", False),
                     content_hash=chunk_data["content_hash"],
                 )
         logger.info("Persistance de %d chunks en BDD pour le document '%s'", len(extracted_chunks), doc.title)

@@ -59,7 +59,12 @@ class ChunkingService:
     #      <b>/<em>, backticks…) sont retirées des heading_path et des arbres de titres
     # v5 = bloc Table des Matières isolé : les entrées d'index du sommaire (titres Marker
     #      homonymes du corps réel) ne produisent plus de fragments ni de sections fantômes
-    CHUNKING_VERSION: int = 5
+    # v6 = ré-indexation migratrice fidelle : `reindex_document` persistait les fragments
+    #      sans `is_structural_container` (ni `start_time`/`end_time`), donc chaque
+    #      ré-indexation — y compris celle déclenchée automatiquement par ce bump —
+    #      effaçait le drapeau que la migration 043 venait de remplir, et stamping la
+    #      version courante sans jamais le réparer.
+    CHUNKING_VERSION: int = 6
 
     CONTINUOUS_FILE_TYPES = ("md", "markdown", "txt", "text", "web", "youtube", "yt", "ipynb", "py")
 

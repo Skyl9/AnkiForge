@@ -2069,6 +2069,7 @@ class DocumentsView(FileDropMixin, QWidget):
                                     heading_path=chunk_data.get("heading_path"),
                                     start_time=chunk_data.get("start_time"),
                                     end_time=chunk_data.get("end_time"),
+                                    is_structural_container=chunk_data.get("is_structural_container", False),
                                     content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
                                 )
                         mark_document_version(doc)
@@ -2201,6 +2202,7 @@ class DocumentsView(FileDropMixin, QWidget):
                                 heading_path=chunk_data.get("heading_path"),
                                 start_time=chunk_data.get("start_time"),
                                 end_time=chunk_data.get("end_time"),
+                                is_structural_container=chunk_data.get("is_structural_container", False),
                                 content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
                             )
                         )

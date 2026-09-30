@@ -221,6 +221,7 @@ class VectorManager:
                                 content=item["content"],
                                 page_number=item["page_number"],
                                 heading_path=item["heading_path"],
+                                is_structural_container=item.get("is_structural_container", False),
                                 content_hash=item["content_hash"],
                             )
                             chunks.append(c)

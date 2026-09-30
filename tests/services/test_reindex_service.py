@@ -73,6 +73,56 @@ def test_reindex_document_stamps_version_and_rebuilds_chunks(mock_db, monkeypatc
     assert any("Détail fin B" in h for h in headings)
 
 
+def test_reindex_document_preserves_structural_container_flag(mock_db, monkeypatch) -> None:
+    """La ré-indexation doit persister `is_structural_container` au lieu de l'effacer.
+
+    Régression : `reindex_document` recréait les fragments sans ce drapeau, puis
+    stamperait la version courante. La migration 043 remplissait le drapeau, la
+    ré-indexation migratoire l'effaçait aussitôt, et le document était alors
+    déclaré à jour : aucun mécanisme ne pouvait plus le réparer.
+    """
+    uid = uuid.uuid4().hex[:6]
+    content = "# Chapitre\n\nIntro courte.\n\n## Sous-section\n\n" + "Contenu de cours suffisamment développé pour être une unité. " * 3
+    doc = DocumentModel.create(title=f"Doc conteneur {uid}", content=content, file_type="md")
+    doc.chunk_strategy_version = 0
+    doc.save()
+
+    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+
+    assert reindex_document(doc.id) == REINDEX_OK
+
+    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc))
+    flagged = [c for c in chunks if c.is_structural_container]
+    assert flagged, "Le titre parent (< 25 mots propres et ouvrant une sous-section) doit rester marqué conteneur."
+
+    # Le conteneur est bien le parent, et non la sous-section qui porte le contenu.
+    assert all("Chapitre" in (c.heading_path or "") for c in flagged)
+    assert any("Sous-section" in (c.heading_path or "") and not c.is_structural_container for c in chunks)
+
+
+def test_reindex_document_preserves_audio_timestamps(mock_db, monkeypatch) -> None:
+    """La ré-indexation ne doit pas perdre `start_time`/`end_time` des fragments audio.
+
+    Ces colonnes pilotent la position de lecture dans `DocumentsView` ; les perdre
+    faisait reculer la ré-indexation d'un document audio déjà indexé.
+    """
+    uid = uuid.uuid4().hex[:6]
+    content = "<!-- TIME:0.0 - 30.0 -->\n\nPremière partie bien développée du cours.\n\n<!-- TIME:30.0 - 60.0 -->\n\nDeuxième partie bien développée du cours."
+    doc = DocumentModel.create(title=f"Doc audio {uid}", content=content, file_type="mp3")
+    doc.chunk_strategy_version = 0
+    doc.save()
+
+    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+
+    assert reindex_document(doc.id) == REINDEX_OK
+
+    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc))
+    assert chunks, "Le document audio doit produire des fragments."
+    assert all(c.start_time is not None and c.end_time is not None for c in chunks), "Les horodatages audio doivent survivre à la ré-indexation."
+
+
 def test_reindex_document_empty_returns_empty_status(mock_db, monkeypatch) -> None:
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Doc vide {uid}", content="", file_type="md")

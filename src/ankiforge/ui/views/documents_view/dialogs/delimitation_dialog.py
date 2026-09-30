@@ -3889,6 +3889,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
                     matched_chunk.page_number = c_page
                     matched_chunk.heading_path = c_heading
                     matched_chunk.content_hash = c_hash
+                    matched_chunk.is_structural_container = c_data.get("is_structural_container", False)
                     matched_chunk.save()
                 else:
                     created = DocumentChunkModel.create(
@@ -3897,6 +3898,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
                         content=c_content,
                         page_number=c_page,
                         heading_path=c_heading,
+                        is_structural_container=c_data.get("is_structural_container", False),
                         content_hash=c_hash,
                     )
                     matched_chunk_ids.add(created.id)
