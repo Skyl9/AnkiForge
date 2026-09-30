@@ -270,8 +270,17 @@ class ChunkingService:
             return True
         if not has_descendants:
             return False
-        own_words = " ".join(line for line in (content or "").split("\n") if not cls.HEADING_REGEX.match(line)).split()
-        return len(own_words) < cls.MIN_STRUCTURAL_CONTAINER_WORDS
+        return cls.own_content_words(content) < cls.MIN_STRUCTURAL_CONTAINER_WORDS
+
+    @classmethod
+    def own_content_words(cls, content: str | None) -> int:
+        """Nombre de mots **propres** au fragment, ses lignes de titre exclues.
+
+        Compté au même endroit que le seuil qu'il qualifie : une règle et son décompte
+        évalués séparément finissent toujours par diverger, et l'infobulle qui annonce
+        « contenu court » afficherait alors un nombre que la règle n'a jamais regardé.
+        """
+        return len(" ".join(line for line in (content or "").split("\n") if not cls.HEADING_REGEX.match(line)).split())
 
     @classmethod
     def _descendant_prefixes(cls, chunks: list[dict[str, Any]]) -> set[str]:

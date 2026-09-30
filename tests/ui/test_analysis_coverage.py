@@ -1010,6 +1010,34 @@ def _make_granularity_document(uid: str) -> tuple[DocumentModel, list[DocumentCh
     return doc, chunks
 
 
+def test_the_25_words_aid_is_only_announced_where_it_qualifies(qtbot):
+    """L'infobulle ne doit pas qualifier de « contenu court » un parent bien rédigé.
+
+    `container_candidates` propose la neutralisation de tout titre qui ouvre une
+    sous-section, seuil des 25 mots compris ou non : c'est au service de trancher si le
+    seuil qualifie ce titre, sinon l'infobulle annonce un contenu court à 200 mots.
+    """
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_granularity_document(uid)
+    maigre = DocumentChunkModel.get_by_id(chunks[0])
+    maigre.content = "Six mots ici."
+    maigre.save()
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    parent_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre")
+
+    panel.chapters_tree.setCurrentItem(parent_row)
+    qtbot.wait(10)
+    assert "Contenu court (3 mots)" in panel.btn_neutralize_section.toolTip()
+
+    maigre.content = " ".join(["mot"] * 200)
+    maigre.save()
+    panel.load_chunks()
+    panel.chapters_tree.setCurrentItem(next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre"))
+    qtbot.wait(10)
+    assert "Contenu court" not in panel.btn_neutralize_section.toolTip()
+
+
 def test_neutralizing_a_node_leaves_its_subsections_in_coverage(qtbot):
     """Neutraliser le contenu propre d'un titre n'efface pas ses sous-sections de la couverture.
 

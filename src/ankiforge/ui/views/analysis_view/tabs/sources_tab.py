@@ -826,12 +826,19 @@ class DocumentInspectorPanel(QWidget):
         décider si un titre mérite le statut de conteneur. Le lui rappeler à l'endroit exact
         où la décision se prend est le seul moyen que la suggestion ne reste une constante
         employée nulle part.
+
+        `container_candidates` propose la neutralisation de tout titre qui ouvre une
+        sous-section, seuil compris ou non : l'annoncer sur un parent bien rédigé serait
+        un faux verdict. Le service tranche donc — `has_descendants` y est vrai par
+        construction, et le seuil des 25 mots reste le sien.
         """
         if not heading or heading.casefold() not in self._container_candidates:
             return ""
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.document == self.doc_id, DocumentChunkModel.heading_path == heading)
-        words = len(str(chunk.content or "").split()) if chunk else 0
-        return f" Contenu court ({words} mots) : titre candidat au statut de conteneur."
+        content = str(chunk.content or "") if chunk else ""
+        if not ChunkingService.is_structural_container(heading, content, has_descendants=True):
+            return ""
+        return f" Contenu court ({ChunkingService.own_content_words(content)} mots) : titre candidat au statut de conteneur."
 
     def toggle_section_neutralization(self, *, scope: RegionScope = RegionScope.HEADING) -> None:
         """Déclare la région sélectionnée comme conteneur structurel, ou retire la déclaration.

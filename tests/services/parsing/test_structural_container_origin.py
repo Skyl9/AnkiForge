@@ -123,3 +123,15 @@ class TestContainerCandidates:
             _chunk("Cours > Ch1 > 1.1", "# 1.1\n\n" + " ".join(["mot"] * 100)),
         ]
         assert ChunkingService.container_candidates(chunks, declared_addresses=["heading:Cours > Ch1"]) == ["Cours"]
+
+    def test_own_content_words_excludes_the_heading_lines(self) -> None:
+        """Un titre long ne doit pas faire passer un fragment maigre au-dessus du seuil."""
+        assert ChunkingService.own_content_words("# Titre" + chr(10) + chr(10) + "Six mots ici.") == 3
+        assert ChunkingService.own_content_words("# Titre") == 0
+        assert ChunkingService.own_content_words(None) == 0
+
+    def test_the_threshold_is_judged_on_own_words_only(self) -> None:
+        maigre = "# Titre" + chr(10) + chr(10) + " ".join(["mot"] * 24)
+        riche = "# Titre" + chr(10) + chr(10) + " ".join(["mot"] * 25)
+        assert ChunkingService.is_structural_container("Cours", maigre, has_descendants=True) is True
+        assert ChunkingService.is_structural_container("Cours", riche, has_descendants=True) is False
