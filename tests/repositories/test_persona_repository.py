@@ -53,3 +53,28 @@ def test_persona_repository_crud() -> None:
     deleted = repo.delete_persona(persona.id)
     assert deleted is True
     assert repo.get_persona_by_id(persona.id) is None
+
+
+def test_create_llm_config_backfills_capabilities_from_the_catalog() -> None:
+    """Sans valeur imposée, la ligne hérite du catalogue : un moteur multimodal ne doit pas
+    rester « texte seul » sous le seul effet du défaut SQLite `supports_vision = False`."""
+    repo = PersonaRepository()
+
+    vision = repo.create_llm_config(display_name="Backfill Vision", provider="openai", model_id="gpt-4o")
+    assert vision.supports_vision is True
+
+    text_only = repo.create_llm_config(display_name="Backfill Texte", provider="openai", model_id="o1-mini")
+    assert text_only.supports_vision is False
+
+
+def test_create_llm_config_honours_an_explicit_capability() -> None:
+    """Une capacité imposée (Ollama détecté avec un projecteur CLIP) prime sur le catalogue."""
+    repo = PersonaRepository()
+
+    engine = repo.create_llm_config(
+        display_name="Qwen2-VL local",
+        provider="ollama",
+        model_id="qwen2-vl:7b",
+        supports_vision=True,
+    )
+    assert engine.supports_vision is True

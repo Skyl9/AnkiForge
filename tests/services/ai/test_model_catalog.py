@@ -143,3 +143,39 @@ def test_opencode_and_openrouter_models_in_catalog():
     inferred_free = ModelCatalog.get_model_spec("openrouter", "meta-llama/llama-3.3-70b-instruct:free")
     assert inferred_free.is_free is True
     assert inferred_free.prompt_pricing == 0.0
+
+
+def test_get_declared_capabilities_refuses_approximate_matching():
+    """La correspondance exacte refuse l'appariement de `get_model_spec`, qui ignore le fournisseur.
+
+    `get_model_spec("azure-openai", "gpt-4o")` recopie la fiche OpenAI — capacités **et** tarifs —
+    alors qu'aucune paire (fournisseur, modèle) de ce nom n'est curatée. C'est acceptable pour
+    découvrir un modèle dans une liste déroulante, pas pour écrire une affirmation en base.
+    """
+    assert ModelCatalog.get_declared_capabilities("openai", "gpt-4o") is not None
+    assert ModelCatalog.get_declared_capabilities("openai", "o1") is not None
+
+    assert ModelCatalog.get_model_spec("azure-openai", "gpt-4o").supports_vision is True  # l'approximation
+    assert ModelCatalog.get_declared_capabilities("azure-openai", "gpt-4o") is None  # la déclaration
+
+
+def test_declares_vision_requires_evidence():
+    """Un fournisseur hébergé non catalogué reste « texte seul » : une affirmation false coûte une erreur d'API."""
+    assert ModelCatalog.declares_vision("openai", "gpt-4o") is True
+    assert ModelCatalog.declares_vision("openai", "o1-mini") is False  # texte, malgré le voisin multimodal `o1`
+    assert ModelCatalog.declares_vision("openai", "gpt-5-vision-preview") is False  # absent du catalogue
+    # Même inférence par nom, mais un fournisseur hors catalogue : la preuve n'existe pas.
+    assert ModelCatalog.get_model_spec("azure-openai", "gpt-4o").supports_vision is True
+    assert ModelCatalog.declares_vision("azure-openai", "gpt-4o") is False
+
+
+def test_declares_vision_keeps_named_local_multimodal_models():
+    """Hors ligne, le nom est le seul signal pour un VLM local : on ne doit pas le perdre."""
+    assert ModelCatalog.is_local_provider("ollama") is True
+    assert ModelCatalog.is_local_provider("http://localhost:11434") is True
+    assert ModelCatalog.is_local_provider("openai") is False
+
+    assert ModelCatalog.declares_vision("ollama", "qwen2-vl:7b") is True
+    assert ModelCatalog.declares_vision("ollama", "bakllava:13b") is True
+    assert ModelCatalog.declares_vision("ollama", "llama3.2-vision") is True
+    assert ModelCatalog.declares_vision("ollama", "deepseek-r1:8b") is False

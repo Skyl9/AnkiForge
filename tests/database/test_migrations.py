@@ -5,7 +5,8 @@ import pytest
 from peewee_migrate import Router
 
 from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import DocumentChunkModel, DocumentModel, PersonaModel, db
+from ankiforge.database.models import DocumentChunkModel, DocumentModel, LLMConfigModel, PersonaModel, db
+from ankiforge.services.ai.model_catalog import ModelCatalog
 
 pytestmark = pytest.mark.integration
 
@@ -201,3 +202,96 @@ def test_migration_043_is_idempotent_on_an_already_backfilled_base(mock_db):
 
     assert DocumentChunkModel.get_by_id(chapter_chunk.id).is_structural_container is True
     assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count() == before
+
+
+def _rewind_before_migration_044() -> None:
+    """Désenregistre la 044 pour la forcer à rejouer sur l'état de la base.
+
+    L'état de la 029 n'est pas rejoué via `get_model_spec` : cette aide à la découverte a pu être
+    corrigée depuis, donc l'appeler ne reproduirait plus ce qu'elle écrivait réellement. Chaque test
+    déclare donc explicitement la valeur héritée qu'il veut voir réparer.
+    """
+    db.execute_sql("DELETE FROM migratehistory WHERE name = '044_llm_capabilities_exact_backfill';")
+
+
+def test_migration_044_realigns_a_capability_inferred_by_the_029(mock_db):
+    """La 029 écrivait une inférence ; l'UI la lit désormais comme une déclaration.
+
+    `gpt-4o` catalogué multimodal peut avoir été enregistré « texte seul » par une infération
+    antérieure : l'UI afficherait alors « Vision indisponible » à tort et refuserait une image
+    qu'AnkiForge sait envoyer.
+    """
+    run_migrations()
+
+    stale = LLMConfigModel.create(display_name="GPT-4o 044", provider="openai", model_id="gpt-4o", supports_vision=False)
+    _rewind_before_migration_044()
+
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    repaired = LLMConfigModel.get_by_id(stale.id)
+    assert repaired.supports_vision is True
+    # La 029 avait recopié toute la fiche, capacités et libellés : la 044 la recale sur la source unique.
+    assert repaired.description == ModelCatalog.get_declared_capabilities("openai", "gpt-4o").ankiforge_use_case
+
+
+def test_migration_044_withdraws_a_vision_claim_the_catalog_contradicts(mock_db):
+    """L'inverse, tout aussi grave : une Vision affirmée sur un modèle texte part en payload
+    multimodal vers une API qui le refuse — l'échec visible, en pleine génération."""
+    run_migrations()
+
+    overstated = LLMConfigModel.create(display_name="o1-mini 044", provider="openai", model_id="o1-mini", supports_vision=True)
+    _rewind_before_migration_044()
+
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert LLMConfigModel.get_by_id(overstated.id).supports_vision is False
+
+
+def test_migration_044_leaves_models_the_catalog_does_not_know_alone(mock_db):
+    """Un moteur ajouté par l'utilisateur, absent du catalogue, ne doit pas être rétrogradé.
+
+    La 029 pouvait approvisionner une capacité de guingois, mais une valeur juste peut venir d'une
+    détection réelle : la rétrograder serait une perte d'information sans remède (aucun éditeur
+    de `supports_vision` dans l'interface).
+    """
+    run_migrations()
+
+    uncatalogued = LLMConfigModel.create(display_name="Custom Vision 044", provider="openai", model_id="gpt-5-vision-preview", supports_vision=True)
+    _rewind_before_migration_044()
+
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert LLMConfigModel.get_by_id(uncatalogued.id).supports_vision is True
+
+
+def test_migration_044_leaves_locally_detected_capabilities_alone(mock_db):
+    """La valeur d'un VLM local peut venir du scan Ollama (détection d'un projecteur) : intouchable.
+
+    Le catalogue hors ligne ne sait qu'inférer un nom ; rétrograder ici détruirait une information
+    obtenue en interrogeant le moteur.
+    """
+    run_migrations()
+
+    local = LLMConfigModel.create(display_name="Qwen2-VL 044", provider="ollama", model_id="qwen2-vl:7b", supports_vision=True)
+    _rewind_before_migration_044()
+
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert LLMConfigModel.get_by_id(local.id).supports_vision is True
+
+
+def test_migration_044_is_idempotent(mock_db):
+    """Rejouer la 044 ne réécrit rien : la comparaison de valeur évite l'écriture superflue."""
+    run_migrations()
+
+    stale = LLMConfigModel.create(display_name="GPT-4o 044b", provider="openai", model_id="gpt-4o", supports_vision=False)
+    _rewind_before_migration_044()
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    repaired = LLMConfigModel.select().where(LLMConfigModel.id == stale.id).dicts().get()
+    assert repaired is not None and repaired["supports_vision"] is True
+
+    _rewind_before_migration_044()
+    Router(db, migrate_dir=MIGRATIONS_DIR).run()
+
+    assert LLMConfigModel.select().where(LLMConfigModel.id == stale.id).dicts().get() == repaired

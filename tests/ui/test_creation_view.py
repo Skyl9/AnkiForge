@@ -306,7 +306,9 @@ def test_creation_view_multimodal_variables_in_generation(qtbot: Any, mock_db: A
     pipe = PipelineModel.create(name=f"Pipeline Multi {uid}")
     persona = PersonaModel.create(name=f"Persona Multi {uid}", system_prompt="Test", output_format="json")
     PipelineStepModel.create(pipeline=pipe, persona=persona, step_type="LLM_PROMPT", step_order=1)
-    LLMConfigModel.create(provider="mock", model_id=f"dummy_{uid}", display_name=f"Mock IA {uid}")
+    # Moteur multimodal déclaré : ce test vérifie que use_vision=ON atteint l'état du DAG,
+    # ce qui suppose un moteur capable de lire les images.
+    LLMConfigModel.create(provider="mock", model_id=f"dummy_{uid}", display_name=f"Mock IA {uid}", supports_vision=True)
 
     media = MediaModel.create(
         filename=f"gen_{uid}.png",
