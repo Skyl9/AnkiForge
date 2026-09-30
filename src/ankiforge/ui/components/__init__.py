@@ -33,6 +33,7 @@ from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
 from .tag_select_window import TagSelectWindow
 from .title_bar import GlobalTitleBar
 from .topbar import TopBar
+from .vision_capability import VisionCapabilityBadge, VisionCapabilityNotice
 
 HeaderLabel = QLabel
 RoundedPanel = GlassPanel
@@ -102,4 +103,6 @@ __all__ = [
     "PersonaSelectWindow",
     "PipelineSelectWindow",
     "TagSelectWindow",
+    "VisionCapabilityBadge",
+    "VisionCapabilityNotice",
 ]

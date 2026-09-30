@@ -39,6 +39,7 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.repositories.deck_repository import DeckRepository
+from ankiforge.repositories.persona_repository import PersonaRepository
 from ankiforge.services.batch.models import (
     BatchGenerationConfig,
     BatchScopeSnapshot,
@@ -57,8 +58,11 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
+    VisionCapabilityBadge,
+    VisionCapabilityNotice,
 )
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.ui.components.vision_capability import VISION_TOOLTIP, effective_vision, sync_vision_capability
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.viewmodels.batch_viewmodel import BatchViewModel
@@ -315,8 +319,10 @@ class BatchView(QWidget):
         opt_layout.setSpacing(6)
 
         saved_vision = SettingsService.get("batch/use_vision", True)
-        self.cb_vision = OptionToggleRow("Vision (PDF)", icon_name="ph.eye", checked=bool(saved_vision))
+        self.cb_vision = OptionToggleRow("Vision (PDF)", icon_name="ph.eye", checked=bool(saved_vision), tooltip=VISION_TOOLTIP)
         self.cb_vision.toggled.connect(lambda s: SettingsService.set("batch/use_vision", s, category="batch"))
+
+        self.vision_cap_badge = VisionCapabilityBadge()
 
         saved_autoval = SettingsService.get("batch/auto_validation", False)
         self.cb_autoval = OptionToggleRow("Validation auto", icon_name="ph.shield-check", checked=bool(saved_autoval))
@@ -329,6 +335,16 @@ class BatchView(QWidget):
         opt_layout.addWidget(self.cb_vision, 1)
         opt_layout.addWidget(self.cb_autoval, 1)
         ai_layout.addLayout(opt_layout)
+
+        vision_cap_layout = QHBoxLayout()
+        vision_cap_layout.setContentsMargins(0, 4, 0, 0)
+        vision_cap_layout.setSpacing(6)
+        vision_cap_layout.addWidget(self.vision_cap_badge)
+        vision_cap_layout.addStretch()
+        ai_layout.addLayout(vision_cap_layout)
+
+        self.vision_cap_notice = VisionCapabilityNotice()
+        ai_layout.addWidget(self.vision_cap_notice)
 
         build_layout.addWidget(ai_card)
 
@@ -636,32 +652,35 @@ class BatchView(QWidget):
             self.engine_combo.clear()
             engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             if not engines:
-                with db.atomic():
-                    LLMConfigModel.create(
-                        display_name="Google Gemini 3.5 Flash Lite",
-                        provider="gemini",
-                        model_id="gemini-3.5-flash-lite",
-                        context_limit=1048576,
-                        max_tokens=65536,
-                        sort_order=0,
-                        is_free=True,
-                    )
-                    LLMConfigModel.create(
-                        display_name="GPT-4o",
-                        provider="openai",
-                        model_id="gpt-4o",
-                        context_limit=128000,
-                        max_tokens=16384,
-                        sort_order=10,
-                    )
-                    LLMConfigModel.create(
-                        display_name="Claude 3.5 Sonnet",
-                        provider="anthropic",
-                        model_id="claude-3-5-sonnet-20240620",
-                        context_limit=200000,
-                        max_tokens=8192,
-                        sort_order=20,
-                    )
+                # Passé par le repository : c'est là que les capacités (Vision…) sont déduites du
+                # catalogue. Un `LLMConfigModel.create` direct les laisserait au défaut SQLite
+                # `False`, et « Vision native » serait refusé à GPT-4o dès la première génération.
+                persona_repo = PersonaRepository()
+                persona_repo.create_llm_config(
+                    display_name="Google Gemini 3.5 Flash Lite",
+                    provider="gemini",
+                    model_id="gemini-3.5-flash-lite",
+                    context_limit=1048576,
+                    max_tokens=65536,
+                    sort_order=0,
+                    is_free=True,
+                )
+                persona_repo.create_llm_config(
+                    display_name="GPT-4o",
+                    provider="openai",
+                    model_id="gpt-4o",
+                    context_limit=128000,
+                    max_tokens=16384,
+                    sort_order=10,
+                )
+                persona_repo.create_llm_config(
+                    display_name="Claude 3.5 Sonnet",
+                    provider="anthropic",
+                    model_id="claude-3-5-sonnet-20240620",
+                    context_limit=200000,
+                    max_tokens=8192,
+                    sort_order=20,
+                )
                 engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             if engines:
                 for eg in engines:
@@ -755,6 +774,11 @@ class BatchView(QWidget):
             self.slider_tokens.setValue(step_val)
             self.slider_tokens.blockSignals(False)
             self.val_tokens_lbl.setText(f"{step_val * 1024:,} tks".replace(",", " "))
+        self._sync_vision_capability()
+
+    def _sync_vision_capability(self) -> None:
+        """Resynchronise badge, rappel, infobulle et disponibilité sur la compatibilité du moteur sélectionné."""
+        sync_vision_capability(self.vision_cap_badge, self.vision_cap_notice, self.engine_combo.currentData(), self.cb_vision)
 
     def is_dirty(self) -> bool:
         return len(self.queue_tasks_data) > 0
@@ -1089,7 +1113,7 @@ class BatchView(QWidget):
                         note_type_fields=tuple(fields_schema),
                         note_type_templates=tuple(templates),
                         auto_validation=bool(task.get("auto_val", True)),
-                        use_vision=bool(task.get("use_vision", False)),
+                        use_vision=effective_vision(bool(task.get("use_vision", False)), selected_engine),
                         temperature=float(task.get("temperature", 0.7)),
                         max_tokens=int(task.get("max_tokens", 16384)),
                         strict_source_grounding=bool(task.get("strict_source_grounding", True)),
@@ -1115,7 +1139,7 @@ class BatchView(QWidget):
                     llm_id=llm_id,
                     llm_config=llm_config,
                     chunk_strategy="auto",
-                    use_vision=bool(task.get("use_vision", False)),
+                    use_vision=effective_vision(bool(task.get("use_vision", False)), selected_engine),
                     auto_validation=bool(task.get("auto_val", True)),
                     temperature=float(task.get("temperature", 0.7)),
                     max_tokens=int(task.get("max_tokens", 16384)),
@@ -1313,7 +1337,7 @@ class BatchView(QWidget):
             "engine": engine,
             "pipeline": pipeline,
             "pipeline_name": str(getattr(pipeline, "name", "Standard")),
-            "use_vision": bool(self.cb_vision.isChecked()) if hasattr(self, "cb_vision") else False,
+            "use_vision": effective_vision(bool(self.cb_vision.isChecked()) if hasattr(self, "cb_vision") else False, engine),
             "auto_val": bool(self.cb_autoval.isChecked()) if hasattr(self, "cb_autoval") else True,
             "temperature": self.slider_temp.value() / 10.0 if hasattr(self, "slider_temp") else 0.7,
             "max_tokens": self.slider_tokens.value() * 1024 if hasattr(self, "slider_tokens") else 16384,
@@ -1856,6 +1880,8 @@ class BatchView(QWidget):
             self.cb_vision.apply_theme_profile(profile)
         if hasattr(self, "cb_autoval"):
             self.cb_autoval.apply_theme_profile(profile)
+        if hasattr(self, "vision_cap_badge"):
+            self.vision_cap_badge.refresh_theme(profile)
 
         if hasattr(self, "adv_lbl"):
             self.adv_lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; background: transparent;")

@@ -262,7 +262,13 @@ class ToggleSwitch(QWidget):
 
 
 class OptionToggleRow(QWidget):
-    """Ligne d'option moderne et interactive avec icône Phosphor, libellé et ToggleSwitch."""
+    """Ligne d'option moderne et interactive avec icône Phosphor, libellé et ToggleSwitch.
+
+    Une infobulle posée sur la rangée couvre toute sa surface : Qt remonte la chaîne des parents
+    depuis le libellé ou l'icône pour la trouver, il n'y a donc rien à propager à chaque enfant.
+    Une rangée désactivée devient automatiquement inerte (Qt n'y délivre plus d'événement souris)
+    et se grise via `setEnabled`.
+    """
 
     toggled = Signal(bool)
 
@@ -271,6 +277,7 @@ class OptionToggleRow(QWidget):
         title: str,
         icon_name: str = "",
         checked: bool = True,
+        tooltip: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -302,6 +309,8 @@ class OptionToggleRow(QWidget):
         layout.addWidget(self.switch)
 
         self._update_style()
+        if tooltip:
+            self.setToolTip(tooltip)
 
     def _update_style(self) -> None:
         if self._profile is not None:
@@ -317,11 +326,18 @@ class OptionToggleRow(QWidget):
             text_color = DesignTokens.TEXT_PRIMARY
             icon_color = accent if self._checked else DesignTokens.TEXT_SECONDARY
 
+        if not self.isEnabled():
+            # Un état désactivé doit se lire « grisé » : le style explicite ci-dessous
+            # passerait sinon outre Qt et laisserait l'option aussi vive qu'une option active.
+            border = self._profile.border_color if self._profile is not None else DesignTokens.BORDER_COLOR
+            text_color = self._profile.text_muted if self._profile is not None else DesignTokens.TEXT_MUTED
+            icon_color = text_color
+
         self.setStyleSheet(f"""
             QWidget#optionToggleRow {{
                 background-color: {bg};
                 border: 1px solid {border};
-                border-radius: 6px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
             QWidget#optionToggleRow:hover {{
                 border-color: {accent};
@@ -333,6 +349,10 @@ class OptionToggleRow(QWidget):
             from ankiforge.utils.icon_loader import load_phosphor_icon
 
             self.icon_lbl.setPixmap(load_phosphor_icon(self.icon_name, color=icon_color).pixmap(14, 14))
+
+    def setEnabled(self, enabled: bool) -> None:  # API Qt
+        super().setEnabled(enabled)
+        self._update_style()
 
     def apply_theme_profile(self, profile: Any = None) -> None:
         self._profile = profile

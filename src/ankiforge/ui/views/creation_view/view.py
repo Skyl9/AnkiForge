@@ -63,8 +63,11 @@ from ankiforge.ui.components import (
     StatusBadge,
     StyledComboBox,
     StyledTableWidget,
+    VisionCapabilityBadge,
+    VisionCapabilityNotice,
 )
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.ui.components.vision_capability import effective_vision, sync_vision_capability, vision_tooltip
 from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.dialogs.selection_dialog import MultiSelectionDialog
 from ankiforge.ui.theme import DesignTokens
@@ -144,6 +147,12 @@ class CreationView(QWidget):
         self.thread_pool = QThreadPool(self)
         self._last_generation_thoughts: dict[int, str] = {}
         self._current_selected_doc: Any | None = None
+        # Verdict de compatibilité Vision du moteur sélectionné (None = moteur inconnu).
+        # distinct de la préférence « vision_cb » : la préférence est mémorisée, jamais appliquée
+        # à un moteur incapable de lire des images.
+        self._vision_supported: bool | None = None
+        # Profil de thème courant : le rendu de la carte Vision doit suivre le thème actif.
+        self._theme_profile: Any | None = None
 
         self._current_doc_total_pages: int = 10
         self._current_doc_unit: str = "pages"
@@ -403,9 +412,12 @@ class CreationView(QWidget):
 
         self.vision_badge = Badge("OFF", variant="neutral")
 
+        self.vision_cap_badge = VisionCapabilityBadge()
+
         vision_top.addWidget(self.lbl_vision_icon)
         vision_top.addWidget(self.lbl_vision_title)
         vision_top.addStretch()
+        vision_top.addWidget(self.vision_cap_badge)
         vision_top.addWidget(self.vision_badge)
         vision_layout.addLayout(vision_top)
 
@@ -414,10 +426,17 @@ class CreationView(QWidget):
         self.lbl_vision_desc.setWordWrap(True)
         vision_layout.addWidget(self.lbl_vision_desc)
 
+        self.vision_cap_notice = VisionCapabilityNotice()
+        vision_layout.addWidget(self.vision_cap_notice)
+
         self.vision_cb = QCheckBox()
         self.vision_cb.hide()
         self.vision_cb.setChecked(bool(SettingsService.get("creation/use_vision", False)))
         vision_layout.addWidget(self.vision_cb)
+
+        tooltip = vision_tooltip(None)
+        self.vision_card.setToolTip(tooltip)
+        self.vision_cb.setToolTip(tooltip)
 
         self.vision_card.hide()
         ai_layout.addWidget(self.vision_card)
@@ -688,7 +707,9 @@ class CreationView(QWidget):
         self.hub_widget.open_free_text_requested.connect(lambda: self._open_document_tab("Saisie Libre"))
         self.hub_widget.open_documents_requested.connect(self._on_hub_open_documents)
         self.source_panel.register_tab("Démarrage", self.hub_widget, "ph.sparkle", closable=False, icon_color=DesignTokens.ACCENT_PRIMARY)
-        self._update_vision_ui(False)
+        # Rendu seul : la préférence relue plus haut doit survivre à la construction de la vue, ce que
+        # ferait un `SettingsService.set` appelé ici avec la valeur par défaut du paramètre de slot.
+        self._render_vision_state()
 
     def _connect_signals(self) -> None:
         self.btn_new_free_input.clicked.connect(lambda: self._open_document_tab("Nouvelle Saisie"))
@@ -708,7 +729,7 @@ class CreationView(QWidget):
         self.input_page_scope.textChanged.connect(self._on_page_scope_changed)
 
         self.vision_card.clicked.connect(self._toggle_vision_card)
-        self.vision_cb.toggled.connect(self._update_vision_ui)
+        self.vision_cb.toggled.connect(self._on_vision_preference_toggled)
         self.btn_toggle_advanced.clicked.connect(self._toggle_advanced_settings)
 
         self.btn_no_engine_help.clicked.connect(self._open_settings_modal)
@@ -1167,6 +1188,8 @@ class CreationView(QWidget):
             show_toast(self, "Sélectionnez ou double-cliquez sur un document à gauche.")
 
     def _toggle_vision_card(self) -> None:
+        if not self.vision_card.isEnabled():
+            return
         self.vision_cb.setChecked(not self.vision_cb.isChecked())
 
     def _toggle_advanced_settings(self) -> None:
@@ -1175,11 +1198,43 @@ class CreationView(QWidget):
         icon_name = "ph.caret-down" if is_visible else "ph.caret-right"
         self.advanced_icon.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
 
+    def _effective_vision(self) -> bool:
+        """Vision réellement transmise au modèle sélectionné (jamais d'appel multimodal sur un moteur texte seul)."""
+        preference = bool(self.vision_cb.isChecked()) if hasattr(self, "vision_cb") else False
+        return effective_vision(preference, self.engine_combo.currentData())
+
+    def _sync_vision_capability(self) -> None:
+        """Resynchronise carte, badge, rappel et infobulle sur la compatibilité du moteur sélectionné."""
+        self._vision_supported = sync_vision_capability(self.vision_cap_badge, self.vision_cap_notice, self.engine_combo.currentData(), self.vision_card, self.vision_cb)
+        self._render_vision_state()
+
     @Slot(bool)
-    def _update_vision_ui(self, checked: bool) -> None:
+    def _on_vision_preference_toggled(self, checked: bool) -> None:
+        """Persiste la préférence *et* repaint : seul ce chemin écrit dans les réglages.
+
+        `_render_vision_state` reste le rendu pur, appelable sans effet de bord (changement de moteur,
+        changement de thème) : y écrire ici effacerait la préférence enregistrée à chaque ouverture.
+        """
         SettingsService.set("creation/use_vision", checked, category="creation")
-        if checked:
-            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_YELLOW).pixmap(16, 16))
+        self._render_vision_state()
+
+    def _render_vision_state(self) -> None:
+        """Peint l'état effectif de la Vision (préférence ET compatibilité du moteur)."""
+        profile = self._theme_profile
+        primary = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+        muted = profile.text_muted if profile else DesignTokens.TEXT_MUTED
+        blocked = self._vision_supported is False
+        effective = bool(self.vision_cb.isChecked()) and not blocked
+
+        icon_name = "ph.eye" if effective else "ph.eye-closed"
+        icon_color = DesignTokens.COLOR_YELLOW if effective else muted
+        self.lbl_vision_icon.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(16, 16))
+        # Un style inline de couleur prime sur le rendu « désactivé » de Qt : la carte doit
+        # elle-même passer au gris, sinon seule la bordure trahirait l'indisponibilité.
+        self.lbl_vision_title.setStyleSheet(f"color: {muted if blocked else primary}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
+        self.lbl_vision_desc.setStyleSheet(f"color: {muted}; font-size: 11px; border: none; background: transparent;")
+
+        if effective:
             self.vision_badge.setText("ON")
             self.vision_badge.set_variant("warning")
             self.vision_card.setStyleSheet(f"""
@@ -1190,13 +1245,13 @@ class CreationView(QWidget):
                 }}
             """)
         else:
-            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
             self.vision_badge.setText("OFF")
             self.vision_badge.set_variant("neutral")
+            border = muted if blocked else DesignTokens.BORDER_COLOR
             self.vision_card.setStyleSheet(f"""
                 QFrame#visionCard {{
                     background-color: {DesignTokens.BG_INPUT};
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border: 1px solid {border};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                 }}
                 QFrame#visionCard:hover {{
@@ -1814,6 +1869,8 @@ class CreationView(QWidget):
             self.slider_tokens.setValue(step_val)
             self.slider_tokens.blockSignals(False)
             self.val_tokens_lbl.setText(f"{step_val * 1024:,} tks".replace(",", " "))
+        if hasattr(self, "vision_cap_badge"):
+            self._sync_vision_capability()
 
     @Slot()
     def _on_pipeline_changed(self) -> None:
@@ -1881,7 +1938,7 @@ class CreationView(QWidget):
             initial_state.set_variable("document_title", getattr(self._current_selected_doc, "title", ""))
             initial_state.set_variable("file_type", getattr(self._current_selected_doc, "file_type", "text"))
 
-        use_vision = self.vision_cb.isChecked() if hasattr(self, "vision_cb") else False
+        use_vision = self._effective_vision()
         initial_state.set_variable("use_vision", use_vision)
         gen_tokens = self.slider_tokens.value() * 1024 if hasattr(self, "slider_tokens") else 16384
         initial_state.set_variable("max_tokens", gen_tokens)
@@ -2934,6 +2991,7 @@ class CreationView(QWidget):
             card_preview.cleanup()
 
     def refresh_theme(self, profile: Any) -> None:
+        self._theme_profile = profile
         if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "card_preview_widget"):
             self.preview_widget.card_preview_widget.refresh_theme(profile)
 
@@ -2967,12 +3025,13 @@ class CreationView(QWidget):
                     border-color: {profile.accent_primary};
                 }}
             """)
-        if hasattr(self, "lbl_vision_title"):
-            self.lbl_vision_title.setStyleSheet(f"color: {profile.text_primary}; font-weight: 600; font-size: 12px;")
-        if hasattr(self, "lbl_vision_desc"):
-            self.lbl_vision_desc.setStyleSheet(f"color: {profile.text_muted}; font-size: 11px;")
-        if hasattr(self, "lbl_vision_icon"):
-            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=profile.text_muted).pixmap(16, 16))
+        if hasattr(self, "vision_badge"):
+            self.vision_badge.refresh_theme(profile)
+        if hasattr(self, "vision_cap_badge"):
+            self.vision_cap_badge.refresh_theme(profile)
+            # `_render_vision_state` est le seul écrivain du rendu de la carte Vision
+            # (icône, libellés, badge ON/OFF) : il dépend du moteur sélectionné.
+            self._render_vision_state()
 
         if hasattr(self, "pages_input_frame"):
             self.pages_input_frame.setStyleSheet(f"""

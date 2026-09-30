@@ -1122,6 +1122,16 @@ class StyleEngine(QObject):
         QFrame#LinkedNoteCard:focus {{
             border: 1px solid {p.accent_primary};
         }}
+
+        /* --- Compatibilité Vision du moteur sélectionné (VisionCapabilityNotice) --- */
+        QLabel#visionCapNotice {{
+            background-color: {red_bg};
+            border: 1px solid {red_border};
+            border-radius: {p.radius_sm}px;
+            color: {red_text};
+            font-size: {p.font_size_sm}px;
+            padding: 4px 8px;
+        }}
         """
 
     def apply_theme(self, theme_or_id: str | ThemeProfile, app: QApplication | None = None) -> None:
