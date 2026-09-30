@@ -298,6 +298,7 @@ class DocumentRepository(BaseRepository):
                     heading_path=chunk_data.get("heading_path"),
                     start_time=chunk_data.get("start_time"),
                     end_time=chunk_data.get("end_time"),
+                    is_structural_container=chunk_data.get("is_structural_container", False),
                     content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
                 )
         mark_document_version(doc)
@@ -315,6 +316,7 @@ class DocumentRepository(BaseRepository):
                     page_number=data.get("page_number"),
                     heading_path=data.get("heading_path"),
                     is_profiled=data.get("is_profiled", False),
+                    is_structural_container=data.get("is_structural_container", False),
                 )
                 created_chunks.append(chunk)
         mark_document_version(doc)
@@ -507,12 +509,17 @@ class DocumentRepository(BaseRepository):
             distinct_headings = list(dict.fromkeys(headings_in_chunks))
             covered_headings = {c.heading_path for c in chunks if c.id in linked_chunk_ids and c.heading_path}
             low_exclusions = self._normalized_exclusions(doc)
-            active_headings = [h for h in distinct_headings if not self._is_heading_excluded(h, low_exclusions)]
-            covered_active = {h for h in covered_headings if not self._is_heading_excluded(h, low_exclusions)}
+            # Un conteneur structurel n'est pas une unité de cours : il n'a pas de contenu
+            # propre, seulement des sous-sections à couvrir. Le comptergonflerait le
+            # dénominateur d'une section qui ne peut pas l'être.
+            container_headings = {c.heading_path for c in chunks if c.is_structural_container and c.heading_path}
+            active_headings = [h for h in distinct_headings if not self._is_heading_excluded(h, low_exclusions) and h not in container_headings]
+            covered_active = {h for h in covered_headings if not self._is_heading_excluded(h, low_exclusions) and h not in container_headings}
             total_sections = len(active_headings)
             covered_sections = len(covered_active & set(active_headings))
             cov_pct = round((covered_sections / total_sections) * 100.0, 1) if total_sections > 0 else 0.0
             orphan_headings = [h for h in active_headings if h not in covered_active]
+            container_units = len([h for h in container_headings if not self._is_heading_excluded(h, low_exclusions)])
 
             return {
                 "total_chunks": total_chunks,
@@ -523,6 +530,7 @@ class DocumentRepository(BaseRepository):
                 "total_units": total_sections,
                 "covered_units": covered_sections,
                 "orphan_units": orphan_headings,
+                "container_units": container_units,
                 # Sections effectivement sorties du périmètre, et non entrées brutes : une
                 # entrée peut recouvrir plusieurs sections, et une entrée devenue obsolète
                 # (trou de page, ancien titre) ne doit pas gonfler le compteur.

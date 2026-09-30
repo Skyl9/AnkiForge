@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QTreeWidgetItem, QTreeWidgetItemIterator
 
 from ankiforge.database.models import (
     CardModel,
@@ -18,6 +18,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.ui.components.duplicate_widgets import (
     DuplicateMatrixTable,
     DuplicateMergeInspector,
@@ -32,9 +33,42 @@ from ankiforge.ui.views.analysis_view import (
     AnalysisView,
     DocumentInspectorPanel,
 )
+from ankiforge.ui.views.analysis_view.tabs.sources_tab import _ROLE_HEADING
 from ankiforge.utils.tags import build_document_tags
 
 pytestmark = pytest.mark.ui
+
+
+def _all_tree_items(panel: DocumentInspectorPanel) -> list[QTreeWidgetItem]:
+    """Tous les items du sommaire, en profondeur (ordre de rendu)."""
+
+    items: list[QTreeWidgetItem] = []
+    it = QTreeWidgetItemIterator(panel.chapters_tree)
+    while it.value():
+        item = it.value()
+        if item is not None:
+            items.append(item)
+        it += 1
+    return items
+
+
+def _item_by_heading(panel: DocumentInspectorPanel, heading: str) -> QTreeWidgetItem:
+    """Ligne du sommaire portant ce fil d'Ariane, nœud virtuel compris.
+
+    Adresser les lignes par leur rang dans un arbre n'a pas de sens : insérer un
+    niveau intermédiaire décale tous les indices, et un test qui passe alors par
+    accident vérifie plus grand-chose. On adresse donc par l'identité stable du nœud.
+    """
+    for item in _all_tree_items(panel):
+        if str(item.data(0, _ROLE_HEADING) or "") == heading:
+            return item
+    raise AssertionError(f"aucune ligne de sommaire pour le fil « {heading} »")
+
+
+def _leaf_items(panel: DocumentInspectorPanel) -> list[QTreeWidgetItem]:
+    """Lignes sans sous-section (les fragments réellement rattachables à une carte)."""
+    return [item for item in _all_tree_items(panel) if item.childCount() == 0]
+
 
 # Titres réalistes de cours / fichiers importés : c'est la longueur du nom de fichier qui
 # fait déborder la grille, pas un cas limite de laboratoire.
@@ -214,13 +248,15 @@ def test_document_inspector_panel_chapter_coverage(qtbot):
 
     panel.load_chunks()
 
-    # Vérification du sommaire (2 items)
-    assert panel.chapters_list.count() == 2
-    item1 = panel.chapters_list.item(0)
-    assert "1 carte" in item1.text()
+    # Vérification du sommaire (3 items: 1 conteneur "Droit" + 2 feuilles)
+    assert len(_all_tree_items(panel)) == 3
+    leaves = _leaf_items(panel)
+    assert len(leaves) == 2
+    item1 = leaves[0]
+    assert "1 carte" in item1.text(0)
 
-    item2 = panel.chapters_list.item(1)
-    assert "0 carte" in item2.text() or "Trou" in item2.text()
+    item2 = leaves[1]
+    assert "0 carte" in item2.text(0) or "Trou" in item2.text(0)
 
     # Inspecter le chunk couvert (chunk 1)
     panel.inspect_chunk(chunk1.id)
@@ -316,7 +352,7 @@ def test_document_inspector_excludes_and_reincludes_a_section_in_place(qtbot):
 
     panel = DocumentInspectorPanel(doc)
     qtbot.addWidget(panel)
-    panel.chapters_list.setCurrentRow(2)
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[2])
     qtbot.wait(10)
 
     assert "25%" in panel.lbl_doc_summary.text()
@@ -333,13 +369,13 @@ def test_document_inspector_excludes_and_reincludes_a_section_in_place(qtbot):
     assert "1 section hors périmètre" in panel.lbl_scope_status.text()
 
     # Le row porte un style d'exclusion et l'action bascule en ré-inclusion.
-    excluded_row = panel.chapters_list.item(2)
-    assert "Exclue" in excluded_row.text()
-    assert excluded_row.foreground().color() == QColor(DesignTokens.TEXT_MUTED)
+    excluded_row = _all_tree_items(panel)[2]
+    assert "Exclue" in excluded_row.text(0)
+    assert excluded_row.foreground(0).color() == QColor(DesignTokens.TEXT_MUTED)
     assert "Ré-inclure la section" in panel.btn_exclude_section.text()
 
     # Aucune relecture brutale : la sélection et l'aperçu restent sur la section traitée.
-    assert panel.chapters_list.currentRow() == 2
+    assert panel.chapters_tree.currentItem() == _all_tree_items(panel)[2]
     assert "Les reponses" in panel.text_preview.toPlainText()
 
     panel.btn_exclude_section.click()
@@ -347,7 +383,7 @@ def test_document_inspector_excludes_and_reincludes_a_section_in_place(qtbot):
     assert _stored_exclusions(doc.id) == []
     assert "25%" in panel.lbl_doc_summary.text()
     assert "1/4 sections" in panel.lbl_doc_summary.text()
-    assert "Exclue" not in panel.chapters_list.item(2).text()
+    assert "Exclue" not in _all_tree_items(panel)[2].text(0)
     assert "Exclure cette section" in panel.btn_exclude_section.text()
 
 
@@ -359,7 +395,7 @@ def test_document_inspector_exclusion_action_follows_the_selected_section(qtbot)
     panel = DocumentInspectorPanel(doc)
     qtbot.addWidget(panel)
 
-    panel.chapters_list.setCurrentRow(1)
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[1])
     qtbot.wait(10)
     assert "Exclure cette section" in panel.btn_exclude_section.text()
 
@@ -369,12 +405,12 @@ def test_document_inspector_exclusion_action_follows_the_selected_section(qtbot)
     # « Partie 1 » est désormais exclue : la même ligne propose de la réintégrer…
     assert "Ré-inclure la section" in panel.btn_exclude_section.text()
     # … et une autre ligne, toujours incluse, propose de l'exclure.
-    panel.chapters_list.setCurrentRow(0)
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[0])
     qtbot.wait(10)
     assert "Exclure cette section" in panel.btn_exclude_section.text()
 
     # Un fragment au libellé de page n'est pas une section : l'action n'a pas lieu d'être.
-    panel.chapters_list.setCurrentRow(3)
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[3])
     qtbot.wait(10)
     assert not panel.btn_exclude_section.isEnabled()
     assert "titre" in panel.btn_exclude_section.toolTip().lower()
@@ -389,7 +425,7 @@ def test_document_inspector_exclusion_is_propagated_to_the_rest_of_the_app(qtbot
 
     panel = DocumentInspectorPanel(doc)
     qtbot.addWidget(panel)
-    panel.chapters_list.setCurrentRow(2)
+    panel.chapters_tree.setCurrentItem(_all_tree_items(panel)[2])
     qtbot.wait(10)
 
     captured: list[CoverageSyncedEvent] = []
@@ -405,8 +441,8 @@ def test_document_inspector_exclusion_is_propagated_to_the_rest_of_the_app(qtbot
 
     assert [event.doc_id for event in captured] == [doc.id]
     # Le panneau a déjà rafraîchi ses propres lignes : il ne doit pas se recharger.
-    assert "Exclue" in panel.chapters_list.item(2).text()
-    assert panel.chapters_list.currentRow() == 2
+    assert "Exclue" in _all_tree_items(panel)[2].text(0)
+    assert panel.chapters_tree.currentItem() == _all_tree_items(panel)[2]
 
 
 def test_document_inspector_context_menu_toggles_section_exclusion(qtbot):
@@ -417,9 +453,9 @@ def test_document_inspector_context_menu_toggles_section_exclusion(qtbot):
     panel = DocumentInspectorPanel(doc)
     qtbot.addWidget(panel)
 
-    assert panel.chapters_list.contextMenuPolicy() == Qt.ContextMenuPolicy.CustomContextMenu
+    assert panel.chapters_tree.contextMenuPolicy() == Qt.ContextMenuPolicy.CustomContextMenu
 
-    menu = panel.chapter_context_menu(panel.chapters_list.item(1))
+    menu = panel.chapter_context_menu(_all_tree_items(panel)[1])
     assert menu is not None
     labels = [action.text() for action in menu.actions() if action.text()]
     assert "Exclure cette section" in labels
@@ -428,11 +464,11 @@ def test_document_inspector_context_menu_toggles_section_exclusion(qtbot):
     toggle_action.trigger()
 
     assert _stored_exclusions(doc.id) == ["Partie 1"]
-    assert "Exclue" in panel.chapters_list.item(1).text()
-    assert panel.chapters_list.currentRow() == 1
+    assert "Exclue" in _all_tree_items(panel)[1].text(0)
+    assert panel.chapters_tree.currentItem() == _all_tree_items(panel)[1]
 
     # Le menu propose ensuite la réintégration, y compris pour la section déjà traitée.
-    reinclude_labels = [action.text() for action in panel.chapter_context_menu(panel.chapters_list.item(1)).actions() if action.text()]
+    reinclude_labels = [action.text() for action in panel.chapter_context_menu(_all_tree_items(panel)[1]).actions() if action.text()]
     assert "Ré-inclure la section" in reinclude_labels
 
 
@@ -444,7 +480,7 @@ def test_document_inspector_context_menu_disables_exclusion_of_a_page_row(qtbot)
     panel = DocumentInspectorPanel(doc)
     qtbot.addWidget(panel)
 
-    menu = panel.chapter_context_menu(panel.chapters_list.item(3))
+    menu = panel.chapter_context_menu(_all_tree_items(panel)[3])
     assert menu is not None
     toggle_action = next(action for action in menu.actions() if action.text() == "Exclure cette section")
     assert not toggle_action.isEnabled()
@@ -458,8 +494,8 @@ def test_document_inspector_reports_an_empty_scope_instead_of_a_zero_coverage(qt
     panel = DocumentInspectorPanel(doc)
     qtbot.addWidget(panel)
 
-    for row in range(panel.chapters_list.count()):
-        panel.chapters_list.setCurrentRow(row)
+    for item in _all_tree_items(panel):
+        panel.chapters_tree.setCurrentItem(item)
         qtbot.wait(5)
         panel.btn_exclude_section.click()
 
@@ -467,8 +503,24 @@ def test_document_inspector_reports_an_empty_scope_instead_of_a_zero_coverage(qt
     assert "0%" not in panel.lbl_doc_summary.text()
 
 
-def _make_nested_document(uid: str) -> tuple[DocumentModel, dict[str, DocumentChunkModel]]:
-    """Cours « chapitre + sous-sections » dont une seule carte est rattachée au chapitre."""
+#: Un chapitre réduit à son titre : six mots sous deux sous-sections, donc un conteneur.
+CONTAINER_CHAPTER_BODY = "Ce chapitre présente les organites."
+
+#: Le même chapitre porteur d'un vrai contenu : une unité de cours, pas un conteneur.
+TEACHING_CHAPTER_BODY = (
+    "Ce chapitre passe en revue l'ensemble des organites de la cellule eucaryote et précise, pour chacun d'eux, "
+    "le rôle qu'il joue dans la survie et le fonctionnement de l'organisme, ainsi que les échanges de matière "
+    "et d'énergie qu'il autorise avec l'environnement extérieur de la cellule."
+)
+
+
+def _make_nested_document(uid: str, *, chapter_body: str = CONTAINER_CHAPTER_BODY) -> tuple[DocumentModel, dict[str, DocumentChunkModel]]:
+    """Cours « chapitre + sous-sections » dont une seule carte est rattachée au chapitre.
+
+    Le drapeau de conteneur du chapitre est dérivé du corps par la règle de production :
+    c'est lui qui décide si l'affinement a le droit de faire descendre la carte du
+    chapitre, donc le figer en dur ferait passer les deux types de chapitre pour un seul.
+    """
     doc = DocumentModel.create(
         title=f"Cours Cellulaire {uid}",
         content="# Biologie Cellulaire\n\n## 2 Les Structures Cellulaires\n\n### 2.1 La Membrane\n\n### 2.2 Le Noyau",
@@ -476,7 +528,14 @@ def _make_nested_document(uid: str) -> tuple[DocumentModel, dict[str, DocumentCh
     )
     chapter = "Biologie Cellulaire > 2 Les Structures Cellulaires"
     chunks = {
-        "chapter": DocumentChunkModel.create(document=doc, chunk_index=0, heading_path=chapter, content="Ce chapitre présente les organites.", content_hash=f"nest0_{uid}"),
+        "chapter": DocumentChunkModel.create(
+            document=doc,
+            chunk_index=0,
+            heading_path=chapter,
+            content=chapter_body,
+            content_hash=f"nest0_{uid}",
+            is_structural_container=ChunkingService.is_structural_container(chapter, chapter_body, has_descendants=True),
+        ),
         "membrane": DocumentChunkModel.create(
             document=doc,
             chunk_index=1,
@@ -518,11 +577,13 @@ def test_document_inspector_refines_links_towards_sub_sections(qtbot, monkeypatc
 
     panel = DocumentInspectorPanel(doc)
     qtbot.addWidget(panel)
-    panel.chapters_list.setCurrentRow(0)
+    chapter = "Biologie Cellulaire > 2 Les Structures Cellulaires"
+    chapter_row = _item_by_heading(panel, chapter)
+    panel.chapters_tree.setCurrentItem(chapter_row)
     qtbot.wait(10)
 
-    assert "1 carte" in panel.chapters_list.item(0).text()
-    assert "0 carte" in panel.chapters_list.item(1).text()
+    assert "1 carte" in chapter_row.text(0)
+    assert "0 carte" in _item_by_heading(panel, f"{chapter} > 2.1 La Membrane").text(0)
 
     panel.btn_refine_links.click()
     qtbot.wait(10)
@@ -533,15 +594,19 @@ def test_document_inspector_refines_links_towards_sub_sections(qtbot, monkeypatc
     assert "section:biologie_cellulaire_2_les_structures_cellulaires_2_1_la_membrane" in NoteModel.get_by_id(card.id).tags
 
     # Le sommaire et la pastille de couverture sont à jour, sans perdre la sélection.
-    assert "0 carte" in panel.chapters_list.item(0).text()
-    assert "1 carte" in panel.chapters_list.item(1).text()
-    assert "0 carte" in panel.chapters_list.item(2).text()
-    assert "1/3 sections" in panel.lbl_doc_summary.text()
-    assert panel.chapters_list.currentRow() == 0
+    # La ligne du conteneur ne compte plus la carte comme la sienne : elle affiche le
+    # total de sa branche, qui est désormais porté par la sous-section.
+    assert "1 carte" in chapter_row.text(0)
+    assert "1 carte" in _item_by_heading(panel, f"{chapter} > 2.1 La Membrane").text(0)
+    assert "0 carte" in _item_by_heading(panel, f"{chapter} > 2.2 Le Noyau").text(0)
+    assert "1/2 sections" in panel.lbl_doc_summary.text()
+    assert panel.chapters_tree.currentItem() == chapter_row
     assert "organites" in panel.text_preview.toPlainText().lower()
 
-    # Le panneau des cartes liées est synchronisé : la section sélectionnée a perdu sa carte.
-    assert any("Trou de cours" in lbl.text() for lbl in panel.findChildren(QLabel))
+    # La section sélectionnée est un conteneur : le panneau de droite le dit au lieu
+    # d'annoncer un trou de cours, ce dernier n'étant pas une unité à couvrir.
+    assert any("Conteneur structural" in lbl.text() for lbl in panel.findChildren(QLabel))
+    assert not any("Trou de cours" in lbl.text() for lbl in panel.findChildren(QLabel))
 
     assert any("1 carte(s) réassignée(s)" in msg and "fausse(s) lacune(s) résolue(s)" in msg for msg in toasts)
 
@@ -561,7 +626,9 @@ def test_document_inspector_reports_a_refinement_without_effect(qtbot, monkeypat
     qtbot.wait(10)
 
     assert toasts == ["Aucune carte de chapitre à rattacher à une sous-section plus fine."]
-    assert "0/3 sections" in panel.lbl_doc_summary.text()
+    # Le chapitre est un conteneur : il ne compte pas dans le dénominateur, seules les
+    # deux sous-sections restent à couvrir.
+    assert "0/2 sections" in panel.lbl_doc_summary.text()
 
 
 def test_document_inspector_keeps_sole_cards_on_a_teaching_chapter(qtbot, monkeypatch):
@@ -570,13 +637,8 @@ def test_document_inspector_keeps_sole_cards_on_a_teaching_chapter(qtbot, monkey
     monkeypatch.setattr("ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
 
     uid = uuid.uuid4().hex[:6]
-    doc, chunks = _make_nested_document(uid)
-    body = (
-        "Ce chapitre passe en revue l'ensemble des organites de la cellule eucaryote et précise, pour chacun d'eux, "
-        "le rôle qu'il joue dans la survie et le fonctionnement de l'organisme, ainsi que les échanges de matière "
-        "et d'énergie qu'il autorise avec l'environnement extérieur de la cellule."
-    )
-    DocumentChunkModel.update(chunk_index=0, content=body).where(DocumentChunkModel.id == chunks["chapter"].id).execute()
+    doc, chunks = _make_nested_document(uid, chapter_body=TEACHING_CHAPTER_BODY)
+    assert not chunks["chapter"].is_structural_container
     card = _card_linked_to(uid, doc, chunks["chapter"], "Fonction de la membrane ?", "Elle contrôle les échanges.")
 
     panel = DocumentInspectorPanel(doc)
@@ -743,7 +805,7 @@ def test_document_inspector_reloads_when_coverage_synced(qtbot):
     panel = DocumentInspectorPanel(doc)
     qtbot.addWidget(panel)
     panel.load_chunks()
-    assert "0 carte" in panel.chapters_list.item(0).text()
+    assert "0 carte" in _all_tree_items(panel)[0].text(0)
 
     deck = DeckModel.create(name=f"Deck Insp Sync {uid}")
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Insp Sync {uid}")
@@ -753,7 +815,7 @@ def test_document_inspector_reloads_when_coverage_synced(qtbot):
 
     CoverageAlignmentService.align_document(doc.id)
 
-    qtbot.waitUntil(lambda: "1 carte" in panel.chapters_list.item(0).text(), timeout=3000)
+    qtbot.waitUntil(lambda: "1 carte" in _all_tree_items(panel)[0].text(0), timeout=3000)
 
 
 def test_ai_duplicates_merge_tab_and_inspector(qtbot):

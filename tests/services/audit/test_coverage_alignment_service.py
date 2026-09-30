@@ -18,6 +18,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
 )
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.utils.paths import get_media_dir, resolve_media_path
 from ankiforge.utils.tags import build_document_tags, clean_source_slug, parse_note_tags, section_key
 
@@ -545,13 +546,19 @@ def _make_refinable_document(uid: str, *, chapter_body: str = _CHAPTER_BODY) -> 
     """Construit un arbre hiérarchique type H1 ➔ H2 ➔ (H3, H3, H3) à affiner."""
     doc = DocumentModel.create(title=f"Cours Cellulaire {uid}", file_type="md")
     chapter = "Biologie Cellulaire > 2 Les Structures Cellulaires"
+    h1_body = "Le cours couvre la cellule et ses organites."
+    # Le drapeau de conteneur n'est pas décoratif : il décide si l'affinement a le droit
+    # de faire descendre la dernière carte d'un titre. Il est donc déduit du corps par la
+    # règle de production, jamais figé — un chapitre porteur de contenu doit rester une
+    # unité de cours, et `chapter_body` est justement ce qui fait varier les deux cas.
     chunks = {
         "h1": DocumentChunkModel.create(
             document=doc,
             chunk_index=0,
             heading_path="Biologie Cellulaire",
-            content="Le cours couvre la cellule et ses organites.",
+            content=h1_body,
             content_hash=f"rfd0_{uid}",
+            is_structural_container=ChunkingService.is_structural_container("Biologie Cellulaire", h1_body, has_descendants=True),
         ),
         "chapter": DocumentChunkModel.create(
             document=doc,
@@ -559,6 +566,7 @@ def _make_refinable_document(uid: str, *, chapter_body: str = _CHAPTER_BODY) -> 
             heading_path=chapter,
             content=chapter_body,
             content_hash=f"rfd1_{uid}",
+            is_structural_container=ChunkingService.is_structural_container(chapter, chapter_body, has_descendants=True),
         ),
         "membrane": DocumentChunkModel.create(
             document=doc,
@@ -683,6 +691,7 @@ def test_refine_links_falls_back_on_lexical_overlap_when_the_title_is_absent():
         heading_path=chapter,
         content="Ce chapitre introduit la génétique et l'hérédité.",
         content_hash=f"lex0_{uid}",
+        is_structural_container=True,
     )
     transcription = DocumentChunkModel.create(
         document=doc,
@@ -773,7 +782,8 @@ def test_refine_links_preserves_a_substantive_chapter_that_would_be_left_bare():
     """Une carte n'est pas retirée d'un chapitre porteur de contenu et de sa dernière carte."""
     uid = uuid.uuid4().hex[:6]
     doc, chunks = _make_refinable_document(uid)
-    assert len(chunks["chapter"].content.split()) >= CoverageAlignmentService.MIN_PARENT_CONTENT_WORDS
+    assert not chunks["chapter"].is_structural_container
+    assert len(chunks["chapter"].content.split()) >= ChunkingService.MIN_STRUCTURAL_CONTAINER_WORDS
     card = _make_card(uid, doc, chunks["chapter"], "Fonction de la membrane ?", "Elle contrôle les échanges.", "sole")
 
     report = CoverageAlignmentService.refine_links_to_subsections(doc.id)
@@ -806,6 +816,9 @@ def test_refine_links_ignores_toc_announcements_and_unrelated_documents():
         heading_path="2 Les Structures Cellulaires",
         content="Ce chapitre présente les organites.",
         content_hash=f"toc0_{uid}",
+        # Six mots sous des sous-sections : c'est un conteneur structurel, et c'est
+        # précisément ce qui autorise la carte à descendre vers la membrane.
+        is_structural_container=True,
     )
     DocumentChunkModel.create(
         document=doc,

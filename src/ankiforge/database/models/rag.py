@@ -83,6 +83,11 @@ class DocumentChunkModel(BaseModel):
     media = ForeignKeyField(MediaModel, backref="chunks", null=True, on_delete="SET NULL")
     bounding_box = CharField(null=True)
 
+    #: Fragment dont le contenu textuel est insuffisant (< 25 mots hors titres) pour
+    #: justifier la création de flashcards, mais qui sert de nœud d'organisation pour
+    #: des sous-sections substantielles. Neutre dans le calcul de couverture.
+    is_structural_container = BooleanField(default=False)
+
     class Meta:
         table_name = "document_chunks"
         indexes = ((("document", "chunk_index"), False),)
