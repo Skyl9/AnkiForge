@@ -149,6 +149,27 @@ def test_ocr_service_transcribe_image(tmp_path: Path):
     assert text == "Transcription mockée réussie"
 
 
+def test_native_hardware_category_never_falls_back_to_cloud_ai(tmp_path: Path):
+    """
+    Vérifie qu'un échec ou indisponibilité d'Apple Vision lève une exception et
+    ne déclenche aucun repli automatique silencieux vers un LLM cloud/distant.
+    """
+    service = OCRService()
+    img_path = _create_test_img(tmp_path / "apple_test.png")
+
+    # Cas 1 : Apple Vision indisponible sur la machine
+    with patch.object(service, "is_apple_vision_available", return_value=False), pytest.raises(RuntimeError, match="Apple Vision n'est pas disponible"):
+        service.transcribe_image(img_path, category_id="hardware")
+
+    # Cas 2 : Apple Vision disponible mais renvoyant None (échec OCR ou timeout)
+    with (
+        patch.object(service, "is_apple_vision_available", return_value=True),
+        patch.object(service, "transcribe_with_apple_vision", return_value=None),
+        pytest.raises(RuntimeError, match="Apple Vision a échoué ou a dépassé le délai"),
+    ):
+        service.transcribe_image(img_path, category_id="hardware")
+
+
 def test_ocr_service_transcribe_page_db_update(tmp_path: Path):
     """Vérifie la transcription d'une DocumentPageModel et la mise à jour en BDD SQLite."""
     manager = MediaManager()

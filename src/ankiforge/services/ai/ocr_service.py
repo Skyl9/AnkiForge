@@ -14,7 +14,6 @@ from PIL import Image
 from ankiforge.database.base import db
 from ankiforge.database.models import DocumentPageModel
 from ankiforge.services.ai.base import LLMProvider, MockProvider
-from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.vision_category_service import VisionCategoryService
 from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.utils.paths import get_app_data_dir
@@ -212,7 +211,7 @@ class OCRService:
         try:
             cmd = [str(self._apple_vision_binary), str(p)] if self._apple_vision_binary and self._apple_vision_binary.exists() else ["swift", "-e", SWIFT_OCR_SOURCE, str(p)]
 
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=False)  # nosec B603  # argv fixe, chemin image vérifié + source Swift embarquée, pas de shell
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=90, check=False)  # nosec B603  # argv fixe, chemin image vérifié + source Swift embarquée, pas de shell
             if res.returncode == 0:
                 return res.stdout.strip()
             logger.warning("Erreur exécution Apple Vision OCR (code %d) : %s", res.returncode, res.stderr)
@@ -247,7 +246,6 @@ class OCRService:
     ) -> str:
         """
         Transcrit une image en appliquant la catégorie d'IA sélectionnée par l'utilisateur.
-        Assure le repli multiplateforme si le moteur demandé est indisponible.
         """
         category = VisionCategoryService.get_category_by_id(category_id)
         if not category:
@@ -270,17 +268,13 @@ class OCRService:
             # Demande d'OCR matériel (Apple Vision sous macOS)
             if self.is_apple_vision_available():
                 native_text = self.transcribe_with_apple_vision(image_path)
-                if native_text:
+                if native_text is not None:
                     return native_text
+                logger.error("La transcription locale Apple Vision n'a retourné aucun texte ou a expiré pour %s", image_path)
+                raise RuntimeError("La transcription locale Apple Vision a échoué ou a dépassé le délai imparti.")
 
-            # Fallback si Apple Vision échoue ou sous Linux/Windows : utilisation de l'IA active
-            logger.info("Repli multiplateforme : utilisation du VLM configuré pour la transcription.")
-            active_ai = AIManager()
-            return self.transcribe_with_vlm(
-                image_path,
-                active_ai.provider,
-                custom_instructions=effective_instructions,
-            )
+            logger.error("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
+            raise RuntimeError("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
 
         if isinstance(resolved, LLMProvider):
             return self.transcribe_with_vlm(
