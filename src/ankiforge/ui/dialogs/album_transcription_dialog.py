@@ -59,10 +59,62 @@ class AlbumTranscriptionDialog(QDialog):
         self._category_service = category_service or VisionCategoryService()
         self._pages: list[DocumentPageModel] = list(DocumentPageModel.select().where(DocumentPageModel.document == self._doc).order_by(DocumentPageModel.page_number.asc()))
 
+        self.setObjectName("albumTranscriptionDialog")
         self.setWindowTitle("Transcription de l'album")
-        self.resize(680, 720)
-        self.setMinimumSize(580, 600)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
+        self.resize(700, 760)
+        self.setMinimumSize(600, 620)
+        self.setStyleSheet(f"""
+            QDialog#albumTranscriptionDialog {{
+                background-color: {DesignTokens.BG_MAIN};
+            }}
+            QLabel {{
+                border: none;
+                background: transparent;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QCheckBox, QRadioButton {{
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 12px;
+                spacing: 8px;
+            }}
+            QCheckBox:disabled, QRadioButton:disabled {{
+                color: {DesignTokens.TEXT_MUTED};
+            }}
+            QCheckBox::indicator, QRadioButton::indicator {{
+                width: 15px;
+                height: 15px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                background-color: {DesignTokens.BG_INPUT};
+            }}
+            QRadioButton::indicator {{
+                border-radius: 7px;
+            }}
+            QCheckBox::indicator:hover, QRadioButton::indicator:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QCheckBox::indicator:checked, QRadioButton::indicator:checked {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QScrollBar:vertical {{
+                border: none;
+                background: transparent;
+                width: 6px;
+                margin: 0;
+            }}
+            QScrollBar::handle:vertical {{
+                background-color: {DesignTokens.BORDER_COLOR};
+                min-height: 20px;
+                border-radius: 3px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background-color: {DesignTokens.TEXT_MUTED};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0;
+            }}
+        """)
 
         self._setup_ui()
         self._populate_categories()
@@ -71,8 +123,8 @@ class AlbumTranscriptionDialog(QDialog):
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(16)
+        main_layout.setContentsMargins(18, 16, 18, 16)
+        main_layout.setSpacing(14)
 
         # ── 1. En-tête ────────────────────────────────────────────────────────
         header_layout = QVBoxLayout()
@@ -99,17 +151,16 @@ class AlbumTranscriptionDialog(QDialog):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        scroll_area.setStyleSheet("background: transparent;")
+        scroll_area.setStyleSheet("background: transparent; border: none;")
 
         scroll_content = QWidget()
+        scroll_content.setStyleSheet("background: transparent;")
         content_layout = QVBoxLayout(scroll_content)
         content_layout.setContentsMargins(0, 0, 8, 0)
-        content_layout.setSpacing(16)
+        content_layout.setSpacing(14)
 
         # ── 2. Section Périmètre de transcription ─────────────────────────────
-        scope_card = self._create_card("Périmètre de transcription (Portée)", "ph.selection")
-        scope_layout = QVBoxLayout(scope_card)
-        scope_layout.setSpacing(10)
+        scope_card, scope_layout = self._create_card("Périmètre de transcription (Portée)", "ph.selection", "scopeCard")
 
         self.scope_button_group = QButtonGroup(self)
         self.scope_button_group.setExclusive(True)
@@ -186,9 +237,7 @@ class AlbumTranscriptionDialog(QDialog):
         content_layout.addWidget(scope_card)
 
         # ── 3. Section Moteur & Catégorie de Vision ───────────────────────────
-        engine_card = self._create_card("Moteur IA & Catégorie de Vision", "ph.brain")
-        engine_layout = QVBoxLayout(engine_card)
-        engine_layout.setSpacing(10)
+        engine_card, engine_layout = self._create_card("Moteur IA & Catégorie de Vision", "ph.brain", "engineCard")
 
         combo_row = QHBoxLayout()
         lbl_cat = QLabel("Catégorie d'analyse :")
@@ -217,38 +266,43 @@ class AlbumTranscriptionDialog(QDialog):
 
         # Bandeau didactique spécifique à Apple Vision
         self.hardware_notice = QFrame()
+        self.hardware_notice.setObjectName("hardwareNotice")
         self.hardware_notice.setVisible(False)
         self.hardware_notice.setStyleSheet(f"""
-            QFrame {{
+            QFrame#hardwareNotice {{
                 background-color: {DesignTokens.BG_INPUT};
                 border-left: 3px solid {DesignTokens.COLOR_BLUE};
+                border-top: none;
+                border-right: none;
+                border-bottom: none;
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 8px;
             }}
         """)
         hw_layout = QHBoxLayout(self.hardware_notice)
-        hw_layout.setContentsMargins(6, 6, 6, 6)
+        hw_layout.setContentsMargins(8, 8, 8, 8)
         hw_layout.setSpacing(8)
         hw_ico = QLabel()
         hw_ico.setPixmap(load_phosphor_icon("ph.info", color=DesignTokens.COLOR_BLUE).pixmap(18, 18))
+        hw_ico.setStyleSheet("border: none; background: transparent;")
         hw_layout.addWidget(hw_ico)
         hw_lbl = QLabel("Le moteur natif Apple Vision réalise un OCR optique haute vitesse ; la mise en forme avancée et les directives personnalisées sont réservées aux modèles multimodaux (VLM).")
         hw_lbl.setWordWrap(True)
-        hw_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
+        hw_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none; background: transparent;")
         hw_layout.addWidget(hw_lbl, 1)
         engine_layout.addWidget(self.hardware_notice)
 
         # Tiroir avancé (Surcharges locales de modèle, température, thinking)
         self.advanced_drawer = QFrame()
+        self.advanced_drawer.setObjectName("advancedDrawer")
         self.advanced_drawer.setStyleSheet(f"""
-            QFrame {{
+            QFrame#advancedDrawer {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 8px;
             }}
         """)
         adv_layout = QVBoxLayout(self.advanced_drawer)
+        adv_layout.setContentsMargins(10, 8, 10, 8)
         adv_layout.setSpacing(8)
 
         adv_row1 = QHBoxLayout()
@@ -257,7 +311,16 @@ class AlbumTranscriptionDialog(QDialog):
         adv_row1.addWidget(lbl_model)
         self.le_model_override = QLineEdit()
         self.le_model_override.setPlaceholderText("Laisser vide pour utiliser le modèle par défaut")
-        self.le_model_override.setStyleSheet("font-size: 11px;")
+        self.le_model_override.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 11px;
+                padding: 4px 8px;
+            }}
+        """)
         adv_row1.addWidget(self.le_model_override, 1)
         adv_layout.addLayout(adv_row1)
 
@@ -287,9 +350,7 @@ class AlbumTranscriptionDialog(QDialog):
         content_layout.addWidget(engine_card)
 
         # ── 4. Section Directives de transcription & Formatage ────────────────
-        self.directives_group = self._create_card("Directives d'extraction & Formatage", "ph.text-t")
-        dir_layout = QVBoxLayout(self.directives_group)
-        dir_layout.setSpacing(8)
+        self.directives_group, dir_layout = self._create_card("Directives d'extraction & Formatage", "ph.text-t", "directivesCard")
 
         self.cb_latex = QCheckBox("Formules mathématiques et scientifiques en LaTeX ($...$, $$...$$)")
         self.cb_latex.setChecked(True)
@@ -351,28 +412,33 @@ class AlbumTranscriptionDialog(QDialog):
 
         main_layout.addLayout(action_bar)
 
-    def _create_card(self, title: str, icon_name: str) -> QFrame:
+    def _create_card(self, title: str, icon_name: str, object_name: str) -> tuple[QFrame, QVBoxLayout]:
         card = QFrame()
+        card.setObjectName(object_name)
         card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#{object_name} {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 12px;
             }}
         """)
-        # Titre de la carte intégré en haut
-        layout = card.layout() or QVBoxLayout(card)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(14, 14, 14, 14)
+        card_layout.setSpacing(10)
+
         header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(8)
         ico = QLabel()
         ico.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        ico.setStyleSheet("border: none; background: transparent;")
         header.addWidget(ico)
         lbl = QLabel(title)
-        lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; font-weight: bold;")
+        lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
         header.addWidget(lbl)
         header.addStretch()
-        layout.addLayout(header)
-        return card
+        card_layout.addLayout(header)
+        return card, card_layout
 
     def _populate_categories(self) -> None:
         categories = self._category_service.get_categories()

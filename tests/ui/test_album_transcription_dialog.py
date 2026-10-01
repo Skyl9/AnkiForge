@@ -78,6 +78,7 @@ def test_dialog_hardware_category_greys_out_directives(qtbot, mock_db, album_wit
     doc, pages = album_with_mixed_pages
     dialog = AlbumTranscriptionDialog(doc)
     qtbot.addWidget(dialog)
+    dialog.show()
 
     # Sélection de la catégorie Apple Vision (id="hardware")
     idx = dialog.combo_category.findData("hardware")
@@ -116,3 +117,35 @@ def test_dialog_accept_emits_transcription_requested(qtbot, mock_db, album_with_
     assert len(opts.target_page_ids) == 4
     assert opts.include_figures is True
     assert opts.custom_instructions == "Langue allemande"
+
+
+def test_dialog_cards_layout_and_scoped_styling(qtbot, mock_db, album_with_mixed_pages):
+    """Vérifie que les cartes sont correctement remplies (non vides) et ont des sélecteurs scopés."""
+    from PySide6.QtWidgets import QFrame
+
+    doc, pages = album_with_mixed_pages
+    dialog = AlbumTranscriptionDialog(doc)
+    qtbot.addWidget(dialog)
+
+    # Récupération des cartes par leur objectName scopé
+    scope_card = dialog.findChild(QFrame, "scopeCard")
+    engine_card = dialog.findChild(QFrame, "engineCard")
+    directives_card = dialog.findChild(QFrame, "directivesCard")
+
+    assert scope_card is not None
+    assert engine_card is not None
+    assert directives_card is not None
+
+    # Chaque carte doit avoir un layout non vide (header + contenu)
+    assert scope_card.layout() is not None
+    assert scope_card.layout().count() >= 5  # header + row_all + row_untrans + row_stale + row_custom + input
+
+    assert engine_card.layout() is not None
+    assert engine_card.layout().count() >= 4  # header + combo_row + desc + hardware_notice + advanced_drawer
+
+    assert directives_card.layout() is not None
+    assert directives_card.layout().count() >= 6  # header + 4 checkboxes + custom_instructions label + text
+
+    # Les conteneurs internes ont un objectName pour éviter l'héritage de bordure
+    assert dialog.hardware_notice.objectName() == "hardwareNotice"
+    assert dialog.advanced_drawer.objectName() == "advancedDrawer"

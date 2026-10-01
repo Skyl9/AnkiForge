@@ -251,8 +251,9 @@ class PageInspectorWidget(QWidget):
 
         # ── Barre d'outils supérieure de l'inspecteur ─────────────────────────
         top_bar = QFrame()
+        top_bar.setObjectName("inspectorTopBar")
         top_bar.setStyleSheet(f"""
-            QFrame {{
+            QFrame#inspectorTopBar {{
                 background-color: {DesignTokens.BG_PANEL};
                 border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
             }}
@@ -652,10 +653,14 @@ class AlbumViewerWidget(QWidget):
 
         # ── 1. Barre d'actions supérieure de l'Album ──────────────────────────
         self.toolbar_card = QFrame()
+        self.toolbar_card.setObjectName("albumToolbarCard")
         self.toolbar_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#albumToolbarCard {{
                 background-color: {DesignTokens.BG_PANEL};
                 border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top: none;
+                border-left: none;
+                border-right: none;
             }}
         """)
         toolbar_vlayout = QVBoxLayout(self.toolbar_card)
@@ -738,13 +743,13 @@ class AlbumViewerWidget(QWidget):
 
         # Ligne 2 (Conditionnelle) : Barre de progression OCR
         self.progress_container = QFrame()
+        self.progress_container.setObjectName("ocrProgressContainer")
         self.progress_container.setVisible(False)
         self.progress_container.setStyleSheet(f"""
-            QFrame {{
+            QFrame#ocrProgressContainer {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px;
             }}
         """)
         prog_layout = QHBoxLayout(self.progress_container)
@@ -791,13 +796,13 @@ class AlbumViewerWidget(QWidget):
         # Même forme de signal et même expérience que la transcription, dans la même barre
         # d'outils : la compilation s'annonce et s'annule comme elle.
         self.pdf_progress_container = QFrame()
+        self.pdf_progress_container.setObjectName("pdfProgressContainer")
         self.pdf_progress_container.setVisible(False)
         self.pdf_progress_container.setStyleSheet(f"""
-            QFrame {{
+            QFrame#pdfProgressContainer {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px;
             }}
         """)
         pdf_prog_layout = QHBoxLayout(self.pdf_progress_container)
