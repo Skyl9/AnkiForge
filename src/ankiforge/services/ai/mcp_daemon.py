@@ -105,10 +105,15 @@ def find_available_port(start_port: int = 8765, max_attempts: int = 100, host: s
     Sonde séquentiellement les ports à partir de start_port jusqu'à trouver un port libre.
     Lève un RuntimeError si aucun port n'est libre après max_attempts tentatives.
     """
-    for port in range(start_port, start_port + max_attempts):
+    # La plage est bornée à 65535 : sans cela, un port de départ élevé — un port
+    # éphémère choisi par l'OS, par exemple — faisait déborder `bind()` et levait un
+    # `OverflowError` au lieu de chercher plus loin. Le crash arrivait donc au hasard, selon
+    # le port que le noyau attribuait au test précédent.
+    last_port = min(start_port + max_attempts, 65536)
+    for port in range(start_port, last_port):
         if not is_port_in_use(port, host=host):
             return port
-    raise RuntimeError(f"Impossible de trouver un port libre pour le serveur MCP après {max_attempts} tentatives (plage {start_port}-{start_port + max_attempts - 1}).")
+    raise RuntimeError(f"Impossible de trouver un port libre pour le serveur MCP après {max_attempts} tentatives (plage {start_port}-{last_port - 1}).")
 
 
 def generate_auth_token() -> str:

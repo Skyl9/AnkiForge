@@ -1,22 +1,71 @@
+from __future__ import annotations
+
 import datetime
 import logging
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PIL import ExifTags, Image
 
 from ankiforge.database.base import db
-from ankiforge.database.models import DocumentModel, DocumentPageModel, FolderModel
+from ankiforge.database.models import (
+    DocumentChunkModel,
+    DocumentModel,
+    DocumentPageModel,
+    FolderModel,
+)
 from ankiforge.services.cards.media_manager import MediaManager
 
+if TYPE_CHECKING:
+    from PySide6.QtGui import QImage, QPixmap
+
 logger = logging.getLogger(__name__)
+
+
+class AlbumCompileCancelled(RuntimeError):
+    """
+    Interruption demandée de la compilation d'un album.
+
+    Exception distincte d'un échec : une annulation n'est pas une erreur, et l'interface
+    ne doit pas la rapporter comme telle.
+    """
+
+    def __init__(self, done: int, total: int) -> None:
+        super().__init__(f"Compilation annulée après {done}/{total} planches.")
+        self.done = done
+        self.total = total
 
 
 def natural_sort_key(file_path: str | Path) -> list[int | str]:
     """Clé de tri alphanumérique naturel pour classer logiquement les pages (ex: page_1 < page_2 < page_10)."""
     name = Path(file_path).name
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", name)]
+
+
+def normalize_rotation(degrees: int) -> int:
+    """Ramène un angle au palier de 90° correspondant, dans [0, 360[."""
+    return int(degrees) % 360
+
+
+def reaggregate_document_content(document_id: int) -> None:
+    """
+    Reconstruit `DocumentModel.content` depuis les fragments **vivants** du document.
+
+    Le contenu agrégé est une copie : retirer un fragment ne le retirait pas de la copie,
+    qui continuait donc de servir — et d'indexer — une description d'orientation périmée.
+    La reconstruction lit la source de vérité plutôt que d'y soustraire un texte, car un
+    contenu dupliqué n'est pas forcément identifiable de façon fiable.
+
+    **À appeler dans une transaction existante** : elle écrit sur le document.
+    """
+    document = DocumentModel.get_or_none(DocumentModel.id == document_id)
+    if document is None:
+        return
+    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == document).order_by(DocumentChunkModel.page_number.asc(), DocumentChunkModel.chunk_index.asc()))
+    document.content = "\n\n".join(chunk.content for chunk in chunks)
+    document.save()
 
 
 def extract_exif_timestamp(file_path: str | Path) -> datetime.datetime | None:
@@ -143,13 +192,121 @@ class AlbumService:
         """Retourne les pages ordonnées d'un album."""
         return list(DocumentPageModel.select().where(DocumentPageModel.document == document_id).order_by(DocumentPageModel.page_number.asc()))
 
+    def page_media_path(self, page: DocumentPageModel) -> Path:
+        """
+        Chemin du fichier image **brut** d'une planche.
+
+        Réservé à la couture : lire une planche passe par `render_page_image`, jamais par
+        ce chemin seul — un fichier brut ignore la rotation de la planche, et l'ignorer
+        silencieusement produirait une donnée fausse (masques d'occlusion cuits sur la
+        mauvaise image, transcription lue de côté).
+        """
+        if not page.media or not page.media.filename:
+            raise FileNotFoundError(f"La planche {page.id} n'a pas de fichier image associé.")
+        media_file = self.media_manager.media_dir / page.media.filename
+        if not media_file.exists():
+            raise FileNotFoundError(f"Fichier image manquant sur le disque : {media_file}")
+        return media_file
+
+    def render_page_image(self, page: DocumentPageModel, max_size: int | None = None) -> Image.Image:
+        """
+        **Seule voie de lecture d'une planche** (ADR 0011) : rend l'image à l'orientation
+        propre de la planche, sous forme de `PIL.Image.Image` — la représentation que la
+        transcription, la compilation et le modèle de vision parlent déjà.
+
+        La rotation est appliquée **à la lecture**. Le fichier image n'est jamais réécrit :
+        le `MediaManager` dédupliquant par MD5, deux planches peuvent partager un fichier,
+        et l'écrire ferait gratuit pivoter la planche voisine. Une rotation est une règle,
+        pas une réécriture.
+
+        `max_size` plafonne la plus grande dimension **avant** rotation, pour qu'un appelant
+        d'interface n'ait jamais à charger une planche en pleine résolution sur le thread GUI.
+        L'appelant reçoit une image détachée, qu'il lui appartient de fermer.
+        """
+        media_file = self.page_media_path(page)
+
+        with Image.open(media_file) as source:
+            # `thumbnail` réduit dans la boîte *source* : pour les formats à décodage
+            # progressif (JPEG, JPEG 2000, WEBP) la pleine résolution n'est jamais
+            # materialisée. Un PNG, lui, se décode entièrement — le plafond reste donc
+            # une borne de taille de sortie, pas une promesse d'échantillonnage.
+            if max_size is not None:
+                source.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            # Un PNG décodé porte un tampon que l'appelant doit pouvoir fermer, et
+            # `convert("RGB")` sur une image déjà RGB en recopierait un second, jamais
+            # fermé. `thumbnail` ayant déjà modifié `source` sur place, `copy()` suffit
+            # dans les deux cas : on garde une seule image vivante, à orientaliser.
+            rendered = source.convert("RGB") if source.mode != "RGB" else source.copy()
+
+        rotation = normalize_rotation(page.rotation)
+        if rotation:
+            # Angle négatif : rotation horaire, convention de l'interface (bouton « tourner de 90° »).
+            rotated = rendered.rotate(-rotation, expand=True)
+            rendered.close()
+            rendered = rotated
+
+        return rendered
+
+    def render_page_qimage(self, page: DocumentPageModel, max_size: int | None = None) -> QImage:
+        """
+        Adaptateur `QImage` de la couture — le format **sûr hors thread GUI**.
+
+        `QImage` est indépendant du thread et se construit donc dans un `QThreadPool` ;
+        `QPixmap`, lui, ne peut être créé que sur le thread GUI. On expose donc les deux :
+        la couture est lisible partout, et chaque appelant choisit le format que son
+        thread permet.
+
+        Import de PySide6 différé : le service reste utilisable hors interface (worker de
+        compilation PDF, tests) sans payer le coût de Qt pour autant.
+        """
+        from PySide6.QtGui import QImage
+
+        rendered = self.render_page_image(page, max_size=max_size)
+        try:
+            # `.copy()` : QImage ne possède pas les octets du tampon, dont la durée de vie
+            # ne dépasse pas cet appel. Sans la copie, l'image lirait un tampon libéré.
+            return QImage(rendered.tobytes(), rendered.width, rendered.height, 3 * rendered.width, QImage.Format.Format_RGB888).copy()
+        finally:
+            rendered.close()
+
+    def render_page_pixmap(self, page: DocumentPageModel, max_size: int | None = None) -> QPixmap:
+        """
+        Adaptateur `QPixmap` de la couture, pour l'interface.
+
+        **À appeler sur le thread GUI** : Qt refuse de construire un `QPixmap` ailleurs.
+        Un worker de vignettes doit produire une `QImage` et laisser la conversion ici.
+        """
+        from PySide6.QtGui import QPixmap
+
+        return QPixmap.fromImage(self.render_page_qimage(page, max_size=max_size))
+
     def rotate_page(self, page_id: int, degrees: int = 90) -> DocumentPageModel:
-        """Fait pivoter une page par incrément de 90° (0°, 90°, 180°, 270°)."""
+        """
+        Fait pivoter une page par incrément de 90° (0°, 90°, 180°, 270°) et **périme son
+        état dérivé** : transcription et description dense décrivent une planche dans une
+        orientation qui n'est plus la sienne (ADR 0011).
+
+        L'état périmé est marqué, jamais servi ni recalculé d'office : sur un album de
+        200 planches, une retranscription automatique coûterait 200 appels à un modèle de
+        vision sans que l'utilisateur l'ait demandé. L'interface propose ; elle ne décide pas.
+        """
         with db.atomic():
             page = DocumentPageModel.get_by_id(page_id)
-            page.rotation = (page.rotation + degrees) % 360
+            page.rotation = normalize_rotation(page.rotation + degrees)
+            page.ocr_text = ""
+            page.status = "stale"
             page.save()
-            logger.info("Page %d (ID %d) pivotée à %d°", page.page_number, page.id, page.rotation)
+
+            # Le fragment indexé de la planche décrit l'ancienne orientation : on le retire.
+            DocumentChunkModel.delete().where((DocumentChunkModel.document == page.document) & (DocumentChunkModel.page_number == page.page_number)).execute()
+
+            # …et le contenu agrégé du document, qui en portait une copie, doit suivre.
+            # Sans cette reconstruction, `document.content` continuait de servir la
+            # description de l'orientation abandonnée : l'état périmé était marqué sur
+            # la page, puis réapparu intact dans le document.
+            reaggregate_document_content(page.document_id)
+
+            logger.info("Page %d (ID %d) pivotée à %d° — état dérivé invalidé", page.page_number, page.id, page.rotation)
             return page
 
     def reorder_pages(self, document_id: int, new_page_ids_order: Sequence[int]) -> list[DocumentPageModel]:
@@ -274,10 +431,20 @@ class AlbumService:
         self,
         document_id: int,
         output_path: str | Path | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
+        should_cancel: Callable[[], bool] | None = None,
     ) -> Path:
         """
         Compile toutes les pages de l'album en un fichier PDF de lecture unique,
         en appliquant fidèlement les rotations définies sur chaque page.
+
+        Les planches sont rendues **par la couture** : la rotation est donc appliquée par
+        construction, et non par une boucle qui l'oublierait un jour.
+
+        `progress_callback` et `should_cancel` permettent d piloter la compilation depuis
+        un worker : sans quoi un album de 200 planches ouvrirait chacune en pleine
+        résolution sur le thread GUI — un gel de plusieurs secondes, le même défaut que
+        celui des vignettes, une couche plus bas.
         """
         doc = DocumentModel.get_by_id(document_id)
         pages = self.get_album_pages(document_id)
@@ -288,21 +455,19 @@ class AlbumService:
 
         final_pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
+        total_pages = len(pages)
         pil_images: list[Image.Image] = []
         try:
-            for page in pages:
-                media_file = self.media_manager.media_dir / page.media.filename
-                if not media_file.exists():
-                    raise FileNotFoundError(f"Fichier image manquant sur le disque : {media_file}")
+            for idx, page in enumerate(pages):
+                if should_cancel is not None and should_cancel():
+                    logger.info("Compilation de l'album %d annulée après %d/%d planches", document_id, idx, total_pages)
+                    raise AlbumCompileCancelled(idx, total_pages)
 
-                with Image.open(media_file) as raw_img:
-                    # Conversion propre en mode RGB (nécessaire pour la conversion PDF depuis PNG/RGBA/Palette)
-                    rgb_img: Image.Image = raw_img.convert("RGB")
-                    # Application de la rotation si nécessaire (-angle pour rotation horaire dans Pillow)
-                    if page.rotation != 0:
-                        rgb_img = rgb_img.rotate(-page.rotation, expand=True)
-
-                    pil_images.append(rgb_img)
+                # Par la couture : la rotation de la planche est appliquée par construction,
+                # la promesse de la docstring ("fidèlement") devient exacte.
+                pil_images.append(self.render_page_image(page))
+                if progress_callback is not None:
+                    progress_callback(idx + 1, total_pages)
 
             # Sauvegarde PDF
             first_image = pil_images[0]
@@ -321,6 +486,8 @@ class AlbumService:
                 len(pil_images),
             )
         finally:
+            # Libéré y compris sur annulation : une planche PIL non fermée tient sa mémoire
+            # jusqu'au prochain ramassage, sur 200 planches cela se voit.
             for im in pil_images:
                 im.close()
 

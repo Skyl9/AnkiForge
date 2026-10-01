@@ -203,6 +203,27 @@ class VisionCategoryService:
         return defaults
 
     @classmethod
+    def category_declares_vision(cls, category: VisionCategory) -> bool | None:
+        """
+        La compatibilité Vision **déclarée** par le moteur d'une catégorie, ou `None`
+        si elle n'a pas pu être établie.
+
+        Suit exactement la politique de `ui.components.vision_capability` : la valeur
+        lue sur la configuration du moteur fait seule autorité, et le catalogue n'est
+        qu'un écrivain. L'OCR natif (`native`) n'est pas un moteur et n'est donc pas
+        jugé — il ne reçoit pas d'image à refuser.
+        """
+        if category.provider == "native":
+            return None
+
+        from ankiforge.database.models import LLMConfigModel
+
+        engine = LLMConfigModel.get_or_none(LLMConfigModel.model_id == str(category.model_id))
+        if engine is None:
+            return None
+        return bool(getattr(engine, "supports_vision", False))
+
+    @classmethod
     def resolve_provider_for_category(cls, category: VisionCategory) -> LLMProvider | str:
         """
         Instancie le LLMProvider correspondant à la catégorie, ou retourne 'native' pour l'OCR matériel.

@@ -4,9 +4,12 @@ import mimetypes
 import shutil
 import subprocess  # nosec B404
 import sys
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
+
+from PIL import Image
 
 from ankiforge.database.base import db
 from ankiforge.database.models import DocumentPageModel
@@ -17,6 +20,45 @@ from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
+
+#: Format d'enregistrement Pillow par extension, pour matérialiser une planche rendue.
+SUPPORTED_SAVE_FORMATS: dict[str, str] = {
+    ".png": "PNG",
+    ".jpg": "JPEG",
+    ".jpeg": "JPEG",
+    ".webp": "WEBP",
+    ".bmp": "BMP",
+    ".tif": "TIFF",
+    ".tiff": "TIFF",
+}
+
+#: Paramètres d'enregistrement par format. Pillow.encode par défaut à `quality=75`, ce qui
+#: dégradait systématiquement les planches avant analyse — le défaut exact qui rend le petit
+#: texte d'un scan pâle illisible, alors que le fichier source était intact. La lossless
+#: est donc la règle pour ce qui ne perd rien, et le near-lossless le plancher du reste.
+LOSSY_SAVE_OPTIONS: dict[str, dict[str, object]] = {
+    "JPEG": {"quality": 95, "subsampling": 0},
+    "WEBP": {"quality": 95},
+}
+
+
+def save_rendered_page(image: Image.Image, target: str | Path, suffix: str) -> None:
+    """
+    Écrit une planche rendue dans le format déduit de son suffixe d'origine.
+
+    Point unique de la matérialisation d'une planche : l'OCR, le RAG visuel et l'occlusion
+    passent tous par ici, donc aucun ne peut réencoder un scan en qualité réduite pendant
+    qu'un autre préserve l'original.
+    """
+    save_format = SUPPORTED_SAVE_FORMATS.get(suffix.lower())
+    if save_format is None:
+        # Format inconnu : on écrit du PNG sous une extension étrangère, ce qu'un
+        # fournisseur qui déduit le type MIME du suffixe refuserait. On normalise donc
+        # aussi l'extension du fichier temporaire, pas seulement son contenu.
+        save_format = "PNG"
+        target = Path(target).with_suffix(".png")
+    image.save(str(target), format=save_format, **LOSSY_SAVE_OPTIONS.get(save_format, {}))
+
 
 # Code Swift natif pour exécuter VNRecognizeTextRequest sur macOS via l'Apple Neural Engine
 SWIFT_OCR_SOURCE = """
@@ -254,17 +296,40 @@ class OCRService:
     ) -> DocumentPageModel:
         """
         Transcrit une DocumentPageModel, met à jour son champ ocr_text et son statut en base SQLite.
+
+        La planche est rendue **par la couture** (ADR 0011) : le modèle reçoit l'orientation
+        de la planche, pas celle du fichier. Transcrire une planche de travers produirait
+        un texte syntaxiquement valide et sémantiquement faux — l'état le plus difficile
+        à rattraper, car rien ne signale l'anomalie.
         """
+        from ankiforge.services.cards.album_service import AlbumService
+
         with db.atomic():
             page = DocumentPageModel.get_by_id(page_id)
-            media_path = self.media_manager.media_dir / page.media.filename
-            if not media_path.exists():
-                raise FileNotFoundError(f"Fichier média manquant : {media_path}")
+            album_service = AlbumService(media_manager=self.media_manager)
+            rendered = album_service.render_page_image(page)
 
-            page.status = "ocr_running"
-            page.save()
+            temp_path: Path | None = None
+            try:
+                # Les transducteurs (VLM multimodal, Apple Vision) parlent tous un chemin
+                # de fichier : on matérialise la planche rendue dans un fichier éphémère
+                # plutôt que d'ajouter un second chemin d'images en mémoire.
+                # L'extension vient de la couture comme le contenu : demander le suffixe
+                # au média brut ouvrait un second chemin de lecture, et c'est précisément
+                # ce que le test de garde interdit.
+                suffix = album_service.page_media_path(page).suffix or ".png"
+                with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+                    save_rendered_page(rendered, handle.name, suffix)
+                    temp_path = Path(handle.name)
 
-            text = self.transcribe_image(media_path, category_id=category_id, provider_override=provider_override)
+                page.status = "ocr_running"
+                page.save()
+
+                text = self.transcribe_image(temp_path, category_id=category_id, provider_override=provider_override)
+            finally:
+                rendered.close()
+                if temp_path is not None and temp_path.exists():
+                    temp_path.unlink(missing_ok=True)
 
             page.ocr_text = text
             page.status = "ready"

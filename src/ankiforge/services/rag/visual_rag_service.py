@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from collections.abc import Callable
+import tempfile
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from PIL import UnidentifiedImageError
 
 from ankiforge.database.base import db
 from ankiforge.database.models import (
@@ -83,24 +86,72 @@ class VisualRAGService:
         # Repli gracieux hors-ligne
         return f"[Image : {p.name}] - Planche visuelle importée. Configurez une clé d'API Vision pour la description sémantique automatique."
 
+    def _describe_page(self, page: DocumentPageModel, provider_override: LLMProvider | None) -> str:
+        """
+        Décrit la planche **par la couture** (ADR 0011) : la description dense doit
+        décrire la planche telle que l'utilisateur la voit, sinon le fragment indexé
+        répond à la mauvaise question tout en paraissant exact.
+
+        La couture rend une image en mémoire ; on la materialise dans un fichier
+        éphémère parce que c'est le chemin que parlent déjà les transducteurs.
+        """
+        from ankiforge.services.ai.ocr_service import save_rendered_page
+        from ankiforge.services.cards.album_service import AlbumService
+
+        album_service = AlbumService(media_manager=self.media_manager)
+        try:
+            rendered = album_service.render_page_image(page)
+        except FileNotFoundError:
+            logger.warning("Planche %d sans fichier image : description dense ignorée", page.id)
+            return ""
+        except (UnidentifiedImageError, OSError) as e:
+            # Une planche illisible est un défaut d'entrée, pas une raison d'abandonner
+            # l'album : les 199 autres planches méritent leur description. `OSError` couvre
+            # la bombe de décompression et les E/S directs du volume ; sans lui, une seule
+            # planche tronquée interrompait les descriptions de tout l'album.
+            logger.warning("Planche %d : fichier image illisible (%s), description dense ignorée", page.id, e)
+            return ""
+
+        # Suffixe et contenu viennent de la couture : lire le média brut pour l'extension
+        # rouvrait un second chemin de lecture, celui que ADR 0011 a supprimé.
+        suffix = album_service.page_media_path(page).suffix or ".png"
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+                save_rendered_page(rendered, handle.name, suffix)
+                temp_path = Path(handle.name)
+            return self.generate_dense_description(temp_path, provider_override=provider_override)
+        finally:
+            rendered.close()
+            if temp_path is not None and temp_path.exists():
+                temp_path.unlink(missing_ok=True)
+
     def prepare_visual_chunks(
         self,
         document: DocumentModel,
         force_recompute: bool = False,
         provider_override: LLMProvider | None = None,
         progress_callback: Callable[[int, int, str], None] | None = None,
+        page_numbers: Sequence[int] | None = None,
     ) -> list[DocumentChunkModel]:
         """
         Génère ou met à jour les DocumentChunkModel pour chaque page d'un album ou document visuel.
         Chaque chunk conserve la référence vers le MediaModel de la page, le numéro de page,
         et la description visuelle dense.
+
+        `page_numbers` restreint le recalcul aux planches visées. Sans lui, la seule option
+        après rotation d'une planche serait de réindexer l'album entier ou de la laisser
+        définitivement périmée (ADR 0011).
         """
-        pages = list(DocumentPageModel.select().where(DocumentPageModel.document == document).order_by(DocumentPageModel.page_number.asc()))
+        query = DocumentPageModel.select().where(DocumentPageModel.document == document)
+        if page_numbers is not None:
+            query = query.where(DocumentPageModel.page_number.in_(list(page_numbers)))
+        pages = list(query.order_by(DocumentPageModel.page_number.asc()))
         if not pages:
             logger.warning("Aucune page DocumentPageModel trouvée pour le document ID=%s", document.id)
             return []
 
-        total_pages = len(pages)
+        total_pages = DocumentPageModel.select().where(DocumentPageModel.document == document).count()
         chunks: list[DocumentChunkModel] = []
         aggregated_pages_content: list[str] = []
 
@@ -124,11 +175,8 @@ class VisualRAGService:
                     chunk_content = existing_chunk.content
                     chunk_model = existing_chunk
                 else:
-                    # Récupérer l'image sur disque
-                    media_file = self.media_manager.media_dir / page.media.filename
-                    dense_desc = ""
-                    if media_file.exists():
-                        dense_desc = self.generate_dense_description(media_file, provider_override=provider_override)
+                    # La planche est décrite dans son orientation propre, par la couture.
+                    dense_desc = self._describe_page(page, provider_override=provider_override)
 
                     # Combiner avec l'OCR textuel préalable si existant
                     text_parts: list[str] = []
@@ -168,15 +216,22 @@ class VisualRAGService:
                 chunks.append(chunk_model)
                 aggregated_pages_content.append(chunk_content)
 
-            # Mettre à jour le contenu global du document (dans la même transaction)
-            full_markdown = "\n\n".join(aggregated_pages_content)
-            document.content = full_markdown
+            # Le contenu agrégé est reconstruit depuis **tous** les fragments persistés, pas
+            # seulement ceux de ce passage : un recalcul ciblé ne doit pas tronquer l'album
+            # aux planches qu'il vient de rafraîchir. Même règle que l'invalidation de rotation.
+            from ankiforge.services.cards.album_service import reaggregate_document_content
+
+            # L'estampillage de version est **avant** la reconstruction, et l'agrégat est la
+            # dernière écriture de la transaction. Peewee réécrit toutes les colonnes à
+            # chaque `save()` : un `mark_document_version(document)` postérieur, appelé sur
+            # l'objet en mémoire — dont `content` est la copie vide d'avant ce passage —
+            # écrasait l'agrégat fraîchement calculé. Un album décrit depuis la base se
+            # retrouvait donc sans contenu, silencieusement.
+            from ankiforge.services.reindex_service import mark_document_version
+
             document.total_pages = total_pages
-            document.save()
-
-        from ankiforge.services.reindex_service import mark_document_version
-
-        mark_document_version(document)
+            mark_document_version(document)
+            reaggregate_document_content(document.id)
 
         logger.info(
             "VisualRAGService: %d fragments visuels préparés pour le document '%s' (ID %d)",

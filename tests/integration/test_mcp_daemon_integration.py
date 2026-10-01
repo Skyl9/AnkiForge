@@ -23,6 +23,33 @@ from ankiforge.services.ai.mcp_server import mcp
 pytestmark = pytest.mark.integration
 
 
+def test_find_available_port_never_probes_past_the_valid_range(monkeypatch):
+    """
+    La sonde ne doit jamais dépasser 65535, quoi que soit le port de départ.
+
+    Le port de départ venait d'un port éphémère attribué par l'OS : selon le port attribué,
+    la sonde levait `OverflowError` ou passait. On vérifie donc les ports réellement
+    interrogés, en déclarant toute la plage occupée — sinon le test dépendrait de quels
+    ports happen à être libres, ce qui le rendrait aussi aléatoire que le bug.
+    """
+    import ankiforge.services.ai.mcp_daemon as mcp_daemon
+
+    probed: list[int] = []
+
+    def always_occupied(port: int, host: str = "127.0.0.1") -> bool:
+        probed.append(port)
+        return True
+
+    monkeypatch.setattr(mcp_daemon, "is_port_in_use", always_occupied)
+
+    with pytest.raises(RuntimeError, match="Impossible de trouver un port libre"):
+        mcp_daemon.find_available_port(start_port=65530, max_attempts=100, host="127.0.0.1")
+
+    assert probed, "aucun port sondé : le test ne prouve rien"
+    assert max(probed) <= 65535, f"un port hors de la plage valide a été sondé : {max(probed)}"
+    assert probed == list(range(65530, 65536))
+
+
 def test_find_available_port_skips_occupied_port():
     """Vérifie que find_available_port contourne automatiquement un port déjà occupé."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 
+from PIL import Image, UnidentifiedImageError
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QImage, QPixmap, QTransform
+from PySide6.QtGui import QCloseEvent, QImage, QPixmap, QResizeEvent
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -14,7 +17,6 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QScrollArea,
     QSizePolicy,
-    QSlider,
     QSplitter,
     QStackedWidget,
     QTextEdit,
@@ -25,7 +27,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import DocumentModel, DocumentPageModel
 from ankiforge.services.ai.vision_category_service import VisionCategoryService
 from ankiforge.services.cards.album_service import AlbumService
-from ankiforge.services.workers.album_worker import AlbumOCRWorker
+from ankiforge.services.workers.album_worker import AlbumOCRWorker, AlbumPDFWorker
 from ankiforge.ui.components import (
     Badge,
     IconButton,
@@ -33,10 +35,14 @@ from ankiforge.ui.components import (
     SecondaryButton,
 )
 from ankiforge.ui.components.flow_layout import FlowLayout
+from ankiforge.ui.components.vision_capability import VISION_UNSUPPORTED_LABEL
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.views.documents_view.widgets.album_thumbnails import (
+    ThumbnailTask,
+    request_thumbnail,
+)
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
-from ankiforge.utils.paths import resolve_media_path
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +51,10 @@ class AlbumPageCard(QFrame):
     """
     Carte de vignette individuelle pour une page d'album dans la planche-contact.
     Affiche la miniature, le numéro de page, le statut OCR et une barre d'actions rapides.
+
+    La vignette est rendue **hors du thread GUI** (ticket S1) : la carte ne fait que
+    déclencher une demande et afficher le résultat. Elle ne lit jamais le fichier de la
+    planche, et n'applique pas la rotation elle-même — l'orientation vient de la couture.
     """
 
     rotate_requested = Signal(int)  # page_id
@@ -52,9 +62,20 @@ class AlbumPageCard(QFrame):
     delete_requested = Signal(int)  # page_id
     inspect_requested = Signal(int)  # page_id
 
-    def __init__(self, page: DocumentPageModel, parent: QWidget | None = None) -> None:
+    #: Côté utile de la vignette, en pixels logiques. Sert de plafond : la carte ne
+    #: demande jamais plus grand que ce qu'elle peut afficher.
+    THUMBNAIL_PX = 180
+
+    def __init__(
+        self,
+        page: DocumentPageModel,
+        parent: QWidget | None = None,
+        album_service: AlbumService | None = None,
+    ) -> None:
         super().__init__(parent)
         self.page = page
+        self._album_service = album_service or AlbumService()
+        self._thumb_task: ThumbnailTask | None = None
         self.setFixedWidth(200)
         self.setFixedHeight(270)
         self.setObjectName("albumPageCard")
@@ -84,12 +105,9 @@ class AlbumPageCard(QFrame):
 
         header_layout.addStretch()
 
-        has_ocr = bool(page.ocr_text and page.ocr_text.strip())
-        status_text = "✓ OCR" if has_ocr else "Non transcrit"
-        status_variant = "success" if has_ocr else "neutral"
-        self.ocr_badge = Badge(status_text, variant=status_variant)
-        self.ocr_badge.setToolTip(f"{len(page.ocr_text.split())} mots extraits" if has_ocr else "Aucune transcription")
+        self.ocr_badge = Badge("", variant="neutral")
         header_layout.addWidget(self.ocr_badge)
+        self.update_status(page.ocr_text, page.status)
 
         layout.addLayout(header_layout)
 
@@ -107,7 +125,7 @@ class AlbumPageCard(QFrame):
         self.img_lbl.mousePressEvent = lambda e: self.inspect_requested.emit(self.page.id)
         layout.addWidget(self.img_lbl, 1)
 
-        self._load_thumbnail()
+        self._request_thumbnail()
 
         # ── Barre d'actions rapides (Bas de carte) ───────────────────────────
         actions_layout = QHBoxLayout()
@@ -138,40 +156,58 @@ class AlbumPageCard(QFrame):
 
         layout.addLayout(actions_layout)
 
-    def _load_thumbnail(self) -> None:
-        """Charge l'image, applique la rotation actuelle et l'affiche à l'échelle."""
-        try:
-            filename = self.page.media.filename if self.page.media else ""
-            img_path = resolve_media_path(filename)
-            if not img_path.exists():
-                self.img_lbl.setText("Image absente")
-                self.img_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-                return
+    def _request_thumbnail(self) -> None:
+        """
+        Demande la vignette à la plaque de rendu (hors thread GUI).
 
-            pixmap = QPixmap(str(img_path))
-            if pixmap.isNull():
-                self.img_lbl.setText("Erreur image")
-                return
+        Le plafond demandé est la taille utile de la carte, jamais la résolution native :
+        un scan A4 à 300 dpi ferait 2500×3500 px, et c'est précisément ce chargement-là
+        qui gelait la grille.
+        """
+        device_ratio = self.devicePixelRatioF() if hasattr(self, "devicePixelRatioF") else 1.0
+        wanted = max(1, int(self.THUMBNAIL_PX * (device_ratio or 1.0)))
+        self.img_lbl.setText("Chargement…")
+        self._thumb_task = request_thumbnail(
+            self.page,
+            wanted,
+            on_ready=self._on_thumbnail_ready,
+            on_failed=self._on_thumbnail_failed,
+            album_service=self._album_service,
+        )
 
-            if self.page.rotation % 360 != 0:
-                transform = QTransform()
-                transform.rotate(self.page.rotation)
-                pixmap = pixmap.transformed(transform, Qt.TransformationMode.SmoothTransformation)
+    @Slot(int, int, object)
+    def _on_thumbnail_ready(self, page_id: int, _size_px: int, image: object) -> None:
+        """Affiche la vignette rendue. La conversion en `QPixmap` se fait ici, sur le thread GUI."""
+        if page_id != self.page.id or not isinstance(image, QImage) or image.isNull():
+            return
+        self.img_lbl.setPixmap(QPixmap.fromImage(image))
 
-            thumb = pixmap.scaled(
-                180,
-                180,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            self.img_lbl.setPixmap(thumb)
-        except Exception as e:
-            logger.warning("Erreur chargement vignette page %d: %s", self.page.id, e)
-            self.img_lbl.setText("Aperçu indisponible")
+    @Slot(int, str)
+    def _on_thumbnail_failed(self, page_id: int, message: str) -> None:
+        if page_id != self.page.id:
+            return
+        self.img_lbl.setPixmap(QPixmap())
+        self.img_lbl.setText("Aperçu indisponible")
+        self.img_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        logger.warning("Vignette indisponible pour la planche %d : %s", page_id, message)
 
-    def update_status(self, ocr_text: str) -> None:
-        """Met à jour le badge de statut OCR."""
+    def update_status(self, ocr_text: str, status: str | None = None) -> None:
+        """
+        Met à jour le badge de statut de transcription.
+
+        Un état dérivé **périmé** se dit : la planche a changé, sa transcription
+        précédente décrit une orientation qui n'est plus la sienne. Le silence laisserait
+        croire à un contenu valide — un état faux sans témoin.
+        """
         self.page.ocr_text = ocr_text
+        active_status = status if status is not None else getattr(self.page, "status", "ready")
+
+        if active_status == "stale":
+            self.ocr_badge.setText("Périmé")
+            self.ocr_badge.set_variant("warning")
+            self.ocr_badge.setToolTip("La planche a changé depuis sa transcription : retranscrivez-la pour la mettre à jour.")
+            return
+
         has_ocr = bool(ocr_text and ocr_text.strip())
         self.ocr_badge.setText("✓ OCR" if has_ocr else "Non transcrit")
         self.ocr_badge.set_variant("success" if has_ocr else "neutral")
@@ -180,8 +216,10 @@ class AlbumPageCard(QFrame):
 
 class PageInspectorWidget(QWidget):
     """
-    Vue détaillée et zoomable pour inspecter, ajuster le contraste et retoucher
-    le texte OCR d'une page individuelle.
+    Vue détaillée et zoomable pour inspecter une planche et retoucher son texte OCR.
+
+    L'orientation affichée vient de la couture de lecture (ADR 0011), jamais d'une
+    transformation locale : deux chemins d'orientation ne peuvent pas diverger.
     """
 
     close_requested = Signal()
@@ -189,11 +227,19 @@ class PageInspectorWidget(QWidget):
     navigate_requested = Signal(int)  # delta (-1 pour précédent, +1 pour suivant)
     rotate_requested = Signal(int)  # page_id
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    #: Plafond du rendu d'inspection. Au-delà, on charge la planche native — ce que le
+    #: ticket S1 interdit hors d'une demande de zoom explicite.
+    INSPECTION_PX = 2048
+
+    def __init__(self, parent: QWidget | None = None, album_service: AlbumService | None = None) -> None:
         super().__init__(parent)
         self.current_page: DocumentPageModel | None = None
+        self._album_service = album_service or AlbumService()
         self._raw_pixmap: QPixmap | None = None
+        self._full_pixmap: QPixmap | None = None
         self._zoom_factor: float = 1.0
+        #: Vrai quand `_zoom_factor` est calculé par ajustement à la fenêtre plutôt que posé.
+        self._zoom_is_fit: bool = False
 
         self._setup_ui()
 
@@ -252,19 +298,6 @@ class PageInspectorWidget(QWidget):
         self.btn_zoom_in.clicked.connect(self._on_zoom_in)
         top_layout.addWidget(self.btn_zoom_in)
 
-        # Curseur de contraste
-        lbl_contrast = QLabel("Contraste :")
-        lbl_contrast.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-        top_layout.addWidget(lbl_contrast)
-
-        self.slider_contrast = QSlider(Qt.Orientation.Horizontal)
-        self.slider_contrast.setRange(-50, 50)
-        self.slider_contrast.setValue(0)
-        self.slider_contrast.setFixedWidth(100)
-        self.slider_contrast.setToolTip("Ajuster le contraste pour les scans faibles ou manuscrits")
-        self.slider_contrast.valueChanged.connect(self._apply_image_transformations)
-        top_layout.addWidget(self.slider_contrast)
-
         # Bouton Image Occlusion IA
         self.btn_occlusion = SecondaryButton("Image Occlusion")
         self.btn_occlusion.setIcon(load_phosphor_icon("ph.bounding-box", color=DesignTokens.ACCENT_PRIMARY))
@@ -321,6 +354,24 @@ class PageInspectorWidget(QWidget):
         ocr_header.addWidget(self.btn_save_ocr)
         ocr_layout.addLayout(ocr_header)
 
+        # L'inspecteur montre aussi l'état périmé : l'utilisateur y passe pour corriger
+        # une transcription, et corriger un texte qui décrit une orientation abandonnée
+        # revient à recopier une erreur. Le bandeau reste donc visible, pas une infobulle.
+        self.stale_notice = QLabel("Transcription périmée : la planche a changé depuis. Retranscrivez cette page pour la mettre à jour.")
+        self.stale_notice.setWordWrap(True)
+        self.stale_notice.setVisible(False)
+        self.stale_notice.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
+                color: {DesignTokens.COLOR_YELLOW_TEXT};
+                border: 1px solid {DesignTokens.COLOR_YELLOW};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 6px 8px;
+                font-size: 11px;
+            }}
+        """)
+        ocr_layout.addWidget(self.stale_notice)
+
         self.ocr_text_edit = QTextEdit()
         self.ocr_text_edit.setPlaceholderText("Aucun texte transcrit pour cette page. Lancez la transcription par Vision IA ou saisissez vos notes ici.")
         self.ocr_text_edit.setStyleSheet(f"""
@@ -345,43 +396,136 @@ class PageInspectorWidget(QWidget):
         main_layout.addWidget(splitter, 1)
 
     def load_page(self, page: DocumentPageModel, total_pages: int) -> None:
-        """Affiche la page spécifiée dans l'inspecteur."""
+        """
+        Affiche la planche spécifiée dans l'inspecteur.
+
+        L'image vient de la couture : elle porte donc l'orientation de la planche. Le
+        rendu est plafonné (`INSPECTION_PX`) — la pleine résolution n'est rechargée que
+        lorsqu'un zoom le demande explicitement.
+        """
         self.current_page = page
         self.lbl_title.setText(f"Page {page.page_number} sur {total_pages}")
         self.ocr_text_edit.setPlainText(page.ocr_text or "")
-        self.slider_contrast.blockSignals(True)
-        self.slider_contrast.setValue(0)
-        self.slider_contrast.blockSignals(False)
+        self.stale_notice.setVisible(getattr(page, "status", None) == "stale")
+        self._full_pixmap = None
         self._zoom_factor = 1.0
+        self._zoom_is_fit = True
+        # Remis à zéro **avant** le rendu : une planche illisible qui lève laisserait sinon
+        # l'image de la planche précédente sous le titre de la nouvelle — un document
+        # affiché qui n'est pas celui que l'utilisateur demande, sans aucun signe.
+        self._raw_pixmap = None
 
-        filename = page.media.filename if page.media else ""
-        img_path = resolve_media_path(filename)
-        if img_path.exists():
-            pix = QPixmap(str(img_path))
-            if page.rotation % 360 != 0:
-                tr = QTransform()
-                tr.rotate(page.rotation)
-                pix = pix.transformed(tr, Qt.TransformationMode.SmoothTransformation)
-            self._raw_pixmap = pix
+        try:
+            image = self._album_service.render_page_qimage(page, max_size=self._inspection_px())
+        except FileNotFoundError as e:
+            logger.warning("Planche %d sans image : %s", page.id, e)
+        except (UnidentifiedImageError, OSError) as e:
+            # Une planche corrompue ou tronquée n'est pas une raison de fermer l'inspecteur :
+            # les autres planches de l'album restent consultables. Sans ce filet, l'exception
+            # remontait jusqu'au slot Qt et la navigation s'interrompait sur la planche.
+            logger.warning("Planche %d illisible : %s", page.id, e)
         else:
-            self._raw_pixmap = None
+            self._raw_pixmap = QPixmap.fromImage(image)
 
+        # Le facteur est calculé ici, pas seulement au redimensionnement : lever le
+        # drapeau « ajusté » sans calculer l'échelle laissait la planche à 100 % tant
+        # que l'utilisateur n'aurait pas redimensionné la fenêtre — l'ajustement
+        # annoncé ne s'exécutait donc pas à l'ouverture.
+        self._zoom_factor = self._fit_zoom_factor()
         self._apply_image_transformations()
 
+    def _device_ratio(self) -> float:
+        """Densité d'écran du widget, normalisée à 1.0 quand elle est inconnue ou nulle."""
+        ratio = self.devicePixelRatioF() if hasattr(self, "devicePixelRatioF") else 1.0
+        return ratio if ratio and ratio > 0 else 1.0
+
+    def _viewport_size(self) -> tuple[int, int]:
+        """
+        Taille du viewport en pixels **logiques**.
+
+        La densité d'écran ne passe pas par ici, et c'est délibéré. Elle sert à *décoder*
+        assez de pixels (`_inspection_px`), jamais à *dimensionner* : un `QPixmap` sans
+        `devicePixelRatio` est mis en page par Qt en pixels logiques, donc une échelle
+        calculée sur des pixels physiques produisait une image deux fois trop large sur
+        un écran Retina — l'ajustement à la fenêtre échouait précisément là où il se voit.
+        """
+        size = self.image_display.size()
+        return max(1, size.width()), max(1, size.height())
+
+    def _inspection_px(self) -> int:
+        """Plafond de rendu de l'inspecteur, en pixels physiques (donc plus fin sur Retina)."""
+        return max(1, int(self.INSPECTION_PX * self._device_ratio()))
+
+    def _fit_zoom_factor(self) -> float:
+        """
+        Facteur d'ajustement à la fenêtre : la plus grande échelle tenant dans le viewport.
+
+        C'est ce que « ajuster à la fenêtre » promettait. Poser 1.0 — 100 % de la
+        résolution native — ne réduit rien : sur une planche de 2500 px dans un widget de
+        600 px, le bouton affichait hors champ et paraissait cassé.
+        """
+        if not self._raw_pixmap or self._raw_pixmap.isNull():
+            return 1.0
+        view_w, view_h = self._viewport_size()
+        return min(view_w / self._raw_pixmap.width(), view_h / self._raw_pixmap.height())
+
+    def _native_max_px(self) -> int:
+        """
+        Plus grand côté de la planche **native**, sans la recharger.
+
+        Décoder la planche entière pour mesurer ce qu'on sait déjà lire dans ses en-têtes
+        PIL annulerait le plafond mis en place : c'est précisément le coût que
+        `INSPECTION_PX` sert à éviter. On interroge donc le format, pas les pixels.
+        """
+        if not self.current_page:
+            return 0
+        try:
+            media_path = self._album_service.page_media_path(self.current_page)
+            with Image.open(media_path) as probe:
+                return max(int(probe.width), int(probe.height))
+        except (FileNotFoundError, UnidentifiedImageError, OSError) as e:
+            logger.debug("Dimensions natives de la planche %s illisibles : %s", getattr(self.current_page, "id", "?"), e)
+            return 0
+
+    def _display_pixmap(self) -> QPixmap | None:
+        """
+        Pixmap servant de base à l'affichage, en chargeant la pleine résolution si le
+        zoom la demande (au-delà de ce que le rendu plafonné contient).
+        """
+        if not self.current_page:
+            return self._raw_pixmap
+        if self._raw_pixmap is None or self._raw_pixmap.isNull():
+            return self._raw_pixmap
+
+        # La comparaison se fait sur la résolution **native**, pas sur la largeur du rendu
+        # plafonné : comparer le besoin à l'image déjà réduite donnait « il faut plus gros »
+        # pour une petite planche (facteur d'ajustement > 1) et déclenchait un décodage
+        # pleine résolution sur le thread GUI — le gel que S1 existe pour supprimer.
+        native_px = self._native_max_px()
+        if native_px <= 0 or self._zoom_factor <= 1.0:
+            return self._raw_pixmap
+        if self._raw_pixmap.width() * self._zoom_factor >= native_px:
+            return self._raw_pixmap
+
+        if self._full_pixmap is None or self._full_pixmap.isNull():
+            try:
+                self._full_pixmap = self._album_service.render_page_pixmap(self.current_page)
+            except FileNotFoundError as e:
+                logger.warning("Planche %d sans image pour le zoom : %s", self.current_page.id, e)
+                return self._raw_pixmap
+        return self._full_pixmap
+
     def _apply_image_transformations(self) -> None:
-        """Applique le zoom et le contraste sur l'image affichée."""
+        """Applique le zoom courant à l'image affichée."""
         if not self._raw_pixmap or self._raw_pixmap.isNull():
             self.image_display.setText("Image non disponible")
             self.image_display.setPixmap(QPixmap())
             return
 
-        pix = self._raw_pixmap
-        contrast_val = self.slider_contrast.value()
-
-        if contrast_val != 0:
-            img = pix.toImage()
-            img = img.convertToFormat(QImage.Format.Format_ARGB32)
-            pix = QPixmap.fromImage(img)
+        pix = self._display_pixmap()
+        if pix is None or pix.isNull():
+            self.image_display.setPixmap(QPixmap())
+            return
 
         # Application du zoom
         target_w = int(pix.width() * self._zoom_factor)
@@ -395,16 +539,30 @@ class PageInspectorWidget(QWidget):
         self.image_display.setPixmap(scaled_pix)
 
     def _on_zoom_in(self) -> None:
-        self._zoom_factor = min(3.0, self._zoom_factor * 1.2)
+        # Partir de l'ajustement courant : zoomer depuis « ajusté » plutôt que depuis 1.0
+        # reste prévisible, et 100 % reste atteignable par zoom arrière.
+        if self._zoom_is_fit:
+            self._zoom_is_fit = False
+        self._zoom_factor = min(4.0, self._zoom_factor * 1.2)
         self._apply_image_transformations()
 
     def _on_zoom_out(self) -> None:
-        self._zoom_factor = max(0.3, self._zoom_factor / 1.2)
+        self._zoom_is_fit = False
+        self._zoom_factor = max(0.05, self._zoom_factor / 1.2)
         self._apply_image_transformations()
 
     def _on_zoom_reset(self) -> None:
-        self._zoom_factor = 1.0
+        """« Ajuster à la fenêtre » : la plus grande échelle tenant dans le viewport."""
+        self._zoom_factor = self._fit_zoom_factor()
+        self._zoom_is_fit = True
         self._apply_image_transformations()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # Nom imposé par Qt.
+        """Recalcule l'ajustement à la fenêtre quand le viewport change de taille."""
+        super().resizeEvent(event)
+        if self._zoom_is_fit:
+            self._zoom_factor = self._fit_zoom_factor()
+            self._apply_image_transformations()
 
     def _on_rotate_clicked(self) -> None:
         if self.current_page:
@@ -420,17 +578,44 @@ class PageInspectorWidget(QWidget):
         show_toast(self, "Transcription enregistrée avec succès.")
 
     def _on_open_image_occlusion(self) -> None:
-        """Ouvre le dialogue Image Occlusion préchargé avec la page courante."""
-        if not self.current_page or not self.current_page.media:
+        """
+        Ouvre le dialogue Image Occlusion sur la planche **dans son orientation**.
+
+        C'est le seul site où une donnée, et non un simple affichage, dépendait de
+        l'orientation : les masques SVG sont cuits aux coordonnées relevées sur l'image
+        fournie. Passer le fichier brut produisait des masques en rapport avec une image
+        que l'utilisateur ne voit pas — une réponse à la mauvaise question, réutilisable
+        en l'état dans les cartes.
+        """
+        if not self.current_page:
             return
-        filename = self.current_page.media.filename
-        img_path = resolve_media_path(filename)
-        if not img_path.exists():
-            return
+
         from ankiforge.ui.dialogs.image_occlusion_dialog import ImageOcclusionDialog
 
-        dialog = ImageOcclusionDialog(image_path=img_path, parent=self.window())
-        dialog.exec()
+        with tempfile.TemporaryDirectory(prefix="ankiforge-occlusion-") as tmp_dir:
+            # Le chemin du média vient lui aussi de la couture : ce dialogue consume une
+            # donnée, et lire le fichier brut ici réintroduirait exactement le découplage
+            # que la couture vient de supprimer (et que le test de garde interdit).
+            media_path = self._album_service.page_media_path(self.current_page)
+            suffix = media_path.suffix or ".png"
+            # Le nom de la source est conservé : l'éditeur d'occlusion l'affiche en en-tête,
+            # et « planche.jpg » pour tous les albums ne nommait rien.
+            staged = Path(tmp_dir) / f"{media_path.stem}{suffix}"
+            try:
+                image = self._album_service.render_page_image(self.current_page)
+            except (FileNotFoundError, UnidentifiedImageError, OSError) as e:
+                logger.warning("Occlusion impossible : %s", e)
+                show_toast(self, "Image de la planche illisible.", is_error=True)
+                return
+            try:
+                from ankiforge.services.ai.ocr_service import save_rendered_page
+
+                save_rendered_page(image, staged, suffix)
+            finally:
+                image.close()
+
+            dialog = ImageOcclusionDialog(image_path=staged, parent=self.window())
+            dialog.exec()
 
 
 class AlbumViewerWidget(QWidget):
@@ -450,8 +635,13 @@ class AlbumViewerWidget(QWidget):
         self._pages: list[DocumentPageModel] = []
         self._current_inspect_index: int = 0
         self._ocr_worker: AlbumOCRWorker | None = None
+        self._pdf_worker: AlbumPDFWorker | None = None
         self._category_service = VisionCategoryService()
         self._album_service = AlbumService()
+        #: Catégorie de transcription choisie pour cet album. Mémorisée tant que
+        #: l'album est ouvert : la revigoter à « la première » à chaque transcription
+        #: ferait du choix une illusion.
+        self._selected_category_id: str = ""
 
         self._setup_ui()
 
@@ -491,6 +681,17 @@ class AlbumViewerWidget(QWidget):
         row1.addStretch()
 
         # Boutons d'action
+        # Sélecteur de catégorie de transcription (ticket S4).
+        # L'album utilisait toujours `categories[0]` : le choix existait dans l'onglet
+        # Moteurs IA, il était simplement inatteignable depuis l'album.
+        self.combo_category = QComboBox()
+        self.combo_category.setFixedWidth(180)
+        self.combo_category.setFixedHeight(28)
+        self.combo_category.setStyleSheet("font-size: 11px;")
+        self.combo_category.setToolTip("Catégorie de transcription : elle détermine le modèle de vision utilisé sur les planches")
+        self.combo_category.currentIndexChanged.connect(lambda _idx: self._on_category_changed())
+        row1.addWidget(self.combo_category)
+
         self.btn_ocr = SecondaryButton("Transcrire par Vision IA")
         self.btn_ocr.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
         self.btn_ocr.setToolTip("Lancer l'analyse et la transcription de l'album avec le modèle IA sélectionné")
@@ -577,6 +778,52 @@ class AlbumViewerWidget(QWidget):
         prog_layout.addWidget(self.btn_cancel_ocr)
 
         toolbar_vlayout.addWidget(self.progress_container)
+
+        # Ligne 3 (conditionnelle) : Barre de progression de la compilation PDF.
+        # Même forme de signal et même expérience que la transcription, dans la même barre
+        # d'outils : la compilation s'annonce et s'annule comme elle.
+        self.pdf_progress_container = QFrame()
+        self.pdf_progress_container.setVisible(False)
+        self.pdf_progress_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px;
+            }}
+        """)
+        pdf_prog_layout = QHBoxLayout(self.pdf_progress_container)
+        pdf_prog_layout.setContentsMargins(6, 4, 6, 4)
+        pdf_prog_layout.setSpacing(8)
+
+        self.lbl_pdf_progress = QLabel("Compilation PDF en cours...")
+        self.lbl_pdf_progress.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500;")
+        pdf_prog_layout.addWidget(self.lbl_pdf_progress)
+
+        self.pdf_progress_bar = QProgressBar()
+        self.pdf_progress_bar.setRange(0, 100)
+        self.pdf_progress_bar.setValue(0)
+        self.pdf_progress_bar.setFixedHeight(8)
+        self.pdf_progress_bar.setTextVisible(False)
+        self.pdf_progress_bar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {DesignTokens.BG_PANEL};
+                border-radius: 4px;
+                border: none;
+            }}
+            QProgressBar::chunk {{
+                background-color: {DesignTokens.COLOR_RED};
+                border-radius: 4px;
+            }}
+        """)
+        pdf_prog_layout.addWidget(self.pdf_progress_bar, 1)
+
+        self.btn_cancel_pdf = IconButton("ph.x", tooltip="Arrêter la compilation", size=20)
+        self.btn_cancel_pdf.clicked.connect(self._on_cancel_pdf)
+        pdf_prog_layout.addWidget(self.btn_cancel_pdf)
+
+        toolbar_vlayout.addWidget(self.pdf_progress_container)
+
         main_layout.addWidget(self.toolbar_card)
 
         # ── 2. Pile Centrale : Planche-Contact (0) vs Inspecteur (1) ───────────
@@ -614,6 +861,7 @@ class AlbumViewerWidget(QWidget):
         title = doc.original_media.original_name if doc.original_media else doc.title
         self.lbl_album_title.setText(title)
         self.stack.setCurrentIndex(0)
+        self._populate_category_combo()
         self.refresh_pages()
 
     def refresh_pages(self) -> None:
@@ -633,7 +881,9 @@ class AlbumViewerWidget(QWidget):
         self.pages_badge.setText(f"{total} page{'s' if total > 1 else ''}")
 
         for page in self._pages:
-            card = AlbumPageCard(page)
+            # Service partagé : une instance par carte ouvrirait N handles de média pour
+            # le même album, sans rien gagner puisque la couture est sans état.
+            card = AlbumPageCard(page, album_service=self._album_service)
             card.rotate_requested.connect(self._on_rotate_page)
             card.move_requested.connect(self._on_move_page)
             card.delete_requested.connect(self._on_delete_page)
@@ -647,7 +897,11 @@ class AlbumViewerWidget(QWidget):
             new_rotation = self._album_service.rotate_page(page_id, degrees=90)
             self.refresh_pages()
             if self.stack.currentIndex() == 1 and self.inspector.current_page and self.inspector.current_page.id == page_id:
-                self.inspector.load_page(self.inspector.current_page, len(self._pages))
+                # Rechargée **depuis la base** : `inspector.current_page` est l'instance
+                # d'avant la rotation, donc la couture y lirait l'ancienne orientation et
+                # son statut « prêt ». L'inspecteur affichait la planche non pivotée, et le
+                # bandeau « périmé » restait caché alors qu'il venait d'être déclenché.
+                self.inspector.load_page(DocumentPageModel.get_by_id(page_id), len(self._pages))
             if self._doc:
                 self.album_modified.emit(self._doc.id)
             show_toast(self, f"Page pivotée (actuellement {new_rotation}°).")
@@ -758,7 +1012,7 @@ class AlbumViewerWidget(QWidget):
 
     @Slot()
     def _on_compile_pdf(self) -> None:
-        """Compile l'album complet en un PDF de lecture."""
+        """Compile l'album complet en un PDF de lecture, dans un worker."""
         if not self._doc:
             return
 
@@ -771,12 +1025,153 @@ class AlbumViewerWidget(QWidget):
         if not out_path:
             return
 
-        try:
-            pdf_path = self._album_service.compile_album_to_pdf(self._doc.id, output_pdf_path=out_path)
-            show_toast(self, f"PDF généré avec succès : {Path(pdf_path).name}")
-        except Exception as e:
-            logger.exception("Erreur lors de la compilation PDF: %s", e)
-            show_toast(self, "Erreur lors de la compilation PDF.", is_error=True)
+        # La compilation ouvre chaque planche en pleine résolution : la faire ici gellerait
+        # l'interface sur tout album de taille réelle. Le worker est donc la moitié du
+        # correctif — l'autre moitié étant le nom de paramètre, qui levait un TypeError.
+        self.btn_compile_pdf.setEnabled(False)
+        # Voir `_on_start_ocr_flow` : deux workers écrivant en base ne doivent pas tourner
+        # en même temps.
+        self.btn_ocr.setEnabled(False)
+        self.pdf_progress_container.setVisible(True)
+        self.pdf_progress_bar.setValue(0)
+        self.lbl_pdf_progress.setText("Compilation du PDF...")
+
+        worker = AlbumPDFWorker(document_id=self._doc.id, output_path=out_path, album_service=self._album_service)
+        # La référence est lâchée sur `QThread.finished` (le signal de `QThread`, pas le
+        # nôtre) : la libérer dans un slot en file d'attente sur `finished_signal` pouvait
+        # détruire le `QThread` encore en cours de `run()`. `closeEvent` l'annule d'abord.
+        worker.finished.connect(worker.deleteLater)
+        worker.finished.connect(lambda: self._release_worker("pdf"))
+        self._pdf_worker = worker
+        self._pdf_worker.progress.connect(self._on_pdf_progress)
+        self._pdf_worker.finished_signal.connect(self._on_pdf_finished)
+        self._pdf_worker.cancelled_signal.connect(self._on_pdf_cancelled)
+        self._pdf_worker.error_signal.connect(self._on_pdf_error)
+        self._pdf_worker.start()
+
+    @Slot(int, int)
+    def _on_pdf_progress(self, current: int, total: int) -> None:
+        pct = int((current / max(1, total)) * 100)
+        self.pdf_progress_bar.setValue(pct)
+        self.lbl_pdf_progress.setText(f"Compilation : {current}/{total} planches ({pct}%)")
+
+    @Slot(str)
+    def _on_pdf_finished(self, output_path: str) -> None:
+        self._restore_pdf_controls()
+        show_toast(self, f"PDF généré avec succès : {Path(output_path).name}")
+
+    @Slot(int, int)
+    def _on_pdf_cancelled(self, done: int, total: int) -> None:
+        self._restore_pdf_controls()
+        show_toast(self, f"Compilation annulée ({done}/{total} planches).")
+
+    @Slot(str)
+    def _on_pdf_error(self, message: str) -> None:
+        self._restore_pdf_controls()
+        # Le motif est remonté : « erreur de compilation » sans raison laisse l'utilisateur
+        # deviner entre un disque plein, un chemin non inscriptible et un média manquant.
+        # Le chemin OCR fait déjà de même ; la compilation ne devait pas être le cas laxiste.
+        logger.error("Échec de la compilation PDF de l'album %s : %s", getattr(self._doc, "id", "?"), message)
+        show_toast(self, f"Erreur de compilation PDF : {message}", is_error=True)
+
+    @Slot()
+    def _on_cancel_pdf(self) -> None:
+        if self._pdf_worker:
+            self._pdf_worker.cancel()
+            self.lbl_pdf_progress.setText("Annulation en cours...")
+
+    @Slot()
+    def _release_worker(self, kind: str) -> None:
+        """
+        Lâche la référence Python du worker — sur le **vrai** `QThread.finished` seulement.
+
+        Les signaux métier (`finished_signal`, `cancelled_signal`, `error_signal`) sont émis
+        depuis `run()`, donc juste avant que le thread ne rende la main : y remettre
+        `self._xxx_worker = None` suffisait à laisser le wrapper Python être ramassé pendant
+        que le C++ tournait encore, ce qui produit le crash natif que ce mécanisme cherche
+        précisément à éviter.
+        """
+        if kind == "pdf":
+            self._pdf_worker = None
+        else:
+            self._ocr_worker = None
+        self._refresh_pdf_button_state()
+
+    def _restore_pdf_controls(self) -> None:
+        self.pdf_progress_container.setVisible(False)
+        # L'état des boutons est dérivé de la présence réelle des workers, pas posé en dur :
+        # poser « compilation activée » ici réactivait le bouton pendant qu'une transcription
+        # était encore en vol.
+        self._refresh_category_vision_state()
+        self._refresh_pdf_button_state()
+
+    def _populate_category_combo(self) -> None:
+        """
+        Remplit le sélecteur de catégorie depuis les catégories configurées.
+
+        Aucun concept nouveau : ce sont les mêmes catégories que celles de l'onglet
+        Moteurs IA. L'album utilisait `categories[0]` sans jamais proposer le choix —
+        le paramètre existait déjà, l'interface ne le remplissait pas.
+        """
+        categories = self._category_service.get_categories()
+        self.combo_category.blockSignals(True)
+        self.combo_category.clear()
+        for category in categories:
+            self.combo_category.addItem(category.name, category.id)
+        self.combo_category.blockSignals(False)
+
+        if not categories:
+            self._selected_category_id = ""
+        else:
+            # `findData` renvoie -1 quand la catégorie mémorisée a été supprimée entre-temps.
+            # On retombait alors sur un sélecteur **vide** dont l'absence de choix était
+            # résolue plus bas par `categories[0]` : l'utilisateur croyait transcrire avec
+            # sa catégorie, obtenait le modèle par défaut, et n'en savait rien.
+            index = self.combo_category.findData(self._selected_category_id)
+            if index < 0:
+                index = 0
+            self.combo_category.setCurrentIndex(index)
+            self._selected_category_id = str(self.combo_category.itemData(index))
+        self._refresh_category_vision_state()
+
+    def _current_category_id(self) -> str:
+        """
+        Catégorie choisie.
+
+        Ne se replie **que** sur ce que le sélecteur affiche effectivement : un repli
+        silencieux sur une catégorie par défaut donnerait un modèle que l'utilisateur n'a
+        pas choisi, ce que ce ticket existe précisément pour empêcher.
+        """
+        chosen = self.combo_category.currentData()
+        return str(chosen) if chosen else ""
+
+    def _on_category_changed(self) -> None:
+        self._selected_category_id = self._current_category_id()
+        self._refresh_category_vision_state()
+
+    def _refresh_category_vision_state(self) -> None:
+        """
+        Refuse la transcription quand la catégorie vise un moteur texte seul.
+
+        « La déclaration fait autorité » : le dépôt l'a déjà tranché pour le Studio de
+        Création et la Batch Factory, et l'album serait le seul endroit à l'ignorer —
+        l'utilisateur verrait alors la transcription échouer sans raison affichée.
+        """
+        category_id = self._current_category_id()
+        category = self._category_service.get_category_by_id(category_id) if category_id else None
+        if category is None:
+            self.btn_ocr.setEnabled(True)
+            self.btn_ocr.setToolTip("Lancer l'analyse et la transcription de l'album avec le modèle IA sélectionné")
+            return
+
+        supports_vision = self._category_service.category_declares_vision(category)
+        if supports_vision is False:
+            self.btn_ocr.setEnabled(False)
+            self.btn_ocr.setToolTip(f"{VISION_UNSUPPORTED_LABEL} : « {category.name} » pointe vers un moteur qui ne sait pas lire les planches.")
+            return
+
+        self.btn_ocr.setEnabled(True)
+        self.btn_ocr.setToolTip(f"Lancer l'analyse et la transcription de l'album avec « {category.name} »")
 
     @Slot()
     def _on_start_ocr_flow(self) -> None:
@@ -785,21 +1180,36 @@ class AlbumViewerWidget(QWidget):
             show_toast(self, "Aucune page à transcrire.", is_error=True)
             return
 
-        categories = self._category_service.get_categories()
-        cat_id = categories[0].id if categories else "structured"
+        category_id = self._current_category_id()
+        if not category_id:
+            show_toast(self, "Aucune catégorie de transcription configurée.", is_error=True)
+            return
+
+        self._selected_category_id = category_id
 
         self.btn_ocr.setEnabled(False)
+        # Les deux workers écrivent en base depuis leur propre thread. Les laisser
+        # concurrents les ferait sérialiser sur le verrou d'écriture de SQLite pendant
+        # toute la durée du plus lent, sans un mot à l'utilisateur : mieux vaut interdire
+        # le cas que l'annoncer.
+        self.btn_compile_pdf.setEnabled(False)
         self.progress_container.setVisible(True)
         self.ocr_progress_bar.setValue(0)
         self.lbl_progress_info.setText("Démarrage de la transcription IA...")
 
-        self._ocr_worker = AlbumOCRWorker(
+        worker = AlbumOCRWorker(
             document_id=self._doc.id,
-            category_id=cat_id,
+            category_id=category_id,
         )
+        # cf. `_on_compile_pdf` : la référence cède la place sur la fin **réelle** du
+        # thread, sinon le `QThread` est détruit alors que `run()` s'exécute encore.
+        worker.finished.connect(worker.deleteLater)
+        worker.finished.connect(lambda: self._release_worker("ocr"))
+        self._ocr_worker = worker
         self._ocr_worker.progress.connect(self._on_worker_progress)
         self._ocr_worker.page_processed.connect(self._on_worker_page_processed)
         self._ocr_worker.finished_signal.connect(self._on_worker_finished)
+        self._ocr_worker.cancelled_signal.connect(self._on_worker_cancelled)
         self._ocr_worker.error_signal.connect(self._on_worker_error)
         self._ocr_worker.start()
 
@@ -815,29 +1225,50 @@ class AlbumViewerWidget(QWidget):
         for i in range(self.grid_layout.count()):
             item = self.grid_layout.itemAt(i)
             if item and isinstance(item.widget(), AlbumPageCard) and item.widget().page.id == page_id:
-                item.widget().update_status(text)
+                # Le worker ne renvoie que le texte : la page concernée n'est plus périmée
+                # puisqu'elle vient d'être retranscrite, on le dit explicitement plutôt que
+                # de laisser un « stale » qui n'a plus d'objet.
+                item.widget().update_status(text, "ready")
                 break
 
     @Slot(int, int)
     def _on_worker_finished(self, success_count: int, error_count: int) -> None:
-        self.btn_ocr.setEnabled(True)
-        self.progress_container.setVisible(False)
-        self._ocr_worker = None
+        self._restore_ocr_controls()
 
-        msg = f"Transcription achevée : {success_count} pages transcrites."
-        if error_count > 0:
-            msg += f" ({error_count} erreurs)"
-        show_toast(self, msg, is_error=(success_count == 0 and error_count > 0))
+        # Le compte rendu nomme ce qui a échoué au lieu de valider un « terminé » : un album
+        # dont toutes les planches ont échoué ne doit pas s'annoncer comme transcrit.
+        if error_count and success_count == 0:
+            show_toast(self, f"Transcription en échec : {error_count} page(s) sans résultat exploitable.", is_error=True)
+        elif error_count:
+            show_toast(self, f"Transcription partielle : {success_count} page(s) transcribed, {error_count} en échec.", is_error=True)
+        else:
+            show_toast(self, f"Transcription achevée : {success_count} page(s) transcrites.")
 
         if self._doc:
             self.album_modified.emit(self._doc.id)
 
+    @Slot(int, int)
+    def _on_worker_cancelled(self, done: int, total: int) -> None:
+        self._restore_ocr_controls()
+        show_toast(self, f"Transcription interrompue : {done}/{total} page(s) traitées.")
+
     @Slot(str)
     def _on_worker_error(self, message: str) -> None:
-        self.btn_ocr.setEnabled(True)
-        self.progress_container.setVisible(False)
-        self._ocr_worker = None
+        self._restore_ocr_controls()
         show_toast(self, f"Erreur transcription : {message}", is_error=True)
+
+    def _restore_ocr_controls(self) -> None:
+        self.progress_container.setVisible(False)
+        # Réactivé via la politique Vision et non inconditionnellement : si la catégorie
+        # visée ne sait pas lire les planches, le bouton doit rester désactivé.
+        self._refresh_category_vision_state()
+        self._refresh_pdf_button_state()
+
+    def _refresh_pdf_button_state(self) -> None:
+        if self._doc is None:
+            self.btn_compile_pdf.setEnabled(False)
+            return
+        self.btn_compile_pdf.setEnabled(self._ocr_worker is None and self._pdf_worker is None)
 
     @Slot()
     def _on_cancel_ocr(self) -> None:
@@ -849,3 +1280,32 @@ class AlbumViewerWidget(QWidget):
     def _on_forge_clicked(self) -> None:
         if self._doc:
             self.forge_requested.emit(self._doc.id)
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # Nom imposé par Qt.
+        """
+        Annule les workers en vol avant de laisser la vue disparaître.
+
+        Un `QThread` détruit alors que `run()` s'exécute provoke un crash natif, pas une
+        exception Python : fermer la vue en pleine transcription ou en pleine compilation
+        devait donc être traité, pas espéré. `wait()` est borné — les workers testent leur
+        drapeau d'annuation entre deux planches, donc ils sortent vite.
+        """
+        still_running = []
+        for worker in (self._ocr_worker, self._pdf_worker):
+            if worker is None or not worker.isRunning():
+                continue
+            worker.cancel()
+            if not worker.wait(3000):
+                still_running.append(worker)
+
+        if still_running:
+            # Annoncer une destruction reportée ne la reportait pas : l'événement passait,
+            # la vue se détruisait quand même, et le QThread mourait avec elle. La
+            # fermeture est donc refusée tant qu'un worker tourne, et l'utilisateur
+            # refera la fenêtre une fois l'annulation terminée.
+            logger.warning("Worker d'album encore actif après 3 s : fermeture refusée pour éviter un crash natif.")
+            show_toast(self, "Annulation en cours : refermez la fenêtre à nouveau dans un instant.", is_error=True)
+            event.ignore()
+            return
+
+        super().closeEvent(event)

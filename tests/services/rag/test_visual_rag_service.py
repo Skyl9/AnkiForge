@@ -1,6 +1,10 @@
 """Tests unitaires pour VisualRAGService et l'indexation sémantique dense multimodale."""
 
+import base64
+import io
+
 import pytest
+from PIL import Image
 
 from ankiforge.database.models import (
     DocumentChunkModel,
@@ -31,14 +35,21 @@ class FakeVisionProvider(LLMProvider):
 
 @pytest.fixture
 def test_album_doc(mock_db, tmp_path):
-    """Crée un album de test avec 2 pages associées à des médias réels."""
+    """
+    Crée un album de test avec 2 pages associées à des médias réels.
+
+    Les images sont de **vraies** planches lisibles : depuis la couture (ADR 0011), la
+    planche est décodée puis rendue avant d'atteindre le modèle. Un fichier PNG factice
+    ne passerait pas la couture, et le teste ce qui compte — que le fragment décrit la
+    planche, pas que le chemin existe.
+    """
     media_mgr = MediaManager()
     media_mgr.media_dir = tmp_path / "media"
     media_mgr.media_dir.mkdir(parents=True, exist_ok=True)
     img1 = tmp_path / "slide_1.png"
     img2 = tmp_path / "slide_2.png"
-    img1.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
-    img2.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
+    Image.new("RGB", (80, 60), color=(200, 200, 200)).save(img1)
+    Image.new("RGB", (80, 60), color=(120, 120, 120)).save(img2)
 
     with db.atomic():
         doc = DocumentModel.create(title="Atlas d'Histologie", file_type="album", total_pages=2)
@@ -113,6 +124,94 @@ def test_prepare_visual_chunks_album(test_album_doc):
     refreshed_doc = DocumentModel.get_by_id(doc.id)
     assert "<!-- PAGE: 1 -->" in (refreshed_doc.content or "")
     assert "<!-- PAGE: 2 -->" in (refreshed_doc.content or "")
+
+
+@pytest.mark.integration
+def test_prepare_visual_chunks_recomputes_a_single_page(test_album_doc):
+    """
+    Une planche peut être recalculée seule, sans recalcul de l'album entier.
+
+    C'est la condition pour que la rotation d'une planche ne condamne pas l'index à
+    être reconstruit en entier — le seul choix restant étant de laisser la planche
+    définitivement périmée.
+    """
+    doc = test_album_doc["doc"]
+    media_mgr = test_album_doc["media_mgr"]
+
+    service = VisualRAGService(media_manager=media_mgr)
+    service.prepare_visual_chunks(document=doc, provider_override=FakeVisionProvider(description="Description initiale."))
+
+    # La planche 2 est pivotée : son fragment devient périmé (cf. AlbumService.rotate_page).
+    page2 = DocumentPageModel.get_by_id(test_album_doc["pages"][1].id)
+    page2.rotation = 90
+    page2.ocr_text = ""
+    page2.status = "stale"
+    page2.save()
+    DocumentChunkModel.delete().where((DocumentChunkModel.document == doc) & (DocumentChunkModel.page_number == 2)).execute()
+
+    # Recalcul ciblé : seul le fragment de la planche 2 doit être régénéré.
+    provider = FakeVisionProvider(description="Description après redressement.")
+    chunks = service.prepare_visual_chunks(
+        document=doc,
+        page_numbers=[2],
+        provider_override=provider,
+    )
+
+    assert [c.page_number for c in chunks] == [2]
+    assert len(provider.called_with) == 1
+    assert "Description après redressement" in chunks[0].content
+
+    # Le fragment de la planche 1 est resté intact — il n'a pas été recalculé.
+    assert DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & (DocumentChunkModel.page_number == 1)).count() == 1
+
+
+@pytest.mark.integration
+def test_prepare_visual_chunks_describes_the_rotated_planche(tmp_path):
+    """
+    La description dense décrit la planche **dans son orientation**.
+
+    Décrire l'orientation opposée produit un fragment qui répond à la mauvaise question
+    et se retrouve indexé comme s'il était exact.
+    """
+    media_mgr = MediaManager()
+    media_mgr.media_dir = tmp_path / "media"
+    media_mgr.media_dir.mkdir(parents=True, exist_ok=True)
+
+    img = Image.new("RGB", (120, 60), color="white")
+    for x in range(40):
+        for y in range(20):
+            img.putpixel((x, y), (0, 0, 255))
+    src = tmp_path / "planche.png"
+    img.save(src)
+
+    with db.atomic():
+        doc = DocumentModel.create(title="Planche dense", file_type="album", total_pages=1)
+        media = media_mgr.store_document_source(str(src))
+        assert media is not None
+        # La planche existe pour sa persistance : c'est elle que le service relit, donc
+        # la rotation testée est bien celle stockée en base et pas celle d'un objet en mémoire.
+        DocumentPageModel.create(document=doc, media=media, page_number=1, rotation=90, ocr_text="")
+
+    seen: list[Image.Image] = []
+
+    class OrientationSpyProvider(LLMProvider):
+        def generate(self, system_prompt: str, user_prompt: str | list[dict], response_format: str = "text") -> str:
+            payload = user_prompt if isinstance(user_prompt, list) else [user_prompt]
+            for part in payload:
+                if isinstance(part, dict) and part.get("type") == "image_url":
+                    encoded = part["image_url"]["url"].split(",", 1)[1]
+                    seen.append(Image.open(io.BytesIO(base64.b64decode(encoded))))
+            return "Description de la planche redressée."
+
+    service = VisualRAGService(media_manager=media_mgr)
+    service.prepare_visual_chunks(document=doc, provider_override=OrientationSpyProvider())
+
+    assert len(seen) == 1
+    try:
+        assert seen[0].height > seen[0].width
+    finally:
+        for opened in seen:
+            opened.close()
 
 
 @pytest.mark.integration

@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import logging
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import markdown
+from PIL import UnidentifiedImageError
 from PySide6.QtCore import QEvent, Qt, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QPixmap, QTextCursor
+from PySide6.QtGui import QCloseEvent, QImage, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -30,6 +32,9 @@ from ankiforge.ui.components import (
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import resolve_media_path
+
+if TYPE_CHECKING:
+    from ankiforge.database.models import DocumentPageModel
 
 logger = logging.getLogger(__name__)
 
@@ -120,10 +125,15 @@ class AlbumPageMiniWidget(QFrame):
     def __init__(
         self,
         page_num: int,
-        media_path: Path | None,
+        page_image: QImage | None,
         snippet: str,
         parent: QWidget | None = None,
     ) -> None:
+        """
+        `page_image` vient de la couture (`AlbumService.render_page_qimage`) et non d'un
+        chemin de fichier : recevoir un chemin ici rendait l'orientation de la planche à la
+        charge de l'appelant, donc facultative et donc perdue en silence (ADR 0011).
+        """
         super().__init__(parent)
         self.page_num = page_num
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -148,12 +158,8 @@ class AlbumPageMiniWidget(QFrame):
         self.img_lbl.setFixedSize(168, 112)
         self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_lbl.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT}; border-radius: {DesignTokens.RADIUS_SM}px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        if media_path and media_path.exists():
-            pix = QPixmap(str(media_path))
-            if not pix.isNull():
-                self.img_lbl.setPixmap(pix.scaled(168, 112, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-            else:
-                self.img_lbl.setPixmap(load_phosphor_icon("ph.image", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
+        if page_image is not None and not page_image.isNull():
+            self.img_lbl.setPixmap(QPixmap.fromImage(page_image).scaled(168, 112, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else:
             self.img_lbl.setPixmap(load_phosphor_icon("ph.image", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
         layout.addWidget(self.img_lbl)
@@ -203,6 +209,10 @@ class DocumentEditorWidget(QWidget):
     album_page_selected = Signal(int)
     edit_scope_requested = Signal()
     clear_scope_requested = Signal()
+
+    #: Plafond de rendu des vignettes de galerie : la carte fait 168 px de large, on ne
+    #: decode donc jamais une planche géante pour l'afficher en vignette.
+    ALBUM_THUMBNAIL_PX = 480
 
     def __init__(self, content: str = "", source_title: str = "Saisie Libre", doc_model: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -467,6 +477,26 @@ class DocumentEditorWidget(QWidget):
 
         self.set_content(content)
 
+    def _album_page_image(self, page: DocumentPageModel) -> QImage | None:
+        """
+        Rend la planche par la couture, pour la taille d'une vignette de galerie.
+
+        Le plafond évite d'ouvrir 200 planches en pleine résolution pour une grille de
+        168 px : la galerie était le dernier endroit où le coût ne dépendait pas de la
+        taille de l'album.
+        """
+        from ankiforge.services.cards.album_service import AlbumService
+
+        try:
+            return AlbumService().render_page_qimage(page, max_size=self.ALBUM_THUMBNAIL_PX)
+        except FileNotFoundError:
+            logger.debug("Planche %d sans image : vignette de galerie ignorée", page.id)
+        except UnidentifiedImageError:
+            logger.warning("Planche %d : image illisible, vignette de galerie ignorée", page.id)
+        except Exception as err:
+            logger.warning("Vignette de planche %d non disponible : %s", page.id, err)
+        return None
+
     def _init_album_container(self) -> None:
         """Initialise la galerie miniature des planches d'album."""
         try:
@@ -498,9 +528,12 @@ class DocumentEditorWidget(QWidget):
 
             cols = 3
             for i, page in enumerate(pages):
-                media_path = resolve_media_path(page.media.filename) if (page.media and page.media.filename) else None
                 desc = page.ocr_text or visual_chunks.get(page.page_number, "")
-                card = AlbumPageMiniWidget(page_num=page.page_number, media_path=media_path, snippet=desc)
+                # La couture applique la rotation : la galerie du Studio montrait sinon
+                # des planches couchées, alors que la planche-contact de l'album les
+                # montrait droit. Même album, deux orientations, sans aucun conflit.
+                page_image = self._album_page_image(page)
+                card = AlbumPageMiniWidget(page_num=page.page_number, page_image=page_image, snippet=desc)
                 card.clicked.connect(self._on_album_mini_card_clicked)
                 self._album_cards[page.page_number] = card
                 album_grid.addWidget(card, i // cols, i % cols)

@@ -6,7 +6,13 @@ import pytest
 from PIL import Image
 from pypdf import PdfReader
 
-from ankiforge.database.models import DocumentModel, DocumentPageModel, FolderModel, MediaModel
+from ankiforge.database.models import (
+    DocumentChunkModel,
+    DocumentModel,
+    DocumentPageModel,
+    FolderModel,
+    MediaModel,
+)
 from ankiforge.services.cards.album_service import AlbumService, extract_exif_timestamp, natural_sort_key
 from ankiforge.services.cards.media_manager import MediaManager
 
@@ -113,6 +119,38 @@ def test_create_album_validation(tmp_path: Path):
         service.create_album_from_images("   ", [img])
 
 
+def _create_witness_image(path: Path, width: int = 120, height: int = 60) -> Path:
+    """
+    Image témoin : un rectangle bleu dans le coin haut-gauche sur fond blanc.
+
+    La position du témoin permet d'affirmer *où* se trouve la matière après
+    rotation, là où un simple contrôle de dimensions prouverait seulement que
+    quelque chose a bougé.
+    """
+    img = Image.new("RGB", (width, height), color="white")
+    for x in range(0, width // 3):
+        for y in range(0, height // 3):
+            img.putpixel((x, y), (0, 0, 255))
+    img.save(path)
+    return path
+
+
+def _touched_corner(img: Image.Image) -> str:
+    """
+    Renvoie le coin portant la matière colorée, témoin de l'orientation.
+
+    On discrimine par la composante **rouge** : le témoin bleu vaut 0 là où le fond blanc
+    vaut 255, alors que la composante bleue vaudrait 255 dans les deux cas.
+    """
+    corners = {
+        "top_left": img.getpixel((2, 2)),
+        "top_right": img.getpixel((img.width - 3, 2)),
+        "bottom_left": img.getpixel((2, img.height - 3)),
+        "bottom_right": img.getpixel((img.width - 3, img.height - 3)),
+    }
+    return min(corners, key=lambda name: corners[name][0])
+
+
 def test_rotate_page(tmp_path: Path):
     """Vérifie la rotation d'une page par paliers de 90°."""
     service = AlbumService()
@@ -128,6 +166,107 @@ def test_rotate_page(tmp_path: Path):
 
     p3 = service.rotate_page(page.id, 180)
     assert p3.rotation == 0
+
+
+def test_render_page_image_honours_rotation(tmp_path: Path):
+    """
+    La couture rend la planche à l'orientation de la page : le témoin suit la rotation,
+    et non seulement les dimensions.
+    """
+    service = AlbumService()
+    img = _create_witness_image(tmp_path / "witness.png")
+    doc = service.create_album_from_images("Witness", [img], sort_mode="none")
+    page = service.get_album_pages(doc.id)[0]
+
+    # Rotation 0 : le témoin est en haut à gauche.
+    rendered = service.render_page_image(page)
+    assert (rendered.width, rendered.height) == (120, 60)
+    assert _touched_corner(rendered) == "top_left"
+    rendered.close()
+
+    # 90° horaire : le témoin passe en haut à droite, la planche bascule en portrait.
+    page = service.rotate_page(page.id, 90)
+    rendered = service.render_page_image(page)
+    assert (rendered.width, rendered.height) == (60, 120)
+    assert _touched_corner(rendered) == "top_right"
+    rendered.close()
+
+    # 180° : le témoin rejoint le coin opposé.
+    page = service.rotate_page(page.id, 90)
+    rendered = service.render_page_image(page)
+    assert (rendered.width, rendered.height) == (120, 60)
+    assert _touched_corner(rendered) == "bottom_right"
+    rendered.close()
+
+    # 270° : retour au portrait, témoin en bas à gauche.
+    page = service.rotate_page(page.id, 90)
+    rendered = service.render_page_image(page)
+    assert (rendered.width, rendered.height) == (60, 120)
+    assert _touched_corner(rendered) == "bottom_left"
+    rendered.close()
+
+
+def test_render_page_image_never_rewrites_the_file(tmp_path: Path):
+    """
+    Une rotation est une règle, pas une réécriture : le fichier image sur disque garde
+    son empreinte. Deux planches pouvant partager un même fichier (déduplication MD5),
+    l'écrire à la lecture aurait aussi fait pivoter la planche voisine.
+    """
+    service = AlbumService()
+    img = _create_witness_image(tmp_path / "immutable.png")
+    doc = service.create_album_from_images("Immutable", [img], sort_mode="none")
+    page = service.get_album_pages(doc.id)[0]
+    media_file = service.media_manager.media_dir / page.media.filename
+    checksum_before = MediaManager._calculate_md5(str(media_file))
+
+    for _ in range(4):
+        rendered = service.render_page_image(page)
+        rendered.close()
+        service.rotate_page(page.id, 90)
+
+    assert MediaManager._calculate_md5(str(media_file)) == checksum_before
+
+
+def test_rotate_page_invalidates_derived_state(tmp_path: Path):
+    """
+    Changer l'orientation périme l'état dérivé : la transcription servie jusqu'alors
+    décrit une planche dans une orientation qui n'est plus celle de la planche.
+    """
+    service = AlbumService()
+    img = _create_witness_image(tmp_path / "derived.png")
+    doc = service.create_album_from_images("Derived", [img], sort_mode="none")
+    page = service.get_album_pages(doc.id)[0]
+    page.ocr_text = "Transcription de la planche avant rotation"
+    page.status = "ready"
+    page.save()
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        content="description dense indexée avant rotation",
+        content_hash="hash-avant-rotation",
+        page_number=1,
+        heading_path="Page 1",
+        media=page.media,
+    )
+
+    rotated = service.rotate_page(page.id, 90)
+
+    assert rotated.rotation == 90
+    assert rotated.ocr_text == ""
+    assert rotated.status == "stale"
+    assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count() == 0
+
+
+def test_render_page_image_raises_on_missing_media(tmp_path: Path):
+    """Une planche sans fichier image est un défaut de saisie, pas une image vide."""
+    service = AlbumService()
+    img = _create_witness_image(tmp_path / "gone.png")
+    doc = service.create_album_from_images("Gone", [img], sort_mode="none")
+    page = service.get_album_pages(doc.id)[0]
+    (service.media_manager.media_dir / page.media.filename).unlink()
+
+    with pytest.raises(FileNotFoundError):
+        service.render_page_image(page)
 
 
 def test_reorder_pages(tmp_path: Path):

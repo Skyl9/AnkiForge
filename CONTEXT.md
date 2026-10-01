@@ -27,6 +27,17 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Sous-dossier** : dossier rattaché à un dossier parent, dont le nom canonique est préfixé par le chemin hiérarchique du parent suivi du séparateur `::`.
 - **Surface documentaire** : ensemble cohérent des interactions permettant de sélectionner, importer, structurer, consulter, délimiter, indexer ou auditer un document. Une surface peut traverser plusieurs vues, widgets et dialogues.
 
+## Albums & Planches
+
+- **Album** : document dont chaque page est une **planche** — une image — et non du texte extractible. Il se consulte planche par planche, se transcrit, s'indexe et se compile, mais ne se découpe pas en sections.
+  _Avoid_ : livre d'image, livre d'images, scan, PDF image, document visuel
+- **Planche** : page d'un album, désignée par son image et son orientation. Elle porte un **état dérivé** — transcription, description dense — et une rotation qui lui est propre.
+  _Avoid_ : image, page, illustration, vignette
+- **Rotation de planche** : orientation durable d'une planche (`0`/`90`/`180`/`270°`), propriété de la planche et non de son affichage. Elle est appliquée **à la lecture** par une couture unique et n'est jamais inscrite dans le fichier image.
+  _Avoid_ : orientation, EXIF, rotation d'affichage, redressement
+- **État dérivé** : contenu produit à partir d'une planche — sa transcription, sa description dense — et **périmé** dès que la planche change. Une planche porteuse d'un état dérivé périmé le dit, plutôt que de servir un contenu faux : un état absent se voit et se corrige, un état périmé se constate trop tard.
+  _Avoid_ : cache, index, données dérivées, transcription
+
 ## Provenance & Couverture
 
 - **Fil d'Ariane (heading path)** : la suite ordonnée des titres traversés pour atteindre un point du document, de la racine à la section. C'est l'identité d'une section.
@@ -36,8 +47,16 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Lien de couverture** : l'association entre une note et un fragment de document, porteuse de la mention du fragment et du palier de résolution qui l'a désignée.
 - **Palier de résolution** : l'un des quatre régimes de désignation d'un fragment, par ordre de préférence décroissante — `exact` (identité), `section` (fil d'Ariane), `page` (numéro), `lexical` (recouvrement de contenu). Un palier n'abandonne que sur échec, jamais parce qu'une autre route est présente. Il est persisté pour rendre un lien **prouvé** indiscernable d'un lien seulement **présumé**.
 - **Couverture** : la part des fragments d'un document effectivement désignés par au moins une carte. Une carte non rattachée est laissée **hors couverture** plutôt que rattachée hors de sa partie : un faux lien est plus trompeur que son absence.
-- **Conteneur structural** : fragment d'un document dont le contenu textuel est insuffisant (< 25 mots hors titres) pour justifier la création de flashcards, mais qui sert de nœud d'organisation pour des sous-sections substantielles. Un conteneur structural est neutre dans le calcul de couverture : il n'est ni un trou, ni une section couverte, ni une section exclue. Il est affiché comme un nœud collapsible dans l'inspecteur documentaire.
+- **Conteneur structural** : portion de document dont le contenu textuel ne justifie pas la création de flashcards, mais qui sert de nœud d'organisation pour des sous-sections substantielles. Un conteneur structural est **neutre** dans le calcul de couverture : il n'est ni un trou, ni une section couverte, ni une section écartée. Il est affiché comme un nœud collapsible dans l'inspecteur documentaire. Son **origine** est *Dérivée* ou *Déclarée*.
   _Avoid_ : section vide, titre fantôme, heading stub
+- **Origine du conteneur structural** : l'axe qui distingue le conteneur *Dérivé* — reconnu automatiquement par l'insuffisance de son texte — du conteneur *Déclaré*, désigné par l'utilisateur. Le seuil de 25 mots n'est un critère que pour l'origine *Dérivée* ; pour l'origine *Déclarée*, il n'est qu'une **aide à la déclaration**, jamais une règle de calcul.
+  _Avoid_ : type, catégorie, mode de conteneur
+- **Adresse de région** : l'une des trois façons durables de désigner une portion d'un document — son **nœud** (le contenu propre d'un titre, distinct de sa lignée), sa **lignée** (le nœud et tous ses descendants), ou sa **page**. Une adresse est réévaluée à chaque réingestion : elle ne mémorise jamais l'identité d'un fragment.
+  _Avoid_ : exclusion de section, filtre de page, sélection
+- **Écarter** : retirer une région du document — elle ne participe plus ni aux générations, ni à la couverture, ni au rattachement des cartes. L'écartement est **non destructif** : la région demeure consultable et réintégrable.
+  _Avoid_ : supprimer, retirer, exclure
+- **Neutraliser** : retirer une région du dénominateur de la couverture sans la retirer du document. C'est ce qu'accomplit déjà un conteneur structural, mais **décidé** par l'utilisateur plutôt que dérivé.
+  _Avoid_ : masquer, ignorer, exclure
 - **Réparation de provenance** : réécriture automatique, lors d'une synchronisation, des tags de provenance obsolètes vers leur forme canonique, sans migration de données.
 
 ## Thèmes, Layouts & Design System

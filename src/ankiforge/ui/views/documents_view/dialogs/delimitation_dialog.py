@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 import markdown
 from peewee import fn
+from PIL import UnidentifiedImageError
 from PySide6.QtCore import QPointF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
@@ -1001,6 +1002,11 @@ class DocumentPreviewWidget(QWidget):
 
     page_scope_toggled = Signal(int, bool)
 
+    #: Plafond de décodage de l'aperçu. Un album de 200 planches en pleine résolution
+    #: coûterait des secondes de gel pour un cadre de 700 px : le rendu est borné.
+    ALBUM_PREVIEW_PX = 1400
+    ALBUM_PREVIEW_W_PX = 700
+
     def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.doc = doc
@@ -1743,11 +1749,19 @@ class DocumentPreviewWidget(QWidget):
             )
             .first()
         )
-        if page_rec and page_rec.media:
-            img_path = resolve_media_path(page_rec.media.filename)
-            if img_path.exists():
-                pix = QPixmap(str(img_path))
-                self.image_label.setPixmap(pix.scaledToWidth(700, Qt.TransformationMode.SmoothTransformation))
+        if page_rec:
+            # La délimitation doit montrer la planche telle qu'elle sera compilée : la
+            # borne choisie sur une image couchée vaut sur une image dressée (ADR 0011).
+            from ankiforge.services.cards.album_service import AlbumService
+
+            try:
+                image = AlbumService().render_page_qimage(page_rec, max_size=self.ALBUM_PREVIEW_PX)
+            except FileNotFoundError:
+                logger.debug("Planche %d sans image : aperçu ignoré", page_num)
+            except UnidentifiedImageError:
+                logger.warning("Planche %d : image illisible, aperçu ignoré", page_num)
+            else:
+                self.image_label.setPixmap(QPixmap.fromImage(image).scaledToWidth(self.ALBUM_PREVIEW_W_PX, Qt.TransformationMode.SmoothTransformation))
 
 
 class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):

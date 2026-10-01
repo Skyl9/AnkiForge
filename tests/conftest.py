@@ -238,6 +238,16 @@ def cleanup_qt_widgets():
         if StyleEngine._instance is not None:
             StyleEngine._instance.clear_custom_library()
 
+    # Le cache de vignettes est un singleton de **processus**, et sa clé s'appuie sur
+    # `media_id` : or chaque test repart d'une base neuve où le premier média porte
+    # toujours l'id 1. Sans cette remise à zéro, la vignette rendue par un test était
+    # servie telle quelle à un autre test dont la planche avait la même clé — un échec
+    # qui ne se reproduisait qu'en-suite complète, jamais isolé.
+    with contextlib.suppress(Exception):
+        from ankiforge.ui.views.documents_view.widgets.album_thumbnails import GLOBAL_THUMBNAIL_CACHE
+
+        GLOBAL_THUMBNAIL_CACHE.clear()
+
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Garantit que 100% des tests possèdent au moins un marqueur primaire (unit, integration, ui)
