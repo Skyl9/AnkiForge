@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import DocumentModel, DocumentPageModel
+from ankiforge.services.ai.album_transcription_types import AlbumTranscriptionOptions
 from ankiforge.services.ai.vision_category_service import VisionCategoryService
 from ankiforge.services.cards.album_service import AlbumService
 from ankiforge.services.workers.album_worker import AlbumOCRWorker, AlbumPDFWorker
@@ -638,10 +639,9 @@ class AlbumViewerWidget(QWidget):
         self._pdf_worker: AlbumPDFWorker | None = None
         self._category_service = VisionCategoryService()
         self._album_service = AlbumService()
-        #: Catégorie de transcription choisie pour cet album. Mémorisée tant que
-        #: l'album est ouvert : la revigoter à « la première » à chaque transcription
-        #: ferait du choix une illusion.
         self._selected_category_id: str = ""
+        self._last_transcription_options: AlbumTranscriptionOptions | None = None
+        self._failed_page_ids: list[int] = []
 
         self._setup_ui()
 
@@ -681,23 +681,23 @@ class AlbumViewerWidget(QWidget):
         row1.addStretch()
 
         # Boutons d'action
-        # Sélecteur de catégorie de transcription (ticket S4).
-        # L'album utilisait toujours `categories[0]` : le choix existait dans l'onglet
-        # Moteurs IA, il était simplement inatteignable depuis l'album.
+        # Sélecteur de catégorie conservé pour compatibilité mais masqué de la barre (ADR 0012)
         self.combo_category = QComboBox()
         self.combo_category.setFixedWidth(180)
         self.combo_category.setFixedHeight(28)
         self.combo_category.setStyleSheet("font-size: 11px;")
         self.combo_category.setToolTip("Catégorie de transcription : elle détermine le modèle de vision utilisé sur les planches")
         self.combo_category.currentIndexChanged.connect(lambda _idx: self._on_category_changed())
+        self.combo_category.setVisible(False)
         row1.addWidget(self.combo_category)
 
-        self.btn_ocr = SecondaryButton("Transcrire par Vision IA")
+        self.btn_ocr = SecondaryButton("Transcrire l'album…")
         self.btn_ocr.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
-        self.btn_ocr.setToolTip("Lancer l'analyse et la transcription de l'album avec le modèle IA sélectionné")
+        self.btn_ocr.setToolTip("Configurer et lancer la transcription de l'album")
         self.btn_ocr.setFixedHeight(28)
         self.btn_ocr.setStyleSheet(f"font-size: 11px; padding: 3px 10px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        self.btn_ocr.clicked.connect(self._on_start_ocr_flow)
+        self.btn_ocr.clicked.connect(self._on_open_transcription_dialog)
+        self.btn_open_transcription = self.btn_ocr
         row1.addWidget(self.btn_ocr)
 
         self.btn_rag = SecondaryButton("RAG Visuel")
@@ -772,6 +772,14 @@ class AlbumViewerWidget(QWidget):
             }}
         """)
         prog_layout.addWidget(self.ocr_progress_bar, 1)
+
+        self.btn_retry_failures = SecondaryButton("Relancer les échecs")
+        self.btn_retry_failures.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_RED))
+        self.btn_retry_failures.setFixedHeight(22)
+        self.btn_retry_failures.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.COLOR_RED}; color: {DesignTokens.COLOR_RED};")
+        self.btn_retry_failures.setVisible(False)
+        self.btn_retry_failures.clicked.connect(self._on_retry_failures)
+        prog_layout.addWidget(self.btn_retry_failures)
 
         self.btn_cancel_ocr = IconButton("ph.x", tooltip="Arrêter la transcription", size=20)
         self.btn_cancel_ocr.clicked.connect(self._on_cancel_ocr)
@@ -1174,13 +1182,56 @@ class AlbumViewerWidget(QWidget):
         self.btn_ocr.setToolTip(f"Lancer l'analyse et la transcription de l'album avec « {category.name} »")
 
     @Slot()
-    def _on_start_ocr_flow(self) -> None:
+    def _on_open_transcription_dialog(self) -> None:
+        """Ouvre le dialogue modal dédié à la transcription de l'album."""
+        if not self._doc or not self._pages:
+            show_toast(self, "Aucune planche à transcrire dans cet album.", is_error=True)
+            return
+
+        from ankiforge.ui.dialogs.album_transcription_dialog import AlbumTranscriptionDialog
+
+        dialog = AlbumTranscriptionDialog(
+            doc=self._doc,
+            parent=self.window(),
+            category_service=self._category_service,
+        )
+        dialog.transcription_requested.connect(self._on_transcription_options_confirmed)
+        dialog.exec()
+
+    @Slot(object)
+    def _on_transcription_options_confirmed(self, options: AlbumTranscriptionOptions) -> None:
+        """Reçoit les options validées depuis le dialogue et déclenche le worker."""
+        self._last_transcription_options = options
+        self._on_start_ocr_flow(options=options)
+
+    @Slot()
+    def _on_retry_failures(self) -> None:
+        """Relance immédiatement la transcription sur les seules planches en échec."""
+        if not self._doc or not self._failed_page_ids:
+            return
+
+        from dataclasses import replace
+
+        failed_ids = list(self._failed_page_ids)
+        self.btn_retry_failures.setVisible(False)
+
+        opts: AlbumTranscriptionOptions | None = None
+        if self._last_transcription_options:
+            opts = replace(self._last_transcription_options, target_page_ids=failed_ids, scope_mode="custom")
+
+        self._on_start_ocr_flow(options=opts, page_ids_override=failed_ids)
+
+    def _on_start_ocr_flow(
+        self,
+        options: AlbumTranscriptionOptions | None = None,
+        page_ids_override: list[int] | None = None,
+    ) -> None:
         """Déclenche la transcription IA asynchrone des pages de l'album."""
         if not self._doc or not self._pages:
             show_toast(self, "Aucune page à transcrire.", is_error=True)
             return
 
-        category_id = self._current_category_id()
+        category_id = options.category_id if options else self._current_category_id()
         if not category_id:
             show_toast(self, "Aucune catégorie de transcription configurée.", is_error=True)
             return
@@ -1195,11 +1246,20 @@ class AlbumViewerWidget(QWidget):
         self.btn_compile_pdf.setEnabled(False)
         self.progress_container.setVisible(True)
         self.ocr_progress_bar.setValue(0)
+        self.btn_retry_failures.setVisible(False)
         self.lbl_progress_info.setText("Démarrage de la transcription IA...")
 
-        worker = AlbumOCRWorker(
-            document_id=self._doc.id,
-            category_id=category_id,
+        worker = (
+            AlbumOCRWorker(
+                document_id=self._doc.id,
+                options=options,
+            )
+            if options is not None
+            else AlbumOCRWorker(
+                document_id=self._doc.id,
+                category_id=category_id,
+                page_ids=page_ids_override,
+            )
         )
         # cf. `_on_compile_pdf` : la référence cède la place sur la fin **réelle** du
         # thread, sinon le `QThread` est détruit alors que `run()` s'exécute encore.
@@ -1235,12 +1295,22 @@ class AlbumViewerWidget(QWidget):
     def _on_worker_finished(self, success_count: int, error_count: int) -> None:
         self._restore_ocr_controls()
 
+        if error_count and self._ocr_worker and getattr(self._ocr_worker, "failed_page_ids", None):
+            self._failed_page_ids = list(self._ocr_worker.failed_page_ids)
+            self.progress_container.setVisible(True)
+            self.lbl_progress_info.setText(f"Échec partiel : {success_count} réussie(s), {error_count} en échec")
+            self.btn_retry_failures.setText(f"Relancer les échecs ({len(self._failed_page_ids)})")
+            self.btn_retry_failures.setVisible(True)
+        else:
+            self._failed_page_ids = []
+            self.btn_retry_failures.setVisible(False)
+
         # Le compte rendu nomme ce qui a échoué au lieu de valider un « terminé » : un album
         # dont toutes les planches ont échoué ne doit pas s'annoncer comme transcrit.
         if error_count and success_count == 0:
             show_toast(self, f"Transcription en échec : {error_count} page(s) sans résultat exploitable.", is_error=True)
         elif error_count:
-            show_toast(self, f"Transcription partielle : {success_count} page(s) transcribed, {error_count} en échec.", is_error=True)
+            show_toast(self, f"Transcription partielle : {success_count} page(s) transcrites, {error_count} en échec.", is_error=True)
         else:
             show_toast(self, f"Transcription achevée : {success_count} page(s) transcrites.")
 
@@ -1259,6 +1329,7 @@ class AlbumViewerWidget(QWidget):
 
     def _restore_ocr_controls(self) -> None:
         self.progress_container.setVisible(False)
+        self.btn_retry_failures.setVisible(False)
         # Réactivé via la politique Vision et non inconditionnellement : si la catégorie
         # visée ne sait pas lire les planches, le bouton doit rester désactivé.
         self._refresh_category_vision_state()

@@ -45,15 +45,25 @@ class AlbumOCRWorker(QThread):
         category_id: str = "structured",
         ocr_service: OCRService | None = None,
         provider_override: LLMProvider | None = None,
+        options: Any | None = None,
         parent: Any | None = None,
     ) -> None:
         super().__init__(parent)
         self.document_id = document_id
-        self.page_ids = list(page_ids) if page_ids is not None else None
-        self.category_id = category_id
+        self.options = options
+        self.page_ids: list[int] | None
+        if options is not None:
+            self.category_id = str(getattr(options, "category_id", category_id))
+            target_ids = getattr(options, "target_page_ids", None)
+            self.page_ids = [int(p) for p in target_ids] if target_ids is not None else None
+        else:
+            self.category_id = category_id
+            self.page_ids = list(page_ids) if page_ids is not None else None
+
         self.ocr_service = ocr_service or OCRService()
         self.provider_override = provider_override
         self._is_cancelled = False
+        self.failed_page_ids: list[int] = []
 
     def cancel(self) -> None:
         """Demande l'annulation du traitement en cours."""
@@ -62,10 +72,20 @@ class AlbumOCRWorker(QThread):
     def run(self) -> None:
         """Exécute la transcription séquentielle de chaque page en arrière-plan."""
         logger.info("Démarrage d'AlbumOCRWorker pour l'album ID %d (catégorie: '%s')", self.document_id, self.category_id)
+        self.failed_page_ids = []
+
+        prompt_instructions: str | None = None
+        if self.options is not None:
+            from ankiforge.services.ai.album_transcription_types import build_album_transcription_prompt
+            from ankiforge.services.ai.vision_category_service import VisionCategoryService
+
+            cat = VisionCategoryService.get_category_by_id(self.category_id)
+            base_inst = cat.custom_instructions if cat else ""
+            prompt_instructions = build_album_transcription_prompt(self.options, base_instructions=base_inst)
 
         try:
             query = DocumentPageModel.select().where(DocumentPageModel.document == self.document_id)
-            if self.page_ids:
+            if self.page_ids is not None:
                 query = query.where(DocumentPageModel.id.in_(self.page_ids))
 
             pages = list(query.order_by(DocumentPageModel.page_number.asc()))
@@ -85,15 +105,22 @@ class AlbumOCRWorker(QThread):
                     break
 
                 try:
+                    transcribe_kwargs: dict[str, Any] = {
+                        "category_id": self.category_id,
+                        "provider_override": self.provider_override,
+                    }
+                    if prompt_instructions is not None:
+                        transcribe_kwargs["custom_instructions"] = prompt_instructions
+
                     updated_page = self.ocr_service.transcribe_page(
                         page.id,
-                        category_id=self.category_id,
-                        provider_override=self.provider_override,
+                        **transcribe_kwargs,
                     )
                     success_count += 1
                     self.page_processed.emit(updated_page.id, updated_page.page_number, updated_page.ocr_text)
                 except Exception as page_err:
                     error_count += 1
+                    self.failed_page_ids.append(page.id)
                     logger.error("Erreur de transcription pour la page ID %d : %s", page.id, page_err)
 
                 self.progress.emit(idx + 1, total_pages)

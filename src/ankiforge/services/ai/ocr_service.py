@@ -243,6 +243,7 @@ class OCRService:
         image_path: str | Path,
         category_id: str = "structured",
         provider_override: LLMProvider | None = None,
+        custom_instructions: str | None = None,
     ) -> str:
         """
         Transcrit une image en appliquant la catégorie d'IA sélectionnée par l'utilisateur.
@@ -252,12 +253,14 @@ class OCRService:
         if not category:
             category = VisionCategoryService.get_categories()[0]
 
+        effective_instructions = custom_instructions if custom_instructions is not None else category.custom_instructions
+
         # 1. Si un provider est fourni explicitement (ex: injection de test ou override)
         if provider_override:
             return self.transcribe_with_vlm(
                 image_path,
                 provider_override,
-                custom_instructions=category.custom_instructions,
+                custom_instructions=effective_instructions,
             )
 
         # 2. Résolution du provider configuré pour la catégorie
@@ -276,14 +279,14 @@ class OCRService:
             return self.transcribe_with_vlm(
                 image_path,
                 active_ai.provider,
-                custom_instructions=category.custom_instructions,
+                custom_instructions=effective_instructions,
             )
 
         if isinstance(resolved, LLMProvider):
             return self.transcribe_with_vlm(
                 image_path,
                 resolved,
-                custom_instructions=category.custom_instructions,
+                custom_instructions=effective_instructions,
             )
 
         return MockProvider().generate("", "", response_format="text")
@@ -293,6 +296,7 @@ class OCRService:
         page_id: int,
         category_id: str = "structured",
         provider_override: LLMProvider | None = None,
+        custom_instructions: str | None = None,
     ) -> DocumentPageModel:
         """
         Transcrit une DocumentPageModel, met à jour son champ ocr_text et son statut en base SQLite.
@@ -325,7 +329,12 @@ class OCRService:
                 page.status = "ocr_running"
                 page.save()
 
-                text = self.transcribe_image(temp_path, category_id=category_id, provider_override=provider_override)
+                text = self.transcribe_image(
+                    temp_path,
+                    category_id=category_id,
+                    provider_override=provider_override,
+                    custom_instructions=custom_instructions,
+                )
             finally:
                 rendered.close()
                 if temp_path is not None and temp_path.exists():
