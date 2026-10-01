@@ -37,6 +37,10 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : orientation, EXIF, rotation d'affichage, redressement
 - **État dérivé** : contenu produit à partir d'une planche — sa transcription, sa description dense — et **périmé** dès que la planche change. Une planche porteuse d'un état dérivé périmé le dit, plutôt que de servir un contenu faux : un état absent se voit et se corrige, un état périmé se constate trop tard.
   _Avoid_ : cache, index, données dérivées, transcription
+- **Périmètre de transcription (ou Portée de transcription)** : ensemble des planches d'un album ciblées lors d'une passe d'extraction (album complet, planches sans état dérivé, planches périmées, ou intervalle explicite). Le ciblage est exclusif et vérifie dynamiquement le nombre de planches correspondantes pour interdire les passes à vide.
+  _Avoid_ : sélection de pages, lot OCR, filtre de transcription
+- **Directives de transcription** : ensemble des contraintes formelles (syntaxe LaTeX `$..$`, tableaux Markdown/HTML, descriptions de schémas) et consignes contextuelles injectées dans le prompt du modèle de vision, désactivées pour le moteur matériel (Apple Vision).
+  _Avoid_ : prompt système, template OCR, options texte
 
 ## Provenance & Couverture
 
