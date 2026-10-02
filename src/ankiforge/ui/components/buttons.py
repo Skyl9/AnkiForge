@@ -341,3 +341,20 @@ class PremiumActionCard(QFrame):
         if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mouseReleaseEvent(event)
+
+
+class FilterChipButton(QPushButton):
+    """Bouton style 'chip' basculable pour les filtres rapides de capacités et catégories."""
+
+    def __init__(
+        self,
+        text: str,
+        icon_name: str | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(text, parent)
+        self.setCheckable(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(26)
+        if icon_name:
+            self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))

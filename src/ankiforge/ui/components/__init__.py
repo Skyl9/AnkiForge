@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QLabel
 
 from .badges import Badge, StatusBadge, TagButton
-from .buttons import ActionButton, DangerButton, IconButton, PremiumActionCard, PrimaryButton, SecondaryButton
+from .buttons import ActionButton, DangerButton, FilterChipButton, IconButton, PremiumActionCard, PrimaryButton, SecondaryButton, apply_compact_style
 from .code_editor import (
     CodeEditorWithGutter,
     CSSFormatter,
@@ -44,6 +44,8 @@ __all__ = [
     "DangerButton",
     "IconButton",
     "ActionButton",
+    "FilterChipButton",
+    "apply_compact_style",
     "RoundedPanel",
     "HeaderLabel",
     "EmptyStateWidget",

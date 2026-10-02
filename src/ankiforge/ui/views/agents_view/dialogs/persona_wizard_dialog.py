@@ -29,6 +29,7 @@ from ankiforge.services.ai.persona_templates import PERSONA_TEMPLATES, PersonaTe
 from ankiforge.services.ai.persona_version_service import PersonaVersionService
 from ankiforge.ui.components import (
     Badge,
+    FilterChipButton,
     GlowLineEdit,
     PrimaryButton,
     SecondaryButton,
@@ -54,7 +55,7 @@ class TemplateCard(QFrame):
         self.on_select = on_select
         self._is_selected = False
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(94)
+        self.setMinimumHeight(96)
 
         self._update_style()
 
@@ -77,7 +78,6 @@ class TemplateCard(QFrame):
         top_row.addWidget(lbl_name, 1)
 
         badge_cat = Badge(template.category, variant="neutral")
-        badge_cat.setFixedHeight(18)
         top_row.addWidget(badge_cat)
 
         layout.addLayout(top_row)
@@ -92,11 +92,9 @@ class TemplateCard(QFrame):
         bot_row.addStretch()
 
         badge_scope = Badge(template.scope.upper(), variant="primary" if template.scope == "pipeline" else "warning")
-        badge_scope.setFixedHeight(16)
         bot_row.addWidget(badge_scope)
 
         badge_fmt = Badge(template.output_format.upper(), variant="neutral")
-        badge_fmt.setFixedHeight(16)
         bot_row.addWidget(badge_fmt)
 
         layout.addLayout(bot_row)
@@ -186,11 +184,13 @@ class PersonaCreationWizardDialog(QDialog):
         gallery_layout.setContentsMargins(0, 0, 0, 0)
         gallery_layout.setSpacing(10)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.gallery_splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter = self.gallery_splitter
         gallery_layout.addWidget(splitter)
 
         # Panneau Gauche : Recherche + Filtres + Liste de cartes
         left_panel = QWidget()
+        left_panel.setMinimumWidth(320)
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(8)
@@ -203,7 +203,7 @@ class PersonaCreationWizardDialog(QDialog):
         # Filtres de catégorie
         cat_row = QHBoxLayout()
         cat_row.setSpacing(4)
-        self.cat_buttons: list[tuple[Any, str]] = []
+        self.cat_buttons: list[tuple[FilterChipButton, str]] = []
 
         categories = [
             ("Tous", "all"),
@@ -215,9 +215,7 @@ class PersonaCreationWizardDialog(QDialog):
         ]
 
         for label, cat_key in categories:
-            btn = SecondaryButton(label)
-            btn.setFixedHeight(24)
-            btn.setCheckable(True)
+            btn = FilterChipButton(label)
             btn.clicked.connect(lambda _, c=cat_key: self._set_category_filter(c))
             cat_row.addWidget(btn)
             self.cat_buttons.append((btn, cat_key))
@@ -250,6 +248,7 @@ class PersonaCreationWizardDialog(QDialog):
 
         # Panneau Droit : Aperçu du modèle et configuration
         right_panel = QWidget()
+        right_panel.setMinimumWidth(320)
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(10, 0, 0, 0)
         right_layout.setSpacing(10)
@@ -314,7 +313,7 @@ class PersonaCreationWizardDialog(QDialog):
 
         right_layout.addLayout(btn_row)
         splitter.addWidget(right_panel)
-        splitter.setSizes([460, 440])
+        splitter.setSizes([400, 480])
 
         self.stack.addWidget(self.page_gallery)
 

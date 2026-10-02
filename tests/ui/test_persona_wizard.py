@@ -107,3 +107,36 @@ def test_persona_wizard_create_custom_persona(qtbot):
     assert "Prompt sur mesure" in created.system_prompt
     tools = json.loads(created.allowed_tools)
     assert isinstance(tools, list)
+
+
+def test_persona_wizard_template_card_and_filter_chips(qtbot):
+    """Vérifie la hauteur minimale dynamique des TemplateCard, l'absence de hauteur fixe sur les badges, les FilterChipButton et le splitter."""
+    from ankiforge.ui.components import Badge, FilterChipButton
+
+    dlg = PersonaCreationWizardDialog()
+    qtbot.addWidget(dlg)
+
+    # 1. Cartes de templates : hauteur min >= 96 et pas de hauteur fixe forcée (94px)
+    assert len(dlg._template_cards) > 0
+    for card, _ in dlg._template_cards:
+        assert card.minimumHeight() >= 96
+        assert card.maximumHeight() > 100
+
+        # Vérifier que les Badges internes n'ont pas de setFixedHeight(16/18)
+        badges = card.findChildren(Badge)
+        assert len(badges) >= 2
+        for badge in badges:
+            assert badge.maximumHeight() > 20
+
+    # 2. Boutons de filtres de catégories : FilterChipButton (26px)
+    assert len(dlg.cat_buttons) == 6
+    for btn, _ in dlg.cat_buttons:
+        assert isinstance(btn, FilterChipButton)
+        assert btn.height() == 26 or btn.maximumHeight() == 26
+
+    # 3. Ratio du splitter : le panneau droit (aperçu Jinja2) a plus d'espace que le panneau gauche
+    dlg.show()
+    sizes = dlg.gallery_splitter.sizes()
+    assert sizes[1] > sizes[0]
+    assert abs(sizes[0] - 400) <= 5
+    assert abs(sizes[1] - 480) <= 5
