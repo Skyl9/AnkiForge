@@ -11,12 +11,12 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QScrollArea,
     QSplitter,
     QVBoxLayout,
@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.model_catalog import ANKIFORGE_TASKS, ModelCatalog, ModelSpec
 from ankiforge.ui.components import (
+    FilterChipButton,
     GlowLineEdit,
     IconButton,
     PrimaryButton,
@@ -36,23 +37,6 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
-
-
-class FilterChipButton(QPushButton):
-    """Bouton style 'chip' basculable pour les filtres rapides de capacités et fournisseurs."""
-
-    def __init__(
-        self,
-        text: str,
-        icon_name: str | None = None,
-        parent: QWidget | None = None,
-    ) -> None:
-        super().__init__(text, parent)
-        self.setCheckable(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(26)
-        if icon_name:
-            self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
 
 
 class ModelCardWidget(QFrame):
@@ -253,6 +237,8 @@ class ModelCardWidget(QFrame):
         self.cb_compare = FilterChipButton("Comparer", icon_name="ph.scales", parent=self)
         self.cb_compare.setToolTip("Cocher pour comparer les spécifications avec d'autres modèles.")
         self.cb_compare.toggled.connect(lambda checked: self.comparison_toggled.emit(self.model, checked))
+        if self.picker_mode:
+            self.cb_compare.hide()
         footer_row.addWidget(self.cb_compare)
 
         footer_row.addStretch()
@@ -308,7 +294,18 @@ class ModelDiscoveryDialog(QDialog):
 
         title_text = "AnkiForge — Sélectionner un Modèle IA" if picker_mode else "AnkiForge — Catalogue & Comparateur des Moteurs IA"
         self.setWindowTitle(title_text)
-        self.resize(1040, 720)
+
+        if self.picker_mode:
+            self.resize(840, 540)
+        else:
+            target_w, target_h = 960, 600
+            screen = self.screen() or (QApplication.primaryScreen() if QApplication.instance() else None)
+            if screen:
+                avail = screen.availableGeometry()
+                if avail.width() > 0 and avail.height() > 0:
+                    target_w = min(target_w, int(avail.width() * 0.85))
+                    target_h = min(target_h, int(avail.height() * 0.85))
+            self.resize(target_w, target_h)
 
         self._setup_ui()
         self._load_and_filter_models()
@@ -372,10 +369,10 @@ class ModelDiscoveryDialog(QDialog):
         self.prov_buttons: dict[str, FilterChipButton] = {}
         providers_meta = [
             ("all", "Tous", "ph.circles-three"),
-            ("gemini", "Google Gemini", "ph.sparkle"),
-            ("anthropic", "Anthropic Claude", "ph.sparkle"),
+            ("gemini", "Gemini", "ph.sparkle"),
+            ("anthropic", "Claude", "ph.sparkle"),
             ("openai", "OpenAI", "ph.brain"),
-            ("ollama", "Ollama (100% Local)", "ph.cpu"),
+            ("ollama", "Ollama", "ph.cpu"),
             ("groq", "Groq", "ph.lightning"),
             ("opencode", "OpenCode", "ph.code"),
             ("openrouter", "OpenRouter", "ph.arrows-split"),
@@ -756,6 +753,8 @@ class ModelDiscoveryDialog(QDialog):
 
     def _on_comparison_toggled(self, model: Any, checked: bool) -> None:
         """Ajoute ou retire un modèle de la liste de comparaison."""
+        if self.picker_mode:
+            return
         if checked:
             if model not in self._compared_models:
                 self._compared_models.append(model)
@@ -776,6 +775,10 @@ class ModelDiscoveryDialog(QDialog):
 
     def _render_comparison_pane(self) -> None:
         """Affiche le tableau comparatif côte à côte si au moins 2 modèles sont sélectionnés."""
+        if self.picker_mode:
+            self.compare_pane.hide()
+            return
+
         while self.compare_table_row.count():
             item = self.compare_table_row.takeAt(0)
             widget = item.widget()

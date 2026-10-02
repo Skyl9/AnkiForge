@@ -193,3 +193,43 @@ def test_model_card_double_click_selection(qtbot, sample_llm_configs):
 
     assert len(selected_models) == 1
     assert selected_models[0].id == m1.id
+
+
+def test_model_discovery_dialog_dimensions_and_compare_hidden_in_picker_mode(qtbot, sample_llm_configs):
+    """Vérifie le format 840x540 en picker_mode, le masquage de compare_pane et les libellés raccourcis."""
+    # 1. Mode Sélecteur (picker_mode=True)
+    dlg_picker = ModelDiscoveryDialog(picker_mode=True)
+    qtbot.addWidget(dlg_picker)
+
+    assert dlg_picker.width() == 840
+    assert dlg_picker.height() == 540
+
+    # Volet de comparaison masqué
+    assert dlg_picker.compare_pane.isHidden()
+
+    # Puces "Comparer" masquées sur les cartes en mode sélecteur
+    picker_cards = dlg_picker.cards_container.findChildren(ModelCardWidget)
+    assert len(picker_cards) >= 2
+    for card in picker_cards:
+        assert card.cb_compare.isHidden()
+
+    # Puces fournisseurs avec libellés raccourcis
+    assert dlg_picker.prov_buttons["gemini"].text() == "Gemini"
+    assert dlg_picker.prov_buttons["anthropic"].text() == "Claude"
+    assert dlg_picker.prov_buttons["ollama"].text() == "Ollama"
+    assert dlg_picker.prov_buttons["openai"].text() == "OpenAI"
+    assert dlg_picker.prov_buttons["groq"].text() == "Groq"
+    assert dlg_picker.prov_buttons["opencode"].text() == "OpenCode"
+    assert dlg_picker.prov_buttons["openrouter"].text() == "OpenRouter"
+
+    # 2. Mode Catalogue (picker_mode=False)
+    dlg_catalog = ModelDiscoveryDialog(picker_mode=False)
+    qtbot.addWidget(dlg_catalog)
+
+    assert dlg_catalog.width() <= 960
+    assert dlg_catalog.height() <= 600
+
+    catalog_cards = dlg_catalog.cards_container.findChildren(ModelCardWidget)
+    assert len(catalog_cards) >= 2
+    for card in catalog_cards:
+        assert not card.cb_compare.isHidden()
