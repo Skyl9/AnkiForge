@@ -389,6 +389,10 @@ class DocumentsView(FileDropMixin, QWidget):
         self.doc_title_lbl.setMinimumWidth(50)
         row1.addWidget(self.doc_title_lbl, 1)
 
+        self.doc_type_badge = Badge("Markdown", variant="neutral")
+        self.doc_type_badge.hide()
+        row1.addWidget(self.doc_type_badge)
+
         self.lbl_word_count = QLabel("0 mots")
         self.lbl_word_count.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
         row1.addWidget(self.lbl_word_count)
@@ -403,6 +407,22 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_save.setStyleSheet("font-size: 11px; padding: 4px 10px;")
         self.btn_save.clicked.connect(self._on_save_document)
         row1.addWidget(self.btn_save)
+
+        self.btn_doc_kebab = IconButton("ph.dots-three-vertical", tooltip="Options du document", size=28)
+        self.btn_doc_kebab.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 14px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.BORDER_LIGHT};
+            }}
+        """)
+        self.btn_doc_kebab.clicked.connect(self._on_doc_kebab_clicked)
+        self.btn_doc_kebab.setEnabled(False)
+        row1.addWidget(self.btn_doc_kebab)
 
         header_main_layout.addLayout(row1)
 
@@ -851,6 +871,81 @@ class DocumentsView(FileDropMixin, QWidget):
         if self._current_doc_id:
             self.request_navigation.emit("analysis", {"tab": "documents", "doc_id": self._current_doc_id})
 
+    @Slot()
+    def _on_doc_kebab_clicked(self) -> None:
+        """Affiche le menu contextuel rapide des actions sur le document actif."""
+        if not self._current_doc_id:
+            return
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        if not doc:
+            return
+
+        menu = StyledMenu(self)
+
+        act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), "Renommer le document...")
+        act_rename.triggered.connect(self._on_rename_current_document)
+
+        act_export = menu.addAction(load_phosphor_icon("ph.download-simple", color=DesignTokens.COLOR_BLUE), "Exporter le document...")
+        act_export.triggered.connect(self._on_export_current_document)
+
+        act_delimit = menu.addAction(load_phosphor_icon("ph.scissors", color=DesignTokens.ACCENT_PRIMARY), "Délimiter la portée...")
+        act_delimit.triggered.connect(self._on_open_delimitation_dialog)
+
+        act_analysis = menu.addAction(load_phosphor_icon("ph.chart-polar", color=DesignTokens.COLOR_CYAN), "Voir dans Analyse & Audit...")
+        act_analysis.triggered.connect(self._on_open_analysis_clicked)
+
+        menu.addSeparator()
+
+        act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "Supprimer le document")
+        act_del.triggered.connect(self._on_delete_item)
+
+        btn_pos = self.btn_doc_kebab.mapToGlobal(QPoint(0, self.btn_doc_kebab.height()))
+        menu.exec(btn_pos)
+
+    def _on_rename_current_document(self) -> None:
+        """Renomme le document actif via un dialogue de saisie."""
+        if not self._current_doc_id:
+            return
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        if not doc:
+            return
+        from PySide6.QtWidgets import QInputDialog
+
+        new_title, ok = QInputDialog.getText(
+            self,
+            "Renommer le document",
+            "Nouveau titre :",
+            text=doc.title,
+        )
+        if ok and new_title.strip():
+            clean_title = new_title.strip()
+            doc.title = clean_title
+            doc.save()
+            title_to_display = doc.original_media.original_name if doc.original_media else doc.title
+            self.doc_title_lbl.setText(title_to_display)
+            self.refresh_data()
+            self._select_doc_id_in_tree(doc.id)
+            show_toast(self, f"Document renommé en « {clean_title} »", level="success")
+
+    def _on_export_current_document(self) -> None:
+        """Exporte le contenu du document actif dans un fichier Markdown."""
+        if not self._current_doc_id:
+            return
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        if not doc:
+            return
+        safe_title = "".join(c for c in doc.title if c.isalnum() or c in (" ", "-", "_")).strip() or "document"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exporter le document",
+            f"{safe_title}.md",
+            "Markdown (*.md);;Tous les fichiers (*.*)",
+        )
+        if file_path:
+            content = self.text_editor.get_content() if hasattr(doc, "content") else ""
+            pathlib.Path(file_path).write_text(content, encoding="utf-8")
+            show_toast(self, "Document exporté avec succès", level="success")
+
     def _on_search_filter_changed(self, text: str) -> None:
         self.tree_explorer.filter_text(text)
 
@@ -1015,6 +1110,8 @@ class DocumentsView(FileDropMixin, QWidget):
             self._current_doc_id = None
             self.outline_widget.set_document_content("")
             self._set_outline_tab_visible(False)
+            self.doc_type_badge.hide()
+            self.btn_doc_kebab.setEnabled(False)
             self.view_model.clear_selection()
             self.editor_stack.setCurrentIndex(0)
             return
@@ -1034,6 +1131,9 @@ class DocumentsView(FileDropMixin, QWidget):
                     self.btn_marker.hide()
                     self.outline_widget.set_document_content("")
                     self._set_outline_tab_visible(False)
+                    self.doc_type_badge.setText("Album")
+                    self.doc_type_badge.show()
+                    self.btn_doc_kebab.setEnabled(True)
                     self.album_viewer.load_album(doc)
                     self.editor_stack.setCurrentIndex(2)
                     self._update_rag_status_pill()
@@ -1049,6 +1149,23 @@ class DocumentsView(FileDropMixin, QWidget):
                 self._dirty = False
                 self._update_word_count()
                 self._update_rag_status_pill()
+
+                file_type = getattr(doc, "file_type", "") or ""
+                if file_type == "pdf":
+                    type_label = "PDF"
+                elif file_type in ("md", "markdown"):
+                    type_label = "Markdown"
+                elif file_type in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac"):
+                    type_label = "Audio"
+                elif file_type in ("web", "html"):
+                    type_label = "Web"
+                elif file_type:
+                    type_label = file_type.upper()
+                else:
+                    type_label = "Document"
+                self.doc_type_badge.setText(type_label)
+                self.doc_type_badge.show()
+                self.btn_doc_kebab.setEnabled(True)
 
                 is_audio = getattr(doc, "file_type", "") in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac")
                 if is_audio and doc.original_media:
@@ -1098,6 +1215,8 @@ class DocumentsView(FileDropMixin, QWidget):
             self._current_doc_id = None
             self.outline_widget.set_document_content("")
             self._set_outline_tab_visible(False)
+            self.doc_type_badge.hide()
+            self.btn_doc_kebab.setEnabled(False)
             self.editor_stack.setCurrentIndex(0)
             self._refresh_chapters_list()
 
@@ -1897,7 +2016,7 @@ class DocumentsView(FileDropMixin, QWidget):
         menu = StyledMenu(self)
 
         if item is None:
-            act_new_root = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), "📁 Nouveau dossier racine...")
+            act_new_root = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), "Nouveau dossier racine...")
             act_new_root.triggered.connect(lambda: self._on_new_subfolder(parent_folder_id=None))
         else:
             self.tree_explorer.setCurrentItem(item)
@@ -1905,24 +2024,27 @@ class DocumentsView(FileDropMixin, QWidget):
             data = item.data(0, Qt.ItemDataRole.UserRole)
             if not data or data.get("type") == "folder":
                 folder_id = data.get("id") if data else None
-                act_new_sub = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), "📁 Nouveau sous-dossier...")
+                act_new_sub = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), "Nouveau sous-dossier...")
                 act_new_sub.triggered.connect(lambda: self._on_new_subfolder(parent_folder_id=folder_id))
 
                 if folder_id is not None:
-                    act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), "✏️ Renommer...")
+                    act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), "Renommer...")
                     act_rename.triggered.connect(lambda: self._on_rename_folder(folder_id=folder_id))
 
                     menu.addSeparator()
 
-                    act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "🗑️ Supprimer le dossier")
+                    act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "Supprimer le dossier")
                     act_del.triggered.connect(self._on_delete_item)
             elif data.get("type") == "doc":
-                act_open = menu.addAction(load_phosphor_icon("ph.folder-open", color=DesignTokens.COLOR_BLUE), "📂 Ouvrir")
+                act_open = menu.addAction(load_phosphor_icon("ph.folder-open", color=DesignTokens.COLOR_BLUE), "Ouvrir")
                 act_open.triggered.connect(self._on_document_selected)
+
+                act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), "Renommer...")
+                act_rename.triggered.connect(self._on_rename_current_document)
 
                 menu.addSeparator()
 
-                act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "🗑️ Supprimer")
+                act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "Supprimer")
                 act_del.triggered.connect(self._on_delete_item)
 
         menu.exec(self.tree_explorer.viewport().mapToGlobal(pos))

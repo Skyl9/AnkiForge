@@ -1250,3 +1250,87 @@ def test_documents_view_forge_buttons_icons_and_no_emojis(qtbot, mock_db, monkey
     # Vérification que l'action forge a bien une icône Phosphor
     forge_action = next(a for a in captured_actions if "Forger la section" in a.text())
     assert not forge_action.icon().isNull()
+
+
+def test_apply_pill_style_restored(qtbot):
+    """La fonction apply_pill_style applique un style de capsule complet et arrondi."""
+    from PySide6.QtWidgets import QLabel
+
+    from ankiforge.ui.views.documents_view.utils import apply_pill_style
+
+    label = QLabel("Test Pill")
+    qtbot.addWidget(label)
+    apply_pill_style(label, "#10b981")
+
+    style = label.styleSheet()
+    assert "border-radius: 9999px" in style
+    assert "rgba(" in style
+    assert "#10b981" in style
+    assert "font-weight: bold" in style
+
+
+def test_documents_view_doc_type_badge_and_kebab_menu(qtbot, mock_db, monkeypatch):
+    """L'en-tête affiche un badge neutre rond du type de document et un bouton kebab opérationnel."""
+    from ankiforge.ui.theme import StyledMenu
+    from ankiforge.ui.views.documents_view.view import DocumentsView
+
+    uid = uuid.uuid4().hex[:6]
+    doc_md = DocumentModel.create(
+        title=f"Doc Markdown {uid}",
+        content="# En-tête\nTexte du document.",
+        file_type="md",
+    )
+    doc_album = DocumentModel.create(
+        title=f"Album Photothèque {uid}",
+        content="",
+        file_type="album",
+    )
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+    view.refresh_data()
+
+    # 1. Sans document sélectionné
+    assert view.doc_type_badge.isHidden()
+    assert view.btn_doc_kebab.isEnabled() is False
+
+    # 2. Sélection du document Markdown
+    view._select_doc_id_in_tree(doc_md.id)
+    assert not view.doc_type_badge.isHidden()
+    assert view.doc_type_badge.text() == "Markdown"
+    assert view.doc_type_badge.current_variant == "neutral"
+    assert view.btn_doc_kebab.isEnabled() is True
+
+    # 3. Sélection de l'album
+    view._select_doc_id_in_tree(doc_album.id)
+    assert not view.doc_type_badge.isHidden()
+    assert view.doc_type_badge.text() == "Album"
+    assert view.btn_doc_kebab.isEnabled() is True
+
+    # 4. Ouverture du menu kebab
+    executed_menus: list[list[str]] = []
+
+    def mock_exec(self_menu, *args, **kwargs):
+        executed_menus.append([a.text() for a in self_menu.actions()])
+        return None
+
+    monkeypatch.setattr(StyledMenu, "exec", mock_exec)
+
+    view._on_doc_kebab_clicked()
+    assert len(executed_menus) == 1
+    actions = executed_menus[0]
+    assert any("Renommer" in a for a in actions)
+    assert any("Exporter" in a for a in actions)
+    assert any("Délimiter" in a for a in actions)
+    assert any("Supprimer" in a for a in actions)
+
+    # 5. Renommage via _on_rename_current_document
+    from PySide6.QtWidgets import QInputDialog
+
+    view._select_doc_id_in_tree(doc_md.id)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *args, **kwargs: (f"Doc Renommé {uid}", True))
+    view._on_rename_current_document()
+    reloaded_doc = DocumentModel.get_by_id(doc_md.id)
+    assert reloaded_doc.title == f"Doc Renommé {uid}"
+    assert view.doc_title_lbl.text() == f"Doc Renommé {uid}"
