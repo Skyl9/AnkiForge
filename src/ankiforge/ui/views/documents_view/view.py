@@ -53,6 +53,7 @@ from ankiforge.services.workers.document_batch_worker import (
 from ankiforge.services.workers.document_worker import DocumentWorker, derive_document_title
 from ankiforge.ui.components import (
     Badge,
+    FlowLayout,
     GlowLineEdit,
     IconButton,
     IdePanel,
@@ -384,6 +385,8 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.doc_title_lbl = QLabel("Sélectionnez un document")
         self.doc_title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
+        self.doc_title_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.doc_title_lbl.setMinimumWidth(50)
         row1.addWidget(self.doc_title_lbl, 1)
 
         self.lbl_word_count = QLabel("0 mots")
@@ -403,11 +406,11 @@ class DocumentsView(FileDropMixin, QWidget):
 
         header_main_layout.addLayout(row1)
 
-        row2 = QHBoxLayout()
-        row2.setContentsMargins(0, 0, 0, 0)
-        row2.setSpacing(6)
+        self.toolbar_container = QWidget()
+        self.toolbar_flow_layout = FlowLayout(self.toolbar_container, margin=0, h_spacing=6, v_spacing=6)
 
         self.view_toggle_frame = QFrame()
+        self.view_toggle_frame.setFixedHeight(26)
         self.view_toggle_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -456,8 +459,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_view_md.clicked.connect(lambda: self._on_view_toggled("md"))
         self.btn_view_term.clicked.connect(lambda: self._on_view_toggled("term"))
 
-        row2.addWidget(self.view_toggle_frame)
-        row2.addStretch()
+        self.toolbar_flow_layout.addWidget(self.view_toggle_frame)
 
         self.btn_format_md = SecondaryButton("🪄 Formater")
         self.btn_format_md.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
@@ -465,7 +467,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_format_md.setFixedHeight(26)
         self.btn_format_md.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self._setup_format_menu()
-        row2.addWidget(self.btn_format_md)
+        self.toolbar_flow_layout.addWidget(self.btn_format_md)
 
         self.btn_ai_structure = SecondaryButton("🤖 Structurer IA")
         self.btn_ai_structure.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_PURPLE))
@@ -473,7 +475,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_ai_structure.setFixedHeight(26)
         self.btn_ai_structure.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_ai_structure.clicked.connect(self._on_open_ai_structure_dialog)
-        row2.addWidget(self.btn_ai_structure)
+        self.toolbar_flow_layout.addWidget(self.btn_ai_structure)
 
         self.btn_delimit = SecondaryButton("Délimiter les pages")
         self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color=DesignTokens.SYNTAX_TAG))
@@ -481,7 +483,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_delimit.setFixedHeight(26)
         self.btn_delimit.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_delimit.clicked.connect(self._on_open_delimitation_dialog)
-        row2.addWidget(self.btn_delimit)
+        self.toolbar_flow_layout.addWidget(self.btn_delimit)
 
         self.btn_marker = SecondaryButton("Marker OCR")
         self.btn_marker.setIcon(load_phosphor_icon("ph.magic-wand", color=DesignTokens.COLOR_PURPLE))
@@ -490,7 +492,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_marker.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_marker.clicked.connect(self._on_run_marker_analysis)
         self.btn_marker.hide()
-        row2.addWidget(self.btn_marker)
+        self.toolbar_flow_layout.addWidget(self.btn_marker)
 
         self.btn_rag = SecondaryButton("Indexer (RAG)")
         self.btn_rag.setIcon(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_GREEN))
@@ -498,13 +500,13 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_rag.setFixedHeight(26)
         self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_rag.clicked.connect(self._on_vectorize_rag)
-        row2.addWidget(self.btn_rag)
+        self.toolbar_flow_layout.addWidget(self.btn_rag)
 
-        self.btn_test_rag = IconButton("ph.magnifying-glass", tooltip="Recherche sémantique instantanée", size=22)
+        self.btn_test_rag = IconButton("ph.magnifying-glass", tooltip="Recherche sémantique instantanée", size=26)
         self.btn_test_rag.clicked.connect(self._on_open_rag_test_dialog)
-        row2.addWidget(self.btn_test_rag)
+        self.toolbar_flow_layout.addWidget(self.btn_test_rag)
 
-        header_main_layout.addLayout(row2)
+        header_main_layout.addWidget(self.toolbar_container)
         editor_layout.addWidget(doc_header_card)
 
         from ankiforge.ui.views.documents_view.widgets.audio_player import AudioPlayerWidget

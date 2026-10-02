@@ -75,7 +75,11 @@ class FlowLayout(QLayout):
     def minimumSize(self) -> QSize:
         size = QSize()
         for item in self._item_list:
-            size = size.expandedTo(item.minimumSize())
+            widget = item.widget()
+            if widget and widget.isHidden():
+                continue
+            item_min = widget.minimumSize().expandedTo(item.minimumSize()) if widget is not None else item.minimumSize()
+            size = size.expandedTo(item_min)
         margins = self.contentsMargins()
         size += QSize(margins.left() + margins.right(), margins.top() + margins.bottom())
         return size
@@ -92,7 +96,7 @@ class FlowLayout(QLayout):
             if widget and widget.isHidden():
                 continue
 
-            item_size = item.sizeHint()
+            item_size = widget.sizeHint().expandedTo(widget.minimumSize()).boundedTo(widget.maximumSize()) if widget is not None else item.sizeHint()
             space_x = self._h_spacing
             space_y = self._v_spacing
 

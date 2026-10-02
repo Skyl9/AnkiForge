@@ -697,3 +697,39 @@ def test_album_view_refuses_to_close_while_a_worker_still_runs(qtbot, created_al
     event_ok = QCloseEvent()
     viewer.closeEvent(event_ok)
     assert event_ok.isAccepted(), "la fermeture a été refusée alors qu'aucun worker ne tournait"
+
+
+def test_album_viewer_toolbar_responsive_wrapping(qtbot):
+    """La barre d'outils de l'album viewer s'agence de manière fluide sans tronquer les boutons."""
+    viewer = AlbumViewerWidget()
+    qtbot.addWidget(viewer)
+    viewer.show()
+
+    assert hasattr(viewer, "toolbar_flow_layout")
+    fl = viewer.toolbar_flow_layout
+
+    # À grande largeur (>= 700px), les actions tiennent sur 1 ligne
+    h_large = fl.heightForWidth(750)
+    assert h_large <= 32
+
+    # À largeur intermédiaire (450px), les actions passent sur au moins 2 lignes
+    h_medium = fl.heightForWidth(450)
+    assert h_medium > h_large
+    assert h_medium >= 58
+
+    # À largeur étroite (380px), les actions passent sur 2 ou 3 lignes
+    h_narrow = fl.heightForWidth(380)
+    assert h_narrow >= h_medium
+
+    # Vérifier la présence et lisibilité de tous les boutons
+    buttons = [viewer.btn_ocr, viewer.btn_rag, viewer.btn_search_rag, viewer.btn_compile_pdf, viewer.btn_add_pages, viewer.btn_forge]
+    for btn in buttons:
+        assert btn.toolTip() != ""
+        if btn != viewer.btn_search_rag:
+            assert len(btn.text()) > 0
+
+    # Titre long : ne bloque pas le conteneur grâce à Policy.Ignored
+    viewer.lbl_album_title.setText("Un titre d'album extrêmement long qui ne doit pas écraser les boutons")
+    viewer.resize(380, 500)
+    viewer.layout().activate()
+    assert viewer.toolbar_container.width() <= 380

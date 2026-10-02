@@ -174,6 +174,29 @@ def test_flow_layout_wrapping_and_crud(qtbot):
     assert layout.itemAt(0) is not None
 
 
+def test_flow_layout_fixed_height_widgets_no_overlap(qtbot):
+    """Vérifie que les widgets à hauteur fixe dans FlowLayout ne se chevauchent pas et que heightForWidth est exact."""
+    from PySide6.QtWidgets import QPushButton, QWidget
+
+    from ankiforge.ui.components.flow_layout import FlowLayout
+
+    container = QWidget()
+    qtbot.addWidget(container)
+    layout = FlowLayout(container, margin=0, h_spacing=6, v_spacing=6)
+
+    btn1 = QPushButton("Bouton 1")
+    btn1.setFixedHeight(26)
+    btn2 = QPushButton("Bouton 2")
+    btn2.setFixedHeight(26)
+    layout.addWidget(btn1)
+    layout.addWidget(btn2)
+
+    container.show()
+    # À une largeur étroite forçant le wrap sur 2 lignes
+    h = layout.heightForWidth(50)
+    assert h == 26 + 6 + 26  # 58px exactement
+
+
 @pytest.mark.slow
 def test_generate_layout_thumbnails_preserves_profile_settings(tmp_path, mock_db):
     """Vérifie la génération des miniatures statiques et la préservation de la configuration du profil."""

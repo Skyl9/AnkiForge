@@ -245,6 +245,7 @@ class PageInspectorWidget(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -667,7 +668,7 @@ class AlbumViewerWidget(QWidget):
         toolbar_vlayout.setContentsMargins(12, 10, 12, 10)
         toolbar_vlayout.setSpacing(8)
 
-        # Ligne 1 : Titre, compteur de pages et boutons d'action
+        # Ligne 1 : Titre, compteur de pages et bouton principal de forge
         row1 = QHBoxLayout()
         row1.setContentsMargins(0, 0, 0, 0)
         row1.setSpacing(8)
@@ -678,61 +679,14 @@ class AlbumViewerWidget(QWidget):
 
         self.lbl_album_title = QLabel("Album d'images")
         self.lbl_album_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
-        row1.addWidget(self.lbl_album_title)
+        self.lbl_album_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.lbl_album_title.setMinimumWidth(50)
+        row1.addWidget(self.lbl_album_title, 1)
 
         self.pages_badge = Badge("0 pages", variant="neutral")
         row1.addWidget(self.pages_badge)
 
-        row1.addStretch()
-
-        # Boutons d'action
-        # Sélecteur de catégorie conservé pour compatibilité mais masqué de la barre (ADR 0012)
-        self.combo_category = QComboBox()
-        self.combo_category.setFixedWidth(180)
-        self.combo_category.setFixedHeight(28)
-        self.combo_category.setStyleSheet("font-size: 11px;")
-        self.combo_category.setToolTip("Catégorie de transcription : elle détermine le modèle de vision utilisé sur les planches")
-        self.combo_category.currentIndexChanged.connect(lambda _idx: self._on_category_changed())
-        self.combo_category.setVisible(False)
-        row1.addWidget(self.combo_category)
-
-        self.btn_ocr = SecondaryButton("Transcrire l'album…")
-        self.btn_ocr.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
-        self.btn_ocr.setToolTip("Configurer et lancer la transcription de l'album")
-        self.btn_ocr.setFixedHeight(28)
-        self.btn_ocr.setStyleSheet(f"font-size: 11px; padding: 3px 10px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        self.btn_ocr.clicked.connect(self._on_open_transcription_dialog)
-        self.btn_open_transcription = self.btn_ocr
-        row1.addWidget(self.btn_ocr)
-
-        self.btn_rag = SecondaryButton("RAG Visuel")
-        self.btn_rag.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_GREEN))
-        self.btn_rag.setToolTip("Indexer les planches et schémas dans FAISS pour la recherche multimodale")
-        self.btn_rag.setFixedHeight(28)
-        self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 3px 10px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        self.btn_rag.clicked.connect(lambda: self.visual_rag_requested.emit(self._doc.id) if self._doc else None)
-        row1.addWidget(self.btn_rag)
-
-        self.btn_search_rag = IconButton("ph.magnifying-glass", tooltip="Recherche sémantique visuelle", size=22)
-        self.btn_search_rag.clicked.connect(lambda: self.search_rag_requested.emit(self._doc.id) if self._doc else None)
-        row1.addWidget(self.btn_search_rag)
-
-        self.btn_compile_pdf = SecondaryButton("Compiler en PDF")
-        self.btn_compile_pdf.setIcon(load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
-        self.btn_compile_pdf.setToolTip("Assembler toutes les pages en un document PDF de lecture")
-        self.btn_compile_pdf.setFixedHeight(28)
-        self.btn_compile_pdf.setStyleSheet(f"font-size: 11px; padding: 3px 10px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        self.btn_compile_pdf.clicked.connect(self._on_compile_pdf)
-        row1.addWidget(self.btn_compile_pdf)
-
-        self.btn_add_pages = SecondaryButton("Ajouter des images")
-        self.btn_add_pages.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.COLOR_BLUE))
-        self.btn_add_pages.setFixedHeight(28)
-        self.btn_add_pages.setStyleSheet(f"font-size: 11px; padding: 3px 10px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        self.btn_add_pages.clicked.connect(self._on_add_pages)
-        row1.addWidget(self.btn_add_pages)
-
-        self.btn_forge = PrimaryButton("⚡ Forger des cartes")
+        self.btn_forge = PrimaryButton("⚡ Forger des cartes", tooltip="Forger des cartes flash à partir des planches de cet album")
         self.btn_forge.setIcon(load_on_accent_icon("ph.cards"))
         self.btn_forge.setFixedHeight(28)
         self.btn_forge.setStyleSheet("font-size: 11px; padding: 3px 12px;")
@@ -740,6 +694,59 @@ class AlbumViewerWidget(QWidget):
         row1.addWidget(self.btn_forge)
 
         toolbar_vlayout.addLayout(row1)
+
+        # Ligne 2 : Barre d'actions responsive (FlowLayout)
+        self.toolbar_container = QWidget()
+        self.toolbar_flow_layout = FlowLayout(self.toolbar_container, margin=0, h_spacing=6, v_spacing=6)
+
+        # Sélecteur de catégorie conservé pour compatibilité mais masqué de la barre (ADR 0012)
+        self.combo_category = QComboBox()
+        self.combo_category.setFixedWidth(180)
+        self.combo_category.setFixedHeight(26)
+        self.combo_category.setStyleSheet("font-size: 11px;")
+        self.combo_category.setToolTip("Catégorie de transcription : elle détermine le modèle de vision utilisé sur les planches")
+        self.combo_category.currentIndexChanged.connect(lambda _idx: self._on_category_changed())
+        self.combo_category.setVisible(False)
+        self.toolbar_flow_layout.addWidget(self.combo_category)
+
+        self.btn_ocr = SecondaryButton("Transcrire l'album…")
+        self.btn_ocr.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
+        self.btn_ocr.setToolTip("Configurer et lancer la transcription de l'album")
+        self.btn_ocr.setFixedHeight(26)
+        self.btn_ocr.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_ocr.clicked.connect(self._on_open_transcription_dialog)
+        self.btn_open_transcription = self.btn_ocr
+        self.toolbar_flow_layout.addWidget(self.btn_ocr)
+
+        self.btn_rag = SecondaryButton("RAG Visuel")
+        self.btn_rag.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_GREEN))
+        self.btn_rag.setToolTip("Indexer les planches et schémas dans FAISS pour la recherche multimodale")
+        self.btn_rag.setFixedHeight(26)
+        self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_rag.clicked.connect(lambda: self.visual_rag_requested.emit(self._doc.id) if self._doc else None)
+        self.toolbar_flow_layout.addWidget(self.btn_rag)
+
+        self.btn_search_rag = IconButton("ph.magnifying-glass", tooltip="Recherche sémantique visuelle", size=26)
+        self.btn_search_rag.clicked.connect(lambda: self.search_rag_requested.emit(self._doc.id) if self._doc else None)
+        self.toolbar_flow_layout.addWidget(self.btn_search_rag)
+
+        self.btn_compile_pdf = SecondaryButton("Compiler en PDF")
+        self.btn_compile_pdf.setIcon(load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
+        self.btn_compile_pdf.setToolTip("Assembler toutes les pages en un document PDF de lecture")
+        self.btn_compile_pdf.setFixedHeight(26)
+        self.btn_compile_pdf.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_compile_pdf.clicked.connect(self._on_compile_pdf)
+        self.toolbar_flow_layout.addWidget(self.btn_compile_pdf)
+
+        self.btn_add_pages = SecondaryButton("Ajouter des images")
+        self.btn_add_pages.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.COLOR_BLUE))
+        self.btn_add_pages.setToolTip("Ajouter de nouvelles planches ou images à cet album")
+        self.btn_add_pages.setFixedHeight(26)
+        self.btn_add_pages.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_add_pages.clicked.connect(self._on_add_pages)
+        self.toolbar_flow_layout.addWidget(self.btn_add_pages)
+
+        toolbar_vlayout.addWidget(self.toolbar_container)
 
         # Ligne 2 (Conditionnelle) : Barre de progression OCR
         self.progress_container = QFrame()
@@ -841,6 +848,7 @@ class AlbumViewerWidget(QWidget):
 
         # ── 2. Pile Centrale : Planche-Contact (0) vs Inspecteur (1) ───────────
         self.stack = QStackedWidget()
+        self.stack.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
         # Page 0 : Planche-Contact
         self.scroll_area = QScrollArea()

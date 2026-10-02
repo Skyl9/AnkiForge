@@ -1010,3 +1010,85 @@ def test_documents_view_coverage_panel_toggle_button(qtbot, mock_db):
     view.btn_toggle_coverage.click()
     assert view.coverage_panel.isVisible()
     assert getattr(view, "_coverage_manually_hidden", False) is False
+
+
+def test_documents_view_toolbar_responsive_wrapping(qtbot, mock_db):
+    """La barre d'outils de DocumentsView s'adapte en hauteur et agence ses boutons sans troncature."""
+    from ankiforge.ui.views.documents_view.view import DocumentsView
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+    view._on_editor_page_changed(1)
+
+    assert hasattr(view, "toolbar_flow_layout")
+    fl = view.toolbar_flow_layout
+
+    # À grande largeur (>= 750px), les éléments tiennent sur 1 ligne
+    h_large = fl.heightForWidth(850)
+    assert h_large <= 32
+
+    # À largeur intermédiaire (< 650px, ex: 500px), les boutons passent sur au moins 2 lignes
+    h_medium = fl.heightForWidth(500)
+    assert h_medium > h_large
+    assert h_medium >= 58
+
+    # À largeur étroite (380px), les boutons passent sur 2 ou 3 lignes sans crash
+    h_narrow = fl.heightForWidth(380)
+    assert h_narrow >= h_medium
+
+    # Vérifier que tous les boutons d'action sont présents et lisibles
+    buttons = [view.btn_format_md, view.btn_ai_structure, view.btn_delimit, view.btn_rag, view.btn_test_rag]
+    for btn in buttons:
+        assert btn.isVisible() or btn.isEnabled()
+        assert btn.toolTip() != ""
+        # Pour les boutons textuels, le texte doit être conservé
+        if btn != view.btn_test_rag:
+            assert len(btn.text()) > 0
+
+
+def test_documents_view_toolbar_marker_ocr_toggle(qtbot, mock_db):
+    """L'affichage conditionnel du bouton Marker OCR pour les PDF s'intègre harmonieusement dans le FlowLayout."""
+    from ankiforge.ui.views.documents_view.view import DocumentsView
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+    view._on_editor_page_changed(1)
+
+    fl = view.toolbar_flow_layout
+    assert view.btn_marker.isHidden()
+
+    # Affichage de Marker OCR
+    view.btn_marker.show()
+    assert not view.btn_marker.isHidden()
+    h_with_marker = fl.heightForWidth(450)
+    assert h_with_marker >= 58
+
+    # Masquage de Marker OCR
+    view.btn_marker.hide()
+    assert view.btn_marker.isHidden()
+    h_without_marker = fl.heightForWidth(450)
+    assert h_without_marker <= h_with_marker
+
+
+def test_documents_view_long_title_allows_narrow_resize(qtbot, mock_db):
+    """Un document au titre très long ne bloque pas le redimensionnement responsive de l'éditeur jusqu'à 380px."""
+    from PySide6.QtWidgets import QApplication
+
+    from ankiforge.ui.views.documents_view.view import DocumentsView
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+    view.editor_stack.setCurrentIndex(1)
+
+    long_title = "A" * 200
+    view.doc_title_lbl.setText(long_title)
+
+    # Redimensionnement étroit du panneau éditeur via le splitter
+    view.main_splitter.setSizes([150, 350, 200])
+    QApplication.processEvents()
+
+    # Vérifie que la barre d'outils reste opérationnelle et que le titre n'empêche pas la réduction
+    assert view.toolbar_container.width() <= 380
