@@ -263,6 +263,7 @@ class MainWindow(QMainWindow):
             btn.start_requested.connect(self.start_mcp_server)
             btn.stop_requested.connect(self.stop_mcp_server)
             btn.restart_requested.connect(self.restart_mcp_server)
+            btn.rotate_token_requested.connect(self.rotate_mcp_token)
             btn.open_preferences_requested.connect(lambda: self.open_settings(initial_tab=1))
             btn._signals_wired = True
 
@@ -322,6 +323,33 @@ class MainWindow(QMainWindow):
         """Redémarre le serveur MCP d'arrière-plan."""
         self.stop_mcp_server()
         return self.start_mcp_server()
+
+    def rotate_mcp_token(self) -> str:
+        """Renouvelle le jeton d'authentification Bearer du serveur MCP et met à jour l'IHM."""
+        from ankiforge.ui.widgets.toast import show_toast
+
+        if self.mcp_daemon is not None:
+            new_token = self.mcp_daemon.rotate_token()
+            self.mcp_status_widget.set_status(
+                self.mcp_status_widget.current_status,
+                port=self.mcp_daemon.port,
+                token=new_token,
+            )
+        else:
+            from ankiforge.services.ai.mcp_daemon import rotate_auth_token
+            from ankiforge.utils.paths import get_app_data_dir
+
+            data_dir = get_app_data_dir()
+            token_file = data_dir / "mcp_auth_token"
+            state_file = data_dir / "mcp_server.json"
+            new_token = rotate_auth_token(token_file=token_file, state_file=state_file)
+            self.mcp_status_widget.set_status(
+                self.mcp_status_widget.current_status,
+                token=new_token,
+            )
+
+        show_toast(self, "Nouveau jeton d'authentification MCP généré.")
+        return new_token
 
     def _on_mcp_data_mutated(self, mutation: dict[str, Any]) -> None:
         """Traite les mutations émises par les outils MCP (apply_patch, etc.).
@@ -762,6 +790,7 @@ class MainWindow(QMainWindow):
         self._settings_window.layout_applied.connect(self.apply_layout)
         self._settings_window.focus_changed.connect(self._on_settings_focus_changed)
         self._settings_window.finished.connect(lambda _: self._on_settings_focus_changed(False))
+        self._settings_window.rotate_mcp_token_requested.connect(self.rotate_mcp_token)
         if self.sidebar and hasattr(self.sidebar, "settings_btn"):
             self.sidebar.settings_btn.setChecked(True)
         self._settings_window.show()

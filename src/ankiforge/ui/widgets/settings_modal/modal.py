@@ -44,6 +44,7 @@ class SettingsModal(QDialog):
     focus_changed = Signal(bool)
     theme_applied = Signal(str)
     layout_applied = Signal(str)
+    rotate_mcp_token_requested = Signal()
 
     def __init__(self, ai_manager: Any = None, profile_name: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -230,6 +231,7 @@ class SettingsModal(QDialog):
 
         engine = get_style_engine()
         engine.theme_changed.connect(self.refresh_theme)
+        self.ai_tab.rotate_mcp_token_requested.connect(self.rotate_mcp_token_requested.emit)
 
     def _apply_dialog_styles(self) -> None:
         self.setStyleSheet(f"""

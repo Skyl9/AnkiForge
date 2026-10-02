@@ -156,6 +156,8 @@ def _fetch_ollama_models_and_caps(base_url: str) -> tuple[list[str], list[tuple[
 class AIEnginesTab(SettingsDirtyMixin, QWidget):
     """Onglet Configuration des Moteurs IA, Clés API et Catégories de Vision d'Image."""
 
+    rotate_mcp_token_requested = Signal()
+
     def __init__(self, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
@@ -361,6 +363,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.spin_mcp_port.setFixedHeight(28)
         self.spin_mcp_port.setMinimumWidth(80)
         row_mcp.addWidget(self.spin_mcp_port)
+
+        self.btn_rotate_mcp_token = SecondaryButton("Renouveler le jeton")
+        self.btn_rotate_mcp_token.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_rotate_mcp_token.setToolTip("Régénère un nouveau jeton Bearer 256 bits pour sécuriser le serveur MCP.")
+        self.btn_rotate_mcp_token.clicked.connect(self._on_rotate_mcp_token)
+        row_mcp.addWidget(self.btn_rotate_mcp_token)
 
         mcp_layout.addLayout(row_mcp)
         layout.addWidget(self.card_mcp)
@@ -1493,3 +1501,19 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             edit.refresh_theme(profile)
         if hasattr(self, "table_engines") and hasattr(self.table_engines, "refresh_theme"):
             self.table_engines.refresh_theme(profile)
+
+    def _on_rotate_mcp_token(self) -> None:
+        """Demande confirmation et déclenche le renouvellement du jeton MCP."""
+        from PySide6.QtWidgets import QMessageBox
+
+        res = QMessageBox.question(
+            self,
+            "Renouveler le jeton MCP",
+            "Voulez-vous générer un nouveau jeton d'authentification Bearer pour le serveur MCP ?\n\n"
+            "Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être "
+            "mis à jour avec ce nouveau jeton.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            self.rotate_mcp_token_requested.emit()

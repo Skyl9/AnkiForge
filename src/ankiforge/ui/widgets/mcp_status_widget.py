@@ -36,6 +36,7 @@ class MCPStatusWidget(QPushButton):
     start_requested = Signal()
     stop_requested = Signal()
     restart_requested = Signal()
+    rotate_token_requested = Signal()
     open_preferences_requested = Signal()
 
     def __init__(
@@ -298,6 +299,10 @@ class MCPStatusWidget(QPushButton):
         act_restart.triggered.connect(self.restart_requested.emit)
         menu.addAction(act_restart)
 
+        act_rotate_token = QAction(load_phosphor_icon("ph.key"), "Renouveler le jeton Bearer...", self)
+        act_rotate_token.triggered.connect(self._confirm_and_rotate_token)
+        menu.addAction(act_rotate_token)
+
         menu.addSeparator()
 
         # Section 3 : Accès aux paramètres
@@ -306,6 +311,20 @@ class MCPStatusWidget(QPushButton):
         menu.addAction(act_prefs)
 
         menu.exec(pos)
+
+    def _confirm_and_rotate_token(self) -> None:
+        """Demande confirmation à l'utilisateur avant d'émettre le signal de rotation du jeton Bearer."""
+        from PySide6.QtWidgets import QMessageBox
+
+        res = QMessageBox.question(
+            self,
+            "Renouveler le jeton MCP",
+            "Voulez-vous générer un nouveau jeton Bearer pour le serveur MCP ?\n\nTous les clients MCP externes connectés (Claude Desktop, etc.) devront être mis à jour avec le nouveau jeton.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            self.rotate_token_requested.emit()
 
     def _on_clicked(self) -> None:
         """Déclenche l'ouverture du menu contextuel au clic gauche."""
