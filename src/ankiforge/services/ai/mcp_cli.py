@@ -138,6 +138,7 @@ def run_mcp_server_cli(
         f"  Statut              : En cours d'exécution (PID: {pid})\n"
         f"  Profil actif        : {target_profile}\n"
         f"  Base de données     : {db_path}\n"
+        f"  Point d'entrée HTTP : {daemon.url}\n"
         f"  Point d'entrée SSE  : {daemon.sse_url}\n"
         f"  Port d'écoute       : {daemon.port}\n"
         f"  Jeton Bearer        : {daemon.token_file}\n"
@@ -149,7 +150,7 @@ def run_mcp_server_cli(
     sys.stdout.write(banner)
     sys.stdout.flush()
 
-    logger.info("Serveur MCP AnkiForge opérationnel sur %s (port %d)", daemon.sse_url, daemon.port)
+    logger.info("Serveur MCP AnkiForge opérationnel sur %s (Streamable HTTP) et %s (SSE) (port %d)", daemon.url, daemon.sse_url, daemon.port)
     logger.info("Jeton d'authentification Bearer : %s", daemon.token_file)
     logger.info("Fichier d'état et découverte : %s", daemon.state_file)
 

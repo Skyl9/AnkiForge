@@ -92,8 +92,13 @@ class MCPStatusWidget(QPushButton):
         self._token = value
 
     @property
+    def url(self) -> str:
+        """Retourne l'URL complète du point de terminaison Streamable HTTP (/mcp)."""
+        return f"http://{self._host}:{self._port}/mcp"
+
+    @property
     def sse_url(self) -> str:
-        """Retourne l'URL SSE complète du point de terminaison."""
+        """Retourne l'URL SSE legacy complète du point de terminaison (/sse)."""
         return f"http://{self._host}:{self._port}/sse"
 
     def set_collapsed(self, collapsed: bool) -> None:
@@ -128,7 +133,7 @@ class MCPStatusWidget(QPushButton):
 
         if self._status == "running":
             label = f"  Serveur MCP{port_suffix}"
-            tooltip = f"Serveur MCP actif sur http://{self._host}:{self._port}/sse\nClic pour copier la configuration ou gérer le serveur"
+            tooltip = f"Serveur MCP actif sur {self.url}\n(Legacy SSE : {self.sse_url})\nClic pour copier la configuration ou gérer le serveur"
             icon_color = getattr(self._current_profile, "color_green", DesignTokens.COLOR_GREEN) if self._current_profile else DesignTokens.COLOR_GREEN
         elif self._status == "stopped":
             label = "  Serveur MCP (Inactif)"
@@ -191,7 +196,7 @@ class MCPStatusWidget(QPushButton):
         config: dict[str, Any] = {
             "mcpServers": {
                 "ankiforge": {
-                    "url": self.sse_url,
+                    "url": self.url,
                 }
             }
         }
@@ -214,13 +219,21 @@ class MCPStatusWidget(QPushButton):
             show_toast(self, "Configuration client MCP copiée dans le presse-papiers.")
             logger.info("Configuration client MCP copiée dans le presse-papiers.")
 
-    def copy_sse_url(self) -> None:
-        """Copie l'URL du point de terminaison SSE dans le presse-papiers."""
+    def _copy_endpoint_url(self, url: str, label: str) -> None:
+        """Copie l'URL d'un point de terminaison dans le presse-papiers avec notification toast et journalisation."""
         clipboard = QGuiApplication.clipboard()
         if clipboard is not None:
-            clipboard.setText(self.sse_url)
-            show_toast(self, f"URL SSE copiée : {self.sse_url}")
-            logger.info("URL SSE copiée : %s", self.sse_url)
+            clipboard.setText(url)
+            show_toast(self, f"URL {label} copiée : {url}")
+            logger.info("URL %s copiée : %s", label, url)
+
+    def copy_url(self) -> None:
+        """Copie l'URL du point de terminaison Streamable HTTP dans le presse-papiers."""
+        self._copy_endpoint_url(self.url, "Streamable HTTP")
+
+    def copy_sse_url(self) -> None:
+        """Copie l'URL du point de terminaison SSE legacy dans le presse-papiers."""
+        self._copy_endpoint_url(self.sse_url, "SSE")
 
     def copy_token(self) -> None:
         """Copie le jeton d'authentification Bearer dans le presse-papiers."""
@@ -254,9 +267,13 @@ class MCPStatusWidget(QPushButton):
         act_copy_config.triggered.connect(self.copy_client_config)
         menu.addAction(act_copy_config)
 
-        act_copy_url = QAction(load_phosphor_icon("ph.link"), f"Copier l'URL SSE ({self.sse_url})", self)
-        act_copy_url.triggered.connect(self.copy_sse_url)
+        act_copy_url = QAction(load_phosphor_icon("ph.link"), f"Copier l'URL Streamable HTTP ({self.url})", self)
+        act_copy_url.triggered.connect(self.copy_url)
         menu.addAction(act_copy_url)
+
+        act_copy_sse = QAction(load_phosphor_icon("ph.link"), f"Copier l'URL SSE legacy ({self.sse_url})", self)
+        act_copy_sse.triggered.connect(self.copy_sse_url)
+        menu.addAction(act_copy_sse)
 
         act_copy_token = QAction(load_phosphor_icon("ph.key"), "Copier le token d'authentification", self)
         act_copy_token.triggered.connect(self.copy_token)

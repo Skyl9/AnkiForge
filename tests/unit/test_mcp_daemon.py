@@ -132,7 +132,8 @@ def test_token_and_state_persistence_and_permissions(tmp_path):
     assert state is not None
     assert state["status"] == "running"
     assert state["port"] == 8765
-    assert state["url"] == "http://127.0.0.1:8765/sse"
+    assert state["url"] == "http://127.0.0.1:8765/mcp"
+    assert state["sse_url"] == "http://127.0.0.1:8765/sse"
     assert state["token"] == token
     assert state["pid"] == 1234
 
@@ -178,3 +179,17 @@ def test_drain_pending_tasks_cancels_residual_tasks_without_raising():
         loop.close()
 
     assert client_cancelled is True
+
+
+@pytest.mark.unit
+def test_mcp_server_daemon_url_properties(tmp_path):
+    """Vérifie que les propriétés url (Streamable HTTP), mcp_url et sse_url sont correctement formées."""
+    from ankiforge.services.ai.mcp_daemon import MCPServerDaemon
+
+    daemon = MCPServerDaemon(host="127.0.0.1", base_port=8765, data_dir=tmp_path)
+    assert daemon.url is None
+    assert daemon.sse_url is None
+
+    daemon._port = 9123
+    assert daemon.url == "http://127.0.0.1:9123/mcp"
+    assert daemon.sse_url == "http://127.0.0.1:9123/sse"

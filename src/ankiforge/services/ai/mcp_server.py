@@ -1,7 +1,7 @@
 import json
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server.mcpserver import MCPServer
 
@@ -492,14 +492,19 @@ def prompt_run_with_agent(agent_name: str, task: str) -> str:
     ).render(agent_name=agent_name, agent_info=agent_info, task=task)
 
 
-def run_server() -> None:
-    """Démarre le serveur FastMCP en mode asynchrone sécurisé."""
-    logger.info("Démarrage du serveur MCP AnkiForge...")
+def run_server(transport: Literal["stdio", "sse", "streamable-http"] = "streamable-http") -> None:
+    """Démarre le serveur FastMCP en mode asynchrone sécurisé (transport par défaut: streamable-http)."""
+    logger.info("Démarrage du serveur MCP AnkiForge (transport: %s)...", transport)
     if db.is_closed():
         db.connect()
 
     try:
-        mcp.run()
+        if transport == "streamable-http":
+            mcp.run(transport="streamable-http")
+        elif transport == "sse":
+            mcp.run(transport="sse")
+        else:
+            mcp.run(transport="stdio")
     except KeyboardInterrupt:
         logger.info("Arrêt du serveur MCP AnkiForge.")
     finally:

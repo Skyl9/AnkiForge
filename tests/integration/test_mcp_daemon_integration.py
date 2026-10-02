@@ -14,6 +14,7 @@ import httpx
 import pytest
 from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
+from mcp.client.streamable_http import streamable_http_client
 from mcp.server.mcpserver import MCPServer
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
@@ -314,3 +315,124 @@ def test_mcp_server_daemon_real_tools_over_sse(tmp_path):
     active_version = NoteVersionModel.get(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
     fields = json.loads(active_version.content)
     assert fields["Front"] == "Question Patchée via MCP"
+
+
+def test_mcp_streamable_http_post_initialize_returns_200_not_405(tmp_path):
+    """
+    Vérifie qu'un appel POST initialize sur /mcp retourne 200 (Streamable HTTP MCP 2.x standard)
+    et non 405 Method Not Allowed (qui se produisait lorsque seul GET /sse était exposé).
+    Vérifie également que BearerAuthMiddleware protège l'endpoint /mcp.
+    """
+    dummy_mcp = MCPServer("InitTestServer")
+
+    @dummy_mcp.tool()
+    def echo(msg: str) -> str:
+        return msg
+
+    daemon = MCPServerDaemon(
+        mcp_server=dummy_mcp,
+        host="127.0.0.1",
+        base_port=9650,
+        data_dir=tmp_path,
+    )
+
+    started = daemon.start(timeout=5.0)
+    assert started is True
+    assert daemon.is_running is True
+    assert daemon.url == f"http://127.0.0.1:{daemon.port}/mcp"
+
+    init_payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "test-streamable-client",
+                "version": "1.0.0",
+            },
+        },
+    }
+
+    try:
+        # 1. Requête POST /mcp non authentifiée -> 401 Unauthorized (sécurité garantie)
+        resp_unauth = httpx.post(daemon.url, json=init_payload, timeout=3.0)
+        assert resp_unauth.status_code == 401
+        assert "Bearer" in resp_unauth.headers.get("www-authenticate", "")
+
+        # 2. Requête POST /mcp authentifiée avec Bearer token -> 200 OK (pas 405 !)
+        auth_headers = {
+            "Authorization": f"Bearer {daemon.token}",
+            "Accept": "application/json, text/event-stream",
+        }
+        resp_init = httpx.post(daemon.url, json=init_payload, headers=auth_headers, timeout=3.0)
+        assert resp_init.status_code == 200
+        assert "mcp-session-id" in resp_init.headers
+
+        # 3. Comparaison avec POST sur /sse -> retourne 405 Method Not Allowed
+        resp_sse_post = httpx.post(daemon.sse_url, json=init_payload, headers=auth_headers, timeout=3.0)
+        assert resp_sse_post.status_code == 405
+
+    finally:
+        daemon.stop(timeout=5.0)
+
+
+def test_mcp_server_daemon_dual_stack_streamable_http_and_sse(tmp_path):
+    """
+    Vérifie le fonctionnement dual-stack : Streamable HTTP (/mcp) et SSE legacy (/sse)
+    sont tous les deux opérationnels et permettent d'exécuter des outils MCP avec session client.
+    """
+    dummy_mcp = MCPServer("DualStackServer")
+
+    @dummy_mcp.tool()
+    def multiply(a: int, b: int) -> int:
+        return a * b
+
+    daemon = MCPServerDaemon(
+        mcp_server=dummy_mcp,
+        host="127.0.0.1",
+        base_port=9700,
+        data_dir=tmp_path,
+    )
+
+    started = daemon.start(timeout=5.0)
+    assert started is True
+    assert daemon.is_running is True
+
+    async def _test_dual_stack():
+        auth_headers = {"Authorization": f"Bearer {daemon.token}"}
+
+        # 1. Client Streamable HTTP (MCP 2.x standard)
+        async with (
+            httpx.AsyncClient(headers=auth_headers) as http_client,
+            streamable_http_client(daemon.url, http_client=http_client) as (read_stream, write_stream),
+            ClientSession(read_stream, write_stream) as streamable_session,
+        ):
+            await streamable_session.initialize()
+            tools_res = await streamable_session.list_tools()
+            assert any(t.name == "multiply" for t in tools_res.tools)
+
+            mult_res = await streamable_session.call_tool("multiply", arguments={"a": 6, "b": 7})
+            assert mult_res is not None
+            assert not mult_res.is_error
+            assert any("42" in str(c) for c in mult_res.content)
+
+        # 2. Client SSE legacy
+        async with (
+            sse_client(daemon.sse_url, headers=auth_headers) as (read_sse, write_sse),
+            ClientSession(read_sse, write_sse) as sse_session,
+        ):
+            await sse_session.initialize()
+            tools_res_sse = await sse_session.list_tools()
+            assert any(t.name == "multiply" for t in tools_res_sse.tools)
+
+            mult_res_sse = await sse_session.call_tool("multiply", arguments={"a": 3, "b": 4})
+            assert mult_res_sse is not None
+            assert not mult_res_sse.is_error
+            assert any("12" in str(c) for c in mult_res_sse.content)
+
+    try:
+        asyncio.run(_test_dual_stack())
+    finally:
+        daemon.stop(timeout=5.0)

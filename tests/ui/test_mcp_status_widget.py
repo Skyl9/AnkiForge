@@ -88,7 +88,7 @@ def test_mcp_status_widget_state_transitions(qtbot: Any) -> None:
 
 
 def test_mcp_status_widget_client_config(qtbot: Any) -> None:
-    """Vérifie la génération du JSON de configuration pour Claude Desktop et Antigravity."""
+    """Vérifie la génération du JSON de configuration pour Claude Desktop et Antigravity (Streamable HTTP /mcp par défaut)."""
     widget = MCPStatusWidget(initial_status="running", initial_port=8765)
     qtbot.addWidget(widget)
     widget.token = "test-token-12345"
@@ -96,7 +96,7 @@ def test_mcp_status_widget_client_config(qtbot: Any) -> None:
     config = widget.get_client_config()
     assert "mcpServers" in config
     assert "ankiforge" in config["mcpServers"]
-    assert config["mcpServers"]["ankiforge"]["url"] == "http://127.0.0.1:8765/sse"
+    assert config["mcpServers"]["ankiforge"]["url"] == "http://127.0.0.1:8765/mcp"
     assert config["mcpServers"]["ankiforge"]["headers"]["Authorization"] == "Bearer test-token-12345"
 
     config_json = widget.get_client_config_json()
@@ -105,7 +105,7 @@ def test_mcp_status_widget_client_config(qtbot: Any) -> None:
 
 
 def test_mcp_status_widget_clipboard_copies(qtbot: Any) -> None:
-    """Vérifie les copies dans le presse-papiers pour la config JSON, l'URL SSE et le token."""
+    """Vérifie les copies dans le presse-papiers pour la config JSON, l'URL Streamable HTTP, l'URL SSE et le token."""
     widget = MCPStatusWidget(initial_status="running", initial_port=8765)
     qtbot.addWidget(widget)
     widget.token = "bearer-token-abc"
@@ -115,10 +115,14 @@ def test_mcp_status_widget_clipboard_copies(qtbot: Any) -> None:
 
     # Copie configuration JSON
     widget.copy_client_config()
-    assert "http://127.0.0.1:8765/sse" in clipboard.text()
+    assert "http://127.0.0.1:8765/mcp" in clipboard.text()
     assert "bearer-token-abc" in clipboard.text()
 
-    # Copie URL SSE
+    # Copie URL Streamable HTTP (/mcp)
+    widget.copy_url()
+    assert clipboard.text() == "http://127.0.0.1:8765/mcp"
+
+    # Copie URL SSE (/sse)
     widget.copy_sse_url()
     assert clipboard.text() == "http://127.0.0.1:8765/sse"
 

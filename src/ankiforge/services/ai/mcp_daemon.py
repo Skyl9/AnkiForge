@@ -141,6 +141,8 @@ def write_daemon_state(
     token: str,
     token_file: Path,
     pid: int | None = None,
+    url: str | None = None,
+    sse_url: str | None = None,
 ) -> None:
     """Publie l'état d'exécution et les métadonnées de connexion du serveur MCP en JSON sécurisé (0600)."""
     state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -148,7 +150,8 @@ def write_daemon_state(
         "status": status,
         "host": host,
         "port": port,
-        "url": f"http://{host}:{port}/sse",
+        "url": url if url is not None else f"http://{host}:{port}/mcp",
+        "sse_url": sse_url if sse_url is not None else f"http://{host}:{port}/sse",
         "token": token,
         "token_path": str(token_file.resolve()),
         "pid": pid if pid is not None else os.getpid(),
@@ -315,8 +318,15 @@ class MCPServerDaemon:
         return self._token
 
     @property
+    def url(self) -> str | None:
+        """Retourne l'URL complète du point de terminaison Streamable HTTP (/mcp) si le serveur est actif."""
+        if self._port is not None:
+            return f"http://{self._host}:{self._port}/mcp"
+        return None
+
+    @property
     def sse_url(self) -> str | None:
-        """Retourne l'URL complète du point de terminaison SSE si le serveur est actif."""
+        """Retourne l'URL complète du point de terminaison SSE legacy (/sse) si le serveur est actif."""
         if self._port is not None:
             return f"http://{self._host}:{self._port}/sse"
         return None
@@ -365,9 +375,12 @@ class MCPServerDaemon:
                 token = generate_auth_token()
                 save_auth_token(token, self.token_file)
 
-                # 4. Construction de l'application ASGI avec middleware de sécurité
+                # 4. Construction de l'application ASGI dual-stack (Streamable HTTP MCP 2.x standard + SSE legacy)
+                raw_app = mcp_instance.streamable_http_app(host=self._host)
                 raw_sse_app = mcp_instance.sse_app(host=self._host)
-                secured_app = BearerAuthMiddleware(raw_sse_app, token=token)
+                for sse_route in raw_sse_app.routes:
+                    raw_app.routes.append(sse_route)
+                secured_app = BearerAuthMiddleware(raw_app, token=token)
 
                 # 5. Configuration Uvicorn sans signaux système intrusifs
                 config = uvicorn.Config(
@@ -424,6 +437,8 @@ class MCPServerDaemon:
                         token=token,
                         token_file=self.token_file,
                         pid=os.getpid(),
+                        url=self.url,
+                        sse_url=self.sse_url,
                     )
 
                     from ankiforge.services.ai.mcp_server import register_mutation_listener
@@ -431,7 +446,12 @@ class MCPServerDaemon:
                     register_mutation_listener(self._on_mutation_received)
                     self.signals.server_started.emit(port)
 
-                    logger.info("Daemon MCP AnkiForge opérationnel sur %s (port %d).", self.sse_url, port)
+                    logger.info(
+                        "Daemon MCP AnkiForge opérationnel sur %s (Streamable HTTP) et %s (SSE legacy) (port %d).",
+                        self.url,
+                        self.sse_url,
+                        port,
+                    )
                     return True
 
                 # Collision ou échec, nettoyage et essai du port suivant

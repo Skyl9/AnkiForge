@@ -147,6 +147,10 @@ def test_run_mcp_server_cli_initializes_db_and_banner(
             return self._port
 
         @property
+        def url(self) -> str:
+            return f"http://{self._host}:{self._port}/mcp"
+
+        @property
         def sse_url(self) -> str:
             return f"http://{self._host}:{self._port}/sse"
 
@@ -185,6 +189,7 @@ def test_run_mcp_server_cli_initializes_db_and_banner(
     captured = capsys.readouterr()
     assert "AnkiForge MCP Server" in captured.out
     assert "Profil actif        : cli_test_profile" in captured.out
+    assert "Point d'entrée HTTP : http://127.0.0.1:8765/mcp" in captured.out
     assert "Point d'entrée SSE  : http://127.0.0.1:8765/sse" in captured.out
     assert "Serveur MCP AnkiForge arrêté avec succès." in captured.out
 
@@ -240,6 +245,10 @@ def test_run_mcp_server_cli_unexpected_daemon_death(
         @property
         def port(self) -> int:
             return 8765
+
+        @property
+        def url(self) -> str:
+            return "http://127.0.0.1:8765/mcp"
 
         @property
         def sse_url(self) -> str:
@@ -302,6 +311,10 @@ def test_run_mcp_server_cli_signal_interception(
         @property
         def port(self) -> int:
             return 8765
+
+        @property
+        def url(self) -> str:
+            return "http://127.0.0.1:8765/mcp"
 
         @property
         def sse_url(self) -> str:
@@ -381,12 +394,14 @@ def test_run_mcp_server_cli_e2e_real_daemon(
     state_data = json.loads(state_file.read_text(encoding="utf-8"))
     assert state_data["status"] == "running"
     actual_port = state_data["port"]
+    assert state_data["url"] == f"http://127.0.0.1:{actual_port}/mcp"
+    assert state_data["sse_url"] == f"http://127.0.0.1:{actual_port}/sse"
     token = state_data["token"]
     assert token_file.is_file()
 
-    # Requête HTTP/SSE authentifiée pour vérifier que le point de terminaison répond
-    url = f"http://127.0.0.1:{actual_port}/sse"
-    with httpx.stream("GET", url, headers={"Authorization": f"Bearer {token}"}, timeout=3.0) as resp:
+    # Requête HTTP/SSE authentifiée pour vérifier que le point de terminaison SSE répond
+    sse_url = f"http://127.0.0.1:{actual_port}/sse"
+    with httpx.stream("GET", sse_url, headers={"Authorization": f"Bearer {token}"}, timeout=3.0) as resp:
         assert resp.status_code == 200
 
     # Déclenchement de l'arrêt gracieux
