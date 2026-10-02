@@ -36,7 +36,7 @@ from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.theme import setup_dynamic_theme
 from ankiforge.utils.logger import install_crash_handlers, setup_logging, shutdown_logging
-from ankiforge.utils.paths import get_active_profile, get_resource_path
+from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_resource_path
 
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
@@ -63,6 +63,7 @@ def parse_cli_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, l
     parser.add_argument("--prod", action="store_true")
     parser.add_argument("--clone-prod-to-dev", action="store_true")
     parser.add_argument("--mcp-server", action="store_true")
+    parser.add_argument("--rotate-mcp-token", action="store_true")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--profile", type=str, default=None)
 
@@ -86,6 +87,7 @@ def main(argv: list[str] | None = None) -> None:
             "  --smoke-test             Exécute une vérification rapide d'intégrité binaire et quitte.\n"
             "  --clone-prod-to-dev      Clone les profils et médias de production vers le dossier dev.\n"
             "  --mcp-server             Lance le serveur MCP en mode console headless (sans interface graphique).\n"
+            "  --rotate-mcp-token       Renouvelle le jeton Bearer MCP (génère un nouveau jeton aléatoire 256 bits).\n"
             "  --port <port>            Port TCP d'écoute du serveur MCP (défaut : 8765).\n"
             "  --profile <nom>          Profil utilisateur et base SQLite cibles (défaut : profil actif ou 'default').\n"
         )
@@ -113,7 +115,7 @@ def main(argv: list[str] | None = None) -> None:
         is_development,
         set_environment,
     )
-    from ankiforge.utils.paths import get_app_data_dir, get_project_root
+    from ankiforge.utils.paths import get_project_root
 
     # Gestion précoce des drapeaux d'environnement CLI
     if known_args.dev:
@@ -125,6 +127,17 @@ def main(argv: list[str] | None = None) -> None:
         sys.stdout.write("Clonage des données de production (~/.ankiforge) vers le développement (~/.ankiforge-dev)...\n")
         cloned, media = clone_production_data_to_development(copy_media=True)
         sys.stdout.write(f"Succès : {cloned} profil(s) et {media} média(s) copiés dans ~/.ankiforge-dev/profiles/.\n")
+        sys.exit(0)
+
+    # Renouvellement explicite du jeton Bearer MCP (mode CLI autonome sans UI)
+    if known_args.rotate_mcp_token and not known_args.mcp_server:
+        from ankiforge.services.ai.mcp_daemon import rotate_auth_token
+
+        data_dir = get_app_data_dir()
+        token_file = data_dir / "mcp_auth_token"
+        state_file = data_dir / "mcp_server.json"
+        rotate_auth_token(token_file=token_file, state_file=state_file)
+        sys.stdout.write(f"Jeton MCP renouvelé avec succès : {token_file}\n")
         sys.exit(0)
 
     # Chargement dynamique des variables d'environnement (.env)
@@ -164,6 +177,7 @@ def main(argv: list[str] | None = None) -> None:
         exit_code = run_mcp_server_cli(
             port=known_args.port,
             profile_name=known_args.profile,
+            rotate_token=known_args.rotate_mcp_token,
         )
         shutdown_logging()
         sys.exit(exit_code)

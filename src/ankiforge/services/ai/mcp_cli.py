@@ -68,6 +68,7 @@ def run_mcp_server_cli(
     stop_event: threading.Event | None = None,
     daemon_class: type[MCPServerDaemon] = MCPServerDaemon,
     data_dir: Path | None = None,
+    rotate_token: bool = False,
 ) -> int:
     """
     Démarre et maintient le serveur MCP en mode console headless bloquant au premier plan.
@@ -81,6 +82,7 @@ def run_mcp_server_cli(
         stop_event: Événement threading optionnel permettant de déclencher l'arrêt.
         daemon_class: Classe de daemon à instancier (permet l'injection pour les tests).
         data_dir: Répertoire de données optionnel (défaut : get_app_data_dir()).
+        rotate_token: Force le renouvellement du jeton Bearer au démarrage si True.
 
     Returns:
         int: Code de sortie (0 en cas d'arrêt propre, code d'erreur > 0 sinon).
@@ -103,11 +105,19 @@ def run_mcp_server_cli(
 
     target_data_dir = data_dir if data_dir is not None else get_app_data_dir()
 
-    daemon = daemon_class(
-        host="127.0.0.1",
-        base_port=port,
-        data_dir=target_data_dir,
-    )
+    try:
+        daemon = daemon_class(
+            host="127.0.0.1",
+            base_port=port,
+            data_dir=target_data_dir,
+            rotate_token=rotate_token,
+        )
+    except TypeError:
+        daemon = daemon_class(
+            host="127.0.0.1",
+            base_port=port,
+            data_dir=target_data_dir,
+        )
 
     logger.info("Démarrage du daemon MCP AnkiForge sur le port %d...", port)
     if not daemon.start(timeout=10.0):

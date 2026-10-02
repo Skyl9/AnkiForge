@@ -121,6 +121,23 @@ def generate_auth_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def load_auth_token(path: Path) -> str | None:
+    """
+    Lit et valide le jeton Bearer persisté sur le disque.
+    Retourne la chaîne du jeton si elle existe et mesure au moins 16 caractères, None sinon.
+    """
+    if not path.is_file():
+        return None
+    try:
+        raw = path.read_text(encoding="utf-8").strip()
+        if len(raw) >= 16:
+            return raw
+        return None
+    except Exception as e:
+        logger.debug("Échec de lecture du jeton MCP depuis %s: %s", path, e)
+        return None
+
+
 def save_auth_token(token: str, path: Path) -> None:
     """
     Sauvegarde le jeton Bearer sur le disque avec des permissions restreintes 0600 (lecture/écriture propriétaire).
@@ -131,6 +148,180 @@ def save_auth_token(token: str, path: Path) -> None:
         f.write(token)
     if os.name == "posix":
         os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def get_or_create_auth_token(
+    token_file: Path,
+    state_file: Path | None = None,
+    rotate: bool = False,
+    port: int | None = None,
+    host: str = "127.0.0.1",
+) -> str:
+    """
+    Retourne le jeton Bearer persistant ou en crée un nouveau si nécessaire.
+
+    Si rotate=False :
+    1. Réutilise le jeton stocké dans token_file s'il existe et est valide.
+    2. À défaut, restaure le jeton sauvegardé dans state_file s'il est présent.
+    3. Si aucun jeton valide n'existe, génère un nouveau jeton aléatoire sécurisé (0600).
+
+    Si rotate=True :
+    Génère impérativement un nouveau jeton aléatoire et écrase le fichier token_file (0600).
+    """
+    if not rotate:
+        existing = load_auth_token(token_file)
+        if existing is not None:
+            return existing
+
+        if state_file is not None and state_file.is_file():
+            state = read_daemon_state(state_file)
+            if state and isinstance(state.get("token"), str) and len(state["token"].strip()) >= 16:
+                recovered = state["token"].strip()
+                save_auth_token(recovered, token_file)
+                logger.info("Jeton Bearer MCP restauré depuis le fichier d'état %s", state_file)
+                return recovered
+
+    new_token = generate_auth_token()
+    save_auth_token(new_token, token_file)
+    logger.info("Nouveau jeton Bearer MCP généré et persisté dans %s", token_file)
+
+    try:
+        sync_mcp_client_config(token=new_token, port=port, host=host)
+    except Exception as e:
+        logger.debug("Exception lors de la synchronisation de la config client MCP : %s", e)
+
+    return new_token
+
+
+def rotate_auth_token(
+    token_file: Path,
+    state_file: Path | None = None,
+    port: int | None = None,
+    host: str = "127.0.0.1",
+) -> str:
+    """
+    Force le renouvellement du jeton Bearer MCP, persiste la nouvelle valeur dans token_file (0600)
+    et synchronise le fichier d'état state_file s'il existe (0600).
+    """
+    if port is None and state_file is not None and state_file.is_file():
+        st = read_daemon_state(state_file)
+        if st and isinstance(st.get("port"), int):
+            port = st["port"]
+            host = st.get("host", host)
+
+    new_token = get_or_create_auth_token(
+        token_file=token_file,
+        state_file=state_file,
+        rotate=True,
+        port=port,
+        host=host,
+    )
+
+    if state_file is not None and state_file.is_file():
+        try:
+            state = read_daemon_state(state_file) or {}
+            state["token"] = new_token
+            if port is not None:
+                state["port"] = port
+                state["url"] = f"http://{host}:{port}/mcp"
+                state["sse_url"] = f"http://{host}:{port}/sse"
+            content = json.dumps(state, indent=2, ensure_ascii=False)
+            fd = os.open(str(state_file), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+            with open(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+            if os.name == "posix":
+                os.chmod(state_file, stat.S_IRUSR | stat.S_IWUSR)
+        except Exception as e:
+            logger.warning("Impossible de synchroniser le nouveau jeton dans le fichier d'état %s: %s", state_file, e)
+
+    return new_token
+
+
+def get_known_mcp_client_config_paths() -> list[Path]:
+    """Retourne la liste ordonnée des chemins des fichiers de configuration des clients MCP supportés."""
+    paths: list[Path] = [
+        Path.home() / ".gemini" / "config" / "mcp_config.json",
+    ]
+    if sys.platform == "darwin":
+        paths.append(Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json")
+    elif sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            paths.append(Path(appdata) / "Claude" / "claude_desktop_config.json")
+    else:
+        paths.append(Path.home() / ".config" / "claude" / "claude_desktop_config.json")
+    return paths
+
+
+def sync_mcp_client_config(
+    token: str,
+    port: int | None = None,
+    host: str = "127.0.0.1",
+    config_paths: list[Path] | None = None,
+) -> bool:
+    """
+    Met à jour en place les fichiers de configuration des clients MCP externes
+    (ex. ~/.gemini/config/mcp_config.json ou Claude Desktop) si l'entrée "ankiforge" est présente.
+
+    Args:
+        token: Nouveau jeton Bearer d'authentification.
+        port: Port TCP optionnel.
+        host: Hôte du serveur (par défaut 127.0.0.1).
+        config_paths: Chemins spécifiques à mettre à jour, ou détection automatique si None.
+
+    Returns:
+        bool: True si au moins un fichier de configuration a été mis à jour avec succès, False sinon.
+    """
+    candidates = config_paths if config_paths is not None else get_known_mcp_client_config_paths()
+    any_updated = False
+
+    for cfg_path in candidates:
+        if not cfg_path.is_file():
+            continue
+        try:
+            raw_text = cfg_path.read_text(encoding="utf-8")
+            data = json.loads(raw_text)
+            if not isinstance(data, dict):
+                continue
+            servers = data.get("mcpServers")
+            if not isinstance(servers, dict) or "ankiforge" not in servers:
+                continue
+
+            anki_entry = servers["ankiforge"]
+            if not isinstance(anki_entry, dict):
+                continue
+
+            # Mise à jour des headers
+            headers = anki_entry.get("headers")
+            if not isinstance(headers, dict):
+                headers = {}
+                anki_entry["headers"] = headers
+            headers["Authorization"] = f"Bearer {token}"
+
+            # Mise à jour éventuelle de l'URL
+            if port is not None:
+                anki_entry["url"] = f"http://{host}:{port}/mcp"
+
+            # Écriture atomique sécurisée (0600)
+            new_content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+            temp_path = cfg_path.with_name(f"{cfg_path.name}.tmp.{secrets.token_hex(4)}")
+            try:
+                fd = os.open(str(temp_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+                with open(fd, "w", encoding="utf-8") as f:
+                    f.write(new_content)
+                if os.name == "posix":
+                    os.chmod(temp_path, stat.S_IRUSR | stat.S_IWUSR)
+                temp_path.replace(cfg_path)
+            except Exception:
+                if temp_path.exists():
+                    temp_path.unlink()
+                raise
+            logger.info("Configuration client MCP mise à jour dans %s", cfg_path)
+            any_updated = True
+        except Exception as e:
+            logger.warning("Impossible de synchroniser la configuration client MCP dans %s: %s", cfg_path, e)
+
+    return any_updated
 
 
 def write_daemon_state(
@@ -179,14 +370,17 @@ def read_daemon_state(state_file: Path) -> dict[str, Any] | None:
         return None
 
 
-def cleanup_daemon_state(token_file: Path, state_file: Path, mark_stopped: bool = True) -> None:
+def cleanup_daemon_state(token_file: Path, state_file: Path, mark_stopped: bool = True, delete_token: bool = False) -> None:
     """
-    Supprime le jeton de session et marque ou supprime le fichier d'état lors de l'arrêt du daemon.
+    Marque ou supprime le fichier d'état lors de l'arrêt du daemon.
+    Le jeton Bearer (token_file) est conservé sur le disque pour assurer la stabilité
+    entre les redémarrages, sauf si delete_token=True est explicitement spécifié.
     """
-    try:
-        token_file.unlink(missing_ok=True)
-    except Exception as e:
-        logger.warning("Impossible de supprimer le fichier de token MCP %s: %s", token_file, e)
+    if delete_token:
+        try:
+            token_file.unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("Impossible de supprimer le fichier de token MCP %s: %s", token_file, e)
 
     try:
         if mark_stopped and state_file.is_file():
@@ -270,6 +464,7 @@ class MCPServerDaemon:
         base_port: int = 8765,
         data_dir: Path | None = None,
         log_level: str = "warning",
+        rotate_token: bool = False,
     ) -> None:
         from ankiforge.utils.paths import get_app_data_dir
 
@@ -281,9 +476,11 @@ class MCPServerDaemon:
         self._base_port = base_port
         self._data_dir = data_dir if data_dir is not None else get_app_data_dir()
         self._log_level = log_level
+        self._rotate_token = rotate_token
 
         self._port: int | None = None
         self._token: str | None = None
+        self._secured_app: BearerAuthMiddleware | None = None
         self._server: uvicorn.Server | None = None
         self._thread: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -371,9 +568,13 @@ class MCPServerDaemon:
             for _attempt in range(max_port_attempts):
                 port = find_available_port(start_port=start_port, host=self._host)
 
-                # 3. Génération et sécurisation du jeton Bearer (0600)
-                token = generate_auth_token()
-                save_auth_token(token, self.token_file)
+                # 3. Récupération ou génération du jeton Bearer stable (0600)
+                token = get_or_create_auth_token(
+                    token_file=self.token_file,
+                    state_file=self.state_file,
+                    rotate=self._rotate_token,
+                )
+                self._rotate_token = False
 
                 # 4. Construction de l'application ASGI dual-stack (Streamable HTTP MCP 2.x standard + SSE legacy)
                 raw_app = mcp_instance.streamable_http_app(host=self._host)
@@ -381,6 +582,7 @@ class MCPServerDaemon:
                 for sse_route in raw_sse_app.routes:
                     raw_app.routes.append(sse_route)
                 secured_app = BearerAuthMiddleware(raw_app, token=token)
+                self._secured_app = secured_app
 
                 # 5. Configuration Uvicorn sans signaux système intrusifs
                 config = uvicorn.Config(
@@ -445,6 +647,11 @@ class MCPServerDaemon:
 
                     register_mutation_listener(self._on_mutation_received)
                     self.signals.server_started.emit(port)
+
+                    try:
+                        sync_mcp_client_config(token=token, port=port, host=self._host)
+                    except Exception as e:
+                        logger.debug("Exception lors de la synchronisation de la config client MCP : %s", e)
 
                     logger.info(
                         "Daemon MCP AnkiForge opérationnel sur %s (Streamable HTTP) et %s (SSE legacy) (port %d).",
@@ -512,12 +719,13 @@ class MCPServerDaemon:
                     logger.debug("Exception lors de la fermeture des sessions SSE résiduelles : %s", e)
                 thread.join(timeout=min(timeout, 1.0))
 
-            # 5. Nettoyage du jeton et marquage de l'état "stopped"
+            # 5. Nettoyage et marquage de l'état "stopped" (jeton conservé pour les prochains démarrages)
             cleanup_daemon_state(token_file=self.token_file, state_file=self.state_file, mark_stopped=True)
 
             self._is_running = False
             self._port = None
             self._token = None
+            self._secured_app = None
             self._server = None
             self._thread = None
             self._loop = None
@@ -525,6 +733,36 @@ class MCPServerDaemon:
             if was_running:
                 self.signals.server_stopped.emit()
             logger.info("Daemon MCP arrêté avec succès.")
+
+    def rotate_token(self) -> str:
+        """
+        Régénère le jeton Bearer, met à jour le stockage sur disque (0600), synchronise
+        le fichier d'état et applique immédiatement le nouveau jeton sur le middleware actif.
+        """
+        with self._lock:
+            new_token = rotate_auth_token(
+                token_file=self.token_file,
+                state_file=self.state_file,
+                port=self._port,
+                host=self._host,
+            )
+            self._token = new_token
+            if self._secured_app is not None:
+                self._secured_app.token = new_token
+            if self.is_running and self._port is not None:
+                write_daemon_state(
+                    state_file=self.state_file,
+                    status="running",
+                    host=self._host,
+                    port=self._port,
+                    token=new_token,
+                    token_file=self.token_file,
+                    pid=os.getpid(),
+                    url=self.url,
+                    sse_url=self.sse_url,
+                )
+            logger.info("Jeton Bearer MCP renouvelé avec succès.")
+            return new_token
 
     def __enter__(self) -> MCPServerDaemon:
         self.start()
