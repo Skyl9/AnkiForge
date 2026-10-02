@@ -142,7 +142,7 @@ class AlbumPageCard(QFrame):
         self.btn_rotate = IconButton("ph.arrow-clockwise", tooltip="Tourner de 90°", size=22)
         self.btn_rotate.clicked.connect(lambda: self.rotate_requested.emit(self.page.id))
 
-        self.btn_inspect = IconButton("ph.magnifying-glass-plus", tooltip="Inspecter la page", size=22)
+        self.btn_inspect = IconButton("ph.arrow-square-out", tooltip="Inspecter la page", size=22)
         self.btn_inspect.clicked.connect(lambda: self.inspect_requested.emit(self.page.id))
 
         self.btn_delete = IconButton("ph.trash", tooltip="Supprimer cette page", size=22)

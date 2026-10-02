@@ -103,6 +103,9 @@ def test_album_page_card_signals(qtbot, created_album):
     with qtbot.waitSignal(card.move_requested, timeout=1000):
         card.btn_left.click()
 
+    assert card.btn_inspect.icon_name == "ph.arrow-square-out"
+    assert card.btn_inspect.toolTip() == "Inspecter la page"
+
     with qtbot.waitSignal(card.inspect_requested, timeout=1000):
         card.btn_inspect.click()
 
