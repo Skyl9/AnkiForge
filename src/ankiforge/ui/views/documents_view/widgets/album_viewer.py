@@ -686,7 +686,7 @@ class AlbumViewerWidget(QWidget):
         self.pages_badge = Badge("0 pages", variant="neutral")
         row1.addWidget(self.pages_badge)
 
-        self.btn_forge = PrimaryButton("⚡ Forger des cartes", tooltip="Forger des cartes flash à partir des planches de cet album")
+        self.btn_forge = PrimaryButton("Forger des cartes", tooltip="Forger des cartes flash à partir des planches de cet album")
         self.btn_forge.setIcon(load_on_accent_icon("ph.cards"))
         self.btn_forge.setFixedHeight(28)
         self.btn_forge.setStyleSheet("font-size: 11px; padding: 3px 12px;")

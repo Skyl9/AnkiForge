@@ -696,7 +696,8 @@ class DocumentsView(FileDropMixin, QWidget):
         cov_layout.addWidget(self.chapters_list, 1)
         self.chapters_list.itemClicked.connect(self._on_chapter_clicked)
 
-        self.btn_forge_chapter = PrimaryButton("⚡ Forger la section", tooltip="Envoyer cette section dans le Studio de Création pour générer des cartes")
+        self.btn_forge_chapter = PrimaryButton("Forger la section", tooltip="Envoyer cette section dans le Studio de Création pour générer des cartes")
+        self.btn_forge_chapter.setIcon(load_on_accent_icon("ph.lightning"))
         self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
         cov_layout.addWidget(self.btn_forge_chapter)
 

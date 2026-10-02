@@ -605,28 +605,28 @@ class DocumentOutlineWidget(QWidget):
 
         menu = StyledMenu(self)
 
-        # ⚡ Forger cette section
+        # Forger cette section
         short_title = title if len(title) <= 24 else f"{title[:22]}…"
-        act_forge = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), f"⚡ Forger la section « {short_title} »", menu)
+        act_forge = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), f"Forger la section « {short_title} »", menu)
         act_forge.triggered.connect(lambda: self._trigger_forge_section(item))
         menu.addAction(act_forge)
 
         menu.addSeparator()
 
-        # 📋 Copier l'ancre Markdown
-        act_copy_anchor = QAction(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE), f"📋 Copier l'ancre (#{slug})", menu)
+        # Copier l'ancre Markdown
+        act_copy_anchor = QAction(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE), f"Copier l'ancre (#{slug})", menu)
         act_copy_anchor.triggered.connect(lambda: QGuiApplication.clipboard().setText(f"#{slug}"))
         menu.addAction(act_copy_anchor)
 
-        # 📋 Copier le contenu de la section
-        act_copy_content = QAction(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY), "📋 Copier le texte de la section", menu)
+        # Copier le contenu de la section
+        act_copy_content = QAction(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY), "Copier le texte de la section", menu)
         act_copy_content.triggered.connect(lambda: self._copy_section_content(line_start, line_end))
         menu.addAction(act_copy_content)
 
         menu.addSeparator()
 
-        # 🎯 Naviguer vers la section
-        act_jump = QAction(load_phosphor_icon("ph.arrow-right", color=DesignTokens.ACCENT_PRIMARY), f"🎯 Aller à la ligne {line_start}", menu)
+        # Naviguer vers la section
+        act_jump = QAction(load_phosphor_icon("ph.arrow-right", color=DesignTokens.ACCENT_PRIMARY), f"Aller à la ligne {line_start}", menu)
         act_jump.triggered.connect(lambda: self._on_item_clicked(item, 0))
         menu.addAction(act_jump)
 

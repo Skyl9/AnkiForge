@@ -1200,3 +1200,53 @@ def test_documents_view_coverage_tab_and_analysis_navigation(qtbot, mock_db):
 
     assert len(nav_signals) == 1
     assert nav_signals[0] == ("analysis", {"tab": "documents", "doc_id": doc.id})
+
+
+def test_documents_view_forge_buttons_icons_and_no_emojis(qtbot, mock_db, monkeypatch):
+    """Les actions 'Forger la section' et 'Forger des cartes' ont des icônes Phosphor et aucun émoji."""
+    from ankiforge.ui.theme import StyledMenu
+    from ankiforge.ui.views.documents_view.view import DocumentsView
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+
+    # 1. Bouton Forger la section dans la couverture
+    assert "⚡" not in view.btn_forge_chapter.text()
+    assert view.btn_forge_chapter.text() == "Forger la section"
+    assert not view.btn_forge_chapter.icon().isNull()
+
+    # 2. Bouton Forger des cartes dans l'album viewer
+    assert "⚡" not in view.album_viewer.btn_forge.text()
+    assert view.album_viewer.btn_forge.text() == "Forger des cartes"
+    assert not view.album_viewer.btn_forge.icon().isNull()
+
+    # 3. Action contextuelle dans le Plan
+    executed_menus: list[list[str]] = []
+    captured_actions = []
+
+    def mock_exec(self_menu, *args, **kwargs):
+        executed_menus.append([a.text() for a in self_menu.actions()])
+        captured_actions.extend(self_menu.actions())
+        return None
+
+    monkeypatch.setattr(StyledMenu, "exec", mock_exec)
+
+    outline = view.outline_widget
+    outline.set_document_content("# Titre Test\nContenu.")
+    item = outline.tree.topLevelItem(0)
+    assert item is not None
+
+    rect = outline.tree.visualItemRect(item)
+    outline._on_tree_context_menu(rect.center())
+
+    assert len(executed_menus) == 1
+    menu_texts = executed_menus[0]
+    assert any("Forger la section" in t for t in menu_texts)
+    assert not any("⚡" in t for t in menu_texts)
+    assert not any("📋" in t for t in menu_texts)
+    assert not any("🎯" in t for t in menu_texts)
+
+    # Vérification que l'action forge a bien une icône Phosphor
+    forge_action = next(a for a in captured_actions if "Forger la section" in a.text())
+    assert not forge_action.icon().isNull()
