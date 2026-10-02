@@ -101,3 +101,44 @@ def test_agents_view_prompt_frameworks_and_empty_state(qtbot, monkeypatch):
     # Si tous les agents ont été supprimés, l'empty state doit être actif
     if not PersonaModel.select().count():
         assert view.editor_master_stack.currentIndex() == 0
+
+
+def test_agents_view_prompt_buttons_height_and_density(qtbot):
+    """Vérifie que les boutons d'action du prompt font 32px de haut, ont la densité compacte et les bonnes icônes."""
+    uid = uuid.uuid4().hex[:6]
+    _ = PersonaModel.create(
+        name=f"AgentPromptBtns {uid}",
+        system_prompt="Prompt initial.",
+        output_format="json",
+        persona_type="pipeline",
+    )
+
+    view = AgentsView()
+    qtbot.addWidget(view)
+
+    # 1. Hauteur fixée à 32px
+    assert view.btn_prompt_framework.minimumHeight() == 32
+    assert view.btn_prompt_framework.maximumHeight() == 32
+
+    assert view.btn_var_help.minimumHeight() == 32
+    assert view.btn_var_help.maximumHeight() == 32
+
+    assert view.btn_preview_prompt.minimumHeight() == 32
+    assert view.btn_preview_prompt.maximumHeight() == 32
+
+    # 2. Densité compacte (QSS QPushButton[density="compact"])
+    assert view.btn_prompt_framework.property("density") == "compact"
+    assert view.btn_var_help.property("density") == "compact"
+    assert view.btn_preview_prompt.property("density") == "compact"
+
+    # 3. Présence des icônes Phosphor ph.question et ph.eye
+    assert not view.btn_var_help.icon().isNull()
+    assert not view.btn_preview_prompt.icon().isNull()
+
+    # 4. TagPillButton préservés (24px)
+    from ankiforge.ui.views.agents_view.widgets import TagPillButton
+
+    pills = view.findChildren(TagPillButton)
+    assert len(pills) > 0
+    for pill in pills:
+        assert pill.maximumHeight() == 24

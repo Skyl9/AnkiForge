@@ -47,6 +47,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledLineEdit,
     StyledTextEdit,
+    apply_compact_style,
 )
 from ankiforge.ui.dialogs.persona_history_dialog import PersonaHistoryDialog
 from ankiforge.ui.theme import DesignTokens, StyledMenu
@@ -422,19 +423,22 @@ class AgentsView(QWidget):
         snippets_header.addStretch()
 
         self.btn_prompt_framework = SecondaryButton("📋 Insérer un Canevas...")
-        self.btn_prompt_framework.setFixedHeight(28)
+        apply_compact_style(self.btn_prompt_framework, height=32)
+        self.btn_prompt_framework.setStyleSheet("padding: 4px 10px;")
         self.btn_prompt_framework.clicked.connect(self._on_open_prompt_frameworks_menu)
         snippets_header.addWidget(self.btn_prompt_framework)
 
-        self.btn_var_help = SecondaryButton("ℹ️ Guide des Variables")
+        self.btn_var_help = SecondaryButton("Guide des Variables")
         self.btn_var_help.setIcon(load_phosphor_icon("ph.question", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_var_help.setFixedHeight(28)
+        apply_compact_style(self.btn_var_help, height=32)
+        self.btn_var_help.setStyleSheet("padding: 4px 10px;")
         self.btn_var_help.clicked.connect(self._on_open_variable_helper)
         snippets_header.addWidget(self.btn_var_help)
 
         self.btn_preview_prompt = SecondaryButton("Aperçu Interpolé (Jinja2)")
         self.btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_preview_prompt.setFixedHeight(28)
+        apply_compact_style(self.btn_preview_prompt, height=32)
+        self.btn_preview_prompt.setStyleSheet("padding: 4px 10px;")
         self.btn_preview_prompt.clicked.connect(self._on_preview_prompt)
         snippets_header.addWidget(self.btn_preview_prompt)
         layout_prompt.addLayout(snippets_header)
