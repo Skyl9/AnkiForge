@@ -19,6 +19,12 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Génération** : l'exécution d'un pipeline sur une source, produisant des cartes brutes.
 - **Étape de validation** : étape du pipeline qui vérifie ou nettoie la sortie d'une génération (aujourd'hui uniquement formelle : mise en forme LaTeX/HTML et schéma JSON).
 - **Chaîne de pensée (Raisonnement / Thought)** : flux de réflexion intermédiaire émis par un modèle d'IA à raisonnement explicite (Chain-of-Thought) avant ou pendant la production du contenu cible. Ce flux ne fait pas partie des données structurées des flashcards finales, mais constitue une trace de traçabilité et d'audit pour comprendre la sélection des faits, la formulation ou d'éventuelles hallucinations.
+- **Assistant de création d'agent (Wizard d'agent)** : dialogue guidé permettant d'instancier un nouvel agent IA soit à partir de modèles prédéfinis optimisés pour Anki (pédagogie Wozniak, langues, sciences, format cloze), soit à partir d'une page blanche personnalisée.
+  _Avoid_ : modal agent, pop-up agent, dialogue de persona
+- **Sélecteur de modèle IA (mode sélection / picker)** : régime compact du dialogue de découverte dédié à la recherche et au choix immédiat d'un moteur pour une tâche ou un champ de configuration, dépourvu de volet de comparaison.
+  _Avoid_ : modal modèle, catalogue réduit, combobox modèle
+- **Catalogue & Comparateur des modèles IA** : régime complet d'exploration technique permettant d'inspecter les spécifications réelles (vision, thinking, tarification, contexte) et de comparer côte à côte plusieurs moteurs IA.
+  _Avoid_ : fenêtre catalogue, comparateur IA
 
 ## Documents & Arborescence de classement
 
