@@ -559,10 +559,13 @@ class DocumentsView(FileDropMixin, QWidget):
         self.editor_stack.addWidget(self.album_viewer)
 
         self.editor_panel.add_tab("Éditeur", self.editor_stack, "ph.file-text", closable=False)
+        self.btn_toggle_coverage = IconButton("ph.sidebar-simple", tooltip="Afficher / Masquer l'inspecteur", size=24)
+        self.btn_toggle_coverage.clicked.connect(self._toggle_coverage_panel)
+        self.editor_panel.add_header_widget(self.btn_toggle_coverage)
         self.main_splitter.addWidget(self.editor_panel)
 
         # ── 3. Panneau Droit : Sommaire, Couverture & Sandbox RAG ──────────────
-        self.coverage_panel = IdePanel(detachable=True)
+        self.coverage_panel = IdePanel(title="Inspecteur", detachable=True, permanent=True)
         self.coverage_panel.setMinimumWidth(250)
         self.coverage_panel.setMaximumWidth(320)
 
@@ -678,7 +681,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
         cov_layout.addWidget(self.btn_forge_chapter)
 
-        self.coverage_panel.add_tab("Sommaire", coverage_content, "ph.list-checks", closable=False)
+        self.coverage_panel.add_tab("Sommaire", coverage_content, "ph.list-checks", closable=True)
 
         # --- TAB 2: Bac à Sable RAG ---
         rag_sandbox_content = QWidget()
@@ -727,11 +730,11 @@ class DocumentsView(FileDropMixin, QWidget):
         """)
         rag_layout.addWidget(self.rag_sandbox_results, 1)
 
-        self.coverage_panel.add_tab("RAG", rag_sandbox_content, "ph.database", closable=False)
+        self.coverage_panel.add_tab("RAG", rag_sandbox_content, "ph.database", closable=True)
 
         # --- TAB 3: Plan & Arborescence (Outline) ---
         self.outline_widget = DocumentOutlineWidget()
-        self.coverage_panel.add_tab("Plan", self.outline_widget, "ph.tree-structure", closable=False)
+        self.coverage_panel.add_tab("Plan", self.outline_widget, "ph.tree-structure", closable=True)
 
         self.main_splitter.addWidget(self.coverage_panel)
 
@@ -786,12 +789,27 @@ class DocumentsView(FileDropMixin, QWidget):
     @Slot(int)
     def _on_editor_page_changed(self, index: int) -> None:
         if index > 0:
+            if not getattr(self, "_coverage_manually_hidden", False):
+                self.coverage_panel.show()
+                sizes = self.main_splitter.sizes()
+                sizes[2] = max(sizes[2] or 270, self.coverage_panel.minimumWidth())
+                self.main_splitter.setSizes(sizes)
+        else:
+            self.coverage_panel.hide()
+
+    def _toggle_coverage_panel(self) -> None:
+        """Bascule l'affichage du panneau d'inspection (couverture, RAG, plan)."""
+        if self.coverage_panel.isVisible():
+            self._coverage_manually_hidden = True
+            self.coverage_panel.hide()
+        else:
+            self._coverage_manually_hidden = False
+            if len(self.coverage_panel.tabs_bar.tabs) == 0:
+                self.coverage_panel.restore_all_registered_tabs()
             self.coverage_panel.show()
             sizes = self.main_splitter.sizes()
             sizes[2] = max(sizes[2] or 270, self.coverage_panel.minimumWidth())
             self.main_splitter.setSizes(sizes)
-        else:
-            self.coverage_panel.hide()
 
     def _on_search_filter_changed(self, text: str) -> None:
         self.tree_explorer.filter_text(text)

@@ -949,3 +949,64 @@ def test_preview_does_not_highlight_toc_when_rendering_diverges(qtbot):
     # L'outline compte 2 homonymes, le rendu 3 blocs : le rang est ambigu et le
     # surlignage est abandonné plutôt que posed sur l'entrée du sommaire.
     assert preview.markdown_viewer.extraSelections() == []
+
+
+def test_documents_view_coverage_panel_tabs_closable_and_reopenable(qtbot, mock_db):
+    """Les onglets de l'inspecteur latéral de DocumentsView sont masquables individuellement et réouvrables."""
+    from ankiforge.ui.views.documents_view.view import DocumentsView
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+
+    # Les 3 onglets (Sommaire, RAG, Plan) sont enregistrés et actifs au départ
+    cov = view.coverage_panel
+    assert cov.tabs_bar.count() == 3
+    tab_names = [t.text().strip() for t in cov.tabs_bar.tabs]
+    assert "Sommaire" in tab_names
+    assert "RAG" in tab_names
+    assert "Plan" in tab_names
+
+    # Vérifier que les onglets sont marqués closables
+    assert cov._registered_tabs["Sommaire"]["closable"] is True
+    assert cov._registered_tabs["RAG"]["closable"] is True
+    assert cov._registered_tabs["Plan"]["closable"] is True
+
+    # Masquer l'onglet RAG
+    cov.close_tab("RAG")
+    assert cov.tabs_bar.count() == 2
+    assert "RAG" not in [t.text().strip() for t in cov.tabs_bar.tabs]
+    assert cov._registered_tabs["RAG"]["active"] is False
+
+    # Réouvrir RAG
+    cov.open_tab("RAG")
+    assert cov.tabs_bar.count() == 3
+    assert "RAG" in [t.text().strip() for t in cov.tabs_bar.tabs]
+    assert cov._registered_tabs["RAG"]["active"] is True
+
+
+def test_documents_view_coverage_panel_toggle_button(qtbot, mock_db):
+    """Le bouton toggle dans le header de l'éditeur permet de replier/déplier l'inspecteur latéral."""
+    from ankiforge.ui.views.documents_view.view import DocumentsView
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+
+    # Sélectionner une page d'éditeur avec document (> 0)
+    view._on_editor_page_changed(1)
+    assert view.coverage_panel.isVisible()
+
+    # Clic sur le bouton toggle pour masquer
+    view.btn_toggle_coverage.click()
+    assert view.coverage_panel.isHidden()
+    assert getattr(view, "_coverage_manually_hidden", False) is True
+
+    # Changer de page ne doit pas réouvrir de force le panneau masqué manuellement
+    view._on_editor_page_changed(1)
+    assert view.coverage_panel.isHidden()
+
+    # Clic pour réafficher
+    view.btn_toggle_coverage.click()
+    assert view.coverage_panel.isVisible()
+    assert getattr(view, "_coverage_manually_hidden", False) is False

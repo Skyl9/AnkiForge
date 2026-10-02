@@ -99,7 +99,8 @@ class PanelPlaceholderWidget(QFrame):
         if isinstance(parent_widget, QSplitter):
             top_layout = QHBoxLayout()
             top_layout.addStretch()
-            self.close_btn = IconButton("ph.x", "Fermer le panneau", 16)
+            tooltip = "Replier le panneau" if getattr(self.parent_panel, "_permanent", False) else "Fermer le panneau"
+            self.close_btn = IconButton("ph.x", tooltip, 16)
             self.close_btn.clicked.connect(self._close_split)
             top_layout.addWidget(self.close_btn)
             layout.addLayout(top_layout)
@@ -200,6 +201,10 @@ class PanelPlaceholderWidget(QFrame):
 
     def _close_split(self):
         parent_splitter = self.parent_panel.parentWidget()
+        if getattr(self.parent_panel, "_permanent", False):
+            self.parent_panel.hide()
+            return
+
         if isinstance(parent_splitter, QSplitter):
             self.parent_panel.setParent(None)
             self.parent_panel.deleteLater()
@@ -253,12 +258,14 @@ class IdePanel(QFrame):
 
     detach_requested = Signal()
     tab_changed = Signal(int)
+    tab_closed = Signal(str)
 
-    def __init__(self, title: str = "", detachable: bool = False, tab_variant: str = "ide", parent: QWidget | None = None) -> None:
+    def __init__(self, title: str = "", detachable: bool = False, tab_variant: str = "ide", parent: QWidget | None = None, permanent: bool = False) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._title = title
         self._detachable = detachable
+        self._permanent = permanent
         self.setMinimumSize(150, 100)
         self._registered_tabs: dict[str, dict] = {}
 
@@ -377,6 +384,13 @@ class IdePanel(QFrame):
             self._extra_widgets_zone.setVisible(False)
 
             # Conserver le panneau en place dans le splitter avec son placeholder interactif
+            if self._registered_tabs:
+                self.placeholder_widget.text_lbl.setText("Aucun onglet affiché")
+                self.placeholder_widget.sub_lbl.setText("Utilisez les boutons ci-dessous pour réafficher vos onglets.")
+            else:
+                self.placeholder_widget.text_lbl.setText(self._title or "Panneau Libre")
+                self.placeholder_widget.sub_lbl.setText("Glissez-déposez un onglet ou une fenêtre ici pour l'ancrer.")
+
             self.placeholder_widget.setVisible(True)
             self.content_stack.setVisible(False)
             if self._static_title_label is not None:
@@ -503,6 +517,7 @@ class IdePanel(QFrame):
                 widget.setParent(None)
                 info["active"] = False
                 self._toggle_placeholder()
+                self.tab_closed.emit(title)
 
     def _on_tab_close_requested(self, index: int):
         if 0 <= index < len(self.tabs_bar.tabs):
@@ -563,6 +578,9 @@ class IdePanel(QFrame):
                     icon_name = info.get("icon_name", "")
                     icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY) if icon_name else QIcon()
                     act = menu.addAction(icon, clean_title)
+                    act.setCheckable(True)
+                    act.setChecked(False)
+                    act.setToolTip(f"Afficher l'onglet « {clean_title} »")
                     act.triggered.connect(lambda checked=False, t=clean_title: self.open_tab(t))
 
             # 2. Onglets ouverts ailleurs (déplaçables ici)
@@ -584,8 +602,18 @@ class IdePanel(QFrame):
                 lbl_here = menu.addAction("Onglets actifs dans ce panneau :")
                 lbl_here.setEnabled(False)
                 for clean_title in open_here_tabs:
-                    act = menu.addAction(f"✓ {clean_title}")
-                    act.setEnabled(False)
+                    owner_panel, info = catalog.get(clean_title, (self, self._registered_tabs.get(clean_title, {})))
+                    icon_name = info.get("icon_name", "")
+                    icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY) if icon_name else QIcon()
+                    act = menu.addAction(icon, clean_title)
+                    act.setCheckable(True)
+                    act.setChecked(True)
+                    if info.get("closable", True):
+                        act.setToolTip(f"Masquer l'onglet « {clean_title} »")
+                        act.triggered.connect(lambda checked=False, t=clean_title: self.close_tab(t))
+                    else:
+                        act.setEnabled(False)
+                        act.setToolTip("Cet onglet principal ne peut pas être masqué")
 
         menu.exec(button.mapToGlobal(QPoint(0, button.height())))
 
@@ -725,7 +753,19 @@ class IdePanel(QFrame):
         self._extra_layout.addWidget(sep)
 
     def _on_tab_changed(self, idx: int) -> None:
-        self.content_stack.setCurrentIndex(idx)
+        if 0 <= idx < len(self.tabs_bar.tabs):
+            title = self.tabs_bar.tabs[idx].text().strip()
+            if title in self._registered_tabs:
+                widget = self._registered_tabs[title].get("widget")
+                if widget and self.content_stack.indexOf(widget) >= 0:
+                    self.content_stack.setCurrentWidget(widget)
+                else:
+                    self.content_stack.setCurrentIndex(idx)
+            else:
+                self.content_stack.setCurrentIndex(idx)
+        else:
+            self.content_stack.setCurrentIndex(idx)
+
         # Update icons for active/inactive state
         for i, btn in enumerate(self.tabs_bar.tabs):
             icon_name = btn.property("icon_name") or ""

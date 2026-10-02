@@ -403,3 +403,64 @@ class TestTabIconColors:
         assert tabs[1].property("icon_color") == "#0088ff"
         assert tabs[2].property("icon_color") == "#00ee88"
         assert tabs[3].property("icon_color") == "#8800ff"
+
+
+class TestTabMaskingAndReopening:
+    """Vérifie le masquage et la réouverture d'onglets au sein d'un IdePanel."""
+
+    def test_close_and_reopen_tab_preserves_state(self, qtbot: Any) -> None:
+        panel = IdePanel(detachable=True, permanent=True)
+        qtbot.addWidget(panel)
+        panel.show()
+
+        w1 = QLabel("Contenu 1")
+        w2 = QLabel("Contenu 2")
+        panel.add_tab("Tab 1", w1, "ph.star", closable=True)
+        panel.add_tab("Tab 2", w2, "ph.heart", closable=True)
+
+        assert panel.tabs_bar.count() == 2
+        assert panel.content_stack.count() == 2
+
+        # Fermer Tab 1
+        panel.close_tab("Tab 1")
+        assert panel.tabs_bar.count() == 1
+        assert panel.tabs_bar.tabs[0].text().strip() == "Tab 2"
+        assert panel._registered_tabs["Tab 1"]["active"] is False
+        assert panel._registered_tabs["Tab 2"]["active"] is True
+
+        # Réouvrir Tab 1
+        panel.open_tab("Tab 1")
+        assert panel.tabs_bar.count() == 2
+        assert panel._registered_tabs["Tab 1"]["active"] is True
+        assert panel.content_stack.currentWidget() == w1
+
+    def test_close_all_tabs_shows_placeholder_without_deleting_permanent_panel(self, qtbot: Any) -> None:
+        splitter = QSplitter()
+        panel = IdePanel(detachable=True, permanent=True, parent=splitter)
+        splitter.addWidget(panel)
+        qtbot.addWidget(splitter)
+        splitter.show()
+
+        w1 = QLabel("Contenu")
+        panel.add_tab("Tab", w1, "ph.star", closable=True)
+        assert panel.placeholder_widget.isHidden()
+
+        # Fermer le dernier onglet
+        panel.close_tab("Tab")
+        assert panel.tabs_bar.count() == 0
+        assert panel.placeholder_widget.isVisible()
+        assert panel.header.isHidden()
+
+        # Clic sur le bouton fermer du placeholder d'un panneau permanent -> doit cacher et non détruire
+        if hasattr(panel.placeholder_widget, "close_btn"):
+            panel.placeholder_widget.close_btn.click()
+            assert panel.isHidden()
+            # L'objet panel est toujours vivant et valide (pas de RuntimeError Shiboken)
+            panel.show()
+            assert panel.isVisible()
+
+        # Restaurer tous les onglets
+        panel.restore_all_registered_tabs()
+        assert panel.tabs_bar.count() == 1
+        assert panel.placeholder_widget.isHidden()
+        assert panel.header.isVisible()
