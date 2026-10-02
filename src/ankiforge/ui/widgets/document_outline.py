@@ -187,6 +187,7 @@ class DocumentOutlineWidget(QWidget):
     forge_section_requested = Signal(str, str, int, int)  # (titre, contenu, start_line, end_line)
     repair_requested = Signal()
     toc_requested = Signal()
+    outline_availability_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -194,6 +195,7 @@ class DocumentOutlineWidget(QWidget):
         self._max_depth: int = 6
         self._active_item: QTreeWidgetItem | None = None
         self._coverage_data: dict[str, int] = {}
+        self._last_has_headings: bool | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -359,6 +361,11 @@ class DocumentOutlineWidget(QWidget):
 
         layout.addLayout(action_layout)
 
+    @property
+    def has_headings(self) -> bool:
+        """Indique si l'arborescence contient au moins un titre structuré."""
+        return self.tree.topLevelItemCount() > 0
+
     def tree_expand_all(self) -> None:
         """Déplie tous les nœuds de l'arbre."""
         self.tree.expandAll()
@@ -377,6 +384,9 @@ class DocumentOutlineWidget(QWidget):
             self.lbl_empty.show()
             self.tree.hide()
             self.lbl_stats.setText("📑 0 section • 0 mot")
+            if self._last_has_headings is not False:
+                self._last_has_headings = False
+                self.outline_availability_changed.emit(False)
             return
 
         # skip_toc=False : l'onglet « Plan » reste une navigation fidèle au document
@@ -386,6 +396,9 @@ class DocumentOutlineWidget(QWidget):
             self.lbl_empty.show()
             self.tree.hide()
             self.lbl_stats.setText("📑 0 section • 0 mot")
+            if self._last_has_headings is not False:
+                self._last_has_headings = False
+                self.outline_availability_changed.emit(False)
             return
 
         self.lbl_empty.hide()
@@ -403,6 +416,10 @@ class DocumentOutlineWidget(QWidget):
 
         self.tree.expandAll()
         self.lbl_stats.setText(f"📑 {total_nodes} sections • {total_words:,} mots • Profondeur max H{max_level}")
+
+        if self._last_has_headings is not True:
+            self._last_has_headings = True
+            self.outline_availability_changed.emit(True)
 
         # Ré-applique la couverture si des données étaient enregistrées
         if self._coverage_data:

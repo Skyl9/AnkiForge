@@ -959,18 +959,24 @@ def test_documents_view_coverage_panel_tabs_closable_and_reopenable(qtbot, mock_
     qtbot.addWidget(view)
     view.show()
 
-    # Les 3 onglets (Couverture, RAG, Plan) sont enregistrés et actifs au départ
     cov = view.coverage_panel
-    assert cov.tabs_bar.count() == 3
+    # Couverture et RAG sont actifs par défaut ; Plan est conditionnel à la présence de titres
+    assert cov.tabs_bar.count() == 2
     tab_names = [t.text().strip() for t in cov.tabs_bar.tabs]
     assert "Couverture" in tab_names
     assert "RAG" in tab_names
-    assert "Plan" in tab_names
+    assert "Plan" not in tab_names
 
-    # Vérifier que les onglets sont marqués closables
+    # Vérifier que tous les onglets sont enregistrés et marqués closables
     assert cov._registered_tabs["Couverture"]["closable"] is True
     assert cov._registered_tabs["RAG"]["closable"] is True
     assert cov._registered_tabs["Plan"]["closable"] is True
+
+    # Ouvrir l'onglet Plan manuellement
+    cov.open_tab("Plan")
+    assert cov.tabs_bar.count() == 3
+    assert "Plan" in [t.text().strip() for t in cov.tabs_bar.tabs]
+    assert cov._registered_tabs["Plan"]["active"] is True
 
     # Masquer l'onglet RAG
     cov.close_tab("RAG")
@@ -983,6 +989,63 @@ def test_documents_view_coverage_panel_tabs_closable_and_reopenable(qtbot, mock_
     assert cov.tabs_bar.count() == 3
     assert "RAG" in [t.text().strip() for t in cov.tabs_bar.tabs]
     assert cov._registered_tabs["RAG"]["active"] is True
+
+
+def test_documents_view_outline_tab_conditional_visibility(qtbot, mock_db):
+    """L'onglet Plan s'affiche conditionnellement selon la cohérence et la présence de titres."""
+    from ankiforge.ui.views.documents_view.view import DocumentsView
+
+    uid = uuid.uuid4().hex[:6]
+    doc_no_headings = DocumentModel.create(
+        title=f"Doc Sans Titres {uid}",
+        content="Ceci est un document simple sans aucun en-tête markdown.",
+        file_type="md",
+    )
+    doc_with_headings = DocumentModel.create(
+        title=f"Doc Avec Titres {uid}",
+        content="# Section Alpha\n\nPremier contenu.\n\n## Sous-section Beta\n\nSecond contenu.",
+        file_type="md",
+    )
+    doc_album = DocumentModel.create(
+        title=f"Album Photo {uid}",
+        content="",
+        file_type="album",
+    )
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+    view.refresh_data()
+    cov = view.coverage_panel
+
+    # 1. État initial (aucun document sélectionné) -> Plan non visible
+    assert "Plan" not in [t.text().strip() for t in cov.tabs_bar.tabs]
+
+    # 2. Sélection d'un document sans titres -> Plan reste masqué
+    view._select_doc_id_in_tree(doc_no_headings.id)
+    assert not view.outline_widget.has_headings
+    assert "Plan" not in [t.text().strip() for t in cov.tabs_bar.tabs]
+
+    # 3. Sélection d'un document avec titres -> Plan apparaît automatiquement
+    # Vérifier également que le focus n'est pas volé si l'onglet actif est Couverture (index 0)
+    cov.set_active_tab(0)
+    view._select_doc_id_in_tree(doc_with_headings.id)
+    assert view.outline_widget.has_headings
+    assert "Plan" in [t.text().strip() for t in cov.tabs_bar.tabs]
+    assert cov.content_stack.currentIndex() == 0
+
+    # 4. Sélection d'un album -> Plan est automatiquement masqué
+    view._select_doc_id_in_tree(doc_album.id)
+    assert "Plan" not in [t.text().strip() for t in cov.tabs_bar.tabs]
+
+    # 5. Modification du texte en direct (live editing) via signal outline_availability_changed
+    view._select_doc_id_in_tree(doc_no_headings.id)
+    assert "Plan" not in [t.text().strip() for t in cov.tabs_bar.tabs]
+    view.outline_widget.set_document_content("# Titre Dynamique\nTexte")
+    assert "Plan" in [t.text().strip() for t in cov.tabs_bar.tabs]
+
+    view.outline_widget.set_document_content("Texte sans aucun titre")
+    assert "Plan" not in [t.text().strip() for t in cov.tabs_bar.tabs]
 
 
 def test_documents_view_coverage_panel_toggle_button(qtbot, mock_db):

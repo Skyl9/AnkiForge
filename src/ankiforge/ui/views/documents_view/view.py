@@ -753,7 +753,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         # --- TAB 3: Plan & Arborescence (Outline) ---
         self.outline_widget = DocumentOutlineWidget()
-        self.coverage_panel.add_tab("Plan", self.outline_widget, "ph.tree-structure", closable=True)
+        self.coverage_panel.register_tab("Plan", self.outline_widget, "ph.tree-structure", closable=True, active_by_default=False)
 
         self.main_splitter.addWidget(self.coverage_panel)
 
@@ -778,6 +778,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.outline_widget.forge_section_requested.connect(self._on_forge_outline_section)
         self.outline_widget.repair_requested.connect(self._on_repair_document_headings)
         self.outline_widget.toc_requested.connect(self._on_insert_document_toc)
+        self.outline_widget.outline_availability_changed.connect(self._set_outline_tab_visible)
         if hasattr(self.text_editor, "editor") and self.text_editor.editor:
             self.text_editor.editor.cursorPositionChanged.connect(self._cursor_spy_timer.start)
         self._on_coverage_synced = self._handle_coverage_synced
@@ -829,6 +830,20 @@ class DocumentsView(FileDropMixin, QWidget):
             sizes = self.main_splitter.sizes()
             sizes[2] = max(sizes[2] or 270, self.coverage_panel.minimumWidth())
             self.main_splitter.setSizes(sizes)
+
+    @Slot(bool)
+    def _set_outline_tab_visible(self, visible: bool) -> None:
+        """Affiche ou masque dynamiquement l'onglet Plan selon la présence de sections structurées."""
+        if not hasattr(self, "coverage_panel"):
+            return
+        is_currently_open = self.coverage_panel._registered_tabs.get("Plan", {}).get("active", False)
+        if visible and not is_currently_open:
+            current_idx = self.coverage_panel.content_stack.currentIndex()
+            self.coverage_panel.open_tab("Plan")
+            if current_idx >= 0 and current_idx < len(self.coverage_panel.tabs_bar.tabs):
+                self.coverage_panel.set_active_tab(current_idx)
+        elif not visible and is_currently_open:
+            self.coverage_panel.close_tab("Plan")
 
     def _on_open_analysis_clicked(self) -> None:
         """Bascule vers la vue Analyse & Audit (onglet Documents) pré-filtrée sur le document actif."""
@@ -997,6 +1012,8 @@ class DocumentsView(FileDropMixin, QWidget):
         if not items:
             self.btn_delete.setEnabled(False)
             self._current_doc_id = None
+            self.outline_widget.set_document_content("")
+            self._set_outline_tab_visible(False)
             self.view_model.clear_selection()
             self.editor_stack.setCurrentIndex(0)
             return
@@ -1014,6 +1031,8 @@ class DocumentsView(FileDropMixin, QWidget):
 
                 if getattr(doc, "file_type", "") == "album":
                     self.btn_marker.hide()
+                    self.outline_widget.set_document_content("")
+                    self._set_outline_tab_visible(False)
                     self.album_viewer.load_album(doc)
                     self.editor_stack.setCurrentIndex(2)
                     self._update_rag_status_pill()
@@ -1024,6 +1043,7 @@ class DocumentsView(FileDropMixin, QWidget):
                 doc_content = doc.content if hasattr(doc, "content") else ""
                 self.text_editor.set_content(doc_content)
                 self.outline_widget.set_document_content(doc_content)
+                self._set_outline_tab_visible(self.outline_widget.has_headings)
                 self.text_editor.blockSignals(False)
                 self._dirty = False
                 self._update_word_count()
@@ -1076,6 +1096,7 @@ class DocumentsView(FileDropMixin, QWidget):
                 self.audio_player.hide()
             self._current_doc_id = None
             self.outline_widget.set_document_content("")
+            self._set_outline_tab_visible(False)
             self.editor_stack.setCurrentIndex(0)
             self._refresh_chapters_list()
 
