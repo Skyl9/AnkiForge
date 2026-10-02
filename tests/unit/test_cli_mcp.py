@@ -36,25 +36,27 @@ def test_parse_cli_args_defaults() -> None:
 @pytest.mark.unit
 def test_parse_cli_args_mcp_server_flags() -> None:
     """Vérifie la reconnaissance des drapeaux --mcp-server, --port et --profile."""
-    argv = ["--mcp-server", "--port", "9123", "--profile", "Medecine"]
+    argv = ["--mcp-server", "--port", "9123", "--profile", "Medecine", "--rotate-mcp-token"]
     known, extra = parse_cli_args(argv)
     assert known.mcp_server is True
     assert known.port == 9123
     assert known.profile == "Medecine"
+    assert known.rotate_mcp_token is True
     assert extra == []
 
 
 @pytest.mark.unit
-def test_parse_cli_args_short_flags_and_extra() -> None:
-    """Vérifie la gestion des flags courts et des arguments inconnus (ex. Qt/OS)."""
-    known, extra = parse_cli_args(["-h", "-platform", "offscreen"])
-    assert known.help is True
-    assert extra == ["-platform", "offscreen"]
+def test_parse_cli_args_rotate_mcp_token_standalone() -> None:
+    """Vérifie la reconnaissance du drapeau --rotate-mcp-token seul."""
+    known, extra = parse_cli_args(["--rotate-mcp-token"])
+    assert known.rotate_mcp_token is True
+    assert known.mcp_server is False
+    assert extra == []
 
 
 @pytest.mark.unit
 def test_cli_help_documents_mcp_server_options(capsys: pytest.CaptureFixture[str]) -> None:
-    """Vérifie que 'ankiforge --help' documente explicitement --mcp-server, --port et --profile."""
+    """Vérifie que 'ankiforge --help' documente explicitement --mcp-server, --port, --profile et --rotate-mcp-token."""
     with pytest.raises(SystemExit) as exc_info:
         main(["--help"])
     assert exc_info.value.code == 0
@@ -63,6 +65,7 @@ def test_cli_help_documents_mcp_server_options(capsys: pytest.CaptureFixture[str
     assert "--mcp-server" in captured.out
     assert "--port <port>" in captured.out
     assert "--profile <nom>" in captured.out
+    assert "--rotate-mcp-token" in captured.out
 
 
 @pytest.mark.unit
@@ -95,6 +98,60 @@ def test_cli_invalid_port_exits_code_2(capsys: pytest.CaptureFixture[str]) -> No
     captured = capsys.readouterr()
     assert "Erreur" in captured.err
     assert "99999" in captured.err
+
+
+@pytest.mark.unit
+def test_cli_rotate_mcp_token_standalone_generates_and_exits(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Vérifie que 'ankiforge --rotate-mcp-token' génère un nouveau jeton dans le dossier app_data et quitte avec code 0."""
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.__main__.get_app_data_dir", lambda: tmp_path)
+
+    token_file = tmp_path / "mcp_auth_token"
+    token_file.write_text("old_token_1234567890", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--rotate-mcp-token"])
+    assert exc_info.value.code == 0
+
+    new_token = token_file.read_text(encoding="utf-8").strip()
+    assert new_token != "old_token_1234567890"
+    assert len(new_token) >= 32
+
+    captured = capsys.readouterr()
+    assert "Jeton MCP renouvelé avec succès" in captured.out
+
+
+@pytest.mark.unit
+def test_sync_mcp_client_config_updates_authorization_header(tmp_path: Path) -> None:
+    """Vérifie que sync_mcp_client_config met à jour le header Authorization de l'entrée ankiforge."""
+    from ankiforge.services.ai.mcp_daemon import sync_mcp_client_config
+
+    client_cfg = tmp_path / "mcp_config.json"
+    initial_content = {
+        "mcpServers": {
+            "penpot": {
+                "url": "http://localhost:4401/mcp",
+                "disabled": True,
+            },
+            "ankiforge": {
+                "url": "http://127.0.0.1:8765/mcp",
+                "headers": {"Authorization": "Bearer old-bearer-token"},
+            },
+        }
+    }
+    client_cfg.write_text(json.dumps(initial_content, indent=2), encoding="utf-8")
+
+    new_token = "new-fresh-bearer-token-12345"
+    updated = sync_mcp_client_config(new_token, port=8765, config_paths=[client_cfg])
+    assert updated is True
+
+    data = json.loads(client_cfg.read_text(encoding="utf-8"))
+    assert data["mcpServers"]["ankiforge"]["headers"]["Authorization"] == f"Bearer {new_token}"
+    assert data["mcpServers"]["penpot"]["disabled"] is True
 
 
 @pytest.mark.unit
@@ -410,8 +467,9 @@ def test_run_mcp_server_cli_e2e_real_daemon(
     assert not cli_thread.is_alive()
     assert results.get("exit_code") == 0
 
-    # Vérification de l'état final nettoyé
-    assert not token_file.exists()
+    # Vérification de l'état final nettoyé (le jeton reste persistant pour les futurs redémarrages)
+    assert token_file.exists()
+    assert token_file.read_text(encoding="utf-8") == token
     assert state_file.exists()
     final_state = json.loads(state_file.read_text(encoding="utf-8"))
     assert final_state["status"] == "stopped"

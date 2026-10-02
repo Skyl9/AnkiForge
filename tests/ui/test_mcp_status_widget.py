@@ -163,6 +163,9 @@ def test_mcp_status_widget_signals(qtbot: Any) -> None:
     with qtbot.waitSignal(widget.restart_requested, timeout=1000):
         widget.restart_requested.emit()
 
+    with qtbot.waitSignal(widget.rotate_token_requested, timeout=1000):
+        widget.rotate_token_requested.emit()
+
     with qtbot.waitSignal(widget.open_preferences_requested, timeout=1000):
         widget.open_preferences_requested.emit()
 
@@ -178,6 +181,7 @@ def test_ai_engines_tab_mcp_persistence(qtbot: Any) -> None:
 
     assert hasattr(tab, "chk_mcp_enabled")
     assert hasattr(tab, "spin_mcp_port")
+    assert hasattr(tab, "btn_rotate_mcp_token")
     assert tab.chk_mcp_enabled.isChecked() is True
     assert tab.spin_mcp_port.value() == 8765
 
@@ -198,6 +202,32 @@ def test_ai_engines_tab_mcp_persistence(qtbot: Any) -> None:
     q_settings.setValue("mcp/port", 8765)
 
 
+def test_ai_engines_tab_rotate_mcp_token_trigger(qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que le clic sur le bouton de renouvellement émet rotate_mcp_token_requested après confirmation."""
+    from PySide6.QtWidgets import QMessageBox
+
+    tab = AIEnginesTab()
+    qtbot.addWidget(tab)
+
+    # 1. Annulation (No) -> pas d'émission
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.No)
+    emitted = False
+
+    def _on_emitted() -> None:
+        nonlocal emitted
+        emitted = True
+
+    tab.rotate_mcp_token_requested.connect(_on_emitted)
+    tab._on_rotate_mcp_token()
+    assert emitted is False
+
+    # 2. Confirmation (Yes) -> émet le signal
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    with qtbot.waitSignal(tab.rotate_mcp_token_requested, timeout=1000):
+        tab._on_rotate_mcp_token()
+    assert emitted is True
+
+
 def test_main_window_mcp_integration(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la présence du widget MCP dans la barre d'état et la réactivité au signal mcp_data_mutated."""
     from ankiforge.ui.main_window import MainWindow
@@ -209,6 +239,13 @@ def test_main_window_mcp_integration(qtbot: Any, mock_db: Any) -> None:
         assert hasattr(window, "mcp_status_widget")
         assert window.mcp_status_widget is not None
         assert hasattr(window, "mcp_data_mutated")
+        assert hasattr(window, "rotate_mcp_token")
+
+        # Test rotation directe depuis MainWindow
+        with patch("ankiforge.ui.widgets.toast.show_toast"):
+            new_token = window.rotate_mcp_token()
+            assert len(new_token) >= 32
+            assert window.mcp_status_widget.token == new_token
 
         # Mock d'une vue avec refresh_data
         mock_view = QWidget()

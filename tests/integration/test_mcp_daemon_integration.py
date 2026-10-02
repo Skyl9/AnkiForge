@@ -103,13 +103,20 @@ def test_mcp_server_daemon_lifecycle(tmp_path):
     with httpx.stream("GET", f"http://127.0.0.1:{daemon.port}/sse", headers=headers, timeout=3.0) as resp_auth:
         assert resp_auth.status_code == 200
 
-    # 3. Arrêt propre et fermeture des sessions
+    # 3. Arrêt propre et fermeture des sessions (le jeton doit être conservé sur le disque)
+    saved_token = daemon.token
     daemon.stop(timeout=5.0)
     assert daemon.is_running is False
-    assert not daemon.token_file.exists()
+    assert daemon.token_file.exists()
+    assert daemon.token_file.read_text(encoding="utf-8") == saved_token
     assert daemon.state_file.exists()
     state = json.loads(daemon.state_file.read_text(encoding="utf-8"))
     assert state["status"] == "stopped"
+
+    # 4. Redémarrage du daemon : le jeton Bearer reste identique et stable
+    assert daemon.start(timeout=5.0) is True
+    assert daemon.token == saved_token
+    daemon.stop(timeout=5.0)
 
 
 @contextmanager
@@ -177,9 +184,9 @@ def test_mcp_server_daemon_stop_does_not_log_cancelled_error(tmp_path, caplog):
     # 2. Aucune exception journalisée par le code AnkiForge lui-même (donc absent d'ankiforge.log).
     assert "CancelledError" not in caplog.text, f"Arrêt du daemon bruyant :\n{caplog.text}"
 
-    # 3. Le port réseau est libéré et le jeton d'authentification nettoyé.
+    # 3. Le port réseau est libéré et l'état stopped marqué (jeton conservé sur disque pour stabilité).
     assert daemon.is_running is False
-    assert not daemon.token_file.exists()
+    assert daemon.token_file.exists()
     assert is_port_in_use(port, host="127.0.0.1") is False
 
     # 4. Le thread de travail est réellement terminé (et non simplement abandonné).
@@ -436,3 +443,43 @@ def test_mcp_server_daemon_dual_stack_streamable_http_and_sse(tmp_path):
         asyncio.run(_test_dual_stack())
     finally:
         daemon.stop(timeout=5.0)
+
+
+def test_mcp_server_daemon_live_token_rotation(tmp_path):
+    """Vérifie que rotate_token() renouvelle le jeton en direct et invalide l'ancien immédiatement."""
+    dummy_mcp = MCPServer("RotationServer")
+
+    @dummy_mcp.tool()
+    def status() -> str:
+        return "ok"
+
+    daemon = MCPServerDaemon(
+        mcp_server=dummy_mcp,
+        host="127.0.0.1",
+        base_port=9800,
+        data_dir=tmp_path,
+    )
+
+    assert daemon.start(timeout=5.0) is True
+    initial_token = daemon.token
+    assert initial_token is not None
+
+    # Requête avec initial_token -> 200
+    with httpx.stream("GET", f"http://127.0.0.1:{daemon.port}/sse", headers={"Authorization": f"Bearer {initial_token}"}, timeout=3.0) as r1:
+        assert r1.status_code == 200
+
+    # Rotation en direct
+    new_token = daemon.rotate_token()
+    assert new_token != initial_token
+    assert daemon.token == new_token
+    assert daemon.token_file.read_text(encoding="utf-8") == new_token
+
+    # Requête avec initial_token -> 401 Unauthorized
+    r_old = httpx.get(f"http://127.0.0.1:{daemon.port}/sse", headers={"Authorization": f"Bearer {initial_token}"}, timeout=3.0)
+    assert r_old.status_code == 401
+
+    # Requête avec new_token -> 200 OK
+    with httpx.stream("GET", f"http://127.0.0.1:{daemon.port}/sse", headers={"Authorization": f"Bearer {new_token}"}, timeout=3.0) as r_new:
+        assert r_new.status_code == 200
+
+    daemon.stop(timeout=5.0)
