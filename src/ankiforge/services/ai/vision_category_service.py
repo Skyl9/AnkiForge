@@ -88,7 +88,7 @@ class VisionCategoryService:
             VisionCategory(
                 id="hardware",
                 name="Transcription Locale & Matérielle",
-                description="Extraction locale instantanée sans VRAM (Apple Vision Framework sous macOS avec Neural Engine, Tesseract sous Linux/Win).",
+                description="Extraction optique locale sans VRAM (Apple Vision sous macOS). Idéal pour la prose et les textes continus en bloc (sans tableaux denses ni formules).",
                 icon="ph.cpu",
                 provider="native",
                 model_id="apple_vision",

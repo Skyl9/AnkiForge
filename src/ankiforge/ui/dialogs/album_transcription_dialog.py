@@ -285,7 +285,10 @@ class AlbumTranscriptionDialog(QDialog):
         hw_ico.setPixmap(load_phosphor_icon("ph.info", color=DesignTokens.COLOR_BLUE).pixmap(18, 18))
         hw_ico.setStyleSheet("border: none; background: transparent;")
         hw_layout.addWidget(hw_ico)
-        hw_lbl = QLabel("Le moteur natif Apple Vision réalise un OCR optique haute vitesse ; la mise en forme avancée et les directives personnalisées sont réservées aux modèles multimodaux (VLM).")
+        hw_lbl = QLabel(
+            "Moteur optique haute vitesse : optimisé pour le texte suivi et la prose en bloc. "
+            "Pour les tableaux structurés, schémas et formules mathématiques, privilégiez un modèle multimodal (VLM, ex: Qwen2.5-VL ou Gemini)."
+        )
         hw_lbl.setWordWrap(True)
         hw_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none; background: transparent;")
         hw_layout.addWidget(hw_lbl, 1)

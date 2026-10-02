@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import logging
 import mimetypes
 import shutil
@@ -82,17 +83,69 @@ let request = VNRecognizeTextRequest { request, error in
         fputs("Error: \\(error.localizedDescription)\\n", stderr)
         return
     }
-    guard let observations = request.results as? [VNRecognizedTextObservation] else {
+    guard let observations = request.results as? [VNRecognizedTextObservation], !observations.isEmpty else {
         return
     }
-    let strings = observations.compactMap { observation in
-        observation.topCandidates(1).first?.string
+
+    struct TextItem {
+        let text: String
+        let box: CGRect
+        var midY: CGFloat { box.midY }
+        var minX: CGFloat { box.minX }
     }
-    print(strings.joined(separator: "\\n"))
+
+    let items: [TextItem] = observations.compactMap { obs in
+        guard let text = obs.topCandidates(1).first?.string.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            return nil
+        }
+        return TextItem(text: text, box: obs.boundingBox)
+    }
+
+    if items.isEmpty { return }
+
+    // Tri vertical descendant (dans Vision, y=1 est en haut de page, y=0 en bas)
+    let sortedByY = items.sorted { $0.midY > $1.midY }
+
+    // Regroupement par lignes physiques (tolérance d'interligne)
+    var lines: [[TextItem]] = []
+    for item in sortedByY {
+        if let lastLineIndex = lines.indices.last {
+            let currentLine = lines[lastLineIndex]
+            let avgMidY = currentLine.reduce(CGFloat(0)) { $0 + $1.midY } / CGFloat(currentLine.count)
+            let avgHeight = currentLine.reduce(CGFloat(0)) { $0 + $1.box.height } / CGFloat(currentLine.count)
+            let threshold = max(avgHeight * 0.5, 0.008)
+
+            if abs(item.midY - avgMidY) < threshold {
+                lines[lastLineIndex].append(item)
+                continue
+            }
+        }
+        lines.append([item])
+    }
+
+    // Tri horizontal (gauche à droite) au sein de chaque ligne
+    var outputLines: [String] = []
+    for line in lines {
+        let sortedLine = line.sorted { $0.minX < $1.minX }
+        let lineText = sortedLine.map { $0.text }.joined(separator: " ")
+        if !lineText.isEmpty {
+            outputLines.append(lineText)
+        }
+    }
+
+    print(outputLines.joined(separator: "\\n"))
 }
 
 request.recognitionLevel = .accurate
-request.usesLanguageCorrection = true
+request.usesLanguageCorrection = false
+
+if #available(macOS 13.0, *) {
+    request.automaticallyDetectsLanguage = true
+}
+
+if let supported = try? request.supportedRecognitionLanguages(), !supported.isEmpty {
+    request.recognitionLanguages = supported
+}
 
 let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 do {
@@ -102,6 +155,11 @@ do {
     exit(3)
 }
 """
+
+
+def get_swift_ocr_hash() -> str:
+    """Calcule l'empreinte SHA-256 courte du code source Swift pour versionner le binaire."""
+    return hashlib.sha256(SWIFT_OCR_SOURCE.encode("utf-8")).hexdigest()[:12]
 
 
 def build_multimodal_payload(prompt: str, image_paths: Sequence[str | Path]) -> list[dict[str, Any]]:
@@ -149,6 +207,21 @@ class OCRService:
         self.media_manager = media_manager or MediaManager()
         self._apple_vision_binary: Path | None = None
         self._apple_vision_tested = False
+        self._apple_vision_available = False
+
+    @staticmethod
+    def _cleanup_old_apple_vision_binaries(bin_dir: Path, keep_hash: str) -> None:
+        """Supprime les anciens binaires et fichiers sources Apple Vision pour libérer l'espace."""
+        try:
+            for file in bin_dir.glob("ankiforge_vision_ocr*"):
+                if keep_hash not in file.name:
+                    try:
+                        file.unlink()
+                        logger.debug("Ancien fichier Apple Vision nettoyé : %s", file)
+                    except Exception as e:
+                        logger.debug("Impossible de supprimer l'ancien fichier %s : %s", file, e)
+        except Exception as e:
+            logger.debug("Erreur lors du nettoyage des anciens binaires Apple Vision : %s", e)
 
     def is_apple_vision_available(self) -> bool:
         """
@@ -159,23 +232,25 @@ class OCRService:
             return False
 
         if self._apple_vision_tested:
-            return self._apple_vision_binary is not None and self._apple_vision_binary.exists()
+            return self._apple_vision_available
 
         self._apple_vision_tested = True
+        swift_hash = get_swift_ocr_hash()
         bin_dir = get_app_data_dir() / "bin"
         bin_dir.mkdir(parents=True, exist_ok=True)
-        bin_path = bin_dir / "ankiforge_vision_ocr"
+        bin_path = bin_dir / f"ankiforge_vision_ocr_{swift_hash}"
 
-        # 1. Vérifier si le binaire existe déjà
+        # 1. Vérifier si le binaire existe déjà pour cette version de source
         if bin_path.exists() and os_is_executable(bin_path):
             self._apple_vision_binary = bin_path
+            self._apple_vision_available = True
             return True
 
         # 2. Tenter de compiler le binaire autonome via swiftc
         swiftc = shutil.which("swiftc")
         if swiftc:
             try:
-                swift_src = bin_dir / "ankiforge_vision_ocr.swift"
+                swift_src = bin_dir / f"ankiforge_vision_ocr_{swift_hash}.swift"
                 swift_src.write_text(SWIFT_OCR_SOURCE, encoding="utf-8")
                 res = subprocess.run(  # nosec B603
                     [swiftc, "-O", str(swift_src), "-o", str(bin_path)],
@@ -186,7 +261,9 @@ class OCRService:
                 )  # argv fixe, source SWIFT_OCR_SOURCE embarquée (aucune interpolation), timeout borné
                 if res.returncode == 0 and bin_path.exists():
                     self._apple_vision_binary = bin_path
+                    self._apple_vision_available = True
                     logger.info("Binaire Apple Vision OCR compilé avec succès dans %s", bin_path)
+                    self._cleanup_old_apple_vision_binaries(bin_dir, keep_hash=swift_hash)
                     return True
                 logger.debug("Échec compilation swiftc : %s", res.stderr)
             except Exception as e:
@@ -195,8 +272,10 @@ class OCRService:
         # 3. Vérifier si swift interprété est disponible
         if shutil.which("swift"):
             self._apple_vision_binary = None  # Mode interprété
+            self._apple_vision_available = True
             return True
 
+        self._apple_vision_available = False
         return False
 
     def transcribe_with_apple_vision(self, image_path: str | Path) -> str | None:

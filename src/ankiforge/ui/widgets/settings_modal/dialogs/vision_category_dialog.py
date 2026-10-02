@@ -164,6 +164,8 @@ class VisionCategoryDialog(QDialog):
             self.spin_temp.setValue(0.2)
             self.te_instructions.setPlainText("")
 
+        self._on_provider_changed(self.combo_provider.currentIndex())
+
     def _on_provider_changed(self, index: int) -> None:
         prov = self.combo_provider.currentData()
         if prov == "native":
@@ -171,8 +173,14 @@ class VisionCategoryDialog(QDialog):
             self.le_model_id.setEnabled(False)
             self.spin_thinking.setValue(0)
             self.spin_thinking.setEnabled(False)
+            self.spin_temp.setEnabled(False)
+            self.te_instructions.setEnabled(False)
+            self.te_instructions.setPlaceholderText("Non applicable : le moteur optique matériel n'utilise pas de prompt.")
         else:
             self.le_model_id.setEnabled(True)
+            self.spin_temp.setEnabled(True)
+            self.te_instructions.setEnabled(True)
+            self.te_instructions.setPlaceholderText("Instructions optionnelles injectées au prompt système pour cette catégorie...")
             self.spin_thinking.setEnabled(prov == "anthropic")
             if prov == "anthropic" and not self.le_model_id.text().startswith("claude"):
                 self.le_model_id.setText("claude-3-7-sonnet-20250219")

@@ -704,3 +704,52 @@ def test_ai_engines_tab_ui(qtbot):
 
     # Les 4 cartes de catégories de vision sont générées
     assert len(tab.vision_cards) >= 4
+
+
+def test_apple_vision_hash_and_binary_cleanup(tmp_path: Path):
+    """Vérifie le calcul du hash du script Swift et le nettoyage des anciens binaires orphelins."""
+    from ankiforge.services.ai.ocr_service import OCRService, get_swift_ocr_hash
+
+    h = get_swift_ocr_hash()
+    assert isinstance(h, str)
+    assert len(h) == 12
+
+    # Création de faux fichiers anciens et actuels
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    old_bin = bin_dir / "ankiforge_vision_ocr_old123"
+    old_src = bin_dir / "ankiforge_vision_ocr_old123.swift"
+    curr_bin = bin_dir / f"ankiforge_vision_ocr_{h}"
+    curr_src = bin_dir / f"ankiforge_vision_ocr_{h}.swift"
+    other_file = bin_dir / "other_tool"
+
+    for f in (old_bin, old_src, curr_bin, curr_src, other_file):
+        f.write_text("dummy")
+
+    OCRService._cleanup_old_apple_vision_binaries(bin_dir, keep_hash=h)
+
+    assert not old_bin.exists()
+    assert not old_src.exists()
+    assert curr_bin.exists()
+    assert curr_src.exists()
+    assert other_file.exists()
+
+
+def test_swift_ocr_source_contains_multilingual_and_2d_sort():
+    """Vérifie que la source Swift active le multilinguisme, désactive la correction et intègre le tri 2D."""
+    from ankiforge.services.ai.ocr_service import SWIFT_OCR_SOURCE
+
+    assert "automaticallyDetectsLanguage = true" in SWIFT_OCR_SOURCE
+    assert "usesLanguageCorrection = false" in SWIFT_OCR_SOURCE
+    assert "supportedRecognitionLanguages" in SWIFT_OCR_SOURCE
+    assert "recognitionLanguages = supported" in SWIFT_OCR_SOURCE
+    assert "sortedByY" in SWIFT_OCR_SOURCE
+    assert "boundingBox" in SWIFT_OCR_SOURCE
+
+
+def test_apple_vision_category_description():
+    """Vérifie la mise à jour de la description didactique de la catégorie matérielle."""
+    categories = VisionCategoryService.get_default_categories()
+    hardware_cat = next(c for c in categories if c.id == "hardware")
+    assert "Extraction optique locale sans VRAM" in hardware_cat.description
+    assert "prose et les textes continus en bloc" in hardware_cat.description
