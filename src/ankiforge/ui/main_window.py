@@ -704,8 +704,11 @@ class MainWindow(QMainWindow):
                 elif "prompt" in data and hasattr(widget, "_open_document_tab"):
                     cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
 
-            if view_id == "analysis" and isinstance(data, dict) and "tab" in data and hasattr(widget, "set_active_tab_by_name"):
-                cast(Any, widget).set_active_tab_by_name(data["tab"])
+            if view_id == "analysis" and isinstance(data, dict):
+                if "tab" in data and hasattr(widget, "set_active_tab_by_name"):
+                    cast(Any, widget).set_active_tab_by_name(data["tab"])
+                if "doc_id" in data and hasattr(widget, "open_document_inspector"):
+                    cast(Any, widget).open_document_inspector(data["doc_id"])
 
             if view_id == "documents" and isinstance(data, dict) and "doc_id" in data and hasattr(widget, "_select_doc_id_in_tree"):
                 cast(Any, widget)._select_doc_id_in_tree(data["doc_id"])

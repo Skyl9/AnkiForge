@@ -95,3 +95,15 @@ class AnalysisView(QWidget):
         idx = tab_map.get(tab_lower)
         if idx is not None:
             self.main_panel.set_active_tab(idx)
+
+    def open_document_inspector(self, doc_id: int) -> None:
+        """Active l'onglet Documents et ouvre l'inspecteur détaillé du document ciblé."""
+        self.set_active_tab_by_name("documents")
+        if hasattr(self, "tab_sources") and self.tab_sources:
+            from ankiforge.database.models import DocumentModel
+
+            doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
+            if doc and hasattr(self.tab_sources, "search_input"):
+                self.tab_sources.search_input.setText(doc.title)
+            if hasattr(self.tab_sources, "show_inspector"):
+                self.tab_sources.show_inspector(doc_id)

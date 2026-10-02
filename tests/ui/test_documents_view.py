@@ -78,11 +78,11 @@ def test_documents_view_selection_and_coverage(qtbot):
     # Vérifications du sommaire
     assert view.chapters_list.count() == 2
     item1 = view.chapters_list.item(0)
-    assert "🟢" in item1.text()
+    assert not item1.icon().isNull()
     assert "Couvert" in item1.text()
 
     item2 = view.chapters_list.item(1)
-    assert "⚠️" in item2.text()
+    assert not item2.icon().isNull()
     assert "Non couvert" in item2.text()
 
     assert "50%" in view.lbl_coverage_summary.text()
@@ -489,7 +489,7 @@ def test_documents_view_coverage_aggregates_duplicate_headings(qtbot):
 
     assert view.chapters_list.count() == 1
     row = view.chapters_list.item(0)
-    assert "🟢" in row.text()
+    assert not row.icon().isNull()
     assert "Couvert" in row.text()
     assert "2 fragments" in row.text()
     assert "100%" in view.lbl_coverage_summary.text()
@@ -959,16 +959,16 @@ def test_documents_view_coverage_panel_tabs_closable_and_reopenable(qtbot, mock_
     qtbot.addWidget(view)
     view.show()
 
-    # Les 3 onglets (Sommaire, RAG, Plan) sont enregistrés et actifs au départ
+    # Les 3 onglets (Couverture, RAG, Plan) sont enregistrés et actifs au départ
     cov = view.coverage_panel
     assert cov.tabs_bar.count() == 3
     tab_names = [t.text().strip() for t in cov.tabs_bar.tabs]
-    assert "Sommaire" in tab_names
+    assert "Couverture" in tab_names
     assert "RAG" in tab_names
     assert "Plan" in tab_names
 
     # Vérifier que les onglets sont marqués closables
-    assert cov._registered_tabs["Sommaire"]["closable"] is True
+    assert cov._registered_tabs["Couverture"]["closable"] is True
     assert cov._registered_tabs["RAG"]["closable"] is True
     assert cov._registered_tabs["Plan"]["closable"] is True
 
@@ -1092,3 +1092,48 @@ def test_documents_view_long_title_allows_narrow_resize(qtbot, mock_db):
 
     # Vérifie que la barre d'outils reste opérationnelle et que le titre n'empêche pas la réduction
     assert view.toolbar_container.width() <= 380
+
+
+def test_documents_view_coverage_tab_and_analysis_navigation(qtbot, mock_db):
+    """L'onglet Couverture possède une icône Phosphor, pas d'émojis, et navigue vers l'analyse."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Cardio {uid}",
+        content="# Section 1\n\nContenu 1.\n\n# Section 2\n\nContenu 2.",
+        file_type="md",
+    )
+    DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Section 1", content="Contenu 1.", content_hash=f"h1_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Section 2", content="Contenu 2.", content_hash=f"h2_{uid}")
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view.show()
+
+    # Couverture summary label n'a aucun émoji
+    assert "📊" not in view.lbl_coverage_summary.text()
+    assert "Couverture : 0%" in view.lbl_coverage_summary.text()
+    assert view.btn_open_analysis.isEnabled() is False
+
+    # Sélection du document
+    view._current_doc_id = doc.id
+    view._refresh_chapters_list()
+
+    assert view.btn_open_analysis.isEnabled() is True
+    assert "📊" not in view.lbl_coverage_summary.text()
+    assert "Couverture :" in view.lbl_coverage_summary.text()
+
+    # Vérification des icônes dans la liste sans émojis
+    assert view.chapters_list.count() == 2
+    for i in range(view.chapters_list.count()):
+        item = view.chapters_list.item(i)
+        assert "🟢" not in item.text()
+        assert "⚠️" not in item.text()
+        assert not item.icon().isNull()
+
+    # Test du clic sur le bouton d'analyse
+    nav_signals = []
+    view.request_navigation.connect(lambda v, d: nav_signals.append((v, d)))
+    view.btn_open_analysis.click()
+
+    assert len(nav_signals) == 1
+    assert nav_signals[0] == ("analysis", {"tab": "documents", "doc_id": doc.id})

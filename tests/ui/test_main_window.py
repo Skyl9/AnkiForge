@@ -231,3 +231,16 @@ def test_main_window_update_check_lifecycle_and_badge(qtbot, mock_db):
 
             window._update_worker.signals.check_failed.emit("Erreur réseau")
             assert window._update_worker is None
+
+
+def test_main_window_navigates_to_analysis_with_doc_id(qtbot, mock_db):
+    """Vérifie que la navigation vers analysis avec doc_id appelle open_document_inspector."""
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+        window = MainWindow(ai_manager=None)
+        qtbot.addWidget(window)
+
+        # Naviguer vers analysis
+        window._on_view_selected("analysis", {"tab": "documents", "doc_id": 42})
+        assert window._current_view_id == "analysis"
+        analysis_widget = window._view_widgets["analysis"]
+        assert hasattr(analysis_widget, "open_document_inspector")

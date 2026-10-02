@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from peewee import fn
-from PySide6.QtCore import QPoint, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import QPoint, QSize, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QColor, QTextCursor
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -580,18 +580,34 @@ class DocumentsView(FileDropMixin, QWidget):
         self.coverage_card = QFrame()
         self.coverage_card.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_LIGHT};
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         cov_card_layout = QVBoxLayout(self.coverage_card)
         cov_card_layout.setContentsMargins(12, 10, 12, 10)
         cov_card_layout.setSpacing(6)
 
-        self.lbl_coverage_summary = QLabel("📊 Couverture : 0%")
-        self.lbl_coverage_summary.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 13px;")
-        cov_card_layout.addWidget(self.lbl_coverage_summary)
+        cov_header_row = QHBoxLayout()
+        cov_header_row.setContentsMargins(0, 0, 0, 0)
+        cov_header_row.setSpacing(8)
+
+        self.cov_header_icon = QLabel()
+        self.cov_header_icon.setPixmap(load_phosphor_icon("ph.shield-check", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        self.cov_header_icon.setStyleSheet("border: none; background: transparent;")
+        cov_header_row.addWidget(self.cov_header_icon)
+
+        self.lbl_coverage_summary = QLabel("Couverture : 0%")
+        self.lbl_coverage_summary.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 13px; border: none; background: transparent;")
+        cov_header_row.addWidget(self.lbl_coverage_summary, 1)
+
+        self.btn_open_analysis = IconButton("ph.arrow-square-out", tooltip="Ouvrir le diagnostic complet du document dans Analyse & Audit", size=24)
+        self.btn_open_analysis.setEnabled(False)
+        self.btn_open_analysis.clicked.connect(self._on_open_analysis_clicked)
+        cov_header_row.addWidget(self.btn_open_analysis)
+
+        cov_card_layout.addLayout(cov_header_row)
 
         self.coverage_bar = QProgressBar()
         self.coverage_bar.setRange(0, 100)
@@ -600,7 +616,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.coverage_bar.setFixedHeight(8)
         self.coverage_bar.setStyleSheet(f"""
             QProgressBar {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
             }}
@@ -612,7 +628,7 @@ class DocumentsView(FileDropMixin, QWidget):
         cov_card_layout.addWidget(self.coverage_bar)
 
         self.lbl_coverage_details = QLabel("0 sections analysées • 0 cartes liées")
-        self.lbl_coverage_details.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
+        self.lbl_coverage_details.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         cov_card_layout.addWidget(self.lbl_coverage_details)
 
         self.btn_align_cards = SecondaryButton("Synchroniser les cartes")
@@ -654,6 +670,7 @@ class DocumentsView(FileDropMixin, QWidget):
         cov_layout.addWidget(self.chapters_filter)
 
         self.chapters_list = QListWidget()
+        self.chapters_list.setIconSize(QSize(16, 16))
         self.chapters_list.setStyleSheet(f"""
             QListWidget {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -683,7 +700,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
         cov_layout.addWidget(self.btn_forge_chapter)
 
-        self.coverage_panel.add_tab("Sommaire", coverage_content, "ph.list-checks", closable=True)
+        self.coverage_panel.add_tab("Couverture", coverage_content, "ph.shield-check", closable=True)
 
         # --- TAB 2: Bac à Sable RAG ---
         rag_sandbox_content = QWidget()
@@ -812,6 +829,11 @@ class DocumentsView(FileDropMixin, QWidget):
             sizes = self.main_splitter.sizes()
             sizes[2] = max(sizes[2] or 270, self.coverage_panel.minimumWidth())
             self.main_splitter.setSizes(sizes)
+
+    def _on_open_analysis_clicked(self) -> None:
+        """Bascule vers la vue Analyse & Audit (onglet Documents) pré-filtrée sur le document actif."""
+        if self._current_doc_id:
+            self.request_navigation.emit("analysis", {"tab": "documents", "doc_id": self._current_doc_id})
 
     def _on_search_filter_changed(self, text: str) -> None:
         self.tree_explorer.filter_text(text)
@@ -2080,11 +2102,16 @@ class DocumentsView(FileDropMixin, QWidget):
         self.chapters_list.clear()
         if not self._current_doc_id:
             self._coverage_fingerprint = None
-            self.lbl_coverage_summary.setText("📊 Couverture : 0%")
+            self.lbl_coverage_summary.setText("Couverture : 0%")
             self.coverage_bar.setValue(0)
             self._set_coverage_bar_color(0)
             self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
+            if hasattr(self, "btn_open_analysis"):
+                self.btn_open_analysis.setEnabled(False)
             return
+
+        if hasattr(self, "btn_open_analysis"):
+            self.btn_open_analysis.setEnabled(True)
 
         self._coverage_fingerprint = self._calc_coverage_fingerprint(self._current_doc_id)
 
@@ -2096,7 +2123,7 @@ class DocumentsView(FileDropMixin, QWidget):
             item = QListWidgetItem("Aucun fragment structuré (document vide)")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.chapters_list.addItem(item)
-            self.lbl_coverage_summary.setText("📊 Couverture : 0%")
+            self.lbl_coverage_summary.setText("Couverture : 0%")
             self.coverage_bar.setValue(0)
             self._set_coverage_bar_color(0)
             self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
@@ -2115,14 +2142,14 @@ class DocumentsView(FileDropMixin, QWidget):
             card_count = sum(chunk_card_counts.get(cid, 0) for cid in chunk_ids)
             covered = card_count > 0
             if covered:
-                badge = "🟢"
+                icon = load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN)
                 status_text = f"Couvert ({card_count} carte{'s' if card_count > 1 else ''})"
             else:
-                badge = "⚠️"
+                icon = load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_YELLOW)
                 status_text = "Non couvert (0 carte)"
             frag_text = f", {len(chunk_ids)} fragment{'s' if len(chunk_ids) > 1 else ''}" if len(chunk_ids) > 1 else ""
-            item_text = f"{badge} {label} — {status_text}{frag_text}"
-            item = QListWidgetItem(item_text)
+            item_text = f"{label} — {status_text}{frag_text}"
+            item = QListWidgetItem(icon, item_text)
             item.setData(Qt.ItemDataRole.UserRole, chunk_ids)
             item.setData(Qt.ItemDataRole.UserRole + 1, covered)
             self.chapters_list.addItem(item)
@@ -2143,7 +2170,7 @@ class DocumentsView(FileDropMixin, QWidget):
         excluded_units = stats.get("excluded_units", 0)
 
         excl_suffix = f" • {excluded_units} exclu(e)s" if excluded_units > 0 else ""
-        self.lbl_coverage_summary.setText(f"📊 Couverture : {percent}% ({covered_units}/{total_units} {unit_label}{excl_suffix})")
+        self.lbl_coverage_summary.setText(f"Couverture : {percent}% ({covered_units}/{total_units} {unit_label}{excl_suffix})")
         self.coverage_bar.setValue(percent)
         self._set_coverage_bar_color(percent)
         self.lbl_coverage_details.setText(f"{total_units} {unit_label} utiles • {covered_units} couvertes • {total_cards} cartes liées")
@@ -2567,14 +2594,20 @@ class DocumentsView(FileDropMixin, QWidget):
         if hasattr(self, "coverage_card"):
             self.coverage_card.setStyleSheet(f"""
                 QFrame {{
-                    background-color: {profile.bg_panel};
-                    border: 1px solid {profile.border_color};
-                    border-radius: {profile.radius_md}px;
+                    background-color: {profile.bg_input};
+                    border: 1px solid {profile.border_light};
+                    border-radius: {profile.radius_sm}px;
                 }}
             """)
 
+        if hasattr(self, "cov_header_icon"):
+            self.cov_header_icon.setPixmap(load_phosphor_icon("ph.shield-check", color=profile.accent_primary).pixmap(16, 16))
+
+        if hasattr(self, "btn_open_analysis"):
+            self.btn_open_analysis.refresh_theme(profile)
+
         if hasattr(self, "lbl_coverage_summary"):
-            self.lbl_coverage_summary.setStyleSheet(f"color: {profile.text_primary}; font-weight: bold; font-size: 13px;")
+            self.lbl_coverage_summary.setStyleSheet(f"color: {profile.text_primary}; font-weight: bold; font-size: 13px; border: none; background: transparent;")
 
         if hasattr(self, "coverage_bar"):
             self.coverage_bar.setStyleSheet(f"""

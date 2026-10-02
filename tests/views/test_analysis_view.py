@@ -165,3 +165,18 @@ def test_analysis_view_integration(qtbot) -> None:
     with patch.object(view.tab_duplicates, "refresh_data") as mock_refresh:
         view.refresh_data()
         mock_refresh.assert_called_once()
+
+
+def test_analysis_view_open_document_inspector(qtbot, mock_db) -> None:
+    """Vérifie que open_document_inspector active l'onglet Documents et pré-remplit la recherche."""
+    from ankiforge.database.models import DocumentModel
+
+    doc = DocumentModel.create(title="Cours Anatomie Cardio", file_type="md")
+    view = AnalysisView()
+    qtbot.addWidget(view)
+
+    with patch.object(view.tab_sources, "show_inspector") as mock_show:
+        view.open_document_inspector(doc.id)
+        assert view.main_panel.content_stack.currentIndex() == 1
+        assert view.tab_sources.search_input.text() == "Cours Anatomie Cardio"
+        mock_show.assert_called_once_with(doc.id)
