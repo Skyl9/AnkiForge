@@ -609,3 +609,62 @@ def test_ab_tests_view_custom_field_note_type_normalized(qtbot):
     assert view.cards_a and view.cards_a[0].get("ReponseCustom") == "Résultat Branche A"
     assert view.cards_b and view.cards_b[0].get("QuestionCustom") == "Requête Branche A"
     assert view.cards_b and view.cards_b[0].get("ReponseCustom") == "Résultat Branche A"
+
+
+def test_ab_tests_view_splitter_and_doc_picker_stability(qtbot):
+    """Vérifie la stabilisation du sélecteur de document et du QSplitter au redimensionnement."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Stabilite Splitter {uid} avec un titre particulièrement long pour tester les sauts géométriques",
+        content="# Section 1\n\nContenu volumineux d'évaluation pour le laboratoire A/B.",
+        file_type="pdf",
+        total_pages=24,
+    )
+
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.resize(1200, 800)
+    view.show()
+
+    # 1. Contraintes géométriques du bouton sélecteur de document
+    assert view.doc_picker.minimumWidth() == 0
+    assert view.doc_picker.maximumWidth() <= 450
+    assert view.source_box.minimumWidth() >= 300
+    assert view.config_panel.minimumWidth() >= 300
+
+    # 2. Tailles initiales cohérentes du splitter
+    initial_sizes = view.config_splitter.sizes()
+    assert len(initial_sizes) == 2
+    assert initial_sizes[0] > 0
+    assert initial_sizes[1] > 0
+
+    # 3. Redimensionnement fluide manuel du QSplitter
+    view.config_splitter.setSizes([400, 700])
+    resized_sizes = view.config_splitter.sizes()
+    assert abs(resized_sizes[0] - 400) <= 60
+    assert abs(resized_sizes[1] - 700) <= 60
+
+    # 4. Absence de saut visuel lors du chargement d'un document
+    sizes_before = view.config_splitter.sizes()
+    dp_w_before = view.doc_picker.width()
+
+    view.doc_picker.set_document(doc)
+
+    sizes_after = view.config_splitter.sizes()
+    dp_w_after = view.doc_picker.width()
+
+    assert sizes_before == sizes_after, f"Le splitter a sauté lors du chargement : avant={sizes_before}, après={sizes_after}"
+    assert dp_w_before == dp_w_after, f"Le DocumentPickerButton a sauté en largeur : avant={dp_w_before}, après={dp_w_after}"
+
+    # 5. Redimensionnement fluide du splitter avec document chargé
+    view.config_splitter.setSizes([450, 650])
+    post_doc_sizes = view.config_splitter.sizes()
+    assert abs(post_doc_sizes[0] - 450) <= 60
+    assert abs(post_doc_sizes[1] - 650) <= 60
+    assert view.doc_picker.width() > 0
+    assert view.source_box.width() >= 320
+
+    # 6. Effacement du document : stabilité préservée
+    view._on_clear_source()
+    assert view.doc_picker.get_document() is None
+    assert view.source_editor.get_text() == ""

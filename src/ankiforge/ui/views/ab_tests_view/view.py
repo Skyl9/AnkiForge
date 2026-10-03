@@ -260,6 +260,7 @@ class ABTestsView(QWidget):
         # ── 1a. COLONNE GAUCHE : TEXTE SOURCE (pleine hauteur) ────────────────
         self.source_box = QFrame()
         self.source_box.setObjectName("SourceBox")
+        self.source_box.setMinimumWidth(320)
         self._apply_source_box_style()
 
         source_layout = QVBoxLayout(self.source_box)
@@ -276,16 +277,20 @@ class ABTestsView(QWidget):
 
         lbl_src_title = QLabel("TEXTE SOURCE D'ENTRÉE :")
         lbl_src_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_src_title.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         src_header.addWidget(lbl_src_title, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         lbl_presets = QLabel("Source :")
         lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: 500;")
+        lbl_presets.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         src_header.addWidget(lbl_presets, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.doc_picker = DocumentPickerButton(allow_clear=True)
-        src_header.addWidget(self.doc_picker, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.doc_picker.setMinimumWidth(0)
+        self.doc_picker.setMaximumWidth(420)
+        src_header.addWidget(self.doc_picker, 1, Qt.AlignmentFlag.AlignVCenter)
 
-        src_header.addStretch()
+        src_header.addStretch(0)
 
         btn_clear_src = IconButton("ph.trash", tooltip="Effacer le texte source", size=22)
         btn_clear_src.clicked.connect(self._on_clear_source)
@@ -301,6 +306,7 @@ class ABTestsView(QWidget):
         # ── 1b. COLONNE DROITE : PARAMÈTRES DU TEST (panel vertical) ──────────
         self.config_panel = QFrame()
         self.config_panel.setObjectName("ConfigPanel")
+        self.config_panel.setMinimumWidth(340)
         self._apply_config_panel_style()
 
         config_panel_layout = QVBoxLayout(self.config_panel)
@@ -453,6 +459,7 @@ class ABTestsView(QWidget):
         self.config_splitter.addWidget(self.config_panel)
         self.config_splitter.setStretchFactor(0, 55)
         self.config_splitter.setStretchFactor(1, 45)
+        self.config_splitter.setSizes([550, 450])
         config_layout.addWidget(self.config_splitter, 1)
 
         # ── 2. BARRE DE RÉSUMÉ DE CONFIGURATION (ÉCRAN RÉSULTATS) ─────────────

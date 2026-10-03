@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QCursor, QMouseEvent
 from PySide6.QtWidgets import (
     QFrame,
@@ -37,6 +37,9 @@ class DocumentPickerButton(QFrame):
 
     document_changed = Signal(object)  # DocumentModel | None
 
+    DEFAULT_HEIGHT: int = 54
+    DEFAULT_PREFERRED_WIDTH: int = 320
+
     def __init__(self, parent: Any = None, allow_clear: bool = True) -> None:
         super().__init__(parent)
         self.allow_clear = allow_clear
@@ -44,13 +47,21 @@ class DocumentPickerButton(QFrame):
         self._modal: DocumentSelectWindow | None = None
 
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.setFixedHeight(54)
+        self.setFixedHeight(self.DEFAULT_HEIGHT)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMinimumWidth(0)
         self.setObjectName("documentPickerButton")
 
         self._build_ui()
         self._update_display()
+
+    def minimumSizeHint(self) -> QSize:
+        """Autorise le rétrécissement horizontal jusqu'à 0 sans imposer de contrainte minimale au parent."""
+        return QSize(0, self.DEFAULT_HEIGHT)
+
+    def sizeHint(self) -> QSize:
+        """Retourne une taille préférée par défaut stable."""
+        return QSize(self.DEFAULT_PREFERRED_WIDTH, self.DEFAULT_HEIGHT)
 
     def _build_ui(self) -> None:
         layout = QHBoxLayout(self)
