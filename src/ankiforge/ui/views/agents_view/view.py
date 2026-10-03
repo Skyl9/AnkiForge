@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMessageBox,
-    QPushButton,
     QScrollArea,
     QSplitter,
     QStackedWidget,
@@ -37,6 +36,7 @@ from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import (
     Badge,
+    FilterChipButton,
     FlowWidget,
     GlowLineEdit,
     IconButton,
@@ -139,7 +139,7 @@ class AgentsView(QWidget):
         search_row.setSpacing(6)
 
         self.edit_search = GlowLineEdit(placeholder="Filtrer par nom, rôle...")
-        self.edit_search.setFixedHeight(28)
+        self.edit_search.setFixedHeight(30)
         self.edit_search.textChanged.connect(self._apply_filters)
         search_row.addWidget(self.edit_search, 1)
 
@@ -155,16 +155,16 @@ class AgentsView(QWidget):
         filter_bar.setContentsMargins(0, 0, 0, 0)
         filter_bar.setSpacing(4)
 
-        self.btn_filter_all = QPushButton("Tous")
+        self.btn_filter_all = FilterChipButton("Tous", icon_name="ph.sparkle")
         self.btn_filter_all.setToolTip("Afficher tous les agents enregistrés")
-        self.btn_filter_pipe = QPushButton("⚡ Pipeline")
+        self.btn_filter_pipe = FilterChipButton("Pipeline", icon_name="ph.lightning")
         self.btn_filter_pipe.setToolTip("Filtrer les agents utilisables dans les étapes de pipelines DAG")
-        self.btn_filter_mcp = QPushButton("🤝 MCP")
+        self.btn_filter_mcp = FilterChipButton("MCP", icon_name="ph.handshake")
         self.btn_filter_mcp.setToolTip("Filtrer les agents connectés au protocole MCP et outils autonomes")
-        self.btn_filter_univ = QPushButton("🌐 Universel")
+        self.btn_filter_univ = FilterChipButton("Universel", icon_name="ph.globe")
         self.btn_filter_univ.setToolTip("Filtrer les agents polyvalents universels")
 
-        self._filter_buttons = [
+        self._filter_buttons: list[tuple[FilterChipButton, str]] = [
             (self.btn_filter_all, "all"),
             (self.btn_filter_pipe, "pipeline"),
             (self.btn_filter_mcp, "mcp"),
@@ -172,28 +172,6 @@ class AgentsView(QWidget):
         ]
 
         for btn, scope in self._filter_buttons:
-            btn.setCheckable(True)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignTokens.BG_INPUT};
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: 9999px;
-                    color: {DesignTokens.TEXT_MUTED};
-                    font-size: 10px;
-                    font-weight: bold;
-                    padding: 2px 7px;
-                }}
-                QPushButton:hover {{
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    border-color: {DesignTokens.ACCENT_PRIMARY};
-                }}
-                QPushButton:checked {{
-                    background-color: {DesignTokens.BG_ACTIVE};
-                    border-color: {DesignTokens.ACCENT_PRIMARY};
-                    color: {DesignTokens.ACCENT_PRIMARY};
-                }}
-            """)
             btn.clicked.connect(lambda _, s=scope: self._set_scope_filter(s))
             filter_bar.addWidget(btn)
 
@@ -642,6 +620,21 @@ class AgentsView(QWidget):
         self.btn_del.clicked.connect(self._on_delete_selected)
         self.btn_save.clicked.connect(self._on_save_agent)
         self.engine_combo.model_changed.connect(self._on_engine_changed)
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Met à jour les icônes et widgets réactifs lors d'un changement de thème."""
+        for btn, _ in self._filter_buttons:
+            if hasattr(btn, "refresh_theme"):
+                btn.refresh_theme(profile)
+        if hasattr(self, "btn_new_folder"):
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.btn_new_folder.setIcon(load_phosphor_icon("ph.folder-plus", color=color))
+        if hasattr(self, "btn_var_help"):
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.btn_var_help.setIcon(load_phosphor_icon("ph.question", color=color))
+        if hasattr(self, "btn_preview_prompt"):
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=color))
 
     def refresh_data(self) -> None:
         try:

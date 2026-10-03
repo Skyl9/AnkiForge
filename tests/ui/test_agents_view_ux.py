@@ -142,3 +142,77 @@ def test_agents_view_prompt_buttons_height_and_density(qtbot):
     assert len(pills) > 0
     for pill in pills:
         assert pill.maximumHeight() == 24
+
+
+def test_agents_view_scope_filter_chips_and_alignment(qtbot):
+    """Vérifie que les filtres de portée sont des FilterChipButton avec icônes Phosphor (sans émojis),
+    et que la barre de recherche et le bouton 'Nouvel Agent' sont alignés verticalement à 30px."""
+    from ankiforge.ui.components import FilterChipButton
+    from ankiforge.ui.style_engine import JETBRAINS_LIGHT
+
+    view = AgentsView()
+    qtbot.addWidget(view)
+
+    # 1. Alignement vertical barre de recherche & bouton nouvel agent à 30px
+    assert view.edit_search.height() == 30 or view.edit_search.maximumHeight() == 30
+    assert view.btn_new.height() == 30 or view.btn_new.maximumHeight() == 30
+    assert view.edit_search.maximumHeight() == view.btn_new.maximumHeight()
+
+    # 2. Tous les filtres de portée sont des FilterChipButton de hauteur 26px
+    for btn, _ in view._filter_buttons:
+        assert isinstance(btn, FilterChipButton)
+        assert btn.isCheckable()
+        assert btn.height() == 26 or btn.maximumHeight() == 26
+
+    # 3. Absence stricte d'émojis texte dans les libellés
+    emojis = ["⚡", "🤝", "🌐"]
+    for btn, _ in view._filter_buttons:
+        text = btn.text()
+        for emoji in emojis:
+            assert emoji not in text, f"L'émoji {emoji} ne doit pas être présent dans le texte du bouton ({text})"
+
+    assert view.btn_filter_all.text() == "Tous"
+    assert view.btn_filter_pipe.text() == "Pipeline"
+    assert view.btn_filter_mcp.text() == "MCP"
+    assert view.btn_filter_univ.text() == "Universel"
+
+    # 4. Présence des icônes vectorielles Phosphor appropriées
+    assert view.btn_filter_all.icon_name == "ph.sparkle"
+    assert view.btn_filter_pipe.icon_name == "ph.lightning"
+    assert view.btn_filter_mcp.icon_name == "ph.handshake"
+    assert view.btn_filter_univ.icon_name == "ph.globe"
+
+    for btn, _ in view._filter_buttons:
+        assert not btn.icon().isNull()
+
+    # 5. État initial : "Tous" est coché
+    assert view.btn_filter_all.isChecked()
+    assert not view.btn_filter_pipe.isChecked()
+    assert not view.btn_filter_mcp.isChecked()
+    assert not view.btn_filter_univ.isChecked()
+
+    # 6. Basculement interactif des filtres (exclusivité mutuelle)
+    view.btn_filter_pipe.click()
+    assert not view.btn_filter_all.isChecked()
+    assert view.btn_filter_pipe.isChecked()
+    assert view._current_scope_filter == "pipeline"
+
+    view.btn_filter_mcp.click()
+    assert not view.btn_filter_pipe.isChecked()
+    assert view.btn_filter_mcp.isChecked()
+    assert view._current_scope_filter == "mcp"
+
+    view.btn_filter_univ.click()
+    assert not view.btn_filter_mcp.isChecked()
+    assert view.btn_filter_univ.isChecked()
+    assert view._current_scope_filter == "universal"
+
+    view.btn_filter_all.click()
+    assert view.btn_filter_all.isChecked()
+    assert not view.btn_filter_univ.isChecked()
+    assert view._current_scope_filter == "all"
+
+    # 7. Réactivité au changement de thème (refresh_theme)
+    view.refresh_theme(JETBRAINS_LIGHT)
+    for btn, _ in view._filter_buttons:
+        assert not btn.icon().isNull()

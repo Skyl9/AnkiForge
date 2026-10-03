@@ -1057,7 +1057,7 @@ class StyleEngine(QObject):
             background-color: {p.bg_input};
             color: {p.text_secondary};
             border: 1px solid {p.border_color};
-            border-radius: {p.radius_sm}px;
+            border-radius: 9999px;
             font-size: 11px;
             font-weight: 500;
             padding: 3px 10px;
@@ -1067,11 +1067,20 @@ class StyleEngine(QObject):
             color: {p.text_primary};
             border-color: {p.accent_primary};
         }}
+        FilterChipButton:focus {{
+            border-color: {p.accent_primary};
+            outline: none;
+        }}
         FilterChipButton:checked {{
             background-color: {p.accent_bg};
             color: {p.accent_primary};
             border: 1px solid {p.accent_primary};
             font-weight: 600;
+        }}
+        FilterChipButton:disabled {{
+            background-color: {p.bg_main};
+            color: {p.text_muted};
+            border-color: {p.border_color};
         }}
 
         /* --- Sélecteur de Dispositions & Miniatures (LayoutGridSelector) --- */

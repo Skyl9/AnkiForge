@@ -1,8 +1,8 @@
 import re
 from typing import Any
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, Signal
-from PySide6.QtGui import QCursor
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, Signal
+from PySide6.QtGui import QCursor, QIcon
 from PySide6.QtWidgets import QFrame, QGraphicsDropShadowEffect, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
@@ -373,9 +373,49 @@ class FilterChipButton(QPushButton):
         icon_name: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(text, parent)
+        super().__init__(_escape_ampersand(text), parent)
+        self.icon_name: str | None = icon_name
+        self._profile: Any = None
+        self._toggled_connected: bool = False
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(26)
         if icon_name:
-            self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
+            self.setIconSize(QSize(14, 14))
+            self.toggled.connect(self._on_toggled)
+            self._toggled_connected = True
+            self._update_icon()
+
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
+
+    def set_icon_name(self, icon_name: str | None) -> None:
+        self.icon_name = icon_name
+        if icon_name:
+            self.setIconSize(QSize(14, 14))
+            if not self._toggled_connected:
+                self.toggled.connect(self._on_toggled)
+                self._toggled_connected = True
+            self._update_icon()
+        else:
+            self.setIcon(QIcon())
+
+    def _update_icon(self, profile: Any = None) -> None:
+        if not getattr(self, "icon_name", None):
+            return
+        active_profile = profile or getattr(self, "_profile", None)
+        if active_profile is not None:
+            if isinstance(active_profile, dict):
+                color = active_profile.get("accent_primary", DesignTokens.ACCENT_PRIMARY) if self.isChecked() else active_profile.get("text_secondary", DesignTokens.TEXT_SECONDARY)
+            else:
+                color = getattr(active_profile, "accent_primary", DesignTokens.ACCENT_PRIMARY) if self.isChecked() else getattr(active_profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
+        else:
+            color = DesignTokens.ACCENT_PRIMARY if self.isChecked() else DesignTokens.TEXT_SECONDARY
+        self.setIcon(load_phosphor_icon(self.icon_name, color=color))
+
+    def _on_toggled(self, _checked: bool) -> None:
+        self._update_icon()
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        self._profile = profile
+        self._update_icon(profile)
