@@ -241,7 +241,8 @@ class StorageMaintenanceTab(QWidget):
         self.table_backups.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.table_backups.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table_backups.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_backups.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_backups.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        self.table_backups.setColumnWidth(4, 110)
         self.table_backups.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table_backups.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_backups.verticalHeader().setVisible(False)
@@ -345,6 +346,7 @@ class StorageMaintenanceTab(QWidget):
 
                 btn_restore = SecondaryButton("Restaurer")
                 apply_compact_style(btn_restore, height=28)
+                btn_restore.setMinimumWidth(80)
                 btn_restore.setEnabled(b.is_valid)
                 btn_restore.clicked.connect(lambda _=False, binfo=b: self._restore_backup(binfo))
                 self.table_backups.setCellWidget(row, 4, btn_restore)

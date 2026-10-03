@@ -9,7 +9,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6.QtWidgets import QApplication, QLineEdit, QMessageBox
+from PySide6.QtWidgets import QApplication, QHeaderView, QLineEdit, QMessageBox
 
 from ankiforge.database.models import (
     CardModel,
@@ -572,6 +572,8 @@ def test_storage_maintenance_tab_actions(qtbot):
 
     # 1. Refresh des métriques
     assert tab.table_backups.verticalHeader().defaultSectionSize() == 36
+    assert tab.table_backups.horizontalHeader().sectionResizeMode(4) == QHeaderView.ResizeMode.Fixed
+    assert tab.table_backups.columnWidth(4) == 110
     fake_b = MagicMock(created_at=datetime.datetime.now(), size_bytes=2048, is_prerestore=False, is_valid=True)
     with patch("ankiforge.ui.widgets.settings_modal.tabs.storage_tab.list_profile_backups", return_value=[fake_b]):
         tab.refresh_metrics()
@@ -579,6 +581,7 @@ def test_storage_maintenance_tab_actions(qtbot):
         assert btn is not None
         assert btn.property("density") == "compact"
         assert btn.height() == 28
+        assert btn.minimumWidth() >= 80
 
     tab.refresh_metrics()
     assert "note" in tab.c_db.lbl_sub.text()
