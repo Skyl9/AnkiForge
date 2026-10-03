@@ -841,3 +841,43 @@ def test_settings_modal_dirty_check_triggers_zero_db_queries(qtbot):
 
     modal.ai_tab.slider_temp.setValue(70)
     assert modal._tabs_have_changes() is False
+
+
+def test_settings_modal_lazy_loading_tabs(qtbot):
+    """Vérifie que les onglets non visités ne sont pas instanciés immédiatement (lazy-loading)."""
+    import time
+
+    start_time = time.perf_counter()
+    modal = SettingsModal()
+    elapsed = time.perf_counter() - start_time
+    qtbot.addWidget(modal)
+
+    # L'instanciation de la modale est quasi-instantanée (< 100ms)
+    assert elapsed < 0.20
+
+    # Seul l'onglet Général (index 0) est instancié
+    assert modal._tabs[0] is not None
+    assert modal._tabs[1] is None
+    assert modal._tabs[2] is None
+    assert modal._tabs[3] is None
+    assert modal._tabs[4] is None
+    assert modal._tabs[5] is None
+
+    # dirty check, save_all et refresh_theme ne forcent PAS l'instanciation
+    assert modal._tabs_have_changes() is False
+    assert modal._tabs[1] is None
+
+    modal.refresh_theme(get_style_engine().current_theme)
+    assert modal._tabs[1] is None
+
+    modal._save_all()
+    assert modal._tabs[1] is None
+
+    # Un clic sur le bouton 1 (Moteurs IA) instancie uniquement l'onglet 1
+    modal.nav_btns[1].click()
+    assert modal._tabs[1] is not None
+    assert modal.stacked_widget.currentIndex() == 1
+    assert modal._tabs[2] is None
+    assert modal._tabs[3] is None
+    assert modal._tabs[4] is None
+    assert modal._tabs[5] is None

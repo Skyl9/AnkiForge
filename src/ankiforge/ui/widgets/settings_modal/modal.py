@@ -1,4 +1,4 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -17,22 +17,24 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
 )
-from ankiforge.ui.dialogs.addon_manager_dialog import AddonManagerWidget
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.settings_modal.components import (
     SettingsNavButton,
     apply_pill_badge_style,
 )
-from ankiforge.ui.widgets.settings_modal.tabs import (
-    AIEnginesTab,
-    AnkiSyncTab,
-    GeneralTab,
-    StorageMaintenanceTab,
-    TTSSettingsTab,
-)
+from ankiforge.ui.widgets.settings_modal.tabs.general_tab import GeneralTab
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_active_profile
+
+if TYPE_CHECKING:
+    from ankiforge.ui.dialogs.addon_manager_dialog import AddonManagerWidget
+    from ankiforge.ui.widgets.settings_modal.tabs import (
+        AIEnginesTab,
+        AnkiSyncTab,
+        StorageMaintenanceTab,
+        TTSSettingsTab,
+    )
 
 
 class SettingsModal(QDialog):
@@ -51,6 +53,13 @@ class SettingsModal(QDialog):
         self.ai_manager = ai_manager
         self.profile_name = profile_name or get_active_profile()
         self.stacked_widget = QStackedWidget()
+
+        self._ai_tab: AIEnginesTab | None = None
+        self._anki_tab: AnkiSyncTab | None = None
+        self._tts_tab: TTSSettingsTab | None = None
+        self._maint_tab: StorageMaintenanceTab | None = None
+        self._addons_tab: AddonManagerWidget | None = None
+        self._tabs: list[QWidget | None] = []
 
         self.setWindowTitle("Paramètres AnkiForge")
         self.setMinimumSize(960, 620)
@@ -77,11 +86,146 @@ class SettingsModal(QDialog):
         super().hideEvent(event)
 
     def _tabs_have_changes(self) -> bool:
-        for tab in (self.general_tab, self.ai_tab, self.anki_tab, self.tts_tab):
-            checker = getattr(tab, "has_pending_changes", None)
-            if checker is not None and checker():
-                return True
+        for tab in self._tabs:
+            if tab is not None:
+                checker = getattr(tab, "has_pending_changes", None)
+                if checker is not None and checker():
+                    return True
         return False
+
+    def _ensure_tab_loaded(self, index: int) -> QWidget:
+        """Instancie à la demande (lazy) l'onglet correspondant à l'index s'il n'existe pas encore."""
+        if 0 <= index < len(self._tabs) and self._tabs[index] is not None:
+            return self._tabs[index]  # type: ignore[return-value]
+
+        tab: QWidget
+        if index == 1:
+            from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
+
+            self._ai_tab = AIEnginesTab(self.ai_manager)
+            self._ai_tab.rotate_mcp_token_requested.connect(self.rotate_mcp_token_requested.emit)
+            tab = self._ai_tab
+        elif index == 2:
+            from ankiforge.ui.widgets.settings_modal.tabs.anki_sync_tab import AnkiSyncTab
+
+            self._anki_tab = AnkiSyncTab()
+            tab = self._anki_tab
+        elif index == 3:
+            from ankiforge.ui.widgets.settings_modal.tabs.tts_tab import TTSSettingsTab
+
+            self._tts_tab = TTSSettingsTab()
+            tab = self._tts_tab
+        elif index == 4:
+            from ankiforge.ui.widgets.settings_modal.tabs.storage_tab import StorageMaintenanceTab
+
+            self._maint_tab = StorageMaintenanceTab()
+            tab = self._maint_tab
+        elif index == 5:
+            from ankiforge.ui.dialogs.addon_manager_dialog import AddonManagerWidget
+
+            self._addons_tab = AddonManagerWidget()
+            tab = self._addons_tab
+        else:
+            return self.general_tab
+
+        self._tabs[index] = tab
+
+        # Remplacement du placeholder dans le stacked widget
+        old_widget = self.stacked_widget.widget(index)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old_widget)
+        if old_widget is not None:
+            old_widget.deleteLater()
+        self.stacked_widget.insertWidget(index, tab)
+        self.stacked_widget.blockSignals(False)
+
+        from ankiforge.ui.style_engine import get_style_engine
+
+        current_theme = get_style_engine().current_theme
+        if current_theme and hasattr(tab, "refresh_theme"):
+            tab.refresh_theme(current_theme)
+
+        return tab
+
+    @property
+    def ai_tab(self) -> Any:
+        return self._ensure_tab_loaded(1)
+
+    @ai_tab.setter
+    def ai_tab(self, value: Any) -> None:
+        self._ai_tab = value
+        self._tabs[1] = value
+        old = self.stacked_widget.widget(1)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old)
+        if old is not None:
+            old.deleteLater()
+        self.stacked_widget.insertWidget(1, value)
+        self.stacked_widget.blockSignals(False)
+
+    @property
+    def anki_tab(self) -> Any:
+        return self._ensure_tab_loaded(2)
+
+    @anki_tab.setter
+    def anki_tab(self, value: Any) -> None:
+        self._anki_tab = value
+        self._tabs[2] = value
+        old = self.stacked_widget.widget(2)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old)
+        if old is not None:
+            old.deleteLater()
+        self.stacked_widget.insertWidget(2, value)
+        self.stacked_widget.blockSignals(False)
+
+    @property
+    def tts_tab(self) -> Any:
+        return self._ensure_tab_loaded(3)
+
+    @tts_tab.setter
+    def tts_tab(self, value: Any) -> None:
+        self._tts_tab = value
+        self._tabs[3] = value
+        old = self.stacked_widget.widget(3)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old)
+        if old is not None:
+            old.deleteLater()
+        self.stacked_widget.insertWidget(3, value)
+        self.stacked_widget.blockSignals(False)
+
+    @property
+    def maint_tab(self) -> Any:
+        return self._ensure_tab_loaded(4)
+
+    @maint_tab.setter
+    def maint_tab(self, value: Any) -> None:
+        self._maint_tab = value
+        self._tabs[4] = value
+        old = self.stacked_widget.widget(4)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old)
+        if old is not None:
+            old.deleteLater()
+        self.stacked_widget.insertWidget(4, value)
+        self.stacked_widget.blockSignals(False)
+
+    @property
+    def addons_tab(self) -> Any:
+        return self._ensure_tab_loaded(5)
+
+    @addons_tab.setter
+    def addons_tab(self, value: Any) -> None:
+        self._addons_tab = value
+        self._tabs[5] = value
+        old = self.stacked_widget.widget(5)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old)
+        if old is not None:
+            old.deleteLater()
+        self.stacked_widget.insertWidget(5, value)
+        self.stacked_widget.blockSignals(False)
 
     def _update_save_enabled(self) -> None:
         if hasattr(self, "btn_save_all"):
@@ -159,7 +303,7 @@ class SettingsModal(QDialog):
 
         for title, icon_name, idx in tabs_info:
             btn = SettingsNavButton(title, icon_name, idx)
-            btn.clicked.connect(lambda _, i=idx: self.stacked_widget.setCurrentIndex(i))
+            btn.clicked.connect(lambda _, i=idx: self.select_tab(i))
             self.nav_btn_group.addButton(btn, idx)
             sidebar_layout.addWidget(btn)
             self.nav_btns.append(btn)
@@ -169,20 +313,13 @@ class SettingsModal(QDialog):
 
         body_layout.addWidget(self.sidebar)
 
-        # Stacked Widget avec les 6 onglets
+        # Stacked Widget avec chargement différé (lazy-loading) des onglets
         self.general_tab = GeneralTab()
-        self.ai_tab = AIEnginesTab(self.ai_manager)
-        self.anki_tab = AnkiSyncTab()
-        self.tts_tab = TTSSettingsTab()
-        self.maint_tab = StorageMaintenanceTab()
-        self.addons_tab = AddonManagerWidget()
+        self._tabs = [self.general_tab, None, None, None, None, None]
 
         self.stacked_widget.addWidget(self.general_tab)
-        self.stacked_widget.addWidget(self.ai_tab)
-        self.stacked_widget.addWidget(self.anki_tab)
-        self.stacked_widget.addWidget(self.tts_tab)
-        self.stacked_widget.addWidget(self.maint_tab)
-        self.stacked_widget.addWidget(self.addons_tab)
+        for _ in range(5):
+            self.stacked_widget.addWidget(QWidget())
 
         body_layout.addWidget(self.stacked_widget, 1)
         main_layout.addWidget(body, 1)
@@ -231,7 +368,6 @@ class SettingsModal(QDialog):
 
         engine = get_style_engine()
         engine.theme_changed.connect(self.refresh_theme)
-        self.ai_tab.rotate_mcp_token_requested.connect(self.rotate_mcp_token_requested.emit)
 
     def _apply_dialog_styles(self) -> None:
         self.setStyleSheet(f"""
@@ -267,10 +403,14 @@ class SettingsModal(QDialog):
         theme_changed = self.general_tab._theme_field_changed() or self.general_tab._mode_field_changed()
 
         _, selected_layout_id, _selected_family_id = self.general_tab.save_tab()
-        self.ai_tab.save_tab()
-        self.anki_tab.save_tab()
-        self.tts_tab.save_tab()
-        self.maint_tab.save_tab()
+        if self._ai_tab is not None:
+            self._ai_tab.save_tab()
+        if self._anki_tab is not None:
+            self._anki_tab.save_tab()
+        if self._tts_tab is not None:
+            self._tts_tab.save_tab()
+        if self._maint_tab is not None:
+            self._maint_tab.save_tab()
 
         theme_title = self.general_tab.cb_theme.currentText() or "Nouveau Thème"
         apply_layout = bool(layout_changed and selected_layout_id)
@@ -341,25 +481,21 @@ class SettingsModal(QDialog):
         for btn in self.nav_btns:
             btn.refresh_theme(profile)
 
-        if hasattr(self, "general_tab") and hasattr(self.general_tab, "refresh_theme"):
-            self.general_tab.refresh_theme(profile)
-        if hasattr(self, "ai_tab") and hasattr(self.ai_tab, "refresh_theme"):
-            self.ai_tab.refresh_theme(profile)
-        if hasattr(self, "anki_tab") and hasattr(self.anki_tab, "refresh_theme"):
-            self.anki_tab.refresh_theme(profile)
-        if hasattr(self, "maint_tab") and hasattr(self.maint_tab, "refresh_theme"):
-            self.maint_tab.refresh_theme(profile)
-        if hasattr(self, "addons_tab") and hasattr(self.addons_tab, "refresh_theme"):
-            self.addons_tab.refresh_theme(profile)
+        for tab in self._tabs:
+            if tab is not None and hasattr(tab, "refresh_theme"):
+                tab.refresh_theme(profile)
 
     def select_tab(self, index: int) -> None:
         """Sélectionne directement un onglet par son index (ex: 1 pour Moteurs IA / MCP)."""
         if 0 <= index < len(self.nav_btns):
             self.nav_btns[index].setChecked(True)
+            self._ensure_tab_loaded(index)
             self.stacked_widget.setCurrentIndex(index)
 
 
 # Aliases de compatibilité
 SettingsDialog = SettingsModal
+from ankiforge.ui.widgets.settings_modal.tabs.storage_tab import StorageMaintenanceTab  # noqa: E402
+
 MaintenanceTab = StorageMaintenanceTab
 StatisticsTab = StorageMaintenanceTab
