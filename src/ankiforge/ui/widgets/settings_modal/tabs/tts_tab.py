@@ -264,7 +264,6 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         self.lbl_kokoro_status = QLabel()
         self.lbl_kokoro_status.setStyleSheet("font-size: 11px; font-weight: bold;")
-        self._update_kokoro_status_ui()
         row_kokoro_status.addWidget(self.lbl_kokoro_status)
         row_kokoro_status.addStretch()
 
@@ -289,7 +288,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self.lbl_kokoro_install_progress.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
         row_kokoro_install.addWidget(self.lbl_kokoro_install_progress, 1)
 
-        self.btn_install_kokoro = PrimaryButton(" Installer / Configurer Kokoro (1-Clic)")
+        self.btn_install_kokoro = PrimaryButton(" Installer Kokoro (1-Clic)")
         self.btn_install_kokoro.setIcon(load_on_accent_icon("ph.download-simple"))
         self.btn_install_kokoro.setFixedHeight(30)
         self.btn_install_kokoro.clicked.connect(self._on_install_kokoro)
@@ -297,6 +296,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         card_kokoro_layout.addLayout(row_kokoro_install)
         layout.addWidget(self.card_kokoro)
+        self._update_kokoro_status_ui()
 
         layout.addStretch()
 
@@ -344,10 +344,18 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         if is_functional:
             self.lbl_kokoro_status.setText("● Installé et opérationnel")
             self.lbl_kokoro_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
+            if hasattr(self, "btn_install_kokoro"):
+                self.btn_install_kokoro.setEnabled(False)
+                self.btn_install_kokoro.setText(" Kokoro déjà installé et prêt")
+                self.btn_install_kokoro.setToolTip("Le modèle Kokoro-82M est opérationnel sans configuration requise.")
         else:
             self.lbl_kokoro_status.setText("○ Non installé (runner absent)")
             self.lbl_kokoro_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
             self.lbl_kokoro_status.setToolTip(msg)
+            if hasattr(self, "btn_install_kokoro"):
+                self.btn_install_kokoro.setEnabled(True)
+                self.btn_install_kokoro.setText(" Installer Kokoro (1-Clic)")
+                self.btn_install_kokoro.setToolTip("Télécharger et installer le runner Kokoro local")
 
     def _on_engine_changed(self) -> None:
         """Met à jour la liste des voix lorsque le moteur change."""
@@ -540,7 +548,6 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self._kokoro_worker.start()
 
     def _on_kokoro_installer_success(self) -> None:
-        self.btn_install_kokoro.setEnabled(True)
         self.lbl_kokoro_install_progress.setText("Kokoro configuré avec succès !")
         self._update_kokoro_status_ui()
         self._populate_engines()

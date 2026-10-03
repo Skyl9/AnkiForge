@@ -654,6 +654,8 @@ def test_tts_settings_tab_kokoro_integration(qtbot):
         engine_ids = [tab.cb_engine.itemData(i) for i in range(tab.cb_engine.count())]
         assert "kokoro" not in engine_ids
         assert "Non installé" in tab.lbl_kokoro_status.text()
+        assert tab.btn_install_kokoro.isEnabled() is True
+        assert "Installer Kokoro (1-Clic)" in tab.btn_install_kokoro.text()
 
         # Callbacks installation
         tab._on_kokoro_installer_failed("Erreur réseau")
@@ -665,9 +667,14 @@ def test_tts_settings_tab_kokoro_integration(qtbot):
         engine_ids2 = [tab2.cb_engine.itemData(i) for i in range(tab2.cb_engine.count())]
         assert "kokoro" in engine_ids2
         assert "Installé" in tab2.lbl_kokoro_status.text()
+        # Bouton grisé car Kokoro est déjà installé et prêt (Ticket 7)
+        assert tab2.btn_install_kokoro.isEnabled() is False
+        assert "déjà installé" in tab2.btn_install_kokoro.text()
+        assert "Kokoro-82M est opérationnel sans configuration requise" in tab2.btn_install_kokoro.toolTip()
 
         tab2._on_kokoro_installer_success()
         assert "Kokoro configuré avec succès" in tab2.lbl_kokoro_install_progress.text()
+        assert tab2.btn_install_kokoro.isEnabled() is False
 
 
 def test_ai_engines_tab_save_syncs_models_and_reloads_provider(qtbot):
