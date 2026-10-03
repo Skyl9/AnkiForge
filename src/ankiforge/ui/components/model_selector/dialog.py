@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.model_catalog import ANKIFORGE_TASKS, ModelCatalog, ModelSpec
 from ankiforge.ui.components import (
+    DangerButton,
     FilterChipButton,
     GlowLineEdit,
     IconButton,
@@ -44,6 +45,8 @@ class ModelCardWidget(QFrame):
 
     selected = Signal(object)  # ModelSpec or LLMConfigModel
     comparison_toggled = Signal(object, bool)  # (model, is_checked)
+    edit_requested = Signal(object)  # ModelSpec or LLMConfigModel
+    delete_requested = Signal(object)  # ModelSpec or LLMConfigModel
 
     def __init__(
         self,
@@ -248,18 +251,35 @@ class ModelCardWidget(QFrame):
             self.btn_select = SecondaryButton("✓ Modèle Actif", parent=self)
             self.btn_select.setFixedHeight(32)
             self.btn_select.clicked.connect(lambda: self.selected.emit(self.model))
+            footer_row.addWidget(self.btn_select)
         elif self.is_installed:
             self.btn_select = PrimaryButton("Sélectionner" if self.picker_mode else "Configuré", parent=self)
             self.btn_select.setFixedHeight(32)
             if not self.picker_mode:
                 self.btn_select.setEnabled(False)
             self.btn_select.clicked.connect(lambda: self.selected.emit(self.model))
+            footer_row.addWidget(self.btn_select)
+
+            if not self.picker_mode:
+                self.btn_edit = SecondaryButton("Modifier", parent=self)
+                self.btn_edit.setFixedHeight(32)
+                self.btn_edit.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
+                self.btn_edit.setToolTip("Modifier les paramètres de ce modèle")
+                self.btn_edit.clicked.connect(lambda: self.edit_requested.emit(self.model))
+                footer_row.addWidget(self.btn_edit)
+
+                self.btn_delete = DangerButton("", ghost=True, parent=self)
+                self.btn_delete.setFixedSize(32, 32)
+                self.btn_delete.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+                self.btn_delete.setToolTip("Supprimer ce modèle du catalogue")
+                self.btn_delete.clicked.connect(lambda: self.delete_requested.emit(self.model))
+                footer_row.addWidget(self.btn_delete)
         else:
             self.btn_select = PrimaryButton("+ Activer & Choisir" if self.picker_mode else "+ Activer", parent=self)
             self.btn_select.setFixedHeight(32)
             self.btn_select.clicked.connect(lambda: self.selected.emit(self.model))
+            footer_row.addWidget(self.btn_select)
 
-        footer_row.addWidget(self.btn_select)
         layout.addLayout(footer_row)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
@@ -349,6 +369,13 @@ class ModelDiscoveryDialog(QDialog):
         self.search_edit.textChanged.connect(self._load_and_filter_models)
         self.search_edit.setClearButtonEnabled(True)
         top_row.addWidget(self.search_edit)
+
+        if not self.picker_mode:
+            self.btn_add_custom = SecondaryButton("+ Modèle Personnalisé")
+            self.btn_add_custom.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.TEXT_PRIMARY))
+            self.btn_add_custom.setToolTip("Ajouter manuellement un modèle d'IA personnalisé")
+            self.btn_add_custom.clicked.connect(self._on_add_custom_model)
+            top_row.addWidget(self.btn_add_custom)
 
         root_layout.addLayout(top_row)
 
@@ -669,6 +696,8 @@ class ModelDiscoveryDialog(QDialog):
             )
             card.selected.connect(self._on_model_chosen)
             card.comparison_toggled.connect(self._on_comparison_toggled)
+            card.edit_requested.connect(self._on_edit_model)
+            card.delete_requested.connect(self._on_delete_model)
 
             # Rétablir l'état de comparaison si actif
             if any(getattr(m, "model_id", None) == m_id for m in self._compared_models):
@@ -749,7 +778,65 @@ class ModelDiscoveryDialog(QDialog):
             self._selected_model = model
 
         self.model_selected.emit(self._selected_model)
-        self.accept()
+        if self.picker_mode:
+            self.accept()
+        else:
+            self._load_and_filter_models()
+
+    def _on_add_custom_model(self) -> None:
+        """Ouvre le dialogue pour créer un modèle IA personnalisé."""
+        from ankiforge.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
+
+        dlg = ModelConfigDialog(config=None, parent=self)
+        if dlg.exec():
+            new_cfg = dlg.get_config()
+            if new_cfg:
+                self.model_selected.emit(new_cfg)
+            self._load_and_filter_models()
+
+    def _on_edit_model(self, model: Any) -> None:
+        """Ouvre le dialogue d'édition unifié pour le modèle configuré."""
+        from ankiforge.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
+
+        if not isinstance(model, LLMConfigModel):
+            m_id = str(getattr(model, "model_id", ""))
+            prov = str(getattr(model, "provider", ""))
+            cfg = LLMConfigModel.select().where((LLMConfigModel.provider == prov) & (LLMConfigModel.model_id == m_id)).first()
+        else:
+            cfg = model
+
+        if not cfg:
+            return
+
+        dlg = ModelConfigDialog(config=cfg, parent=self)
+        if dlg.exec():
+            self._load_and_filter_models()
+
+    def _on_delete_model(self, model: Any) -> None:
+        """Supprime un modèle configuré avec confirmation."""
+        from PySide6.QtWidgets import QMessageBox
+
+        if not isinstance(model, LLMConfigModel):
+            m_id = str(getattr(model, "model_id", ""))
+            prov = str(getattr(model, "provider", ""))
+            cfg = LLMConfigModel.select().where((LLMConfigModel.provider == prov) & (LLMConfigModel.model_id == m_id)).first()
+        else:
+            cfg = model
+
+        if not cfg:
+            return
+
+        d_name = str(cfg.display_name or cfg.model_id)
+        res = QMessageBox.question(
+            self,
+            "Confirmer la suppression",
+            f"Êtes-vous sûr de vouloir supprimer le modèle '{d_name}' de votre configuration ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            LLMConfigModel.delete_by_id(cfg.id)
+            self._load_and_filter_models()
 
     def _on_comparison_toggled(self, model: Any, checked: bool) -> None:
         """Ajoute ou retire un modèle de la liste de comparaison."""

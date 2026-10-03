@@ -174,8 +174,7 @@ class StyleEngine(QObject):
         QPushButton[role="secondary"] {{
             background-color: {p.bg_input};
             color: {p.text_primary};
-            border: 1px solid {p.border_color};
-            border-top: 1px solid {p.border_light};
+            border: 1px solid {p.border_light};
         }}
         QPushButton[role="secondary"]:hover {{
             background-color: {p.bg_hover};

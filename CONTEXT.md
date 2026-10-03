@@ -18,6 +18,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 
 - **Génération** : l'exécution d'un pipeline sur une source, produisant des cartes brutes.
 - **Étape de validation** : étape du pipeline qui vérifie ou nettoie la sortie d'une génération (aujourd'hui uniquement formelle : mise en forme LaTeX/HTML et schéma JSON).
+- **Surcharge locale de persona** : prompt d'un agent modifié au profit du seul pipeline qui le consomme. Elle n'altère pas la persona : deux pipelines peuvent surcharger le même agent sans jamais se voir, et lever la surcharge rend à l'agent son prompt d'origine. Elle est un réglage du pipeline, pas une version de la persona.
+  _Avoid_ : édition de persona, copie de persona, persona de pipeline, fork de persona
 - **Chaîne de pensée (Raisonnement / Thought)** : flux de réflexion intermédiaire émis par un modèle d'IA à raisonnement explicite (Chain-of-Thought) avant ou pendant la production du contenu cible. Ce flux ne fait pas partie des données structurées des flashcards finales, mais constitue une trace de traçabilité et d'audit pour comprendre la sélection des faits, la formulation ou d'éventuelles hallucinations.
 - **Assistant de création d'agent (Wizard d'agent)** : dialogue guidé permettant d'instancier un nouvel agent IA soit à partir de modèles prédéfinis optimisés pour Anki (pédagogie Wozniak, langues, sciences, format cloze), soit à partir d'une page blanche personnalisée.
   _Avoid_ : modal agent, pop-up agent, dialogue de persona
@@ -41,12 +43,20 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : image, page, illustration, vignette
 - **Rotation de planche** : orientation durable d'une planche (`0`/`90`/`180`/`270°`), propriété de la planche et non de son affichage. Elle est appliquée **à la lecture** par une couture unique et n'est jamais inscrite dans le fichier image.
   _Avoid_ : orientation, EXIF, rotation d'affichage, redressement
-- **État dérivé** : contenu produit à partir d'une planche — sa transcription, sa description dense — et **périmé** dès que la planche change. Une planche porteuse d'un état dérivé périmé le dit, plutôt que de servir un contenu faux : un état absent se voit et se corrige, un état périmé se constate trop tard.
+- **Image source** : fichier dont une planche est tirée. Une planche est une **dérivation** de ses images sources — la rotation lui est appliquée à la lecture et la couture la recompose à chaque passe. Toute propriété qui doit survivre à une rotation ou à une recomposition appartient donc à l'**image source**, jamais à la planche.
+  _Avoid_ : média, original, image de planche, planche source
+- **Recadrage** : sélection rectangulaire d'une région d'une **image source**, purement restrictive. Il n'altère jamais le fichier et ne réduit jamais la matière : il borne ce qui est lu et rendu, et rien d'autre. Il est conservé sur l'image source, jamais sur la planche — un recadrage porté par la planche se périmerait à la première rotation de sa source.
+  _Avoid_ : crop, découpe image, rognage, zoom, cadrage d'affichage, recadrage de planche
+- **État dérivé** : contenu produit à partir d'une planche — sa transcription, sa description dense — et **périmé** dès que la planche change. Une planche porteuse d'un état dérivé périmé le dit, plutôt que de servir un contenu faux : un état absent se voit et se corrige, un état dérivé périmé se constate trop tard.
   _Avoid_ : cache, index, données dérivées, transcription
 - **Périmètre de transcription (ou Portée de transcription)** : ensemble des planches d'un album ciblées lors d'une passe d'extraction (album complet, planches sans état dérivé, planches périmées, ou intervalle explicite). Le ciblage est exclusif et vérifie dynamiquement le nombre de planches correspondantes pour interdire les passes à vide.
   _Avoid_ : sélection de pages, lot OCR, filtre de transcription
 - **Directives de transcription** : ensemble des contraintes formelles (syntaxe LaTeX `$..$`, tableaux Markdown/HTML, descriptions de schémas) et consignes contextuelles injectées dans le prompt du modèle de vision, désactivées pour le moteur matériel (Apple Vision).
   _Avoid_ : prompt système, template OCR, options texte
+- **Type de donnée d'image** : nature de ce qu'une image contient — table, pseudocode, schéma, photo, logo, texte imprimé. L'utilisateur le choisit lui-même dans une liste fermée ; il n'est ni déduit, ni proposé, ni deviné. Il ne désigne aucun moteur.
+  _Avoid_ : catégorie, catégorie de reconnaissance, classe, type de document, modèle
+- **Moteur de vision adapté** : modèle capable de restituer fidèlement un **type de donnée d'image** donné. Le type borne l'ensemble des candidats, il ne les impose pas — le choix du moteur reste une décision distincte et séparée du type.
+  _Avoid_ : catégorie, modèle par défaut, moteur de la catégorie
 - **Transcription optique matérielle** : extraction optique brute et locale accélérée par puce matérielle (Apple Neural Engine / Vision), sans modèle de langage génératif (VLM). Elle est optimisée pour la prose et les textes continus en bloc, sans interprétation sémantique, ni reconstruction de tableaux complexes, ni formules KaTeX.
   _Avoid_ : OCR IA, vision multimodale, VLM matériel
 

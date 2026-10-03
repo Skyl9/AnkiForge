@@ -39,6 +39,8 @@ def test_style_engine_generate_stylesheet():
     # Vérification des rôles sémantiques
     assert 'QPushButton[role="primary"]' in qss
     assert 'QPushButton[role="secondary"]' in qss
+    assert f"border: 1px solid {JETBRAINS_DARK.border_light}" in qss
+    assert f"border: 1.5px solid {JETBRAINS_DARK.accent_primary}" in qss
     assert 'QPushButton[role="danger"]' in qss
     assert 'QPushButton[role="icon"]' in qss
     assert 'QFrame[card-style="elevated"]' in qss

@@ -10,8 +10,6 @@ from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
-    QFormLayout,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -385,6 +383,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.table_engines.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.table_engines.verticalHeader().setDefaultSectionSize(34)
         self.table_engines.itemChanged.connect(self._on_table_item_changed)
+        self.table_engines.itemDoubleClicked.connect(lambda _: self._edit_selected_engine())
         self.table_engines.setMinimumHeight(160)
         layout.addWidget(self.table_engines)
 
@@ -402,44 +401,56 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         self.menu_add = QMenu(self)
 
-        act_gemini = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE), "Google Gemini 3.5 Flash Lite", self)
-        act_gemini.triggered.connect(lambda: self._quick_add_engine("Google Gemini 3.5 Flash Lite", "gemini", "gemini-3.5-flash-lite", True, max_tokens=65536, sort_order=0))
-        self.menu_add.addAction(act_gemini)
+        act_from_catalog = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY), "Depuis le catalogue officiel...", self)
+        act_from_catalog.triggered.connect(self._open_catalog_dialog)
+        self.menu_add.addAction(act_from_catalog)
 
-        act_openai = QAction(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY), "GPT-4o (OpenAI)", self)
-        act_openai.triggered.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False, max_tokens=16384, sort_order=10))
-        self.menu_add.addAction(act_openai)
-
-        act_claude = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), "Claude 3.7 Sonnet", self)
-        act_claude.triggered.connect(lambda: self._quick_add_engine("Claude 3.7 Sonnet", "anthropic", "claude-3-7-sonnet-20250219", False, max_tokens=64000, sort_order=15))
-        self.menu_add.addAction(act_claude)
-
-        act_ollama = QAction(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN), "Ollama Local (llama3)", self)
-        act_ollama.triggered.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True, max_tokens=16384, sort_order=30))
-        self.menu_add.addAction(act_ollama)
-
-        act_opencode = QAction(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY), "OpenCode (DeepSeek V4 Flash)", self)
-        act_opencode.triggered.connect(lambda: self._quick_add_engine("OpenCode (DeepSeek V4 Flash)", "opencode", "deepseek-v4-flash", False, max_tokens=16384, sort_order=25))
-        self.menu_add.addAction(act_opencode)
-
-        act_openrouter = QAction(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN), "OpenRouter Gratuit (Qwen 3.8 27B)", self)
-        act_openrouter.triggered.connect(lambda: self._quick_add_engine("OpenRouter Gratuit (Qwen 3.8 27B)", "openrouter", "qwen/qwen3.8-27b:free", True, max_tokens=8192, sort_order=26))
-        self.menu_add.addAction(act_openrouter)
-
-        self.menu_add.addSeparator()
-
-        act_custom = QAction(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY), "Modèle Personnalisé...", self)
+        act_custom = QAction(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY), "Modèle personnalisé...", self)
         act_custom.triggered.connect(self._add_custom_engine)
         self.menu_add.addAction(act_custom)
 
+        self.menu_add.addSeparator()
+
+        presets_menu = self.menu_add.addMenu("Presets rapides populaires")
+
+        act_gemini = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE), "Google Gemini 3.5 Flash Lite", self)
+        act_gemini.triggered.connect(lambda: self._quick_add_engine("Google Gemini 3.5 Flash Lite", "gemini", "gemini-3.5-flash-lite", True, max_tokens=65536, sort_order=0))
+        presets_menu.addAction(act_gemini)
+
+        act_openai = QAction(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY), "GPT-4o (OpenAI)", self)
+        act_openai.triggered.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False, max_tokens=16384, sort_order=10))
+        presets_menu.addAction(act_openai)
+
+        act_claude = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), "Claude 3.7 Sonnet", self)
+        act_claude.triggered.connect(lambda: self._quick_add_engine("Claude 3.7 Sonnet", "anthropic", "claude-3-7-sonnet-20250219", False, max_tokens=64000, sort_order=15))
+        presets_menu.addAction(act_claude)
+
+        act_ollama = QAction(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN), "Ollama Local (llama3)", self)
+        act_ollama.triggered.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True, max_tokens=16384, sort_order=30))
+        presets_menu.addAction(act_ollama)
+
+        act_opencode = QAction(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY), "OpenCode (DeepSeek V4 Flash)", self)
+        act_opencode.triggered.connect(lambda: self._quick_add_engine("OpenCode (DeepSeek V4 Flash)", "opencode", "deepseek-v4-flash", False, max_tokens=16384, sort_order=25))
+        presets_menu.addAction(act_opencode)
+
+        act_openrouter = QAction(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN), "OpenRouter Gratuit (Qwen 3.8 27B)", self)
+        act_openrouter.triggered.connect(lambda: self._quick_add_engine("OpenRouter Gratuit (Qwen 3.8 27B)", "openrouter", "qwen/qwen3.8-27b:free", True, max_tokens=8192, sort_order=26))
+        presets_menu.addAction(act_openrouter)
+
         self.btn_add_menu.setMenu(self.menu_add)
         toolbar.addWidget(self.btn_add_menu)
+
+        self.btn_edit_engine = SecondaryButton("Modifier")
+        self.btn_edit_engine.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_edit_engine.setToolTip("Modifier les paramètres du moteur IA sélectionné")
+        self.btn_edit_engine.clicked.connect(lambda: self._edit_selected_engine())
+        toolbar.addWidget(self.btn_edit_engine)
 
         toolbar.addStretch()
 
         self.btn_del_engine = DangerButton("Supprimer", ghost=True)
         self.btn_del_engine.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
-        self.btn_del_engine.clicked.connect(self._del_engine)
+        self.btn_del_engine.clicked.connect(lambda: self._del_engine())
         toolbar.addWidget(self.btn_del_engine)
 
         layout.addLayout(toolbar)
@@ -1195,84 +1206,46 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             show_toast(self, f"Erreur lors de l'ajout : {e}", is_error=True)
 
     def _add_custom_engine(self) -> None:
-        """Boîte de dialogue pour ajouter un moteur IA personnalisé avec son plafond de max_tokens."""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Ajouter un Moteur IA Personnalisé")
-        dialog.setMinimumWidth(380)
-        dialog.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY};")
+        """Boîte de dialogue unifiée pour ajouter un moteur IA personnalisé."""
+        from ankiforge.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
 
-        d_layout = QVBoxLayout(dialog)
-        d_layout.setContentsMargins(16, 16, 16, 16)
-        d_layout.setSpacing(12)
+        dialog = ModelConfigDialog(config=None, parent=self)
+        if dialog.exec():
+            new_cfg = dialog.get_config()
+            if new_cfg:
+                self.refresh_data()
+                if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                    self.ai_manager.reload_provider()
+                show_toast(self, f"Moteur '{new_cfg.display_name}' ajouté au catalogue !")
 
-        form = QFormLayout()
-        form.setSpacing(10)
-
-        le_name = StyledLineEdit()
-        le_name.setPlaceholderText("ex: DeepSeek-R1 (Local)")
-
-        cb_prov = StyledComboBox()
-        cb_prov.addItems(["gemini", "openai", "anthropic", "ollama", "groq", "opencode", "openrouter"])
-
-        le_model = StyledLineEdit()
-        le_model.setPlaceholderText("ex: deepseek-r1:32b")
-
-        le_tokens = StyledLineEdit()
-        le_tokens.setText("16384")
-
-        le_ctx = StyledLineEdit()
-        le_ctx.setText("128000")
-
-        chk_free = QCheckBox("Modèle Gratuit / Local")
-        chk_free.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
-
-        form.addRow("Nom affiché :", le_name)
-        form.addRow("Fournisseur :", cb_prov)
-        form.addRow("ID Modèle :", le_model)
-        form.addRow("Tokens Génération :", le_tokens)
-        form.addRow("Limite Contexte :", le_ctx)
-        form.addRow("", chk_free)
-        d_layout.addLayout(form)
-
-        btn_box = QHBoxLayout()
-        btn_box.addStretch()
-        btn_cancel = SecondaryButton("Annuler")
-        btn_cancel.clicked.connect(dialog.reject)
-        btn_ok = PrimaryButton("Ajouter le Moteur")
-
-        def _on_accept() -> None:
-            name_val = le_name.text().strip()
-            model_val = le_model.text().strip()
-            if not name_val or not model_val:
-                show_toast(self, "Nom et ID de modèle requis.", is_error=True)
+    def _edit_selected_engine(self, engine_id: int | None = None) -> None:
+        """Ouvre le dialogue d'édition unifié pour le moteur IA sélectionné ou passé par id."""
+        if engine_id is None:
+            selected = self.table_engines.selectedItems()
+            if not selected:
+                show_toast(self, "Veuillez sélectionner un moteur IA à modifier.", is_error=True)
                 return
-            try:
-                tokens_val = int(le_tokens.text().strip())
-            except ValueError:
-                tokens_val = 16384
-            try:
-                ctx_val = int(le_ctx.text().strip())
-            except ValueError:
-                ctx_val = 128000
+            row = selected[0].row()
+            item = self.table_engines.item(row, 0)
+            if not item:
+                return
+            engine_id = item.data(Qt.ItemDataRole.UserRole)
+            if not engine_id:
+                return
 
-            provider_val = cb_prov.currentText().strip().lower()
-            self._quick_add_engine(
-                name=name_val,
-                provider=provider_val,
-                model_id=model_val,
-                is_free=chk_free.isChecked(),
-                max_tokens=tokens_val,
-                sort_order=50,
-                context_limit=ctx_val,
-            )
-            dialog.accept()
+        config = LLMConfigModel.get_or_none(LLMConfigModel.id == engine_id)
+        if not config:
+            show_toast(self, "Moteur IA introuvable.", is_error=True)
+            return
 
-        btn_ok.clicked.connect(_on_accept)
-        btn_box.addWidget(btn_cancel)
-        btn_box.addWidget(btn_ok)
-        d_layout.addLayout(btn_box)
+        from ankiforge.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
 
-        dialog.exec()
+        dialog = ModelConfigDialog(config=config, parent=self)
+        if dialog.exec():
+            self.refresh_data()
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                self.ai_manager.reload_provider()
+            show_toast(self, f"Moteur '{config.display_name}' mis à jour !")
 
     def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
         first_item = self.table_engines.item(item.row(), 0)
@@ -1295,22 +1268,51 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         except Exception as e:
             logger.error("Erreur modification moteur: %s", e)
 
-    def _del_engine(self) -> None:
-        selected = self.table_engines.selectedItems()
-        if not selected:
-            show_toast(self, "Veuillez sélectionner un moteur IA à supprimer.", is_error=True)
+    def _del_engine(self, engine_id: int | None = None, confirm: bool = True) -> None:
+        """Supprime le moteur IA sélectionné (ou passé par id) avec confirmation."""
+        if engine_id is None:
+            selected = self.table_engines.selectedItems()
+            if not selected:
+                show_toast(self, "Veuillez sélectionner un moteur IA à supprimer.", is_error=True)
+                return
+            row = selected[0].row()
+            item = self.table_engines.item(row, 0)
+            if not item:
+                return
+            engine_id = item.data(Qt.ItemDataRole.UserRole)
+            if not engine_id:
+                return
+
+        config = LLMConfigModel.get_or_none(LLMConfigModel.id == engine_id)
+        if not config:
+            show_toast(self, "Moteur IA introuvable.", is_error=True)
             return
-        row = selected[0].row()
-        item = self.table_engines.item(row, 0)
-        if not item:
-            return
-        engine_id = item.data(Qt.ItemDataRole.UserRole)
+        name = config.display_name or config.model_id
+
+        if confirm:
+            from PySide6.QtWidgets import QMessageBox
+
+            res = QMessageBox.question(
+                self,
+                "Confirmer la suppression",
+                f"Êtes-vous sûr de vouloir supprimer le moteur IA '{name}' du catalogue ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if res != QMessageBox.StandardButton.Yes:
+                return
+
         try:
+            # Si le modèle supprimé était le modèle par défaut, réinitialiser
+            default_m_id = SettingsService.get("ai/default_model_id", "")
+            if config.model_id == default_m_id:
+                SettingsService.set("ai/default_model_id", "", category="ai")
+
             LLMConfigModel.delete_by_id(engine_id)
             self.refresh_data()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                 self.ai_manager.reload_provider()
-            show_toast(self, "Moteur IA supprimé du catalogue.")
+            show_toast(self, f"Moteur IA '{name}' supprimé du catalogue.")
         except Exception as e:
             show_toast(self, f"Erreur suppression : {e}", is_error=True)
 
