@@ -85,6 +85,50 @@ def test_profile_selector_dialog_create(qtbot, mock_profiles_dir):
     assert dialog.selected_profile == "nouveau_prof"
 
 
+@pytest.mark.ui
+@pytest.mark.parametrize(
+    ("is_startup", "expected_cancel", "expected_select", "expected_tip_keyword"),
+    [
+        (False, "Annuler", "Basculer vers cet Espace", "Fermer"),
+        (True, "Quitter", "Ouvrir cet Espace", "Quitter"),
+    ],
+)
+def test_profile_selector_dialog_semantics(qtbot, is_startup, expected_cancel, expected_select, expected_tip_keyword):
+    dialog = ProfileSelectorDialog(["default", "work"], current_profile="default", is_startup=is_startup)
+    qtbot.addWidget(dialog)
+
+    assert dialog.is_startup is is_startup
+    assert dialog.btn_cancel.text() == expected_cancel
+    assert dialog.btn_select.text() == expected_select
+    assert expected_tip_keyword in dialog.btn_cancel.toolTip()
+
+
+@pytest.mark.ui
+def test_profile_selector_dialog_secondary_actions_bar(qtbot):
+    dialog = ProfileSelectorDialog(["default", "work"], current_profile="default")
+    qtbot.addWidget(dialog)
+
+    assert hasattr(dialog, "delete_btn")
+    assert hasattr(dialog, "btn_transfer")
+    assert "Supprimer" in dialog.delete_btn.text()
+    assert "Transférer" in dialog.btn_transfer.text()
+    assert dialog.delete_btn.property("density") == "compact"
+    assert dialog.btn_transfer.property("density") == "compact"
+
+    # Vérification que le pied de boîte (dernier item du layout) ne contient que les boutons de décision
+    main_layout = dialog.layout()
+    assert main_layout is not None
+    bottom_item = main_layout.itemAt(main_layout.count() - 1)
+    bottom_layout = bottom_item.layout()
+    assert bottom_layout is not None
+
+    bottom_widgets = [bottom_layout.itemAt(i).widget() for i in range(bottom_layout.count()) if bottom_layout.itemAt(i).widget()]
+    assert dialog.delete_btn not in bottom_widgets
+    assert dialog.btn_transfer not in bottom_widgets
+    assert dialog.btn_cancel in bottom_widgets
+    assert dialog.btn_select in bottom_widgets
+
+
 @pytest.mark.slow
 def test_main_window_switch_profile(qtbot, mock_profiles_dir):
     ai_mock = MagicMock()
