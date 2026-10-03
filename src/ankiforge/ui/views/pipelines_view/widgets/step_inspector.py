@@ -227,16 +227,22 @@ class PromptPreviewDialog(QDialog):
             error_frame.setStyleSheet(f"""
                 QFrame {{
                     background-color: {DesignTokens.COLOR_RED_BG};
-                    border: 1px solid {DesignTokens.COLOR_RED};
+                    border: 1px solid {DesignTokens.COLOR_RED_BORDER};
                     border-radius: 6px;
                 }}
             """)
             err_layout = QHBoxLayout(error_frame)
             err_layout.setContentsMargins(10, 8, 10, 8)
-            err_lbl = QLabel(f"⚠️ <b>Erreur de syntaxe Jinja2 :</b> {result.error_message}")
+            err_layout.setSpacing(8)
+            err_icon = QLabel()
+            err_icon.setFixedSize(16, 16)
+            err_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            err_icon.setPixmap(load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_RED).pixmap(14, 14))
+            err_layout.addWidget(err_icon)
+            err_lbl = QLabel(f"<b>Erreur de syntaxe Jinja2 :</b> {result.error_message}")
             err_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-size: 11px;")
             err_lbl.setWordWrap(True)
-            err_layout.addWidget(err_lbl)
+            err_layout.addWidget(err_lbl, 1)
             layout.addWidget(error_frame)
 
         # Zone 1 : Prompt Système Interpolé
@@ -390,9 +396,28 @@ class StepInspectorPanel(QFrame):
         self.tabs.addWidget(self.tab_params)
 
         self.tab_dag = QWidget()
-        self.layout_dag = QVBoxLayout(self.tab_dag)
-        self.layout_dag.setContentsMargins(0, 4, 0, 0)
+        layout_tab_dag = QVBoxLayout(self.tab_dag)
+        layout_tab_dag.setContentsMargins(0, 0, 0, 0)
+        layout_tab_dag.setSpacing(0)
+
+        self.dag_scroll = QScrollArea()
+        self.dag_scroll.setWidgetResizable(True)
+        self.dag_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.dag_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.dag_scroll.setStyleSheet(f"""
+            QScrollArea {{ background: transparent; border: none; }}
+            QScrollBar:vertical {{ background: {DesignTokens.BG_INPUT}; width: 6px; border-radius: 3px; }}
+            QScrollBar::handle:vertical {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; min-height: 20px; }}
+        """)
+
+        self.dag_content_widget = QWidget()
+        self.dag_content_widget.setStyleSheet("background: transparent;")
+        self.layout_dag = QVBoxLayout(self.dag_content_widget)
+        self.layout_dag.setContentsMargins(0, 4, 4, 0)
         self.layout_dag.setSpacing(10)
+
+        self.dag_scroll.setWidget(self.dag_content_widget)
+        layout_tab_dag.addWidget(self.dag_scroll)
         self.tabs.addWidget(self.tab_dag)
 
         self._setup_dag_tab()
@@ -404,83 +429,143 @@ class StepInspectorPanel(QFrame):
         self.btn_subtab_dag.set_active(index == 1)
 
     def _setup_dag_tab(self) -> None:
-        """Construit le contenu de l'onglet Transitions DAG avec des cartes élégantes."""
+        """Construit le contenu de l'onglet Transitions DAG avec des conteneurs raffinés et teintes sémantiques."""
         while self.layout_dag.count():
             item = self.layout_dag.takeAt(0)
             if item and item.widget():
                 item.widget().deleteLater()
 
         # Carte 1 : Transition de Succès
-        card_succ = QFrame()
-        card_succ.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        card_succ.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
+        self.card_succ = QFrame()
+        self.card_succ.setObjectName("DagCardSucc")
+        self.card_succ.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.card_succ.setStyleSheet(f"""
+            QFrame#DagCardSucc {{
+                background-color: {DesignTokens.COLOR_GREEN_BG};
+                border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
-            QFrame QLabel {{
+            QFrame#DagCardSucc QLabel {{
                 background: transparent;
             }}
         """)
-        layout_succ = QVBoxLayout(card_succ)
+        layout_succ = QVBoxLayout(self.card_succ)
         layout_succ.setContentsMargins(12, 10, 12, 10)
-        layout_succ.setSpacing(6)
+        layout_succ.setSpacing(8)
 
-        lbl_succ_title = QLabel("✅ TRANSITION DE SUCCÈS")
-        lbl_succ_title.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
-        layout_succ.addWidget(lbl_succ_title)
+        # En-tête discret Succès
+        header_succ = QHBoxLayout()
+        header_succ.setSpacing(6)
+        lbl_succ_icon = QLabel()
+        lbl_succ_icon.setFixedSize(16, 16)
+        lbl_succ_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_succ_icon.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
+        header_succ.addWidget(lbl_succ_icon)
 
-        lbl_succ = QLabel("Étape suivante à exécuter :")
+        lbl_succ_title = QLabel("TRANSITION DE SUCCÈS")
+        lbl_succ_title.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN_TEXT}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
+        header_succ.addWidget(lbl_succ_title)
+        header_succ.addStretch()
+        layout_succ.addLayout(header_succ)
+
+        # Rangée horizontale label / combo
+        row_succ = QHBoxLayout()
+        row_succ.setSpacing(10)
+        lbl_succ = QLabel("Étape suivante :")
         lbl_succ.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-        layout_succ.addWidget(lbl_succ)
+        lbl_succ.setFixedWidth(105)
+        row_succ.addWidget(lbl_succ)
 
         self.combo_succ = StyledComboBox()
+        self.combo_succ.setFixedHeight(30)
         self.combo_succ.currentIndexChanged.connect(self._on_branching_changed)
-        layout_succ.addWidget(self.combo_succ)
-        self.layout_dag.addWidget(card_succ)
+        row_succ.addWidget(self.combo_succ, 1)
+        layout_succ.addLayout(row_succ)
+
+        self.layout_dag.addWidget(self.card_succ)
 
         # Carte 2 : Gestion des Erreurs & Repli
-        card_fail = QFrame()
-        card_fail.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        card_fail.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
+        self.card_fail = QFrame()
+        self.card_fail.setObjectName("DagCardFail")
+        self.card_fail.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.card_fail.setStyleSheet(f"""
+            QFrame#DagCardFail {{
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
+                border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
-            QFrame QLabel {{
+            QFrame#DagCardFail QLabel {{
                 background: transparent;
             }}
         """)
-        layout_fail = QVBoxLayout(card_fail)
+        layout_fail = QVBoxLayout(self.card_fail)
         layout_fail.setContentsMargins(12, 10, 12, 10)
-        layout_fail.setSpacing(6)
+        layout_fail.setSpacing(8)
 
-        lbl_fail_title = QLabel("⚠️ EN CAS D'ERREUR OU ÉCHEC")
-        lbl_fail_title.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
-        layout_fail.addWidget(lbl_fail_title)
+        # En-tête discret Erreur / Repli
+        header_fail = QHBoxLayout()
+        header_fail.setSpacing(6)
+        lbl_fail_icon = QLabel()
+        lbl_fail_icon.setFixedSize(16, 16)
+        lbl_fail_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_fail_icon.setPixmap(load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
+        header_fail.addWidget(lbl_fail_icon)
 
-        lbl_fail_beh = QLabel("Comportement d'interruption :")
+        lbl_fail_title = QLabel("GESTION DES ERREURS & REPLI")
+        lbl_fail_title.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW_TEXT}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
+        header_fail.addWidget(lbl_fail_title)
+        header_fail.addStretch()
+        layout_fail.addLayout(header_fail)
+
+        # Rangée 1 : Comportement d'interruption
+        row_fail_beh = QHBoxLayout()
+        row_fail_beh.setSpacing(10)
+        lbl_fail_beh = QLabel("Comportement :")
         lbl_fail_beh.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-        layout_fail.addWidget(lbl_fail_beh)
+        lbl_fail_beh.setFixedWidth(105)
+        row_fail_beh.addWidget(lbl_fail_beh)
 
         self.combo_fail_beh = StyledComboBox()
-        self.combo_fail_beh.addItem("🛑 Arrêter le pipeline (stop)", userData="stop")
-        self.combo_fail_beh.addItem("⏭️ Continuer malgré l'erreur (continue)", userData="continue")
-        self.combo_fail_beh.addItem("🔀 Sauter vers une étape de secours", userData="goto_failure_step")
+        self.combo_fail_beh.setFixedHeight(30)
+        self.combo_fail_beh.addItem(
+            load_phosphor_icon("ph.stop-circle", color=DesignTokens.COLOR_RED),
+            "Arrêter le pipeline (stop)",
+            userData="stop",
+        )
+        self.combo_fail_beh.addItem(
+            load_phosphor_icon("ph.skip-forward", color=DesignTokens.COLOR_YELLOW),
+            "Continuer malgré l'erreur (continue)",
+            userData="continue",
+        )
+        self.combo_fail_beh.addItem(
+            load_phosphor_icon("ph.arrow-bend-down-right", color=DesignTokens.COLOR_PURPLE),
+            "Sauter vers une étape de secours",
+            userData="goto_failure_step",
+        )
         self.combo_fail_beh.currentIndexChanged.connect(self._on_fail_beh_changed)
-        layout_fail.addWidget(self.combo_fail_beh)
+        row_fail_beh.addWidget(self.combo_fail_beh, 1)
+        layout_fail.addLayout(row_fail_beh)
 
-        self.lbl_fail_target = QLabel("Étape de Secours :")
-        self.lbl_fail_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin-top: 4px;")
-        layout_fail.addWidget(self.lbl_fail_target)
+        # Rangée 2 : Étape de Secours (affichée si goto_failure_step)
+        self.row_fail_target_widget = QWidget()
+        self.row_fail_target_widget.setStyleSheet("background: transparent;")
+        row_fail_target = QHBoxLayout(self.row_fail_target_widget)
+        row_fail_target.setContentsMargins(0, 0, 0, 0)
+        row_fail_target.setSpacing(10)
+
+        self.lbl_fail_target = QLabel("Étape de secours :")
+        self.lbl_fail_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        self.lbl_fail_target.setFixedWidth(105)
+        row_fail_target.addWidget(self.lbl_fail_target)
 
         self.combo_fail_target = StyledComboBox()
+        self.combo_fail_target.setFixedHeight(30)
         self.combo_fail_target.currentIndexChanged.connect(self._on_branching_changed)
-        layout_fail.addWidget(self.combo_fail_target)
+        row_fail_target.addWidget(self.combo_fail_target, 1)
 
-        self.layout_dag.addWidget(card_fail)
+        layout_fail.addWidget(self.row_fail_target_widget)
+
+        self.layout_dag.addWidget(self.card_fail)
         self.layout_dag.addStretch()
 
     def inspect_step(
@@ -581,9 +666,9 @@ class StepInspectorPanel(QFrame):
                 lbl_mode = QLabel("Découpage :")
                 lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-left: 10px;")
                 combo_mode = StyledComboBox()
-                combo_mode.addItem("📄 Par Page (PDF)", userData="page")
-                combo_mode.addItem("📑 Par Section / Chapitre", userData="chapter")
-                combo_mode.addItem("📦 Par Lots de Paragraphes", userData="paragraphs")
+                combo_mode.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_PRIMARY), "Par Page (PDF)", userData="page")
+                combo_mode.addItem(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_PRIMARY), "Par Section / Chapitre", userData="chapter")
+                combo_mode.addItem(load_phosphor_icon("ph.package", color=DesignTokens.TEXT_PRIMARY), "Par Lots de Paragraphes", userData="paragraphs")
                 combo_mode.currentIndexChanged.connect(lambda: self._on_config_changed("split_mode", combo_mode.currentData()))
                 row_mr.addWidget(lbl_mode)
                 row_mr.addWidget(combo_mode, 1)
@@ -846,20 +931,49 @@ class StepInspectorPanel(QFrame):
 
         self.params_scroll.setWidget(container)
 
+    def _get_step_title_for_order(self, order: int) -> str:
+        """Retourne le titre résumé de l'étape selon son numéro d'ordre."""
+        if 0 < order <= len(self.all_steps):
+            step = self.all_steps[order - 1]
+            custom_title = step.get("custom_title")
+            if custom_title:
+                t = str(custom_title).strip()
+            else:
+                persona = step.get("persona")
+                if persona and getattr(persona, "name", None):
+                    t = str(persona.name).strip()
+                else:
+                    stype = step.get("type", "LLM_PROMPT")
+                    t = STEP_TYPES_META.get(stype, {}).get("default_title", "")
+            if len(t) > 28:
+                t = t[:25] + "..."
+            return t
+        return ""
+
     def _update_dag_controls(self) -> None:
-        """Met à jour les combos de transitions DAG."""
+        """Met à jour les combos de transitions DAG avec icônes Phosphor et titres de secours."""
         if not self.step_data:
             return
 
         # Succès
         self.combo_succ.blockSignals(True)
         self.combo_succ.clear()
-        self.combo_succ.addItem("➡️ Étape suivante par défaut (séquentiel)", userData=None)
+        self.combo_succ.addItem(
+            load_phosphor_icon("ph.arrow-right", color=DesignTokens.COLOR_GREEN),
+            "Étape suivante par défaut (séquentiel)",
+            userData=None,
+        )
         current_succ = self.step_data.get("on_success_order")
         sel_succ_idx = 0
         for num in range(1, self.total_steps + 1):
             if num != self.step_order:
-                self.combo_succ.addItem(f"↳ Sauter vers Étape {num}", userData=num)
+                title = self._get_step_title_for_order(num)
+                text = f"Sauter vers Étape {num}" + (f" ({title})" if title else "")
+                self.combo_succ.addItem(
+                    load_phosphor_icon("ph.arrow-bend-down-right", color=DesignTokens.TEXT_SECONDARY),
+                    text,
+                    userData=num,
+                )
                 if current_succ == num:
                     sel_succ_idx = self.combo_succ.count() - 1
         self.combo_succ.setCurrentIndex(sel_succ_idx)
@@ -879,12 +993,22 @@ class StepInspectorPanel(QFrame):
         # Cible d'échec
         self.combo_fail_target.blockSignals(True)
         self.combo_fail_target.clear()
-        self.combo_fail_target.addItem("Aucune étape de secours", userData=None)
+        self.combo_fail_target.addItem(
+            load_phosphor_icon("ph.x-circle", color=DesignTokens.TEXT_MUTED),
+            "Aucune étape de secours",
+            userData=None,
+        )
         current_fail = self.step_data.get("on_failure_order")
         sel_fail_idx = 0
         for num in range(1, self.total_steps + 1):
             if num != self.step_order:
-                self.combo_fail_target.addItem(f"↳ Sauter vers Étape {num}", userData=num)
+                title = self._get_step_title_for_order(num)
+                text = f"Sauter vers Étape {num}" + (f" ({title})" if title else "")
+                self.combo_fail_target.addItem(
+                    load_phosphor_icon("ph.arrow-bend-down-right", color=DesignTokens.TEXT_SECONDARY),
+                    text,
+                    userData=num,
+                )
                 if current_fail == num:
                     sel_fail_idx = self.combo_fail_target.count() - 1
         self.combo_fail_target.setCurrentIndex(sel_fail_idx)
@@ -895,6 +1019,8 @@ class StepInspectorPanel(QFrame):
     def _on_fail_beh_changed(self) -> None:
         beh = self.combo_fail_beh.currentData()
         show_target = beh == "goto_failure_step"
+        if hasattr(self, "row_fail_target_widget"):
+            self.row_fail_target_widget.setVisible(show_target)
         self.lbl_fail_target.setVisible(show_target)
         self.combo_fail_target.setVisible(show_target)
         if self.step_data:
