@@ -460,3 +460,62 @@ def test_all_builtin_themes_compilation_and_application(qtbot):
         assert len(qss) > 100
         engine.apply_theme(theme_id, app)
         assert engine.current_theme.id == theme.id
+
+
+def test_checkbox_indicator_has_svg_icons_and_separate_radio_rule() -> None:
+    """Vérifie que QCheckBox::indicator:checked possède l'icône SVG check_white.svg,
+    que QCheckBox::indicator:indeterminate possède dash_white.svg,
+    et que QRadioButton n'hérite pas de cette coche."""
+    engine = get_style_engine()
+    qss = engine.generate_stylesheet(JETBRAINS_DARK)
+
+    chk_checked = qss_rule(qss, "QCheckBox::indicator:checked")
+    assert "image: url(" in chk_checked
+    assert "check_white.svg" in chk_checked
+    assert JETBRAINS_DARK.accent_primary in chk_checked
+
+    chk_indet = qss_rule(qss, "QCheckBox::indicator:indeterminate")
+    assert "image: url(" in chk_indet
+    assert "dash_white.svg" in chk_indet
+    assert JETBRAINS_DARK.accent_primary in chk_indet
+
+    radio_checked = qss_rule(qss, "QRadioButton::indicator:checked")
+    assert "check_white.svg" not in radio_checked
+    assert "dash_white.svg" not in radio_checked
+    assert JETBRAINS_DARK.accent_primary in radio_checked
+
+
+def test_checkbox_indicator_renders_white_svg_icons_on_checked_and_indeterminate(qtbot: pytest.FixtureRequest) -> None:
+    """Vérifie le rendu effectif des icônes SVG blanches dans l'indicateur de case à cocher."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QPixmap
+    from PySide6.QtWidgets import QApplication, QCheckBox
+
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    engine = get_style_engine()
+    engine.apply_theme(JETBRAINS_DARK, app)
+
+    cb_unchecked = QCheckBox("")
+    cb_unchecked.setCheckState(Qt.CheckState.Unchecked)
+    qtbot.addWidget(cb_unchecked)
+
+    cb_checked = QCheckBox("")
+    cb_checked.setCheckState(Qt.CheckState.Checked)
+    qtbot.addWidget(cb_checked)
+
+    cb_indet = QCheckBox("")
+    cb_indet.setCheckState(Qt.CheckState.PartiallyChecked)
+    qtbot.addWidget(cb_indet)
+
+    def count_bright_pixels(widget: QCheckBox) -> int:
+        widget.resize(24, 24)
+        pm = QPixmap(24, 24)
+        pm.fill(QColor("black"))
+        widget.render(pm)
+        img = pm.toImage()
+        return sum(1 for x in range(img.width()) for y in range(img.height()) if img.pixelColor(x, y).red() > 220 and img.pixelColor(x, y).green() > 220 and img.pixelColor(x, y).blue() > 220)
+
+    assert count_bright_pixels(cb_unchecked) == 0
+    assert count_bright_pixels(cb_checked) > 0
+    assert count_bright_pixels(cb_indet) > 0

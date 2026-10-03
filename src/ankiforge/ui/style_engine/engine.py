@@ -28,6 +28,7 @@ from ankiforge.ui.style_engine.themes import (
     get_unique_builtin_themes,
 )
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,9 @@ class StyleEngine(QObject):
         yellow_bg = p.color_yellow_bg or "rgba(245, 158, 11, 0.15)"
         yellow_text = p.color_yellow_text or p.color_yellow
         yellow_border = p.color_yellow_border or p.color_yellow
+
+        check_icon_path = str(get_resource_path("src", "ressources", "icons", "check_white.svg")).replace("\\", "/")
+        dash_icon_path = str(get_resource_path("src", "ressources", "icons", "dash_white.svg")).replace("\\", "/")
 
         return f"""
         /* --- Base & Conteneurs --- */
@@ -788,6 +792,9 @@ class StyleEngine(QObject):
             color: {p.text_primary};
             spacing: 8px;
         }}
+        QCheckBox:disabled, QRadioButton:disabled {{
+            color: {p.text_muted};
+        }}
         QCheckBox::indicator, QRadioButton::indicator {{
             width: 16px;
             height: 16px;
@@ -801,7 +808,17 @@ class StyleEngine(QObject):
         QCheckBox::indicator:hover, QRadioButton::indicator:hover {{
             border-color: {p.accent_primary};
         }}
-        QCheckBox::indicator:checked, QRadioButton::indicator:checked {{
+        QCheckBox::indicator:checked {{
+            background-color: {p.accent_primary};
+            border-color: {p.accent_primary};
+            image: url({check_icon_path});
+        }}
+        QCheckBox::indicator:indeterminate {{
+            background-color: {p.accent_primary};
+            border-color: {p.accent_primary};
+            image: url({dash_icon_path});
+        }}
+        QRadioButton::indicator:checked {{
             background-color: {p.accent_primary};
             border-color: {p.accent_primary};
         }}
