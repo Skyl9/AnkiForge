@@ -99,6 +99,10 @@ class PrimaryButton(QPushButton):
 class SecondaryButton(QPushButton):
     """Bouton secondaire avec relief, contour d'accentuation au survol et affordance tactile."""
 
+    #: Relief de repos : flou et décalage du halo porté par la bordure du bouton.
+    RELIEF_BLUR = 2
+    RELIEF_OFFSET_Y = 1
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         tooltip = kwargs.pop("tooltip", None)
         args_list = list(args)
@@ -112,14 +116,22 @@ class SecondaryButton(QPushButton):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "secondary")
 
-        apply_shadow(self, blur=2, offset_y=1, color=DesignTokens.SHADOW_COLOR)
+        self._apply_relief(DesignTokens.SHADOW_COLOR)
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
             self.anim = QPropertyAnimation(effect, b"blurRadius", self)
             self.anim.setDuration(150)
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
-            self.default_blur = 2
+            self.default_blur = self.RELIEF_BLUR
             self.hover_blur = 10
+
+    def _apply_relief(self, color: str) -> None:
+        """(Re)pose le halo de relief avec la couleur d'ombre du thème actif.
+
+        `apply_shadow` met à jour l'effet en place quand il existe déjà : la cible de
+        l'animation de survol survit donc au changement de thème.
+        """
+        apply_shadow(self, blur=self.RELIEF_BLUR, offset_y=self.RELIEF_OFFSET_Y, color=color)
 
     def setText(self, text: str) -> None:
         super().setText(_escape_ampersand(text))
@@ -151,7 +163,15 @@ class SecondaryButton(QPushButton):
         super().hideEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
-        pass
+        """Re-teint le halo après un changement de thème.
+
+        La couleur d'ombre est lue dans `DesignTokens` et non dans `profile` : aucun profil ne
+        porte de token d'ombre (`DesignTokens.apply_theme_profile` le dérive de `IS_DARK`).
+        `StyleEngine.apply_theme` applique le profil **puis** re-polish, donc `refresh_theme` est
+        le moment où la nouvelle valeur est disponible — c'est aussi pourquoi le paramètre est
+        volontairement ignoré ici.
+        """
+        self._apply_relief(DesignTokens.SHADOW_COLOR)
 
 
 class ActionButton(SecondaryButton):
@@ -178,6 +198,7 @@ class ActionButton(SecondaryButton):
             self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
 
     def refresh_theme(self, profile: Any = None) -> None:
+        super().refresh_theme(profile)
         if hasattr(self, "icon_name") and self.icon_name:
             color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
             self.setIcon(load_phosphor_icon(self.icon_name, color=color))

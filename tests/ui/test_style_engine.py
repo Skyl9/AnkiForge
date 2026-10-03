@@ -2,14 +2,19 @@
 Tests unitaires pour le Moteur de Style Centralisé (StyleEngine) d'AnkiForge.
 """
 
+import dataclasses
+import re
+
 import pytest
 from PySide6.QtWidgets import QApplication
 
 from ankiforge.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.style_engine import (
+    BUILTIN_THEMES,
     CYBER_GLASS,
     EMERALD_DASHBOARD,
     JETBRAINS_DARK,
+    JETBRAINS_LIGHT,
     MACOS_SLATE,
     ThemeProfile,
     get_style_engine,
@@ -17,6 +22,65 @@ from ankiforge.ui.style_engine import (
 from ankiforge.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
+
+COLOR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)")
+SECONDARY_ROLE_TOKENS = (
+    "bg_input",
+    "bg_hover",
+    "bg_panel",
+    "bg_active",
+    "text_primary",
+    "text_muted",
+    "border_color",
+    "border_light",
+    "border_focus",
+    "accent_primary",
+)
+"""Vocabulaire de tokens du rôle `secondary` : les seules couleurs que sa règle a le droit de citer."""
+
+
+def qss_rule(qss: str, selector: str) -> str:
+    """Retourne le corps de la première règle QSS `selector { … }` (sélecteurs d'attributs inclus)."""
+    match = re.search(re.escape(selector) + r"\s*\{(?P<body>[^{}]*)\}", qss)
+    assert match is not None, f"Règle QSS absente : {selector}"
+    return match.group("body")
+
+
+def parse_color(color: str) -> tuple[tuple[int, int, int], float]:
+    """Décompose une couleur QSS (`#rgb`, `#rrggbb`, `rgb()`, `rgba()`) en canaux et alpha."""
+    value = color.strip()
+    if value.startswith("#"):
+        digits = value.lstrip("#")
+        if len(digits) == 3:
+            digits = "".join(char * 2 for char in digits)
+        return (int(digits[0:2], 16), int(digits[2:4], 16), int(digits[4:6], 16)), 1.0
+    match = re.match(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)", value)
+    assert match is not None, f"Couleur QSS non analysable : {color!r}"
+    alpha = float(match.group(4)) if match.group(4) is not None else 1.0
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3))), alpha
+
+
+def relative_luminance(rgb: tuple[int, int, int]) -> float:
+    """Luminance relative WCAG d'un triplet de canaux 0-255."""
+    linear = []
+    for channel in rgb:
+        value = channel / 255
+        linear.append(value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def wcag_ratio(foreground: str, background: str) -> float:
+    """Rapport de contraste WCAG, la couleur de premier plan étant composée sur son fond.
+
+    Qt peint un `rgba()` translucide *sur* le fond avant rasterisation : sans cette composition,
+    un `border_light` a 4 % d'opacité aurait le contraste de son alpha et semblerait
+    correct, alors qu'il est invisible : l'erreur exacte que ce test doit attraper.
+    """
+    fg_rgb, fg_alpha = parse_color(foreground)
+    bg_rgb, _ = parse_color(background)
+    composited = tuple(round(channel * fg_alpha + backdrop * (1 - fg_alpha)) for channel, backdrop in zip(fg_rgb, bg_rgb, strict=True))
+    first, second = relative_luminance(composited), relative_luminance(bg_rgb)
+    return (max(first, second) + 0.05) / (min(first, second) + 0.05)
 
 
 def test_style_engine_singleton_and_builtin_themes():
@@ -39,12 +103,97 @@ def test_style_engine_generate_stylesheet():
     # Vérification des rôles sémantiques
     assert 'QPushButton[role="primary"]' in qss
     assert 'QPushButton[role="secondary"]' in qss
-    assert f"border: 1px solid {JETBRAINS_DARK.border_light}" in qss
-    assert f"border: 1.5px solid {JETBRAINS_DARK.accent_primary}" in qss
     assert 'QPushButton[role="danger"]' in qss
     assert 'QPushButton[role="icon"]' in qss
     assert 'QFrame[card-style="elevated"]' in qss
     assert JETBRAINS_DARK.accent_primary in qss
+
+
+@pytest.mark.parametrize("theme", [JETBRAINS_DARK, JETBRAINS_LIGHT], ids=["dark", "light"])
+def test_secondary_button_rest_contour_uses_the_documented_border_token(theme):
+    """Le contour au repos est le token `border_color` de DESIGN.md, jamais `border_light`.
+
+    `border_light` est un liseré décoratif (4 % de blanc en sombre, quasi blanc en clair) :
+    il mesure 1,0:1 contre le panneau sur plusieurs thèmes, donc un contour *invisible*.
+    `border_color` est le contour déclaré pour les boutons secondaires et le contour de tous
+    les autres contrôles interactifs (champs, cases, combos, curseurs).
+    """
+    qss = get_style_engine().generate_stylesheet(theme)
+
+    rest = qss_rule(qss, 'QPushButton[role="secondary"]')
+
+    assert f"border: 1px solid {theme.border_color}" in rest
+    # `border_light` ne peut plus porter le contour : uniquement l'arête haute en relief.
+    assert f"border: 1px solid {theme.border_light}" not in rest
+    assert f"border-color: {theme.border_light}" not in rest
+
+    disabled = qss_rule(qss, 'QPushButton[role="secondary"]:disabled')
+    assert f"border-color: {theme.border_color}" in disabled
+
+
+@pytest.mark.parametrize("theme", [JETBRAINS_DARK, JETBRAINS_LIGHT], ids=["dark", "light"])
+def test_secondary_button_highlights_its_contour_on_hover_and_focus(theme):
+    """Survol et focus accentuent le contour avec l'accent et le token de focus dédié."""
+    qss = get_style_engine().generate_stylesheet(theme)
+
+    hover = qss_rule(qss, 'QPushButton[role="secondary"]:hover')
+    assert f"border: 1.5px solid {theme.accent_primary}" in hover
+
+    focus = qss_rule(qss, 'QPushButton[role="secondary"]:focus')
+    assert f"border: 2px solid {theme.border_focus}" in focus
+
+
+def test_secondary_button_focus_contour_follows_the_border_focus_token():
+    """Le focus suit `border_focus` — pas `accent_primary` — pour coller aux champs de saisie.
+
+    Les thèmes intégrés définissent `border_focus` égal à `accent_primary`, ce qui masque la
+    différence dans le QSS : un profil tiers où les deux divergent prouve le bon câblage.
+    """
+    engine = get_style_engine()
+    custom = dataclasses.replace(JETBRAINS_DARK, id="custom_focus_probe", border_focus="#ff00aa")
+
+    qss = engine.generate_stylesheet(custom)
+    focus = qss_rule(qss, 'QPushButton[role="secondary"]:focus')
+
+    assert "border: 2px solid #ff00aa" in focus
+    assert f"border: 2px solid {custom.accent_primary}" not in focus
+
+
+@pytest.mark.parametrize("theme", [JETBRAINS_DARK, JETBRAINS_LIGHT], ids=["dark", "light"])
+def test_secondary_button_rule_declares_no_hardcoded_color(theme):
+    """Chaque couleur de la règle `secondary` est la valeur résolue d'un token qu'elle cite.
+
+    Vérifier « est-ce une couleur du thème ? » serait trop laxiste : une substitution par un
+    autre token de la palette passerait le test. Le seuil retenu est donc le vocabulaire du rôle
+    (surface, texte, contour, accent) : une couleur en dur, comme un token hors sujet — un
+    `color_red` de suppression ou un `syntax_tag` d'éditeur — sont tous deux refusés.
+    """
+    qss = get_style_engine().generate_stylesheet(theme)
+    rest = qss_rule(qss, 'QPushButton[role="secondary"]')
+
+    allowed = {getattr(theme, name) for name in SECONDARY_ROLE_TOKENS}
+    literals = set(COLOR_LITERAL.findall(rest))
+
+    assert literals, "La règle doit bien porter des couleurs"
+    assert literals <= allowed, f"Couleurs hors vocabulaire du rôle : {sorted(literals - allowed)}"
+
+
+def test_secondary_button_rest_contour_stays_visible_in_every_builtin_theme():
+    """Le contour au repos reste détaché du fond dans *tous* les thèmes intégrés (AC1).
+
+    C'est le critère d'acceptation qui ne se vérifie pas en lisant du QSS : il faut comparer le
+    contraste une fois la couleur *composée* sur le panneau, comme Qt le fait au rendu. Le seuil
+    de 1,15:1 est le plancher observé sur les thèmes intégrés (Solarized Dark) et reste
+    délibérément bas : aucun thème ne fournit de token de contour atteignant 3:1 (AA sur un
+    composant non textuel), et `border_color` est déjà la valeur de tous les autres contrôles
+    interactifs. Le test verrouille donc surtout le non-retour à `border_light` (1,00:1 à 1,24:1,
+    soit invisible sur un fond de panneau).
+    """
+    for theme in BUILTIN_THEMES.values():
+        border = wcag_ratio(theme.border_color, theme.bg_panel)
+        faint = wcag_ratio(theme.border_light, theme.bg_panel)
+        assert border >= 1.15, f"{theme.id}: contour {theme.border_color} invisible sur {theme.bg_panel} ({border:.2f}:1)"
+        assert border >= faint, f"{theme.id}: le contour ({border:.2f}:1) ne vaut pas mieux que border_light ({faint:.2f}:1)"
 
 
 def test_style_engine_apply_theme(qtbot):

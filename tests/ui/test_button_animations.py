@@ -6,15 +6,19 @@ des restylages dynamiques en BatchView et du cycle de vie des widgets.
 
 from __future__ import annotations
 
+import re
+from collections.abc import Callable
 from typing import Any
 
 import pytest
 from PySide6.QtCore import qInstallMessageHandler
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
-from ankiforge.ui.components import DangerButton, IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components import ActionButton, DangerButton, IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit
-from ankiforge.ui.theme import apply_shadow
+from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT, get_style_engine
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.views.batch_view.view import BatchView
 
 pytestmark = pytest.mark.ui
@@ -102,3 +106,53 @@ def test_batch_view_start_button_hover_and_state_toggle_no_warnings(qtbot: Any, 
     view.btn_start_pipeline._start_blur_anim(view.btn_start_pipeline.default_blur)
 
     assert not qt_warning_interceptor, f"Avertissements interceptés pendant le cycle de BatchView : {qt_warning_interceptor}"
+
+
+def shadow_color() -> QColor:
+    """Le token d'ombre du thème actif, lu dans `DesignTokens` et converti en `QColor`.
+
+    `DesignTokens.SHADOW_COLOR` est une chaîne CSS `rgba(...)` que `QColor` ne sait pas lire
+    (d'où le dissecteur de `apply_shadow`) : le test relit le token plutôt que de recopier 0.45.
+    """
+    match = re.match(r"rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)", DesignTokens.SHADOW_COLOR)
+    assert match is not None, f"Token d'ombre illisible : {DesignTokens.SHADOW_COLOR!r}"
+    red, green, blue, alpha = match.groups()
+    return QColor(int(red), int(green), int(blue), int(float(alpha) * 255))
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        pytest.param(lambda: SecondaryButton("Parcourir"), id="secondary"),
+        pytest.param(lambda: ActionButton("ph.folder-open", "Parcourir"), id="action"),
+    ],
+)
+def test_secondary_button_relief_shadow_follows_the_active_theme(qtbot: Any, build: Callable[[], SecondaryButton]) -> None:
+    """Le halo de relief est re-teinté au changement de thème, sans perdre sa cible d'animation.
+
+    Le halo est posé une fois à la construction depuis `DesignTokens.SHADOW_COLOR` : sans
+    `refresh_theme`, un bouton construit en sombre conserve un halo opaque après un passage en
+    thème clair, où le token vaut 12 % d'opacité — un halo gris sombre sur fond clair.
+    """
+    engine = get_style_engine()
+    previous = engine.current_theme
+    btn = build()
+    qtbot.addWidget(btn)
+
+    try:
+        DesignTokens.apply_theme_profile(JETBRAINS_DARK)
+        btn.refresh_theme(JETBRAINS_DARK)
+        dark_color = btn.graphicsEffect().color()
+        expected_dark = shadow_color()
+
+        DesignTokens.apply_theme_profile(JETBRAINS_LIGHT)
+        btn.refresh_theme(JETBRAINS_LIGHT)
+        light_color = btn.graphicsEffect().color()
+        expected_light = shadow_color()
+    finally:
+        DesignTokens.apply_theme_profile(previous)
+
+    assert dark_color == expected_dark, "Le halo doit prendre la couleur d'ombre du thème actif"
+    assert light_color == expected_light, "Le halo doit prendre la couleur d'ombre du thème actif"
+    assert dark_color.alpha() > light_color.alpha(), "Le halo clair doit être plus discret que le halo sombre"
+    assert btn.anim.targetObject() is btn.graphicsEffect(), "La cible de l'animation doit survivre au re-tintage"

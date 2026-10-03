@@ -779,6 +779,26 @@ def test_katex_editor_text_under_cursor_multiline(qtbot):
     assert editor.textUnderCursor() == "\\frac"
 
 
+def test_general_tab_option_buttons_are_named_and_identifiable(qtbot):
+    """Les boutons d'options rendus icône seule portent un nom accessible.
+
+    « Parcourir », « Importer un thème », « Exporter un thème » et « Ouvrir le dossier » n'ont
+    qu'une icône : sans nom accessible, un lecteur d'écran n'annonce rien et la seule affordance
+    qui reste est la contour — d'où l'exigence de contour lisible du rôle `secondary`.
+    """
+    from PySide6.QtWidgets import QPushButton
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    icon_only = [button for button in tab.findChildren(QPushButton) if not button.text().strip()]
+
+    assert icon_only, "GeneralTab doit exposer des boutons d'options icône seule"
+    for button in icon_only:
+        assert button.property("role") == "secondary", f"Rôle inattendu pour {button.accessibleName()!r}"
+        assert button.accessibleName(), f"Bouton d'options sans nom accessible (infobulle : {button.toolTip()!r})"
+
+
 def test_general_tab_check_updates_retains_worker(qtbot):
     """Vérifie que GeneralTab retient bien le worker et le libère une fois terminé."""
     from ankiforge.services.update_checker import UpdateInfo

@@ -174,7 +174,8 @@ class StyleEngine(QObject):
         QPushButton[role="secondary"] {{
             background-color: {p.bg_input};
             color: {p.text_primary};
-            border: 1px solid {p.border_light};
+            border: 1px solid {p.border_color};
+            border-top: 1px solid {p.border_light};
         }}
         QPushButton[role="secondary"]:hover {{
             background-color: {p.bg_hover};
@@ -182,19 +183,19 @@ class StyleEngine(QObject):
             color: {p.text_primary};
         }}
         QPushButton[role="secondary"]:focus {{
-            border: 2px solid {p.accent_primary};
+            border: 2px solid {p.border_focus};
             background-color: {p.bg_panel};
             color: {p.text_primary};
         }}
         QPushButton[role="secondary"]:pressed {{
             background-color: {p.bg_active};
-            border: 2px solid {p.accent_primary};
+            border: 2px solid {p.border_focus};
             padding-top: 9px;
         }}
         QPushButton[role="secondary"]:disabled {{
             background-color: {p.bg_input};
             color: {p.text_muted};
-            border-color: {p.border_light};
+            border-color: {p.border_color};
         }}
 
         /* Role: Danger Button */
