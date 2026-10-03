@@ -386,6 +386,10 @@ class SettingsModal(QDialog):
                 background-color: {DesignTokens.BG_PANEL};
                 border-top: 1px solid {DesignTokens.BORDER_COLOR};
             }}
+            QPushButton[role="primary"]:disabled {{
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-color: {DesignTokens.BORDER_COLOR};
+            }}
         """)
 
     def _save_all(self) -> None:
@@ -471,6 +475,10 @@ class SettingsModal(QDialog):
             QWidget#SettingsFooterBar {{
                 background-color: {profile.bg_panel};
                 border-top: 1px solid {profile.border_color};
+            }}
+            QPushButton[role="primary"]:disabled {{
+                border: 1px solid {profile.border_color};
+                border-color: {profile.border_color};
             }}
         """)
         self.lbl_title.setStyleSheet(f"color: {profile.text_primary}; font-size: 15px; font-weight: bold;")

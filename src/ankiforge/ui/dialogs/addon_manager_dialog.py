@@ -89,7 +89,7 @@ class AddonConfigForm(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent;")
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         content_widget = QWidget()
         form_layout = QVBoxLayout(content_widget)

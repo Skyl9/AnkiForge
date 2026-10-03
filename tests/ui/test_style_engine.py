@@ -130,6 +130,9 @@ def test_secondary_button_rest_contour_uses_the_documented_border_token(theme):
     disabled = qss_rule(qss, 'QPushButton[role="secondary"]:disabled')
     assert f"border-color: {theme.border_color}" in disabled
 
+    primary_disabled = qss_rule(qss, 'QPushButton[role="primary"]:disabled')
+    assert f"border-color: {theme.border_color}" in primary_disabled
+
 
 @pytest.mark.parametrize("theme", [JETBRAINS_DARK, JETBRAINS_LIGHT], ids=["dark", "light"])
 def test_secondary_button_highlights_its_contour_on_hover_and_focus(theme):

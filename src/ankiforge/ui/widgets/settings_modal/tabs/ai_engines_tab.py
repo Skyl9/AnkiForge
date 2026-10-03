@@ -180,7 +180,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setStyleSheet("background: transparent; border: none;")
+        self.scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         self.content_widget = QWidget()
         layout = QVBoxLayout(self.content_widget)

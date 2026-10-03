@@ -138,7 +138,7 @@ class StyleEngine(QObject):
         QPushButton:disabled {{
             background-color: {p.bg_hover};
             color: {p.text_muted};
-            border-color: transparent;
+            border-color: {p.border_color};
         }}
 
         /* Role: Primary Button */
@@ -167,7 +167,7 @@ class StyleEngine(QObject):
         QPushButton[role="primary"]:disabled {{
             background-color: {p.bg_hover};
             color: {p.text_muted};
-            border-color: transparent;
+            border-color: {p.border_color};
         }}
 
         /* Role: Secondary Button */

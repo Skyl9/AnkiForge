@@ -979,3 +979,48 @@ def test_settings_modal_ai_tab_activation_and_visibility(qtbot):
         assert badge.parent() is not None
     assert ai_tab.badge_ollama_status.parent() is not None
     qtbot.wait(50)
+
+
+def test_settings_nav_buttons_style(qtbot):
+    """Les boutons de navigation latérale de la modale des paramètres conservent leur style sobre épuré avec liseré accentué."""
+    from ankiforge.ui.theme import DesignTokens
+    from ankiforge.ui.widgets.settings_modal.components import SettingsNavButton
+
+    btn = SettingsNavButton("Test", "ph.gear", 0)
+    qtbot.addWidget(btn)
+
+    style = btn.styleSheet()
+    assert "border: none" in style
+    assert f"border-left: 3px solid {DesignTokens.ACCENT_PRIMARY}" in style
+
+
+def test_settings_modal_tabs_scroll_areas_are_scoped_and_do_not_strip_button_borders(qtbot):
+    """Les zones de défilement (QScrollArea) des onglets utilisent un sélecteur scoped QScrollArea.
+
+    Sans ce sélecteur 'QScrollArea', la règle 'border: none' se propage en cascade à tous les
+    widgets enfants (dont les boutons secondaires, primaires et d'action), supprimant leurs contours.
+    """
+    from PySide6.QtWidgets import QScrollArea
+
+    modal = SettingsModal()
+    qtbot.addWidget(modal)
+
+    for i in range(len(modal.nav_btns)):
+        tab = modal._ensure_tab_loaded(i)
+        for scroll in tab.findChildren(QScrollArea):
+            qss = scroll.styleSheet()
+            if "border: none" in qss or "border:none" in qss or "background:" in qss:
+                assert "QScrollArea" in qss, f"L'onglet {i} a une QScrollArea avec un QSS non scopé qui supprime les bordures des enfants : {qss!r}"
+
+
+def test_settings_modal_save_button_disabled_has_visible_contour(qtbot):
+    """Le bouton Enregistrer de la modale des paramètres conserve un contour visible même désactivé."""
+    modal = SettingsModal()
+    qtbot.addWidget(modal)
+
+    # Au démarrage, aucun paramètre n'a changé : le bouton est désactivé
+    assert modal.btn_save_all.isEnabled() is False
+
+    modal_qss = modal.styleSheet()
+    assert 'QPushButton[role="primary"]:disabled' in modal_qss
+    assert "border: 1px solid" in modal_qss
