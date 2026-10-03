@@ -343,8 +343,9 @@ class AgentsView(QWidget):
         layout_identity.addLayout(row_props)
 
         self.scope_info_card = QFrame()
+        self.scope_info_card.setObjectName("scope_info_card")
         self.scope_info_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#scope_info_card {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
@@ -354,7 +355,7 @@ class AgentsView(QWidget):
         layout_scope_info = QHBoxLayout(self.scope_info_card)
         layout_scope_info.setContentsMargins(10, 8, 10, 8)
         self.lbl_scope_info = QLabel(PERSONA_TYPE_SPECS["pipeline"]["desc"])
-        self.lbl_scope_info.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; background: transparent;")
+        self.lbl_scope_info.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; background: transparent; border: none;")
         self.lbl_scope_info.setWordWrap(True)
         layout_scope_info.addWidget(self.lbl_scope_info)
         layout_identity.addWidget(self.scope_info_card)
@@ -366,10 +367,11 @@ class AgentsView(QWidget):
         layout_identity.addWidget(self.engine_combo)
 
         self.engine_info_card = QFrame()
+        self.engine_info_card.setObjectName("engine_info_card")
         self.engine_info_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#engine_info_card {{
                 background-color: {DesignTokens.BG_INPUT};
-                border: 1px dashed {DesignTokens.BORDER_COLOR};
+                border: none;
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 4px;
             }}
@@ -378,10 +380,11 @@ class AgentsView(QWidget):
         layout_engine_info.setContentsMargins(10, 8, 10, 8)
         layout_engine_info.setSpacing(6)
         self.lbl_engine_icon = QLabel()
+        self.lbl_engine_icon.setStyleSheet("background: transparent; border: none;")
         self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
         layout_engine_info.addWidget(self.lbl_engine_icon)
         self.lbl_engine_info = QLabel("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres.")
-        self.lbl_engine_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
+        self.lbl_engine_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent; border: none;")
         layout_engine_info.addWidget(self.lbl_engine_info, 1)
         layout_identity.addWidget(self.engine_info_card)
 
@@ -637,6 +640,24 @@ class AgentsView(QWidget):
         if hasattr(self, "btn_preview_prompt"):
             color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
             self.btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=color))
+        if hasattr(self, "engine_info_card"):
+            bg_input = profile.bg_input if profile and hasattr(profile, "bg_input") else DesignTokens.BG_INPUT
+            radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
+            self.engine_info_card.setStyleSheet(f"""
+                QFrame#engine_info_card {{
+                    background-color: {bg_input};
+                    border: none;
+                    border-radius: {radius_sm}px;
+                    padding: 4px;
+                }}
+            """)
+        if hasattr(self, "lbl_engine_info"):
+            text_muted = profile.text_muted if profile and hasattr(profile, "text_muted") else DesignTokens.TEXT_MUTED
+            self.lbl_engine_info.setStyleSheet(f"color: {text_muted}; font-size: 11px; background: transparent; border: none;")
+        if hasattr(self, "lbl_engine_icon"):
+            self.lbl_engine_icon.setStyleSheet("background: transparent; border: none;")
+            text_muted = profile.text_muted if profile and hasattr(profile, "text_muted") else DesignTokens.TEXT_MUTED
+            self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=text_muted).pixmap(14, 14))
 
     def refresh_data(self) -> None:
         try:

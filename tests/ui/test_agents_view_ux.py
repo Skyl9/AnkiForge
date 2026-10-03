@@ -257,3 +257,34 @@ def test_agents_view_tools_permissions_buttons_and_alignment(qtbot):
 
     view.btn_deselect_all.click()
     assert all(not card.isChecked() for card in view._tool_cards.values())
+
+
+def test_agents_view_no_dashed_border_and_no_child_cascade(qtbot):
+    """Vérifie que la bordure pointillée est supprimée et qu'aucun enfant de engine_info_card
+    n'hérite d'une bordure en cascade."""
+    from ankiforge.ui.style_engine import JETBRAINS_LIGHT
+
+    view = AgentsView()
+    qtbot.addWidget(view)
+
+    # 1. Vérification que la bordure pointillée est supprimée sur le conteneur
+    assert "dashed" not in view.engine_info_card.styleSheet().lower()
+    assert "border: none" in view.engine_info_card.styleSheet().lower()
+
+    # 2. Vérification que les enfants ont un border: none explicite et aucun dashed
+    assert hasattr(view, "lbl_engine_icon")
+    assert hasattr(view, "lbl_engine_info")
+    assert "border: none" in view.lbl_engine_icon.styleSheet().lower()
+    assert "border: none" in view.lbl_engine_info.styleSheet().lower()
+    assert "dashed" not in view.lbl_engine_icon.styleSheet().lower()
+    assert "dashed" not in view.lbl_engine_info.styleSheet().lower()
+
+    # 3. Vérification du sélecteur ID pour éviter toute cascade sur les sous-classes QFrame (QLabel)
+    assert view.engine_info_card.objectName() == "engine_info_card"
+    assert "QFrame#engine_info_card" in view.engine_info_card.styleSheet() or "#engine_info_card" in view.engine_info_card.styleSheet()
+
+    # 4. Vérification après rafraîchissement de thème
+    view.refresh_theme(JETBRAINS_LIGHT)
+    assert "dashed" not in view.engine_info_card.styleSheet().lower()
+    assert "border: none" in view.lbl_engine_icon.styleSheet().lower()
+    assert "border: none" in view.lbl_engine_info.styleSheet().lower()
