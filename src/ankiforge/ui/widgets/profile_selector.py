@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.components.inputs import GlowLineEdit, StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_logo_icon, load_on_accent_icon, load_phosphor_icon
@@ -160,10 +160,17 @@ class ProfileSelectorDialog(QDialog):
     Permet de sélectionner un profil existant, d'en créer un nouveau ou de supprimer un profil inutilisé.
     """
 
-    def __init__(self, profiles: list[str], current_profile: str = "default", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        profiles: list[str],
+        current_profile: str = "default",
+        parent: QWidget | None = None,
+        is_startup: bool = False,
+    ) -> None:
         super().__init__(parent)
+        self.is_startup = is_startup
         self.setWindowTitle("Espaces de Travail & Profils — AnkiForge")
-        self.setFixedSize(560, 630)
+        self.setFixedSize(560, 660)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
             QDialog {{
@@ -270,6 +277,27 @@ class ProfileSelectorDialog(QDialog):
         self.list_widget.itemDoubleClicked.connect(lambda _item: self.accept())
         layout.addWidget(self.list_widget, 1)
 
+        # ── 3b. Barre d'actions secondaires (gestion du profil) ──
+        actions_bar = QHBoxLayout()
+        actions_bar.setContentsMargins(0, 0, 0, 0)
+        actions_bar.setSpacing(8)
+
+        self.delete_btn = DangerButton("Supprimer cet espace", tooltip="Supprimer définitivement cet espace et toutes ses données associées")
+        apply_compact_style(self.delete_btn, height=32)
+        self.delete_btn.setIcon(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED))
+        self.delete_btn.clicked.connect(self._on_delete_profile)
+        self.delete_btn.setEnabled(False)
+        actions_bar.addWidget(self.delete_btn)
+
+        self.btn_transfer = SecondaryButton("Transférer...", tooltip="Transférer du contenu depuis un autre profil")
+        apply_compact_style(self.btn_transfer, height=32)
+        self.btn_transfer.setIcon(load_phosphor_icon("arrows-left-right", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_transfer.clicked.connect(self._on_open_transfer)
+        actions_bar.addWidget(self.btn_transfer)
+
+        actions_bar.addStretch()
+        layout.addLayout(actions_bar)
+
         # ── 4. Formulaire de création d'un nouvel espace ──
         create_frame = QFrame()
         create_frame.setObjectName("ProfileCreateCard")
@@ -348,32 +376,30 @@ class ProfileSelectorDialog(QDialog):
         auto_box.addStretch()
         layout.addLayout(auto_box)
 
-        # ── 6. Pied de boîte & Actions de validation / suppression ──
+        # ── 6. Pied de boîte & Actions de validation ──
         bottom_layout = QHBoxLayout()
         bottom_layout.setContentsMargins(0, 4, 0, 0)
         bottom_layout.setSpacing(10)
 
-        self.delete_btn = DangerButton("Supprimer cet espace", tooltip="Supprimer définitivement cet espace et toutes ses données associées")
-        self.delete_btn.setFixedHeight(36)
-        self.delete_btn.setIcon(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED))
-        self.delete_btn.clicked.connect(self._on_delete_profile)
-        self.delete_btn.setEnabled(False)
-        bottom_layout.addWidget(self.delete_btn)
-
-        self.btn_transfer = SecondaryButton("Transférer...", tooltip="Transférer du contenu depuis un autre profil")
-        self.btn_transfer.setFixedHeight(36)
-        self.btn_transfer.setIcon(load_phosphor_icon("arrows-left-right", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_transfer.clicked.connect(self._on_open_transfer)
-        bottom_layout.addWidget(self.btn_transfer)
-
         bottom_layout.addStretch()
 
-        self.btn_cancel = SecondaryButton("Annuler", tooltip="Fermer sans changer d'espace")
+        if self.is_startup:
+            cancel_text = "Quitter"
+            cancel_tooltip = "Quitter l'application"
+            select_text = "Ouvrir cet Espace"
+            select_tooltip = "Ouvrir le profil sélectionné et lancer AnkiForge"
+        else:
+            cancel_text = "Annuler"
+            cancel_tooltip = "Fermer sans changer d'espace"
+            select_text = "Basculer vers cet Espace"
+            select_tooltip = "Ouvrir le profil sélectionné et charger ses données"
+
+        self.btn_cancel = SecondaryButton(cancel_text, tooltip=cancel_tooltip)
         self.btn_cancel.setFixedHeight(36)
         self.btn_cancel.clicked.connect(self.reject)
         bottom_layout.addWidget(self.btn_cancel)
 
-        self.btn_select = PrimaryButton("Basculer vers cet Espace", tooltip="Ouvrir le profil sélectionné et charger ses données")
+        self.btn_select = PrimaryButton(select_text, tooltip=select_tooltip)
         self.btn_select.setFixedHeight(36)
         self.btn_select.setIcon(load_on_accent_icon("arrow-right"))
         self.btn_select.clicked.connect(self.accept)
@@ -535,5 +561,7 @@ class ProfileSelectorDialog(QDialog):
             self.logo_lbl.setPixmap(load_logo_icon(profile.accent_primary).pixmap(38, 38))
         if hasattr(self, "delete_btn"):
             self.delete_btn.setIcon(load_phosphor_icon("trash", color=profile.color_red))
+        if hasattr(self, "btn_transfer"):
+            self.btn_transfer.setIcon(load_phosphor_icon("arrows-left-right", color=profile.text_primary))
         for card in self._card_widgets:
             card.refresh_theme(profile)

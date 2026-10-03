@@ -229,12 +229,13 @@ def main(argv: list[str] | None = None) -> None:
         dialog = ProfileSelectorDialog(
             profiles,
             current_profile=default_profile if default_profile in profiles else profiles[0],
+            is_startup=True,
         )
         if dialog.exec() == ProfileSelectorDialog.DialogCode.Accepted:
             selected_profile = dialog.get_selected_profile()
         else:
             shutdown_logging()
-            sys.exit(0)  # Annulé
+            sys.exit(0)  # Quitter
 
     # ── Vérification et acquisition du verrou exclusif anti double-instance ────
     acquired, lock_info = ProfileLockService.acquire_lock(selected_profile)
@@ -257,6 +258,7 @@ def main(argv: list[str] | None = None) -> None:
             dialog = ProfileSelectorDialog(
                 profiles,
                 current_profile=selected_profile,
+                is_startup=True,
             )
             if dialog.exec() == ProfileSelectorDialog.DialogCode.Accepted:
                 selected_profile = dialog.get_selected_profile()
