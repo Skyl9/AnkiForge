@@ -177,7 +177,7 @@ class CreationView(QWidget):
 
         # --- COL 1: Left Tool Window (Explorateur + Config IA) ---
         self.config_panel = IdePanel(detachable=True)
-        self.config_panel.setMinimumWidth(350)
+        self.config_panel.setMinimumWidth(320)
         self.config_panel.setStyleSheet(f"border-right: 1px solid {DesignTokens.BORDER_COLOR};")
 
         # Tab 1: Explorateur
@@ -217,6 +217,7 @@ class CreationView(QWidget):
         config_scroll.setWidgetResizable(True)
         config_scroll.setFrameShape(QFrame.Shape.NoFrame)
         config_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        config_scroll.setMinimumWidth(0)
         config_scroll.setStyleSheet("""
             QScrollArea {
                 background: transparent;
@@ -225,6 +226,7 @@ class CreationView(QWidget):
         """)
 
         config_content = QWidget()
+        config_content.setMinimumWidth(0)
         config_content.setStyleSheet("background: transparent;")
         config_layout = QVBoxLayout(config_content)
         config_layout.setContentsMargins(8, 8, 8, 8)
@@ -232,6 +234,7 @@ class CreationView(QWidget):
 
         # --- Section 0: Document Source ---
         src_card = QFrame()
+        src_card.setMinimumWidth(0)
         src_card.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -250,6 +253,7 @@ class CreationView(QWidget):
         src_ico.setPixmap(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
         src_ico.setStyleSheet("border: none; background: transparent;")
         lbl_src = QLabel("DOCUMENT SOURCE")
+        lbl_src.setMinimumWidth(0)
         lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         src_top.addWidget(src_ico)
         src_top.addWidget(lbl_src)
@@ -257,6 +261,7 @@ class CreationView(QWidget):
         src_layout.addLayout(src_top)
 
         self.doc_picker_btn = DocumentPickerButton(self)
+        self.doc_picker_btn.setMinimumWidth(0)
         self.doc_picker_btn.document_changed.connect(self._on_picker_document_changed)
         src_layout.addWidget(self.doc_picker_btn)
         config_layout.addWidget(src_card)

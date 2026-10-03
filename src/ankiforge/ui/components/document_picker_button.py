@@ -15,11 +15,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
 )
 
 from ankiforge.database.models import DocumentModel
 from ankiforge.ui.components.document_select_window import DocumentSelectWindow, document_meta_line
+from ankiforge.ui.components.elided_label import ElidedLabel
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -43,6 +45,8 @@ class DocumentPickerButton(QFrame):
 
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(54)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setMinimumWidth(0)
         self.setObjectName("documentPickerButton")
 
         self._build_ui()
@@ -72,11 +76,13 @@ class DocumentPickerButton(QFrame):
         text_layout.setContentsMargins(0, 0, 0, 0)
         text_layout.setSpacing(2)
 
-        self.title_label = QLabel("Sélectionner un cours...")
+        self.title_label = ElidedLabel("Sélectionner un cours...")
+        self.title_label.setMinimumWidth(0)
         self.title_label.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; background: transparent; border: none;")
         text_layout.addWidget(self.title_label)
 
-        self.meta_label = QLabel("Aucun document lié • Saisie libre")
+        self.meta_label = ElidedLabel("Aucun document lié • Saisie libre")
+        self.meta_label.setMinimumWidth(0)
         self.meta_label.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; background: transparent; border: none;")
         text_layout.addWidget(self.meta_label)
         layout.addLayout(text_layout, 1)
@@ -187,8 +193,10 @@ class DocumentPickerButton(QFrame):
         """Met à jour les icônes, titres et sous-titres selon le document sélectionné."""
         if not self._current_doc:
             self.title_label.setText("Sélectionner un cours...")
+            self.title_label.setToolTip("")
             self.title_label.setStyleSheet(f"font-size: 12px; font-weight: 500; color: {DesignTokens.TEXT_MUTED}; background: transparent; border: none;")
             self.meta_label.setText("Aucun document lié • Saisie libre")
+            self.meta_label.setToolTip("")
             self.icon_label.setPixmap(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED).pixmap(18, 18))
             self.icon_badge.setStyleSheet(f"""
                 QFrame#iconBadge {{
@@ -202,9 +210,7 @@ class DocumentPickerButton(QFrame):
 
         doc = self._current_doc
         full_title = doc.title or "Document sans titre"
-        # Troncature souple avec infobulle complète
-        display_title = full_title[:62] + "..." if len(full_title) > 65 else full_title
-        self.title_label.setText(display_title)
+        self.title_label.setText(full_title)
         self.title_label.setToolTip(full_title)
         self.title_label.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; background: transparent; border: none;")
 
@@ -239,4 +245,5 @@ class DocumentPickerButton(QFrame):
             }}
         """)
         self.meta_label.setText(meta_str)
+        self.meta_label.setToolTip(meta_str)
         self.btn_clear.setVisible(self.allow_clear)

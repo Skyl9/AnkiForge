@@ -3119,3 +3119,45 @@ def test_pdf_reader_fallback_unstructured_pdf_without_headings(qtbot: Any, mock_
     res = scope.get_result()
     assert 2 not in res["selected_pages"]
     assert 1 in res["selected_pages"]
+
+
+def test_document_picker_button_long_title_elision_and_geometry(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que DocumentPickerButton gère les titres longs avec élision dynamique, infobulle et minimumWidth(0)."""
+    from PySide6.QtWidgets import QHBoxLayout, QWidget
+
+    long_title = "Chapitre 1 : Introduction très approfondie à la biologie cellulaire et moléculaire des eucaryotes supérieurs avec annotations cliniques"
+    doc = DocumentModel.create(title=long_title, file_type="pdf", total_pages=45, content="Contenu cours bio")
+
+    container = QWidget()
+    qtbot.addWidget(container)
+    container_layout = QHBoxLayout(container)
+    container_layout.setContentsMargins(0, 0, 0, 0)
+
+    btn = DocumentPickerButton(allow_clear=True)
+    container_layout.addWidget(btn)
+
+    assert btn.minimumWidth() == 0
+    assert btn.title_label.minimumWidth() == 0
+    assert btn.meta_label.minimumWidth() == 0
+
+    btn.set_document(doc)
+
+    # Le texte complet doit être préservé dans .text() et le tooltip
+    assert btn.title_label.text() == long_title
+    assert btn.title_label.toolTip() == long_title
+    assert "PDF" in btn.meta_label.text()
+    assert btn.meta_label.toolTip() == btn.meta_label.text()
+
+    # Contrainte à une largeur compacte de 300px
+    container.resize(300, 54)
+    container.show()
+    btn.resize(300, 54)
+
+    assert btn.width() <= 300
+    # Les boutons clear et chevron doivent rester dans le cadre du bouton
+    assert btn.btn_clear.geometry().right() <= btn.width()
+    assert btn.chevron_label.geometry().right() <= btn.width()
+
+    # Le titre affiché doit être élidé avec points de suspension
+    assert len(btn.title_label.elided_text()) < len(long_title)
+    assert btn.title_label.elided_text().endswith("…") or "..." in btn.title_label.elided_text()

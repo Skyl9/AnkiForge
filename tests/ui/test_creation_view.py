@@ -1159,3 +1159,39 @@ def test_reasoning_viewer_dialog(qtbot: Any) -> None:
     if cb:
         assert "=== ÉTAPE 1 ===" in cb.text()
         assert "=== ÉTAPE 2 ===" in cb.text()
+
+
+def test_creation_view_long_document_title_does_not_overflow_config_panel(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la sélection d'un document au nom très long ne provoque aucun débordement du panneau Config IA."""
+    uid = uuid.uuid4().hex[:6]
+    very_long_title = "Manuel Complet de Neurologie Clinique Approfondie et Neuroanatomie Fonctionnelle du Système Nerveux Central et Périphérique " + uid
+    doc = DocumentModel.create(title=very_long_title, file_type="pdf", total_pages=150, content="Cours de neuro")
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.show()
+    view.resize(1280, 800)
+    view.config_panel.set_active_tab(1)  # Tab "Config IA"
+
+    # Vérifier l'état initial nominal
+    initial_panel_w = view.config_panel.width()
+
+    # Définir le document au titre très long
+    view.doc_picker_btn.set_document(doc)
+
+    # La largeur du panneau gauche reste stable (~350px) et ne s'envole pas
+    assert abs(view.config_panel.width() - initial_panel_w) <= 20
+    assert view.doc_picker_btn.width() <= view.config_panel.width()
+
+    # Le titre complet est préservé dans le bouton et l'infobulle
+    assert view.doc_picker_btn.title_label.text() == very_long_title
+    assert view.doc_picker_btn.title_label.toolTip() == very_long_title
+
+    # Le titre affiché est bien élidé
+    elided_title = view.doc_picker_btn.title_label.elided_text()
+    assert len(elided_title) < len(very_long_title)
+    assert elided_title.endswith("…") or "..." in elided_title
+
+    # L'utilisateur peut toujours redimensionner le panneau gauche via le splitter
+    view.main_splitter.setSizes([320, 960])
+    assert view.config_panel.width() <= 330

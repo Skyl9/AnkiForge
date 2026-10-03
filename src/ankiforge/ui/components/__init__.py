@@ -17,6 +17,7 @@ from .code_editor import (
 from .deck_select_window import DeckSelectWindow
 from .document_picker_button import DocumentPickerButton
 from .document_select_window import DocumentSelectWindow
+from .elided_label import ElidedLabel
 from .flow_layout import FlowLayout, FlowWidget
 from .inputs import DBComboBox, GlowLineEdit, OptionToggleRow, StyledComboBox, StyledLineEdit, StyledTextEdit, ToggleSwitch
 from .lists import ActivityItem, ContextItem, DocTreeItem, StyledListItem, VirtualListView
@@ -97,6 +98,7 @@ __all__ = [
     "DeckSelectWindow",
     "DocumentPickerButton",
     "DocumentSelectWindow",
+    "ElidedLabel",
     "ModalField",
     "ModelSelectWindow",
     "ModelSelectorWidget",
