@@ -227,3 +227,33 @@ def test_agents_view_scope_filter_chips_and_alignment(qtbot):
     view.refresh_theme(JETBRAINS_LIGHT)
     for btn, _ in view._filter_buttons:
         assert not btn.icon().isNull()
+
+
+def test_agents_view_tools_permissions_buttons_and_alignment(qtbot):
+    """Vérifie l'alignement et la densité compacte des boutons 'Tout Cocher' / 'Tout Décocher'
+    et de la liste déroulante des presets d'outils."""
+    from ankiforge.ui.components import SecondaryButton
+
+    view = AgentsView()
+    qtbot.addWidget(view)
+
+    # 1. Présence et type des boutons
+    assert hasattr(view, "btn_select_all")
+    assert hasattr(view, "btn_deselect_all")
+    assert isinstance(view.btn_select_all, SecondaryButton)
+    assert isinstance(view.btn_deselect_all, SecondaryButton)
+
+    # 2. Densité compacte et hauteur harmonisée à 30px
+    assert view.btn_select_all.property("density") == "compact"
+    assert view.btn_deselect_all.property("density") == "compact"
+    assert view.btn_select_all.height() == 30 or view.btn_select_all.maximumHeight() == 30
+    assert view.btn_deselect_all.height() == 30 or view.btn_deselect_all.maximumHeight() == 30
+    assert view.preset_combo.height() == 30 or view.preset_combo.maximumHeight() == 30
+
+    # 3. Fonctionnement interactif
+    view.btn_select_all.click()
+    assert len(view._tool_cards) > 0
+    assert all(card.isChecked() for card in view._tool_cards.values())
+
+    view.btn_deselect_all.click()
+    assert all(not card.isChecked() for card in view._tool_cards.values())

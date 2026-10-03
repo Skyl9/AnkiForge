@@ -478,7 +478,7 @@ class AgentsView(QWidget):
         tools_header.addStretch()
 
         self.preset_combo = StyledComboBox()
-        self.preset_combo.setFixedHeight(26)
+        self.preset_combo.setFixedHeight(30)
         self.preset_combo.addItem("Presets d'outils...", userData="")
         self.preset_combo.addItem("🛡️ Auditeur Wozniak", userData="wozniak_auditor")
         self.preset_combo.addItem("🎨 Architecte Modèles & CSS", userData="css_architect")
@@ -489,14 +489,16 @@ class AgentsView(QWidget):
         self.preset_combo.currentIndexChanged.connect(self._on_preset_combo_changed)
         tools_header.addWidget(self.preset_combo)
 
-        btn_select_all = SecondaryButton("Tout Cocher")
-        btn_select_all.setFixedHeight(26)
-        btn_select_all.clicked.connect(lambda: self._set_all_tools(True))
-        btn_deselect_all = SecondaryButton("Tout Décocher")
-        btn_deselect_all.setFixedHeight(26)
-        btn_deselect_all.clicked.connect(lambda: self._set_all_tools(False))
-        tools_header.addWidget(btn_select_all)
-        tools_header.addWidget(btn_deselect_all)
+        self.btn_select_all = SecondaryButton("Tout Cocher")
+        apply_compact_style(self.btn_select_all, height=30)
+        self.btn_select_all.clicked.connect(lambda: self._set_all_tools(True))
+
+        self.btn_deselect_all = SecondaryButton("Tout Décocher")
+        apply_compact_style(self.btn_deselect_all, height=30)
+        self.btn_deselect_all.clicked.connect(lambda: self._set_all_tools(False))
+
+        tools_header.addWidget(self.btn_select_all)
+        tools_header.addWidget(self.btn_deselect_all)
         layout_tools.addLayout(tools_header)
 
         tools_scroll = QScrollArea()
