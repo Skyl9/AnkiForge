@@ -55,6 +55,7 @@ from ankiforge.ui.models import (
 )
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.viewmodels import EditionViewModel
+from ankiforge.ui.views.edition_view.source_badge import DocumentSourceBadge
 from ankiforge.ui.views.edition_view.utils import strip_html_tags
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
@@ -752,48 +753,13 @@ class EditionView(QWidget):
         if link and link.chunk:
             doc_title = link.chunk.document.title if link.chunk.document else "Document"
             heading = link.chunk.heading_path or (f"Page {link.chunk.page_number}" if link.chunk.page_number else f"Section #{link.chunk.chunk_index + 1}")
-            source_badge = QFrame()
-            source_badge.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {DesignTokens.COLOR_BLUE_BG};
-                    border: 1px solid {DesignTokens.COLOR_BLUE_BORDER};
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                    padding: 4px 8px;
-                    margin-bottom: 6px;
-                }}
-            """)
-            sb_layout = QHBoxLayout(source_badge)
-            sb_layout.setContentsMargins(4, 2, 4, 2)
-            sb_layout.setSpacing(6)
-
-            ico_src = QLabel()
-            ico_src.setPixmap(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
-            ico_src.setStyleSheet("border: none; background: transparent;")
-            sb_layout.addWidget(ico_src)
-
-            lbl_src = QLabel(f"Source : {doc_title} · {heading}")
-            lbl_src.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-            lbl_src.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; border: none; background: transparent;")
-            sb_layout.addWidget(lbl_src, 1)
-
-            btn_go_doc = QPushButton("Voir le cours ➔")
-            btn_go_doc.setStyleSheet(f"""
-                QPushButton {{
-                    background: transparent;
-                    color: {DesignTokens.COLOR_BLUE};
-                    font-size: 10px;
-                    font-weight: bold;
-                    border: none;
-                    text-decoration: underline;
-                }}
-                QPushButton:hover {{
-                    color: {DesignTokens.ACCENT_PRIMARY};
-                }}
-            """)
-            target_doc_id = link.chunk.document_id
-            btn_go_doc.clicked.connect(lambda: self.request_navigation.emit("documents", {"doc_id": target_doc_id}))
-            sb_layout.addWidget(btn_go_doc)
-
+            source_badge = DocumentSourceBadge(
+                doc_id=link.chunk.document_id,
+                doc_title=doc_title,
+                heading=heading,
+                resolution=getattr(link, "resolution", None),
+            )
+            source_badge.request_navigation.connect(self.request_navigation.emit)
             self.fields_layout.addWidget(source_badge)
 
         # Barre de Métadonnées et Choix du Modèle de Carte
