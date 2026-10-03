@@ -571,6 +571,15 @@ def test_storage_maintenance_tab_actions(qtbot):
     qtbot.addWidget(tab)
 
     # 1. Refresh des métriques
+    assert tab.table_backups.verticalHeader().defaultSectionSize() == 36
+    fake_b = MagicMock(created_at=datetime.datetime.now(), size_bytes=2048, is_prerestore=False, is_valid=True)
+    with patch("ankiforge.ui.widgets.settings_modal.tabs.storage_tab.list_profile_backups", return_value=[fake_b]):
+        tab.refresh_metrics()
+        btn = tab.table_backups.cellWidget(0, 4)
+        assert btn is not None
+        assert btn.property("density") == "compact"
+        assert btn.height() == 28
+
     tab.refresh_metrics()
     assert "note" in tab.c_db.lbl_sub.text()
 

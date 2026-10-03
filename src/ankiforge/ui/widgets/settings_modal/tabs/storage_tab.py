@@ -37,6 +37,7 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
 )
+from ankiforge.ui.components.buttons import apply_compact_style
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.settings_modal.components.storage_metric_card import StorageMetricCard
@@ -244,6 +245,7 @@ class StorageMaintenanceTab(QWidget):
         self.table_backups.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table_backups.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_backups.verticalHeader().setVisible(False)
+        self.table_backups.verticalHeader().setDefaultSectionSize(36)
         self.table_backups.setMinimumHeight(150)
         self.table_backups.setMaximumHeight(220)
         self.table_backups.setStyleSheet(f"""
@@ -342,7 +344,7 @@ class StorageMaintenanceTab(QWidget):
                 self.table_backups.setItem(row, 3, item_val)
 
                 btn_restore = SecondaryButton("Restaurer")
-                btn_restore.setFixedHeight(24)
+                apply_compact_style(btn_restore, height=28)
                 btn_restore.setEnabled(b.is_valid)
                 btn_restore.clicked.connect(lambda _=False, binfo=b: self._restore_backup(binfo))
                 self.table_backups.setCellWidget(row, 4, btn_restore)
