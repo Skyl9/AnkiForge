@@ -238,6 +238,16 @@ class MCPDataMutatedEvent(AppEvent):
     details: dict[str, Any] = field(default_factory=dict)
 
 
+# LLM Model Catalog Events
+@dataclass(frozen=True)
+class LLMModelsChangedEvent(AppEvent):
+    """Événement émis lors de l'ajout, modification ou suppression d'un modèle IA dans le catalogue."""
+
+    action: str = ""  # "created", "updated", "deleted"
+    model_id: str = ""
+    provider: str = ""
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # AppEventBus Singleton & Dispatcher
 # ─────────────────────────────────────────────────────────────────────────────
@@ -276,6 +286,7 @@ _EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
     "setting_changed": SettingChangedEvent,
     "flag_labels_updated": FlagLabelsUpdatedEvent,
     "mcp_data_mutated": MCPDataMutatedEvent,
+    "llm_models_changed": LLMModelsChangedEvent,
     "open_consultant_requested": OpenConsultantRequestedEvent,
     "open_feedback_requested": OpenFeedbackRequestedEvent,
 }

@@ -11,6 +11,7 @@ from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.model_catalog import ModelCatalog
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components.model_selector.dialog import ModelCardWidget, ModelDiscoveryDialog
+from ankiforge.ui.components.model_selector.selector import ModelSelectorWidget
 from ankiforge.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
 from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
 
@@ -237,3 +238,37 @@ def test_ai_engines_tab_crud_workflow(qtbot, clean_llm_configs):
 
     # La table doit être rafraîchie
     assert tab.table_engines.rowCount() == 1
+
+
+def test_model_selector_widget_dynamic_refresh_on_crud_event(qtbot, clean_llm_configs):
+    """Vérifie que ModelSelectorWidget se rafraîchit automatiquement lors d'un ajout ou suppression de modèle."""
+    cfg1, _ = clean_llm_configs
+    selector = ModelSelectorWidget(allow_inherit=False)
+    qtbot.addWidget(selector)
+    selector.show()
+
+    # Initialement 2 modèles configurés
+    assert selector.count() == 2
+    selector.set_current_model_id(cfg1.id)
+    assert selector.get_current_model_id() == cfg1.id
+
+    # 1. Création d'un 3e modèle via ModelConfigDialog
+    dlg = ModelConfigDialog(config=None)
+    qtbot.addWidget(dlg)
+    dlg.le_display_name.setText("Modèle Dynamique Test")
+    dlg.le_model_id.setText("dynamique-v1")
+    dlg._on_save()
+
+    # Le sélecteur doit s'être mis à jour dynamiquement via l'event bus
+    assert selector.count() == 3
+
+    # 2. Suppression du modèle actif cfg1 via AIEnginesTab
+    tab = AIEnginesTab()
+    qtbot.addWidget(tab)
+    tab._del_engine(engine_id=cfg1.id, confirm=False)
+
+    # Le sélecteur doit s'être mis à jour : 2 modèles restants et repli propre
+    assert selector.count() == 2
+    assert selector.get_current_model_id() != cfg1.id
+
+    selector.close()

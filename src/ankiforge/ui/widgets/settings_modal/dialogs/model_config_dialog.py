@@ -343,6 +343,16 @@ class ModelConfigDialog(QDialog):
                     self.config.description = self.le_description.text().strip()
                     self.config.save()
 
+            from ankiforge.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.publish(
+                LLMModelsChangedEvent(
+                    action="created" if self._is_new else "updated",
+                    model_id=model_id,
+                    provider=provider,
+                )
+            )
+
             self.accept()
         except Exception as e:
             logger.error("Erreur lors de l'enregistrement du modèle : %s", e)

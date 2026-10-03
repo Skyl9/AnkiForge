@@ -1201,6 +1201,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             self.refresh_data()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                 self.ai_manager.reload_provider()
+
+            from ankiforge.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.publish(
+                LLMModelsChangedEvent(
+                    action="created",
+                    model_id=model_id,
+                    provider=provider,
+                )
+            )
+
             show_toast(self, f"Moteur '{name}' ajouté au catalogue !")
         except Exception as e:
             show_toast(self, f"Erreur lors de l'ajout : {e}", is_error=True)
@@ -1265,6 +1276,16 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             config.save()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                 self.ai_manager.reload_provider()
+
+            from ankiforge.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.publish(
+                LLMModelsChangedEvent(
+                    action="updated",
+                    model_id=config.model_id,
+                    provider=config.provider,
+                )
+            )
         except Exception as e:
             logger.error("Erreur modification moteur: %s", e)
 
@@ -1288,6 +1309,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             show_toast(self, "Moteur IA introuvable.", is_error=True)
             return
         name = config.display_name or config.model_id
+        deleted_model_id = config.model_id
+        deleted_provider = config.provider
 
         if confirm:
             from PySide6.QtWidgets import QMessageBox
@@ -1312,6 +1335,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             self.refresh_data()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                 self.ai_manager.reload_provider()
+
+            from ankiforge.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.publish(
+                LLMModelsChangedEvent(
+                    action="deleted",
+                    model_id=deleted_model_id,
+                    provider=deleted_provider,
+                )
+            )
+
             show_toast(self, f"Moteur IA '{name}' supprimé du catalogue.")
         except Exception as e:
             show_toast(self, f"Erreur suppression : {e}", is_error=True)

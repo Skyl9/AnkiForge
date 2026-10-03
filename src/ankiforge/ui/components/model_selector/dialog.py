@@ -772,6 +772,16 @@ class ModelDiscoveryDialog(QDialog):
                     description=spec.ankiforge_use_case or spec.description,
                 )
                 self._selected_model = cfg
+
+                from ankiforge.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+                event_bus.publish(
+                    LLMModelsChangedEvent(
+                        action="created",
+                        model_id=spec.model_id,
+                        provider=spec.provider,
+                    )
+                )
             else:
                 self._selected_model = existing
         else:
@@ -835,7 +845,20 @@ class ModelDiscoveryDialog(QDialog):
             QMessageBox.StandardButton.No,
         )
         if res == QMessageBox.StandardButton.Yes:
+            deleted_m_id = cfg.model_id
+            deleted_provider = cfg.provider
             LLMConfigModel.delete_by_id(cfg.id)
+
+            from ankiforge.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.publish(
+                LLMModelsChangedEvent(
+                    action="deleted",
+                    model_id=deleted_m_id,
+                    provider=deleted_provider,
+                )
+            )
+
             self._load_and_filter_models()
 
     def _on_comparison_toggled(self, model: Any, checked: bool) -> None:

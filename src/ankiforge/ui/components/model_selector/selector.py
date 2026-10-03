@@ -6,8 +6,10 @@ Combine un menu déroulant enrichi, des badges de capacités dynamiques et un bo
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
@@ -46,6 +48,10 @@ class ModelSelectorWidget(QWidget):
 
         self._setup_ui()
         self.refresh_models()
+
+        from ankiforge.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+        event_bus.subscribe(LLMModelsChangedEvent, self._on_models_changed_event)
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -172,6 +178,10 @@ class ModelSelectorWidget(QWidget):
         """Trouve l'index correspondant à l'objet de données associé."""
         return self.combo.findData(data)
 
+    def _on_models_changed_event(self, event: Any) -> None:
+        """Réaction automatique à toute modification du catalogue de modèles LLM."""
+        self.refresh_models()
+
     def set_current_model_id(self, model_id: int | str | None) -> None:
         """Définit le modèle actif par son ID SQLite ou son model_id chaîne."""
         if model_id is None:
@@ -185,6 +195,12 @@ class ModelSelectorWidget(QWidget):
                 self.combo.setCurrentIndex(idx)
                 self._update_badges()
                 return
+
+        # Si le modèle recherché n'existe plus (supprimé), repli sur le premier élément
+        if self.combo.count() > 0:
+            self.combo.setCurrentIndex(0)
+            self._update_badges()
+            self.model_changed.emit(self.get_current_model())
 
     def _on_combo_changed(self, index: int) -> None:
         self._update_badges()
@@ -209,6 +225,16 @@ class ModelSelectorWidget(QWidget):
                 target_id = getattr(selected, "id", None) or getattr(selected, "model_id", None)
                 self.set_current_model_id(target_id)
                 self.model_changed.emit(self.get_current_model())
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Désabonne le composant du bus d'événements lors de la destruction du widget."""
+        try:
+            from ankiforge.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.unsubscribe(LLMModelsChangedEvent, self._on_models_changed_event)
+        except Exception:
+            pass
+        super().closeEvent(event)
 
 
 __all__ = ["ModelSelectorWidget"]
