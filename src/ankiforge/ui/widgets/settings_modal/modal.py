@@ -65,7 +65,7 @@ class SettingsModal(QDialog):
         self.setMinimumSize(820, 560)
         self.resize(880, 620)
         self.setModal(False)
-        self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint)
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint)
 
         self._setup_ui()
         self._connect_signals()
@@ -491,6 +491,8 @@ class SettingsModal(QDialog):
             self.nav_btns[index].setChecked(True)
             self._ensure_tab_loaded(index)
             self.stacked_widget.setCurrentIndex(index)
+            self.raise_()
+            self.activateWindow()
 
 
 # Aliases de compatibilité

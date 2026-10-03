@@ -915,3 +915,35 @@ def test_settings_modal_lazy_loading_tabs(qtbot):
     assert modal._tabs[3] is None
     assert modal._tabs[4] is None
     assert modal._tabs[5] is None
+
+
+def test_settings_modal_ai_tab_activation_and_visibility(qtbot):
+    """Vérifie que le premier clic sur l'onglet Moteurs IA ne désaffiche pas la modale et préserve son état."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QMainWindow
+
+    parent_win = QMainWindow()
+    qtbot.addWidget(parent_win)
+    parent_win.show()
+
+    modal = SettingsModal(parent=parent_win)
+    qtbot.addWidget(modal)
+    modal.show()
+
+    assert modal.windowFlags() & Qt.WindowType.Dialog
+    assert modal.isVisible() is True
+    assert modal.stacked_widget.currentIndex() == 0
+
+    # Clic pour la première fois sur l'onglet Moteurs IA (index 1)
+    qtbot.mouseClick(modal.nav_btns[1], Qt.MouseButton.LeftButton)
+
+    assert modal.isVisible() is True
+    assert modal.stacked_widget.currentIndex() == 1
+    assert modal._tabs[1] is not None
+
+    # Vérification que les badges de statut sont correctement parentés
+    ai_tab = modal._tabs[1]
+    for badge in ai_tab.key_status_badges.values():
+        assert badge.parent() is not None
+    assert ai_tab.badge_ollama_status.parent() is not None
+    qtbot.wait(50)

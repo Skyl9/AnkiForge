@@ -18,13 +18,13 @@ class PasswordLineEdit(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        self.edit = StyledLineEdit()
+        self.edit = StyledLineEdit(parent=self)
         self.edit.setEchoMode(StyledLineEdit.EchoMode.Password)
         self.edit.setPlaceholderText(placeholder)
         self.edit.setText(initial_text)
         layout.addWidget(self.edit, 1)
 
-        self.btn_toggle = IconButton("ph.eye", tooltip="Afficher / Masquer la clé", size=26)
+        self.btn_toggle = IconButton("ph.eye", tooltip="Afficher / Masquer la clé", size=26, parent=self)
         self.btn_toggle.clicked.connect(self._toggle_visibility)
         layout.addWidget(self.btn_toggle)
 
@@ -42,7 +42,10 @@ class PasswordLineEdit(QWidget):
         self.edit.repaint()
 
     def text(self) -> str:
-        return self.edit.text().strip()
+        try:
+            return self.edit.text().strip()
+        except RuntimeError:
+            return ""
 
     def setText(self, text: str) -> None:
         self.edit.clear()

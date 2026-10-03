@@ -239,15 +239,15 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             btn_test.clicked.connect(lambda _, pid=p_id, pname=p_name: self._test_cloud_key(pid, pname))
             row.addWidget(btn_test)
 
-            badge_st = QLabel("")
+            badge_st = QLabel("", self.card_keys)
+            self.key_status_badges[p_id] = badge_st
+            row.addWidget(badge_st)
             if initial_key:
                 badge_st.setText("Format valide")
                 apply_pill_badge_style(badge_st, DesignTokens.COLOR_GREEN)
                 badge_st.show()
             else:
                 badge_st.hide()
-            self.key_status_badges[p_id] = badge_st
-            row.addWidget(badge_st)
 
             keys_layout.addLayout(row)
 
@@ -282,7 +282,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.btn_scan_ollama.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.COLOR_GREEN))
         self.btn_scan_ollama.clicked.connect(self._scan_ollama)
         row_ol.addWidget(self.btn_scan_ollama)
-        self.badge_ollama_status = QLabel("")
+        self.badge_ollama_status = QLabel("", self.card_ollama)
         self.badge_ollama_status.hide()
         row_ol.addWidget(self.badge_ollama_status)
         ollama_layout.addLayout(row_ol)
@@ -997,6 +997,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
     def refresh_data(self) -> None:
         """Recharge les moteurs IA et les catégories de vision."""
+        engines: list[Any] = []
         try:
             self.table_engines.blockSignals(True)
             self.table_engines.clearContents()
