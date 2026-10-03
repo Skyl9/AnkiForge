@@ -62,7 +62,7 @@ def test_settings_modal_creation_and_tabs(qtbot):
     modal = SettingsModal()
     qtbot.addWidget(modal)
     assert modal is not None
-    assert modal.minimumWidth() == 960
+    assert modal.minimumWidth() == 820
     assert modal.sidebar.width() == 215
     assert all(button.sizeHint().width() <= modal.sidebar.width() - 16 for button in modal.nav_btns)
 
@@ -625,9 +625,17 @@ def test_settings_modal_theme_reactivity(qtbot):
 
 
 def test_tts_settings_tab_actions(qtbot, tmp_path):
-    """Vérifie le test de voix et les callbacks d'installation de Piper dans TTSSettingsTab."""
+    """Vérifie le test de voix, la contrainte de largeur et les callbacks d'installation de Piper dans TTSSettingsTab."""
     tab = TTSSettingsTab()
     qtbot.addWidget(tab)
+
+    # Vérification contraintes de largeur et politique d'ascenseur (Ticket 5)
+    from PySide6.QtCore import Qt
+
+    assert tab.scroll.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    assert tab.cb_voice.width() <= 320
+    assert tab.cb_device.width() <= 320
+    assert tab.cb_engine.width() <= 320
 
     fake_audio = tmp_path / "sample.mp3"
     fake_audio.write_bytes(b"fake mp3 audio data")
@@ -636,12 +644,31 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
         tab._on_test_voice()
         mock_play.assert_called_once()
 
-    # Vérification des callbacks installateur sans exception
-    tab._on_installer_success()
-    assert "Piper installé avec succès" in tab.lbl_install_progress.text()
+    # Vérification des callbacks installateur et rafraîchissement UI (Ticket 6)
+    with (
+        patch("ankiforge.services.cards.tts_service.PiperSidecarProvider.get_piper_executable", return_value="/usr/local/bin/piper"),
+        patch("ankiforge.services.cards.tts_service.PiperSidecarProvider.is_functional", return_value=(True, "OK")),
+        patch.object(tab, "_populate_engines") as mock_pop,
+        patch.object(tab, "_on_engine_changed") as mock_eng_changed,
+    ):
+        tab._on_installer_success()
+        assert "Piper installé avec succès" in tab.lbl_install_progress.text()
+        assert "Réinstaller" in tab.btn_install_piper.text()
+        mock_pop.assert_called_once()
+        mock_eng_changed.assert_called_once()
 
     tab._on_installer_failed("Réseau indisponible")
     assert "Échec du téléchargement" in tab.lbl_install_progress.text()
+
+    # Vérification que même avec un message d'erreur d'architecture très long, la largeur du contenu reste contenue (< 650px)
+    with (
+        patch("ankiforge.services.cards.tts_service.PiperSidecarProvider.get_piper_executable", return_value="/usr/local/bin/piper"),
+        patch("ankiforge.services.cards.tts_service.PiperSidecarProvider.is_functional", return_value=(False, "[Errno 86] Bad CPU type in executable: " + "path/" * 25)),
+    ):
+        tab._update_piper_status_ui()
+        assert tab.content_widget.sizeHint().width() <= 650
+        assert "Inopérationnel" in tab.lbl_piper_status.text()
+        assert "[Errno 86]" in tab.lbl_piper_status.toolTip()
 
 
 def test_tts_settings_tab_kokoro_integration(qtbot):

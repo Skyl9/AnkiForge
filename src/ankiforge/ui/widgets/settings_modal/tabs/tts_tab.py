@@ -7,7 +7,7 @@ et d'installer/mettre à jour le binaire autonome Piper TTS en local.
 import logging
 from typing import Any
 
-from PySide6.QtCore import QThread, QUrl, Signal
+from PySide6.QtCore import Qt, QThread, QUrl, Signal
 
 try:
     from PySide6.QtMultimedia import QAudioOutput, QMediaDevices, QMediaPlayer
@@ -117,6 +117,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         self.scroll = QScrollArea(self)
         self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setStyleSheet("background: transparent; border: none;")
 
@@ -140,10 +141,13 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         lbl_engine = QLabel("Moteur de synthèse :")
         lbl_engine.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_engine.addWidget(lbl_engine)
+        row_engine.addStretch()
 
         self.cb_engine = StyledComboBox()
-        self.cb_engine.setMinimumWidth(260)
+        self.cb_engine.setFixedWidth(280)
         self.cb_engine.setFixedHeight(28)
+        if self.cb_engine.view() is not None:
+            self.cb_engine.view().setTextElideMode(Qt.TextElideMode.ElideRight)
         self._populate_engines()
         self.cb_engine.currentIndexChanged.connect(self._on_engine_changed)
         row_engine.addWidget(self.cb_engine)
@@ -154,10 +158,13 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         lbl_voice = QLabel("Voix par défaut :")
         lbl_voice.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_voice.addWidget(lbl_voice)
+        row_voice.addStretch()
 
         self.cb_voice = StyledComboBox()
-        self.cb_voice.setMinimumWidth(260)
+        self.cb_voice.setFixedWidth(280)
         self.cb_voice.setFixedHeight(28)
+        if self.cb_voice.view() is not None:
+            self.cb_voice.view().setTextElideMode(Qt.TextElideMode.ElideRight)
         row_voice.addWidget(self.cb_voice)
         card_gen_layout.addLayout(row_voice)
 
@@ -166,9 +173,13 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         lbl_rate = QLabel("Vitesse d'élocution :")
         lbl_rate.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_params.addWidget(lbl_rate)
+        row_params.addStretch()
 
         self.cb_rate = StyledComboBox()
+        self.cb_rate.setFixedWidth(280)
         self.cb_rate.setFixedHeight(28)
+        if self.cb_rate.view() is not None:
+            self.cb_rate.view().setTextElideMode(Qt.TextElideMode.ElideRight)
         self.cb_rate.addItem("Normale (100%)", "+0%")
         self.cb_rate.addItem("Lente (85%)", "-15%")
         self.cb_rate.addItem("Rapide (115%)", "+15%")
@@ -181,9 +192,13 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         lbl_device = QLabel("Sortie audio :")
         lbl_device.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_device.addWidget(lbl_device)
+        row_device.addStretch()
 
         self.cb_device = StyledComboBox()
+        self.cb_device.setFixedWidth(280)
         self.cb_device.setFixedHeight(28)
+        if self.cb_device.view() is not None:
+            self.cb_device.view().setTextElideMode(Qt.TextElideMode.ElideRight)
         self._populate_audio_devices()
         self.cb_device.currentIndexChanged.connect(self._on_audio_device_changed)
         row_device.addWidget(self.cb_device)
@@ -219,8 +234,8 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         row_status.addWidget(lbl_status_title)
 
         self.lbl_piper_status = QLabel()
+        self.lbl_piper_status.setWordWrap(True)
         self.lbl_piper_status.setStyleSheet("font-size: 11px; font-weight: bold;")
-        self._update_piper_status_ui()
         row_status.addWidget(self.lbl_piper_status)
         row_status.addStretch()
 
@@ -228,12 +243,14 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         # Emplacement
         lbl_location = QLabel(f"Emplacement : {get_app_data_dir() / 'tools' / 'tts' / 'piper'}")
+        lbl_location.setWordWrap(True)
         lbl_location.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         card_piper_layout.addWidget(lbl_location)
 
         # Bouton Télécharger / Installer
         row_install = QHBoxLayout()
         self.lbl_install_progress = QLabel("")
+        self.lbl_install_progress.setWordWrap(True)
         self.lbl_install_progress.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
         row_install.addWidget(self.lbl_install_progress, 1)
 
@@ -245,6 +262,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         card_piper_layout.addLayout(row_install)
         layout.addWidget(self.card_piper)
+        self._update_piper_status_ui()
 
         # ── SECTION 3 : GESTIONNAIRE LOCAL KOKORO-82M (SIDECAR DÉPORTÉ) ──────
         self.lbl_sec_kokoro = QLabel("MOTEUR LOCAL KOKORO-82M (OPTIONNEL)")
@@ -263,6 +281,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         row_kokoro_status.addWidget(lbl_kokoro_title)
 
         self.lbl_kokoro_status = QLabel()
+        self.lbl_kokoro_status.setWordWrap(True)
         self.lbl_kokoro_status.setStyleSheet("font-size: 11px; font-weight: bold;")
         row_kokoro_status.addWidget(self.lbl_kokoro_status)
         row_kokoro_status.addStretch()
@@ -271,6 +290,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         # Emplacement
         lbl_kokoro_loc = QLabel(f"Emplacement : {get_app_data_dir() / 'tools' / 'tts' / 'kokoro'}")
+        lbl_kokoro_loc.setWordWrap(True)
         lbl_kokoro_loc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         card_kokoro_layout.addWidget(lbl_kokoro_loc)
 
@@ -285,6 +305,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         # Bouton Installer / Configurer
         row_kokoro_install = QHBoxLayout()
         self.lbl_kokoro_install_progress = QLabel("")
+        self.lbl_kokoro_install_progress.setWordWrap(True)
         self.lbl_kokoro_install_progress.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
         row_kokoro_install.addWidget(self.lbl_kokoro_install_progress, 1)
 
@@ -330,13 +351,19 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             if is_functional:
                 self.lbl_piper_status.setText("● Installé et opérationnel")
                 self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
+                if hasattr(self, "btn_install_piper"):
+                    self.btn_install_piper.setText(" Réinstaller Piper CLI (1-Clic)")
             else:
-                self.lbl_piper_status.setText(f"Dépendance manquante ({msg})")
+                self.lbl_piper_status.setText("○ Inopérationnel (dépendance requise)")
                 self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
-                self.lbl_piper_status.setToolTip(msg)
+                self.lbl_piper_status.setToolTip(f"Dépendance manquante ou non fonctionnelle :\n{msg}")
+                if hasattr(self, "btn_install_piper"):
+                    self.btn_install_piper.setText(" Réinstaller Piper CLI (1-Clic)")
         else:
             self.lbl_piper_status.setText("○ Non installé (binaire absent)")
             self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
+            if hasattr(self, "btn_install_piper"):
+                self.btn_install_piper.setText(" Télécharger Piper CLI (1-Clic)")
 
     def _update_kokoro_status_ui(self) -> None:
         """Met à jour le libellé et la couleur du statut d'installation de Kokoro."""
@@ -529,6 +556,8 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self.btn_install_piper.setEnabled(True)
         self.lbl_install_progress.setText("Piper installé avec succès !")
         self._update_piper_status_ui()
+        self._populate_engines()
+        self._on_engine_changed()
         show_toast(self, "Piper TTS a été installé avec succès.")
 
     def _on_installer_failed(self, err_msg: str) -> None:
@@ -551,6 +580,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self.lbl_kokoro_install_progress.setText("Kokoro configuré avec succès !")
         self._update_kokoro_status_ui()
         self._populate_engines()
+        self._on_engine_changed()
         show_toast(self, "Le runner Kokoro-82M a été configuré avec succès.")
 
     def _on_kokoro_installer_failed(self, err_msg: str) -> None:

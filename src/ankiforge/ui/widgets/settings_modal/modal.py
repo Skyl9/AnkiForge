@@ -62,8 +62,8 @@ class SettingsModal(QDialog):
         self._tabs: list[QWidget | None] = []
 
         self.setWindowTitle("Paramètres AnkiForge")
-        self.setMinimumSize(960, 620)
-        self.resize(1060, 700)
+        self.setMinimumSize(820, 560)
+        self.resize(880, 620)
         self.setModal(False)
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint)
 
