@@ -48,6 +48,7 @@ def test_layout_thumbnail_card_attributes_and_selection(qtbot):
     card.set_selected(False)
     assert not card.is_selected
     assert card.check_badge.isHidden()
+    assert card.preview_container.height() >= 170
 
 
 def test_layout_thumbnail_card_click_and_keyboard(qtbot):

@@ -66,10 +66,11 @@ class LayoutThumbnailCard(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # 1. Zone d'aperçu de la miniature (hauteur 110px)
+        # 1. Zone d'aperçu de la miniature (hauteur 180px pour lisibilité de l'interface complète)
         self.preview_container = QFrame()
-        self.preview_container.setFixedHeight(110)
+        self.preview_container.setFixedHeight(180)
         self.preview_container.setObjectName("LayoutCardPreview")
+        self.preview_container.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border-top-left-radius: {DesignTokens.RADIUS_MD}px; border-top-right-radius: {DesignTokens.RADIUS_MD}px;")
         preview_layout = QVBoxLayout(self.preview_container)
         preview_layout.setContentsMargins(0, 0, 0, 0)
         preview_layout.setSpacing(4)
@@ -84,10 +85,10 @@ class LayoutThumbnailCard(QFrame):
         if pixmap is not None:
             self.lbl_thumbnail = QLabel()
             self.lbl_thumbnail.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            # Mise à l'échelle douce conservant le ratio
+            # Mise à l'échelle douce conservant le ratio d'aspect sans rognage déformant
             scaled_pixmap = pixmap.scaled(
-                QSize(360, 110),
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                QSize(360, 180),
+                Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
             rounded_pixmap = self._round_top_corners(scaled_pixmap, DesignTokens.RADIUS_MD - 1)
@@ -100,13 +101,13 @@ class LayoutThumbnailCard(QFrame):
             self.preview_container.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT}; border-top-left-radius: {DesignTokens.RADIUS_MD}px; border-top-right-radius: {DesignTokens.RADIUS_MD}px;")
 
             fallback_icon = QLabel()
-            fallback_icon.setPixmap(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_MUTED, weight="regular").pixmap(36, 36))
+            fallback_icon.setPixmap(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_MUTED, weight="regular").pixmap(48, 48))
             fallback_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
             preview_layout.addWidget(fallback_icon)
 
             self.fallback_label = QLabel("Aperçu indisponible")
             self.fallback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.fallback_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 500;")
+            self.fallback_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: 500;")
             preview_layout.addWidget(self.fallback_label)
 
         layout.addWidget(self.preview_container)
