@@ -32,21 +32,32 @@ def test_empty_state_widget_signals(qtbot):
 
 
 def test_variable_helper_dialog(qtbot):
-    """Vérifie la recherche et l'émission du signal d'insertion dans VariableHelperDialog."""
+    """Vérifie la recherche, le style compact et l'émission du signal d'insertion dans VariableHelperDialog."""
     dlg = VariableHelperDialog()
     qtbot.addWidget(dlg)
+
+    # Vérification du style compact et dimensions des boutons Insérer sur chaque carte
+    for card, _ in dlg._cards:
+        assert hasattr(card, "btn_insert")
+        assert card.btn_insert.property("density") == "compact"
+        assert card.btn_insert.maximumHeight() == 28
+        assert card.btn_insert.minimumHeight() == 28
+        assert not card.btn_insert.icon().isNull()
 
     # Filtrer par 'source'
     dlg.edit_filter.setText("source")
     visible_cards = [c for c, _ in dlg._cards if not c.isHidden()]
     assert len(visible_cards) >= 1
 
-    # Tester l'insertion
+    # Tester l'insertion via un vrai clic sur le bouton Insérer de la première carte visible
     inserted_vars = []
     dlg.variable_inserted.connect(lambda v: inserted_vars.append(v))
 
-    dlg._on_insert_variable("{{ text_source }}")
-    assert "{{ text_source }}" in inserted_vars
+    target_card = visible_cards[0]
+    target_doc = target_card.doc
+    target_card.btn_insert.click()
+    assert target_doc.variable in inserted_vars
+    assert dlg.result() == 1  # QDialog.DialogCode.Accepted
 
 
 def test_agent_test_dialog_samples(qtbot):

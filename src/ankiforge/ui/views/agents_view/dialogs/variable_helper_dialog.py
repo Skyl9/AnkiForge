@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.services.ai.persona_templates import JINJA2_VARIABLE_DOCS, Jinja2VariableDoc
-from ankiforge.ui.components import Badge, GlowLineEdit, PrimaryButton, SecondaryButton
+from ankiforge.ui.components import Badge, GlowLineEdit, PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
@@ -67,8 +67,9 @@ class VariableCard(QFrame):
         btn_insert = PrimaryButton("Insérer")
         btn_insert.setIcon(load_on_accent_icon("ph.plus"))
         btn_insert.setIconSize(QSize(12, 12))
-        btn_insert.setFixedHeight(24)
-        btn_insert.clicked.connect(lambda: self.on_insert(doc.variable))
+        apply_compact_style(btn_insert, height=28)
+        btn_insert.clicked.connect(lambda: self.on_insert(self.doc.variable))
+        self.btn_insert = btn_insert
         top_row.addWidget(btn_insert)
 
         layout.addLayout(top_row)
