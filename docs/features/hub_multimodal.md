@@ -55,7 +55,13 @@ L'une des innovations majeures d'AnkiForge est la traçabilité continue entre l
 
 ## 🖼️ 5. Galerie Visuelle & Albums d'Images
 
-AnkiForge extrait automatiquement toutes les images, diagrammes, schémas anatomiques et graphiques contenus dans vos documents :
-- **Visualiseur d'Albums** : Explorez l'ensemble des médias extraits sous forme de grille haute résolution.
+AnkiForge extrait et organise les images, diagrammes, schémas anatomiques et planches scannées au sein d'albums dédiés :
+- **Visualiseur d'Albums & Planche-Contact** : Explorez l'ensemble des planches sous forme de grille interactive haute résolution, avec réordonnancement par glisser-déposer, réorientation (rotation 90°) et inspection détaillée.
+- **Recadrage Non Destructif par Image Source** : Isolez précisément une sous-région d'intérêt (schéma, formule, figure) directement depuis l'inspecteur de planche :
+    - *Repère source invariant* : Le rectangle de recadrage `[x, y, w, h]` est calculé et mémorisé dans le repère natif de l'image source, survivant fidèlement à toute rotation ultérieure de la planche.
+    - *Zéro altération disque & réversibilité intégrale* : L'image source originale sur le disque n'est jamais écrasée ni modifiée ; un bouton « Retirer le recadrage » restitue instantanément la planche intégrale.
+    - *Convergence stricte* : La couture centrale de rendu (`AlbumService.render_page_image`) gouverne l'ensemble des consommateurs — la vue inspecteur, les vignettes de planche-contact, la transcription OCR par vision IA et l'indexation RAG visuel opèrent sur la même zone cadrée.
+    - *Invalidation propre des états dérivés* : Toute modification ou suppression du recadrage purge les fragments textuels associés et marque la planche comme `Périmé` (`stale`), garantissant qu'aucun résidu de transcription obsolète ne soit conservé ou exporté.
 - **Occlusion d'Images (*Image Occlusion*)** : Masquez des zones clés (légendes d'un schéma, organes, éléments de circuit électronique) pour créer des cartes d'occlusion visuelle conformes au standard Anki.
-- **Gestionnaire de Médias Intégré** : Les images sélectionnées sont automatiquement copiées dans le sous-dossier médias du profil actif lors de l'association à une carte.
+- **Transcription Ciblée d'Albums** : Modal dédié (`AlbumTranscriptionDialog`) permettant d'orienter la transcription IA selon des périmètres précis (tout l'album, planches non transcrites, planches périmées ou intervalle de pages), avec tolérance aux pannes et relance chirurgicale des échecs.
+- **Gestionnaire de Médias Intégré** : Déduplication MD5, archivage sécurisé et isolation complète par profil utilisateur.
