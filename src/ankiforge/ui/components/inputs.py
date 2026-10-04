@@ -46,6 +46,119 @@ class StyledTextEdit(QPlainTextEdit):
         self.setPlainText(text)
 
 
+class AutoExpandingTextEdit(QPlainTextEdit):
+    """Textarea auto-agrandissante selon son contenu, bornée par min_height et max_height.
+
+    Respecte les DesignTokens (INPUT_AUTO_EXPAND_MIN_HEIGHT, INPUT_AUTO_EXPAND_MAX_HEIGHT),
+    assure une compatibilité d'interface avec QLineEdit (text(), setText(), setCursorPosition(),
+    cursorPosition()), fait défiler verticalement lorsque le contenu dépasse max_height,
+    transmet la tabulation au widget suivant (setTabChangesFocus(True)), et délègue l'événement
+    molette au parent lorsque l'ascenseur interne est inactif (anti-piège de scroll).
+    """
+
+    def __init__(
+        self,
+        placeholder: str = "",
+        min_height: int | None = None,
+        max_height: int | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._custom_min_height = min_height
+        self._custom_max_height = max_height
+        self._min_height = min_height if min_height is not None else DesignTokens.INPUT_AUTO_EXPAND_MIN_HEIGHT
+        self._max_height = max_height if max_height is not None else DesignTokens.INPUT_AUTO_EXPAND_MAX_HEIGHT
+
+        if placeholder:
+            self.setPlaceholderText(placeholder)
+
+        self.setTabChangesFocus(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        self.textChanged.connect(self._adjust_height)
+        self._adjust_height()
+
+    def setText(self, text: str) -> None:
+        """Alias pour setPlainText compatible avec l'API QLineEdit."""
+        self.setPlainText(text)
+        self._adjust_height()
+
+    def text(self) -> str:
+        """Alias pour toPlainText compatible avec l'API QLineEdit."""
+        return self.toPlainText()
+
+    def setCursorPosition(self, pos: int) -> None:
+        """Déplace le curseur à la position demandée (compatibilité QLineEdit)."""
+        cursor = self.textCursor()
+        cursor.setPosition(min(max(0, pos), len(self.toPlainText())))
+        self.setTextCursor(cursor)
+
+    def cursorPosition(self) -> int:
+        """Retourne la position du curseur (compatibilité QLineEdit)."""
+        return self.textCursor().position()
+
+    @property
+    def min_height(self) -> int:
+        return self._min_height
+
+    @property
+    def max_height(self) -> int:
+        return self._max_height
+
+    def set_min_height(self, height: int) -> None:
+        """Configure dynamiquement la hauteur minimale."""
+        self._custom_min_height = height
+        self._min_height = height
+        self._adjust_height()
+
+    def set_max_height(self, height: int) -> None:
+        """Configure dynamiquement la hauteur maximale."""
+        self._custom_max_height = height
+        self._max_height = height
+        self._adjust_height()
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        """Met à jour les bornes de hauteur depuis le profil de thème actif."""
+        if self._custom_min_height is None:
+            self._min_height = getattr(profile, "input_auto_expand_min_height", DesignTokens.INPUT_AUTO_EXPAND_MIN_HEIGHT)
+        if self._custom_max_height is None:
+            self._max_height = getattr(profile, "input_auto_expand_max_height", DesignTokens.INPUT_AUTO_EXPAND_MAX_HEIGHT)
+        self._adjust_height()
+
+    def resizeEvent(self, event: Any) -> None:
+        super().resizeEvent(event)
+        self._adjust_height()
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        """Délègue l'événement de défilement au parent si le widget n'a pas besoin de défiler."""
+        if self.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+            event.ignore()
+            return
+        super().wheelEvent(event)
+
+    def _adjust_height(self) -> None:
+        """Ajuste la hauteur du widget en fonction du nombre de lignes réelles (y compris wrap)."""
+        lines = max(1, self.document().lineCount())
+        line_h = self.fontMetrics().lineSpacing()
+        doc_margin = int(self.document().documentMargin() * 2)
+        margins = self.contentsMargins()
+        needed = (lines * line_h) + doc_margin + margins.top() + margins.bottom()
+
+        target_height = int(max(self._min_height, min(needed, self._max_height)))
+
+        # Bascule transparente de la scrollbar selon le dépassement
+        if needed > self._max_height:
+            if self.verticalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAsNeeded:
+                self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        else:
+            if self.verticalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+                self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        if self.height() != target_height or self.minimumHeight() != target_height or self.maximumHeight() != target_height:
+            self.setFixedHeight(target_height)
+
+
 class GlowLineEdit(QLineEdit):
     """Input de recherche avec loupe intégrée, animation d'ombre au survol et contour accentué au focus."""
 

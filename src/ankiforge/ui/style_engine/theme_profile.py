@@ -67,6 +67,11 @@ class ThemeProfile:
     font_size_base: int = 13
     font_size_sm: int = 11
 
+    # Inputs & Controls
+    input_height_base: int = 34
+    input_auto_expand_min_height: int = 54
+    input_auto_expand_max_height: int = 160
+
     # Tokens de coloration syntaxique (Syntax Highlighting)
     syntax_tag: str = "#38bdf8"  # Balises HTML, sélecteurs CSS
     syntax_attr: str = "#fbbf24"  # Attributs HTML, propriétés CSS

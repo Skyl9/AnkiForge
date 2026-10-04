@@ -19,7 +19,17 @@ from .document_picker_button import DocumentPickerButton
 from .document_select_window import DocumentSelectWindow
 from .elided_label import ElidedLabel
 from .flow_layout import FlowLayout, FlowWidget
-from .inputs import ComboBoxWheelFilter, DBComboBox, GlowLineEdit, OptionToggleRow, StyledComboBox, StyledLineEdit, StyledTextEdit, ToggleSwitch
+from .inputs import (
+    AutoExpandingTextEdit,
+    ComboBoxWheelFilter,
+    DBComboBox,
+    GlowLineEdit,
+    OptionToggleRow,
+    StyledComboBox,
+    StyledLineEdit,
+    StyledTextEdit,
+    ToggleSwitch,
+)
 from .lists import ActivityItem, ContextItem, DocTreeItem, StyledListItem, VirtualListView
 from .misc import StyledToolbar, UserAvatar
 from .modal_field import ModalField
@@ -110,4 +120,5 @@ __all__ = [
     "TagSelectWindow",
     "VisionCapabilityBadge",
     "VisionCapabilityNotice",
+    "AutoExpandingTextEdit",
 ]

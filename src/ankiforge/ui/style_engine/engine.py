@@ -268,7 +268,7 @@ class StyleEngine(QObject):
         }}
 
         /* --- Champs de Saisie & Formulaires --- */
-        QLineEdit, QTextEdit, QPlainTextEdit, QComboBox {{
+        QLineEdit, QTextEdit, QPlainTextEdit, AutoExpandingTextEdit, QComboBox {{
             background-color: {p.bg_input};
             border: 1px solid {p.border_color};
             border-top: 1px solid {p.border_light};
@@ -278,11 +278,11 @@ class StyleEngine(QObject):
             selection-background-color: {p.accent_primary};
             selection-color: #ffffff;
         }}
-        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
+        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, AutoExpandingTextEdit:focus, QComboBox:focus {{
             border: 1.5px solid {p.accent_primary};
             background-color: {p.bg_panel};
         }}
-        QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QComboBox:disabled {{
+        QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, AutoExpandingTextEdit:disabled, QComboBox:disabled {{
             background-color: {p.bg_main};
             color: {p.text_muted};
             border-color: {p.border_light};

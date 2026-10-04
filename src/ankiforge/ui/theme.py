@@ -156,11 +156,20 @@ class DesignTokens:
     TOPBAR_HEIGHT = 60
     GLOBAL_TOPBAR_HEIGHT = 28
 
+    # Inputs & Text Areas
+    INPUT_HEIGHT_BASE = 34
+    INPUT_AUTO_EXPAND_MIN_HEIGHT = 54
+    INPUT_AUTO_EXPAND_MAX_HEIGHT = 160
+
     @classmethod
     def apply_theme_profile(cls, profile: Any) -> None:
         """Applique l'intégralité d'un ThemeProfile aux variables de classe DesignTokens."""
         cls.ACTIVE_THEME_ID = profile.id
         cls.IS_DARK = getattr(profile, "is_dark", True)
+
+        cls.INPUT_HEIGHT_BASE = getattr(profile, "input_height_base", 34)
+        cls.INPUT_AUTO_EXPAND_MIN_HEIGHT = getattr(profile, "input_auto_expand_min_height", 54)
+        cls.INPUT_AUTO_EXPAND_MAX_HEIGHT = getattr(profile, "input_auto_expand_max_height", 160)
 
         cls.BG_MAIN = profile.bg_main
         cls.BG_SIDEBAR = profile.bg_sidebar
