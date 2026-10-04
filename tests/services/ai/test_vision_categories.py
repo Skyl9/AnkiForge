@@ -753,3 +753,95 @@ def test_apple_vision_category_description():
     hardware_cat = next(c for c in categories if c.id == "hardware")
     assert "Extraction optique locale sans VRAM" in hardware_cat.description
     assert "prose et les textes continus en bloc" in hardware_cat.description
+
+
+def test_ocr_service_unknown_category_raises_explicit_error_without_silent_fallback(tmp_path: Path):
+    """
+    Un category_id inconnu ou périmé ne doit JAMAIS déclencher un repli silencieux
+    sur la première catégorie (categories[0]), mais lever une erreur explicite.
+    """
+    service = OCRService()
+    img_path = _create_test_img(tmp_path / "unknown_cat.png")
+
+    with pytest.raises(ValueError, match="Catégorie de vision inconnue ou non configurée : 'unknown_category_xyz'"):
+        service.transcribe_image(img_path, category_id="unknown_category_xyz")
+
+    # Même avec un provider_override, l'utilisation d'une catégorie inexistante est interdite
+    # (refus de propager silencieusement les instructions d'une autre catégorie).
+    class DummyProvider(MockProvider):
+        def generate(self, system_prompt, user_prompt, response_format="text"):
+            return "Ne devrait jamais être produit"
+
+    with pytest.raises(ValueError, match="Catégorie de vision inconnue ou non configurée : 'unknown_category_xyz'"):
+        service.transcribe_image(
+            img_path,
+            category_id="unknown_category_xyz",
+            provider_override=DummyProvider(),
+        )
+
+
+def test_ocr_service_transcribe_page_unknown_category_raises_explicit_error(tmp_path: Path):
+    """
+    Vérifie que transcribe_page avec une catégorie inconnue lève une exception,
+    ne marque pas la planche comme prête, et n'enregistre aucun texte erroné.
+    """
+    manager = MediaManager()
+    album_svc = AlbumService(media_manager=manager)
+    ocr_svc = OCRService(media_manager=manager)
+
+    img = _create_test_img(tmp_path / "page_err.png")
+    doc = album_svc.create_album_from_images("Album Err Cat", [img])
+    page = album_svc.get_album_pages(doc.id)[0]
+
+    with pytest.raises(ValueError, match="Catégorie de vision inconnue ou non configurée : 'stale_cat_404'"):
+        ocr_svc.transcribe_page(page.id, category_id="stale_cat_404")
+
+    # La page ne doit pas être marquée "ready" ni contenir du texte transcrit silencieusement
+    reloaded = DocumentPageModel.get_by_id(page.id)
+    assert reloaded.ocr_text == ""
+    assert reloaded.status != "ocr_running"
+
+
+def test_transcribe_signatures_have_no_hardcoded_category_id_default():
+    """
+    La valeur par défaut de category_id ne doit plus être codée en dur
+    dans la signature de transcribe_image ou transcribe_page.
+    """
+    import inspect
+
+    sig_img = inspect.signature(OCRService.transcribe_image)
+    param_img = sig_img.parameters["category_id"]
+    assert param_img.default is inspect.Parameter.empty, "category_id ne doit pas avoir de valeur par défaut codée en dur dans transcribe_image"
+
+    sig_page = inspect.signature(OCRService.transcribe_page)
+    param_page = sig_page.parameters["category_id"]
+    assert param_page.default is inspect.Parameter.empty, "category_id ne doit pas avoir de valeur par défaut codée en dur dans transcribe_page"
+
+
+def test_album_ocr_worker_with_unknown_category_reports_honest_failure(tmp_path: Path):
+    """
+    Un album lancé avec une catégorie inconnue rapporte fidèlement l'échec de chaque page
+    via finished_signal(0, N) sans repli silencieux ni faux succès.
+    """
+    album_svc = AlbumService()
+    imgs = [_create_test_img(tmp_path / "p1.png"), _create_test_img(tmp_path / "p2.png")]
+    doc = album_svc.create_album_from_images("Album Cat Inconnue", imgs)
+
+    worker = AlbumOCRWorker(
+        document_id=doc.id,
+        category_id="nonexistent_vision_category",
+    )
+
+    received: dict[str, list] = {"finished": [], "error": []}
+    worker.finished_signal.connect(lambda succ, err: received["finished"].append((succ, err)))
+    worker.error_signal.connect(lambda msg: received["error"].append(msg))
+
+    worker.run()
+
+    # Compte rendu honnête : 0 succès, 2 échecs
+    assert received["finished"] == [(0, 2)]
+    assert worker.failed_page_ids == [p.id for p in album_svc.get_album_pages(doc.id)]
+
+    for page in album_svc.get_album_pages(doc.id):
+        assert page.ocr_text == ""
+        assert page.status != "ocr_running"

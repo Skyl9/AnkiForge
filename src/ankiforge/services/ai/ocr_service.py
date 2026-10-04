@@ -12,7 +12,6 @@ from typing import Any
 
 from PIL import Image
 
-from ankiforge.database.base import db
 from ankiforge.database.models import DocumentPageModel
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.vision_category_service import VisionCategoryService
@@ -319,16 +318,20 @@ class OCRService:
     def transcribe_image(
         self,
         image_path: str | Path,
-        category_id: str = "structured",
+        category_id: str,
         provider_override: LLMProvider | None = None,
         custom_instructions: str | None = None,
     ) -> str:
         """
         Transcrit une image en appliquant la catégorie d'IA sélectionnée par l'utilisateur.
+
+        Lève ValueError si la catégorie demandée est inconnue ou non configurée,
+        sans aucun repli silencieux vers une autre catégorie (compte rendu honnête).
         """
         category = VisionCategoryService.get_category_by_id(category_id)
         if not category:
-            category = VisionCategoryService.get_categories()[0]
+            logger.error("Catégorie de vision inconnue ou non configurée : '%s'", category_id)
+            raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{category_id}'")
 
         effective_instructions = custom_instructions if custom_instructions is not None else category.custom_instructions
 
@@ -367,7 +370,7 @@ class OCRService:
     def transcribe_page(
         self,
         page_id: int,
-        category_id: str = "structured",
+        category_id: str,
         provider_override: LLMProvider | None = None,
         custom_instructions: str | None = None,
     ) -> DocumentPageModel:
@@ -381,7 +384,14 @@ class OCRService:
         """
         from ankiforge.services.cards.album_service import AlbumService
 
-        with db.atomic():
+        # Validation immédiate de la catégorie demandée avant tout rendu ou écriture
+        category = VisionCategoryService.get_category_by_id(category_id)
+        if not category:
+            logger.error("Catégorie de vision inconnue ou non configurée : '%s'", category_id)
+            raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{category_id}'")
+
+        model_db = DocumentPageModel._meta.database
+        with model_db.atomic():
             page = DocumentPageModel.get_by_id(page_id)
             album_service = AlbumService(media_manager=self.media_manager)
             rendered = album_service.render_page_image(page)
@@ -399,15 +409,21 @@ class OCRService:
                     save_rendered_page(rendered, handle.name, suffix)
                     temp_path = Path(handle.name)
 
+                original_status = page.status
                 page.status = "ocr_running"
                 page.save()
 
-                text = self.transcribe_image(
-                    temp_path,
-                    category_id=category_id,
-                    provider_override=provider_override,
-                    custom_instructions=custom_instructions,
-                )
+                try:
+                    text = self.transcribe_image(
+                        temp_path,
+                        category_id=category_id,
+                        provider_override=provider_override,
+                        custom_instructions=custom_instructions,
+                    )
+                except Exception:
+                    page.status = original_status
+                    page.save()
+                    raise
             finally:
                 rendered.close()
                 if temp_path is not None and temp_path.exists():
