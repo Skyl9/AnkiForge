@@ -1012,3 +1012,164 @@ def test_refine_links_protects_a_declared_region_like_a_derived_container():
 
     assert NoteChunkLinkModel.get_by_id(link.id).chunk_id == parent.id
     assert NoteChunkLinkModel.get_by_id(link.id).chunk_id != child.id
+
+
+def test_sync_note_coverage_preserves_existing_proven_link():
+    """Une note dont les liens sont prouvés conserve son lien et sa résolution après synchronisation."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Cardio {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Cardiologie > Ventricule gauche",
+        content="Le ventricule gauche éjecte le sang dans l'aorte.",
+        content_hash=f"h_cardio_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    tags = build_document_tags(doc_id=doc.id, section_name=chunk.heading_path)
+    note = _make_note_with_tags(nt, tags)
+    link = NoteChunkLinkModel.create(note=note, chunk=chunk, resolution=RESOLUTION_SECTION)
+
+    result = CoverageAlignmentService.sync_note_coverage(note)
+
+    assert len(result) == 1
+    assert result[0].id == link.id
+    refreshed_link = NoteChunkLinkModel.get_by_id(link.id)
+    assert refreshed_link.chunk_id == chunk.id
+    assert refreshed_link.resolution == RESOLUTION_SECTION
+
+
+def test_sync_note_coverage_preserves_migrated_link_without_resolution():
+    """Une note migrée (resolution=None de la migration 042) conserve son lien et son absence de palier présumé."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Neuro {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Neurologie > Synapse",
+        content="La fente synaptique sépare le neurone présynaptique du neurone postsynaptique.",
+        content_hash=f"h_neuro_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    tags = build_document_tags(doc_id=doc.id, section_name=chunk.heading_path)
+    note = _make_note_with_tags(nt, tags)
+    link = NoteChunkLinkModel.create(note=note, chunk=chunk, resolution=None)
+
+    result = CoverageAlignmentService.sync_note_coverage(note)
+
+    assert len(result) == 1
+    assert result[0].id == link.id
+    refreshed_link = NoteChunkLinkModel.get_by_id(link.id)
+    assert refreshed_link.chunk_id == chunk.id
+    assert refreshed_link.resolution is None
+
+
+def test_sync_note_coverage_evaluates_unlinked_note_and_persists_resolution():
+    """Une note sans lien est rattachée via resolve_attachment et le palier gagnant est persisté."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Bio {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Biologie > Ribosome",
+        content="Le ribosome assure la traduction des ARN messagers en protéines.",
+        content_hash=f"h_bio_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    tags = build_document_tags(doc_id=doc.id, section_name=chunk.heading_path)
+    note = _make_note_with_tags(nt, tags)
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).count() == 0
+
+    result = CoverageAlignmentService.sync_note_coverage(note)
+
+    assert len(result) == 1
+    link = result[0]
+    assert link.chunk_id == chunk.id
+    assert link.resolution == RESOLUTION_SECTION
+
+
+def test_sync_note_coverage_unmatched_stays_hors_couverture():
+    """Une note dont aucun fragment ne correspond reste hors couverture plutôt que rattachée au hasard."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Chim {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Chimie > Liaison covalente",
+        content="La liaison covalente résulte du partage d'électrons entre atomes.",
+        content_hash=f"h_chim_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    tags = [f"doc:{doc.id}"]
+    note = _make_note_with_tags(nt, tags)
+
+    result = CoverageAlignmentService.sync_note_coverage(note, card_text="Recette de tarte aux pommes pâtissière")
+
+    assert len(result) == 0
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).count() == 0
+
+
+def test_sync_note_coverage_rewrites_legacy_tags_and_link_atomically():
+    """La synchronisation réécrit les tags périmés et le lien de manière atomique."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Hist {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Histoire > Renaissance",
+        content="La Renaissance marque un renouveau artistique et scientifique en Europe.",
+        content_hash=f"h_hist_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    legacy_tags = [
+        "ankiforge_generated",
+        f"doc:{doc.id}",
+        f"section:{section_key(chunk.heading_path)}",
+        "chunk:999999",
+    ]
+    note = _make_note_with_tags(nt, legacy_tags)
+
+    result = CoverageAlignmentService.sync_note_coverage(note)
+
+    assert len(result) == 1
+    assert result[0].chunk_id == chunk.id
+    assert result[0].resolution == RESOLUTION_SECTION
+
+    refreshed_note = NoteModel.get_by_id(note.id)
+    assert "chunk:999999" not in refreshed_note.tags
+    assert f"section:{section_key(chunk.heading_path)}" in refreshed_note.tags
+
+
+def test_sync_note_coverage_removes_stale_link_when_document_reassigned():
+    """Si une note a été réassignée à un autre document via ses tags, l'ancien lien devient obsolète."""
+    uid = uuid.uuid4().hex[:6]
+    doc1 = DocumentModel.create(title=f"Cours Doc 1 {uid}", file_type="md")
+    chunk1 = DocumentChunkModel.create(
+        document=doc1,
+        chunk_index=0,
+        heading_path="Titre 1",
+        content="Contenu 1",
+        content_hash=f"h1_{uid}",
+    )
+    doc2 = DocumentModel.create(title=f"Cours Doc 2 {uid}", file_type="md")
+    chunk2 = DocumentChunkModel.create(
+        document=doc2,
+        chunk_index=0,
+        heading_path="Titre 2",
+        content="Contenu 2",
+        content_hash=f"h2_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    note = _make_note_with_tags(nt, build_document_tags(doc_id=doc1.id, section_name=chunk1.heading_path))
+    NoteChunkLinkModel.create(note=note, chunk=chunk1, resolution=RESOLUTION_SECTION)
+
+    # Réassignation des tags vers doc2
+    note.tags = json.dumps(build_document_tags(doc_id=doc2.id, section_name=chunk2.heading_path))
+    note.save()
+
+    result = CoverageAlignmentService.sync_note_coverage(note)
+
+    assert len(result) == 1
+    assert result[0].chunk_id == chunk2.id
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk1).count() == 0
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk2).count() == 1

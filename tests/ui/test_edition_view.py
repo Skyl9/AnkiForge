@@ -11,7 +11,16 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.database.models import (
+    CardModel,
+    DeckModel,
+    DocumentChunkModel,
+    DocumentModel,
+    NoteChunkLinkModel,
+    NoteModel,
+    NoteTypeModel,
+    NoteVersionModel,
+)
 from ankiforge.ui.views.edition_view import EditionView, format_tags_display, strip_html_tags
 from ankiforge.ui.widgets.editor_toolbar_widget import EditorToolbarWidget
 from ankiforge.ui.widgets.note_editor_widget import (
@@ -424,3 +433,58 @@ def test_edition_view_batch_move_cards_to_deck(qtbot: Any, mock_db: Any) -> None
 
     assert CardModel.get_by_id(card1.id).deck.id == deck_new.id
     assert CardModel.get_by_id(card2.id).deck.id == deck_new.id
+
+
+def test_edition_view_save_card_preserves_proven_and_migrated_links(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la sauvegarde dans EditionView ne détruit pas les liens prouvés ni migrés."""
+    from ankiforge.utils.tags import build_document_tags
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Cardio {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Cardiologie > Valvule",
+        content="La valvule mitrale sépare l'atrium gauche du ventricule gauche.",
+        content_hash=f"h_valv_{uid}",
+    )
+    deck = DeckModel.create(name=f"Deck_{uid}")
+    nt = NoteTypeModel.create(name=f"NT_Cov_{uid}", fields_schema='["Front", "Back"]')
+
+    # Note 1 : Lien prouvé (resolution="section")
+    tags1 = build_document_tags(doc_id=doc.id, section_name=chunk.heading_path)
+    note1 = NoteModel.create(guid=f"g_cov1_{uid}", note_type=nt, tags=json.dumps(tags1))
+    CardModel.create(note=note1, deck=deck, template_index=0)
+    NoteVersionModel.create(note=note1, version_number=1, content='{"Front": "Q1", "Back": "A1"}', is_active=True)
+    link1 = NoteChunkLinkModel.create(note=note1, chunk=chunk, resolution="section")
+
+    # Note 2 : Lien migré (resolution=None)
+    tags2 = build_document_tags(doc_id=doc.id, section_name=chunk.heading_path)
+    note2 = NoteModel.create(guid=f"g_cov2_{uid}", note_type=nt, tags=json.dumps(tags2))
+    CardModel.create(note=note2, deck=deck, template_index=0)
+    NoteVersionModel.create(note=note2, version_number=1, content='{"Front": "Q2", "Back": "A2"}', is_active=True)
+    link2 = NoteChunkLinkModel.create(note=note2, chunk=chunk, resolution=None)
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    # 1. Sauvegarde de la Note 1 : le lien prouvé doit être conservé
+    view.select_note_by_id(note1.id)
+    view._save_card()
+
+    refreshed_links1 = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note1))
+    assert len(refreshed_links1) == 1
+    assert refreshed_links1[0].id == link1.id
+    assert refreshed_links1[0].chunk_id == chunk.id
+    assert refreshed_links1[0].resolution == "section"
+
+    # 2. Sauvegarde de la Note 2 : le lien migré doit être conservé avec resolution=None
+    view.select_note_by_id(note2.id)
+    view._save_card()
+
+    refreshed_links2 = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note2))
+    assert len(refreshed_links2) == 1
+    assert refreshed_links2[0].id == link2.id
+    assert refreshed_links2[0].chunk_id == chunk.id
+    assert refreshed_links2[0].resolution is None

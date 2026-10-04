@@ -948,17 +948,11 @@ class EditionView(QWidget):
             self.note_table_model.update_note_content(note_id, new_content)
             self._update_nav_ribbon_info()
 
-            # Recalcul de la liaison documentaire si des tags de traçabilité sont présents
-            from ankiforge.database.models import NoteChunkLinkModel
+            # Synchronisation de la couverture documentaire (préserve les liens prouvés et migrés)
             from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-            note = self._current_note
-            tags = getattr(note, "tags", "") or ""
-            if "doc:" in tags or "source:" in tags:
-                NoteChunkLinkModel.delete().where(NoteChunkLinkModel.note == note).execute()
-                new_chunk = CoverageAlignmentService.find_matching_chunk_for_note(note_id)
-                if new_chunk:
-                    NoteChunkLinkModel.get_or_create(note=note, chunk=new_chunk)
+            card_text = " ".join(str(v) for v in new_content.values() if v).strip()
+            CoverageAlignmentService.sync_note_coverage(self._current_note, card_text=card_text)
 
             show_toast(self, f"Carte #{note_id} sauvegardée avec succès.")
         except Exception as e:
