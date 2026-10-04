@@ -1,6 +1,8 @@
 import uuid
+from typing import Any
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
 from ankiforge.database.models import PersonaModel
@@ -288,3 +290,105 @@ def test_agents_view_no_dashed_border_and_no_child_cascade(qtbot):
     assert "dashed" not in view.engine_info_card.styleSheet().lower()
     assert "border: none" in view.lbl_engine_icon.styleSheet().lower()
     assert "border: none" in view.lbl_engine_info.styleSheet().lower()
+
+
+def test_agents_view_auto_expanding_description_and_identity_height(qtbot: Any) -> None:
+    """Vérifie l'auto-agrandissement du champ description lors de l'édition et le chargement d'un agent."""
+    from ankiforge.ui.components.inputs import AutoExpandingTextEdit
+    from ankiforge.ui.theme import DesignTokens
+
+    uid = uuid.uuid4().hex[:6]
+    initial_desc = "Description courte sur une ligne."
+    p = PersonaModel.create(
+        name=f"Agent Desc Test {uid}",
+        description=initial_desc,
+        system_prompt="System prompt test",
+        output_format="json",
+        persona_type="pipeline",
+        allowed_tools="[]",
+    )
+
+    view = AgentsView()
+    qtbot.addWidget(view)
+    view.resize(1100, 750)
+    view.show()
+    qtbot.wait(20)
+
+    # 1. Vérification du type du widget et présence du QScrollArea sur tab_identity
+    assert isinstance(view.desc_edit, AutoExpandingTextEdit)
+    assert hasattr(view, "scroll_identity")
+    assert view.desc_edit.min_height == DesignTokens.INPUT_AUTO_EXPAND_MIN_HEIGHT
+    assert view.desc_edit.max_height == DesignTokens.INPUT_AUTO_EXPAND_MAX_HEIGHT
+
+    # 2. Chargement du persona dans l'éditeur
+    view._load_persona_into_editor(p)
+    view._current_agent = p
+    qtbot.wait(20)
+
+    assert view.desc_edit.text() == initial_desc
+    h_initial = view.desc_edit.height()
+    assert h_initial == DesignTokens.INPUT_AUTO_EXPAND_MIN_HEIGHT
+
+    # 3. Saisie d'une description longue multiligne (simulation de frappe utilisateur)
+    multiline_desc = (
+        "Première ligne de rôle de l'agent.\n"
+        "Deuxième ligne expliquant les contraintes de formulation.\n"
+        "Troisième ligne pour le formatage et les balises cloze.\n"
+        "Quatrième ligne détaillant les règles d'intégrité."
+    )
+    view.desc_edit.setPlainText(multiline_desc)
+    qtbot.wait(20)
+
+    h_expanded = view.desc_edit.height()
+    assert h_expanded > h_initial
+    assert h_expanded <= DesignTokens.INPUT_AUTO_EXPAND_MAX_HEIGHT
+
+    # 4. Sauvegarde de la description modifiée en BDD
+    view.btn_save.click()
+    reloaded_p = PersonaModel.get_by_id(p.id)
+    assert reloaded_p.description == multiline_desc
+
+    # 5. Dépassement de la hauteur maximale (vérification scrollbar)
+    very_long_desc = "\n".join(f"Directive numéro {i} pour l'agent IA" for i in range(20))
+    view.desc_edit.setPlainText(very_long_desc)
+    qtbot.wait(20)
+
+    assert view.desc_edit.height() == DesignTokens.INPUT_AUTO_EXPAND_MAX_HEIGHT
+    assert view.desc_edit.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+
+
+def test_agents_view_across_all_four_layouts_and_themes(qtbot: Any) -> None:
+    """Vérifie le comportement et l'alignement du widget description dans les 4 layouts et les thèmes."""
+    from ankiforge.ui.layouts.layout_manager import LayoutManager
+    from ankiforge.ui.style_engine.themes import BUILTIN_THEMES
+
+    uid = uuid.uuid4().hex[:6]
+    PersonaModel.create(
+        name=f"Agent Layout Test {uid}",
+        description="Description pour test multi-layouts et thèmes.",
+        system_prompt="Prompt layout",
+    )
+
+    view = AgentsView()
+    qtbot.addWidget(view)
+    view.resize(1200, 800)
+    view.show()
+    qtbot.wait(20)
+
+    # 1. Vérification dans les 4 thèmes clés
+    key_themes = ["jetbrains", "jetbrains_light", "macos", "emerald", "glassmorphism"]
+    for theme_id in key_themes:
+        profile = BUILTIN_THEMES.get(theme_id)
+        if profile:
+            view.refresh_theme(profile)
+            assert view.desc_edit.height() >= view.desc_edit.min_height
+            assert view.desc_edit.max_height >= view.desc_edit.min_height
+
+    # 2. Vérification dans les 4 architectures de layouts
+    layouts = ["ide", "macos", "dashboard", "glassmorphism"]
+    for layout_id in layouts:
+        layout_cls = LayoutManager.LAYOUTS.get(layout_id)
+        assert layout_cls is not None
+        # Le widget s'affiche sans déformation dans n'importe quel conteneur de layout
+        assert view.scroll_identity.widget() is not None
+        assert view.desc_edit.isVisible()

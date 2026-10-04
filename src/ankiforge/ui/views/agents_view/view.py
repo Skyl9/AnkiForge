@@ -35,6 +35,7 @@ from ankiforge.services.profile_content_transfer import ProfileContentTransfer
 from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import (
+    AutoExpandingTextEdit,
     Badge,
     FilterChipButton,
     FlowWidget,
@@ -301,8 +302,7 @@ class AgentsView(QWidget):
         lbl_desc = QLabel("DESCRIPTION & RÔLE :")
         lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         layout_identity.addWidget(lbl_desc)
-        self.desc_edit = StyledLineEdit()
-        self.desc_edit.setPlaceholderText("ex: Découpe le cours en concepts atomiques selon la règle de formulation minimale.")
+        self.desc_edit = AutoExpandingTextEdit(placeholder="ex: Découpe le cours en concepts atomiques selon la règle de formulation minimale.")
         layout_identity.addWidget(self.desc_edit)
 
         row_props = QHBoxLayout()
@@ -389,7 +389,13 @@ class AgentsView(QWidget):
         layout_identity.addWidget(self.engine_info_card)
 
         layout_identity.addStretch()
-        self.tabs.addWidget(tab_identity)
+
+        self.scroll_identity = QScrollArea()
+        self.scroll_identity.setWidgetResizable(True)
+        self.scroll_identity.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_identity.setStyleSheet("background: transparent; border: none;")
+        self.scroll_identity.setWidget(tab_identity)
+        self.tabs.addWidget(self.scroll_identity)
 
         # ── ONGLET 2 : Instructions & Prompt Jinja2 ──
         tab_prompt = QWidget()
@@ -658,6 +664,8 @@ class AgentsView(QWidget):
             self.lbl_engine_icon.setStyleSheet("background: transparent; border: none;")
             text_muted = profile.text_muted if profile and hasattr(profile, "text_muted") else DesignTokens.TEXT_MUTED
             self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=text_muted).pixmap(14, 14))
+        if hasattr(self, "desc_edit") and hasattr(self.desc_edit, "refresh_theme"):
+            self.desc_edit.refresh_theme(profile)
 
     def refresh_data(self) -> None:
         try:
