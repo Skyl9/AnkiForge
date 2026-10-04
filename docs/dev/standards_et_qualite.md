@@ -42,7 +42,41 @@ uv run ruff format src/ tests/
 
 ---
 
-## 🪵 3. Politique de Logging Asynchrone & Sécurisé
+## 🛡️ 3. Porte de Vérification Canonique Unique & Hook Pre-Push Versionné
+
+Pour éviter d'exécuter des vérifications partielles en ordre dispersé, le projet centralise l'intégralité de la chaîne de conformité dans une **commande canonique unique** :
+
+```bash
+# Porte de vérification canonique (enchaîne ruff check, ruff format --check, mypy, bandit, pytest fast)
+uv run python script/verify.py
+
+# Options utiles :
+uv run python script/verify.py --fix          # Corrige automatiquement le linting et formatage
+uv run python script/verify.py --all-tests    # Exécute tous les tests (sans exclure slow)
+uv run python script/verify.py --install-hook # Active le hook pre-push (.githooks)
+```
+
+### Chaîne de Contrôle Déterministe
+Le script `script/verify.py` s'arrête à la première anomalie (mode *fail-fast*) et exécute séquentiellement :
+1. `ruff check .` : conformité des règles de style et interdiction des `print()`.
+2. `ruff format --check .` : respect strict du formatage uniforme.
+3. `mypy src/ankiforge` : typage statique strict à 100%.
+4. `bandit -c pyproject.toml -r src/` : audit des vulnérabilités statiques.
+5. `pytest -m "not slow"` : suite de tests unitaires et headless rapides (< 15s).
+
+### Hook Pre-Push Versionné (`.githooks/pre-push`)
+Un hook git natif et partagé est versionné dans `.githooks/pre-push`. Il est activé via :
+```bash
+git config core.hooksPath .githooks
+```
+Toute tentative de `git push` déclenche automatiquement la porte de vérification. En cas d'échec, le push est bloqué. Un contournement d'urgence explicite et journalisé au niveau `WARNING` reste possible :
+```bash
+ANKIFORGE_BYPASS_PRE_PUSH=1 git push
+```
+
+---
+
+## 🪵 4. Politique de Logging Asynchrone & Sécurisé
 
 Conformément à la règle 19 de `GEMINI.md`, aucun appel à `print()` n'est toléré dans l'application.
 

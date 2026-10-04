@@ -24,11 +24,11 @@ uv run pytest -m integration    # database & service integration tests
 uv run pytest -m ui             # PySide6 headless UI tests
 uv run pytest tests/path/test_file.py::TestClass::test_method
 
-# Quality checks (run in order before push)
-uv run ruff check --fix .
-uv run ruff format --check .
-uv run mypy src/ankiforge       # strict 100% typing required
-uv run bandit -c pyproject.toml -r src/
+# Canonical verification gate (pre-push gate & quality chain)
+uv run python script/verify.py              # canonical gate: ruff check, ruff format --check, mypy, bandit, pytest fast
+uv run python script/verify.py --fix        # auto-fix and format before verification
+uv run python script/verify.py --all-tests  # run verification with complete test suite
+uv run python script/verify.py --install-hook # install/activate native versioned git pre-push hook (.githooks)
 
 # Skills audit & consistency check
 uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py
@@ -73,7 +73,7 @@ uv run python script/capture_view.py --layout-thumbnails
 - **No `print()`** - use `logging.getLogger(__name__)` with proper levels
 - **Strict mypy**: `disallow_untyped_defs = true` for `ankiforge.*`; UI and migrations have relaxed overrides
 - **Ruff rules**: E, F, B, I, UP, T20 (no print), PT, SIM; line-length=200
-- **Pre-commit**: ruff fix/format, trailing-whitespace, yaml, large files; mypy + fast tests on pre-push
+- **Pre-commit & Pre-push**: pre-commit runs ruff fix/format, trailing-whitespace, yaml, large files; versioned pre-push hook (`.githooks/pre-push`, `git config core.hooksPath .githooks`) enforces canonical verification `uv run python script/verify.py` before any push
 - **Type stubs**: `types-peewee`, `types-requests`, `types-markdown` in dev deps
 
 ## Key Files / Entry Points

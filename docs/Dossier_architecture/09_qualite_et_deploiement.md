@@ -26,7 +26,7 @@ C'est une exclusivité du projet. L'application dispose d'un catalogue structur�
 
 ## 4. Intégration et Déploiement Continu (CI/CD via GitHub Actions)
 L'usine logicielle garantit que ce qui marche sur la machine du développeur marchera chez l'utilisateur.
-* **Hooks de Pre-commit :** Interdiction de faire un commit git si le formatage `ruff` échoue.
+* **Hooks de Pre-commit & Pre-push :** Interdiction de commit si le formatage `ruff` échoue. Le hook pre-push versionné (`.githooks/pre-push`, via `git config core.hooksPath .githooks`) verrouille tout push en amont en exécutant la porte de vérification canonique unique (`uv run python script/verify.py` : ruff, mypy strict, bandit, tests rapides).
 * **La CI (Continuous Integration) :** À chaque *push* sur GitHub, une machine virtuelle lance :
   1. La compilation de l'extension C (Levenshtein) sur Mac, Windows et Linux.
   2. La suite complète `pytest`.

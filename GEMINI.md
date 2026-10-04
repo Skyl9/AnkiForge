@@ -98,7 +98,7 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
     - *Pre-commit & Workflow Local Ultra-Rapide (< 5-10s) :*
         - Les hooks pre-commit doivent s'exécuter en moins de 5-10 secondes. Ils exécutent `ruff check --fix`, `ruff format`, les vérificateurs de fichiers (`trailing-whitespace`, `check-yaml`, `check-added-large-files`).
         - *Discipline Git & Interdiction de Commit Autonome :* L'agent ne doit JAMAIS exécuter de `git commit` ou `git push` de manière autonome sans l'accord explicite ou l'ordre direct de l'utilisateur. À la fin de chaque tâche modifiant l'arbre de travail, invoquer le skill `proposer-commits` pour formuler des propositions de commits atomiques selon la spécification Conventional Commits v1.0.0 en français.
-        - *Règle obligatoire pour les développeurs et agents :* Toujours exécuter la suite de tests locale (`uv run pytest`) et valider le typage (`uv run mypy src/ankiforge`) avant tout `git push` ou fusion de branche majeure.
+        - *Règle obligatoire pour les développeurs et agents :* Toujours exécuter la **porte de vérification canonique unique** (`uv run python script/verify.py`), enchaînant ruff check/format, typage strict mypy, sécurité bandit et tests rapides (< 40s), avant tout `git push` ou fusion de branche majeure. Le hook pre-push versionné (`.githooks/pre-push`) applique cette contrainte de manière automatique.
     - *CI/CD GitHub Actions & Parallélisation :*
         - Pipeline complet multi-OS (`ubuntu-latest`, `macos-latest`, `windows-latest`) avec compilation automatique de l'extension C native Levenshtein (`.so` / `.dll`).
         - Parallélisation via `pytest-xdist` (`-n auto`) pour accélérer l'exécution.

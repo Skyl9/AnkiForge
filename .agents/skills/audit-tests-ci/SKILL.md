@@ -40,7 +40,7 @@ grep -rInE "(OpenAI\(|Client\(|Anthropic\(|genai\.|ollama|requests\.(get|post))\
 5. **Pyramide & isolation** : tests unitaires purs < 10 ms (zéro BDD, zéro widget, zéro réseau) ; identifier les tests lents (> 1 s) via marqueur `slow`/collect durations.
 6. **Pytest config** : `pytest.ini` (`--strict-markers`, testpaths, addopts xdist, timeout) cohérent avec conftest ; markers documentés et 100% assignés (aucun test sans marqueur unitaire/intégration/UI).
 7. **CI/CD** (`.github/workflows/ci.yml`) : jobs qualité parallèles (ruff, mypy, bandit, pip-audit), matrice multi-OS (Linux/macOS/Windows) avec compilation de l'extension C, coverage SÉRIEL (`-n 0`, `--cov-fail-under=70` sur Linux — contrainte Qt/WebEngine), gitleaks, build & smoke test Nuitka. Signaler toute régression (ex. couverture re-parallélisée, seuil abaissé).
-8. **Pré-commit / pré-push** : hooks `ruff --fix`+format, pre-push `mypy` + tests rapides, sous 5-10 s ; rendre l'ordre de vérification conforme à `AGENTS.md`.
+8. **Pré-commit / pré-push** : hooks `ruff --fix`+format, hook pre-push versionné (`.githooks/pre-push`) exécutant la porte de vérification canonique unique `uv run python script/verify.py` (ruff check, ruff format --check, mypy strict, bandit, tests rapides) ; rendre l'ordre de vérification conforme à `AGENTS.md`.
 
 ## 4. Rapport
 

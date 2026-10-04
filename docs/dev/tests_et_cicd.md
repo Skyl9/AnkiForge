@@ -58,7 +58,26 @@ uv run pytest --cov=ankiforge --cov-report=term-missing
 
 ---
 
-## 🌐 3. Pipeline CI/CD GitHub Actions
+## 🛡️ 3. Porte de Vérification Pre-Push (`script/verify.py`)
+
+Avant tout `git push`, les développeurs et agents doivent exécuter la **commande canonique unique** :
+
+```bash
+uv run python script/verify.py
+```
+
+Cette porte enchaîne de façon déterministe les 5 contrôles de conformité :
+1. `ruff check .`
+2. `ruff format --check .`
+3. `mypy src/ankiforge`
+4. `bandit -c pyproject.toml -r src/`
+5. `pytest -m "not slow"`
+
+Elle est également branchée au hook git natif versionné `.githooks/pre-push` (`git config core.hooksPath .githooks`), bloquant automatiquement tout push si une régression est détectée.
+
+---
+
+## 🌐 4. Pipeline CI/CD GitHub Actions
 
 Chaque commit et pull request déclenche un pipeline d'intégration continue multi-plateformes :
 - **Matrice Multi-OS** : Exécution conjointe sur `macos-latest`, `ubuntu-latest` et `windows-latest`.
