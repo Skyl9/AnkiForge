@@ -393,46 +393,65 @@ class OptionToggleRow(QWidget):
 
 
 class ComboBoxWheelFilter(QObject):
-    """Filtre d'événement global neutralisant le changement intempestif d'option à la molette sur les QComboBox fermées."""
+    """Protection globale neutralisant le changement intempestif d'option à la molette sur les QComboBox fermées.
+
+    Intercepte les événements de molette sur toutes les QComboBox de l'application :
+    si le menu déroulant n'est pas déployé, l'événement est ignoré et relayé au conteneur
+    parent pour assurer le défilement fluide des zones scrollables sans altérer la sélection.
+    """
 
     _instance: "ComboBoxWheelFilter | None" = None
+    _installed: bool = False
+    _original_wheel_event: Any = None
+    _is_forwarding: bool = False
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._is_forwarding: bool = False
 
     @classmethod
     def install(cls, app: QApplication | None = None) -> "ComboBoxWheelFilter":
-        """Installe le filtre d'événement sur l'application (idempotent)."""
-        target_app = app or QApplication.instance()
-        if target_app is None:
-            logger.warning("Impossible d'installer ComboBoxWheelFilter : aucune QApplication active.")
-            if cls._instance is None:
-                cls._instance = cls()
-            return cls._instance
+        """Installe la protection molette sur les QComboBox de l'application (idempotent)."""
         if cls._instance is None:
-            cls._instance = cls(target_app)
-            target_app.installEventFilter(cls._instance)
+            cls._instance = cls()
+        if not cls._installed:
+            cls._original_wheel_event = QComboBox.wheelEvent
+
+            def _safe_wheel(combo_self: QComboBox, event: QWheelEvent) -> None:
+                cls.handle_wheel_event(combo_self, event)
+
+            QComboBox.wheelEvent = _safe_wheel
+            cls._installed = True
         return cls._instance
 
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if self._is_forwarding:
-            return False
-
-        if event.type() == QEvent.Type.Wheel and isinstance(watched, QComboBox) and not self._is_popup_open(watched):
+    @classmethod
+    def handle_wheel_event(cls, combo: QComboBox, event: QWheelEvent) -> None:
+        """Gère l'événement de molette pour une QComboBox : actif si menu ouvert, sinon ignore et propage."""
+        if cls._is_popup_open(combo):
+            if cls._original_wheel_event is not None:
+                cls._original_wheel_event(combo, event)
+            else:
+                cls.install()
+                if cls._original_wheel_event is not None:
+                    cls._original_wheel_event(combo, event)
+        else:
             event.ignore()
-            self._is_forwarding = True
-            try:
-                parent = watched.parentWidget()
-                while parent is not None:
-                    QApplication.sendEvent(parent, event)
-                    if event.isAccepted():
-                        break
-                    parent = parent.parentWidget()
-            finally:
-                self._is_forwarding = False
-            return True
+            if not cls._is_forwarding:
+                cls._is_forwarding = True
+                try:
+                    parent = combo.parentWidget()
+                    while parent is not None:
+                        QApplication.sendEvent(parent, event)
+                        if event.isAccepted():
+                            break
+                        parent = parent.parentWidget()
+                finally:
+                    cls._is_forwarding = False
 
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Support complémentaire d'event filter individuel si posé sur un widget spécifique."""
+        if event.type() == QEvent.Type.Wheel and isinstance(watched, QComboBox) and isinstance(event, QWheelEvent):
+            self.handle_wheel_event(watched, event)
+            return True
         return super().eventFilter(watched, event)
 
     @staticmethod
@@ -455,10 +474,7 @@ class StyledComboBox(QComboBox):
         self.setFixedHeight(36)
 
     def wheelEvent(self, event: QWheelEvent) -> None:
-        if ComboBoxWheelFilter._is_popup_open(self):
-            super().wheelEvent(event)
-        else:
-            event.ignore()
+        ComboBoxWheelFilter.handle_wheel_event(self, event)
 
 
 class DBComboBox(StyledComboBox):
