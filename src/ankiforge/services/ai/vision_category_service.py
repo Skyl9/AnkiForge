@@ -9,6 +9,160 @@ from ankiforge.services.settings_service import SettingsService
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class ImageDataType:
+    """
+    Représente la nature de ce qu'une image contient (CONTEXT.md:56).
+
+    L'utilisateur le choisit lui-même dans une liste fermée (table, pseudocode, schéma,
+    photo, logo, texte imprimé). Il n'est ni déduit, ni proposé, ni deviné.
+    Il ne désigne aucun moteur.
+    """
+
+    id: str  # "table", "pseudocode", "schema", "photo", "logo", "texte_imprime"
+    name: str  # "Tableau", "Pseudocode & Algorithme", etc.
+    description: str  # Explication concise du contenu
+    icon: str  # Phosphor icon
+    requires_vlm: bool = True  # Requiert un VLM sémantique (exclut l'OCR matériel Apple Vision)
+    supports_hardware_ocr: bool = False  # Compatible avec l'OCR optique brut local
+    default_prompt_directive: str = ""  # Consigne de cadrage injectée au modèle
+
+
+IMAGE_DATA_TYPES: list[ImageDataType] = [
+    ImageDataType(
+        id="table",
+        name="Tableau",
+        description="Tableaux structurés, matrices, données chiffrées en colonnes",
+        icon="ph.table",
+        requires_vlm=True,
+        supports_hardware_ocr=False,
+        default_prompt_directive="Convertis fidèlement les tableaux en syntaxe Markdown ou en table HTML propre si des cellules sont fusionnées.",
+    ),
+    ImageDataType(
+        id="pseudocode",
+        name="Pseudocode & Algorithme",
+        description="Code source, algorithmes, pseudocode avec indentation et syntaxe stricte",
+        icon="ph.code",
+        requires_vlm=True,
+        supports_hardware_ocr=False,
+        default_prompt_directive="Transcris fidèlement le code source et pseudocode dans un bloc de code Markdown en préservant scrupuleusement l'indentation.",
+    ),
+    ImageDataType(
+        id="schema",
+        name="Schéma & Diagramme",
+        description="Diagrammes, flux, graphes, cartes conceptuelles, relations spatiales et légendes",
+        icon="ph.tree-structure",
+        requires_vlm=True,
+        supports_hardware_ocr=False,
+        default_prompt_directive="Décris et structure les schémas, flux et relations spatiales avec précision sous forme textuelle structurée.",
+    ),
+    ImageDataType(
+        id="photo",
+        name="Photo & Illustration",
+        description="Photographies, planches anatomiques, œuvres artistiques ou scènes réelles",
+        icon="ph.image",
+        requires_vlm=True,
+        supports_hardware_ocr=False,
+        default_prompt_directive="Produis une description visuelle et conceptuelle dense et fidèle de la scène, des entités et des éléments visibles.",
+    ),
+    ImageDataType(
+        id="logo",
+        name="Logo & Symbole",
+        description="Logotypes, pictogrammes, marques, symboles visuels et typographies emblématiques",
+        icon="ph.shapes",
+        requires_vlm=True,
+        supports_hardware_ocr=False,
+        default_prompt_directive="Identifie et décris précisément les logos, symboles, textes incorporés et graphismes emblématiques.",
+    ),
+    ImageDataType(
+        id="texte_imprime",
+        name="Texte imprimé",
+        description="Prose suivie, articles, manuels, livres, paragraphes et textes continus en bloc",
+        icon="ph.text-t",
+        requires_vlm=False,
+        supports_hardware_ocr=True,
+        default_prompt_directive="Transcris fidèlement et intégralement le contenu textuel suivi au format Markdown propre.",
+    ),
+]
+
+
+def get_closed_image_data_types() -> list[ImageDataType]:
+    """Retourne la liste fermée des 6 types de données d'image du domaine (CONTEXT.md:56)."""
+    return list(IMAGE_DATA_TYPES)
+
+
+def get_image_data_type(type_id: str) -> ImageDataType | None:
+    """Recherche un type de donnée par son identifiant unique ou un alias reconnu."""
+    norm = (type_id or "").strip().lower()
+    if norm in ("text", "printed_text", "prose"):
+        norm = "texte_imprime"
+    for item in IMAGE_DATA_TYPES:
+        if item.id == norm:
+            return item
+    return None
+
+
+def is_engine_compatible_with_type(engine: Any, data_type: ImageDataType | str) -> bool:
+    """
+    Détermine si un moteur de vision est adapté à un type de donnée d'image (CONTEXT.md:58).
+
+    La compatibilité est pilotée par les capacités déclarées au catalogue ou sur
+    le modèle, et non par une table de correspondance cachée :
+    - Tout type d'image requiert la capacité de vision (supports_vision=True ou OCR matériel natif).
+    - Les types non-textuels (table, pseudocode, schéma, photo, logo) requièrent un VLM sémantique
+      multimodal, excluant l'OCR matériel local (Apple Vision).
+    - Le type 'texte_imprime' est compatible à la fois avec les VLM multimodaux et l'OCR matériel local.
+    """
+    type_obj = data_type if isinstance(data_type, ImageDataType) else get_image_data_type(data_type)
+    if type_obj is None:
+        return False
+
+    # 1. Cas string : identifiant direct de moteur ou de catégorie
+    if isinstance(engine, str):
+        if engine in ("hardware", "native", "apple_vision"):
+            return type_obj.supports_hardware_ocr
+
+        cat = VisionCategoryService.get_category_by_id(engine)
+        if cat:
+            if cat.provider == "native" or cat.id == "hardware":
+                return type_obj.supports_hardware_ocr
+            decl = VisionCategoryService.category_declares_vision(cat)
+            return decl is not False
+
+        from ankiforge.database.models import LLMConfigModel
+
+        cfg = LLMConfigModel.get_or_none(LLMConfigModel.model_id == engine)
+        if cfg:
+            return bool(getattr(cfg, "supports_vision", False))
+        return False
+
+    # 2. Cas objet VisionCategory
+    if isinstance(engine, VisionCategory):
+        if engine.provider == "native" or engine.id == "hardware":
+            return type_obj.supports_hardware_ocr
+        decl = VisionCategoryService.category_declares_vision(engine)
+        return decl is not False
+
+    # 3. Cas objet LLMConfigModel ou ModelSpec
+    prov = getattr(engine, "provider", "")
+    model_id = getattr(engine, "model_id", "")
+    if prov == "native" or model_id == "apple_vision":
+        return type_obj.supports_hardware_ocr
+
+    has_vision = getattr(engine, "supports_vision", None)
+    if has_vision is not None:
+        return bool(has_vision)
+
+    if model_id:
+        from ankiforge.database.models import LLMConfigModel
+
+        cfg = LLMConfigModel.get_or_none(LLMConfigModel.model_id == str(model_id))
+        if cfg:
+            return bool(getattr(cfg, "supports_vision", False))
+
+    return True
+
+
 @dataclass
 class VisionCategory:
     """Représente une catégorie d'analyse visuelle et de reconnaissance d'image."""
@@ -158,12 +312,35 @@ class VisionCategoryService:
 
     @classmethod
     def get_category_by_id(cls, cat_id: str) -> VisionCategory | None:
-        """Recherche une catégorie par son identifiant unique."""
+        """Recherche une catégorie ou moteur par son identifiant unique."""
         for cat in cls.get_categories():
             if cat.id == cat_id:
                 return cat
         if cat_id == "visual_rag":
             return cls.get_visual_rag_category()
+
+        # Prise en charge des moteurs configurés en base LLMConfigModel
+        try:
+            from ankiforge.database.models import LLMConfigModel
+
+            cfg = LLMConfigModel.get_or_none(LLMConfigModel.model_id == cat_id)
+            if not cfg and str(cat_id).isdigit():
+                cfg = LLMConfigModel.get_or_none(LLMConfigModel.id == int(cat_id))
+            if cfg and getattr(cfg, "supports_vision", False):
+                return VisionCategory(
+                    id=cfg.model_id,
+                    name=cfg.display_name or cfg.model_id,
+                    description=cfg.description or f"Moteur de vision {cfg.provider}",
+                    icon="ph.sparkle",
+                    provider=cfg.provider,
+                    model_id=cfg.model_id,
+                    thinking_budget=getattr(cfg, "thinking_budget", 0) if getattr(cfg, "supports_thinking", False) else 0,
+                    temperature=0.2,
+                    custom_instructions="",
+                )
+        except Exception as e:
+            logger.debug("Recherche LLMConfigModel pour cat_id '%s' : %s", cat_id, e)
+
         return None
 
     @classmethod

@@ -24,6 +24,7 @@ class AlbumTranscriptionOptions:
     include_figures: bool = False
     include_headings: bool = True
     custom_instructions: str = ""
+    data_type: str = "table"
 
 
 def parse_page_ranges(range_str: str, max_page: int) -> set[int]:
@@ -65,6 +66,12 @@ def build_album_transcription_prompt(options: AlbumTranscriptionOptions, base_in
     Assemble le prompt multimodal complet à partir des directives de formatage et instructions personnalisées.
     """
     directives: list[str] = ["Transcris fidèlement et intégralement le contenu textuel et conceptuel de cette planche au format Markdown propre."]
+
+    from ankiforge.services.ai.vision_category_service import get_image_data_type
+
+    data_type_obj = get_image_data_type(options.data_type)
+    if data_type_obj and data_type_obj.default_prompt_directive:
+        directives.append(f"Consigne spécifique au type '{data_type_obj.name}' : {data_type_obj.default_prompt_directive}")
 
     if options.include_headings:
         directives.append("Structure le document avec des titres Markdown hiérarchiques (#, ##, ###) fidèles à la mise en page.")
