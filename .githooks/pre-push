@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# .githooks/pre-push — Hook Git Pre-Push Natif et Versionné pour AnkiForge
+# Exécute de façon déterministe la porte de vérification canonique avant tout push.
+# Ce hook est versionné dans le dépôt et déployé via 'git config core.hooksPath .githooks'.
+
+set -euo pipefail
+
+# 1. Vérification du contournement explicite
+if [ "${ANKIFORGE_BYPASS_PRE_PUSH:-0}" = "1" ] || [ "${ANKIFORGE_SKIP_VERIFY:-0}" = "1" ]; then
+    echo "⚠️  [WARNING] Pre-push verification gate explicitly bypassed (ANKIFORGE_BYPASS_PRE_PUSH=1 or ANKIFORGE_SKIP_VERIFY=1)." >&2
+    # Journalisation Python au niveau WARNING
+    python3 -c "import logging; logging.basicConfig(level=logging.WARNING); logging.getLogger('ankiforge.githooks.pre_push').warning('Pre-push hook bypassed explicitly via environment variable.')" 2>/dev/null || true
+    exit 0
+fi
+
+# 2. Localisation de la racine du dépôt git
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$REPO_ROOT"
+
+# 3. Choix de la commande de vérification (surchargeable pour les tests d'intégration)
+if [ -n "${ANKIFORGE_VERIFY_SCRIPT_OVERRIDE:-}" ]; then
+    VERIFY_CMD=("$ANKIFORGE_VERIFY_SCRIPT_OVERRIDE")
+elif command -v uv >/dev/null 2>&1; then
+    VERIFY_CMD=(uv run python script/verify.py)
+else
+    VERIFY_CMD=(python3 script/verify.py)
+fi
+
+echo "🛡️  [Pre-Push Gate] Exécution de la chaîne de vérification canonique AnkiForge..." >&2
+
+if "${VERIFY_CMD[@]}"; then
+    echo "✅ [Pre-Push Gate] Tous les contrôles de qualité ont réussi. Autorisation du push." >&2
+    exit 0
+else
+    EXIT_CODE=$?
+    echo "❌ [Pre-Push Gate] Échec des contrôles de qualité (code de sortie : $EXIT_CODE)." >&2
+    echo "🚫 PUSH BLOQUÉ ! Corrigez les anomalies avant de pousser sur le dépôt distant." >&2
+    echo "💡 Astuce auto-fix : uv run python script/verify.py --fix" >&2
+    echo "⚠️  Contournement explicite d'urgence (tracé) : ANKIFORGE_BYPASS_PRE_PUSH=1 git push" >&2
+    exit "$EXIT_CODE"
+fi

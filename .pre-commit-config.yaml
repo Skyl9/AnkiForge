@@ -1,4 +1,6 @@
 # .pre-commit-config.yaml
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
@@ -18,15 +20,9 @@ repos:
 
   - repo: local
     hooks:
-      - id: mypy-check
-        name: mypy type checking (pre-push)
-        entry: uv run mypy src/ankiforge
-        language: system
-        pass_filenames: false
-        stages: [pre-push]
-      - id: fast-unit-tests
-        name: fast unit tests (pre-push)
-        entry: uv run pytest -m "not slow"
+      - id: canonical-verification-gate
+        name: canonical verification gate (pre-push)
+        entry: uv run python script/verify.py
         language: system
         pass_filenames: false
         stages: [pre-push]
