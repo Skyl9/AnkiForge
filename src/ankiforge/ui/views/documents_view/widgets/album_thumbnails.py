@@ -64,7 +64,7 @@ class ThumbnailCache:
     """
 
     def __init__(self, max_entries: int = 256) -> None:
-        self._entries: OrderedDict[tuple[int, int, int], QImage] = OrderedDict()
+        self._entries: OrderedDict[tuple[int, int, str, int], QImage] = OrderedDict()
         self._max_entries = max_entries
         # Verrou : le cache est partagé et appelé depuis tous les threads du QThreadPool.
         # `while len > max: popitem()` n'est pas atomique — deux threads qui évintent
@@ -74,18 +74,18 @@ class ThumbnailCache:
         self._lock = threading.Lock()
 
     @staticmethod
-    def key_for(page: DocumentPageModel, size_px: int) -> tuple[int, int, int]:
+    def key_for(page: DocumentPageModel, size_px: int) -> tuple[int, int, str, int]:
         media_id = page.media_id if page.media_id is not None else -1
-        return (int(media_id), int(page.rotation or 0) % 360, size_bucket(size_px))
+        return (int(media_id), int(page.rotation or 0) % 360, str(page.crop_data or ""), size_bucket(size_px))
 
-    def get(self, key: tuple[int, int, int]) -> QImage | None:
+    def get(self, key: tuple[int, int, str, int]) -> QImage | None:
         with self._lock:
             image = self._entries.get(key)
             if image is not None:
                 self._entries.move_to_end(key)
             return image
 
-    def put(self, key: tuple[int, int, int], image: QImage) -> None:
+    def put(self, key: tuple[int, int, str, int], image: QImage) -> None:
         with self._lock:
             self._entries[key] = image
             self._entries.move_to_end(key)

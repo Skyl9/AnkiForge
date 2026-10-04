@@ -5,8 +5,18 @@ import tempfile
 from pathlib import Path
 
 from PIL import Image, UnidentifiedImageError
-from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QImage, QPixmap, QResizeEvent
+from PySide6.QtCore import QPoint, QRect, Qt, Signal, Slot
+from PySide6.QtGui import (
+    QCloseEvent,
+    QColor,
+    QImage,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QPixmap,
+    QResizeEvent,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -104,6 +114,10 @@ class AlbumPageCard(QFrame):
         self.page_badge = Badge(f"P. {page.page_number}", variant="neutral")
         header_layout.addWidget(self.page_badge)
 
+        self.crop_badge = Badge("Recadrée", variant="info")
+        self.crop_badge.setVisible(bool(getattr(page, "crop_data", None)))
+        header_layout.addWidget(self.crop_badge)
+
         header_layout.addStretch()
 
         self.ocr_badge = Badge("", variant="neutral")
@@ -192,6 +206,11 @@ class AlbumPageCard(QFrame):
         self.img_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         logger.warning("Vignette indisponible pour la planche %d : %s", page_id, message)
 
+    def update_crop_status(self, crop_data: str | None = None) -> None:
+        """Met à jour l'affichage du badge de recadrage."""
+        active_crop = crop_data if crop_data is not None else getattr(self.page, "crop_data", None)
+        self.crop_badge.setVisible(bool(active_crop))
+
     def update_status(self, ocr_text: str, status: str | None = None) -> None:
         """
         Met à jour le badge de statut de transcription.
@@ -201,6 +220,7 @@ class AlbumPageCard(QFrame):
         croire à un contenu valide — un état faux sans témoin.
         """
         self.page.ocr_text = ocr_text
+        self.update_crop_status()
         active_status = status if status is not None else getattr(self.page, "status", "ready")
 
         if active_status == "stale":
@@ -215,6 +235,90 @@ class AlbumPageCard(QFrame):
         self.ocr_badge.setToolTip(f"{len(ocr_text.split())} mots extraits" if has_ocr else "Aucune transcription")
 
 
+class CropImageLabel(QLabel):
+    """
+    QLabel interactif pour la sélection rectangulaire de recadrage.
+    En mode recadrage, permet de tracer une zone de sélection à la souris avec retour visuel.
+    """
+
+    selection_changed = Signal(QRect)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._crop_mode: bool = False
+        self._selecting: bool = False
+        self._start_pos: QPoint | None = None
+        self._selection_rect: QRect = QRect()
+
+    @property
+    def is_crop_mode(self) -> bool:
+        return self._crop_mode
+
+    def set_crop_mode(self, enabled: bool) -> None:
+        self._crop_mode = enabled
+        self._selecting = False
+        self._selection_rect = QRect()
+        if enabled:
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        else:
+            self.unsetCursor()
+        self.update()
+
+    def set_selection_rect(self, rect: QRect) -> None:
+        self._selection_rect = rect
+        self.update()
+
+    def reset_selection(self) -> None:
+        self._selecting = False
+        self._selection_rect = QRect()
+        self.update()
+
+    def get_selection_rect(self) -> QRect:
+        return self._selection_rect
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if self._crop_mode and event.button() == Qt.MouseButton.LeftButton:
+            self._selecting = True
+            self._start_pos = event.pos()
+            self._selection_rect = QRect(self._start_pos, self._start_pos)
+            self.update()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._crop_mode and self._selecting and self._start_pos is not None:
+            self._selection_rect = QRect(self._start_pos, event.pos()).normalized()
+            self.selection_changed.emit(self._selection_rect)
+            self.update()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._crop_mode and self._selecting and event.button() == Qt.MouseButton.LeftButton and self._start_pos is not None:
+            self._selecting = False
+            self._selection_rect = QRect(self._start_pos, event.pos()).normalized()
+            self.selection_changed.emit(self._selection_rect)
+            self.update()
+            return
+        super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        if self._crop_mode and not self._selection_rect.isNull() and self._selection_rect.isValid():
+            painter = QPainter(self)
+            # Voile semi-transparent
+            painter.fillRect(self.rect(), QColor(0, 0, 0, 90))
+            # Découpe transparente de la zone sélectionnée
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+            painter.fillRect(self._selection_rect, Qt.GlobalColor.transparent)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+            # Bordure en pointillés accentuée
+            pen = QPen(QColor(DesignTokens.ACCENT_PRIMARY), 2, Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.drawRect(self._selection_rect)
+            painter.end()
+
+
 class PageInspectorWidget(QWidget):
     """
     Vue détaillée et zoomable pour inspecter une planche et retoucher son texte OCR.
@@ -227,6 +331,7 @@ class PageInspectorWidget(QWidget):
     page_saved = Signal(int, str)  # page_id, ocr_text
     navigate_requested = Signal(int)  # delta (-1 pour précédent, +1 pour suivant)
     rotate_requested = Signal(int)  # page_id
+    page_crop_changed = Signal(int)  # page_id
 
     #: Plafond du rendu d'inspection. Au-delà, on charge la planche native — ce que le
     #: ticket S1 interdit hors d'une demande de zoom explicite.
@@ -235,6 +340,7 @@ class PageInspectorWidget(QWidget):
     def __init__(self, parent: QWidget | None = None, album_service: AlbumService | None = None) -> None:
         super().__init__(parent)
         self.current_page: DocumentPageModel | None = None
+        self._total_pages: int = 1
         self._album_service = album_service or AlbumService()
         self._raw_pixmap: QPixmap | None = None
         self._full_pixmap: QPixmap | None = None
@@ -272,6 +378,10 @@ class PageInspectorWidget(QWidget):
         self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 14px;")
         top_layout.addWidget(self.lbl_title)
 
+        self.crop_badge = Badge("Recadrée", variant="info")
+        self.crop_badge.setVisible(False)
+        top_layout.addWidget(self.crop_badge)
+
         top_layout.addStretch()
 
         # Navigation entre pages
@@ -287,6 +397,16 @@ class PageInspectorWidget(QWidget):
         self.btn_rotate = IconButton("ph.arrow-clockwise", tooltip="Tourner de 90°", size=26)
         self.btn_rotate.clicked.connect(self._on_rotate_clicked)
         top_layout.addWidget(self.btn_rotate)
+
+        # Recadrage
+        self.btn_crop = IconButton("ph.selection", tooltip="Recadrer la planche", size=26)
+        self.btn_crop.clicked.connect(self._on_start_crop)
+        top_layout.addWidget(self.btn_crop)
+
+        self.btn_remove_crop = IconButton("ph.selection-slash", tooltip="Retirer le recadrage (restituer la planche intégrale)", size=26)
+        self.btn_remove_crop.clicked.connect(self._on_remove_crop)
+        self.btn_remove_crop.setVisible(False)
+        top_layout.addWidget(self.btn_remove_crop)
 
         # Contrôles de zoom
         self.btn_zoom_out = IconButton("ph.magnifying-glass-minus", tooltip="Zoom arrière", size=26)
@@ -310,6 +430,40 @@ class PageInspectorWidget(QWidget):
 
         main_layout.addWidget(top_bar)
 
+        # ── Bandeau d'actions du mode recadrage (sous la top bar) ────────────
+        self.crop_banner = QFrame()
+        self.crop_banner.setObjectName("cropBanner")
+        self.crop_banner.setStyleSheet(f"""
+            QFrame#cropBanner {{
+                background-color: {DesignTokens.BG_PANEL};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+        crop_banner_layout = QHBoxLayout(self.crop_banner)
+        crop_banner_layout.setContentsMargins(12, 6, 12, 6)
+        crop_banner_layout.setSpacing(8)
+
+        lbl_crop_hint = QLabel("Mode recadrage : tracez un rectangle sur l'image pour borner la zone à conserver.")
+        lbl_crop_hint.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
+        crop_banner_layout.addWidget(lbl_crop_hint)
+
+        crop_banner_layout.addStretch()
+
+        self.btn_apply_crop = PrimaryButton("Valider le recadrage")
+        self.btn_apply_crop.setIcon(load_on_accent_icon("ph.check"))
+        self.btn_apply_crop.setFixedHeight(28)
+        self.btn_apply_crop.clicked.connect(self._on_apply_crop)
+        crop_banner_layout.addWidget(self.btn_apply_crop)
+
+        self.btn_cancel_crop = SecondaryButton("Annuler")
+        self.btn_cancel_crop.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_cancel_crop.setFixedHeight(28)
+        self.btn_cancel_crop.clicked.connect(self._on_cancel_crop)
+        crop_banner_layout.addWidget(self.btn_cancel_crop)
+
+        self.crop_banner.setVisible(False)
+        main_layout.addWidget(self.crop_banner)
+
         # ── Corps Principal : Splitter Image / Transcription OCR ─────────────
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setStyleSheet(f"""
@@ -330,7 +484,7 @@ class PageInspectorWidget(QWidget):
             }}
         """)
 
-        self.image_display = QLabel()
+        self.image_display = CropImageLabel()
         self.image_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.scroll_area.setWidget(self.image_display)
         splitter.addWidget(self.scroll_area)
@@ -406,6 +560,7 @@ class PageInspectorWidget(QWidget):
         rendu est plafonné (`INSPECTION_PX`) — la pleine résolution n'est rechargée que
         lorsqu'un zoom le demande explicitement.
         """
+        self._total_pages = total_pages
         self.current_page = page
         self.lbl_title.setText(f"Page {page.page_number} sur {total_pages}")
         self.ocr_text_edit.setPlainText(page.ocr_text or "")
@@ -413,10 +568,15 @@ class PageInspectorWidget(QWidget):
         self._full_pixmap = None
         self._zoom_factor = 1.0
         self._zoom_is_fit = True
-        # Remis à zéro **avant** le rendu : une planche illisible qui lève laisserait sinon
-        # l'image de la planche précédente sous le titre de la nouvelle — un document
-        # affiché qui n'est pas celui que l'utilisateur demande, sans aucun signe.
         self._raw_pixmap = None
+
+        # Sortie du mode recadrage
+        self.crop_banner.setVisible(False)
+        self.image_display.set_crop_mode(False)
+
+        has_crop = bool(getattr(page, "crop_data", None))
+        self.crop_badge.setVisible(has_crop)
+        self.btn_remove_crop.setVisible(has_crop)
 
         try:
             image = self._album_service.render_page_qimage(page, max_size=self._inspection_px())
@@ -570,6 +730,79 @@ class PageInspectorWidget(QWidget):
     def _on_rotate_clicked(self) -> None:
         if self.current_page:
             self.rotate_requested.emit(self.current_page.id)
+
+    def _on_start_crop(self) -> None:
+        """Active le mode de recadrage interactif."""
+        if not self.current_page:
+            return
+        self.crop_banner.setVisible(True)
+        # Afficher la planche intégrale non recadrée à la rotation courante
+        try:
+            image = self._album_service.render_page_qimage(self.current_page, max_size=self._inspection_px(), ignore_crop=True)
+            self._raw_pixmap = QPixmap.fromImage(image)
+        except Exception as e:
+            logger.warning("Impossible de charger la planche intégrale pour recadrage : %s", e)
+        self._zoom_factor = self._fit_zoom_factor()
+        self._zoom_is_fit = True
+        self._apply_image_transformations()
+        self.image_display.set_crop_mode(True)
+
+    def _on_cancel_crop(self) -> None:
+        """Annule le mode de recadrage et recharge la page."""
+        self.crop_banner.setVisible(False)
+        self.image_display.set_crop_mode(False)
+        if self.current_page:
+            self.load_page(self.current_page, self._total_pages)
+
+    def _on_apply_crop(self) -> None:
+        """Calcule et enregistre le recadrage sur l'image source via la couture de service."""
+        if not self.current_page:
+            return
+        sel_rect = self.image_display.get_selection_rect()
+        pix = self.image_display.pixmap()
+        if not pix or pix.isNull() or sel_rect.width() < 5 or sel_rect.height() < 5:
+            show_toast(self, "Veuillez tracer un rectangle sur l'image pour borner la zone à conserver.", is_error=True)
+            return
+
+        offset_x = max(0, (self.image_display.width() - pix.width()) // 2)
+        offset_y = max(0, (self.image_display.height() - pix.height()) // 2)
+
+        sel_x1 = max(0, sel_rect.left() - offset_x)
+        sel_y1 = max(0, sel_rect.top() - offset_y)
+        sel_x2 = min(pix.width(), sel_rect.right() - offset_x)
+        sel_y2 = min(pix.height(), sel_rect.bottom() - offset_y)
+
+        sel_w = sel_x2 - sel_x1
+        sel_h = sel_y2 - sel_y1
+        if sel_w < 5 or sel_h < 5:
+            show_toast(self, "Zone de recadrage trop petite.", is_error=True)
+            return
+
+        try:
+            self._album_service.set_page_crop_from_view(
+                self.current_page.id,
+                (sel_x1, sel_y1, sel_w, sel_h),
+                (pix.width(), pix.height()),
+            )
+        except Exception as e:
+            logger.exception("Erreur lors du recadrage de la page %d : %s", self.current_page.id, e)
+            show_toast(self, f"Erreur lors du recadrage : {e}", is_error=True)
+            return
+
+        self.crop_banner.setVisible(False)
+        self.image_display.set_crop_mode(False)
+        self.page_crop_changed.emit(self.current_page.id)
+        show_toast(self, "Planche recadrée avec succès.")
+        self.load_page(DocumentPageModel.get_by_id(self.current_page.id), self._total_pages)
+
+    def _on_remove_crop(self) -> None:
+        """Supprime le recadrage et restitue l'image source intégrale."""
+        if not self.current_page:
+            return
+        self._album_service.remove_page_crop(self.current_page.id)
+        self.page_crop_changed.emit(self.current_page.id)
+        show_toast(self, "Recadrage retiré — planche intégrale restituée.")
+        self.load_page(DocumentPageModel.get_by_id(self.current_page.id), self._total_pages)
 
     def _on_save_ocr(self) -> None:
         if not self.current_page:
@@ -872,6 +1105,7 @@ class AlbumViewerWidget(QWidget):
         self.inspector.page_saved.connect(self._on_page_saved_from_inspector)
         self.inspector.navigate_requested.connect(self._on_inspector_navigate)
         self.inspector.rotate_requested.connect(self._on_rotate_page)
+        self.inspector.page_crop_changed.connect(self._on_page_crop_changed)
         self.stack.addWidget(self.inspector)
 
         main_layout.addWidget(self.stack, 1)
@@ -910,6 +1144,7 @@ class AlbumViewerWidget(QWidget):
             card.delete_requested.connect(self._on_delete_page)
             card.inspect_requested.connect(self._on_open_inspector)
             self.grid_layout.addWidget(card)
+            card.show()
 
     @Slot(int)
     def _on_rotate_page(self, page_id: int) -> None:
@@ -929,6 +1164,13 @@ class AlbumViewerWidget(QWidget):
         except Exception as e:
             logger.exception("Erreur lors de la rotation de la page %d: %s", page_id, e)
             show_toast(self, "Erreur lors de la rotation de la page.", is_error=True)
+
+    @Slot(int)
+    def _on_page_crop_changed(self, page_id: int) -> None:
+        """Rafraîchit les vignettes et notifie de la modification du recadrage d'une page."""
+        self.refresh_pages()
+        if self._doc:
+            self.album_modified.emit(self._doc.id)
 
     @Slot(int, int)
     def _on_move_page(self, page_id: int, direction: int) -> None:

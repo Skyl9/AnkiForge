@@ -1,4 +1,5 @@
 import datetime
+import json
 from typing import Any
 
 from peewee import (
@@ -58,10 +59,29 @@ class DocumentPageModel(BaseModel):
     media = ForeignKeyField(MediaModel, backref="album_pages", on_delete="CASCADE")
     page_number = IntegerField(default=1)
     rotation = IntegerField(default=0)  # 0, 90, 180, 270 degrés
-    crop_data = CharField(null=True)  # JSON [x, y, w, h] si recadrée
+    #: Rectangle de recadrage restrictif non destructif (JSON [x, y, w, h]) exprimé dans le
+    #: repère natif de l'**image source** (avant rotation et mise à l'échelle).
+    #: N'altère jamais le fichier image. Si None, la planche est restituée intégrale.
+    crop_data = CharField(null=True)
     ocr_text = TextField(default="")
     bounding_boxes = TextField(null=True)  # JSON list des figures détectées
     status = CharField(default="ready")  # pending, ocr_running, ready
+
+    @property
+    def crop_box(self) -> tuple[int, int, int, int] | None:
+        """
+        Retourne le rectangle de recadrage (x, y, w, h) dans le repère natif de l'image source,
+        ou None si la planche n'est pas recadrée ou en cas de JSON corrompu.
+        """
+        if not self.crop_data:
+            return None
+        try:
+            val = json.loads(self.crop_data)
+            if isinstance(val, list | tuple) and len(val) == 4:
+                return (int(val[0]), int(val[1]), int(val[2]), int(val[3]))
+        except Exception:
+            return None
+        return None
 
     class Meta:
         table_name = "document_pages"

@@ -194,6 +194,7 @@ class VisualRAGService:
                         existing_chunk.content = chunk_content
                         existing_chunk.content_hash = content_hash
                         existing_chunk.media = page.media
+                        existing_chunk.bounding_box = page.crop_data
                         existing_chunk.heading_path = f"Page {page_num}"
                         existing_chunk.save()
                         chunk_model = existing_chunk
@@ -206,6 +207,7 @@ class VisualRAGService:
                             page_number=page_num,
                             heading_path=f"Page {page_num}",
                             media=page.media,
+                            bounding_box=page.crop_data,
                         )
 
                     # Met à jour ocr_text de la page si vide

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import logging
 import re
 from collections.abc import Callable, Sequence
@@ -47,6 +48,60 @@ def natural_sort_key(file_path: str | Path) -> list[int | str]:
 def normalize_rotation(degrees: int) -> int:
     """Ramène un angle au palier de 90° correspondant, dans [0, 360[."""
     return int(degrees) % 360
+
+
+def crop_box_source_to_rotated(
+    box: tuple[int, int, int, int],
+    source_width: int,
+    source_height: int,
+    rotation: int,
+) -> tuple[int, int, int, int]:
+    """
+    Convertit un rectangle de recadrage (x, y, w, h) du repère natif de l'image source
+    vers le repère de la planche pivotée à 0, 90, 180 ou 270 degrés.
+    """
+    x, y, w, h = box
+    x1, y1 = x, y
+    x2, y2 = x + w, y + h
+    rot = normalize_rotation(rotation)
+    if rot == 0:
+        rx1, ry1, rx2, ry2 = x1, y1, x2, y2
+    elif rot == 90:
+        rx1, ry1, rx2, ry2 = source_height - y2, x1, source_height - y1, x2
+    elif rot == 180:
+        rx1, ry1, rx2, ry2 = source_width - x2, source_height - y2, source_width - x1, source_height - y1
+    elif rot == 270:
+        rx1, ry1, rx2, ry2 = y1, source_width - x2, y2, source_width - x1
+    else:
+        rx1, ry1, rx2, ry2 = x1, y1, x2, y2
+    return (rx1, ry1, rx2 - rx1, ry2 - ry1)
+
+
+def crop_box_rotated_to_source(
+    box: tuple[int, int, int, int],
+    source_width: int,
+    source_height: int,
+    rotation: int,
+) -> tuple[int, int, int, int]:
+    """
+    Convertit un rectangle de recadrage (x, y, w, h) du repère de la planche pivotée
+    vers le repère natif de l'image source.
+    """
+    rx, ry, rw, rh = box
+    rx1, ry1 = rx, ry
+    rx2, ry2 = rx + rw, ry + rh
+    rot = normalize_rotation(rotation)
+    if rot == 0:
+        x1, y1, x2, y2 = rx1, ry1, rx2, ry2
+    elif rot == 90:
+        x1, y1, x2, y2 = ry1, source_height - rx2, ry2, source_height - rx1
+    elif rot == 180:
+        x1, y1, x2, y2 = source_width - rx2, source_height - ry2, source_width - rx1, source_height - ry1
+    elif rot == 270:
+        x1, y1, x2, y2 = source_width - ry2, rx1, source_width - ry1, rx2
+    else:
+        x1, y1, x2, y2 = rx1, ry1, rx2, ry2
+    return (x1, y1, x2 - x1, y2 - y1)
 
 
 def reaggregate_document_content(document_id: int) -> None:
@@ -208,16 +263,94 @@ class AlbumService:
             raise FileNotFoundError(f"Fichier image manquant sur le disque : {media_file}")
         return media_file
 
-    def render_page_image(self, page: DocumentPageModel, max_size: int | None = None) -> Image.Image:
+    def get_page_crop(self, page: DocumentPageModel) -> tuple[int, int, int, int] | None:
+        """Retourne le rectangle de recadrage (x, y, w, h) dans le repère natif de l'image source, ou None."""
+        return page.crop_box
+
+    def set_page_crop(
+        self,
+        page_id: int,
+        crop_box: Sequence[int] | None,
+    ) -> DocumentPageModel:
+        """
+        Définit ou retire le rectangle de recadrage restrictif sur l'image source d'une planche.
+        Invalide l'état dérivé (transcription vidée, fragment retiré, status=stale).
+        """
+        with db.atomic():
+            page = DocumentPageModel.get_by_id(page_id)
+            if crop_box is not None:
+                if len(crop_box) != 4 or any(c < 0 for c in crop_box[:2]) or any(c <= 0 for c in crop_box[2:]):
+                    raise ValueError(f"Rectangle de recadrage invalide : {crop_box}")
+                page.crop_data = json.dumps([int(c) for c in crop_box])
+            else:
+                page.crop_data = None
+
+            page.ocr_text = ""
+            page.status = "stale"
+            page.save()
+
+            DocumentChunkModel.delete().where((DocumentChunkModel.document == page.document) & (DocumentChunkModel.page_number == page.page_number)).execute()
+
+            reaggregate_document_content(page.document_id)
+
+            action_desc = f"recadrée à {page.crop_data}" if page.crop_data else "recadrage retiré"
+            logger.info("Page %d (ID %d) %s — état dérivé invalidé", page.page_number, page.id, action_desc)
+            return page
+
+    def remove_page_crop(self, page_id: int) -> DocumentPageModel:
+        """Retire le recadrage d'une planche pour restituer l'image intégrale."""
+        return self.set_page_crop(page_id, None)
+
+    def set_page_crop_from_view(
+        self,
+        page_id: int,
+        selection_rect: tuple[int, int, int, int],
+        view_size: tuple[int, int],
+    ) -> DocumentPageModel:
+        """
+        Définit le recadrage à partir des coordonnées d'une sélection tracée sur la vue affichée.
+
+        Convertit l'échelle de la vue vers les dimensions orientées de la planche, puis vers le
+        repère natif de l'image source selon la rotation de la planche.
+        """
+        page = DocumentPageModel.get_by_id(page_id)
+        media_path = self.page_media_path(page)
+        with Image.open(media_path) as probe:
+            src_w, src_h = int(probe.width), int(probe.height)
+
+        rot = normalize_rotation(page.rotation)
+        rot_w = src_h if rot in (90, 270) else src_w
+        rot_h = src_w if rot in (90, 270) else src_h
+
+        view_w, view_h = view_size
+        scale_x = rot_w / max(1, view_w)
+        scale_y = rot_h / max(1, view_h)
+
+        sel_x, sel_y, sel_w, sel_h = selection_rect
+        rx = int(sel_x * scale_x)
+        ry = int(sel_y * scale_y)
+        rw = max(1, min(int(sel_w * scale_x), rot_w - rx))
+        rh = max(1, min(int(sel_h * scale_y), rot_h - ry))
+
+        source_box = crop_box_rotated_to_source((rx, ry, rw, rh), src_w, src_h, rot)
+        return self.set_page_crop(page_id, source_box)
+
+    def render_page_image(
+        self,
+        page: DocumentPageModel,
+        max_size: int | None = None,
+        ignore_crop: bool = False,
+    ) -> Image.Image:
         """
         **Seule voie de lecture d'une planche** (ADR 0011) : rend l'image à l'orientation
-        propre de la planche, sous forme de `PIL.Image.Image` — la représentation que la
-        transcription, la compilation et le modèle de vision parlent déjà.
+        propre de la planche, en appliquant fidèlement le recadrage source éventuel,
+        sous forme de `PIL.Image.Image` — la représentation que la transcription, la
+        compilation et le modèle de vision parlent déjà.
 
-        La rotation est appliquée **à la lecture**. Le fichier image n'est jamais réécrit :
-        le `MediaManager` dédupliquant par MD5, deux planches peuvent partager un fichier,
-        et l'écrire ferait gratuit pivoter la planche voisine. Une rotation est une règle,
-        pas une réécriture.
+        Le recadrage est appliqué **sur l'image source** avant mise à l'échelle et rotation.
+        Le fichier image n'est jamais réécrit : le `MediaManager` dédupliquant par MD5,
+        deux planches peuvent partager un fichier, et l'écrire ferait pivoter la planche
+        voisine. Une rotation et un recadrage sont des règles, pas des réécritures.
 
         `max_size` plafonne la plus grande dimension **avant** rotation, pour qu'un appelant
         d'interface n'ait jamais à charger une planche en pleine résolution sur le thread GUI.
@@ -226,17 +359,31 @@ class AlbumService:
         media_file = self.page_media_path(page)
 
         with Image.open(media_file) as source:
+            crop_box = None if ignore_crop else self.get_page_crop(page)
+            if crop_box is not None:
+                x, y, w, h = crop_box
+                x1 = max(0, min(x, source.width - 1))
+                y1 = max(0, min(y, source.height - 1))
+                x2 = max(x1 + 1, min(x + w, source.width))
+                y2 = max(y1 + 1, min(y + h, source.height))
+                source_cropped = source.crop((x1, y1, x2, y2))
+            else:
+                source_cropped = source
+
             # `thumbnail` réduit dans la boîte *source* : pour les formats à décodage
             # progressif (JPEG, JPEG 2000, WEBP) la pleine résolution n'est jamais
-            # materialisée. Un PNG, lui, se décode entièrement — le plafond reste donc
+            # matérialisée. Un PNG, lui, se décode entièrement — le plafond reste donc
             # une borne de taille de sortie, pas une promesse d'échantillonnage.
             if max_size is not None:
-                source.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                source_cropped.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
             # Un PNG décodé porte un tampon que l'appelant doit pouvoir fermer, et
             # `convert("RGB")` sur une image déjà RGB en recopierait un second, jamais
             # fermé. `thumbnail` ayant déjà modifié `source` sur place, `copy()` suffit
             # dans les deux cas : on garde une seule image vivante, à orientaliser.
-            rendered = source.convert("RGB") if source.mode != "RGB" else source.copy()
+            rendered = source_cropped.convert("RGB") if source_cropped.mode != "RGB" else source_cropped.copy()
+            if source_cropped is not source:
+                source_cropped.close()
 
         rotation = normalize_rotation(page.rotation)
         if rotation:
@@ -247,7 +394,12 @@ class AlbumService:
 
         return rendered
 
-    def render_page_qimage(self, page: DocumentPageModel, max_size: int | None = None) -> QImage:
+    def render_page_qimage(
+        self,
+        page: DocumentPageModel,
+        max_size: int | None = None,
+        ignore_crop: bool = False,
+    ) -> QImage:
         """
         Adaptateur `QImage` de la couture — le format **sûr hors thread GUI**.
 
@@ -261,7 +413,7 @@ class AlbumService:
         """
         from PySide6.QtGui import QImage
 
-        rendered = self.render_page_image(page, max_size=max_size)
+        rendered = self.render_page_image(page, max_size=max_size, ignore_crop=ignore_crop)
         try:
             # `.copy()` : QImage ne possède pas les octets du tampon, dont la durée de vie
             # ne dépasse pas cet appel. Sans la copie, l'image lirait un tampon libéré.
@@ -269,7 +421,12 @@ class AlbumService:
         finally:
             rendered.close()
 
-    def render_page_pixmap(self, page: DocumentPageModel, max_size: int | None = None) -> QPixmap:
+    def render_page_pixmap(
+        self,
+        page: DocumentPageModel,
+        max_size: int | None = None,
+        ignore_crop: bool = False,
+    ) -> QPixmap:
         """
         Adaptateur `QPixmap` de la couture, pour l'interface.
 
@@ -278,7 +435,7 @@ class AlbumService:
         """
         from PySide6.QtGui import QPixmap
 
-        return QPixmap.fromImage(self.render_page_qimage(page, max_size=max_size))
+        return QPixmap.fromImage(self.render_page_qimage(page, max_size=max_size, ignore_crop=ignore_crop))
 
     def rotate_page(self, page_id: int, degrees: int = 90) -> DocumentPageModel:
         """

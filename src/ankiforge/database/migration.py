@@ -282,6 +282,22 @@ def run_migrations() -> None:
                 except Exception as e:
                     logger.debug("Remarque sur l'ajout post-migration de bounding_box sur document_chunks : %s", e)
 
+        # Vérification post-migration : auto-guérison de la table document_pages (crop_data et bounding_boxes)
+        if db.table_exists("document_pages"):
+            page_cols = [col.name for col in db.get_columns("document_pages")]
+            if "crop_data" not in page_cols:
+                try:
+                    db.execute_sql("ALTER TABLE document_pages ADD COLUMN crop_data VARCHAR(255);")
+                    logger.info("Colonne 'crop_data' ajoutée post-migration à la table 'document_pages'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de crop_data sur document_pages : %s", e)
+            if "bounding_boxes" not in page_cols:
+                try:
+                    db.execute_sql("ALTER TABLE document_pages ADD COLUMN bounding_boxes TEXT;")
+                    logger.info("Colonne 'bounding_boxes' ajoutée post-migration à la table 'document_pages'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de bounding_boxes sur document_pages : %s", e)
+
         # Vérification dynamique des colonnes flags et is_suspended sur cardmodel
         if db.table_exists("cardmodel"):
             card_cols = [col.name for col in db.get_columns("cardmodel")]
