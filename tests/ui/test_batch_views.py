@@ -1915,3 +1915,58 @@ def test_batch_worker_stamps_exact_provenance_for_a_single_block_part(qtbot: Any
     assert task.cards[0]["_source_chunk_id"] == 4242
     assert task.cards[0]["_source_heading_path"] == "Intro"
     assert task.cards[0]["_source_page_number"] == 1
+
+
+def test_batch_view_build_panel_flexible_width_range(qtbot: Any) -> None:
+    """Le panneau de build est déverrouillé et redimensionnable entre 280px et 550px."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    assert view.build_panel.minimumWidth() == 280
+    assert view.build_panel.maximumWidth() == 550
+    assert view.build_panel.minimumWidth() < view.build_panel.maximumWidth()
+
+    # Redimensionnement via middle_splitter
+    view.middle_splitter.setSizes([300, 700])
+    assert view.middle_splitter.sizes()[0] >= 280
+    assert view.middle_splitter.sizes()[0] <= 550
+
+
+def test_batch_view_terminal_toggle_exact_height_without_drift(qtbot: Any) -> None:
+    """Le repli/dépli du terminal respecte exactement 36px et la hauteur précédente sans dérive."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    idx = view._terminal_splitter_index()
+    assert idx >= 0
+
+    # État initial
+    initial_sizes = view.main_splitter.sizes()
+    initial_terminal_height = initial_sizes[idx]
+    total_height = sum(initial_sizes)
+
+    # Repli 1
+    view._toggle_terminal()
+    assert not view._terminal_expanded
+    collapsed_sizes = view.main_splitter.sizes()
+    assert collapsed_sizes[idx] == 36, f"Le terminal replié doit faire exactement 36px (reçu: {collapsed_sizes[idx]})"
+    assert sum(collapsed_sizes) == total_height, "La somme des hauteurs doit être strictement conservée"
+
+    # Dépli 1
+    view._toggle_terminal()
+    assert view._terminal_expanded
+    expanded_sizes = view.main_splitter.sizes()
+    assert expanded_sizes[idx] == initial_terminal_height, f"Le dépli doit restaurer exactement {initial_terminal_height}px"
+    assert sum(expanded_sizes) == total_height
+
+    # Repli 2 (vérification de non-dérive successive)
+    view._toggle_terminal()
+    collapsed_sizes_2 = view.main_splitter.sizes()
+    assert collapsed_sizes_2[idx] == 36
+    assert sum(collapsed_sizes_2) == total_height
+
+    # Dépli 2
+    view._toggle_terminal()
+    expanded_sizes_2 = view.main_splitter.sizes()
+    assert expanded_sizes_2[idx] == initial_terminal_height
+    assert sum(expanded_sizes_2) == total_height

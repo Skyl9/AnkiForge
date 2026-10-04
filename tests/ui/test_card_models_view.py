@@ -362,6 +362,8 @@ def test_card_models_view_bottom_toolbar_buttons_affordance(qtbot, mock_db):
 
     # Vérification des rôles sémantiques
     assert btn_new.property("role") == "primary"
+    assert btn_new.text() == "Nouveau"
+    assert not btn_new.icon().isNull()
     assert btn_starter.property("role") == "secondary"
     assert btn_dup.property("role") == "icon"
     assert btn_imp.property("role") == "icon"
