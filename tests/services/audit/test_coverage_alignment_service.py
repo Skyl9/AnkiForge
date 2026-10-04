@@ -1173,3 +1173,69 @@ def test_sync_note_coverage_removes_stale_link_when_document_reassigned():
     assert result[0].chunk_id == chunk2.id
     assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk1).count() == 0
     assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk2).count() == 1
+
+
+def test_sync_note_coverage_force_reevaluate_clears_links_when_doc_tag_removed():
+    """Quand le tag doc: est retiré et qu'on force la réévaluation, les liens sont purgés."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Doc {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Titre",
+        content="Contenu",
+        content_hash=f"h_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    note = _make_note_with_tags(nt, build_document_tags(doc_id=doc.id, section_name=chunk.heading_path))
+    NoteChunkLinkModel.create(note=note, chunk=chunk, resolution=RESOLUTION_SECTION)
+
+    # Suppression du tag doc: (ne reste qu'un tag arbitraire)
+    note.tags = json.dumps(["autre_tag"])
+    note.save()
+
+    # Sans force_reevaluate, le lien existant est préservé
+    res_normal = CoverageAlignmentService.sync_note_coverage(note, force_reevaluate=False)
+    assert len(res_normal) == 1
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).count() == 1
+
+    # Avec force_reevaluate=True (retrait explicite de tag de provenance), le lien est nettoyé
+    res_forced = CoverageAlignmentService.sync_note_coverage(note, force_reevaluate=True)
+    assert len(res_forced) == 0
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).count() == 0
+
+
+def test_sync_note_coverage_force_reevaluate_switches_to_remaining_provenance():
+    """Quand un tag section: est retiré, force_reevaluate réévalue vers la page ou le lexique."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Multi Chunks {uid}", file_type="md")
+    chunk1 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Section A",
+        content="Contenu de la section A sur la biologie",
+        content_hash=f"h1_{uid}",
+    )
+    chunk2 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Section B",
+        content="Contenu de la section B sur la chimie",
+        content_hash=f"h2_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    # Note rattachée à la section A
+    note = _make_note_with_tags(nt, [f"doc:{doc.id}", f"section:{section_key(chunk1.heading_path)}", "page:2"])
+    NoteChunkLinkModel.create(note=note, chunk=chunk1, resolution=RESOLUTION_SECTION)
+
+    # L'utilisateur retire section:section_a, il ne reste que doc: et page:2
+    note.tags = json.dumps([f"doc:{doc.id}", "page:2"])
+    note.save()
+
+    result = CoverageAlignmentService.sync_note_coverage(note, force_reevaluate=True)
+    assert len(result) == 1
+    # Doit maintenant être rattaché à chunk2 via page:2
+    assert result[0].chunk_id == chunk2.id
+    assert result[0].resolution == RESOLUTION_PAGE

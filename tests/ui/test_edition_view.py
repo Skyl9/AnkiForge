@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
+from PySide6.QtWidgets import QMessageBox
 
 from ankiforge.database.models import (
     CardModel,
@@ -488,3 +489,171 @@ def test_edition_view_save_card_preserves_proven_and_migrated_links(qtbot: Any, 
     assert refreshed_links2[0].id == link2.id
     assert refreshed_links2[0].chunk_id == chunk.id
     assert refreshed_links2[0].resolution is None
+
+
+def test_edition_view_tags_editor_inline_and_add_tag_with_spaces(qtbot, mock_db):
+    """Vérifie l'éditeur inline de tags, l'ajout de tags avec espaces et leur persistance sans coupure."""
+    from ankiforge.utils.tags import parse_note_tags
+
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_{uid}", fields_schema='["Front", "Back"]')
+    note = NoteModel.create(guid=f"g_{uid}", note_type=nt, tags=json.dumps(["tag1", "doc:99"]))
+    NoteVersionModel.create(note=note, version_number=1, content='{"Front": "Q", "Back": "A"}', is_active=True)
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+    view.select_note_by_id(note.id)
+
+    # 1. Vérification de la présence de l'éditeur inline (distinct du bouton filtre de la barre d'outils)
+    assert hasattr(view, "tags_editor") and view.tags_editor is not None
+    assert view.tags_editor.get_tags() == ["tag1", "doc:99"]
+
+    # 2. Ajout d'un tag avec espaces ("médecine générale")
+    view.tags_editor.input_new_tag.setText("médecine générale")
+    view.tags_editor.btn_add_tag.click()
+
+    assert "médecine générale" in view.tags_editor.get_tags()
+    refreshed_note = NoteModel.get_by_id(note.id)
+    # Vérification que le round-trip n'a pas découpé le tag en deux
+    assert parse_note_tags(refreshed_note.tags) == ["tag1", "doc:99", "médecine générale"]
+
+
+def test_edition_view_tags_editor_visual_distinction_and_reorder(qtbot, mock_db):
+    """Vérifie la distinction visuelle des tags de provenance et la réorganisation."""
+    from ankiforge.ui.views.edition_view.note_tags_editor import NoteTagChipWidget
+
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_{uid}", fields_schema='["Front", "Back"]')
+    note = NoteModel.create(guid=f"g_{uid}", note_type=nt, tags=json.dumps(["section:intro", "cardiologie"]))
+    NoteVersionModel.create(note=note, version_number=1, content='{"Front": "Q", "Back": "A"}', is_active=True)
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+    view.select_note_by_id(note.id)
+
+    editor = view.tags_editor
+    assert editor is not None
+
+    chips = [editor.chips_flow.flow_layout.itemAt(i).widget() for i in range(editor.chips_flow.flow_layout.count())]
+    chip_widgets = [c for c in chips if isinstance(c, NoteTagChipWidget)]
+    assert len(chip_widgets) == 2
+
+    # section:intro est un tag de provenance
+    assert chip_widgets[0].is_provenance is True
+    # cardiologie est un tag ordinaire
+    assert chip_widgets[1].is_provenance is False
+
+    # Réorganisation : déplacer cardiologie vers la gauche
+    editor._on_move_tag_left("cardiologie")
+    assert editor.get_tags() == ["cardiologie", "section:intro"]
+
+    refreshed_note = NoteModel.get_by_id(note.id)
+    from ankiforge.utils.tags import parse_note_tags
+
+    assert parse_note_tags(refreshed_note.tags) == ["cardiologie", "section:intro"]
+
+
+def test_edition_view_tags_editor_provenance_deletion_annihilable(qtbot, mock_db, monkeypatch):
+    """Vérifie que la suppression d'un tag de provenance est annulable puis effective si confirmée."""
+    from ankiforge.utils.tags import build_document_tags
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Cardio {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Cardiologie > Valvule",
+        content="La valvule mitrale",
+        content_hash=f"h_{uid}",
+    )
+    nt = NoteTypeModel.create(name=f"NT_{uid}", fields_schema='["Front", "Back"]')
+    tags = build_document_tags(doc_id=doc.id, section_name=chunk.heading_path)
+    note = NoteModel.create(guid=f"g_{uid}", note_type=nt, tags=json.dumps(tags))
+    NoteChunkLinkModel.create(note=note, chunk=chunk, resolution="section")
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+    view.select_note_by_id(note.id)
+
+    editor = view.tags_editor
+    assert editor is not None
+    doc_tag = f"doc:{doc.id}"
+    assert doc_tag in editor.get_tags()
+
+    # 1. Annulation de la suppression : le tag et le lien doivent subsister
+    monkeypatch.setattr(editor, "_confirm_provenance_removal", lambda tag: False)
+    editor._on_delete_tag_requested(doc_tag)
+
+    assert doc_tag in editor.get_tags()
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).count() == 1
+
+    # 2. Confirmation de la suppression : le tag est retiré et la couverture re-synchronisée
+    monkeypatch.setattr(editor, "_confirm_provenance_removal", lambda tag: True)
+    editor._on_delete_tag_requested(doc_tag)
+
+    assert doc_tag not in editor.get_tags()
+    refreshed_note = NoteModel.get_by_id(note.id)
+    assert doc_tag not in refreshed_note.tags
+    # Le lien vers le document a été nettoyé car doc: a été retiré
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).count() == 0
+
+
+def test_edition_view_tags_editor_regular_tag_deletion_immediate(qtbot, mock_db):
+    """Vérifie que la suppression d'un tag ordinaire est immédiate sans confirmation."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_{uid}", fields_schema='["Front", "Back"]')
+    note = NoteModel.create(guid=f"g_{uid}", note_type=nt, tags=json.dumps(["tag_ordinaire", "autre"]))
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+    view.select_note_by_id(note.id)
+
+    editor = view.tags_editor
+    assert editor is not None
+
+    editor._on_delete_tag_requested("tag_ordinaire")
+    assert editor.get_tags() == ["autre"]
+
+    refreshed_note = NoteModel.get_by_id(note.id)
+    from ankiforge.utils.tags import parse_note_tags
+
+    assert parse_note_tags(refreshed_note.tags) == ["autre"]
+
+
+def test_edition_view_tags_editor_confirmation_box_content(qtbot, mock_db, monkeypatch):
+    """Vérifie que la boîte de dialogue de confirmation nomme explicitement le lien de couverture."""
+    from ankiforge.ui.views.edition_view.note_tags_editor import NoteTagsEditorWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"NeuroAnatomie {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Cerveau > Cortex",
+        content="Le cortex cérébral",
+        content_hash=f"h_{uid}",
+    )
+    nt = NoteTypeModel.create(name=f"NT_{uid}", fields_schema='["Front", "Back"]')
+    note = NoteModel.create(guid=f"g_{uid}", note_type=nt, tags=json.dumps([f"doc:{doc.id}"]))
+    NoteChunkLinkModel.create(note=note, chunk=chunk, resolution="section")
+
+    editor = NoteTagsEditorWidget(note=note)
+    qtbot.addWidget(editor)
+
+    captured_boxes: list[QMessageBox] = []
+
+    def mock_exec(box_instance: QMessageBox) -> int:
+        captured_boxes.append(box_instance)
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", mock_exec)
+    editor._confirm_provenance_removal(f"doc:{doc.id}")
+
+    assert len(captured_boxes) == 1
+    box = captured_boxes[0]
+    assert f"doc:{doc.id}" in box.text()
+    assert f"NeuroAnatomie {uid} → Cerveau > Cortex" in box.informativeText()

@@ -433,13 +433,15 @@ class CoverageAlignmentService:
         cls,
         note: NoteModel,
         card_text: str | None = None,
+        force_reevaluate: bool = False,
     ) -> list[NoteChunkLinkModel]:
         """Synchronise ou préserve la couverture documentaire d'une note unique.
 
         Garanties :
-        1. Ne détruit jamais les liens de couverture existants valides (prouvés ou migrés).
-        2. Si un rattachement doit être évalué, il passe par :meth:`resolve_attachment`
-           (4 paliers déterministes : exact → section → page → lexical).
+        1. Ne détruit jamais les liens de couverture existants valides (prouvés ou migrés)
+           lors d'une synchronisation standard (force_reevaluate=False).
+        2. Si un rattachement doit être réévalué (force_reevaluate=True ou aucun lien existant),
+           il passe par :meth:`resolve_attachment` (4 paliers déterministes : exact → section → page → lexical).
         3. Le palier gagnant est persisté sur ``NoteChunkLinkModel.resolution``.
         4. Les liens et les tags de provenance sont réécrits dans une seule transaction ``db.atomic()``.
         5. Une note sans correspondance reste hors couverture (aucun rattachement arbitraire).
@@ -448,6 +450,8 @@ class CoverageAlignmentService:
             note: La note Anki à synchroniser.
             card_text: Texte optionnel de la carte (recto + verso) pour le palier lexical.
                 Si omis, extrait depuis les champs de la note ou de sa version active.
+            force_reevaluate: Si True, réévalue l'attachement via :meth:`resolve_attachment`
+                même si des liens existants sont présents (utile lors du retrait de tags de provenance).
 
         Returns:
             list[NoteChunkLinkModel]: Liste des liens de fragments valides pour cette note.
@@ -456,6 +460,12 @@ class CoverageAlignmentService:
         existing_links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note))
 
         if not tags or ("doc:" not in tags and "source:" not in tags):
+            if force_reevaluate and existing_links:
+                with db.atomic():
+                    for link in existing_links:
+                        link.delete_instance()
+                cls._notify_coverage_synced(None, scope="document")
+                return []
             return existing_links
 
         meta = extract_tag_metadata(tags)
@@ -469,19 +479,25 @@ class CoverageAlignmentService:
                     break
 
         if not target_doc:
+            if force_reevaluate and existing_links:
+                with db.atomic():
+                    for link in existing_links:
+                        link.delete_instance()
+                cls._notify_coverage_synced(None, scope="document")
+                return []
             return existing_links
 
         valid_links = [link for link in existing_links if link.chunk and link.chunk.document_id == target_doc.id]
         stale_links = [link for link in existing_links if link.chunk and link.chunk.document_id != target_doc.id]
 
-        if valid_links:
+        if valid_links and not force_reevaluate:
             if stale_links:
                 with db.atomic():
                     for stale in stale_links:
                         stale.delete_instance()
             return valid_links
 
-        # Aucun lien valide pour le document cible : évaluation via resolve_attachment
+        # Réévaluation via resolve_attachment
         if card_text is None:
             card_text = (
                 " ".join(str(v) for v in note.content_dict.values() if v).strip() if hasattr(note, "content_dict") and note.content_dict else cls._active_version_texts([note.id]).get(note.id, "")
@@ -496,12 +512,15 @@ class CoverageAlignmentService:
         )
 
         with db.atomic():
-            if stale_links:
-                for stale in stale_links:
-                    stale.delete_instance()
-
             if not target_chunk or not resolution:
+                for link in existing_links:
+                    link.delete_instance()
+                cls._notify_coverage_synced(target_doc.id, scope="document")
                 return []
+
+            for link in existing_links:
+                if link.chunk_id != target_chunk.id:
+                    link.delete_instance()
 
             link, created = NoteChunkLinkModel.get_or_create(
                 note=note,
@@ -513,6 +532,7 @@ class CoverageAlignmentService:
                 link.save(only=[NoteChunkLinkModel.resolution])
 
             cls._canonicalize_note_provenance(note, target_chunk)
+            cls._notify_coverage_synced(target_doc.id, scope="document")
 
         return [link]
 

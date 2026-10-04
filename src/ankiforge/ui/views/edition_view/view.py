@@ -55,6 +55,7 @@ from ankiforge.ui.models import (
 )
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.viewmodels import EditionViewModel
+from ankiforge.ui.views.edition_view.note_tags_editor import NoteTagsEditorWidget
 from ankiforge.ui.views.edition_view.source_badge import DocumentSourceBadge
 from ankiforge.ui.views.edition_view.utils import strip_html_tags
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
@@ -116,6 +117,8 @@ class EditionView(QWidget):
 
         self.dynamic_field_widgets: dict[str, NoteFieldEditorWidget] = {}
         self._active_editor: NoteFieldTextEdit | None = None
+        self._source_badge: DocumentSourceBadge | None = None
+        self.tags_editor: NoteTagsEditorWidget | None = None
 
         self._table_collapsed: bool = False
         self._saved_table_height: int = 260
@@ -761,6 +764,9 @@ class EditionView(QWidget):
             )
             source_badge.request_navigation.connect(self.request_navigation.emit)
             self.fields_layout.addWidget(source_badge)
+            self._source_badge = source_badge
+        else:
+            self._source_badge = None
 
         # Barre de Métadonnées et Choix du Modèle de Carte
         model_bar = QFrame()
@@ -818,6 +824,12 @@ class EditionView(QWidget):
 
         self.fields_layout.addWidget(model_bar)
 
+        # Éditeur Inline de Tags de la Note
+        self.tags_editor = NoteTagsEditorWidget(note=note, parent=self.fields_container)
+        self.tags_editor.tags_changed.connect(self._on_note_tags_changed)
+        self.tags_editor.provenance_tag_removed.connect(self._on_provenance_tag_removed)
+        self.fields_layout.addWidget(self.tags_editor)
+
         for i, field_name in enumerate(fields):
             val = data.get(field_name, data.get(field_name.lower(), ""))
 
@@ -855,6 +867,48 @@ class EditionView(QWidget):
         self._dirty = is_modified
         self._preview_debounce_timer.start()
         self._update_nav_ribbon_info()
+
+    def _on_note_tags_changed(self, tags: list[str]) -> None:
+        """Répercute immédiatement la modification des tags dans le modèle virtuel et le bandeau."""
+        if not self._current_note:
+            return
+        note_id = self._current_note.id
+        self.note_table_model.update_note_tags(note_id, tags)
+        self._update_nav_ribbon_info()
+
+    def _on_provenance_tag_removed(self, tag: str) -> None:
+        """Recalcule la couverture documentaire après suppression d'un tag de provenance et actualise l'UI."""
+        if not self._current_note:
+            return
+        from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+        CoverageAlignmentService.sync_note_coverage(self._current_note, force_reevaluate=True)
+        self._refresh_source_badge(self._current_note)
+        show_toast(self, f"Tag de provenance « {tag} » retiré et couverture recalculée.")
+
+    def _refresh_source_badge(self, note: NoteModel) -> None:
+        """Actualise ou retire le bandeau de source documentaire selon le nouvel état de couverture."""
+        if self._source_badge is not None:
+            self.fields_layout.removeWidget(self._source_badge)
+            self._source_badge.setParent(None)
+            self._source_badge.deleteLater()
+            self._source_badge = None
+
+        from ankiforge.database.models import NoteChunkLinkModel
+
+        link = NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).first()
+        if link and link.chunk:
+            doc_title = link.chunk.document.title if link.chunk.document else "Document"
+            heading = link.chunk.heading_path or (f"Page {link.chunk.page_number}" if link.chunk.page_number else f"Section #{link.chunk.chunk_index + 1}")
+            source_badge = DocumentSourceBadge(
+                doc_id=link.chunk.document_id,
+                doc_title=doc_title,
+                heading=heading,
+                resolution=getattr(link, "resolution", None),
+            )
+            source_badge.request_navigation.connect(self.request_navigation.emit)
+            self.fields_layout.insertWidget(0, source_badge)
+            self._source_badge = source_badge
 
     def _on_table_row_changed(self, current: QModelIndex, previous: QModelIndex) -> None:
         if not current.isValid():
