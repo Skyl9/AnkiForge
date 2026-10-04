@@ -2,9 +2,9 @@ import logging
 import typing
 from typing import Any
 
-from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent
-from PySide6.QtWidgets import QComboBox, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
+from PySide6.QtCore import Property, QEasingCurve, QEvent, QObject, QPropertyAnimation, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QWheelEvent
+from PySide6.QtWidgets import QApplication, QComboBox, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 
@@ -392,12 +392,73 @@ class OptionToggleRow(QWidget):
             super().mouseReleaseEvent(event)
 
 
+class ComboBoxWheelFilter(QObject):
+    """Filtre d'événement global neutralisant le changement intempestif d'option à la molette sur les QComboBox fermées."""
+
+    _instance: "ComboBoxWheelFilter | None" = None
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._is_forwarding: bool = False
+
+    @classmethod
+    def install(cls, app: QApplication | None = None) -> "ComboBoxWheelFilter":
+        """Installe le filtre d'événement sur l'application (idempotent)."""
+        target_app = app or QApplication.instance()
+        if target_app is None:
+            logger.warning("Impossible d'installer ComboBoxWheelFilter : aucune QApplication active.")
+            if cls._instance is None:
+                cls._instance = cls()
+            return cls._instance
+        if cls._instance is None:
+            cls._instance = cls(target_app)
+            target_app.installEventFilter(cls._instance)
+        return cls._instance
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if self._is_forwarding:
+            return False
+
+        if event.type() == QEvent.Type.Wheel and isinstance(watched, QComboBox) and not self._is_popup_open(watched):
+            event.ignore()
+            self._is_forwarding = True
+            try:
+                parent = watched.parentWidget()
+                while parent is not None:
+                    QApplication.sendEvent(parent, event)
+                    if event.isAccepted():
+                        break
+                    parent = parent.parentWidget()
+            finally:
+                self._is_forwarding = False
+            return True
+
+        return super().eventFilter(watched, event)
+
+    @staticmethod
+    def _is_popup_open(combo: QComboBox) -> bool:
+        """Détermine si la liste déroulante du QComboBox est actuellement déployée."""
+        view = combo.view()
+        if view is None:
+            return False
+        container = view.parentWidget()
+        if container is not None and container is not combo:
+            return container.isVisible() and not container.isHidden()
+        return view.isVisible() and not view.isHidden()
+
+
 class StyledComboBox(QComboBox):
-    """ComboBox avec style design system."""
+    """ComboBox avec style design system et protection contre le défilement intempestif à la molette."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(36)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        if ComboBoxWheelFilter._is_popup_open(self):
+            super().wheelEvent(event)
+        else:
+            event.ignore()
 
 
 class DBComboBox(StyledComboBox):

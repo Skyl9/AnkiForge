@@ -272,11 +272,13 @@ class DesignTokens:
 
 def setup_dynamic_theme(app: QApplication) -> None:
     """Configures the theme, fonts, and palette for the given QApplication."""
+    from ankiforge.ui.components.inputs import ComboBoxWheelFilter
     from ankiforge.ui.style_engine.engine import StyleEngine
 
     app.setStyle("Fusion")
     default_font = QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE)
     app.setFont(default_font)
+    ComboBoxWheelFilter.install(app)
     StyleEngine.instance().apply_theme(DesignTokens.ACTIVE_THEME_ID, app)
 
 

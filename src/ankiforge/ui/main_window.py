@@ -143,6 +143,11 @@ class MainWindow(QMainWindow):
         saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
         self.apply_layout(saved_layout_id)
 
+        # Neutralisation globale du changement d'option à la molette sur les QComboBox fermées
+        from ankiforge.ui.components.inputs import ComboBoxWheelFilter
+
+        self._combo_wheel_filter = ComboBoxWheelFilter.install()
+
         self._prewarm_web_engine()
 
         self._setup_debug_shortcuts()
