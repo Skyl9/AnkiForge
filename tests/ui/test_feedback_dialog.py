@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from ankiforge.ui.dialogs.feedback_dialog import FeedbackDialog
+from ankiforge.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
@@ -39,8 +40,34 @@ class TestFeedbackDialog:
         assert dialog.tab_bar.currentIndex() == 1
         assert dialog.stacked_widget.currentIndex() == 1
 
-    def test_dialog_prefill_error_and_title(self, qtbot: QtBot) -> None:
-        """Vérifie le pré-remplissage avec une erreur interceptée."""
+    def test_dialog_dimensions_and_sizing(self, qtbot: QtBot) -> None:
+        """Vérifie l'agrandissement des dimensions de la fenêtre modale (880x740, min 840x680)."""
+        dialog = FeedbackDialog(tab="bug")
+        qtbot.addWidget(dialog)
+
+        assert dialog.minimumWidth() >= 840
+        assert dialog.minimumHeight() >= 680
+        assert dialog.width() == 880
+        assert dialog.height() == 740
+
+    def test_bug_observed_edit_dimensions_and_monospace_font(self, qtbot: QtBot) -> None:
+        """Vérifie que bug_observed_edit a une hauteur minimale de 160-200px et une police monospace FONT_CODE."""
+        dialog = FeedbackDialog(tab="bug")
+        qtbot.addWidget(dialog)
+
+        assert 160 <= dialog.bug_observed_edit.minimumHeight() <= 200
+        assert dialog.bug_observed_edit.font().family() == DesignTokens.FONT_CODE
+
+    def test_diagnostics_drawer_minimum_height_and_font(self, qtbot: QtBot) -> None:
+        """Vérifie que le tiroir de logs récents a une hauteur minimale d'au moins 220px et FONT_CODE."""
+        dialog = FeedbackDialog(tab="bug")
+        qtbot.addWidget(dialog)
+
+        assert dialog.diag_preview_edit.minimumHeight() >= 220
+        assert dialog.diag_preview_edit.font().family() == DesignTokens.FONT_CODE
+
+    def test_dialog_prefill_error_and_trace_highlight(self, qtbot: QtBot) -> None:
+        """Vérifie la mise en valeur visuelle immédiate de la trace lors de l'ouverture sur une erreur de contexte."""
         error_msg = "ZeroDivisionError: division by zero in orchestrator"
         dialog = FeedbackDialog(tab="bug", initial_title="Erreur de calcul", context_error=error_msg)
         qtbot.addWidget(dialog)
@@ -48,6 +75,21 @@ class TestFeedbackDialog:
         assert dialog.bug_title_input.text() == "Erreur de calcul"
         assert error_msg in dialog.bug_observed_edit.toPlainText()
         assert dialog.bug_severity_combo.currentText() == "Élevé / Bloquant"
+        # Bannière contextuelle d'erreur présente et non masquée
+        assert dialog.error_banner is not None
+        assert not dialog.error_banner.isHidden()
+        # Propriété hasError activée pour le style visuel
+        assert dialog.bug_observed_edit.property("hasError") == "true"
+        # Curseur au début pour lire la trace immédiatement
+        assert dialog.bug_observed_edit.textCursor().position() == 0
+
+    def test_dialog_without_context_error(self, qtbot: QtBot) -> None:
+        """Vérifie l'absence de mise en valeur d'erreur lorsqu'aucune trace n'est passée."""
+        dialog = FeedbackDialog(tab="bug")
+        qtbot.addWidget(dialog)
+
+        assert dialog.error_banner is None
+        assert dialog.bug_observed_edit.property("hasError") != "true"
 
     def test_tab_switching(self, qtbot: QtBot) -> None:
         """Vérifie la bascule dynamique entre les onglets Bug et Idée."""

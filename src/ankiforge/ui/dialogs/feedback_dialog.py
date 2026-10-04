@@ -60,8 +60,8 @@ class FeedbackDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Retours & Suggestions AnkiForge")
-        self.setMinimumSize(780, 640)
-        self.resize(820, 680)
+        self.setMinimumSize(840, 680)
+        self.resize(880, 740)
         self.setObjectName("FeedbackDialog")
 
         # Diagnostics collectés en arrière-plan immédiat
@@ -69,6 +69,8 @@ class FeedbackDialog(QDialog):
         self._initial_tab = tab
         self._initial_title = initial_title
         self._context_error = context_error
+        self.error_banner: QFrame | None = None
+        self.lbl_observed: QLabel | None = None
 
         self._setup_ui()
         self._apply_styles()
@@ -188,6 +190,30 @@ class FeedbackDialog(QDialog):
         layout.setContentsMargins(4, 4, 12, 4)
         layout.setSpacing(10)
 
+        # ── Mise en valeur immédiate de la trace si erreur interceptée ──
+        if self._context_error:
+            self.error_banner = QFrame()
+            self.error_banner.setObjectName("ErrorContextBanner")
+            banner_layout = QHBoxLayout(self.error_banner)
+            banner_layout.setContentsMargins(12, 10, 12, 10)
+            banner_layout.setSpacing(10)
+
+            banner_icon = QLabel()
+            warning_icon = load_phosphor_icon("warning-circle", color=DesignTokens.COLOR_RED)
+            if not warning_icon.isNull():
+                banner_icon.setPixmap(warning_icon.pixmap(20, 20))
+            else:
+                banner_icon.setText("⚠️")
+            banner_layout.addWidget(banner_icon)
+
+            banner_text = QLabel("Une anomalie a été interceptée par l'application. La trace d'erreur a été automatiquement injectée ci-dessous pour analyse.")
+            banner_text.setWordWrap(True)
+            banner_text.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-size: 12px; font-weight: 600;")
+            banner_layout.addWidget(banner_text, stretch=1)
+            layout.addWidget(self.error_banner)
+        else:
+            self.error_banner = None
+
         # Titre
         lbl_title = QLabel("Titre du problème :")
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
@@ -252,14 +278,25 @@ class FeedbackDialog(QDialog):
         obs_exp_row.setSpacing(10)
 
         col_obs = QVBoxLayout()
-        lbl_obs = QLabel("Comportement observé :")
-        lbl_obs.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
-        col_obs.addWidget(lbl_obs)
-        self.bug_observed_edit = QTextEdit()
-        self.bug_observed_edit.setPlaceholderText("Ce qui s'est produit ou message d'erreur affiché...")
-        self.bug_observed_edit.setFixedHeight(75)
         if self._context_error:
+            self.lbl_observed = QLabel("Comportement observé (Trace d'erreur interceptée) :")
+            self.lbl_observed.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-weight: 700; font-size: 12px;")
+        else:
+            self.lbl_observed = QLabel("Comportement observé :")
+            self.lbl_observed.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
+        col_obs.addWidget(self.lbl_observed)
+
+        self.bug_observed_edit = QTextEdit()
+        self.bug_observed_edit.setObjectName("BugObservedEdit")
+        self.bug_observed_edit.setPlaceholderText("Ce qui s'est produit ou message d'erreur affiché...")
+        self.bug_observed_edit.setFont(QFont(DesignTokens.FONT_CODE, 10))
+        self.bug_observed_edit.setMinimumHeight(180)
+        if self._context_error:
+            self.bug_observed_edit.setProperty("hasError", "true")
             self.bug_observed_edit.setText(f"Erreur interceptée :\n{self._context_error}")
+            cursor = self.bug_observed_edit.textCursor()
+            cursor.movePosition(cursor.MoveOperation.Start)
+            self.bug_observed_edit.setTextCursor(cursor)
         col_obs.addWidget(self.bug_observed_edit)
         obs_exp_row.addLayout(col_obs)
 
@@ -269,7 +306,7 @@ class FeedbackDialog(QDialog):
         col_exp.addWidget(lbl_exp)
         self.bug_expected_edit = QTextEdit()
         self.bug_expected_edit.setPlaceholderText("Ce qui aurait dû se produire...")
-        self.bug_expected_edit.setFixedHeight(75)
+        self.bug_expected_edit.setMinimumHeight(180)
         col_exp.addWidget(self.bug_expected_edit)
         obs_exp_row.addLayout(col_exp)
 
@@ -290,9 +327,10 @@ class FeedbackDialog(QDialog):
         layout.addWidget(self.btn_toggle_drawer)
 
         self.diag_preview_edit = QTextEdit()
+        self.diag_preview_edit.setObjectName("DiagPreviewEdit")
         self.diag_preview_edit.setReadOnly(True)
-        self.diag_preview_edit.setFont(QFont("monospace", 10))
-        self.diag_preview_edit.setFixedHeight(130)
+        self.diag_preview_edit.setFont(QFont(DesignTokens.FONT_CODE, 10))
+        self.diag_preview_edit.setMinimumHeight(220)
         self.diag_preview_edit.setText(self._diagnostics.to_markdown(include_logs=True))
         self.diag_preview_edit.setVisible(False)
         layout.addWidget(self.diag_preview_edit)
@@ -364,7 +402,7 @@ class FeedbackDialog(QDialog):
 
         self.feature_problem_edit = QTextEdit()
         self.feature_problem_edit.setPlaceholderText("Décrivez le contexte d'utilisation, le cas concret d'usage ou la frustration actuelle que vous rencontrez...")
-        self.feature_problem_edit.setFixedHeight(90)
+        self.feature_problem_edit.setMinimumHeight(110)
         layout.addWidget(self.feature_problem_edit)
 
         # Solution suggérée
@@ -374,7 +412,7 @@ class FeedbackDialog(QDialog):
 
         self.feature_solution_edit = QTextEdit()
         self.feature_solution_edit.setPlaceholderText("Décrivez le comportement attendu, l'emplacement idéal dans l'interface ou les options souhaitées...")
-        self.feature_solution_edit.setFixedHeight(95)
+        self.feature_solution_edit.setMinimumHeight(120)
         layout.addWidget(self.feature_solution_edit)
 
         layout.addStretch(1)
@@ -387,6 +425,11 @@ class FeedbackDialog(QDialog):
             QDialog#FeedbackDialog {{
                 background-color: {DesignTokens.BG_MAIN};
                 color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QFrame#ErrorContextBanner {{
+                background-color: {DesignTokens.COLOR_RED_BG};
+                border: 1px solid {DesignTokens.COLOR_RED_BORDER};
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
             QTabBar::tab {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -419,6 +462,20 @@ class FeedbackDialog(QDialog):
             }}
             QTextEdit:focus {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QTextEdit#BugObservedEdit {{
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 11px;
+            }}
+            QTextEdit#BugObservedEdit[hasError="true"] {{
+                border: 1.5px solid {DesignTokens.COLOR_RED_BORDER};
+            }}
+            QTextEdit#BugObservedEdit[hasError="true"]:focus {{
+                border: 1.5px solid {DesignTokens.COLOR_RED};
+            }}
+            QTextEdit#DiagPreviewEdit {{
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 11px;
             }}
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
