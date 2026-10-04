@@ -30,8 +30,14 @@ from ankiforge.services.ai.album_transcription_types import (
     AlbumTranscriptionOptions,
     parse_page_ranges,
 )
-from ankiforge.services.ai.vision_category_service import VisionCategoryService
-from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton
+from ankiforge.services.ai.vision_category_service import (
+    VisionCategoryService,
+    get_closed_image_data_types,
+    get_image_data_type,
+    is_engine_compatible_with_type,
+)
+from ankiforge.services.settings_service import SettingsService
+from ankiforge.ui.components import Badge, IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
@@ -117,6 +123,7 @@ class AlbumTranscriptionDialog(QDialog):
         """)
 
         self._setup_ui()
+        self._populate_data_types()
         self._populate_categories()
         self._update_scope_counts()
         self._init_default_scope()
@@ -236,11 +243,42 @@ class AlbumTranscriptionDialog(QDialog):
 
         content_layout.addWidget(scope_card)
 
-        # ── 3. Section Moteur & Catégorie de Vision ───────────────────────────
-        engine_card, engine_layout = self._create_card("Moteur IA & Catégorie de Vision", "ph.brain", "engineCard")
+        # ── 3. Axe 1 : Type de donnée d'image ─────────────────────────────────
+        data_type_card, data_type_layout = self._create_card("1. Type de donnée d'image", "ph.shapes", "dataTypeCard")
+
+        dt_row = QHBoxLayout()
+        dt_row.setSpacing(8)
+        lbl_dt = QLabel("Contenu des planches :")
+        lbl_dt.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
+        dt_row.addWidget(lbl_dt)
+
+        self.combo_data_type = QComboBox()
+        self.combo_data_type.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 12px;
+                padding: 4px 8px;
+            }}
+        """)
+        dt_row.addWidget(self.combo_data_type, 1)
+        data_type_layout.addLayout(dt_row)
+
+        self.lbl_data_type_desc = QLabel()
+        self.lbl_data_type_desc.setWordWrap(True)
+        self.lbl_data_type_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        data_type_layout.addWidget(self.lbl_data_type_desc)
+
+        content_layout.addWidget(data_type_card)
+
+        # ── 4. Axe 2 : Moteur de vision adapté ────────────────────────────────
+        engine_card, engine_layout = self._create_card("2. Moteur de vision adapté", "ph.brain", "engineCard")
 
         combo_row = QHBoxLayout()
-        lbl_cat = QLabel("Catégorie d'analyse :")
+        combo_row.setSpacing(8)
+        lbl_cat = QLabel("Moteur sélectionné :")
         lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         combo_row.addWidget(lbl_cat)
 
@@ -257,12 +295,27 @@ class AlbumTranscriptionDialog(QDialog):
         """)
         self.combo_category.currentIndexChanged.connect(self._on_category_changed)
         combo_row.addWidget(self.combo_category, 1)
+
+        self.btn_browse_catalog = IconButton("ph.sparkle", "Explorer le catalogue des modèles de vision...", 28, self)
+        self.btn_browse_catalog.clicked.connect(self._open_catalog)
+        combo_row.addWidget(self.btn_browse_catalog)
         engine_layout.addLayout(combo_row)
 
         self.lbl_cat_description = QLabel()
         self.lbl_cat_description.setWordWrap(True)
         self.lbl_cat_description.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         engine_layout.addWidget(self.lbl_cat_description)
+
+        # Badges de capacités
+        badges_row = QHBoxLayout()
+        badges_row.setSpacing(6)
+        self.badge_vision = Badge("Vision multimodale", variant="info")
+        self.badge_thinking = Badge("CoT Thinking", variant="primary")
+        self.badge_thinking.setVisible(False)
+        badges_row.addWidget(self.badge_vision)
+        badges_row.addWidget(self.badge_thinking)
+        badges_row.addStretch()
+        engine_layout.addLayout(badges_row)
 
         # Bandeau didactique spécifique à Apple Vision
         self.hardware_notice = QFrame()
@@ -443,19 +496,66 @@ class AlbumTranscriptionDialog(QDialog):
         card_layout.addLayout(header)
         return card, card_layout
 
+    def _populate_data_types(self) -> None:
+        """Alimente le sélecteur avec la liste fermée des 6 types de données d'image (CONTEXT.md:56)."""
+        types = get_closed_image_data_types()
+        self.combo_data_type.blockSignals(True)
+        self.combo_data_type.clear()
+        for dt in types:
+            icon = load_phosphor_icon(dt.icon, color=DesignTokens.ACCENT_PRIMARY)
+            self.combo_data_type.addItem(icon, dt.name, dt.id)
+        self.combo_data_type.blockSignals(False)
+
+        # Mémorisation et restauration du dernier type sélectionné par profil
+        last_type = str(SettingsService.get("ai/last_image_data_type", default="texte_imprime"))
+        target_idx = self.combo_data_type.findData(last_type)
+        if target_idx >= 0:
+            self.combo_data_type.setCurrentIndex(target_idx)
+        elif self.combo_data_type.count() > 0:
+            self.combo_data_type.setCurrentIndex(0)
+
+        dt_id = self.combo_data_type.currentData()
+        dt_obj = get_image_data_type(dt_id)
+        if dt_obj:
+            self.lbl_data_type_desc.setText(dt_obj.description)
+
+        self.combo_data_type.currentIndexChanged.connect(self._on_data_type_changed)
+
+    def _on_data_type_changed(self) -> None:
+        """Réaction au changement de type de donnée : actualise la description et borne les moteurs candidats."""
+        dt_id = self.combo_data_type.currentData()
+        dt_obj = get_image_data_type(dt_id)
+        if dt_obj:
+            self.lbl_data_type_desc.setText(dt_obj.description)
+
+        self._populate_categories()
+
     def _populate_categories(self) -> None:
+        """Alimente la liste des moteurs de vision compatibles avec le type de donnée sélectionné."""
+        dt_id = self.combo_data_type.currentData() if hasattr(self, "combo_data_type") else "texte_imprime"
         categories = self._category_service.get_categories()
+
+        # Le type de donnée d'image borne l'ensemble des candidats moteur (critère 3)
+        compatible_categories = [cat for cat in categories if is_engine_compatible_with_type(cat, dt_id)]
+
+        prev_cat_id = self.combo_category.currentData() if hasattr(self, "combo_category") else None
+
         self.combo_category.blockSignals(True)
         self.combo_category.clear()
-        for cat in categories:
+        for cat in compatible_categories:
             self.combo_category.addItem(cat.name, cat.id)
         self.combo_category.blockSignals(False)
 
-        if categories:
-            self.combo_category.setCurrentIndex(0)
+        if compatible_categories:
+            target_idx = self.combo_category.findData(prev_cat_id)
+            if target_idx >= 0:
+                self.combo_category.setCurrentIndex(target_idx)
+            else:
+                self.combo_category.setCurrentIndex(0)
             self._on_category_changed()
 
     def _on_category_changed(self) -> None:
+        """Met à jour les détails, badges et paramètres du moteur de vision sélectionné."""
         cat_id = self.combo_category.currentData()
         category = self._category_service.get_category_by_id(cat_id) if cat_id else None
         if not category:
@@ -463,12 +563,54 @@ class AlbumTranscriptionDialog(QDialog):
 
         self.lbl_cat_description.setText(category.description)
         self.spin_temp.setValue(category.temperature)
+
+        # Le budget de tokens suit strictement le modèle, jamais le type (critère 4)
         self.spin_thinking.setValue(category.thinking_budget)
 
         is_hardware = category.id == "hardware" or category.provider == "native"
         self.hardware_notice.setVisible(is_hardware)
         self.directives_group.setEnabled(not is_hardware)
         self.advanced_drawer.setEnabled(not is_hardware)
+
+        # Actualisation des badges de capacités
+        if is_hardware:
+            self.badge_vision.setText("OCR optique local")
+            self.badge_vision.set_variant("neutral")
+            self.badge_thinking.setVisible(False)
+        else:
+            self.badge_vision.setText("Vision multimodale")
+            self.badge_vision.set_variant("info")
+            if category.thinking_budget > 0:
+                self.badge_thinking.setText(f"CoT Thinking ({category.thinking_budget}t)")
+                self.badge_thinking.setVisible(True)
+            else:
+                self.badge_thinking.setVisible(False)
+
+    def _open_catalog(self) -> None:
+        """Ouvre le catalogue de modèles restreint aux capacités de vision (critère 5)."""
+        from ankiforge.ui.components.model_selector.dialog import ModelDiscoveryDialog
+
+        curr_id = self.combo_category.currentData()
+        dlg = ModelDiscoveryDialog(
+            current_model_id=str(curr_id) if curr_id else None,
+            picker_mode=True,
+            require_vision=True,
+            parent=self,
+        )
+        if dlg.exec():
+            selected = dlg.get_selected_model()
+            if selected:
+                m_id = getattr(selected, "model_id", None) or getattr(selected, "id", None)
+                if m_id:
+                    self._populate_categories()
+                    idx = self.combo_category.findData(str(m_id))
+                    if idx >= 0:
+                        self.combo_category.setCurrentIndex(idx)
+                    else:
+                        d_name = getattr(selected, "display_name", str(m_id))
+                        self.combo_category.addItem(d_name, str(m_id))
+                        self.combo_category.setCurrentIndex(self.combo_category.count() - 1)
+                    self._on_category_changed()
 
     def _update_scope_counts(self) -> None:
         total = len(self._pages)
@@ -545,6 +687,7 @@ class AlbumTranscriptionDialog(QDialog):
         model_override = self.le_model_override.text().strip() or None
         temp_val = self.spin_temp.value()
         think_val = self.spin_thinking.value()
+        data_type_id = str(self.combo_data_type.currentData() or "texte_imprime")
 
         return AlbumTranscriptionOptions(
             scope_mode=scope_mode,
@@ -559,11 +702,13 @@ class AlbumTranscriptionDialog(QDialog):
             include_figures=self.cb_figures.isChecked(),
             include_headings=self.cb_headings.isChecked(),
             custom_instructions=self.txt_custom_instructions.toPlainText().strip(),
+            data_type=data_type_id,
         )
 
     def _on_start_clicked(self) -> None:
         opts = self.get_options()
         if not opts.target_page_ids:
             return
+        SettingsService.set("ai/last_image_data_type", opts.data_type, category="ai")
         self.transcription_requested.emit(opts)
         self.accept()

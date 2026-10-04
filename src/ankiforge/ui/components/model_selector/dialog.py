@@ -303,16 +303,21 @@ class ModelDiscoveryDialog(QDialog):
         current_provider: str | None = None,
         picker_mode: bool = True,
         parent: QWidget | None = None,
+        require_vision: bool = False,
     ) -> None:
         super().__init__(parent)
         self.current_model_id = current_model_id
         self.current_provider = current_provider
         self.picker_mode = picker_mode
+        self.require_vision = require_vision
         self._selected_model: Any | None = None
         self._compared_models: list[Any] = []
         self._active_provider: str = "all"
 
-        title_text = "AnkiForge — Sélectionner un Modèle IA" if picker_mode else "AnkiForge — Catalogue & Comparateur des Moteurs IA"
+        if require_vision:
+            title_text = "AnkiForge — Sélectionner un Moteur de Vision" if picker_mode else "AnkiForge — Catalogue des Moteurs de Vision"
+        else:
+            title_text = "AnkiForge — Sélectionner un Modèle IA" if picker_mode else "AnkiForge — Catalogue & Comparateur des Moteurs IA"
         self.setWindowTitle(title_text)
 
         if self.picker_mode:
@@ -424,6 +429,10 @@ class ModelDiscoveryDialog(QDialog):
         row_caps_tasks.addWidget(lbl_c)
 
         self.btn_cap_vision = FilterChipButton("Vision multimodale", icon_name="ph.eye", parent=filter_card)
+        if self.require_vision:
+            self.btn_cap_vision.setChecked(True)
+            self.btn_cap_vision.setEnabled(False)
+            self.btn_cap_vision.setToolTip("Filtre verrouillé : seuls les modèles multimodaux de vision sont affichés.")
         self.btn_cap_vision.toggled.connect(self._load_and_filter_models)
         row_caps_tasks.addWidget(self.btn_cap_vision)
 
@@ -567,7 +576,7 @@ class ModelDiscoveryDialog(QDialog):
         self.search_edit.clear()
         self._select_provider_filter("all")
         self._select_task_filter("all")
-        self.btn_cap_vision.setChecked(False)
+        self.btn_cap_vision.setChecked(self.require_vision)
         self.btn_cap_thinking.setChecked(False)
         self.btn_cap_local.setChecked(False)
         self.btn_cap_free.setChecked(False)
@@ -603,7 +612,7 @@ class ModelDiscoveryDialog(QDialog):
         # Application des critères de filtrage
         query = self.search_edit.text().strip().lower()
         active_task = self._get_active_task_filter()
-        req_vision = self.btn_cap_vision.isChecked()
+        req_vision = self.btn_cap_vision.isChecked() or self.require_vision
         req_thinking = self.btn_cap_thinking.isChecked()
         req_local = self.btn_cap_local.isChecked()
         req_free = self.btn_cap_free.isChecked()
