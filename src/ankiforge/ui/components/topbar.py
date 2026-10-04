@@ -11,6 +11,7 @@ from typing import Any
 
 from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -133,7 +134,7 @@ class TopBar(QWidget):
         content_layout.addStretch()
 
         # Token cost tracker pill (28px compact, vertically centered)
-        self.token_container = QWidget()
+        self.token_container = QFrame()
         self.token_container.setObjectName("TopBarTokenTracker")
         self.token_container.setFixedHeight(28)
         self.token_container.setProperty("card-style", "panel")

@@ -519,3 +519,15 @@ def test_checkbox_indicator_renders_white_svg_icons_on_checked_and_indeterminate
     assert count_bright_pixels(cb_unchecked) == 0
     assert count_bright_pixels(cb_checked) > 0
     assert count_bright_pixels(cb_indet) > 0
+
+
+@pytest.mark.parametrize("theme", [JETBRAINS_DARK, JETBRAINS_LIGHT], ids=["dark", "light"])
+def test_topbar_token_tracker_qss_uses_semantic_tokens(theme: ThemeProfile) -> None:
+    """Vérifie que la capsule de dépenses TopBarTokenTracker hérite des tokens bg_panel, border_color et radius_sm."""
+    engine = get_style_engine()
+    qss = engine.generate_stylesheet(theme)
+
+    rule = qss_rule(qss, "QFrame#TopBarTokenTracker, QWidget#TopBarTokenTracker")
+    assert f"background-color: {theme.bg_panel};" in rule
+    assert f"border: 1px solid {theme.border_color};" in rule
+    assert f"border-radius: {theme.radius_sm}px;" in rule

@@ -629,6 +629,11 @@ class StyleEngine(QObject):
             border: none;
             background: transparent;
         }}
+        QFrame#TopBarTokenTracker, QWidget#TopBarTokenTracker {{
+            background-color: {p.bg_panel};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_sm}px;
+        }}
         QLabel#TopBarTokenLabel {{
             color: {p.text_secondary};
             font-family: '{p.font_code}';
