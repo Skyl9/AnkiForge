@@ -26,6 +26,7 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 🔁 **Export & Synchronisation Anki (.apkg/.colpkg, médias, merge, IDs stables)** : `.agents/skills/export-synchro-anki/SKILL.md`
 - 📋 **Gestionnaire Vault & Kanban Obsidian** : `.agents/skills/obsidian-vault/SKILL.md`
 - 📦 **Propositions de Commits Atomiques (Conventional Commits)** : `.agents/skills/proposer-commits/SKILL.md`
+- 🛡️ **Règles d'Ingénierie & Vérification Environnement (non négociables & verify.py)** : `.agents/skills/verification-environnement/SKILL.md`
 
 *Audits spécialisés (utiliser directement sans passer par `audit-ankiforge` pour un périmètre ciblé) :*
 - 📦 **Audit Dépendances & Supply Chain** : `.agents/skills/audit-dependances/SKILL.md`

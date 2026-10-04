@@ -105,6 +105,7 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
   - `audit-ankiforge`: Global architecture and compliance auditor against `GEMINI.md` rules
   - `obsidian-vault`: Gestionnaire du vault Obsidian (`ankiforge_obsidian/`), Kanban (`Avancement du projet.md`) et tickets en mode atomique one-shot anti-boucle (Obsidian = todo list pure, documentation canonique dans Zensical `docs/`)
   - `proposer-commits`: Formulation de propositions de commits atomiques conformes à Conventional Commits v1.0.0 (garde-fou interdisant tout commit autonome sans accord utilisateur)
+  - `verification-environnement`: Règles d'ingénierie préventives et interdits non négociables (typage strict, pas de `print()`, tests headless, pas d'emojis, mocks LLM) et exécution de la commande canonique de vérification (`script/verify.py`)
 - **Architecture & Foundation**:
   - `peewee-expert`: Database schema design, migrations, atomic transactions, and N+1 query elimination
   - `ui-screenshot`: Offscreen/headless Qt view capture and visual inspection

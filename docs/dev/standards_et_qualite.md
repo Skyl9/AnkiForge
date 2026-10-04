@@ -74,6 +74,9 @@ Toute tentative de `git push` déclenche automatiquement la porte de vérificati
 ANKIFORGE_BYPASS_PRE_PUSH=1 git push
 ```
 
+### Skill Agentique Associé (`verification-environnement`)
+Pour les agents de codage opérant dans le dépôt, le skill `.agents/skills/verification-environnement/SKILL.md` (disponible pour Antigravity/Gemini et symlinké dans `.claude/skills/` pour Claude Code) explicite le *pourquoi* des interdits non négociables et guide l'exécution de la porte canonique selon les outils de l'environnement (`run_command`, `Bash` ou terminal).
+
 ---
 
 ## 🪵 4. Politique de Logging Asynchrone & Sécurisé
