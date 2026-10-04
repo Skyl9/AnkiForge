@@ -33,6 +33,7 @@ from ankiforge.ui.models.delegates import (
 from ankiforge.ui.models.paginated_model import BasePaginatedPeeweeModel
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.anki_renderer import render_card_text
+from ankiforge.utils.tags import parse_note_tags, serialize_note_tags
 
 logger = logging.getLogger(__name__)
 _ROOT_INDEX = QModelIndex()
@@ -677,20 +678,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
 
     def _parse_tags(self, tags_raw: Any) -> list[str]:
         """Convertit la chaîne JSON ou la liste de tags en liste Python propre."""
-        if not tags_raw:
-            return []
-        if isinstance(tags_raw, list):
-            return [str(t).strip() for t in tags_raw if str(t).strip()]
-        try:
-            parsed = json.loads(str(tags_raw))
-            if isinstance(parsed, list):
-                return [str(t).strip() for t in parsed if str(t).strip()]
-            if isinstance(parsed, str) and parsed.strip():
-                return [parsed.strip()]
-        except Exception:
-            if isinstance(tags_raw, str) and tags_raw.strip():
-                return [tags_raw.strip()]
-        return []
+        return parse_note_tags(tags_raw)
 
     # --- Opérations Métier & Mises à Jour en Direct ---
 
@@ -792,6 +780,19 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 top_left = self.index(idx, 0)
                 bottom_right = self.index(idx, self.columnCount() - 1)
                 self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.DisplayRole])
+
+    def update_note_tags(self, note_id: int, tags: list[str]) -> None:
+        """Met à jour instantanément les tags d'une note ou de ses cartes dans le modèle virtuel."""
+        tags_display = " ".join(tags)
+        for idx, row in enumerate(self._loaded_rows):
+            if row.note_id == note_id:
+                row.tags_list = list(tags)
+                row.tags_display = tags_display
+                if hasattr(row, "raw_note") and row.raw_note:
+                    row.raw_note.tags = serialize_note_tags(tags)
+                top_left = self.index(idx, 0)
+                bottom_right = self.index(idx, self.columnCount() - 1)
+                self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.DisplayRole, TAGS_LIST_ROLE])
 
     def update_note_content(self, note_id: int, new_content: dict[str, str]) -> None:
         """Met à jour instantanément les champs d'une note ou de ses cartes dans le modèle virtuel."""

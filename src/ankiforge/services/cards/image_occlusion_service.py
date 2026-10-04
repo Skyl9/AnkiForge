@@ -25,6 +25,7 @@ from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeM
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.media_manager import MediaManager
+from ankiforge.utils.tags import serialize_note_tags
 
 logger = logging.getLogger(__name__)
 
@@ -455,7 +456,7 @@ class ImageOcclusionService:
                 # 3. Création de la Note
                 note = NoteModel.create(
                     note_type=note_type,
-                    tags=json.dumps(final_tags, ensure_ascii=False),
+                    tags=serialize_note_tags(final_tags),
                     status="new",
                 )
 

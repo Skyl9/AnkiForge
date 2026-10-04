@@ -11,6 +11,7 @@ from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import AIReponseParser
 from ankiforge.ui.components import PrimaryButton
 from ankiforge.utils.icon_loader import load_on_accent_icon
+from ankiforge.utils.tags import parse_note_tags, serialize_note_tags
 
 logger = logging.getLogger(__name__)
 
@@ -285,10 +286,10 @@ class AutoTagDialog(QDialog):
                         new_tags: list[str] = tags_item.data(Qt.ItemDataRole.UserRole)
 
                         note = NoteModel.get_by_id(note_id)
-                        existing_tags = json.loads(note.tags) if note.tags else []
+                        existing_tags = parse_note_tags(note.tags)
                         merged_tags = list(set(existing_tags + new_tags))
 
-                        note.tags = json.dumps(merged_tags, ensure_ascii=False)
+                        note.tags = serialize_note_tags(merged_tags)
                         note.save()
                     except Exception as e:
                         logger.error(f"Erreur lors de la sauvegarde de la note {id_item.text()}: {e}")

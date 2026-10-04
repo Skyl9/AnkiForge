@@ -78,7 +78,7 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
-from ankiforge.utils.tags import build_document_tags
+from ankiforge.utils.tags import build_document_tags, serialize_note_tags
 
 logger = logging.getLogger(__name__)
 
@@ -196,8 +196,8 @@ class BatchView(QWidget):
 
         # LEFT PANEL
         self.build_panel = IdePanel(detachable=True)
-        self.build_panel.setMinimumWidth(320)
-        self.build_panel.setMaximumWidth(380)
+        self.build_panel.setMinimumWidth(280)
+        self.build_panel.setMaximumWidth(550)
 
         build_content = QWidget()
         build_main_layout = QVBoxLayout(build_content)
@@ -470,7 +470,6 @@ class BatchView(QWidget):
         build_layout.addWidget(compose_card)
         build_layout.addStretch()
 
-        self.build_panel.setMinimumWidth(380)
         self.build_panel.add_tab("Paramètres du Build", build_content, "ph.sliders-horizontal", closable=False)
         self.middle_splitter.addWidget(self.build_panel)
 
@@ -531,8 +530,9 @@ class BatchView(QWidget):
         # BOTTOM ROW
         self.terminal_panel = IdePanel(detachable=True)
         self._terminal_expanded = True
-        self._terminal_last_height: int = 240
+        self._terminal_last_height: int = 180
         self._terminal_min_height: int = self.terminal_panel.minimumHeight()
+        self._terminal_max_height: int = self.terminal_panel.maximumHeight()
 
         self.btn_toggle_terminal = IconButton("ph.caret-down", tooltip="Réduire / Déplier le terminal", size=20)
         self.btn_toggle_terminal.clicked.connect(self._toggle_terminal)
@@ -594,20 +594,41 @@ class BatchView(QWidget):
         return -1
 
     def _apply_terminal_space(self, height: int) -> None:
-        """Alloue une hauteur au seul panneau terminal (D6 : ne pas réécrire les autres enfants)."""
+        """Alloue une hauteur précise au panneau terminal en ajustant le panneau supérieur pour préserver la somme totale."""
         idx = self._terminal_splitter_index()
         if idx < 0:
             return
         sizes = list(self.main_splitter.sizes())
         if len(sizes) <= idx:
             return
-        sizes[idx] = height
+
+        total = sum(sizes)
+        if total > 0 and len(sizes) == 2:
+            other_idx = 1 - idx
+            sizes[other_idx] = max(50, total - height)
+            sizes[idx] = height
+        elif total > 0 and len(sizes) > 2:
+            other_indices = [i for i in range(len(sizes)) if i != idx]
+            other_sum = sum(sizes[i] for i in other_indices)
+            remaining = max(len(other_indices) * 50, total - height)
+            if other_sum > 0:
+                allocated = 0
+                for i in other_indices[:-1]:
+                    s = max(50, int(sizes[i] * remaining / other_sum))
+                    sizes[i] = s
+                    allocated += s
+                sizes[other_indices[-1]] = max(50, remaining - allocated)
+            sizes[idx] = height
+        else:
+            sizes[idx] = height
+
         self.main_splitter.setSizes(sizes)
 
     def _toggle_terminal(self) -> None:
         self._terminal_expanded = not self._terminal_expanded
         if self._terminal_expanded:
             self.terminal_panel.setMinimumHeight(self._terminal_min_height)
+            self.terminal_panel.setMaximumHeight(self._terminal_max_height)
             self.terminal_content.setVisible(True)
             self.btn_toggle_terminal.setIcon(load_phosphor_icon("ph.caret-down", color=DesignTokens.TEXT_SECONDARY))
             self._apply_terminal_space(max(self._terminal_last_height, 60))
@@ -616,7 +637,7 @@ class BatchView(QWidget):
             sizes = self.main_splitter.sizes()
             if 0 <= idx < len(sizes) and sizes[idx] > 50:
                 self._terminal_last_height = sizes[idx]
-            self.terminal_panel.setMinimumHeight(36)
+            self.terminal_panel.setFixedHeight(36)
             self.terminal_content.setVisible(False)
             self.btn_toggle_terminal.setIcon(load_phosphor_icon("ph.caret-up", color=DesignTokens.TEXT_SECONDARY))
             self._apply_terminal_space(36)
@@ -1741,7 +1762,7 @@ class BatchView(QWidget):
                     note = NoteModel.create(
                         guid=str(uuid.uuid4())[:10],
                         note_type=note_type,
-                        tags=json.dumps(tags_list, ensure_ascii=False),
+                        tags=serialize_note_tags(tags_list),
                         status="pending",
                     )
                     created_note_ids.append(note.id)

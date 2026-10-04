@@ -27,8 +27,10 @@ from ankiforge.utils.tags import (
     build_document_tags,
     clean_source_slug,
     extract_tag_metadata,
+    is_provenance_tag,
     parse_note_tags,
     replace_provenance_tags,
+    serialize_note_tags,
 )
 
 pytestmark = pytest.mark.integration
@@ -45,6 +47,37 @@ def test_parse_note_tags() -> None:
     assert parse_note_tags(None) == []
     assert parse_note_tags("") == []
     assert parse_note_tags("   ") == []
+
+
+def test_serialize_note_tags() -> None:
+    # 1. Préservation des espaces internes dans un tag
+    tags_with_spaces = ["médecine générale", "cardiologie interventionnelle", "urgences"]
+    serialized = serialize_note_tags(tags_with_spaces)
+    assert serialized == '["médecine générale", "cardiologie interventionnelle", "urgences"]'
+    assert parse_note_tags(serialized) == tags_with_spaces
+
+    # 2. Tolérance d'entrée (chaîne avec espaces, ensemble, tuple, None)
+    assert serialize_note_tags("tag1 tag2") == '["tag1", "tag2"]'
+    assert serialize_note_tags(("alpha", "beta")) == '["alpha", "beta"]'
+    assert serialize_note_tags(None) == "[]"
+    assert serialize_note_tags("") == "[]"
+
+    # 3. Idempotence
+    assert serialize_note_tags(serialized) == serialized
+
+
+def test_is_provenance_tag() -> None:
+    assert is_provenance_tag("doc:42") is True
+    assert is_provenance_tag("source:cours_anatomie") is True
+    assert is_provenance_tag("section:introduction") is True
+    assert is_provenance_tag("page:15") is True
+    assert is_provenance_tag("chunk:102") is True
+    assert is_provenance_tag("DOC:12") is True
+
+    assert is_provenance_tag("médecine générale") is False
+    assert is_provenance_tag("examen") is False
+    assert is_provenance_tag("important") is False
+    assert is_provenance_tag("") is False
 
 
 def test_clean_source_slug() -> None:
@@ -137,11 +170,11 @@ def test_replace_provenance_tags_is_partial_and_removable() -> None:
     assert replace_provenance_tags(tags) == tags
 
 
-def test_replace_provenance_tags_preserves_the_space_delimited_format() -> None:
-    """Les tags sérialisés en espace (format Anki) ne basculent pas en JSON."""
+def test_replace_provenance_tags_converts_space_delimited_to_canonical_json() -> None:
+    """Les tags historiques sérialisés en espace convergent vers le JSON canonique au premier write."""
     rewritten = replace_provenance_tags("ankiforge_generated doc:10 section:chapitre_2 chunk:11", {"section": "noyau", "chunk": 12})
 
-    assert not rewritten.startswith("[")
+    assert rewritten.startswith("[")
     assert parse_note_tags(rewritten) == ["ankiforge_generated", "doc:10", "section:noyau", "chunk:12"]
 
 

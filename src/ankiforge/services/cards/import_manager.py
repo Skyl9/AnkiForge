@@ -42,6 +42,7 @@ from ankiforge.utils.archive_utils import ArchiveSizeLimitError, safe_extract_zi
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.hierarchy import from_anki_unit_separator, join_hierarchy, split_hierarchy
 from ankiforge.utils.paths import get_media_dir
+from ankiforge.utils.tags import serialize_note_tags
 
 logger = logging.getLogger(__name__)
 
@@ -1043,7 +1044,7 @@ class ImportManager:
                     guid=n_info["guid"],
                     anki_id=anki_id_val,
                     note_type=note_type_model,
-                    tags=json.dumps(n_info.get("tags", [])),
+                    tags=serialize_note_tags(n_info.get("tags", [])),
                     status="imported",
                 )
                 NoteVersionModel.create(
@@ -1119,7 +1120,7 @@ class ImportManager:
                     u_note.add_version(u_info["content"], source="import")
 
                 if u_info.get("tags"):
-                    u_note.tags = json.dumps(u_info["tags"])
+                    u_note.tags = serialize_note_tags(u_info["tags"])
                     u_note.save()
                 updated_count += 1
 
@@ -1154,7 +1155,7 @@ class ImportManager:
                         card.deck = d_obj
                         card.save()
 
-                    c_note.tags = json.dumps(resolved_tags)
+                    c_note.tags = serialize_note_tags(resolved_tags)
                     c_note.save()
                     merged_count += 1
 

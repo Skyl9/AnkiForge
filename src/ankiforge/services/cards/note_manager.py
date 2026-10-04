@@ -4,6 +4,7 @@ import uuid
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, db
 from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.tags import serialize_note_tags
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class NoteManager:
                 new_note = NoteModel.create(
                     guid=str(uuid.uuid4())[:10],
                     note_type=note_type,
-                    tags=json.dumps(tags, ensure_ascii=False),
+                    tags=serialize_note_tags(tags),
                     status=status,
                 )
 

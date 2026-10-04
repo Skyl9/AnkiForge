@@ -17,24 +17,37 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
+#: Préfixes de traçabilité et provenance documentaire (ADR 0009 / Traçabilité fine)
+PROVENANCE_TAG_PREFIXES: tuple[str, ...] = ("doc:", "source:", "section:", "page:", "chunk:")
 
-def parse_note_tags(tags: str | list[str] | None) -> list[str]:
+
+def is_provenance_tag(tag: str) -> bool:
+    """Indique si un tag est un tag de traçabilité/provenance documentaire.
+
+    Reconnaît les préfixes : doc:, source:, section:, page:, chunk:.
+    """
+    if not tag:
+        return False
+    return tag.strip().lower().startswith(PROVENANCE_TAG_PREFIXES)
+
+
+def parse_note_tags(tags: str | Sequence[str] | set[str] | None) -> list[str]:
     """
     Parse et normalise les tags d'une note quel que soit leur format d'origine.
 
     Prend en charge :
-    - Liste native Python : ['tag1', 'tag2']
+    - Liste / itérable natif Python : ['tag1', 'tag2']
     - JSON sérialisé : '["tag1", "tag2"]'
     - Chaîne délimitée par des espaces (format standard Anki) : 'tag1 tag2'
     - None ou chaîne vide : retourne une liste vide.
 
     Args:
-        tags: La chaîne brute ou la liste de tags.
+        tags: La chaîne brute ou la collection de tags.
 
     Returns:
         list[str]: Liste ordonnée de tags uniques sans espaces superflus.
@@ -42,7 +55,7 @@ def parse_note_tags(tags: str | list[str] | None) -> list[str]:
     if not tags:
         return []
 
-    if isinstance(tags, list):
+    if isinstance(tags, list | tuple | set):
         clean_list: list[str] = []
         for t in tags:
             s = str(t).strip()
@@ -75,6 +88,17 @@ def parse_note_tags(tags: str | list[str] | None) -> list[str]:
         if token_clean and token_clean not in result_tokens:
             result_tokens.append(token_clean)
     return result_tokens
+
+
+def serialize_note_tags(tags: str | Sequence[str] | set[str] | None) -> str:
+    """
+    Sérialise canoniquement les tags d'une note en JSON (format unique d'écriture).
+
+    Garantit qu'un tag contenant un espace (ex. "médecine générale") survit à l'aller-retour
+    sans être scindé, tout en éliminant les doublons et les chaînes vides.
+    """
+    clean_tags = parse_note_tags(tags)
+    return json.dumps(clean_tags, ensure_ascii=False)
 
 
 def clean_source_slug(title: str) -> str:
@@ -296,7 +320,7 @@ def replace_provenance_tags(
             Une valeur ``None`` ou vide retire le tag ; une clé absente le laisse inchangé.
 
     Returns:
-        str: Tags re-sérialisés dans le format d'origine (JSON ou séparés par des espaces).
+        str: Tags re-sérialisés en JSON canonique via :func:`serialize_note_tags`.
     """
     parsed = parse_note_tags(tags)
 
@@ -318,7 +342,4 @@ def replace_provenance_tags(
             rebuilt.append(new_tag)
         parsed = rebuilt
 
-    raw = tags.strip() if isinstance(tags, str) else ""
-    if raw and not raw.startswith("["):
-        return " ".join(parsed)
-    return json.dumps(parsed, ensure_ascii=False)
+    return serialize_note_tags(parsed)

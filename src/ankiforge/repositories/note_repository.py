@@ -19,6 +19,7 @@ from ankiforge.database.models import (
 from ankiforge.repositories.base import BaseRepository
 from ankiforge.services.cards.flag_service import FlagService
 from ankiforge.services.search.fts_service import FTSService
+from ankiforge.utils.tags import parse_note_tags, serialize_note_tags
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ class NoteRepository(BaseRepository):
         source: str = "ai",
     ) -> NoteModel:
         """Create a note, its initial active version, and the corresponding card."""
-        tags_str = " ".join(tags) if tags else ""
+        tags_str = serialize_note_tags(tags)
 
         with self.atomic():
             note = NoteModel.create(
@@ -144,7 +145,7 @@ class NoteRepository(BaseRepository):
 
         with self.atomic():
             if tags is not None:
-                note.tags = " ".join(tags)
+                note.tags = serialize_note_tags(tags)
                 note.save()
 
             note.add_version(fields_data, source=source)
@@ -157,7 +158,7 @@ class NoteRepository(BaseRepository):
         if not note:
             return False
         with self.atomic():
-            note.tags = " ".join(tags)
+            note.tags = serialize_note_tags(tags)
             note.save()
             FTSService.sync_note(note.id)
         return True
@@ -353,8 +354,6 @@ class NoteRepository(BaseRepository):
         tags_set: set[str] = set()
         for note in NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False)):
             if note.tags:
-                for t in note.tags.split():
-                    clean = t.strip()
-                    if clean:
-                        tags_set.add(clean)
+                for t in parse_note_tags(note.tags):
+                    tags_set.add(t)
         return sorted(tags_set)
