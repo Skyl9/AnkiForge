@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from copy_runtime_dependencies import copy_runtime_deps
+from extract_translations import LANGUAGES, compile_catalog
 from generate_version import generate_version_file, read_pyproject_version, sync_project_files
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -25,6 +26,19 @@ logger = logging.getLogger("AnkiForgeBuilder")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "build_script" / "nuitka_config.json"
+
+
+def compile_translation_catalogs() -> None:
+    """Compile les catalogues Qt requis par les options ``--include-data-files``.
+
+    Les fichiers ``.qm`` sont ignorés par Git et ne sont donc pas présents dans un
+    runner CI fraîchement checkouté. Nuitka refuse les motifs qui ne correspondent à
+    aucun fichier ; cette étape doit donc précéder toute compilation de binaire.
+    """
+    logger.info("Compilation des catalogues Qt Linguist...")
+    for language in LANGUAGES:
+        catalog = compile_catalog(language)
+        logger.info("Catalogue Qt compilé : %s (%d octets)", catalog.name, catalog.stat().st_size)
 
 
 def load_config() -> dict[str, Any]:
@@ -335,6 +349,10 @@ def main() -> None:
 
     logger.info("Démarrage de la compilation AnkiForge v%s pour %s (Jobs: %d)...", build_version, target_os, jobs)
     os.chdir(PROJECT_ROOT)
+
+    # Les `.qm` sont générés localement dans le runner : ils sont volontairement
+    # ignorés par Git et Nuitka échoue immédiatement si le motif reste vide.
+    compile_translation_catalogs()
 
     # 1. Exécution de la compilation Nuitka
     ret = subprocess.run(cmd, check=False)

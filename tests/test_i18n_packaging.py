@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # depuis un autre répertoire sans ``PYTHONPATH``.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "script"))
 
-from build_standalone import copy_app_resources_to_bundle  # noqa: E402 — dépend du sys.path ci-dessus
+from build_standalone import compile_translation_catalogs, copy_app_resources_to_bundle  # noqa: E402 — dépend du sys.path ci-dessus
 
 from ankiforge.utils import i18n  # noqa: E402 — idem
 
@@ -123,3 +123,17 @@ def test_wheel_reincludes_compiled_catalogs() -> None:
     artifacts = config["tool"]["hatch"]["build"]["targets"]["wheel"].get("artifacts", [])
 
     assert any(pattern.endswith(".qm") for pattern in artifacts), f"pyproject.toml ne réintègre pas les `.qm` : le wheel partirait sans traduction. Déclaré : {artifacts}"
+
+
+def test_nuitka_build_compiles_catalogs_before_packaging(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le pilote doit créer les `.qm` ignorés par Git avant de passer à Nuitka."""
+    compiled: list[str] = []
+
+    def fake_compile(language: str) -> Path:
+        compiled.append(language)
+        return PROJECT_ROOT / "src" / "ankiforge" / "resources" / "translations" / f"ankiforge_{language}.qm"
+
+    monkeypatch.setattr("build_standalone.compile_catalog", fake_compile)
+    compile_translation_catalogs()
+
+    assert compiled == ["fr", "en"]
