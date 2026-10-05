@@ -9,6 +9,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from ankiforge.services.ai.persona_override import resolve_prompt_source
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import format_available_card_models_prompt
 from ankiforge.utils.hierarchy import join_hierarchy
@@ -176,21 +177,18 @@ class PipelinePromptInterpolator:
                 resolved_context=context,
             )
 
-        # 2. Détermination de la source du System Prompt
-        prompt_override = str(cfg.get("prompt_override", "") or "").strip()
-        persona_prompt = str(getattr(persona, "system_prompt", "") or "").strip() if persona else ""
-
-        if prompt_override:
-            raw_template = prompt_override
-            source_type = "override"
-        elif persona_prompt:
-            raw_template = persona_prompt
-            source_type = "persona"
-        else:
+        # 2. Détermination de la source du System Prompt.
+        # L'aperçu emprunte exactement la même résolution que l'orchestrateur : sans cela, le
+        # badge de source mentirait sur le prompt qui partira réellement au fournisseur.
+        source = resolve_prompt_source(cfg, persona)
+        raw_template = source.text
+        source_type = source.source
+        if source_type == "default":
+            # Le défaut d'aperçu reste un confort de visualisation : l'exécution part, elle,
+            # sur un prompt vide que le fournisseur complète par son propre prompt système.
             raw_template = "Extrais les concepts clés et génère des flashcards Anki atomiques au format JSON."
-            source_type = "default"
 
-        persona_name = getattr(persona, "name", None) if persona else None
+        persona_name = source.persona_name
 
         # 3. Rendu Jinja2 du Prompt Système
         rendered_sys = ""

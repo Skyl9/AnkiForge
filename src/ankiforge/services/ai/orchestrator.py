@@ -13,6 +13,7 @@ from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 from ankiforge.database.models import LLMConfigModel, PipelineRunModel, PipelineStepModel
 from ankiforge.services.ai.base import LLMProvider, LLMResult, MockProvider
 from ankiforge.services.ai.flexible_service import AIManager, extract_thought_tags
+from ankiforge.services.ai.persona_override import MAP_REDUCE_FALLBACK_PROMPT, resolve_system_prompt
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import (
@@ -574,7 +575,7 @@ class PipelineOrchestrator(QRunnable):
             except Exception:
                 cfg = {}
 
-        raw_system_prompt = cfg.get("prompt_override") or (step.persona.system_prompt if step.persona else "")
+        raw_system_prompt = resolve_system_prompt(cfg, step.persona)
         rendered_sys = self._render_prompt_template(raw_system_prompt)
         if self.state.get_variable("strict_source_grounding", False):
             rendered_sys = _PROMPT_ENV.from_string(_RULE_PREFIX_TEMPLATE).render(
@@ -800,7 +801,10 @@ class PipelineOrchestrator(QRunnable):
             return
 
         total_items = len(items)
-        raw_system_prompt = step.persona.system_prompt if step.persona else "Analyser et traiter le contenu."
+        # Même couture que LLM_PROMPT : l'inspecteur affiche le champ de surcharge pour les
+        # deux types d'étapes, le vérificateur de DAG l'accepte pour MAP_REDUCE et l'aperçu
+        # le prévisualise. Un exécuteur qui l'ignore rendrait ces trois écrans faux.
+        raw_system_prompt = resolve_system_prompt(step_cfg, step.persona, fallback=MAP_REDUCE_FALLBACK_PROMPT)
         output_format = getattr(step.persona, "output_format", "json") if step.persona else "json"
 
         documentation_enabled = bool(step_cfg.get("declasser_sections_dans_tags", True))

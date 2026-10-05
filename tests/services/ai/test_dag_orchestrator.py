@@ -12,6 +12,7 @@ from ankiforge.services.ai.orchestrator import (
     _source_context_metadata,
     _stamp_card_source_metadata,
 )
+from ankiforge.services.ai.persona_override import apply_persona_override
 from ankiforge.services.ai.state import PipelineRunState
 
 pytestmark = pytest.mark.integration
@@ -1134,3 +1135,83 @@ def test_orchestrator_map_reduce_captures_thoughts():
     generated_cards = orch.state.get_variable("generated_cards")
     assert generated_cards is not None
     assert len(generated_cards) == 2
+
+
+def test_surcharge_locale_figee_prime_sur_un_agent_reecrit():
+    """Un agent réécrit après coup ne doit jamais entraîner la surcharge d'étape qu'il a servie.
+
+    C'est tout l'intérêt de la surcharge : elle est figée, donc l'exécution continue de
+    tourner sur le texte que l'auteur a validé, pas sur la dernière version de l'agent.
+    """
+    pipeline = PipelineModel.create(name="Pipeline Surcharge Figee")
+    persona = PersonaModel.create(name="Partage", system_prompt="PROMPT AGENT PARTAGE", output_format="text")
+
+    config: dict[str, Any] = {"prompt_override": "PROMPT SURCHARGE FIGE", "output_format": "text"}
+    apply_persona_override(config, "PROMPT SURCHARGE FIGE", persona)
+
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps(config),
+    )
+
+    # L'agent partagé est réécrit après que la surcharge a été figée.
+    PersonaModel.update(system_prompt="PROMPT AGENT REECRIT").where(PersonaModel.id == persona.id).execute()
+    PersonaModel.get_by_id(persona.id)
+
+    provider = DummyProvider({"REECRIT": "REPONSE DU PROVIDER"})
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=provider)
+    orch.state.set_variable("text_source", "contenu")
+    orch.run()
+
+    assert provider.calls
+    assert provider.calls[0]["system"] == "PROMPT SURCHARGE FIGE"
+    assert "PROMPT AGENT REECRIT" not in provider.calls[0]["system"]
+
+
+def test_surcharge_locale_est_honoree_par_map_reduce():
+    """MAP_REDUCE doit résoudre la surcharge comme LLM_PROMPT : un champ affiché ne peut pas être ignoré.
+
+    L'inspecteur expose le même champ pour les deux types d'étapes et le linter accepte
+    `prompt_override` pour MAP_REDUCE ; si l'exécuteur l'ignorait, l'indication du champ
+    serait un mensonge — exactement le défaut que la feature supprime.
+    """
+    pipeline = PipelineModel.create(name="Pipeline MapReduce Surcharge")
+    persona = PersonaModel.create(name="Reducteur", system_prompt="PROMPT AGENT MAP REDUCE", output_format="json")
+
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="MAP_REDUCE",
+        config_data=json.dumps({"prompt_override": "PROMPT SURCHARGE MAP REDUCE", "items_variable": "input_items"}),
+    )
+
+    provider = DummyProvider({"PROMPT SURCHARGE MAP REDUCE": '{"cards": [{"Front": "F", "Back": "B"}]}'})
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=provider)
+    orch.state.set_variable("input_items", ["élément A"])
+    orch.run()
+
+    assert provider.calls
+    assert all(call["system"] == "PROMPT SURCHARGE MAP REDUCE" for call in provider.calls)
+
+
+def test_map_reduce_sans_agent_ni_surcharge_garde_son_defaut_historique():
+    """Le défaut MAP_REDUCE préexistant reste valable : la couture ne doit pas l'effacer."""
+    pipeline = PipelineModel.create(name="Pipeline MapReduce Sans Agent")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="MAP_REDUCE",
+        config_data=json.dumps({"items_variable": "input_items"}),
+    )
+
+    provider = DummyProvider({"Analyser et traiter le contenu.": '{"cards": [{"Front": "F", "Back": "B"}]}'})
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=provider)
+    orch.state.set_variable("input_items", ["élément A"])
+    orch.run()
+
+    assert provider.calls
+    assert provider.calls[0]["system"] == "Analyser et traiter le contenu."
