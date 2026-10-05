@@ -16,6 +16,13 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import LLMConfigModel, PersonaModel
+from ankiforge.services.ai.persona_override import (
+    PROMPT_OVERRIDE_KEY,
+    apply_persona_override,
+    clear_persona_override,
+    persona_override_state,
+    prompt_override_field_hint,
+)
 from ankiforge.services.ai.prompt_interpolator import (
     InterpolationResult,
     PipelinePromptInterpolator,
@@ -31,6 +38,7 @@ from ankiforge.ui.components import (
     StyledLineEdit,
     StyledTextEdit,
 )
+from ankiforge.ui.dialogs.persona_prompt_override_dialog import PersonaPromptOverrideDialog
 from ankiforge.ui.dialogs.tool_editor_dialog import ToolEditorDialog
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.pipelines_view.constants import (
@@ -41,6 +49,7 @@ from ankiforge.ui.views.pipelines_view.widgets.common import (
     SubTabButton,
     TagPillButton,
 )
+from ankiforge.ui.views.pipelines_view.widgets.prompt_override import PromptOverrideIndicator
 from ankiforge.ui.views.pipelines_view.widgets.step_picker import PersonaSelectorDialog
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -50,6 +59,7 @@ class PersonaIdentityCard(QFrame):
     """Carte d'identité stylée et enrichie du Persona IA dans l'Inspecteur."""
 
     change_persona_requested = Signal()
+    edit_prompt_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -93,7 +103,7 @@ class PersonaIdentityCard(QFrame):
         self.lbl_desc.setWordWrap(True)
         layout.addWidget(self.lbl_desc)
 
-        # Action button
+        # Actions : changer d'agent, ou figer un prompt ici sans y toucher.
         b_row = QHBoxLayout()
         self.btn_switch = SecondaryButton("Changer d'Agent...")
         self.btn_switch.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
@@ -101,6 +111,15 @@ class PersonaIdentityCard(QFrame):
         self.btn_switch.setFixedHeight(28)
         self.btn_switch.clicked.connect(self.change_persona_requested.emit)
         b_row.addWidget(self.btn_switch)
+
+        self.btn_edit_prompt = SecondaryButton("Surcharger le prompt...")
+        self.btn_edit_prompt.setIcon(load_phosphor_icon("ph.snowflake", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_edit_prompt.setIconSize(QSize(14, 14))
+        self.btn_edit_prompt.setFixedHeight(28)
+        self.btn_edit_prompt.setToolTip("Écrire un prompt propre à cette étape, sans modifier l'agent partagé. Le texte sera figé : il ne suivra pas les réécritures de l'agent.")
+        self.btn_edit_prompt.clicked.connect(self.edit_prompt_requested.emit)
+        b_row.addWidget(self.btn_edit_prompt)
+
         b_row.addStretch()
         layout.addLayout(b_row)
 
@@ -609,6 +628,16 @@ class StepInspectorPanel(QFrame):
         layout_params.setContentsMargins(4, 4, 4, 4)
         layout_params.setSpacing(12)
 
+        # Ces deux attributs n'existent que pour les étapes porteuses d'un prompt : on les
+        # neutralise d'abord pour qu'un changement de type d'étape ne laisse pas un
+        # indicateur de surcharge orphelin pointing sur l'étape précédente.
+        # Ces attributs n'existent que pour les étapes porteuses d'un prompt : on les neutralise
+        # d'abord pour qu'un changement de type d'étape ne laisse pas un indicateur de
+        # surcharge orphelin pointant sur l'étape précédente.
+        self.persona_card = None
+        self.prompt_override_indicator = None
+        self.edit_prompt = None
+
         if not self.step_data:
             self.params_scroll.setWidget(container)
             return
@@ -618,6 +647,7 @@ class StepInspectorPanel(QFrame):
 
         if step_type in ("LLM_PROMPT", "MAP_REDUCE"):
             p_card = PersonaIdentityCard()
+            self.persona_card = p_card
             cur_persona = self.step_data.get("persona")
             p_card.set_persona(cur_persona)
 
@@ -632,6 +662,9 @@ class StepInspectorPanel(QFrame):
                         self.edit_step_title.setText(str(new_p.name))
 
             p_card.change_persona_requested.connect(_handle_change_persona)
+            # Le bouton d'édition vit sur la carte d'identité : c'est là que l'on choisit
+            # l'agent, c'est là que l'on décide de ne pas y toucher.
+            p_card.edit_prompt_requested.connect(self._open_persona_prompt_editor)
             layout_params.addWidget(p_card)
 
             # Surcharge LLM
@@ -729,7 +762,9 @@ class StepInspectorPanel(QFrame):
             layout_params.addWidget(row_doc)
 
             row_prompt_header = QHBoxLayout()
-            lbl_prompt = QLabel("Surcharge Prompt Système / Template Jinja2 :")
+            # On garde « Template Jinja2 » dans le libellé : le champ rend toujours du Jinja2,
+            # et la nouvelle formulation aurait laissé croire qu'il ne rend plus rien.
+            lbl_prompt = QLabel("Surcharge locale du prompt de l'étape (Template Jinja2) :")
             lbl_prompt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             row_prompt_header.addWidget(lbl_prompt)
             row_prompt_header.addStretch()
@@ -741,11 +776,19 @@ class StepInspectorPanel(QFrame):
             row_prompt_header.addWidget(btn_preview_prompt)
             layout_params.addLayout(row_prompt_header)
 
-            edit_prompt = StyledTextEdit()
-            edit_prompt.setPlaceholderText("Laisser vide pour utiliser le prompt par défaut du Persona...")
-            edit_prompt.setPlainText(cfg.get("prompt_override", ""))
-            edit_prompt.setMinimumHeight(150)
-            edit_prompt.setStyleSheet(f"""
+            self.prompt_override_indicator = PromptOverrideIndicator()
+            self.prompt_override_indicator.remove_requested.connect(self._on_remove_prompt_override)
+            self.prompt_override_indicator.set_state(persona_override_state(cfg, cur_persona))
+            layout_params.addWidget(self.prompt_override_indicator)
+
+            self.edit_prompt = StyledTextEdit()
+            # L'indication nomme la source RÉELLE du prompt résolu : un champ vide ne
+            # retombe pas sur un « prompt par défaut » de persona, il retombe sur l'agent.
+            self.edit_prompt.setPlaceholderText(prompt_override_field_hint(cur_persona))
+            self.edit_prompt.setToolTip("Prompt système de cette étape, en Jinja2. Laisser vide reprend le prompt de l'agent. Un texte saisi ici est figé et n'affecte aucun autre pipeline.")
+            self.edit_prompt.setPlainText(str(cfg.get(PROMPT_OVERRIDE_KEY, "")))
+            self.edit_prompt.setMinimumHeight(150)
+            self.edit_prompt.setStyleSheet(f"""
                 QPlainTextEdit {{
                     background: {DesignTokens.BG_INPUT};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -756,12 +799,14 @@ class StepInspectorPanel(QFrame):
                     padding: 8px;
                 }}
             """)
-            edit_prompt.textChanged.connect(lambda: self._on_config_changed("prompt_override", edit_prompt.toPlainText()))
+            self.edit_prompt.textChanged.connect(self._on_prompt_override_typed)
+
+            edit_prompt = self.edit_prompt
 
             def _open_prompt_preview() -> None:
                 step_copy = dict(self.step_data) if self.step_data else {}
                 cfg_copy = dict(step_copy.get("config", {}))
-                cfg_copy["prompt_override"] = edit_prompt.toPlainText().strip()
+                cfg_copy[PROMPT_OVERRIDE_KEY] = edit_prompt.toPlainText().strip()
                 step_copy["config"] = cfg_copy
                 dlg = PromptPreviewDialog(
                     template_str=edit_prompt.toPlainText().strip(),
@@ -1050,6 +1095,74 @@ class StepInspectorPanel(QFrame):
                 self.step_data["config"] = {}
             self.step_data["config"][key] = value
             self.step_updated.emit()
+
+    def _step_config(self) -> dict[str, Any]:
+        """Config de l'étape courante, créée à la demande : c'est la destination unique de toute surcharge."""
+        if not self.step_data:
+            return {}
+        return self.step_data.setdefault("config", {})
+
+    def _step_persona(self) -> PersonaModel | None:
+        """Agent de l'étape courante, ou `None` pour une étape sans agent (prompt pur)."""
+        persona = self.step_data.get("persona") if self.step_data else None
+        return persona if isinstance(persona, PersonaModel) else None
+
+    def _refresh_prompt_override_indicator(self) -> None:
+        """Réaligne l'indicateur de figeage sur l'état réel de la surcharge."""
+        indicator = getattr(self, "prompt_override_indicator", None)
+        if indicator is not None:
+            indicator.set_state(persona_override_state(self._step_config(), self._step_persona()))
+
+    def _sync_prompt_field(self, text: str, persona: PersonaModel | None) -> None:
+        """Réécrit le champ sans déclencher sa propre écriture.
+
+        Le figeage vient d'être posé par l'appelant ; le laisser se refaire ici le
+        redaterait à l'instant de la synchro, ce qui est précisément ce que la date doit
+        éviter de dire.
+        """
+        self.edit_prompt.blockSignals(True)
+        self.edit_prompt.setPlainText(text)
+        self.edit_prompt.setPlaceholderText(prompt_override_field_hint(persona))
+        self.edit_prompt.blockSignals(False)
+
+    def _on_prompt_override_typed(self) -> None:
+        """Écriture directe dans le champ : elle fige elle aussi, sinon l'indicateur mentirait.
+
+        Effacer le champ retire la surcharge : c'est le geste qui rend à l'agent la parole.
+        """
+        if not self.step_data:
+            return
+        cfg = self._step_config()
+        apply_persona_override(cfg, self.edit_prompt.toPlainText(), self._step_persona())
+        self._refresh_prompt_override_indicator()
+        self.step_updated.emit()
+
+    def _on_remove_prompt_override(self) -> None:
+        """Lève la surcharge : l'étape rend à son agent le droit de parler en son propre nom."""
+        persona = self._step_persona()
+        clear_persona_override(self._step_config(), persona)
+        self._sync_prompt_field("", persona)
+        self._refresh_prompt_override_indicator()
+        self.step_updated.emit()
+
+    def _open_persona_prompt_editor(self) -> None:
+        """Ouvre l'éditeur dédié : son titre promet la local, son texte part du prompt de l'agent."""
+        persona = self._step_persona()
+        cfg = self._step_config()
+        dlg = PersonaPromptOverrideDialog(
+            persona=persona,
+            step_title=str(self.step_data.get("custom_title", "")) if self.step_data else "",
+            current_text=str(cfg.get(PROMPT_OVERRIDE_KEY, "")),
+            config=cfg,
+            parent=self,
+        )
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        apply_persona_override(cfg, dlg.prompt_text(), persona)
+        self._sync_prompt_field(str(cfg.get(PROMPT_OVERRIDE_KEY, "")), persona)
+        self._refresh_prompt_override_indicator()
+        self.step_updated.emit()
 
     def _on_test_step_clicked(self) -> None:
         if self.step_data:

@@ -8,6 +8,7 @@ from ankiforge.ui.views.pipelines_view.widgets.dialogs import (
     PipelineRunDialog,
     StepTestDialog,
 )
+from ankiforge.ui.views.pipelines_view.widgets.prompt_override import PromptOverrideIndicator
 from ankiforge.ui.views.pipelines_view.widgets.step_inspector import (
     PersonaIdentityCard,
     PromptPreviewDialog,
@@ -34,6 +35,7 @@ __all__ = [
     "StepPickerDialog",
     "PersonaSelectorDialog",
     "PersonaIdentityCard",
+    "PromptOverrideIndicator",
     "PromptPreviewDialog",
     "StepInspectorPanel",
     "StepTestDialog",
