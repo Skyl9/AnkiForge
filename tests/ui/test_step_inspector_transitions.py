@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -9,13 +10,7 @@ from ankiforge.ui.views.pipelines_view.widgets.step_inspector import StepInspect
 pytestmark = pytest.mark.ui
 
 
-def _contains_emoji(text: str) -> bool:
-    """Vérifie si une chaîne contient des émojis ou symboles graphiques interdits."""
-    forbidden = ["✅", "⚠️", "🛑", "⏭️", "🔀", "➡️", "↳", "📄", "📑", "📦"]
-    return any(ch in text for ch in forbidden) or any(ord(ch) > 10000 for ch in text)
-
-
-def test_step_inspector_dag_tab_scroll_area(qtbot: Any) -> None:
+def test_step_inspector_dag_tab_scroll_area(qtbot: Any, contains_forbidden_glyph: Callable[[str], bool]) -> None:
     """Vérifie que l'onglet DAG est enveloppé dans une QScrollArea fluide sans cadre."""
     inspector = StepInspectorPanel()
     qtbot.addWidget(inspector)
@@ -43,7 +38,7 @@ def test_step_inspector_dag_cards_semantic_tokens(qtbot: Any) -> None:
     assert DesignTokens.COLOR_YELLOW_BORDER in style_fail
 
 
-def test_step_inspector_dag_no_text_emojis_and_phosphor_icons(qtbot: Any) -> None:
+def test_step_inspector_dag_no_text_emojis_and_phosphor_icons(qtbot: Any, contains_forbidden_glyph: Callable[[str], bool]) -> None:
     """Vérifie l'élimination stricte de 100% des émojis texte au profit d'icônes Phosphor."""
     inspector = StepInspectorPanel()
     qtbot.addWidget(inspector)
@@ -73,13 +68,13 @@ def test_step_inspector_dag_no_text_emojis_and_phosphor_icons(qtbot: Any) -> Non
     labels = inspector.dag_scroll.findChildren(QLabel)
     for lbl in labels:
         txt = lbl.text()
-        assert not _contains_emoji(txt), f"Label contient un emoji interdit : {txt}"
+        assert not contains_forbidden_glyph(txt), f"Label contient un emoji interdit : {txt}"
 
     # Vérification combo_succ
     assert inspector.combo_succ.count() >= 3
     for idx in range(inspector.combo_succ.count()):
         txt = inspector.combo_succ.itemText(idx)
-        assert not _contains_emoji(txt), f"combo_succ[{idx}] contient un emoji : {txt}"
+        assert not contains_forbidden_glyph(txt), f"combo_succ[{idx}] contient un emoji : {txt}"
         icon = inspector.combo_succ.itemIcon(idx)
         assert not icon.isNull(), f"combo_succ[{idx}] doit posséder une icône vectorielle"
 
@@ -87,7 +82,7 @@ def test_step_inspector_dag_no_text_emojis_and_phosphor_icons(qtbot: Any) -> Non
     assert inspector.combo_fail_beh.count() == 3
     for idx in range(inspector.combo_fail_beh.count()):
         txt = inspector.combo_fail_beh.itemText(idx)
-        assert not _contains_emoji(txt), f"combo_fail_beh[{idx}] contient un emoji : {txt}"
+        assert not contains_forbidden_glyph(txt), f"combo_fail_beh[{idx}] contient un emoji : {txt}"
         icon = inspector.combo_fail_beh.itemIcon(idx)
         assert not icon.isNull(), f"combo_fail_beh[{idx}] doit posséder une icône vectorielle"
 
@@ -95,7 +90,7 @@ def test_step_inspector_dag_no_text_emojis_and_phosphor_icons(qtbot: Any) -> Non
     assert inspector.combo_fail_target.count() >= 3
     for idx in range(inspector.combo_fail_target.count()):
         txt = inspector.combo_fail_target.itemText(idx)
-        assert not _contains_emoji(txt), f"combo_fail_target[{idx}] contient un emoji : {txt}"
+        assert not contains_forbidden_glyph(txt), f"combo_fail_target[{idx}] contient un emoji : {txt}"
         icon = inspector.combo_fail_target.itemIcon(idx)
         assert not icon.isNull(), f"combo_fail_target[{idx}] doit posséder une icône vectorielle"
 

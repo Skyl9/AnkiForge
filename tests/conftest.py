@@ -1,6 +1,7 @@
 # tests/conftest.py
 import contextlib
 import os
+from collections.abc import Callable
 
 import pytest
 from peewee import SqliteDatabase
@@ -97,6 +98,25 @@ MARKER_TOC_PLAIN = (
     .replace("{1}------------------------------------------------\n", "")
     .replace("{4}------------------------------------------------\n", "")
 )
+
+
+FORBIDDEN_GLYPHS = ("✅", "⚠️", "🛑", "⏭️", "🔀", "➡️", "↳", "📄", "📑", "📦")
+
+
+@pytest.fixture
+def contains_forbidden_glyph() -> Callable[[str], bool]:
+    """Détecte les emojis et pictogrammes interdits dans un texte d'interface.
+
+    La règle du dépôt est « icônes Phosphor, zéro emoji texte » (DESIGN.md). Ce contrôle
+    est donc factorisé ici : deux copies de la même liste finiraient fatalement par
+    diverger, et un test vert sur une liste incomplète ne prouve rien.
+    """
+    forbidden = tuple(FORBIDDEN_GLYPHS)
+
+    def _contains(text: str) -> bool:
+        return any(ch in text for ch in forbidden) or any(ord(ch) > 10000 for ch in text)
+
+    return _contains
 
 
 @pytest.fixture(scope="session")
