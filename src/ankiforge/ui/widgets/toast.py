@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -477,9 +478,9 @@ def show_import_toast(parent: QWidget | None, summary: dict[str, int]) -> Toast 
     if total == 0 and media == 0:
         return show_toast(
             parent=parent,
-            message="Aucune nouvelle carte ni modification détectée dans le paquet.",
+            message=tr("Aucune nouvelle carte ni modification détectée dans le paquet."),
             level=ToastLevel.INFO,
-            title="Importation Terminée",
+            title=tr("Importation Terminée"),
             duration_ms=4500,
         )
 
@@ -497,6 +498,6 @@ def show_import_toast(parent: QWidget | None, summary: dict[str, int]) -> Toast 
         parent=parent,
         message="\n".join(lines),
         level=ToastLevel.SUCCESS,
-        title="Importation Réussie",
+        title=tr("Importation Réussie"),
         duration_ms=6000,
     )

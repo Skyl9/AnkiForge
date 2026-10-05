@@ -46,6 +46,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -80,12 +81,12 @@ class WorkspaceInspectorWidget(QWidget):
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
 
-        lbl_title = QLabel("WORKSPACE & GARDE-FOU")
+        lbl_title = QLabel(self.tr("WORKSPACE & GARDE-FOU"))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         header_layout.addWidget(lbl_title)
         header_layout.addStretch()
 
-        self.status_badge = Badge("En veille", variant="status")
+        self.status_badge = Badge(tr("En veille"), variant="status")
         header_layout.addWidget(self.status_badge)
         main_layout.addLayout(header_layout)
 
@@ -103,24 +104,24 @@ class WorkspaceInspectorWidget(QWidget):
         queue_layout.setContentsMargins(4, 2, 4, 2)
         queue_layout.setSpacing(6)
 
-        self.btn_prev_patch = QPushButton("◀")
-        self.btn_prev_patch.setToolTip("Proposition de modification précédente")
+        self.btn_prev_patch = QPushButton(self.tr("◀"))
+        self.btn_prev_patch.setToolTip(self.tr("Proposition de modification précédente"))
         self.btn_prev_patch.setFixedSize(24, 24)
         self.btn_prev_patch.clicked.connect(self._on_prev_patch)
         queue_layout.addWidget(self.btn_prev_patch)
 
-        self.lbl_queue_status = QLabel("Proposition 0 / 0")
+        self.lbl_queue_status = QLabel(self.tr("Proposition 0 / 0"))
         self.lbl_queue_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_queue_status.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
         queue_layout.addWidget(self.lbl_queue_status, 1)
 
-        self.btn_next_patch = QPushButton("▶")
-        self.btn_next_patch.setToolTip("Proposition de modification suivante")
+        self.btn_next_patch = QPushButton(self.tr("▶"))
+        self.btn_next_patch.setToolTip(self.tr("Proposition de modification suivante"))
         self.btn_next_patch.setFixedSize(24, 24)
         self.btn_next_patch.clicked.connect(self._on_next_patch)
         queue_layout.addWidget(self.btn_next_patch)
 
-        self.btn_apply_all = PrimaryButton("Tout appliquer", tooltip="Appliquer toutes les modifications validées en base de données")
+        self.btn_apply_all = PrimaryButton("Tout appliquer", tooltip=self.tr("Appliquer toutes les modifications validées en base de données"))
         self.btn_apply_all.setFixedHeight(24)
         self.btn_apply_all.setIcon(load_on_accent_icon("ph.check-circle"))
         self.btn_apply_all.clicked.connect(self._on_apply_all_clicked)
@@ -146,7 +147,7 @@ class WorkspaceInspectorWidget(QWidget):
         icon_guard.setPixmap(load_phosphor_icon("ph.shield-check", color=DesignTokens.COLOR_YELLOW).pixmap(16, 16))
         banner_layout.addWidget(icon_guard)
 
-        self.lbl_guard_msg = QLabel("<b>Garde-Fou actif :</b> Validez ou éditez ci-dessous avant d'enregistrer en BDD.")
+        self.lbl_guard_msg = QLabel(self.tr("<b>Garde-Fou actif :</b> Validez ou éditez ci-dessous avant d'enregistrer en BDD."))
         self.lbl_guard_msg.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px;")
         banner_layout.addWidget(self.lbl_guard_msg, 1)
         main_layout.addWidget(self.banner_guard)
@@ -203,7 +204,7 @@ class WorkspaceInspectorWidget(QWidget):
         edit_layout.setContentsMargins(8, 8, 8, 8)
         edit_layout.setSpacing(6)
 
-        lbl_edit_help = QLabel("✏️ Modifiez directement le texte de la proposition avant de l'appliquer :")
+        lbl_edit_help = QLabel(self.tr("✏️ Modifiez directement le texte de la proposition avant de l'appliquer :"))
         lbl_edit_help.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         edit_layout.addWidget(lbl_edit_help)
 
@@ -239,9 +240,9 @@ class WorkspaceInspectorWidget(QWidget):
         self.preview_browser.hide()
         prev_layout.addWidget(self.preview_browser)
 
-        self.tabs.addTab(diff_widget, "🔍 Diff Comparatif")
-        self.tabs.addTab(edit_widget, "✏️ Édition Directe")
-        self.tabs.addTab(preview_widget, "👁️ Aperçu Anki")
+        self.tabs.addTab(diff_widget, self.tr("🔍 Diff Comparatif"))
+        self.tabs.addTab(edit_widget, self.tr("✏️ Édition Directe"))
+        self.tabs.addTab(preview_widget, self.tr("👁️ Aperçu Anki"))
         main_layout.addWidget(self.tabs, 1)
 
         # ── 4. Barre d'Actions Garde-Fou ─────────────────────────────────────
@@ -258,23 +259,23 @@ class WorkspaceInspectorWidget(QWidget):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(6)
 
-        self.btn_apply = PrimaryButton("Appliquer", tooltip="Valider et appliquer cette modification individuelle sur la note")
+        self.btn_apply = PrimaryButton("Appliquer", tooltip=self.tr("Valider et appliquer cette modification individuelle sur la note"))
         self.btn_apply.setIcon(load_on_accent_icon("ph.check-circle"))
         self.btn_apply.clicked.connect(self._on_apply_clicked)
         actions_layout.addWidget(self.btn_apply)
 
-        self.btn_revert = SecondaryButton("Annuler (Revert)", tooltip="Annuler la modification et revenir à la version antérieure")
+        self.btn_revert = SecondaryButton("Annuler (Revert)", tooltip=self.tr("Annuler la modification et revenir à la version antérieure"))
         self.btn_revert.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
         self.btn_revert.clicked.connect(self._on_revert_clicked)
         self.btn_revert.hide()
         actions_layout.addWidget(self.btn_revert)
 
-        self.btn_reject = SecondaryButton("Rejeter", tooltip="Rejeter cette suggestion de refactorisation")
+        self.btn_reject = SecondaryButton("Rejeter", tooltip=self.tr("Rejeter cette suggestion de refactorisation"))
         self.btn_reject.setIcon(load_phosphor_icon("ph.x-circle", color=DesignTokens.COLOR_RED))
         self.btn_reject.clicked.connect(self._on_reject_clicked)
         actions_layout.addWidget(self.btn_reject)
 
-        self.btn_copy_patch = SecondaryButton("Copier", tooltip="Copier le contenu du différentiel dans le presse-papier")
+        self.btn_copy_patch = SecondaryButton("Copier", tooltip=self.tr("Copier le contenu du différentiel dans le presse-papier"))
         self.btn_copy_patch.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
         self.btn_copy_patch.clicked.connect(self._on_copy_patch_clicked)
         actions_layout.addWidget(self.btn_copy_patch)
@@ -282,7 +283,7 @@ class WorkspaceInspectorWidget(QWidget):
         main_layout.addWidget(self.actions_frame)
 
         # ── 5. Suggestions Proactives (Next Steps) ───────────────────────────
-        lbl_next = QLabel("SUGGESTIONS D'ACTIONS SUIVANTES")
+        lbl_next = QLabel(self.tr("SUGGESTIONS D'ACTIONS SUIVANTES"))
         lbl_next.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         main_layout.addWidget(lbl_next)
 
@@ -297,7 +298,7 @@ class WorkspaceInspectorWidget(QWidget):
         self._patch_queue.clear()
         self._current_index = 0
         self._last_applied_patch = None
-        self.status_badge.setText("En veille")
+        self.status_badge.setText(self.tr("En veille"))
         self.banner_guard.hide()
         self.queue_bar.hide()
         self.btn_apply.setEnabled(False)
@@ -351,14 +352,14 @@ class WorkspaceInspectorWidget(QWidget):
         patch = self._patch_queue[self._current_index]
         total = len(self._patch_queue)
 
-        self.status_badge.setText(f"🛡️ En attente ({self._current_index + 1}/{total})")
+        self.status_badge.setText(tr("🛡️ En attente (%1/%2)", self._current_index + 1, total))
         self.banner_guard.show()
         self.queue_bar.setVisible(total > 1)
-        self.lbl_queue_status.setText(f"Proposition {self._current_index + 1} / {total}")
+        self.lbl_queue_status.setText(tr("Proposition %1 / %2", self._current_index + 1, total))
         self._apply_all_armed = False
-        self.btn_apply_all.setText(f"Tout appliquer ({total})")
+        self.btn_apply_all.setText(tr("Tout appliquer (%1)", total))
         self.btn_apply_all.setIcon(load_on_accent_icon("ph.check-circle"))
-        self.btn_apply_all.setToolTip("Appliquer toutes les modifications validées en base de données")
+        self.btn_apply_all.setToolTip(self.tr("Appliquer toutes les modifications validées en base de données"))
         self.btn_prev_patch.setEnabled(self._current_index > 0)
         self.btn_next_patch.setEnabled(self._current_index < total - 1)
 
@@ -547,7 +548,7 @@ class WorkspaceInspectorWidget(QWidget):
             self._current_index = min(self._current_index, len(self._patch_queue) - 1)
             self._render_current_patch()
         else:
-            self.status_badge.setText("✅ Appliqué en BDD")
+            self.status_badge.setText(self.tr("✅ Appliqué en BDD"))
             self.banner_guard.hide()
             self.queue_bar.hide()
             self.btn_apply.setEnabled(False)
@@ -582,16 +583,16 @@ class WorkspaceInspectorWidget(QWidget):
                             source="consultant_workspace_revert",
                             is_active=True,
                         )
-            self.status_badge.setText("↩️ Annulé en BDD")
+            self.status_badge.setText(self.tr("↩️ Annulé en BDD"))
             self.btn_revert.hide()
             self.btn_apply.setEnabled(True)
             self.btn_reject.setEnabled(True)
             self._last_applied_patch = None
             self.action_reverted.emit(f"Modification de la note #{note_id} annulée")
-            show_toast(self, "Modification annulée avec succès !")
+            show_toast(self, self.tr("Modification annulée avec succès !"))
         except Exception as e:
             logger.error("Erreur lors de l'annulation workspace : %s", e)
-            show_toast(self, f"Erreur d'annulation : {e}", is_error=True)
+            show_toast(self, tr("Erreur d'annulation : %1", e), is_error=True)
 
     @Slot()
     def _on_apply_all_clicked(self) -> None:
@@ -602,9 +603,9 @@ class WorkspaceInspectorWidget(QWidget):
         count = len(self._patch_queue)
         if count > 1 and not self._apply_all_armed:
             self._apply_all_armed = True
-            self.btn_apply_all.setText(f"⚠️ Confirmer ({count}) ?")
+            self.btn_apply_all.setText(tr("⚠️ Confirmer (%1) ?", count))
             self.btn_apply_all.setIcon(load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_YELLOW))
-            self.btn_apply_all.setToolTip("Cliquez à nouveau pour confirmer l'application par lot en BDD")
+            self.btn_apply_all.setToolTip(self.tr("Cliquez à nouveau pour confirmer l'application par lot en BDD"))
             return
 
         self._apply_all_armed = False
@@ -613,12 +614,12 @@ class WorkspaceInspectorWidget(QWidget):
                 self._persist_patch(patch)
 
         self._patch_queue.clear()
-        self.status_badge.setText(f"✅ {count} modifications appliquées")
+        self.status_badge.setText(tr("✅ %1 modifications appliquées", count))
         self.banner_guard.hide()
         self.queue_bar.hide()
         self.btn_apply.setEnabled(False)
         self.btn_reject.setEnabled(False)
-        show_toast(self, f"{count} modifications enregistrées avec succès en BDD !")
+        show_toast(self, tr("%1 modifications enregistrées avec succès en BDD !", count))
         self.action_applied.emit(f"{count} modifications appliquées par lot")
 
     @Slot()
@@ -633,13 +634,13 @@ class WorkspaceInspectorWidget(QWidget):
             self._current_index = min(self._current_index, len(self._patch_queue) - 1)
             self._render_current_patch()
         else:
-            self.status_badge.setText("❌ Proposition rejetée")
+            self.status_badge.setText(self.tr("❌ Proposition rejetée"))
             self.banner_guard.hide()
             self.queue_bar.hide()
             self.btn_apply.setEnabled(False)
             self.btn_reject.setEnabled(False)
 
-        show_toast(self, "Proposition rejetée.")
+        show_toast(self, self.tr("Proposition rejetée."))
         self.action_rejected.emit("Proposition rejetée")
 
     def _persist_patch(self, patch: dict[str, Any]) -> None:
@@ -681,7 +682,7 @@ class WorkspaceInspectorWidget(QWidget):
         cb = QApplication.clipboard()
         if cb:
             cb.setText(json.dumps(self._patch_queue[self._current_index], ensure_ascii=False, indent=2))
-        show_toast(self, "Patch copié dans le presse-papiers !")
+        show_toast(self, self.tr("Patch copié dans le presse-papiers !"))
 
     def set_next_steps(self, steps: list[str]) -> None:
         """Affiche les suggestions d'actions suivantes."""
@@ -691,7 +692,7 @@ class WorkspaceInspectorWidget(QWidget):
                 item.widget().deleteLater()
 
         if not steps:
-            empty_lbl = QLabel("Aucune suggestion")
+            empty_lbl = QLabel(self.tr("Aucune suggestion"))
             empty_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
             self.chips_layout.addWidget(empty_lbl)
             return

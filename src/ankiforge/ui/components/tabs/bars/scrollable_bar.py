@@ -34,14 +34,14 @@ class ScrollableTabBarWidget(QWidget):
         self.layout_main.setContentsMargins(0, 0, 0, 0)
         self.layout_main.setSpacing(0)
 
-        self.btn_left = QPushButton("<")
+        self.btn_left = QPushButton(self.tr("<"))
         self.btn_left.setFixedSize(24, 36)
         self.btn_left.setFlat(True)
         self.btn_left.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none;")
         self.btn_left.clicked.connect(self._scroll_left)
         self.btn_left.hide()
 
-        self.btn_right = QPushButton(">")
+        self.btn_right = QPushButton(self.tr(">"))
         self.btn_right.setFixedSize(24, 36)
         self.btn_right.setFlat(True)
         self.btn_right.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none;")

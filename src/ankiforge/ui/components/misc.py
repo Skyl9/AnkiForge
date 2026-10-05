@@ -72,8 +72,8 @@ class DaemonStatusWidget(QWidget):
         self.layout_h.setContentsMargins(8, 0, 12, 0)
         self.layout_h.setSpacing(6)
 
-        self.icon_lbl = QLabel("⚙")
-        self.text_lbl = QLabel("Idle")
+        self.icon_lbl = QLabel(self.tr("⚙"))
+        self.text_lbl = QLabel(self.tr("Idle"))
         self.text_lbl.setStyleSheet("font-size: 12px; font-weight: bold;")
 
         self.layout_h.addWidget(self.icon_lbl)

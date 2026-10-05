@@ -32,6 +32,7 @@ from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.dialogs.smart_merge_dialog import SmartMergeDialog
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_import_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -67,12 +68,12 @@ class ImportDropZone(QFrame):
         self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon_lbl.setStyleSheet("border: none; background: transparent;")
 
-        self.lbl_title = QLabel("Glissez-déposez votre archive Anki ici")
+        self.lbl_title = QLabel(self.tr("Glissez-déposez votre archive Anki ici"))
         self.lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.lbl_sub = QLabel("Formats supportés : .apkg (Paquet), .colpkg (Collection), .txt (Export texte)")
+        self.lbl_sub = QLabel(self.tr("Formats supportés : .apkg (Paquet), .colpkg (Collection), .txt (Export texte)"))
         self.lbl_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         self.lbl_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -113,7 +114,7 @@ class ImportDialog(QDialog):
         self.analysis_result: ImportAnalysisResult | None = None
         self._deck_modal: DeckSelectWindow | None = None
 
-        self.setWindowTitle("Importer un Paquet ou une Collection Anki")
+        self.setWindowTitle(self.tr("Importer un Paquet ou une Collection Anki"))
         self.resize(640, 520)
 
         self._setup_ui()
@@ -136,11 +137,11 @@ class ImportDialog(QDialog):
         icon_lbl.setStyleSheet("border: none; background: transparent;")
 
         title_vbox = QVBoxLayout()
-        title_lbl = QLabel("Importation & Synchronisation Anki")
+        title_lbl = QLabel(self.tr("Importation & Synchronisation Anki"))
         title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 15, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none;")
 
-        sub_lbl = QLabel("Analyse automatique et arbitrage des conflits (Règle 11)")
+        sub_lbl = QLabel(self.tr("Analyse automatique et arbitrage des conflits (Règle 11)"))
         sub_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
 
         title_vbox.addWidget(title_lbl)
@@ -160,7 +161,7 @@ class ImportDialog(QDialog):
         file_row.setSpacing(8)
 
         self.path_input = StyledLineEdit()
-        self.path_input.setPlaceholderText("Chemin du fichier .apkg, .colpkg ou .txt...")
+        self.path_input.setPlaceholderText(self.tr("Chemin du fichier .apkg, .colpkg ou .txt..."))
         file_row.addWidget(self.path_input, 1)
 
         self.btn_browse = SecondaryButton("Parcourir...")
@@ -184,17 +185,17 @@ class ImportDialog(QDialog):
         options_layout.setContentsMargins(10, 10, 10, 10)
         options_layout.setSpacing(8)
 
-        lbl_dest = QLabel("DESTINATION :")
+        lbl_dest = QLabel(self.tr("DESTINATION :"))
         lbl_dest.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         options_layout.addWidget(lbl_dest)
 
-        self.radio_keep_tree = QRadioButton("Conserver la hiérarchie d'origine des paquets")
+        self.radio_keep_tree = QRadioButton(self.tr("Conserver la hiérarchie d'origine des paquets"))
         self.radio_keep_tree.setChecked(True)
         self.radio_keep_tree.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         options_layout.addWidget(self.radio_keep_tree)
 
         merge_row = QHBoxLayout()
-        self.radio_merge_deck = QRadioButton("Fusionner dans le paquet :")
+        self.radio_merge_deck = QRadioButton(self.tr("Fusionner dans le paquet :"))
         self.radio_merge_deck.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         merge_row.addWidget(self.radio_merge_deck)
 
@@ -249,7 +250,7 @@ class ImportDialog(QDialog):
 
         from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 
-        self._deck_modal = DeckSelectWindow(title="Sélectionner le paquet cible", parent=self)
+        self._deck_modal = DeckSelectWindow(title=self.tr("Sélectionner le paquet cible"), parent=self)
         self._deck_modal.deck_selected.connect(self._on_target_deck_selected_from_modal)
         self._deck_modal.show()
         self._deck_modal.raise_()
@@ -259,10 +260,10 @@ class ImportDialog(QDialog):
     def _on_target_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
         if deck_id == -1:
             self.target_deck_id = None
-            self.btn_select_target_deck.setText("📁 Choisir un paquet cible ▾")
+            self.btn_select_target_deck.setText(self.tr("📁 Choisir un paquet cible ▾"))
         else:
             self.target_deck_id = deck_id
-            self.btn_select_target_deck.setText(f"📁 {deck_name} ▾")
+            self.btn_select_target_deck.setText(tr("📁 %1 ▾", deck_name))
             self.radio_merge_deck.setChecked(True)
 
     def _browse_file(self) -> None:
@@ -291,12 +292,12 @@ class ImportDialog(QDialog):
     def _start_import_analysis(self) -> None:
         file_path = self.path_input.text().strip()
         if not file_path or not Path(file_path).exists():
-            QMessageBox.warning(self, "Fichier manquant", "Veuillez sélectionner un fichier .apkg, .colpkg ou .txt valide.")
+            QMessageBox.warning(self, self.tr("Fichier manquant"), self.tr("Veuillez sélectionner un fichier .apkg, .colpkg ou .txt valide."))
             return
 
         self.btn_import.setEnabled(False)
         self.progress_bar.show()
-        self.lbl_status.setText("Analyse du fichier en cours...")
+        self.lbl_status.setText(self.tr("Analyse du fichier en cours..."))
 
         self.worker = ImportCardsWorker(path=file_path, mode="analyze", import_manager=self.import_manager, parent=self)
         self.worker.progress.connect(self.lbl_status.setText)
@@ -329,13 +330,13 @@ class ImportDialog(QDialog):
                 resolutions = merge_dialog.get_resolutions()
             else:
                 self.btn_import.setEnabled(True)
-                self.lbl_status.setText("Importation annulée par l'utilisateur.")
+                self.lbl_status.setText(self.tr("Importation annulée par l'utilisateur."))
                 return
 
         # Commit final asynchrone
         target_id = self.target_deck_id if self.radio_merge_deck.isChecked() else None
 
-        self.lbl_status.setText("Écriture en base de données...")
+        self.lbl_status.setText(self.tr("Écriture en base de données..."))
         self.progress_bar.show()
 
         self.worker = ImportCardsWorker(
@@ -369,17 +370,17 @@ class ImportDialog(QDialog):
     def _on_import_error(self, err_msg: str) -> None:
         self.progress_bar.hide()
         self.btn_import.setEnabled(True)
-        self.lbl_status.setText("Erreur d'importation.")
-        QMessageBox.critical(self, "Erreur d'Importation", f"Impossible d'importer l'archive :\n{err_msg}")
+        self.lbl_status.setText(self.tr("Erreur d'importation."))
+        QMessageBox.critical(self, self.tr("Erreur d'Importation"), tr("Impossible d'importer l'archive :\n%1", err_msg))
 
     def _on_size_limit_error(self, err_msg: str) -> None:
         self.progress_bar.hide()
         self.btn_import.setEnabled(True)
-        self.lbl_status.setText("Erreur d'importation : plafond de taille atteint.")
+        self.lbl_status.setText(self.tr("Erreur d'importation : plafond de taille atteint."))
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Critical)
-        box.setWindowTitle("Erreur d'Importation")
-        box.setText(f"Impossible d'importer l'archive :\n{err_msg}")
+        box.setWindowTitle(self.tr("Erreur d'Importation"))
+        box.setText(tr("Impossible d'importer l'archive :\n%1", err_msg))
         btn_settings = box.addButton("Ouvrir les réglages Anki", QMessageBox.ButtonRole.ActionRole)
         box.addButton(QMessageBox.StandardButton.Ok)
         box.exec()

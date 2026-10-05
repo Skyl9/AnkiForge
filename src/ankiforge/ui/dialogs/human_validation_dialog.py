@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.ui.components import DangerButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ class HumanValidationDialog(QDialog):
     def __init__(self, state: PipelineRunState, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.state = state
-        self.setWindowTitle("Copilote Intentionnel — Validation Humaine")
+        self.setWindowTitle(self.tr("Copilote Intentionnel — Validation Humaine"))
         self.resize(720, 540)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
@@ -68,7 +69,7 @@ class HumanValidationDialog(QDialog):
         icon_lbl.setPixmap(load_phosphor_icon("ph.pause-circle", color=DesignTokens.COLOR_YELLOW).pixmap(24, 24))
         header_row.addWidget(icon_lbl)
 
-        header_lbl = QLabel(f"<b>{title_text}</b>")
+        header_lbl = QLabel(tr("<b>%1</b>", title_text))
         header_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px;")
         header_row.addWidget(header_lbl, 1)
 
@@ -110,7 +111,7 @@ class HumanValidationDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(12)
 
-        self.btn_cancel = DangerButton("Interrompre le Workflow", ghost=True)
+        self.btn_cancel = DangerButton(tr("Interrompre le Workflow"), ghost=True)
         self.btn_cancel.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.COLOR_RED))
         self.btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(self.btn_cancel)

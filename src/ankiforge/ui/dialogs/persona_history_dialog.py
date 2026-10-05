@@ -28,6 +28,7 @@ from ankiforge.services.ai.persona_version_service import PersonaVersionService
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -106,7 +107,7 @@ class PersonaVersionItemWidget(QWidget):
         top_row = QHBoxLayout()
         top_row.setSpacing(6)
 
-        badge_v = QLabel(f"v{version.version_number}")
+        badge_v = QLabel(tr("v%1", version.version_number))
         badge_v.setStyleSheet(f"""
             background-color: {DesignTokens.ACCENT_PRIMARY};
             color: white;
@@ -118,7 +119,7 @@ class PersonaVersionItemWidget(QWidget):
         top_row.addWidget(badge_v)
 
         if version.is_active:
-            badge_active = QLabel("Actif")
+            badge_active = QLabel(self.tr("Actif"))
             badge_active.setStyleSheet(f"""
                 background-color: {DesignTokens.COLOR_GREEN_BG};
                 color: {DesignTokens.COLOR_GREEN};
@@ -158,7 +159,7 @@ class PersonaHistoryDialog(QDialog):
         self.persona: PersonaModel | None = PersonaModel.get_or_none(PersonaModel.id == persona_id)
         self._selected_version: PersonaVersionModel | None = None
 
-        self.setWindowTitle(f"Historique des Versions — {self.persona.name if self.persona else 'Agent'}")
+        self.setWindowTitle(tr("Historique des Versions — %1", self.persona.name if self.persona else "Agent"))
         self.setMinimumSize(950, 650)
         self.resize(1050, 700)
         self._setup_ui()
@@ -220,9 +221,9 @@ class PersonaHistoryDialog(QDialog):
         header_layout.addWidget(icon_lbl)
 
         title_box = QVBoxLayout()
-        self.title_lbl = QLabel(f"Machine à Remonter le Temps : {self.persona.name if self.persona else ''}")
+        self.title_lbl = QLabel(tr("Machine à Remonter le Temps : %1", self.persona.name if self.persona else ""))
         self.title_lbl.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        self.subtitle_lbl = QLabel("Explorez les révisions de prompts passées et restaurez l'état de l'agent sans perte de travail.")
+        self.subtitle_lbl = QLabel(self.tr("Explorez les révisions de prompts passées et restaurez l'état de l'agent sans perte de travail."))
         self.subtitle_lbl.setStyleSheet(f"font-size: 12px; color: {DesignTokens.TEXT_MUTED};")
         title_box.addWidget(self.title_lbl)
         title_box.addWidget(self.subtitle_lbl)
@@ -240,7 +241,7 @@ class PersonaHistoryDialog(QDialog):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(8)
 
-        lbl_list_title = QLabel("RÉVISIONS DISPONIBLES")
+        lbl_list_title = QLabel(self.tr("RÉVISIONS DISPONIBLES"))
         lbl_list_title.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         left_layout.addWidget(lbl_list_title)
 
@@ -262,7 +263,7 @@ class PersonaHistoryDialog(QDialog):
 
         # Onglet 1 : Diff de Prompt
         self.diff_viewer = PersonaPromptDiffViewer()
-        self.tabs.addTab(self.diff_viewer, "✨ Diff du System Prompt")
+        self.tabs.addTab(self.diff_viewer, self.tr("✨ Diff du System Prompt"))
 
         # Onglet 2 : Métadonnées et Paramètres
         self.meta_browser = QTextBrowser()
@@ -276,7 +277,7 @@ class PersonaHistoryDialog(QDialog):
                 font-size: 12px;
             }}
         """)
-        self.tabs.addTab(self.meta_browser, "⚙️ Paramètres & Configuration")
+        self.tabs.addTab(self.meta_browser, self.tr("⚙️ Paramètres & Configuration"))
 
         right_layout.addWidget(self.tabs)
         splitter.addWidget(right_widget)
@@ -344,9 +345,9 @@ class PersonaHistoryDialog(QDialog):
         # Mise à jour du bouton de restauration
         self.btn_restore.setEnabled(not version.is_active)
         if version.is_active:
-            self.lbl_status.setText("ℹ️ Cette version est actuellement active.")
+            self.lbl_status.setText(self.tr("ℹ️ Cette version est actuellement active."))
         else:
-            self.lbl_status.setText(f"Prêt à restaurer la version v{version.version_number}.")
+            self.lbl_status.setText(tr("Prêt à restaurer la version v%1.", version.version_number))
 
         # 1. Diff de Prompt
         current_prompt = self.persona.system_prompt or ""
@@ -388,8 +389,8 @@ class PersonaHistoryDialog(QDialog):
         v_num = self._selected_version.version_number
         reply = QMessageBox.question(
             self,
-            "Confirmer la restauration",
-            f"Êtes-vous sûr de vouloir restaurer le persona '{self.persona.name}' à la version v{v_num} ?\n\nLe prompt et les paramètres actuels seront remplacés.",
+            self.tr("Confirmer la restauration"),
+            tr("Êtes-vous sûr de vouloir restaurer le persona '%1' à la version v%2 ?\n\nLe prompt et les paramètres actuels seront remplacés.", self.persona.name, v_num),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
@@ -399,8 +400,8 @@ class PersonaHistoryDialog(QDialog):
 
         try:
             PersonaVersionService.restore_version(self._selected_version.id)
-            show_toast(self, f"Version v{v_num} restaurée avec succès !")
+            show_toast(self, tr("Version v%1 restaurée avec succès !", v_num))
             self.version_restored.emit(self.persona.id)
             self.accept()
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Échec de la restauration : {str(e)}")
+            QMessageBox.critical(self, self.tr("Erreur"), tr("Échec de la restauration : %1", str(e)))

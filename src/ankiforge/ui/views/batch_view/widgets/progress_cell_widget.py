@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 
 
 class ProgressTableCellWidget(QWidget):
@@ -32,7 +33,7 @@ class ProgressTableCellWidget(QWidget):
         self.lbl_status = QLabel(status_text)
         self.lbl_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}';")
 
-        self.lbl_pct = QLabel(f"{progress_pct}%")
+        self.lbl_pct = QLabel(tr("%1%%", progress_pct))
         self.lbl_pct.setStyleSheet(f"color: {self.color}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}'; font-weight: bold;")
 
         sub_row.addWidget(self.lbl_status, 1)
@@ -68,4 +69,4 @@ class ProgressTableCellWidget(QWidget):
         self.progress_bar.setValue(progress_pct)
         self._apply_style()
         self.lbl_status.setText(status_text)
-        self.lbl_pct.setText(f"{progress_pct}%")
+        self.lbl_pct.setText(tr("%1%%", progress_pct))

@@ -32,6 +32,7 @@ from ankiforge.ui.widgets.settings_modal import (
     StorageMaintenanceTab,
     TTSSettingsTab,
 )
+from ankiforge.utils import i18n
 
 pytestmark = pytest.mark.ui
 
@@ -134,20 +135,42 @@ def test_settings_modal_shows_saved_status_after_save(qtbot):
 
 
 def test_general_tab_save_and_mode_change(qtbot):
-    """Teste la modification et la sauvegarde des paramètres généraux."""
+    """Teste la modification et la sauvegarde des paramètres généraux.
+
+    La langue est persistée sous son **code ISO** et non sous son endonyme : un endonyme
+    est une donnée d'interface, donc susceptible d'être traduit ou reformaté, alors que le
+    code est l'identifiant que `install_translator()` sait résoudre. Les valeurs
+    historiques (`"Français"`, `"English"`) restent acceptées en lecture via
+    `normalize_language()`.
+    """
 
     tab = GeneralTab()
     qtbot.addWidget(tab)
 
-    tab.cb_lang.setCurrentText("English")
+    tab.cb_lang.setCurrentIndex(tab.cb_lang.findData("en"))
     tab.cb_batch_style.setCurrentText("Kanban (Flux de tâches)")
     tab.le_export.setText("/custom/export/path")
 
     has_change, layout_id, family_id = tab.save_tab()
     assert has_change is True
-    assert SettingsService.get("ui/language") == "English"
+    assert SettingsService.get("ui/language") == "en"
     assert SettingsService.get("app/batch_factory_style") == "Kanban (Flux de tâches)"
     assert SettingsService.get("app/export_path") == "/custom/export/path"
+
+
+def test_general_tab_language_combo_lists_endonyms_and_stores_codes(qtbot):
+    """Le sélecteur de langue expose des endonymes et conserve les codes en ``userData``."""
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    labels = [tab.cb_lang.itemText(i) for i in range(tab.cb_lang.count())]
+    codes = [tab.cb_lang.itemData(i) for i in range(tab.cb_lang.count())]
+
+    assert "Français" in labels, "La langue source doit toujours être proposée, même sans catalogue"
+    assert codes == [i18n.normalize_language(code) for code in codes]
+    assert "fr" in codes
+    assert set(codes) <= set(i18n.available_languages())
 
 
 def test_general_tab_layout_grid_selection_and_persistence(qtbot):

@@ -96,7 +96,7 @@ class StepPickerDialog(QDialog):
         super().__init__(parent)
         self.personas = personas
         self.selected_step_data: dict[str, Any] | None = None
-        self.setWindowTitle("Ajouter une Étape au Workflow")
+        self.setWindowTitle(self.tr("Ajouter une Étape au Workflow"))
         self.resize(780, 520)
         self.setStyleSheet(f"""
             QDialog {{
@@ -114,7 +114,7 @@ class StepPickerDialog(QDialog):
         layout_main.setSpacing(14)
 
         self.edit_search = GlowLineEdit()
-        self.edit_search.setPlaceholderText("Rechercher un agent, un prompt ou une action système...")
+        self.edit_search.setPlaceholderText(self.tr("Rechercher un agent, un prompt ou une action système..."))
         self.edit_search.setFixedHeight(34)
         self.edit_search.textChanged.connect(self._filter_items)
         layout_main.addWidget(self.edit_search)
@@ -130,7 +130,7 @@ class StepPickerDialog(QDialog):
         col1_layout.setContentsMargins(0, 0, 0, 0)
         col1_layout.setSpacing(8)
 
-        lbl_col1_header = QLabel("AGENTS IA & PROMPTS")
+        lbl_col1_header = QLabel(self.tr("AGENTS IA & PROMPTS"))
         lbl_col1_header.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
         col1_layout.addWidget(lbl_col1_header)
 
@@ -159,7 +159,7 @@ class StepPickerDialog(QDialog):
         pipeline_personas = [p for p in self.personas if getattr(p, "persona_type", "pipeline") in ("pipeline", "universal", None, "")]
 
         if not pipeline_personas:
-            lbl_no_p = QLabel("Aucun persona de pipeline configuré. Créez des agents dans l'Atelier d'Agents.")
+            lbl_no_p = QLabel(self.tr("Aucun persona de pipeline configuré. Créez des agents dans l'Atelier d'Agents."))
             lbl_no_p.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic; margin-left: 6px;")
             self.col1_cards_layout.addWidget(lbl_no_p)
 
@@ -199,7 +199,7 @@ class StepPickerDialog(QDialog):
         col2_layout.setContentsMargins(0, 0, 0, 0)
         col2_layout.setSpacing(8)
 
-        lbl_col2_header = QLabel("ACTIONS SYSTÈME & OUTILS")
+        lbl_col2_header = QLabel(self.tr("ACTIONS SYSTÈME & OUTILS"))
         lbl_col2_header.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
         col2_layout.addWidget(lbl_col2_header)
 
@@ -285,7 +285,7 @@ class PersonaSelectorDialog(QDialog):
         super().__init__(parent)
         self.personas = personas
         self.selected_persona: PersonaModel | None = None
-        self.setWindowTitle("Changer d'Agent IA")
+        self.setWindowTitle(self.tr("Changer d'Agent IA"))
         self.resize(460, 380)
         self.setStyleSheet(f"""
             QDialog {{
@@ -313,7 +313,7 @@ class PersonaSelectorDialog(QDialog):
         card_none.clicked.connect(self._on_selected)
         layout.addWidget(card_none)
 
-        lbl_sep = QLabel("AGENTS DISPONIBLES :")
+        lbl_sep = QLabel(self.tr("AGENTS DISPONIBLES :"))
         lbl_sep.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; margin-top: 6px;")
         layout.addWidget(lbl_sep)
 

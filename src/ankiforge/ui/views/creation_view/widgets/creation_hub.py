@@ -43,12 +43,12 @@ class CreationHubWidget(QWidget):
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_container.addWidget(icon_lbl)
 
-        title_lbl = QLabel("Studio de Création AnkiForge")
+        title_lbl = QLabel(self.tr("Studio de Création AnkiForge"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 18px; font-weight: 700; border: none; background: transparent;")
         title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_container.addWidget(title_lbl)
 
-        subtitle_lbl = QLabel("Choisissez un point de départ pour extraire et forger vos prochaines cartes mémoires :")
+        subtitle_lbl = QLabel(self.tr("Choisissez un point de départ pour extraire et forger vos prochaines cartes mémoires :"))
         subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
         subtitle_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_container.addWidget(subtitle_lbl)
@@ -85,11 +85,11 @@ class CreationHubWidget(QWidget):
         doc_icon.setStyleSheet("background: transparent; border: none;")
         doc_l.addWidget(doc_icon)
 
-        doc_title = QLabel("Explorer mes Documents")
+        doc_title = QLabel(self.tr("Explorer mes Documents"))
         doc_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 700; font-size: 13px; border: none; background: transparent;")
         doc_l.addWidget(doc_title)
 
-        doc_desc = QLabel("Sélectionnez un cours (PDF, Album d'images, Diaporama PPTX, Livre EPUB, Audio Whisper, Markdown) pour forger des cartes.")
+        doc_desc = QLabel(self.tr("Sélectionnez un cours (PDF, Album d'images, Diaporama PPTX, Livre EPUB, Audio Whisper, Markdown) pour forger des cartes."))
         doc_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         doc_desc.setWordWrap(True)
         doc_l.addWidget(doc_desc)
@@ -129,11 +129,11 @@ class CreationHubWidget(QWidget):
         text_icon.setStyleSheet("background: transparent; border: none;")
         text_l.addWidget(text_icon)
 
-        text_title = QLabel("Saisie Libre / Presse-Papiers")
+        text_title = QLabel(self.tr("Saisie Libre / Presse-Papiers"))
         text_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 700; font-size: 13px; border: none; background: transparent;")
         text_l.addWidget(text_title)
 
-        text_desc = QLabel("Collez ou écrivez directement vos notes, théorèmes ou résumés pour une extraction instantanée.")
+        text_desc = QLabel(self.tr("Collez ou écrivez directement vos notes, théorèmes ou résumés pour une extraction instantanée."))
         text_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         text_desc.setWordWrap(True)
         text_l.addWidget(text_desc)

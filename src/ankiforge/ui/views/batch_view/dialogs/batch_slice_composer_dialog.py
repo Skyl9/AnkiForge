@@ -34,6 +34,7 @@ from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.batch_view.widgets import AutoSliceWidget
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.region_address import RegionScope, parse_region_addresses
 
@@ -66,7 +67,7 @@ class _ModeCard(QFrame):
         icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=color).pixmap(24, 24))
         icon_lbl.setStyleSheet("background: transparent; border: none;")
         header.addWidget(icon_lbl)
-        self.badge = QLabel("✓ Sélectionné")
+        self.badge = QLabel(self.tr("✓ Sélectionné"))
         self.badge.setStyleSheet(f"""
             QLabel {{
                 background-color: {DesignTokens.ACCENT_BG};
@@ -177,7 +178,7 @@ class _CollapsiblePanel(QFrame):
 
     def _apply_state(self) -> None:
         arrow = "▸" if self._collapsed else "▾"
-        self.btn_toggle.setText(f"{arrow}  {self._title}")
+        self.btn_toggle.setText(tr("%1  %2", arrow, self._title))
         self.btn_toggle.setChecked(not self._collapsed)
         self.body.setVisible(not self._collapsed)
 
@@ -246,8 +247,8 @@ class _RecapTaskCard(QFrame):
         header.addStretch()
         layout.addLayout(header)
 
-        self.btn_formatted = QPushButton("Formaté")
-        self.btn_source = QPushButton("Source")
+        self.btn_formatted = QPushButton(self.tr("Formaté"))
+        self.btn_source = QPushButton(self.tr("Source"))
         self.btn_formatted.setCheckable(True)
         self.btn_source.setCheckable(True)
         for btn in (self.btn_formatted, self.btn_source):
@@ -334,7 +335,7 @@ class BatchSliceComposerDialog(QDialog):
         self._current_step = 0
         self._mode = "direct"
 
-        self.setWindowTitle("Composer le lot : document, découpage & parties")
+        self.setWindowTitle(self.tr("Composer le lot : document, découpage & parties"))
         self.resize(1180, 760)
         self.setMinimumSize(960, 620)
         self._setup_ui()
@@ -392,7 +393,7 @@ class BatchSliceComposerDialog(QDialog):
         top_row.addWidget(self.doc_picker, 1)
         p_layout.addLayout(top_row)
 
-        self.lbl_doc_hint = QLabel("Aucun document sélectionné — choisissez un document pour continuer.")
+        self.lbl_doc_hint = QLabel(self.tr("Aucun document sélectionné — choisissez un document pour continuer."))
         self.lbl_doc_hint.setWordWrap(True)
         self.lbl_doc_hint.setStyleSheet(
             f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW_TEXT}; "
@@ -404,14 +405,14 @@ class BatchSliceComposerDialog(QDialog):
 
         self._build_document_info_card(p_layout)
 
-        mode_title = QLabel("MODE DE DÉCOUPAGE")
+        mode_title = QLabel(self.tr("MODE DE DÉCOUPAGE"))
         mode_title.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         p_layout.addWidget(mode_title)
 
         cards_row = QHBoxLayout()
         cards_row.setSpacing(14)
         self.card_direct = _ModeCard(
-            "Découpage direct",
+            tr("Découpage direct"),
             "Chaque partie cochée du document devient une tâche (1 partie = 1 tâche). Le choix manuel le plus fiable.",
             "ph.list-checks",
             DesignTokens.COLOR_BLUE,
@@ -420,7 +421,7 @@ class BatchSliceComposerDialog(QDialog):
         cards_row.addWidget(self.card_direct, 1)
 
         self.card_auto = _ModeCard(
-            "Découpage automatique",
+            tr("Découpage automatique"),
             "Découpage selon des règles : chapitres/titres, blocs de tokens ou tranches de pages.",
             "ph.magic-wand",
             DesignTokens.COLOR_GREEN,
@@ -434,7 +435,7 @@ class BatchSliceComposerDialog(QDialog):
         direct_page = QWidget()
         d_layout = QVBoxLayout(direct_page)
         d_layout.setContentsMargins(0, 8, 0, 0)
-        d_hint = QLabel("Le document est déjà découpé dans l'onglet document. À l'étape suivante, cochez directement les parties à insérer : chaque partie deviendra une tâche.")
+        d_hint = QLabel(self.tr("Le document est déjà découpé dans l'onglet document. À l'étape suivante, cochez directement les parties à insérer : chaque partie deviendra une tâche."))
         d_hint.setWordWrap(True)
         d_hint.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         d_layout.addWidget(d_hint)
@@ -443,7 +444,7 @@ class BatchSliceComposerDialog(QDialog):
         auto_page = QWidget()
         a_layout = QVBoxLayout(auto_page)
         a_layout.setContentsMargins(0, 8, 0, 0)
-        a_hint = QLabel("La règle de découpage se règle à l'étape suivante « Choix des parties », puis les tranches générées se cochent librement.")
+        a_hint = QLabel(self.tr("La règle de découpage se règle à l'étape suivante « Choix des parties », puis les tranches générées se cochent librement."))
         a_hint.setWordWrap(True)
         a_hint.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         a_layout.addWidget(a_hint)
@@ -604,7 +605,7 @@ class BatchSliceComposerDialog(QDialog):
         d_layout = QVBoxLayout(direct_page)
         d_layout.setContentsMargins(0, 0, 0, 0)
         d_layout.setSpacing(8)
-        d_hint = QLabel("Cochez les parties du document à insérer. Chaque modification met à jour le nombre de tâches en direct.")
+        d_hint = QLabel(self.tr("Cochez les parties du document à insérer. Chaque modification met à jour le nombre de tâches en direct."))
         d_hint.setWordWrap(True)
         d_hint.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         d_layout.addWidget(d_hint)
@@ -619,13 +620,13 @@ class BatchSliceComposerDialog(QDialog):
         a_layout.setContentsMargins(0, 0, 0, 0)
         a_layout.setSpacing(8)
 
-        self.auto_panel = _CollapsiblePanel("Règle de découpage automatique")
+        self.auto_panel = _CollapsiblePanel(tr("Règle de découpage automatique"))
         self.auto_widget = AutoSliceWidget()
         self.auto_widget.slices_changed.connect(lambda _: self._refresh_auto_checklist())
         self.auto_panel.add_widget(self.auto_widget)
         a_layout.addWidget(self.auto_panel)
 
-        a_hint = QLabel("Les tranches générées par la règle sont toutes cochées. Décochez celles à exclure du lot.")
+        a_hint = QLabel(self.tr("Les tranches générées par la règle sont toutes cochées. Décochez celles à exclure du lot."))
         a_hint.setWordWrap(True)
         a_hint.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         a_layout.addWidget(a_hint)
@@ -636,7 +637,7 @@ class BatchSliceComposerDialog(QDialog):
 
         p_layout.addWidget(self.parties_stack, 1)
 
-        self.lbl_parties_count = QLabel("0 partie(s) sélectionnée(s)")
+        self.lbl_parties_count = QLabel(self.tr("0 partie(s) sélectionnée(s)"))
         self.lbl_parties_count.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-weight: bold; font-size: 11px;")
         p_layout.addWidget(self.lbl_parties_count)
         return page
@@ -659,7 +660,7 @@ class BatchSliceComposerDialog(QDialog):
         p_layout.setSpacing(10)
 
         # En-tête typographique épuré : titre + volume directement dans le layout, sans boîte ni bordure.
-        self.lbl_recap_title = QLabel("Aucune tâche à générer.")
+        self.lbl_recap_title = QLabel(self.tr("Aucune tâche à générer."))
         self.lbl_recap_title.setWordWrap(True)
         self.lbl_recap_title.setStyleSheet(
             f"color: {DesignTokens.TEXT_PRIMARY}; background: transparent; border: none; font-family: {DesignTokens.FONT_MAIN}; font-size: 15px; font-weight: bold; letter-spacing: 0.2px;"
@@ -709,7 +710,7 @@ class BatchSliceComposerDialog(QDialog):
             self.__dict__.pop("_scope_live_wired", None)
 
         if doc is None:
-            self.lbl_parties_count.setText("0 partie(s) sélectionnée(s)")
+            self.lbl_parties_count.setText(self.tr("0 partie(s) sélectionnée(s)"))
             self._update_parties_caption()
             self._recompute_tasks()
             self._update_step_view()
@@ -791,9 +792,9 @@ class BatchSliceComposerDialog(QDialog):
 
     def _update_parties_caption(self) -> None:
         if self._mode == "auto":
-            self.lbl_mode_caption.setText("Règle de découpage automatique — les tranches générées deviennent les parties du lot.")
+            self.lbl_mode_caption.setText(self.tr("Règle de découpage automatique — les tranches générées deviennent les parties du lot."))
         else:
-            self.lbl_mode_caption.setText("Direct — chaque partie cochée du document devient une tâche (1 partie = 1 tâche).")
+            self.lbl_mode_caption.setText(self.tr("Direct — chaque partie cochée du document devient une tâche (1 partie = 1 tâche)."))
 
     def _document_text(self) -> str:
         if self.doc is None:
@@ -855,9 +856,9 @@ class BatchSliceComposerDialog(QDialog):
         if self._mode == "auto":
             checked = len(self._checked_slices())
             total = len(self._slice_items)
-            self.lbl_parties_count.setText(f"{checked} tranche(s) sélectionnée(s) sur {total}")
+            self.lbl_parties_count.setText(tr("%1 tranche(s) sélectionnée(s) sur %2", checked, total))
         else:
-            self.lbl_parties_count.setText(f"{len(self._direct_parts())} partie(s) sélectionnée(s)")
+            self.lbl_parties_count.setText(tr("%1 partie(s) sélectionnée(s)", len(self._direct_parts())))
 
     def _render_task_lists(self) -> None:
         tasks = self._tasks
@@ -872,7 +873,7 @@ class BatchSliceComposerDialog(QDialog):
             content = str(task.get("doc_content") or "").strip()
             self.tasks_layout.addWidget(_RecapTaskCard(label, f"~{tokens} tokens", content))
         total_tokens = sum(int(t.get("tokens_est", 0) or 0) for t in tasks)
-        self.lbl_recap_title.setText(f"{len(tasks)} tâche(s) à ajouter à la Queue")
+        self.lbl_recap_title.setText(tr("%1 tâche(s) à ajouter à la Queue", len(tasks)))
         self.lbl_recap_stats.setText(f"~{total_tokens:,} tokens au total".replace(",", " "))
 
     # ── Navigation par étapes ────────────────────────────────────────────────────────────────
@@ -882,7 +883,7 @@ class BatchSliceComposerDialog(QDialog):
         if step_idx == self._current_step:
             return
         if step_idx > 0 and self.doc is None:
-            show_toast(self, "Veuillez sélectionner un document avant de continuer.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document avant de continuer."), is_error=True)
             return
         self._current_step = step_idx
         if self._current_step == 1 and self._mode == "auto":
@@ -913,11 +914,11 @@ class BatchSliceComposerDialog(QDialog):
             """)
         self.btn_back.setEnabled(self._current_step > 0)
         if self._current_step == len(self.STEP_LABELS) - 1:
-            self.btn_next.setText(f"Ajouter à la Queue ({len(self._tasks)})")
+            self.btn_next.setText(tr("Ajouter à la Queue (%1)", len(self._tasks)))
             self.btn_next.setIcon(load_on_accent_icon("ph.check"))
             self.btn_next.setEnabled(bool(self._tasks))
         else:
-            self.btn_next.setText("Suivant")
+            self.btn_next.setText(self.tr("Suivant"))
             self.btn_next.setIcon(load_on_accent_icon("ph.caret-right"))
             self.btn_next.setEnabled(self._current_step > 0 or self.doc is not None)
 
@@ -931,7 +932,7 @@ class BatchSliceComposerDialog(QDialog):
 
     def _on_next(self) -> None:
         if self._current_step == 0 and self.doc is None:
-            show_toast(self, "Veuillez sélectionner un document avant de continuer.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document avant de continuer."), is_error=True)
             return
         if self._current_step < len(self.STEP_LABELS) - 1:
             self._current_step += 1

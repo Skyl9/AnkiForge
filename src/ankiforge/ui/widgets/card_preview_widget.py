@@ -53,7 +53,7 @@ class CardPreviewWidget(QWidget):
         self.controls_layout.setSpacing(6)
 
         if show_header:
-            lbl_preview = QLabel("APERÇU")
+            lbl_preview = QLabel(self.tr("APERÇU"))
             lbl_preview.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border: none;")
             self.controls_layout.addWidget(lbl_preview)
 
@@ -85,14 +85,14 @@ class CardPreviewWidget(QWidget):
         device_layout.setContentsMargins(0, 0, 0, 0)
         device_layout.setSpacing(2)
 
-        self.btn_desktop = IconButton("monitor", tooltip="Mode Bureau (100% largeur)", size=22)
+        self.btn_desktop = IconButton("monitor", tooltip=self.tr("Mode Bureau (100% largeur)"), size=22)
         self.btn_desktop.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;")
         self.btn_desktop.clicked.connect(lambda: self.set_device_mode("desktop"))
 
-        self.btn_tablet = IconButton("device-tablet", tooltip="Mode Tablette (768px)", size=22)
+        self.btn_tablet = IconButton("device-tablet", tooltip=self.tr("Mode Tablette (768px)"), size=22)
         self.btn_tablet.clicked.connect(lambda: self.set_device_mode("tablet"))
 
-        self.btn_mobile = IconButton("device-mobile", tooltip="Mode Mobile (375px)", size=22)
+        self.btn_mobile = IconButton("device-mobile", tooltip=self.tr("Mode Mobile (375px)"), size=22)
         self.btn_mobile.clicked.connect(lambda: self.set_device_mode("mobile"))
 
         device_layout.addWidget(self.btn_desktop)
@@ -100,7 +100,7 @@ class CardPreviewWidget(QWidget):
         device_layout.addWidget(self.btn_mobile)
         self.controls_layout.addWidget(self.device_container)
 
-        self.btn_theme_toggle = IconButton("sun" if self._is_preview_dark else "moon", tooltip="Basculer le thème", size=22)
+        self.btn_theme_toggle = IconButton("sun" if self._is_preview_dark else "moon", tooltip=self.tr("Basculer le thème"), size=22)
         self.btn_theme_toggle.clicked.connect(self._toggle_theme)
         self.controls_layout.addWidget(self.btn_theme_toggle)
 
@@ -202,10 +202,10 @@ class CardPreviewWidget(QWidget):
 
     def _sync_toggle_side(self) -> None:
         if self.is_recto:
-            self.btn_toggle_side.setText("Voir Verso")
+            self.btn_toggle_side.setText(self.tr("Voir Verso"))
             self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         else:
-            self.btn_toggle_side.setText("Masquer Verso")
+            self.btn_toggle_side.setText(self.tr("Masquer Verso"))
             self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye-slash", color=DesignTokens.TEXT_PRIMARY))
 
     def set_device_mode(self, mode: str) -> None:

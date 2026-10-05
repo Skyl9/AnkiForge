@@ -21,6 +21,10 @@
       "zoneinfo",
       "certifi"
     ],
+    "include_data_files": {
+      "src/ankiforge/resources/translations/*.qm": "ankiforge/resources/translations",
+      "src/ankiforge/resources/translations/*.ts": "ankiforge/resources/translations"
+    },
     "nofollow_imports": [
       "google",
       "faiss",

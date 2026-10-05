@@ -38,6 +38,7 @@ from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import I
 from ankiforge.ui.views.consultant_view.widgets.thought_step_widget import ThoughtStepWidget
 from ankiforge.ui.views.consultant_view.widgets.tool_call_widget import ToolCallWidget
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,7 @@ class ChatMessageWidget(QWidget):
         now_str = datetime.datetime.now().strftime("%H:%M")
         sender_html = f"<span style='font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;'>{sender}</span>"
         time_html = f"<span style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin-left: 6px;'>{now_str}</span>"
-        self.header_lbl = QLabel(f"{sender_html} {time_html}")
+        self.header_lbl = QLabel(tr("%1 %2", sender_html, time_html))
         self.header_lbl.setStyleSheet("border: none; background: transparent;")
         header_layout.addWidget(self.header_lbl)
 
@@ -136,7 +137,7 @@ class ChatMessageWidget(QWidget):
         self.steps_wrapper_layout.setContentsMargins(0, 0, 0, 0)
         self.steps_wrapper_layout.setSpacing(4)
 
-        self.accordion_toggle_btn = QPushButton("🧠 Réflexion && Outils ReAct")
+        self.accordion_toggle_btn = QPushButton(self.tr("🧠 Réflexion && Outils ReAct"))
         self.accordion_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.accordion_toggle_btn.setIcon(load_phosphor_icon("ph.caret-down", color=DesignTokens.TEXT_MUTED))
         self.accordion_toggle_btn.setStyleSheet(f"""
@@ -354,7 +355,7 @@ class ChatMessageWidget(QWidget):
         if n_tc > 0:
             parts.append(f"{n_tc} outil{'s' if n_tc > 1 else ''} exécuté{'s' if n_tc > 1 else ''}")
         summary = " • ".join(parts) if parts else "Détails de l'exécution"
-        self.accordion_toggle_btn.setText(f"🧠 {summary}")
+        self.accordion_toggle_btn.setText(tr("🧠 %1", summary))
 
     def add_inline_diff(self, patch_data: dict[str, Any]) -> InlineDiffCardWidget:
         """Ajoute une carte de diff interactive avec Garde-Fou directement dans la bulle de chat."""
@@ -413,7 +414,7 @@ class ChatMessageWidget(QWidget):
     def mark_as_cancelled(self) -> None:
         """Affiche un indicateur élégant d'interruption par l'utilisateur."""
         self.is_streaming = False
-        banner = QLabel("⏹ <i>Génération interrompue par l'utilisateur.</i>")
+        banner = QLabel(self.tr("⏹ <i>Génération interrompue par l'utilisateur.</i>"))
         banner.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; padding: 4px 8px; background: {DesignTokens.COLOR_YELLOW_BG}; border-radius: 4px;")
         self.content_layout.addWidget(banner)
         self._render_action_buttons()
@@ -440,7 +441,7 @@ class ChatMessageWidget(QWidget):
                 btn_import_cards.clicked.connect(lambda: self._import_generated_cards(self.raw_text))
                 self.actions_layout.addWidget(btn_import_cards)
 
-            btn_copy = IconButton("ph.copy", tooltip="Copier le texte", size=18)
+            btn_copy = IconButton("ph.copy", tooltip=self.tr("Copier le texte"), size=18)
             btn_copy.clicked.connect(lambda: self._copy_text(self.raw_text))
 
             self.actions_layout.addStretch()
@@ -450,7 +451,7 @@ class ChatMessageWidget(QWidget):
         cb = QApplication.clipboard()
         if cb:
             cb.setText(txt)
-        show_toast(self, "Réponse copiée dans le presse-papiers !")
+        show_toast(self, self.tr("Réponse copiée dans le presse-papiers !"))
 
     def _apply_generated_css(self, css_rule: str) -> None:
         try:
@@ -458,16 +459,16 @@ class ChatMessageWidget(QWidget):
             if model:
                 model.css_style = (model.css_style or "") + "\n\n" + css_rule
                 model.save()
-                show_toast(self, f"Style CSS injecté avec succès dans le modèle '{model.name}' !")
+                show_toast(self, tr("Style CSS injecté avec succès dans le modèle '%1' !", model.name))
         except Exception as e:
             logger.error("Échec de l'application CSS : %s", e)
-            show_toast(self, f"Erreur application CSS: {e}", is_error=True)
+            show_toast(self, tr("Erreur application CSS: %1", e), is_error=True)
 
     def _import_generated_cards(self, txt: str) -> None:
         try:
             json_match = re.search(r"(\[[\s\S]+\])", txt)
             if not json_match:
-                show_toast(self, "Format JSON introuvable dans la réponse.", is_error=True)
+                show_toast(self, self.tr("Format JSON introuvable dans la réponse."), is_error=True)
                 return
 
             cards_list = json.loads(json_match.group(1))
@@ -482,10 +483,10 @@ class ChatMessageWidget(QWidget):
                     NoteVersionModel.create(note=note, version_number=1, content=json.dumps(c_data), source="consultant", is_active=True)
                     CardModel.create(note=note, deck=deck, template_index=0)
 
-            show_toast(self, f"{len(cards_list)} cartes importées dans le paquet 'Consultant_Imports' !")
+            show_toast(self, tr("%1 cartes importées dans le paquet 'Consultant_Imports' !", len(cards_list)))
         except Exception as e:
             logger.error("Erreur import cartes JSON : %s", e)
-            show_toast(self, f"Erreur import cartes: {e}", is_error=True)
+            show_toast(self, tr("Erreur import cartes: %1", e), is_error=True)
 
     def refresh_theme(self, profile: Any) -> None:
         if self.is_user:

@@ -24,6 +24,7 @@ from ankiforge.services.cards.card_model_io import CardModelIO
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -73,7 +74,7 @@ class StarterModelCardWidget(QFrame):
         top_row.addWidget(cat_badge)
         top_row.addStretch()
 
-        ver_lbl = QLabel(f"v{pack.get('version', '1.0.0')}")
+        ver_lbl = QLabel(tr("v%1", pack.get("version", "1.0.0")))
         ver_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
         top_row.addWidget(ver_lbl)
         layout.addLayout(top_row)
@@ -83,7 +84,7 @@ class StarterModelCardWidget(QFrame):
         title_lbl.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         layout.addWidget(title_lbl)
 
-        author_lbl = QLabel(f"Par : {pack.get('author', 'AnkiForge')}")
+        author_lbl = QLabel(tr("Par : %1", pack.get("author", "AnkiForge")))
         author_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         layout.addWidget(author_lbl)
 
@@ -96,7 +97,7 @@ class StarterModelCardWidget(QFrame):
         # Champs requis
         fields = pack.get("fields_schema", [])
         fields_str = ", ".join(fields)
-        fields_lbl = QLabel(f"<b>Champs :</b> {fields_str}")
+        fields_lbl = QLabel(tr("<b>Champs :</b> %1", fields_str))
         fields_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         fields_lbl.setWordWrap(True)
         layout.addWidget(fields_lbl)
@@ -117,7 +118,7 @@ class StarterPackDialog(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Catalogue de Modèles Communautaires (Starter Pack)")
+        self.setWindowTitle(self.tr("Catalogue de Modèles Communautaires (Starter Pack)"))
         self.setMinimumSize(850, 600)
         self.resize(920, 650)
         self.setModal(True)
@@ -146,9 +147,9 @@ class StarterPackDialog(QDialog):
         header.addWidget(icon_lbl)
 
         title_box = QVBoxLayout()
-        title_lbl = QLabel("Modèles Communautaires & Professionnels Prêts à l'Emploi")
+        title_lbl = QLabel(self.tr("Modèles Communautaires & Professionnels Prêts à l'Emploi"))
         title_lbl.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        subtitle_lbl = QLabel("Installez en un clic des gabarits conçus pour la médecine, le code, les maths et les langues.")
+        subtitle_lbl = QLabel(self.tr("Installez en un clic des gabarits conçus pour la médecine, le code, les maths et les langues."))
         subtitle_lbl.setStyleSheet(f"font-size: 12px; color: {DesignTokens.TEXT_MUTED};")
         title_box.addWidget(title_lbl)
         title_box.addWidget(subtitle_lbl)
@@ -190,8 +191,8 @@ class StarterPackDialog(QDialog):
         if exists:
             res = QMessageBox.question(
                 self,
-                "Modèle Existant",
-                f"Le modèle '{name}' est déjà présent dans votre collection.\n\nVoulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?",
+                self.tr("Modèle Existant"),
+                tr("Le modèle '%1' est déjà présent dans votre collection.\n\nVoulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?", name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.No,
             )
@@ -201,7 +202,7 @@ class StarterPackDialog(QDialog):
 
         try:
             model_inst, _ = CardModelIO.save_model_to_db(pack, overwrite_existing=overwrite)
-            show_toast(self, f"Modèle '{model_inst.name}' installé avec succès !")
+            show_toast(self, tr("Modèle '%1' installé avec succès !", model_inst.name))
             self.model_installed.emit(model_inst.id)
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Échec de l'installation : {str(e)}")
+            QMessageBox.critical(self, self.tr("Erreur"), tr("Échec de l'installation : %1", str(e)))

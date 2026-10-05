@@ -59,7 +59,11 @@ def build_nuitka_command(config: dict[str, Any], target_os: str, jobs: int, vers
     for pkg_data in common.get("include_package_data", []):
         cmd.append(f"--include-package-data={pkg_data}")
 
-    # 5. Drapeaux no-deployment
+    # 5. Fichiers de données embarqués (catalogues i18n, etc.)
+    for source, target in common.get("include_data_files", {}).items():
+        cmd.append(f"--include-data-files={source}={target}")
+
+    # 6. Drapeaux no-deployment
     for nd in common.get("no_deployment_flags", []):
         cmd.append(f"--no-deployment-flag={nd}")
 
@@ -134,31 +138,30 @@ def copy_migrations_to_bundle(dist_dir: Path, target_os: str) -> None:
 
 
 def copy_app_resources_to_bundle(dist_dir: Path, target_os: str) -> None:
-    """Copie l'intégralité des ressources graphiques, icônes Phosphor, traductions et templates (src/ressources)."""
-    ressources_src = PROJECT_ROOT / "src" / "ressources"
-    if not ressources_src.exists():
-        logger.warning("Dossier de ressources source introuvable : %s", ressources_src)
-        return
+    """Copie les ressources applicatives dans le bundle, aux emplacements que ``utils.paths`` sait retrouver.
 
-    logger.info("Copie des ressources applicatives (icônes Phosphor, logo, templates, traductions)...")
-    resources_src = PROJECT_ROOT / "src" / "ankiforge" / "resources"
-    if target_os == "darwin":
-        res_dir = dist_dir / "Contents" / "Resources"
-        target_res = res_dir / "ressources"
-        target_src_res = res_dir / "src" / "ressources"
-        shutil.copytree(ressources_src, target_res, dirs_exist_ok=True)
-        shutil.copytree(ressources_src, target_src_res, dirs_exist_ok=True)
-        if resources_src.exists():
-            shutil.copytree(resources_src, res_dir / "resources", dirs_exist_ok=True)
-            shutil.copytree(resources_src, res_dir / "src" / "ankiforge" / "resources", dirs_exist_ok=True)
-    else:
-        target_res = dist_dir / "ressources"
-        target_src_res = dist_dir / "src" / "ressources"
-        shutil.copytree(ressources_src, target_res, dirs_exist_ok=True)
-        shutil.copytree(ressources_src, target_src_res, dirs_exist_ok=True)
-        if resources_src.exists():
-            shutil.copytree(resources_src, dist_dir / "resources", dirs_exist_ok=True)
-            shutil.copytree(resources_src, dist_dir / "src" / "ankiforge" / "resources", dirs_exist_ok=True)
+    Deux racines coexistent dans le dépôt et chacune est copiée **indépendamment** :
+
+    - ``src/ressources`` : icônes, prompts Jinja2, métadonnées de paquet ;
+    - ``src/ankiforge/resources`` : catalogues i18n (ADR 0013), KaTeX, miniatures de layouts.
+
+    L'indépendance est délibérée : l'ancien code sortait dès que ``src/ressources``
+    manquait, ce qui faisait silencieusement disparaître les catalogues d'un bundle.
+    Une ressource absente doit priver l'application de *cette* ressource, jamais d'une autre.
+    """
+    logger.info("Copie des ressources applicatives (icônes Phosphor, logo, templates, catalogues i18n)...")
+    # Sur macOS, l'exécutable vit dans Contents/MacOS et les données dans Contents/Resources.
+    base_dir = dist_dir / "Contents" / "Resources" if target_os == "darwin" else dist_dir
+
+    for source_dir, targets in (
+        (PROJECT_ROOT / "src" / "ressources", (("",), ("src", "ressources"))),
+        (PROJECT_ROOT / "src" / "ankiforge" / "resources", (("resources",), ("src", "ankiforge", "resources"))),
+    ):
+        if not source_dir.is_dir():
+            logger.warning("Dossier de ressources source introuvable, ignoré : %s", source_dir)
+            continue
+        for target_parts in targets:
+            shutil.copytree(source_dir, base_dir.joinpath(*target_parts), dirs_exist_ok=True)
 
 
 def strip_binary_symbols(dist_dir: Path, target_os: str) -> None:

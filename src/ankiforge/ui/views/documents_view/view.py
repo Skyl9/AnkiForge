@@ -82,6 +82,7 @@ from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
 from ankiforge.utils.hierarchy import descendants_prefix, descends_from, join_hierarchy, leaf_name, split_hierarchy
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -190,27 +191,27 @@ class DocumentsView(FileDropMixin, QWidget):
         explorer_toolbar = QHBoxLayout()
         explorer_toolbar.setSpacing(6)
 
-        self.btn_import = SecondaryButton("Importer", tooltip="Importer un fichier local (PDF, Markdown, Texte, .apkg)")
+        self.btn_import = SecondaryButton("Importer", tooltip=self.tr("Importer un fichier local (PDF, Markdown, Texte, .apkg)"))
         self.btn_import.setIcon(load_phosphor_icon("ph.upload-simple", color=DesignTokens.TEXT_PRIMARY))
         self.btn_import.setMinimumWidth(96)
         self.btn_import.setFixedHeight(30)
         self.btn_import.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
         self.btn_import.clicked.connect(self._on_import_file)
 
-        self.btn_import_url = IconButton("ph.link", tooltip="Importer depuis le Web / YouTube", size=24)
+        self.btn_import_url = IconButton("ph.link", tooltip=self.tr("Importer depuis le Web / YouTube"), size=24)
         self.btn_import_url.clicked.connect(self._on_import_url)
 
-        self.btn_new_album = IconButton("ph.images", tooltip="Créer un Album d'images", size=24)
+        self.btn_new_album = IconButton("ph.images", tooltip=self.tr("Créer un Album d'images"), size=24)
         self.btn_new_album.clicked.connect(self._on_new_album)
 
-        self.btn_new_folder = IconButton("ph.folder-plus", tooltip="Nouveau dossier", size=24)
+        self.btn_new_folder = IconButton("ph.folder-plus", tooltip=self.tr("Nouveau dossier"), size=24)
         self.btn_new_folder.clicked.connect(self._on_new_folder)
 
-        self.btn_delete = IconButton("ph.trash", tooltip="Supprimer", size=24)
+        self.btn_delete = IconButton("ph.trash", tooltip=self.tr("Supprimer"), size=24)
         self.btn_delete.setEnabled(False)
         self.btn_delete.clicked.connect(self._on_delete_item)
 
-        self.btn_copy_profile = IconButton("ph.arrows-left-right", tooltip="Importer des documents depuis un autre profil", size=24)
+        self.btn_copy_profile = IconButton("ph.arrows-left-right", tooltip=self.tr("Importer des documents depuis un autre profil"), size=24)
         self.btn_copy_profile.clicked.connect(self._on_import_from_other_profile)
 
         explorer_toolbar.addWidget(self.btn_import, 1)
@@ -223,7 +224,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         # Champ de recherche dynamique
         self.doc_search_input = GlowLineEdit()
-        self.doc_search_input.setPlaceholderText("Rechercher un document...")
+        self.doc_search_input.setPlaceholderText(self.tr("Rechercher un document..."))
         self.doc_search_input.textChanged.connect(self._on_search_filter_changed)
         explorer_layout.addWidget(self.doc_search_input)
 
@@ -245,7 +246,7 @@ class DocumentsView(FileDropMixin, QWidget):
         prog_header = QHBoxLayout()
         prog_header.setSpacing(6)
 
-        self.lbl_batch_progress = QLabel("Importation en cours...")
+        self.lbl_batch_progress = QLabel(self.tr("Importation en cours..."))
         self.lbl_batch_progress.setStyleSheet(f"""
             color: {DesignTokens.TEXT_PRIMARY};
             font-size: 11px;
@@ -257,7 +258,7 @@ class DocumentsView(FileDropMixin, QWidget):
         apply_pill_style(self.badge_batch_count, DesignTokens.ACCENT_PRIMARY)
         prog_header.addWidget(self.badge_batch_count)
 
-        self.btn_cancel_batch = IconButton("ph.x", tooltip="Annuler l'import par lot", size=18)
+        self.btn_cancel_batch = IconButton("ph.x", tooltip=self.tr("Annuler l'import par lot"), size=18)
         self.btn_cancel_batch.clicked.connect(self._on_cancel_batch_clicked)
         prog_header.addWidget(self.btn_cancel_batch)
 
@@ -326,11 +327,11 @@ class DocumentsView(FileDropMixin, QWidget):
         empty_icon.setPixmap(load_phosphor_icon("ph.files", color=DesignTokens.TEXT_MUTED).pixmap(56, 56))
         empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        empty_title = QLabel("Aucun document sélectionné")
+        empty_title = QLabel(self.tr("Aucun document sélectionné"))
         empty_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold;")
         empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        empty_subtitle = QLabel("Choisissez un document dans l'explorateur à gauche ou importez un nouveau support de cours (PDF, Markdown, Word, Page Web).")
+        empty_subtitle = QLabel(self.tr("Choisissez un document dans l'explorateur à gauche ou importez un nouveau support de cours (PDF, Markdown, Word, Page Web)."))
         empty_subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
         empty_subtitle.setWordWrap(True)
         empty_subtitle.setMaximumWidth(440)
@@ -342,15 +343,15 @@ class DocumentsView(FileDropMixin, QWidget):
 
         empty_actions = QHBoxLayout()
         empty_actions.setSpacing(10)
-        btn_quick_import = PrimaryButton("Importer un fichier", tooltip="Parcourir vos fichiers locaux pour importer un document")
+        btn_quick_import = PrimaryButton("Importer un fichier", tooltip=self.tr("Parcourir vos fichiers locaux pour importer un document"))
         btn_quick_import.setIcon(load_on_accent_icon("ph.upload-simple"))
         btn_quick_import.clicked.connect(self._on_import_file)
 
-        btn_quick_url = SecondaryButton("Importer depuis le Web", tooltip="Importer du contenu depuis une URL Web ou une vidéo YouTube")
+        btn_quick_url = SecondaryButton("Importer depuis le Web", tooltip=self.tr("Importer du contenu depuis une URL Web ou une vidéo YouTube"))
         btn_quick_url.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.TEXT_PRIMARY))
         btn_quick_url.clicked.connect(self._on_import_url)
 
-        btn_quick_album = SecondaryButton("Créer un album", tooltip="Créer un album d'images à annoter ou occlure")
+        btn_quick_album = SecondaryButton("Créer un album", tooltip=self.tr("Créer un album d'images à annoter ou occlure"))
         btn_quick_album.setIcon(load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE))
         btn_quick_album.clicked.connect(self._on_new_album)
 
@@ -383,32 +384,32 @@ class DocumentsView(FileDropMixin, QWidget):
         row1.setContentsMargins(0, 0, 0, 0)
         row1.setSpacing(8)
 
-        self.doc_title_lbl = QLabel("Sélectionnez un document")
+        self.doc_title_lbl = QLabel(self.tr("Sélectionnez un document"))
         self.doc_title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
         self.doc_title_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.doc_title_lbl.setMinimumWidth(50)
         row1.addWidget(self.doc_title_lbl, 1)
 
-        self.doc_type_badge = Badge("Markdown", variant="neutral")
+        self.doc_type_badge = Badge(tr("Markdown"), variant="neutral")
         self.doc_type_badge.hide()
         row1.addWidget(self.doc_type_badge)
 
-        self.lbl_word_count = QLabel("0 mots")
+        self.lbl_word_count = QLabel(self.tr("0 mots"))
         self.lbl_word_count.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
         row1.addWidget(self.lbl_word_count)
 
-        self.rag_status_pill = Badge("Non indexé", variant="status")
+        self.rag_status_pill = Badge(tr("Non indexé"), variant="status")
         apply_pill_style(self.rag_status_pill, DesignTokens.TEXT_MUTED)
         row1.addWidget(self.rag_status_pill)
 
-        self.btn_save = PrimaryButton("Sauvegarder", tooltip="Enregistrer les modifications textuelles du document (Ctrl+S)")
+        self.btn_save = PrimaryButton("Sauvegarder", tooltip=self.tr("Enregistrer les modifications textuelles du document (Ctrl+S)"))
         self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save.setFixedHeight(28)
         self.btn_save.setStyleSheet("font-size: 11px; padding: 4px 10px;")
         self.btn_save.clicked.connect(self._on_save_document)
         row1.addWidget(self.btn_save)
 
-        self.btn_doc_kebab = IconButton("ph.dots-three-vertical", tooltip="Options du document", size=28)
+        self.btn_doc_kebab = IconButton("ph.dots-three-vertical", tooltip=self.tr("Options du document"), size=28)
         self.btn_doc_kebab.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -455,19 +456,19 @@ class DocumentsView(FileDropMixin, QWidget):
         toggle_layout.setContentsMargins(2, 2, 2, 2)
         toggle_layout.setSpacing(1)
 
-        self.btn_view_pdf = QPushButton("PDF")
-        self.btn_view_pdf.setToolTip("Afficher le visualiseur PDF haute définition")
+        self.btn_view_pdf = QPushButton(self.tr("PDF"))
+        self.btn_view_pdf.setToolTip(self.tr("Afficher le visualiseur PDF haute définition"))
         self.btn_view_pdf.setIcon(load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
         self.btn_view_pdf.setCheckable(True)
         self.btn_view_pdf.setChecked(True)
 
-        self.btn_view_md = QPushButton("MD")
-        self.btn_view_md.setToolTip("Afficher et éditer le texte Markdown extrait")
+        self.btn_view_md = QPushButton(self.tr("MD"))
+        self.btn_view_md.setToolTip(self.tr("Afficher et éditer le texte Markdown extrait"))
         self.btn_view_md.setIcon(load_phosphor_icon("ph.markdown-logo", color=DesignTokens.COLOR_YELLOW))
         self.btn_view_md.setCheckable(True)
 
-        self.btn_view_term = QPushButton("Logs")
-        self.btn_view_term.setToolTip("Afficher la console des journaux d'extraction")
+        self.btn_view_term = QPushButton(self.tr("Logs"))
+        self.btn_view_term.setToolTip(self.tr("Afficher la console des journaux d'extraction"))
         self.btn_view_term.setIcon(load_phosphor_icon("ph.terminal-window", color=DesignTokens.COLOR_BLUE))
         self.btn_view_term.setCheckable(True)
 
@@ -483,7 +484,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.btn_format_md = SecondaryButton("🪄 Formater")
         self.btn_format_md.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
-        self.btn_format_md.setToolTip("Nettoyer, normaliser et formater le Markdown (césures OCR, KaTeX, tables GFM)")
+        self.btn_format_md.setToolTip(self.tr("Nettoyer, normaliser et formater le Markdown (césures OCR, KaTeX, tables GFM)"))
         self.btn_format_md.setFixedHeight(26)
         self.btn_format_md.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self._setup_format_menu()
@@ -491,7 +492,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.btn_ai_structure = SecondaryButton("🤖 Structurer IA")
         self.btn_ai_structure.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_PURPLE))
-        self.btn_ai_structure.setToolTip("Transformer cette retranscription ou ce texte brut en cours structuré par IA")
+        self.btn_ai_structure.setToolTip(self.tr("Transformer cette retranscription ou ce texte brut en cours structuré par IA"))
         self.btn_ai_structure.setFixedHeight(26)
         self.btn_ai_structure.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_ai_structure.clicked.connect(self._on_open_ai_structure_dialog)
@@ -499,7 +500,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.btn_delimit = SecondaryButton("Délimiter les pages")
         self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color=DesignTokens.SYNTAX_TAG))
-        self.btn_delimit.setToolTip("Sélectionner les pages et chapitres utiles avant la forge et le RAG")
+        self.btn_delimit.setToolTip(self.tr("Sélectionner les pages et chapitres utiles avant la forge et le RAG"))
         self.btn_delimit.setFixedHeight(26)
         self.btn_delimit.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_delimit.clicked.connect(self._on_open_delimitation_dialog)
@@ -507,7 +508,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.btn_marker = SecondaryButton("Marker OCR")
         self.btn_marker.setIcon(load_phosphor_icon("ph.magic-wand", color=DesignTokens.COLOR_PURPLE))
-        self.btn_marker.setToolTip("Extraction Deep Learning PDF vers Markdown KaTeX via Marker")
+        self.btn_marker.setToolTip(self.tr("Extraction Deep Learning PDF vers Markdown KaTeX via Marker"))
         self.btn_marker.setFixedHeight(26)
         self.btn_marker.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_marker.clicked.connect(self._on_run_marker_analysis)
@@ -516,13 +517,13 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.btn_rag = SecondaryButton("Indexer (RAG)")
         self.btn_rag.setIcon(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_GREEN))
-        self.btn_rag.setToolTip("Indexer ce document pour la recherche sémantique IA (FAISS & BM25)")
+        self.btn_rag.setToolTip(self.tr("Indexer ce document pour la recherche sémantique IA (FAISS & BM25)"))
         self.btn_rag.setFixedHeight(26)
         self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_rag.clicked.connect(self._on_vectorize_rag)
         self.toolbar_flow_layout.addWidget(self.btn_rag)
 
-        self.btn_test_rag = IconButton("ph.magnifying-glass", tooltip="Recherche sémantique instantanée", size=26)
+        self.btn_test_rag = IconButton("ph.magnifying-glass", tooltip=self.tr("Recherche sémantique instantanée"), size=26)
         self.btn_test_rag.clicked.connect(self._on_open_rag_test_dialog)
         self.toolbar_flow_layout.addWidget(self.btn_test_rag)
 
@@ -581,7 +582,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.editor_stack.addWidget(self.album_viewer)
 
         self.editor_panel.add_tab("Éditeur", self.editor_stack, "ph.file-text", closable=False)
-        self.btn_toggle_coverage = IconButton("ph.sidebar-simple", tooltip="Afficher / Masquer l'inspecteur", size=24)
+        self.btn_toggle_coverage = IconButton("ph.sidebar-simple", tooltip=self.tr("Afficher / Masquer l'inspecteur"), size=24)
         self.btn_toggle_coverage.clicked.connect(self._toggle_coverage_panel)
         self.editor_panel.add_header_widget(self.btn_toggle_coverage)
         self.main_splitter.addWidget(self.editor_panel)
@@ -618,11 +619,11 @@ class DocumentsView(FileDropMixin, QWidget):
         self.cov_header_icon.setStyleSheet("border: none; background: transparent;")
         cov_header_row.addWidget(self.cov_header_icon)
 
-        self.lbl_coverage_summary = QLabel("Couverture : 0%")
+        self.lbl_coverage_summary = QLabel(self.tr("Couverture : 0%"))
         self.lbl_coverage_summary.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 13px; border: none; background: transparent;")
         cov_header_row.addWidget(self.lbl_coverage_summary, 1)
 
-        self.btn_open_analysis = IconButton("ph.arrow-square-out", tooltip="Ouvrir le diagnostic complet du document dans Analyse & Audit", size=24)
+        self.btn_open_analysis = IconButton("ph.arrow-square-out", tooltip=self.tr("Ouvrir le diagnostic complet du document dans Analyse & Audit"), size=24)
         self.btn_open_analysis.setEnabled(False)
         self.btn_open_analysis.clicked.connect(self._on_open_analysis_clicked)
         cov_header_row.addWidget(self.btn_open_analysis)
@@ -647,13 +648,13 @@ class DocumentsView(FileDropMixin, QWidget):
         """)
         cov_card_layout.addWidget(self.coverage_bar)
 
-        self.lbl_coverage_details = QLabel("0 sections analysées • 0 cartes liées")
+        self.lbl_coverage_details = QLabel(self.tr("0 sections analysées • 0 cartes liées"))
         self.lbl_coverage_details.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         cov_card_layout.addWidget(self.lbl_coverage_details)
 
         self.btn_align_cards = SecondaryButton("Synchroniser les cartes")
         self.btn_align_cards.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE))
-        self.btn_align_cards.setToolTip("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document")
+        self.btn_align_cards.setToolTip(self.tr("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document"))
         self.btn_align_cards.setFixedHeight(24)
         self.btn_align_cards.setStyleSheet(f"font-size: 10px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_align_cards.clicked.connect(self._on_smart_align_document)
@@ -662,9 +663,9 @@ class DocumentsView(FileDropMixin, QWidget):
         cov_layout.addWidget(self.coverage_card)
 
         self.chapters_filter = QComboBox()
-        self.chapters_filter.addItems(["Toutes les sections", "Couvertes", "Non couvertes"])
+        self.chapters_filter.addItems([self.tr("Toutes les sections"), self.tr("Couvertes"), self.tr("Non couvertes")])
         self.chapters_filter.setFixedHeight(24)
-        self.chapters_filter.setToolTip("Filtrer les sections selon leur état de couverture")
+        self.chapters_filter.setToolTip(self.tr("Filtrer les sections selon leur état de couverture"))
         self.chapters_filter.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -716,7 +717,7 @@ class DocumentsView(FileDropMixin, QWidget):
         cov_layout.addWidget(self.chapters_list, 1)
         self.chapters_list.itemClicked.connect(self._on_chapter_clicked)
 
-        self.btn_forge_chapter = PrimaryButton("Forger la section", tooltip="Envoyer cette section dans le Studio de Création pour générer des cartes")
+        self.btn_forge_chapter = PrimaryButton("Forger la section", tooltip=self.tr("Envoyer cette section dans le Studio de Création pour générer des cartes"))
         self.btn_forge_chapter.setIcon(load_on_accent_icon("ph.lightning"))
         self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
         cov_layout.addWidget(self.btn_forge_chapter)
@@ -729,16 +730,16 @@ class DocumentsView(FileDropMixin, QWidget):
         rag_layout.setContentsMargins(10, 10, 10, 10)
         rag_layout.setSpacing(8)
 
-        lbl_rag_desc = QLabel("Recherche Sémantique FAISS")
+        lbl_rag_desc = QLabel(self.tr("Recherche Sémantique FAISS"))
         lbl_rag_desc.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 11px; letter-spacing: 0.5px;")
         rag_layout.addWidget(lbl_rag_desc)
 
         rag_search_row = QHBoxLayout()
         self.rag_sandbox_input = GlowLineEdit()
-        self.rag_sandbox_input.setPlaceholderText("Poser une question au document...")
+        self.rag_sandbox_input.setPlaceholderText(self.tr("Poser une question au document..."))
         self.rag_sandbox_input.returnPressed.connect(self._on_sandbox_search)
 
-        self.btn_sandbox_search = PrimaryButton("", tooltip="Lancer la recherche sémantique multimodale dans FAISS")
+        self.btn_sandbox_search = PrimaryButton("", tooltip=self.tr("Lancer la recherche sémantique multimodale dans FAISS"))
         self.btn_sandbox_search.setIcon(load_on_accent_icon("ph.magnifying-glass"))
         self.btn_sandbox_search.setFixedWidth(36)
         self.btn_sandbox_search.clicked.connect(self._on_sandbox_search)
@@ -882,21 +883,21 @@ class DocumentsView(FileDropMixin, QWidget):
 
         menu = StyledMenu(self)
 
-        act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), "Renommer le document...")
+        act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), self.tr("Renommer le document..."))
         act_rename.triggered.connect(self._on_rename_current_document)
 
-        act_export = menu.addAction(load_phosphor_icon("ph.download-simple", color=DesignTokens.COLOR_BLUE), "Exporter le document...")
+        act_export = menu.addAction(load_phosphor_icon("ph.download-simple", color=DesignTokens.COLOR_BLUE), self.tr("Exporter le document..."))
         act_export.triggered.connect(self._on_export_current_document)
 
-        act_delimit = menu.addAction(load_phosphor_icon("ph.scissors", color=DesignTokens.ACCENT_PRIMARY), "Délimiter la portée...")
+        act_delimit = menu.addAction(load_phosphor_icon("ph.scissors", color=DesignTokens.ACCENT_PRIMARY), self.tr("Délimiter la portée..."))
         act_delimit.triggered.connect(self._on_open_delimitation_dialog)
 
-        act_analysis = menu.addAction(load_phosphor_icon("ph.chart-polar", color=DesignTokens.COLOR_CYAN), "Voir dans Analyse & Audit...")
+        act_analysis = menu.addAction(load_phosphor_icon("ph.chart-polar", color=DesignTokens.COLOR_CYAN), self.tr("Voir dans Analyse & Audit..."))
         act_analysis.triggered.connect(self._on_open_analysis_clicked)
 
         menu.addSeparator()
 
-        act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "Supprimer le document")
+        act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), self.tr("Supprimer le document"))
         act_del.triggered.connect(self._on_delete_item)
 
         btn_pos = self.btn_doc_kebab.mapToGlobal(QPoint(0, self.btn_doc_kebab.height()))
@@ -925,7 +926,7 @@ class DocumentsView(FileDropMixin, QWidget):
             self.doc_title_lbl.setText(title_to_display)
             self.refresh_data()
             self._select_doc_id_in_tree(doc.id)
-            show_toast(self, f"Document renommé en « {clean_title} »", level="success")
+            show_toast(self, tr("Document renommé en « %1 »", clean_title), level="success")
 
     def _on_export_current_document(self) -> None:
         """Exporte le contenu du document actif dans un fichier Markdown."""
@@ -944,7 +945,7 @@ class DocumentsView(FileDropMixin, QWidget):
         if file_path:
             content = self.text_editor.get_content() if hasattr(doc, "content") else ""
             pathlib.Path(file_path).write_text(content, encoding="utf-8")
-            show_toast(self, "Document exporté avec succès", level="success")
+            show_toast(self, self.tr("Document exporté avec succès"), level="success")
 
     def _on_search_filter_changed(self, text: str) -> None:
         self.tree_explorer.filter_text(text)
@@ -986,7 +987,7 @@ class DocumentsView(FileDropMixin, QWidget):
                 return
 
             if target_folder and descends_from(target_folder.name, old_name):
-                show_toast(self, "Vous ne pouvez pas déplacer un dossier dans lui-même.", is_error=True)
+                show_toast(self, self.tr("Vous ne pouvez pas déplacer un dossier dans lui-même."), is_error=True)
                 return
 
             try:
@@ -1002,7 +1003,7 @@ class DocumentsView(FileDropMixin, QWidget):
                 self.refresh_data()
             except Exception as e:
                 logger.error("Erreur déplacement dossier : %s", e)
-                show_toast(self, "Un dossier avec ce nom existe déjà à cet emplacement.", is_error=True)
+                show_toast(self, self.tr("Un dossier avec ce nom existe déjà à cet emplacement."), is_error=True)
 
     def refresh_data(self) -> None:
         try:
@@ -1055,17 +1056,17 @@ class DocumentsView(FileDropMixin, QWidget):
                 if is_album:
                     item.setIcon(0, load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE))
                     p_count = getattr(doc, "total_pages", 0) or 0
-                    item.setText(0, f"{title_to_display} ({p_count}p)")
+                    item.setText(0, tr("%1 (%2p)", title_to_display, p_count))
                 elif is_pdf:
                     if has_content:
                         item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
                     elif hasattr(self, "_batch_pending_doc_ids") and doc.id in self._batch_pending_doc_ids.values():
                         item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
-                        item.setText(0, f"{title_to_display} (analyse en cours)")
+                        item.setText(0, tr("%1 (analyse en cours)", title_to_display))
                         item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
                     else:
                         item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
-                        item.setText(0, f"{title_to_display} (Non extrait)")
+                        item.setText(0, tr("%1 (Non extrait)", title_to_display))
                         item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
                 elif getattr(doc, "file_type", "") == "txt" or title_lower.endswith(".txt"):
                     item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
@@ -1131,7 +1132,7 @@ class DocumentsView(FileDropMixin, QWidget):
                     self.btn_marker.hide()
                     self.outline_widget.set_document_content("")
                     self._set_outline_tab_visible(False)
-                    self.doc_type_badge.setText("Album")
+                    self.doc_type_badge.setText(self.tr("Album"))
                     self.doc_type_badge.show()
                     self.btn_doc_kebab.setEnabled(True)
                     self.album_viewer.load_album(doc)
@@ -1222,7 +1223,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
     def _update_rag_status_pill(self) -> None:
         if not self._current_doc_id:
-            self.rag_status_pill.setText("Non indexé")
+            self.rag_status_pill.setText(self.tr("Non indexé"))
             apply_pill_style(self.rag_status_pill, DesignTokens.TEXT_MUTED)
             return
 
@@ -1231,13 +1232,13 @@ class DocumentsView(FileDropMixin, QWidget):
         chunk_count = DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).count()
 
         if is_rag_ready:
-            self.rag_status_pill.setText(f"RAG Prêt ({chunk_count} chunks)")
+            self.rag_status_pill.setText(tr("RAG Prêt (%1 chunks)", chunk_count))
             apply_pill_style(self.rag_status_pill, DesignTokens.COLOR_GREEN)
         elif chunk_count > 0:
-            self.rag_status_pill.setText(f"Structuré ({chunk_count} chunks)")
+            self.rag_status_pill.setText(tr("Structuré (%1 chunks)", chunk_count))
             apply_pill_style(self.rag_status_pill, DesignTokens.COLOR_YELLOW)
         else:
-            self.rag_status_pill.setText("Non structuré")
+            self.rag_status_pill.setText(self.tr("Non structuré"))
             apply_pill_style(self.rag_status_pill, DesignTokens.TEXT_MUTED)
 
     @Slot()
@@ -1266,12 +1267,12 @@ class DocumentsView(FileDropMixin, QWidget):
                 background-color: {DesignTokens.BG_HOVER};
             }}
         """)
-        act_all = menu.addAction("🪄 Tout formater (Auto)")
+        act_all = menu.addAction(self.tr("🪄 Tout formater (Auto)"))
         act_all.triggered.connect(lambda: self._format_current_document())
 
         menu.addSeparator()
 
-        act_ocr = menu.addAction("✂️ Dé-césurer les coupures OCR")
+        act_ocr = menu.addAction(self.tr("✂️ Dé-césurer les coupures OCR"))
         act_ocr.triggered.connect(
             lambda: self._format_current_document(
                 FormatOptions(
@@ -1285,7 +1286,7 @@ class DocumentsView(FileDropMixin, QWidget):
             )
         )
 
-        act_katex = menu.addAction("🧮 Harmoniser KaTeX ($ / $$)")
+        act_katex = menu.addAction(self.tr("🧮 Harmoniser KaTeX ($ / $$)"))
         act_katex.triggered.connect(
             lambda: self._format_current_document(
                 FormatOptions(
@@ -1299,7 +1300,7 @@ class DocumentsView(FileDropMixin, QWidget):
             )
         )
 
-        act_tables = menu.addAction("📊 Aligner les tableaux GFM")
+        act_tables = menu.addAction(self.tr("📊 Aligner les tableaux GFM"))
         act_tables.triggered.connect(
             lambda: self._format_current_document(
                 FormatOptions(
@@ -1313,7 +1314,7 @@ class DocumentsView(FileDropMixin, QWidget):
             )
         )
 
-        act_space = menu.addAction("🧹 Nettoyer les espaces superflus")
+        act_space = menu.addAction(self.tr("🧹 Nettoyer les espaces superflus"))
         act_space.triggered.connect(
             lambda: self._format_current_document(
                 FormatOptions(
@@ -1328,7 +1329,7 @@ class DocumentsView(FileDropMixin, QWidget):
         )
 
         menu.addSeparator()
-        act_ai = menu.addAction("🤖 Structurer avec l'IA...")
+        act_ai = menu.addAction(self.tr("🤖 Structurer avec l'IA..."))
         act_ai.triggered.connect(self._on_open_ai_structure_dialog)
 
         self.btn_format_md.setMenu(menu)
@@ -1337,7 +1338,7 @@ class DocumentsView(FileDropMixin, QWidget):
     def _on_open_ai_structure_dialog(self) -> None:
         """Ouvre la boîte de dialogue de structuration IA pour le document actif."""
         if not self._current_doc_id:
-            show_toast(self, "Veuillez sélectionner un document à structurer", level="warning")
+            show_toast(self, self.tr("Veuillez sélectionner un document à structurer"), level="warning")
             return
 
         doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
@@ -1346,7 +1347,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         content = self.text_editor.get_content()
         if not content.strip():
-            show_toast(self, "Le document actif est vide", level="warning")
+            show_toast(self, self.tr("Le document actif est vide"), level="warning")
             return
 
         dialog = AIDocumentStructureDialog(
@@ -1366,7 +1367,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self._dirty = True
         self.btn_save.setEnabled(True)
         self.outline_widget.set_document_content(new_text)
-        show_toast(self, "Document restructuré avec succès dans l'éditeur", level="success")
+        show_toast(self, self.tr("Document restructuré avec succès dans l'éditeur"), level="success")
 
     @Slot(str)
     def _on_structure_saved_as_copy(self, new_text: str) -> None:
@@ -1386,12 +1387,12 @@ class DocumentsView(FileDropMixin, QWidget):
         )
         self.refresh_data()
         self._select_doc_id_in_tree(new_doc.id)
-        show_toast(self, f"Copie structurée '{new_doc.title}' créée avec succès", level="success")
+        show_toast(self, tr("Copie structurée '%1' créée avec succès", new_doc.title), level="success")
 
     def _format_current_document(self, options: FormatOptions | None = None) -> None:
         """Applique les règles de formatage au document actif et actualise l'éditeur."""
         if not self._current_doc_id:
-            show_toast(self, "Veuillez sélectionner un document à formater", level="warning")
+            show_toast(self, self.tr("Veuillez sélectionner un document à formater"), level="warning")
             return
         content = self.text_editor.get_content()
         if not content.strip():
@@ -1403,9 +1404,9 @@ class DocumentsView(FileDropMixin, QWidget):
             self.btn_save.setEnabled(True)
             self.outline_widget.set_document_content(result.formatted_text)
             summary = ", ".join(result.changes_summary) if result.changes_summary else "Formatage appliqué"
-            show_toast(self, f"Formatage réussi : {summary}", level="success")
+            show_toast(self, tr("Formatage réussi : %1", summary), level="success")
         else:
-            show_toast(self, "Le document est déjà parfaitement formaté", level="info")
+            show_toast(self, self.tr("Le document est déjà parfaitement formaté"), level="info")
 
     @Slot(int)
     def _on_outline_heading_selected(self, line_number: int) -> None:
@@ -1435,7 +1436,7 @@ class DocumentsView(FileDropMixin, QWidget):
     def _on_forge_outline_section(self, title: str, content: str, start_line: int, end_line: int) -> None:
         """Envoie directement le contenu d'une section du plan vers le Studio de Création de cartes."""
         if not content.strip():
-            show_toast(self, "La section sélectionnée est vide.", is_error=True)
+            show_toast(self, self.tr("La section sélectionnée est vide."), is_error=True)
             return
 
         doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
@@ -1449,7 +1450,7 @@ class DocumentsView(FileDropMixin, QWidget):
                 "source_title": f"{doc_title} - {title}",
             },
         )
-        show_toast(self, f"Section '{title}' envoyée au Studio de Création", level="success")
+        show_toast(self, tr("Section '%1' envoyée au Studio de Création", title), level="success")
 
     @Slot()
     def _on_repair_document_headings(self) -> None:
@@ -1460,7 +1461,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         repairs = MarkdownStructurer.detect_heading_hierarchy_issues(content)
         if not repairs:
-            show_toast(self, "La hiérarchie des titres est déjà optimale", level="info")
+            show_toast(self, self.tr("La hiérarchie des titres est déjà optimale"), level="info")
             return
 
         from ankiforge.ui.dialogs.repair_headings_dialog import RepairHeadingsDialog
@@ -1469,7 +1470,7 @@ class DocumentsView(FileDropMixin, QWidget):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selected = dialog.get_selected_repairs()
             if not selected:
-                show_toast(self, "Aucune correction sélectionnée", level="info")
+                show_toast(self, self.tr("Aucune correction sélectionnée"), level="info")
                 return
 
             repaired = MarkdownStructurer.apply_heading_repairs(content, selected)
@@ -1477,7 +1478,7 @@ class DocumentsView(FileDropMixin, QWidget):
             self._dirty = True
             self.btn_save.setEnabled(True)
             self.outline_widget.set_document_content(repaired)
-            show_toast(self, f"Hiérarchie réparée : {len(selected)} titre(s) ajusté(s) (Ctrl+Z pour annuler)", level="success")
+            show_toast(self, tr("Hiérarchie réparée : %1 titre(s) ajusté(s) (Ctrl+Z pour annuler)", len(selected)), level="success")
 
     @Slot()
     def _on_insert_document_toc(self) -> None:
@@ -1488,14 +1489,14 @@ class DocumentsView(FileDropMixin, QWidget):
 
         new_content, changed = MarkdownStructurer.insert_or_update_toc(content)
         if not changed:
-            show_toast(self, "Aucun titre trouvé pour générer le sommaire", level="warning")
+            show_toast(self, self.tr("Aucun titre trouvé pour générer le sommaire"), level="warning")
             return
 
         self.text_editor.replace_all_text_with_undo(new_content)
         self._dirty = True
         self.btn_save.setEnabled(True)
         self.outline_widget.set_document_content(new_content)
-        show_toast(self, "Table des matières mise à jour (Ctrl+Z pour annuler)", level="success")
+        show_toast(self, self.tr("Table des matières mise à jour (Ctrl+Z pour annuler)"), level="success")
 
     def _update_outline(self) -> None:
         """Met à jour l'arborescence suite à une modification du texte."""
@@ -1506,7 +1507,7 @@ class DocumentsView(FileDropMixin, QWidget):
     def _update_word_count(self) -> None:
         text = self.text_editor.get_content()
         words = len(text.split())
-        self.lbl_word_count.setText(f"{words:,} mots")
+        self.lbl_word_count.setText(tr("%1 mots", f"{words:,}"))
 
     def handle_files_dropped(self, paths: list[str]) -> None:
         """Ouvre la file d'import par lot avec tous les fichiers déposés sur la vue."""
@@ -1540,10 +1541,10 @@ class DocumentsView(FileDropMixin, QWidget):
 
         plan = plan_batch_tasks(paths)
         if not plan.tasks:
-            show_toast(self, "Aucun fichier importable dans cette sélection.", level="warning")
+            show_toast(self, self.tr("Aucun fichier importable dans cette sélection."), level="warning")
             return
         if plan.skipped:
-            show_toast(self, f"{len(plan.skipped)} fichier(s) introuvable(s) ignoré(s) dans la sélection.", level="warning")
+            show_toast(self, tr("%1 fichier(s) introuvable(s) ignoré(s) dans la sélection.", len(plan.skipped)), level="warning")
 
         worker = DocumentBatchWorker(plan.tasks)
         self._bind_batch_worker(worker, plan.tasks)
@@ -1573,11 +1574,11 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.batch_progress_bar.setRange(0, self._batch_total)
         self.batch_progress_bar.setValue(0)
-        self.badge_batch_count.setText(f"0 / {self._batch_total}")
-        self.lbl_batch_progress.setText(f"Importation 0 sur {self._batch_total}")
+        self.badge_batch_count.setText(tr("0 / %1", self._batch_total))
+        self.lbl_batch_progress.setText(tr("Importation 0 sur %1", self._batch_total))
         self.batch_progress_container.setVisible(True)
 
-        show_toast(self, f"Import de {self._batch_total} document(s) en cours...")
+        show_toast(self, tr("Import de %1 document(s) en cours...", self._batch_total))
 
         self._on_view_toggled("term")
         self.terminal_view.clear()
@@ -1587,8 +1588,8 @@ class DocumentsView(FileDropMixin, QWidget):
     def _on_batch_document_started(self, index: int, path: str) -> None:
         position = index + 1
         name = pathlib.Path(path).name
-        self.lbl_batch_progress.setText(f"Importation {position} sur {self._batch_total}")
-        self.badge_batch_count.setText(f"{position} / {self._batch_total}")
+        self.lbl_batch_progress.setText(tr("Importation %1 sur %2", position, self._batch_total))
+        self.badge_batch_count.setText(tr("%1 / %2", position, self._batch_total))
         self.batch_progress_bar.setValue(position)
 
         message = f"Importation du document {position} sur {self._batch_total} : {name}"
@@ -1695,7 +1696,7 @@ class DocumentsView(FileDropMixin, QWidget):
     def _on_cancel_batch_clicked(self) -> None:
         if self.batch_worker and self._batch_running:
             self.batch_worker.cancel()
-            self.lbl_batch_progress.setText("Annulation en cours...")
+            self.lbl_batch_progress.setText(self.tr("Annulation en cours..."))
 
     @Slot()
     def _on_import_url(self) -> None:
@@ -1771,11 +1772,11 @@ class DocumentsView(FileDropMixin, QWidget):
             doc = self._persist_imported_document(file_path, title, content="")
         except Exception as e:
             logger.exception("Erreur lors de l'import du PDF %s : %s", file_path, e)
-            show_toast(self, "Erreur lors de l'import du PDF.", is_error=True)
+            show_toast(self, self.tr("Erreur lors de l'import du PDF."), is_error=True)
             return
 
         if not doc.original_media:
-            show_toast(self, "Erreur lors de l'import du PDF.", is_error=True)
+            show_toast(self, self.tr("Erreur lors de l'import du PDF."), is_error=True)
             return
 
         self.refresh_data()
@@ -1797,7 +1798,7 @@ class DocumentsView(FileDropMixin, QWidget):
             self.view_toggle_frame.hide()
             self._on_view_toggled("md")
 
-        show_toast(self, f"PDF '{title_to_display}' importé. Démarrage de l'analyse Marker OCR...")
+        show_toast(self, tr("PDF '%1' importé. Démarrage de l'analyse Marker OCR...", title_to_display))
         if pdf_path.exists():
             self._start_document_worker(str(pdf_path), doc_id=doc.id)
 
@@ -1805,7 +1806,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.view_model.begin_operation("import")
         self.btn_import.setEnabled(False)
         self.btn_import_url.setEnabled(False)
-        show_toast(self, "Extraction et analyse du document en cours...")
+        show_toast(self, self.tr("Extraction et analyse du document en cours..."))
 
         self.worker = DocumentWorker(path_or_url, doc_id_to_update=doc_id)
         self.worker.finished_signal.connect(self._on_worker_finished)
@@ -1851,7 +1852,7 @@ class DocumentsView(FileDropMixin, QWidget):
             self.editor_stack.setCurrentIndex(1)
             self._update_rag_status_pill()
 
-            show_toast(self, f"Document '{title_to_display}' importé avec succès !")
+            show_toast(self, tr("Document '%1' importé avec succès !", title_to_display))
         except Exception as e:
             log_and_notify_error(e, context="Enregistrement du document", parent=self, title="Erreur")
 
@@ -1957,7 +1958,7 @@ class DocumentsView(FileDropMixin, QWidget):
             self.refresh_data()
             if created:
                 self._select_folder_id_in_tree(created.id)
-            show_toast(self, f"Dossier '{dlg.get_full_path()}' créé.")
+            show_toast(self, tr("Dossier '%1' créé.", dlg.get_full_path()))
 
     def _select_folder_id_in_tree(self, folder_id: int) -> None:
         def find_item(parent: QTreeWidgetItem | DocumentTreeWidget) -> QTreeWidgetItem | None:
@@ -2003,7 +2004,7 @@ class DocumentsView(FileDropMixin, QWidget):
             renamed = repo.rename_folder(folder_id, new_name)
             self.refresh_data()
             self._select_folder_id_in_tree(renamed.id)
-            show_toast(self, f"Dossier renommé en '{new_name}'.")
+            show_toast(self, tr("Dossier renommé en '%1'.", new_name))
         except Exception as e:
             logger.error("Erreur renommage dossier : %s", e)
             from ankiforge.ui.widgets.toast import log_and_notify_error
@@ -2016,7 +2017,7 @@ class DocumentsView(FileDropMixin, QWidget):
         menu = StyledMenu(self)
 
         if item is None:
-            act_new_root = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), "Nouveau dossier racine...")
+            act_new_root = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), self.tr("Nouveau dossier racine..."))
             act_new_root.triggered.connect(lambda: self._on_new_subfolder(parent_folder_id=None))
         else:
             self.tree_explorer.setCurrentItem(item)
@@ -2024,27 +2025,27 @@ class DocumentsView(FileDropMixin, QWidget):
             data = item.data(0, Qt.ItemDataRole.UserRole)
             if not data or data.get("type") == "folder":
                 folder_id = data.get("id") if data else None
-                act_new_sub = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), "Nouveau sous-dossier...")
+                act_new_sub = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), self.tr("Nouveau sous-dossier..."))
                 act_new_sub.triggered.connect(lambda: self._on_new_subfolder(parent_folder_id=folder_id))
 
                 if folder_id is not None:
-                    act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), "Renommer...")
+                    act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), self.tr("Renommer..."))
                     act_rename.triggered.connect(lambda: self._on_rename_folder(folder_id=folder_id))
 
                     menu.addSeparator()
 
-                    act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "Supprimer le dossier")
+                    act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), self.tr("Supprimer le dossier"))
                     act_del.triggered.connect(self._on_delete_item)
             elif data.get("type") == "doc":
-                act_open = menu.addAction(load_phosphor_icon("ph.folder-open", color=DesignTokens.COLOR_BLUE), "Ouvrir")
+                act_open = menu.addAction(load_phosphor_icon("ph.folder-open", color=DesignTokens.COLOR_BLUE), self.tr("Ouvrir"))
                 act_open.triggered.connect(self._on_document_selected)
 
-                act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), "Renommer...")
+                act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), self.tr("Renommer..."))
                 act_rename.triggered.connect(self._on_rename_current_document)
 
                 menu.addSeparator()
 
-                act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "Supprimer")
+                act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), self.tr("Supprimer"))
                 act_del.triggered.connect(self._on_delete_item)
 
         menu.exec(self.tree_explorer.viewport().mapToGlobal(pos))
@@ -2068,22 +2069,22 @@ class DocumentsView(FileDropMixin, QWidget):
             if doc:
                 reply = QMessageBox.question(
                     self,
-                    "Confirmer la suppression",
-                    f"Voulez-vous vraiment supprimer le document '{doc.title}' ?",
+                    self.tr("Confirmer la suppression"),
+                    tr("Voulez-vous vraiment supprimer le document '%1' ?", doc.title),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
                 if reply == QMessageBox.StandardButton.Yes:
                     doc.delete_instance()
                     self.refresh_data()
                     self.editor_stack.setCurrentIndex(0)
-                    show_toast(self, "Document supprimé.")
+                    show_toast(self, self.tr("Document supprimé."))
         elif item_type == "folder":
             folder = FolderModel.get_or_none(FolderModel.id == item_id)
             if folder:
                 reply = QMessageBox.question(
                     self,
-                    "Confirmer la suppression",
-                    f"Voulez-vous vraiment supprimer le dossier '{folder.name}' et son contenu ?",
+                    self.tr("Confirmer la suppression"),
+                    tr("Voulez-vous vraiment supprimer le dossier '%1' et son contenu ?", folder.name),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
                 if reply == QMessageBox.StandardButton.Yes:
@@ -2093,25 +2094,25 @@ class DocumentsView(FileDropMixin, QWidget):
                             f.delete_instance()
                     self.refresh_data()
                     self.editor_stack.setCurrentIndex(0)
-                    show_toast(self, "Dossier supprimé.")
+                    show_toast(self, self.tr("Dossier supprimé."))
 
     @Slot()
     def _on_open_delimitation_dialog(self) -> None:
         if not self._current_doc_id:
-            show_toast(self, "Veuillez sélectionner un document.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document."), is_error=True)
             return
 
         doc = DocumentModel.get_by_id(self._current_doc_id)
         dlg = DocumentDelimitationDialog(doc, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            show_toast(self, "Délimitation et sections appliquées avec succès !")
+            show_toast(self, self.tr("Délimitation et sections appliquées avec succès !"))
             self._refresh_chapters_list()
             self._update_rag_status_pill()
 
     @Slot()
     def _on_open_rag_test_dialog(self) -> None:
         if not self._current_doc_id:
-            show_toast(self, "Veuillez sélectionner un document.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document."), is_error=True)
             return
 
         doc = DocumentModel.get_by_id(self._current_doc_id)
@@ -2121,12 +2122,12 @@ class DocumentsView(FileDropMixin, QWidget):
     @Slot()
     def _on_run_marker_analysis(self) -> None:
         if not self._current_doc_id:
-            show_toast(self, "Veuillez d'abord sélectionner un document.", is_error=True)
+            show_toast(self, self.tr("Veuillez d'abord sélectionner un document."), is_error=True)
             return
 
         doc = DocumentModel.get_by_id(self._current_doc_id)
         if doc.file_type != "pdf":
-            show_toast(self, "L'analyse Marker OCR est disponible uniquement pour les fichiers PDF.", is_error=True)
+            show_toast(self, self.tr("L'analyse Marker OCR est disponible uniquement pour les fichiers PDF."), is_error=True)
             self.btn_marker.hide()
             return
 
@@ -2141,8 +2142,8 @@ class DocumentsView(FileDropMixin, QWidget):
         marker_exec = DocumentParser.get_marker_executable()
         if not marker_exec:
             dialog = QMessageBox(self)
-            dialog.setWindowTitle("Installer Marker OCR")
-            dialog.setText("Marker OCR n'est pas installé dans cette application packagée.")
+            dialog.setWindowTitle(self.tr("Installer Marker OCR"))
+            dialog.setText(self.tr("Marker OCR n'est pas installé dans cette application packagée."))
             dialog.setInformativeText("AnkiForge va créer un environnement Python séparé dans ~/.ankiforge/tools/marker et y installer marker-pdf.")
             install_button = dialog.addButton("Installer Marker OCR", QMessageBox.ButtonRole.AcceptRole)
             fallback_button = dialog.addButton("Extraction standard", QMessageBox.ButtonRole.DestructiveRole)
@@ -2159,14 +2160,14 @@ class DocumentsView(FileDropMixin, QWidget):
             self._start_document_worker(str(pdf_path), doc_id=doc.id)
             return
 
-        show_toast(self, "Analyse Marker : Document déjà textuel.")
+        show_toast(self, self.tr("Analyse Marker : Document déjà textuel."))
 
     def _install_marker_and_start(self, pdf_path: str) -> None:
         if not pdf_path:
-            show_toast(self, "Le fichier PDF source est introuvable.", is_error=True)
+            show_toast(self, self.tr("Le fichier PDF source est introuvable."), is_error=True)
             return
         self.btn_marker.setEnabled(False)
-        show_toast(self, "Installation de Marker OCR en cours. Suivez les étapes dans la console...")
+        show_toast(self, self.tr("Installation de Marker OCR en cours. Suivez les étapes dans la console..."))
 
         # Basculer automatiquement sur la console de logs pour rassurer l'utilisateur
         self.editor_stack.setCurrentIndex(1)
@@ -2190,19 +2191,19 @@ class DocumentsView(FileDropMixin, QWidget):
         if hasattr(self, "terminal_view"):
             self.terminal_view.append("\n✅ Marker OCR a été installé avec succès !")
             self.terminal_view.append("--- Démarrage de l'analyse documentaire avec Marker OCR ---\n")
-        show_toast(self, "Marker OCR installé avec succès.")
+        show_toast(self, self.tr("Marker OCR installé avec succès."))
         self._start_document_worker(pdf_path, doc_id=self._current_doc_id)
 
     def _on_marker_install_failed(self, error: str) -> None:
         self.btn_marker.setEnabled(True)
         if hasattr(self, "terminal_view"):
             self.terminal_view.append(f"\n❌ Échec de l'installation de Marker OCR :\n{error}\n")
-        show_toast(self, f"Installation de Marker OCR échouée : {error}", is_error=True)
+        show_toast(self, tr("Installation de Marker OCR échouée : %1", error), is_error=True)
 
     @Slot()
     def _on_save_document(self) -> None:
         if not self._current_doc_id:
-            show_toast(self, "Aucun document sélectionné à sauvegarder.", is_error=True)
+            show_toast(self, self.tr("Aucun document sélectionné à sauvegarder."), is_error=True)
             return
 
         try:
@@ -2237,7 +2238,7 @@ class DocumentsView(FileDropMixin, QWidget):
                 self.btn_save.setStyleSheet("")
                 self._update_rag_status_pill()
                 self._refresh_chapters_list()
-                show_toast(self, f"Document '{doc.title}' enregistré avec succès !")
+                show_toast(self, tr("Document '%1' enregistré avec succès !", doc.title))
         except Exception as e:
             log_and_notify_error(e, context="Sauvegarde du document", parent=self, title="Erreur de sauvegarde")
 
@@ -2246,10 +2247,10 @@ class DocumentsView(FileDropMixin, QWidget):
         self.chapters_list.clear()
         if not self._current_doc_id:
             self._coverage_fingerprint = None
-            self.lbl_coverage_summary.setText("Couverture : 0%")
+            self.lbl_coverage_summary.setText(self.tr("Couverture : 0%"))
             self.coverage_bar.setValue(0)
             self._set_coverage_bar_color(0)
-            self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
+            self.lbl_coverage_details.setText(self.tr("0 sections analysées • 0 cartes liées"))
             if hasattr(self, "btn_open_analysis"):
                 self.btn_open_analysis.setEnabled(False)
             return
@@ -2267,10 +2268,10 @@ class DocumentsView(FileDropMixin, QWidget):
             item = QListWidgetItem("Aucun fragment structuré (document vide)")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.chapters_list.addItem(item)
-            self.lbl_coverage_summary.setText("Couverture : 0%")
+            self.lbl_coverage_summary.setText(self.tr("Couverture : 0%"))
             self.coverage_bar.setValue(0)
             self._set_coverage_bar_color(0)
-            self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
+            self.lbl_coverage_details.setText(self.tr("0 sections analysées • 0 cartes liées"))
             self._apply_chapters_filter()
             return
 
@@ -2314,10 +2315,10 @@ class DocumentsView(FileDropMixin, QWidget):
         excluded_units = stats.get("excluded_units", 0)
 
         excl_suffix = f" • {excluded_units} exclu(e)s" if excluded_units > 0 else ""
-        self.lbl_coverage_summary.setText(f"Couverture : {percent}% ({covered_units}/{total_units} {unit_label}{excl_suffix})")
+        self.lbl_coverage_summary.setText(tr("Couverture : %1%% (%2/%3 %4%5)", percent, covered_units, total_units, unit_label, excl_suffix))
         self.coverage_bar.setValue(percent)
         self._set_coverage_bar_color(percent)
-        self.lbl_coverage_details.setText(f"{total_units} {unit_label} utiles • {covered_units} couvertes • {total_cards} cartes liées")
+        self.lbl_coverage_details.setText(tr("%1 %2 utiles • %3 couvertes • %4 cartes liées", total_units, unit_label, covered_units, total_cards))
 
         self._apply_chapters_filter()
         if restore_item is not None:
@@ -2519,7 +2520,7 @@ class DocumentsView(FileDropMixin, QWidget):
     def _on_forge_selected_chapter(self) -> None:
         items = self.chapters_list.selectedItems()
         if not items:
-            show_toast(self, "Veuillez sélectionner un chapitre dans le sommaire.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un chapitre dans le sommaire."), is_error=True)
             return
 
         chunk_ids = items[0].data(Qt.ItemDataRole.UserRole)
@@ -2548,17 +2549,17 @@ class DocumentsView(FileDropMixin, QWidget):
     @Slot()
     def _on_smart_align_document(self) -> None:
         if not self._current_doc_id:
-            show_toast(self, "Veuillez sélectionner un document d'abord.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document d'abord."), is_error=True)
             return
 
         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-        show_toast(self, "Synchronisation des fiches Anki via les tags en cours...")
+        show_toast(self, self.tr("Synchronisation des fiches Anki via les tags en cours..."))
         res = CoverageAlignmentService.align_document(self._current_doc_id)
         matched = res.get("matched_notes", 0)
         cov_pct = res.get("coverage_pct", 0.0)
         self._refresh_chapters_list()
-        show_toast(self, f"✅ {matched} cartes synchronisées via les tags ! Couverture : {cov_pct:.0f}%")
+        show_toast(self, tr("✅ %1 cartes synchronisées via les tags ! Couverture : %2%%", matched, f"{cov_pct:.0f}"))
 
     @Slot()
     def _on_import_from_other_profile(self) -> None:
@@ -2572,7 +2573,7 @@ class DocumentsView(FileDropMixin, QWidget):
         other_profiles = [p for p in pm.list_profiles() if p != current_prof]
 
         if not other_profiles:
-            show_toast(self, "Aucun autre profil disponible pour importer des documents.", is_error=True)
+            show_toast(self, self.tr("Aucun autre profil disponible pour importer des documents."), is_error=True)
             return
 
         src_prof, ok = QInputDialog.getItem(
@@ -2588,7 +2589,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         src_db = pm.get_db_path(src_prof)
         if not src_db.exists():
-            show_toast(self, f"Base introuvable pour le profil {src_prof}.", is_error=True)
+            show_toast(self, tr("Base introuvable pour le profil %1.", src_prof), is_error=True)
             return
 
         con = sqlite3.connect(src_db)
@@ -2597,7 +2598,7 @@ class DocumentsView(FileDropMixin, QWidget):
         con.close()
 
         if not docs:
-            show_toast(self, f"Aucun document trouvé dans le profil '{src_prof}'.", is_error=True)
+            show_toast(self, tr("Aucun document trouvé dans le profil '%1'.", src_prof), is_error=True)
             return
 
         doc_choices = ["Tous les documents"] + [f"#{d[0]} : {d[1]} ({d[2]})" for d in docs]
@@ -2629,17 +2630,17 @@ class DocumentsView(FileDropMixin, QWidget):
                 imported_count += 1
 
         self.refresh_data()
-        show_toast(self, f"✅ {imported_count} document(s) importé(s) et aligné(s) avec succès !")
+        show_toast(self, tr("✅ %1 document(s) importé(s) et aligné(s) avec succès !", imported_count))
 
     @Slot()
     def _on_vectorize_rag(self) -> None:
         if not self._current_doc_id:
-            show_toast(self, "Veuillez sélectionner un document à indexer.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document à indexer."), is_error=True)
             return
 
         self.view_model.begin_operation("coverage")
         self.btn_rag.setEnabled(False)
-        self.btn_rag.setText("Indexation RAG...")
+        self.btn_rag.setText(self.tr("Indexation RAG..."))
 
         self._coverage_worker = CoverageWorker(document_id=self._current_doc_id, parent=self)
         self._coverage_worker.finished_processing.connect(self._on_vectorization_success)
@@ -2651,8 +2652,8 @@ class DocumentsView(FileDropMixin, QWidget):
     def _on_vectorization_success(self) -> None:
         self.view_model.complete_operation("RAG indexé")
         self.btn_rag.setEnabled(True)
-        self.btn_rag.setText("Indexer (RAG)")
-        show_toast(self, "Document indexé avec succès pour la recherche IA (RAG) !")
+        self.btn_rag.setText(self.tr("Indexer (RAG)"))
+        show_toast(self, self.tr("Document indexé avec succès pour la recherche IA (RAG) !"))
         self._refresh_chapters_list()
         self._update_rag_status_pill()
         if hasattr(self, "album_viewer"):
@@ -2662,13 +2663,13 @@ class DocumentsView(FileDropMixin, QWidget):
     def _on_vectorization_error(self, err: str) -> None:
         self.view_model.fail_operation(err)
         self.btn_rag.setEnabled(True)
-        self.btn_rag.setText("Indexer (RAG)")
-        show_toast(self, f"Échec de l'indexation RAG : {err}", is_error=True)
+        self.btn_rag.setText(self.tr("Indexer (RAG)"))
+        show_toast(self, tr("Échec de l'indexation RAG : %1", err), is_error=True)
 
     @Slot()
     def _on_sandbox_search(self) -> None:
         if not self._current_doc_id:
-            show_toast(self, "Veuillez d'abord sélectionner un document.", is_error=True)
+            show_toast(self, self.tr("Veuillez d'abord sélectionner un document."), is_error=True)
             return
 
         query = self.rag_sandbox_input.text().strip()

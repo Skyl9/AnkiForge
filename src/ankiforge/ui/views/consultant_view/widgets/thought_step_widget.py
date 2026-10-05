@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -59,7 +60,7 @@ class ThoughtStepWidget(QFrame):
         self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-weight: 500; font-size: 11px;")
         header_row.addWidget(self.lbl_title, 1)
 
-        self.btn_toggle = QPushButton("Détails ▾")
+        self.btn_toggle = QPushButton(self.tr("Détails ▾"))
         self.btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle.setStyleSheet(f"""
             QPushButton {{
@@ -115,16 +116,16 @@ class ThoughtStepWidget(QFrame):
         elapsed = time.perf_counter() - self._start_time if self._start_time > 0 else 0.0
         dur_str = self._format_duration(elapsed)
         tok_str = f"{self._tokens_count} tokens" if self._tokens_count > 0 else "0 token"
-        self.lbl_title.setText(f"Réflexion en cours... ({dur_str} • {tok_str})")
+        self.lbl_title.setText(tr("Réflexion en cours... (%1 • %2)", dur_str, tok_str))
 
     def _update_static_title(self) -> None:
         if self._duration_seconds > 0.0:
             dur_str = self._format_duration(self._duration_seconds)
-            self.lbl_title.setText(f"🧠 Réflexion terminée en {dur_str} ({self._tokens_count} tokens)")
+            self.lbl_title.setText(tr("🧠 Réflexion terminée en %1 (%2 tokens)", dur_str, self._tokens_count))
         elif self._tokens_count > 0:
-            self.lbl_title.setText(f"🧠 Réflexion terminée (~{self._tokens_count} tokens)")
+            self.lbl_title.setText(tr("🧠 Réflexion terminée (~%1 tokens)", self._tokens_count))
         else:
-            self.lbl_title.setText("🧠 Réflexion")
+            self.lbl_title.setText(self.tr("🧠 Réflexion"))
 
     def _on_timer_tick(self) -> None:
         if self.is_running:
@@ -190,15 +191,15 @@ class ThoughtStepWidget(QFrame):
 
         # Repli automatique (fermé par défaut)
         self.lbl_content.hide()
-        self.btn_toggle.setText("Détails ▾")
+        self.btn_toggle.setText(self.tr("Détails ▾"))
 
     def _toggle_content(self) -> None:
         if self.lbl_content.isHidden():
             self.lbl_content.show()
-            self.btn_toggle.setText("Masquer ▴")
+            self.btn_toggle.setText(self.tr("Masquer ▴"))
         else:
             self.lbl_content.hide()
-            self.btn_toggle.setText("Détails ▾")
+            self.btn_toggle.setText(self.tr("Détails ▾"))
 
     def get_thought_text(self) -> str:
         """Retourne le texte intégral accumulé de la pensée."""

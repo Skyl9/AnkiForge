@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.code_editor.models import LintIssue
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 if TYPE_CHECKING:
@@ -47,15 +48,15 @@ class LintStatusBar(QFrame):
         self.icon_lbl.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.icon_lbl)
 
-        self.status_lbl = QLabel("Syntaxe valide")
+        self.status_lbl = QLabel(self.tr("Syntaxe valide"))
         self.status_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         layout.addWidget(self.status_lbl, 1)
 
         # Bouton Formater le code (Ctrl+Alt+L)
-        self.format_btn = QPushButton("Formater")
+        self.format_btn = QPushButton(self.tr("Formater"))
         self.format_btn.setIcon(load_phosphor_icon("ph.magic-wand", color=DesignTokens.TEXT_SECONDARY))
         self.format_btn.setIconSize(QSize(13, 13))
-        self.format_btn.setToolTip("Formater le document (Ctrl+Alt+L / Ctrl+Shift+I)")
+        self.format_btn.setToolTip(self.tr("Formater le document (Ctrl+Alt+L / Ctrl+Shift+I)"))
         self.format_btn.setFixedHeight(20)
         self.format_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.format_btn.setStyleSheet(f"""
@@ -84,9 +85,9 @@ class LintStatusBar(QFrame):
     def update_status(self, issues: list[LintIssue]) -> None:
         if not issues:
             self.icon_lbl.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
-            self.status_lbl.setText("Syntaxe valide")
+            self.status_lbl.setText(self.tr("Syntaxe valide"))
             self.status_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: 500;")
-            self.setToolTip("Aucune anomalie détectée.")
+            self.setToolTip(self.tr("Aucune anomalie détectée."))
         else:
             errors = [i for i in issues if i.severity == "error"]
             warnings = [i for i in issues if i.severity == "warning"]
@@ -103,7 +104,7 @@ class LintStatusBar(QFrame):
                 self.status_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: 500;")
 
             tooltip_text = "\n".join(f"• Ligne {iss.line} : {iss.message}" for iss in issues)
-            self.setToolTip(f"Cliquez pour aller à la première anomalie :\n{tooltip_text}")
+            self.setToolTip(tr("Cliquez pour aller à la première anomalie :\n%1", tooltip_text))
 
     def mousePressEvent(self, event: Any) -> None:
         issues = self.editor.get_lint_issues()

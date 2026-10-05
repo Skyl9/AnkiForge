@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from ankiforge.utils.i18n import tr
+
 
 def is_template_cloze(templates: list[dict[str, Any]]) -> bool:
     return any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
@@ -34,7 +36,7 @@ def sync_preview_card_selector(
             selector.blockSignals(True)
             selector.clear()
             for i in range(num_cards):
-                selector.addItem(f"Trou {i + 1} (c{i + 1})")
+                selector.addItem(tr("Trou %1 (c%2)", i + 1, i + 1))
             selector.blockSignals(False)
     else:
         if current_selector_count != len(templates):

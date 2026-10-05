@@ -105,7 +105,7 @@ class LayoutThumbnailCard(QFrame):
             fallback_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
             preview_layout.addWidget(fallback_icon)
 
-            self.fallback_label = QLabel("Aperçu indisponible")
+            self.fallback_label = QLabel(self.tr("Aperçu indisponible"))
             self.fallback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.fallback_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: 500;")
             preview_layout.addWidget(self.fallback_label)

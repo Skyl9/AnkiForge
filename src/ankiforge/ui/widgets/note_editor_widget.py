@@ -23,6 +23,8 @@ from PySide6.QtGui import (
     QTextCursor,
 )
 
+from ankiforge.utils.i18n import tr
+
 try:
     from PySide6.QtMultimedia import QAudioOutput, QMediaDevices, QMediaPlayer
 
@@ -657,7 +659,7 @@ class NoteFieldEditorWidget(QWidget):
         # Bouton Play/Stop audio inline
         self.btn_play_audio = QToolButton(self.header_bar)
         self.btn_play_audio.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_play_audio.setToolTip("Écouter la prononciation audio")
+        self.btn_play_audio.setToolTip(self.tr("Écouter la prononciation audio"))
         self.btn_play_audio.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_play_audio.setStyleSheet(f"""
             QToolButton {{
@@ -677,7 +679,7 @@ class NoteFieldEditorWidget(QWidget):
         # Bouton Générer Audio (TTS)
         self.btn_tts_generate = QToolButton(self.header_bar)
         self.btn_tts_generate.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_tts_generate.setToolTip("Générer la prononciation audio (TTS)")
+        self.btn_tts_generate.setToolTip(self.tr("Générer la prononciation audio (TTS)"))
         self.btn_tts_generate.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.TEXT_MUTED))
         self.btn_tts_generate.setStyleSheet(f"""
             QToolButton {{
@@ -741,7 +743,7 @@ class NoteFieldEditorWidget(QWidget):
 
     def _update_header_text(self) -> None:
         icon_arrow = "▶" if self._is_collapsed else "▼"
-        self.btn_header.setText(f"{icon_arrow}  {self.field_name.upper()}")
+        self.btn_header.setText(tr("%1  %2", icon_arrow, self.field_name.upper()))
 
     def toggle_collapsed(self) -> None:
         self._is_collapsed = not self._is_collapsed
@@ -757,7 +759,7 @@ class NoteFieldEditorWidget(QWidget):
     def _toggle_audio_playback(self) -> None:
         """Démarre ou arrête la lecture du fichier audio associé au champ."""
         if not self._player:
-            show_toast(self, "La lecture audio n'est pas supportée sur ce système (libpulse manquant).", is_error=True)
+            show_toast(self, self.tr("La lecture audio n'est pas supportée sur ce système (libpulse manquant)."), is_error=True)
             return
 
         is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState
@@ -776,7 +778,7 @@ class NoteFieldEditorWidget(QWidget):
         media_path = resolve_media_path(filename)
         if not media_path.exists() or media_path.stat().st_size == 0:
             logger.warning("Fichier audio introuvable ou vide : %s", media_path)
-            show_toast(self, f"Audio introuvable : {filename}", is_error=True)
+            show_toast(self, tr("Audio introuvable : %1", filename), is_error=True)
             return
 
         self._player.setSource(QUrl.fromLocalFile(str(media_path)))
@@ -787,10 +789,10 @@ class NoteFieldEditorWidget(QWidget):
         is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and state == QMediaPlayer.PlaybackState.PlayingState
         if is_playing:
             self.btn_play_audio.setIcon(load_phosphor_icon("ph.stop", color=DesignTokens.COLOR_RED))
-            self.btn_play_audio.setToolTip("Arrêter la lecture")
+            self.btn_play_audio.setToolTip(self.tr("Arrêter la lecture"))
         else:
             self.btn_play_audio.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.ACCENT_PRIMARY))
-            self.btn_play_audio.setToolTip("Écouter la prononciation audio")
+            self.btn_play_audio.setToolTip(self.tr("Écouter la prononciation audio"))
 
     def _on_generate_tts(self) -> None:
         """Synthétise le texte du champ (ou la sélection) en audio via TTSService."""
@@ -799,7 +801,7 @@ class NoteFieldEditorWidget(QWidget):
         text_to_speak = selected_text if selected_text else self.editor.toPlainText().strip()
 
         if not text_to_speak:
-            show_toast(self, "Le champ est vide, impossible de générer l'audio.", is_error=True)
+            show_toast(self, self.tr("Le champ est vide, impossible de générer l'audio."), is_error=True)
             return
 
         try:
@@ -815,10 +817,10 @@ class NoteFieldEditorWidget(QWidget):
                 self.content_changed.emit(self.field_name)
 
             self._update_audio_visibility()
-            show_toast(self, f"Prononciation audio générée : {sound_tag}")
+            show_toast(self, tr("Prononciation audio générée : %1", sound_tag))
         except Exception as e:
             logger.exception("Échec de la synthèse vocale : %s", e)
-            show_toast(self, f"Erreur TTS : {e}", is_error=True)
+            show_toast(self, tr("Erreur TTS : %1", e), is_error=True)
 
     def closeEvent(self, event: Any) -> None:
         if self._player and QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
@@ -884,10 +886,10 @@ class NoteEditorWidget(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setContentsMargins(0, 0, 0, 10)
 
-        btn_bold = ActionButton("text-b", "", tooltip="Gras (<b>...</b>)")
-        btn_italic = ActionButton("text-italic", "", tooltip="Italique (<i>...</i>)")
-        btn_h2 = ActionButton("text-h-two", "", tooltip="Titre H2 (<h2>...</h2>)")
-        btn_latex = ActionButton("function", "", tooltip="Formule LaTeX ($...$)")
+        btn_bold = ActionButton("text-b", "", tooltip=self.tr("Gras (<b>...</b>)"))
+        btn_italic = ActionButton("text-italic", "", tooltip=self.tr("Italique (<i>...</i>)"))
+        btn_h2 = ActionButton("text-h-two", "", tooltip=self.tr("Titre H2 (<h2>...</h2>)"))
+        btn_latex = ActionButton("function", "", tooltip=self.tr("Formule LaTeX ($...$)"))
 
         btn_bold.clicked.connect(lambda: self._wrap_in_focused_editor("<b>", "</b>"))
         btn_italic.clicked.connect(lambda: self._wrap_in_focused_editor("<i>", "</i>"))
@@ -963,11 +965,11 @@ class NoteEditorWidget(QWidget):
     def _toggle_mobile_preview(self, checked: bool) -> None:
         if checked:
             self.preview_widget.setMaximumWidth(375)
-            self.btn_toggle_mobile.setText(" Desktop")
+            self.btn_toggle_mobile.setText(self.tr(" Desktop"))
             self.btn_toggle_mobile.setIcon(load_on_accent_icon("monitor"))
         else:
             self.preview_widget.setMaximumWidth(16777215)
-            self.btn_toggle_mobile.setText(" Mobile")
+            self.btn_toggle_mobile.setText(self.tr(" Mobile"))
             self.btn_toggle_mobile.setIcon(load_on_accent_icon("device-mobile"))
 
     def set_current_deck(self, deck_id: int | None) -> None:
@@ -981,7 +983,7 @@ class NoteEditorWidget(QWidget):
             if not self.current_note or not self.current_note.note_type:
                 return
 
-            self.btn_save_edits.setText(" Sauvegarder modifications")
+            self.btn_save_edits.setText(self.tr(" Sauvegarder modifications"))
             self.btn_save_edits.setEnabled(True)
             self.btn_history.setEnabled(True)
             self.btn_history.setVisible(True)
@@ -989,7 +991,7 @@ class NoteEditorWidget(QWidget):
             active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
             content_dict = json.loads(active_version.content) if active_version else {}
 
-            lbl_title = QLabel(f"<b>Édition (Modèle : {self.current_note.note_type.name})</b>")
+            lbl_title = QLabel(tr("<b>Édition (Modèle : %1)</b>", self.current_note.note_type.name))
             lbl_title.setStyleSheet("font-size: 16px;")
             self.details_layout.addWidget(lbl_title)
             self.details_layout.addSpacing(5)
@@ -1013,24 +1015,24 @@ class NoteEditorWidget(QWidget):
             self.update_preview()
         except Exception as e:
             logger.exception("Erreur lors du chargement de la note dans l'éditeur :")
-            self.details_layout.addWidget(QLabel(f"Erreur : {e}"))
+            self.details_layout.addWidget(QLabel(tr("Erreur : %1", e)))
 
     def enter_creation_mode(self) -> None:
         self._clear_editor()
         self.is_creating = True
         self.current_note = None
 
-        self.btn_save_edits.setText(" ✨ Créer la note")
+        self.btn_save_edits.setText(self.tr(" ✨ Créer la note"))
         self.btn_save_edits.setEnabled(True)
         self.btn_history.setVisible(False)
 
-        lbl_title = QLabel("<b>Création de Note</b>")
+        lbl_title = QLabel(self.tr("<b>Création de Note</b>"))
         lbl_title.setStyleSheet("font-size: 16px;")
         self.details_layout.addWidget(lbl_title)
         self.details_layout.addSpacing(5)
 
         model_layout = QHBoxLayout()
-        model_layout.addWidget(QLabel("Modèle :"))
+        model_layout.addWidget(QLabel(self.tr("Modèle :")))
         self.creation_model_cb = QComboBox()
         models = NoteTypeModel.select()
         for m in models:
@@ -1066,7 +1068,7 @@ class NoteEditorWidget(QWidget):
 
         self.field_editors.clear()
         for field_name in fields:
-            lbl = QLabel(f"<b>{field_name}</b>")
+            lbl = QLabel(tr("<b>%1</b>", field_name))
             text_edit = DropImageTextEdit()
             text_edit.setMinimumHeight(60)
             text_edit.textChanged.connect(self._on_text_changed)
@@ -1132,7 +1134,7 @@ class NoteEditorWidget(QWidget):
                             card.delete_instance()
 
             self.note_updated.emit(self.current_note.id, content_dict, new_version.version_number)
-            show_toast(self, "Note mise à jour !")
+            show_toast(self, self.tr("Note mise à jour !"))
         except Exception as e:
             log_and_notify_error(e, context="Mise à jour de la note", parent=self, title="Erreur")
 
@@ -1148,7 +1150,7 @@ class NoteEditorWidget(QWidget):
             content_dict = {name: editor.toPlainText().replace("\n", "<br>") for name, editor in self.field_editors.items()}
             new_note = NoteManager.create_note(note_type=note_type, deck=deck, content_dict=content_dict, tags=[], status="new", source="manual")
 
-            show_toast(self, "✨ Nouvelle note créée !")
+            show_toast(self, self.tr("✨ Nouvelle note créée !"))
             self._exit_creation_mode(refresh=True, select_note_id=new_note.id)
             self.note_created.emit(new_note.id)
         except Exception as e:
@@ -1156,7 +1158,7 @@ class NoteEditorWidget(QWidget):
 
     def _exit_creation_mode(self, refresh: bool = False, select_note_id: int | None = None) -> None:
         self.is_creating = False
-        self.btn_save_edits.setText(" Sauvegarder les modifications")
+        self.btn_save_edits.setText(self.tr(" Sauvegarder les modifications"))
         self.btn_history.setVisible(True)
         self.creation_mode_exited.emit(refresh, select_note_id)
         if not refresh:

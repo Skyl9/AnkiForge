@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QLineEdit, QTreeWi
 from ankiforge.database.models import PersonaModel
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -57,7 +58,7 @@ class PersonaSelectWindow(QWidget):
 
         # 1. Barre de recherche
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher un agent (nom, description, prompt)...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher un agent (nom, description, prompt)..."))
         search_icon = load_phosphor_icon("magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.search_input.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
         self.search_input.setFixedHeight(32)
@@ -166,7 +167,7 @@ class PersonaSelectWindow(QWidget):
 
             # Sous-élément présentant le prompt
             meta = f"{p.output_format or 'json'} • {p.persona_type or 'pipeline'}"
-            child = QTreeWidgetItem([f"↳ {meta} — {prompt_preview}"])
+            child = QTreeWidgetItem([tr("↳ %1 — %2", meta, prompt_preview)])
             child.setData(0, Qt.ItemDataRole.UserRole, p.id)
             child.setData(0, Qt.ItemDataRole.UserRole + 1, p.name)
             child.setForeground(0, QColor(DesignTokens.TEXT_MUTED))

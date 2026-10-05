@@ -23,6 +23,7 @@ from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.dialogs.update_dialog import UpdateDialog
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -80,10 +81,10 @@ class TopBar(QWidget):
         self.logo_icon.setPixmap(load_logo_icon(DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
         self.logo_icon.clicked.connect(self.toggle_requested.emit)
 
-        self.logo_text = QLabel("AnkiForge")
+        self.logo_text = QLabel(self.tr("AnkiForge"))
         self.logo_text.setObjectName("SidebarLogoText")
 
-        self.toggle_btn = IconButton("list", tooltip="Replier/Déplier la barre latérale", size=28)
+        self.toggle_btn = IconButton("list", tooltip=self.tr("Replier/Déplier la barre latérale"), size=28)
         self.toggle_btn.clicked.connect(self.toggle_requested.emit)
 
         self.brand_layout.addWidget(self.logo_icon)
@@ -115,7 +116,7 @@ class TopBar(QWidget):
         self.breadcrumb_icon.setPixmap(load_phosphor_icon(self._current_breadcrumb_icon, color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
         self.breadcrumb_icon.setObjectName("TopBarBreadcrumbIcon")
 
-        self.breadcrumb_lbl = QLabel("Tableau de bord")
+        self.breadcrumb_lbl = QLabel(self.tr("Tableau de bord"))
         self.breadcrumb_lbl.setObjectName("TopBarBreadcrumbLabel")
 
         breadcrumb_layout.addWidget(self.breadcrumb_icon)
@@ -125,7 +126,7 @@ class TopBar(QWidget):
         # Omnibox
         self.omnibox = GlowLineEdit()
         shortcut = "⌘K" if sys.platform == "darwin" else "Ctrl+K"
-        self.omnibox.setPlaceholderText(f"Rechercher cartes, paquets, commandes... ({shortcut})")
+        self.omnibox.setPlaceholderText(tr("Rechercher cartes, paquets, commandes... (%1)", shortcut))
         self.omnibox.setMinimumWidth(260)
         self.omnibox.setMaximumWidth(460)
         self.omnibox.installEventFilter(self)
@@ -148,7 +149,7 @@ class TopBar(QWidget):
         self.dollar_icon.setPixmap(load_phosphor_icon("currency-dollar", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
         self.dollar_icon.setObjectName("TopBarDollarIcon")
 
-        self.token_lbl = QLabel("Dépenses : 0.00 $ (0 tk)")
+        self.token_lbl = QLabel(self.tr("Dépenses : 0.00 $ (0 tk)"))
         self.token_lbl.setObjectName("TopBarTokenLabel")
 
         usage_tooltip = "Coût estimé et volume cumulé de jetons (tokens) consommés par les requêtes IA"
@@ -162,7 +163,7 @@ class TopBar(QWidget):
 
         # Badge de mise à jour (masqué par défaut)
         self._update_info: UpdateInfo | None = None
-        self.update_btn = QPushButton("✨ Mise à jour")
+        self.update_btn = QPushButton(self.tr("✨ Mise à jour"))
         self.update_btn.setObjectName("TopBarUpdateBtn")
         self.update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.update_btn.setStyleSheet(
@@ -174,24 +175,24 @@ class TopBar(QWidget):
         content_layout.addWidget(self.update_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Import & Export Actions (28px)
-        self.import_btn = IconButton("download-simple", tooltip="Importer un paquet Anki (Ctrl+Shift+I)", size=28)
+        self.import_btn = IconButton("download-simple", tooltip=self.tr("Importer un paquet Anki (Ctrl+Shift+I)"), size=28)
         self.import_btn.clicked.connect(self.import_clicked.emit)
         content_layout.addWidget(self.import_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.export_btn = IconButton("upload-simple", tooltip="Exporter des cartes Anki (Ctrl+Shift+E)", size=28)
+        self.export_btn = IconButton("upload-simple", tooltip=self.tr("Exporter des cartes Anki (Ctrl+Shift+E)"), size=28)
         self.export_btn.clicked.connect(self.export_clicked.emit)
         content_layout.addWidget(self.export_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Notifications (28px)
         self.notif_container = QWidget()
         self.notif_container.setFixedSize(34, 34)
-        self.notif_btn = IconButton("bell", tooltip="Notifications", size=28, parent=self.notif_container)
+        self.notif_btn = IconButton("bell", tooltip=self.tr("Notifications"), size=28, parent=self.notif_container)
         self.notif_btn.clicked.connect(self.notif_clicked.emit)
         self.notif_btn.move(0, 3)
         content_layout.addWidget(self.notif_container, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Badge compteur de notifications (invisible par défaut)
-        self.notif_badge = QLabel("0")
+        self.notif_badge = QLabel(self.tr("0"))
         self.notif_badge.setObjectName("TopBarNotifBadge")
         self.notif_badge.setFixedSize(18, 18)
         self.notif_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -204,8 +205,8 @@ class TopBar(QWidget):
     def set_update_available(self, info: UpdateInfo) -> None:
         """Affiche le badge de mise à jour avec le numéro de la nouvelle version."""
         self._update_info = info
-        self.update_btn.setText(f"✨ v{info.version}")
-        self.update_btn.setToolTip(f"Nouvelle version disponible : v{info.version}\nCliquer pour voir les détails")
+        self.update_btn.setText(tr("✨ v%1", info.version))
+        self.update_btn.setToolTip(tr("Nouvelle version disponible : v%1\nCliquer pour voir les détails", info.version))
         self.update_btn.setVisible(True)
 
     def _on_update_clicked(self) -> None:
@@ -231,10 +232,10 @@ class TopBar(QWidget):
         if count > 0:
             self.notif_badge.setText(str(min(count, 99)))
             self.notif_badge.setVisible(True)
-            self.notif_btn.setToolTip(f"Notifications & Diagnostics ({count} alerte{'s' if count > 1 else ''})")
+            self.notif_btn.setToolTip(tr("Notifications & Diagnostics (%1 alerte%2)", count, "s" if count > 1 else ""))
         else:
             self.notif_badge.setVisible(False)
-            self.notif_btn.setToolTip("Notifications (Aucune alerte)")
+            self.notif_btn.setToolTip(self.tr("Notifications (Aucune alerte)"))
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if obj == self.omnibox and event.type() == QEvent.Type.MouseButtonPress:
@@ -251,7 +252,7 @@ class TopBar(QWidget):
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         clean_cost = str(cost).replace("$", "").strip()
-        self.token_lbl.setText(f"Dépenses : {clean_cost} $ ({tokens} tk)")
+        self.token_lbl.setText(tr("Dépenses : %1 $ (%2 tk)", clean_cost, tokens))
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "logo_icon"):

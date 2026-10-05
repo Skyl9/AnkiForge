@@ -5,6 +5,7 @@ from ankiforge.database.models import PersonaModel
 from ankiforge.ui.components import Badge
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view.constants import PERSONA_TYPE_SPECS
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -45,7 +46,7 @@ class PersonaItemWidget(QWidget):
         self.lbl_name = QLabel(str(persona.name))
         self.lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 11.5px; background: transparent;")
         self.lbl_name.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.lbl_name.setToolTip(f"{persona.name} ({type_spec['badge_text']})")
+        self.lbl_name.setToolTip(tr("%1 (%2)", persona.name, type_spec["badge_text"]))
         layout.addWidget(self.lbl_name, 1)
 
         fmt_raw = (getattr(persona, "output_format", "JSON") or "JSON").upper()

@@ -19,6 +19,7 @@ from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.nav_badge import NavBadgeButton
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_logo_icon, load_on_accent_icon, load_phosphor_icon
 
 
@@ -30,7 +31,7 @@ class MacosSegmentButton(NavBadgeButton):
         self.setFixedHeight(30)
         self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
         self.setIconSize(QSize(16, 16))
-        self.setText(f" {self.title}")
+        self.setText(tr(" %1", self.title))
         self.setToolTip(self.title)
 
         self._update_style(False)
@@ -127,10 +128,10 @@ class MacosLayout(BaseLayout):
         logo_label.setPixmap(load_logo_icon(DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
         logo_label.setStyleSheet("border: none; background: transparent;")
 
-        app_title = QLabel("AnkiForge")
+        app_title = QLabel(self.tr("AnkiForge"))
         app_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 14px; border: none; background: transparent;")
 
-        self.profile_badge = QLabel(f"• {self.profile_name}")
+        self.profile_badge = QLabel(tr("• %1", self.profile_name))
         self.profile_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
 
         top_layout.addWidget(logo_label)
@@ -170,13 +171,13 @@ class MacosLayout(BaseLayout):
         top_layout.addWidget(self.nav_scroll, 1)
 
         # Actions droites : Search, Token Tracker, Daemon Status, Settings
-        self.search_btn = IconButton("magnifying-glass", tooltip="Rechercher (Ctrl+K)", size=22)
+        self.search_btn = IconButton("magnifying-glass", tooltip=self.tr("Rechercher (Ctrl+K)"), size=22)
         self.search_btn.clicked.connect(self.search_clicked.emit)
         top_layout.addWidget(self.search_btn)
 
         # Token Tracker compact
-        self.token_lbl = QLabel("0.00 $")
-        self.token_lbl.setToolTip("Dépenses IA cumulées")
+        self.token_lbl = QLabel(self.tr("0.00 $"))
+        self.token_lbl.setToolTip(self.tr("Dépenses IA cumulées"))
         self.token_lbl.setStyleSheet(f"""
             QLabel {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -197,12 +198,12 @@ class MacosLayout(BaseLayout):
         top_layout.addWidget(self.profile_btn)
 
         # Feedback & Support
-        self.feedback_btn = IconButton("chat-circle-dots", tooltip="Aide & Retours", size=22)
+        self.feedback_btn = IconButton("chat-circle-dots", tooltip=self.tr("Aide & Retours"), size=22)
         self.feedback_btn.clicked.connect(self.feedback_requested.emit)
         top_layout.addWidget(self.feedback_btn)
 
         # Settings
-        self.settings_btn = IconButton("gear", tooltip="Paramètres", size=22)
+        self.settings_btn = IconButton("gear", tooltip=self.tr("Paramètres"), size=22)
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         top_layout.addWidget(self.settings_btn)
 
@@ -254,12 +255,12 @@ class MacosLayout(BaseLayout):
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         clean_cost = str(cost).replace("$", "").strip()
-        self.token_lbl.setText(f"{clean_cost} $")
-        self.token_lbl.setToolTip(f"Dépenses : {clean_cost} $ ({tokens} jetons)")
+        self.token_lbl.setText(tr("%1 $", clean_cost))
+        self.token_lbl.setToolTip(tr("Dépenses : %1 $ (%2 jetons)", clean_cost, tokens))
 
     def set_profile_name(self, profile_name: str) -> None:
         super().set_profile_name(profile_name)
         if hasattr(self, "profile_btn") and self.profile_btn:
-            self.profile_btn.setToolTip(f"Espace de travail : {profile_name}")
+            self.profile_btn.setToolTip(tr("Espace de travail : %1", profile_name))
         if hasattr(self, "profile_badge") and self.profile_badge:
-            self.profile_badge.setText(f"• {profile_name}")
+            self.profile_badge.setText(tr("• %1", profile_name))

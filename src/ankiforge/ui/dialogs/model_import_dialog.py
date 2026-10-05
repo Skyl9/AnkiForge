@@ -25,6 +25,7 @@ from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -36,7 +37,7 @@ class ModelImportDialog(QDialog):
         self.model_data = model_data
         self.imported_model: NoteTypeModel | None = None
 
-        self.setWindowTitle("Importer un Modèle de Carte")
+        self.setWindowTitle(self.tr("Importer un Modèle de Carte"))
         self.setMinimumSize(850, 580)
         self.resize(920, 620)
         self.setModal(True)
@@ -63,9 +64,9 @@ class ModelImportDialog(QDialog):
         icon_lbl.setStyleSheet("border: none; background: transparent;")
 
         title_box = QVBoxLayout()
-        title_lbl = QLabel("Prévisualisation du Modèle à Importer")
+        title_lbl = QLabel(self.tr("Prévisualisation du Modèle à Importer"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold; border: none;")
-        subtitle_lbl = QLabel("Vérifiez le rendu en direct et configurez les options de fusion avant l'import.")
+        subtitle_lbl = QLabel(self.tr("Vérifiez le rendu en direct et configurez les options de fusion avant l'import."))
         subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         title_box.addWidget(title_lbl)
         title_box.addWidget(subtitle_lbl)
@@ -84,7 +85,7 @@ class ModelImportDialog(QDialog):
         left_layout.setSpacing(12)
 
         # 1. Nom du modèle
-        lbl_name = QLabel("NOM DU MODÈLE :")
+        lbl_name = QLabel(self.tr("NOM DU MODÈLE :"))
         lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         left_layout.addWidget(lbl_name)
 
@@ -112,29 +113,29 @@ class ModelImportDialog(QDialog):
         meta_layout.setContentsMargins(8, 8, 8, 8)
         meta_layout.setSpacing(5)
 
-        lbl_meta_author = QLabel(f"<b>Auteur :</b> {author} | <b>Version :</b> v{version}")
+        lbl_meta_author = QLabel(tr("<b>Auteur :</b> %1 | <b>Version :</b> v%2", author, version))
         lbl_meta_author.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none;")
         meta_layout.addWidget(lbl_meta_author)
 
         if desc:
-            lbl_desc = QLabel(f"<em>{desc}</em>")
+            lbl_desc = QLabel(tr("<em>%1</em>", desc))
             lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
             lbl_desc.setWordWrap(True)
             meta_layout.addWidget(lbl_desc)
 
         fields_list = self.model_data.get("fields_schema", [])
-        lbl_meta_fields = QLabel(f"<b>Champs ({len(fields_list)}) :</b> {', '.join(fields_list)}")
+        lbl_meta_fields = QLabel(tr("<b>Champs (%1) :</b> %2", len(fields_list), ", ".join(fields_list)))
         lbl_meta_fields.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none;")
         lbl_meta_fields.setWordWrap(True)
         meta_layout.addWidget(lbl_meta_fields)
 
         templates_list = self.model_data.get("templates", [])
-        lbl_meta_tmpls = QLabel(f"<b>Cartes / Faces ({len(templates_list)}) :</b> {', '.join(t.get('name', 'Carte') for t in templates_list)}")
+        lbl_meta_tmpls = QLabel(tr("<b>Cartes / Faces (%1) :</b> %2", len(templates_list), ", ".join(t.get("name", "Carte") for t in templates_list)))
         lbl_meta_tmpls.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none;")
         meta_layout.addWidget(lbl_meta_tmpls)
 
         if tags:
-            lbl_meta_tags = QLabel(f"<b>Tags :</b> {', '.join(tags)}")
+            lbl_meta_tags = QLabel(tr("<b>Tags :</b> %1", ", ".join(tags)))
             lbl_meta_tags.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
             meta_layout.addWidget(lbl_meta_tags)
 
@@ -154,15 +155,15 @@ class ModelImportDialog(QDialog):
         col_layout.setContentsMargins(8, 8, 8, 8)
         col_layout.setSpacing(6)
 
-        lbl_col_title = QLabel("⚠️ Un modèle porte déjà ce nom :")
+        lbl_col_title = QLabel(self.tr("⚠️ Un modèle porte déjà ce nom :"))
         lbl_col_title.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold; border: none;")
         col_layout.addWidget(lbl_col_title)
 
-        self.radio_rename = QRadioButton("Créer une copie (Nom incrémenté)")
+        self.radio_rename = QRadioButton(self.tr("Créer une copie (Nom incrémenté)"))
         self.radio_rename.setChecked(True)
         self.radio_rename.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
 
-        self.radio_overwrite = QRadioButton("Écraser le modèle existant")
+        self.radio_overwrite = QRadioButton(self.tr("Écraser le modèle existant"))
         self.radio_overwrite.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11px; border: none;")
 
         self.btn_group = QButtonGroup(self)
@@ -185,7 +186,7 @@ class ModelImportDialog(QDialog):
         right_layout.setContentsMargins(10, 0, 0, 0)
         right_layout.setSpacing(6)
 
-        lbl_preview_title = QLabel("APERÇU DU RENDU EN DIRECT :")
+        lbl_preview_title = QLabel(self.tr("APERÇU DU RENDU EN DIRECT :"))
         lbl_preview_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         right_layout.addWidget(lbl_preview_title)
 

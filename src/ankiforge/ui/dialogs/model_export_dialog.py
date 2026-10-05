@@ -28,6 +28,7 @@ from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ class ModelExportDialog(QDialog):
         self.model = model
         self.exported_file_path: Path | None = None
 
-        self.setWindowTitle(f"Exporter le Modèle — {self.model.name}")
+        self.setWindowTitle(tr("Exporter le Modèle — %1", self.model.name))
         self.setMinimumSize(580, 520)
         self.resize(620, 560)
         self.setModal(True)
@@ -74,9 +75,9 @@ class ModelExportDialog(QDialog):
         header.addWidget(icon_lbl)
 
         title_box = QVBoxLayout()
-        title_lbl = QLabel(f"Exporter le Modèle : {self.model.name}")
+        title_lbl = QLabel(tr("Exporter le Modèle : %1", self.model.name))
         title_lbl.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        subtitle_lbl = QLabel("Créez un paquet autonome .afmodel partageable avec styles et cartes d'exemple.")
+        subtitle_lbl = QLabel(self.tr("Créez un paquet autonome .afmodel partageable avec styles et cartes d'exemple."))
         subtitle_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         title_box.addWidget(title_lbl)
         title_box.addWidget(subtitle_lbl)
@@ -91,15 +92,15 @@ class ModelExportDialog(QDialog):
         fmt_layout.setContentsMargins(12, 12, 12, 12)
         fmt_layout.setSpacing(8)
 
-        lbl_fmt = QLabel("FORMAT DU PAQUET :")
+        lbl_fmt = QLabel(self.tr("FORMAT DU PAQUET :"))
         lbl_fmt.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         fmt_layout.addWidget(lbl_fmt)
 
-        self.radio_bundle = QRadioButton("📦 Paquet Complet .afmodel (Templates + Styles + Démos + Métadonnées)")
+        self.radio_bundle = QRadioButton(self.tr("📦 Paquet Complet .afmodel (Templates + Styles + Démos + Métadonnées)"))
         self.radio_bundle.setChecked(True)
         self.radio_bundle.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
 
-        self.radio_json = QRadioButton("📄 Fichier Léger .json (Format standard sérialisé)")
+        self.radio_json = QRadioButton(self.tr("📄 Fichier Léger .json (Format standard sérialisé)"))
         self.radio_json.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
 
         self.format_group = QButtonGroup(self)
@@ -118,7 +119,7 @@ class ModelExportDialog(QDialog):
         meta_layout.setContentsMargins(12, 12, 12, 12)
         meta_layout.setSpacing(10)
 
-        lbl_meta = QLabel("MÉTADONNÉES DE PUBLICATION :")
+        lbl_meta = QLabel(self.tr("MÉTADONNÉES DE PUBLICATION :"))
         lbl_meta.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         meta_layout.addWidget(lbl_meta)
 
@@ -127,19 +128,19 @@ class ModelExportDialog(QDialog):
         row_author_ver.setSpacing(10)
 
         box_author = QVBoxLayout()
-        lbl_a = QLabel("Auteur :")
+        lbl_a = QLabel(self.tr("Auteur :"))
         lbl_a.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
         self.input_author = StyledLineEdit()
-        self.input_author.setText("AnkiForge User")
+        self.input_author.setText(self.tr("AnkiForge User"))
         box_author.addWidget(lbl_a)
         box_author.addWidget(self.input_author)
         row_author_ver.addLayout(box_author, 2)
 
         box_ver = QVBoxLayout()
-        lbl_v = QLabel("Version :")
+        lbl_v = QLabel(self.tr("Version :"))
         lbl_v.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
         self.input_version = StyledLineEdit()
-        self.input_version.setText("1.0.0")
+        self.input_version.setText(self.tr("1.0.0"))
         box_ver.addWidget(lbl_v)
         box_ver.addWidget(self.input_version)
         row_author_ver.addLayout(box_ver, 1)
@@ -147,23 +148,23 @@ class ModelExportDialog(QDialog):
         meta_layout.addLayout(row_author_ver)
 
         # Description
-        lbl_d = QLabel("Description du style / Cas d'usage :")
+        lbl_d = QLabel(self.tr("Description du style / Cas d'usage :"))
         lbl_d.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
         self.input_desc = StyledLineEdit()
-        self.input_desc.setPlaceholderText("ex: Modèle avec badges contrastés et KaTeX pour concours...")
+        self.input_desc.setPlaceholderText(self.tr("ex: Modèle avec badges contrastés et KaTeX pour concours..."))
         meta_layout.addWidget(lbl_d)
         meta_layout.addWidget(self.input_desc)
 
         # Tags
-        lbl_t = QLabel("Tags (séparés par des virgules) :")
+        lbl_t = QLabel(self.tr("Tags (séparés par des virgules) :"))
         lbl_t.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
         self.input_tags = StyledLineEdit()
-        self.input_tags.setText("ankiforge, card-model")
+        self.input_tags.setText(self.tr("ankiforge, card-model"))
         meta_layout.addWidget(lbl_t)
         meta_layout.addWidget(self.input_tags)
 
         # Cartes témoins
-        self.chk_include_demos = QCheckBox("Inclure des cartes réelles anonymisées comme cartes témoins")
+        self.chk_include_demos = QCheckBox(self.tr("Inclure des cartes réelles anonymisées comme cartes témoins"))
         self.chk_include_demos.setChecked(True)
         self.chk_include_demos.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; margin-top: 4px;")
         meta_layout.addWidget(self.chk_include_demos)
@@ -177,7 +178,7 @@ class ModelExportDialog(QDialog):
         dest_layout.setContentsMargins(12, 12, 12, 12)
         dest_layout.setSpacing(6)
 
-        lbl_dest = QLabel("EMPLACEMENT DE SAUVEGARDE :")
+        lbl_dest = QLabel(self.tr("EMPLACEMENT DE SAUVEGARDE :"))
         lbl_dest.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         dest_layout.addWidget(lbl_dest)
 
@@ -270,7 +271,7 @@ class ModelExportDialog(QDialog):
     def _on_confirm_export(self) -> None:
         dest_str = self.dest_input.text().strip()
         if not dest_str:
-            show_toast(self, "Veuillez choisir un chemin de destination.", is_error=True)
+            show_toast(self, self.tr("Veuillez choisir un chemin de destination."), is_error=True)
             return
 
         out_path = Path(dest_str)
@@ -306,7 +307,7 @@ class ModelExportDialog(QDialog):
                 saved_path = out_path
 
             self.exported_file_path = saved_path
-            show_toast(self, f"Modèle exporté avec succès dans '{saved_path.name}' !")
+            show_toast(self, tr("Modèle exporté avec succès dans '%1' !", saved_path.name))
             self.accept()
         except Exception as e:
-            show_toast(self, f"Échec de l'exportation : {str(e)}", is_error=True)
+            show_toast(self, tr("Échec de l'exportation : %1", str(e)), is_error=True)

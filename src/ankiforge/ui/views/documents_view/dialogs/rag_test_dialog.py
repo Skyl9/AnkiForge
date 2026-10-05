@@ -22,6 +22,7 @@ from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.ui.components import GlowLineEdit, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import resolve_media_path
 
@@ -54,7 +55,7 @@ class _RAGResultWidget(QWidget):
         location = result.get("heading_path") or (f"Page {result.get('page_number')}" if result.get("page_number") else f"Section #{result.get('chunk_index', 0) + 1}")
         channel = result.get("channel", "hybrid")
         score = result.get("rrf_score", result.get("score", 0.0))
-        header = QLabel(f"<b>📍 {html.escape(str(location))}</b> · Pertinence : {result.get('relevance_pct', 0)}% · Score : {float(score):.6f}")
+        header = QLabel(tr("<b>📍 %1</b> · Pertinence : %2%% · Score : %3", html.escape(str(location)), result.get("relevance_pct", 0), f"{float(score):.6f}"))
         header.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
         layout.addWidget(header)
 
@@ -74,13 +75,13 @@ class _RAGResultWidget(QWidget):
 
         details = QLabel()
         if channel == "hybrid":
-            details.setText(f"🧬 RRF {float(result.get('rrf_score', 0.0)):.6f} · FAISS #{result.get('dense_rank', '-')} · BM25 #{result.get('sparse_rank', '-')}")
+            details.setText(tr("🧬 RRF %1 · FAISS #%2 · BM25 #%3", f"{float(result.get('rrf_score', 0.0)):.6f}", result.get("dense_rank", "-"), result.get("sparse_rank", "-")))
         elif channel == "dense_only":
-            details.setText(f"🌌 FAISS #{result.get('dense_rank', '-')} · score {float(result.get('dense_score', 0.0)):.4f}")
+            details.setText(tr("🌌 FAISS #%1 · score %2", result.get("dense_rank", "-"), f"{float(result.get('dense_score', 0.0)):.4f}"))
         elif channel == "sparse_only":
-            details.setText(f"🔤 BM25 #{result.get('sparse_rank', '-')} · score {float(result.get('sparse_score', 0.0)):.4f}")
+            details.setText(tr("🔤 BM25 #%1 · score %2", result.get("sparse_rank", "-"), f"{float(result.get('sparse_score', 0.0)):.4f}"))
         else:
-            details.setText("📄 BDD Directe")
+            details.setText(self.tr("📄 BDD Directe"))
         details.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 10px;")
         layout.addWidget(details)
 
@@ -94,7 +95,7 @@ class _RAGResultWidget(QWidget):
                 pixmap = QPixmap(str(image_path))
                 if not pixmap.isNull():
                     preview.setPixmap(pixmap.scaled(96, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-                    preview.setToolTip("Image d'origine")
+                    preview.setToolTip(self.tr("Image d'origine"))
                     layout.addWidget(preview)
                 open_button = SecondaryButton("Ouvrir l'image d'origine")
                 open_button.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
@@ -108,7 +109,7 @@ class RAGTestDialog(QDialog):
     def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.doc = doc
-        self.setWindowTitle(f"Recherche RAG Hybride — {doc.title}")
+        self.setWindowTitle(tr("Recherche RAG Hybride — %1", doc.title))
         self.resize(680, 540)
         self.setStyleSheet(f"""
             QDialog {{
@@ -124,7 +125,7 @@ class RAGTestDialog(QDialog):
         header_top = QHBoxLayout()
         ico = QLabel()
         ico.setPixmap(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_GREEN).pixmap(20, 20))
-        title_lbl = QLabel(f"Interroger l'index RAG : <b>{doc.title}</b>")
+        title_lbl = QLabel(tr("Interroger l'index RAG : <b>%1</b>", doc.title))
         title_lbl.setStyleSheet(f"font-size: 13px; color: {DesignTokens.TEXT_PRIMARY};")
         header_top.addWidget(ico)
         header_top.addWidget(title_lbl, 1)
@@ -132,13 +133,13 @@ class RAGTestDialog(QDialog):
 
         # Ligne de configuration de mode
         mode_row = QHBoxLayout()
-        lbl_mode = QLabel("Canal de recherche :")
+        lbl_mode = QLabel(self.tr("Canal de recherche :"))
         lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
         self.mode_cb = QComboBox()
         self.mode_cb.setFixedHeight(28)
-        self.mode_cb.addItem("🧬 RAG Hybride (FAISS Dense + BM25 Sparse avec RRF)", "hybrid")
-        self.mode_cb.addItem("🌌 Sémantique Dense Pure (FAISS L2)", "dense")
-        self.mode_cb.addItem("🔤 Lexicale Exacte Pure (BM25 Okapi)", "sparse")
+        self.mode_cb.addItem(self.tr("🧬 RAG Hybride (FAISS Dense + BM25 Sparse avec RRF)"), "hybrid")
+        self.mode_cb.addItem(self.tr("🌌 Sémantique Dense Pure (FAISS L2)"), "dense")
+        self.mode_cb.addItem(self.tr("🔤 Lexicale Exacte Pure (BM25 Okapi)"), "sparse")
         self.mode_cb.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -160,7 +161,7 @@ class RAGTestDialog(QDialog):
         # Barre de recherche
         search_row = QHBoxLayout()
         self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Posez une question ou entrez des mots-clés techniques...")
+        self.search_input.setPlaceholderText(self.tr("Posez une question ou entrez des mots-clés techniques..."))
         self.search_input.returnPressed.connect(self._on_search)
 
         btn_search = PrimaryButton("Rechercher")

@@ -69,10 +69,10 @@ class PromptOverrideIndicator(QFrame):
         self.lbl_summary.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         row.addWidget(self.lbl_summary, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_remove = QPushButton("Retirer")
+        self.btn_remove = QPushButton(self.tr("Retirer"))
         self.btn_remove.setObjectName("PromptOverrideRemove")
         self.btn_remove.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_remove.setToolTip("Retirer la surcharge locale et rendre à l'agent son prompt d'origine.")
+        self.btn_remove.setToolTip(self.tr("Retirer la surcharge locale et rendre à l'agent son prompt d'origine."))
         self.btn_remove.clicked.connect(self.remove_requested.emit)
         row.addWidget(self.btn_remove, alignment=Qt.AlignmentFlag.AlignVCenter)
 

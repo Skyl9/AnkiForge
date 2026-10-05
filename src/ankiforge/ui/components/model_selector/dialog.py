@@ -35,6 +35,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.components.model_selector.badges import ModelCapabilityBadgesWidget
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -147,7 +148,7 @@ class ModelCardWidget(QFrame):
 
         # Badges de statut
         if self.is_current:
-            badge_curr = QLabel("✓ Actuel")
+            badge_curr = QLabel(self.tr("✓ Actuel"))
             badge_curr.setStyleSheet(f"""
                 QLabel {{
                     background-color: {DesignTokens.COLOR_GREEN_BG};
@@ -159,10 +160,10 @@ class ModelCardWidget(QFrame):
                     padding: 2px 8px;
                 }}
             """)
-            badge_curr.setToolTip("Ce modèle est actuellement sélectionné dans AnkiForge.")
+            badge_curr.setToolTip(self.tr("Ce modèle est actuellement sélectionné dans AnkiForge."))
             header_row.addWidget(badge_curr)
         elif self.is_installed:
-            badge_inst = QLabel("Configuré")
+            badge_inst = QLabel(self.tr("Configuré"))
             badge_inst.setStyleSheet(f"""
                 QLabel {{
                     background-color: {DesignTokens.BG_INPUT};
@@ -174,10 +175,10 @@ class ModelCardWidget(QFrame):
                     padding: 2px 7px;
                 }}
             """)
-            badge_inst.setToolTip("Ce modèle est configuré dans votre base de données locale.")
+            badge_inst.setToolTip(self.tr("Ce modèle est configuré dans votre base de données locale."))
             header_row.addWidget(badge_inst)
         else:
-            badge_cat = QLabel("Catalogue")
+            badge_cat = QLabel(self.tr("Catalogue"))
             badge_cat.setStyleSheet(f"""
                 QLabel {{
                     background-color: {DesignTokens.ACCENT_BG};
@@ -189,7 +190,7 @@ class ModelCardWidget(QFrame):
                     padding: 2px 7px;
                 }}
             """)
-            badge_cat.setToolTip("Modèle suggéré du catalogue officiel AnkiForge. Prêt à être activé.")
+            badge_cat.setToolTip(self.tr("Modèle suggéré du catalogue officiel AnkiForge. Prêt à être activé."))
             header_row.addWidget(badge_cat)
 
         layout.addLayout(header_row)
@@ -237,8 +238,8 @@ class ModelCardWidget(QFrame):
         footer_row.setSpacing(8)
 
         # Chip toggle pour comparer
-        self.cb_compare = FilterChipButton("Comparer", icon_name="ph.scales", parent=self)
-        self.cb_compare.setToolTip("Cocher pour comparer les spécifications avec d'autres modèles.")
+        self.cb_compare = FilterChipButton(tr("Comparer"), icon_name="ph.scales", parent=self)
+        self.cb_compare.setToolTip(self.tr("Cocher pour comparer les spécifications avec d'autres modèles."))
         self.cb_compare.toggled.connect(lambda checked: self.comparison_toggled.emit(self.model, checked))
         if self.picker_mode:
             self.cb_compare.hide()
@@ -264,14 +265,14 @@ class ModelCardWidget(QFrame):
                 self.btn_edit = SecondaryButton("Modifier", parent=self)
                 self.btn_edit.setFixedHeight(32)
                 self.btn_edit.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
-                self.btn_edit.setToolTip("Modifier les paramètres de ce modèle")
+                self.btn_edit.setToolTip(self.tr("Modifier les paramètres de ce modèle"))
                 self.btn_edit.clicked.connect(lambda: self.edit_requested.emit(self.model))
                 footer_row.addWidget(self.btn_edit)
 
                 self.btn_delete = DangerButton("", ghost=True, parent=self)
                 self.btn_delete.setFixedSize(32, 32)
                 self.btn_delete.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
-                self.btn_delete.setToolTip("Supprimer ce modèle du catalogue")
+                self.btn_delete.setToolTip(self.tr("Supprimer ce modèle du catalogue"))
                 self.btn_delete.clicked.connect(lambda: self.delete_requested.emit(self.model))
                 footer_row.addWidget(self.btn_delete)
         else:
@@ -369,7 +370,7 @@ class ModelDiscoveryDialog(QDialog):
 
         # Barre de recherche avec action d'effacement
         self.search_edit = GlowLineEdit()
-        self.search_edit.setPlaceholderText("Rechercher modèle, fournisseur, tag...")
+        self.search_edit.setPlaceholderText(self.tr("Rechercher modèle, fournisseur, tag..."))
         self.search_edit.setFixedWidth(260)
         self.search_edit.textChanged.connect(self._load_and_filter_models)
         self.search_edit.setClearButtonEnabled(True)
@@ -378,7 +379,7 @@ class ModelDiscoveryDialog(QDialog):
         if not self.picker_mode:
             self.btn_add_custom = SecondaryButton("+ Modèle Personnalisé")
             self.btn_add_custom.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.TEXT_PRIMARY))
-            self.btn_add_custom.setToolTip("Ajouter manuellement un modèle d'IA personnalisé")
+            self.btn_add_custom.setToolTip(self.tr("Ajouter manuellement un modèle d'IA personnalisé"))
             self.btn_add_custom.clicked.connect(self._on_add_custom_model)
             top_row.addWidget(self.btn_add_custom)
 
@@ -394,7 +395,7 @@ class ModelDiscoveryDialog(QDialog):
         # Rangée 1 : Filtre Fournisseurs
         row_prov = QHBoxLayout()
         row_prov.setSpacing(6)
-        lbl_p = QLabel("Fournisseur :")
+        lbl_p = QLabel(self.tr("Fournisseur :"))
         lbl_p.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         row_prov.addWidget(lbl_p)
 
@@ -424,41 +425,41 @@ class ModelDiscoveryDialog(QDialog):
         row_caps_tasks = QHBoxLayout()
         row_caps_tasks.setSpacing(8)
 
-        lbl_c = QLabel("Capacités :")
+        lbl_c = QLabel(self.tr("Capacités :"))
         lbl_c.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         row_caps_tasks.addWidget(lbl_c)
 
-        self.btn_cap_vision = FilterChipButton("Vision multimodale", icon_name="ph.eye", parent=filter_card)
+        self.btn_cap_vision = FilterChipButton(tr("Vision multimodale"), icon_name="ph.eye", parent=filter_card)
         if self.require_vision:
             self.btn_cap_vision.setChecked(True)
             self.btn_cap_vision.setEnabled(False)
-            self.btn_cap_vision.setToolTip("Filtre verrouillé : seuls les modèles multimodaux de vision sont affichés.")
+            self.btn_cap_vision.setToolTip(self.tr("Filtre verrouillé : seuls les modèles multimodaux de vision sont affichés."))
         self.btn_cap_vision.toggled.connect(self._load_and_filter_models)
         row_caps_tasks.addWidget(self.btn_cap_vision)
 
-        self.btn_cap_thinking = FilterChipButton("Thinking / CoT", icon_name="ph.brain", parent=filter_card)
+        self.btn_cap_thinking = FilterChipButton(tr("Thinking / CoT"), icon_name="ph.brain", parent=filter_card)
         self.btn_cap_thinking.toggled.connect(self._load_and_filter_models)
         row_caps_tasks.addWidget(self.btn_cap_thinking)
 
-        self.btn_cap_local = FilterChipButton("100% Local (Ollama)", icon_name="ph.shield-check", parent=filter_card)
+        self.btn_cap_local = FilterChipButton(tr("100% Local (Ollama)"), icon_name="ph.shield-check", parent=filter_card)
         self.btn_cap_local.toggled.connect(self._load_and_filter_models)
         row_caps_tasks.addWidget(self.btn_cap_local)
 
-        self.btn_cap_free = FilterChipButton("Gratuit / Inclus", icon_name="ph.coins", parent=filter_card)
+        self.btn_cap_free = FilterChipButton(tr("Gratuit / Inclus"), icon_name="ph.coins", parent=filter_card)
         self.btn_cap_free.toggled.connect(self._load_and_filter_models)
         row_caps_tasks.addWidget(self.btn_cap_free)
 
         # Séparateur vertical subtil
-        sep = QLabel("|")
+        sep = QLabel(self.tr("|"))
         sep.setStyleSheet(f"color: {DesignTokens.BORDER_COLOR}; font-weight: bold;")
         row_caps_tasks.addWidget(sep)
 
         # Menu déroulant compact pour les cas d'usage AnkiForge
-        lbl_t = QLabel("Cas d'usage :")
+        lbl_t = QLabel(self.tr("Cas d'usage :"))
         lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         row_caps_tasks.addWidget(lbl_t)
 
-        self.btn_task_all = FilterChipButton("Tous les cas", parent=filter_card)
+        self.btn_task_all = FilterChipButton(tr("Tous les cas"), parent=filter_card)
         self.btn_task_all.setChecked(True)
         self.btn_task_all.clicked.connect(lambda: self._select_task_filter("all"))
         row_caps_tasks.addWidget(self.btn_task_all)
@@ -508,7 +509,7 @@ class ModelDiscoveryDialog(QDialog):
         icon_comp.setPixmap(load_phosphor_icon("ph.scales", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
         header_comp.addWidget(icon_comp)
 
-        self.lbl_comp_title = QLabel("Comparateur de Modèles Côte-à-Côte (2 à 3 modèles)")
+        self.lbl_comp_title = QLabel(self.tr("Comparateur de Modèles Côte-à-Côte (2 à 3 modèles)"))
         self.lbl_comp_title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.ACCENT_PRIMARY};")
         header_comp.addWidget(self.lbl_comp_title)
         header_comp.addStretch()
@@ -538,7 +539,7 @@ class ModelDiscoveryDialog(QDialog):
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(12)
 
-        self.lbl_status = QLabel("Chargement des modèles...")
+        self.lbl_status = QLabel(self.tr("Chargement des modèles..."))
         self.lbl_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11.5px;")
         bottom_row.addWidget(self.lbl_status)
 
@@ -730,12 +731,12 @@ class ModelDiscoveryDialog(QDialog):
             icon_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_layout.addWidget(icon_empty)
 
-            lbl_empty_title = QLabel("Aucun modèle ne correspond à vos critères")
+            lbl_empty_title = QLabel(self.tr("Aucun modèle ne correspond à vos critères"))
             lbl_empty_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
             lbl_empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_layout.addWidget(lbl_empty_title)
 
-            lbl_empty_sub = QLabel("Essayez d'élargir votre recherche ou de réinitialiser les filtres appliqués.")
+            lbl_empty_sub = QLabel(self.tr("Essayez d'élargir votre recherche ou de réinitialiser les filtres appliqués."))
             lbl_empty_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
             lbl_empty_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_layout.addWidget(lbl_empty_sub)
@@ -751,7 +752,7 @@ class ModelDiscoveryDialog(QDialog):
         inst_count = len(installed_configs)
         tot_count = len(all_models)
         filt_count = len(filtered)
-        self.lbl_status.setText(f"Affichage de {filt_count} modèle(s) sur {tot_count} au catalogue · {inst_count} configuré(s)")
+        self.lbl_status.setText(tr("Affichage de %1 modèle(s) sur %2 au catalogue · %3 configuré(s)", filt_count, tot_count, inst_count))
 
     def _on_model_chosen(self, model: Any) -> None:
         """Gère la sélection ou l'activation d'un modèle."""
@@ -848,8 +849,8 @@ class ModelDiscoveryDialog(QDialog):
         d_name = str(cfg.display_name or cfg.model_id)
         res = QMessageBox.question(
             self,
-            "Confirmer la suppression",
-            f"Êtes-vous sûr de vouloir supprimer le modèle '{d_name}' de votre configuration ?",
+            self.tr("Confirmer la suppression"),
+            tr("Êtes-vous sûr de vouloir supprimer le modèle '%1' de votre configuration ?", d_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -957,7 +958,7 @@ class ModelDiscoveryDialog(QDialog):
 
             for label, val in details:
                 row_metric = QHBoxLayout()
-                lbl_k = QLabel(f"{label} :")
+                lbl_k = QLabel(tr("%1 :", label))
                 lbl_k.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
                 lbl_v = QLabel(val)
                 val_color = DesignTokens.COLOR_GREEN if ("⭐" in val or "🪙" in val or "Oui" in val) else DesignTokens.TEXT_PRIMARY

@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -51,7 +52,7 @@ class SelectionDialog(QDialog):
         search_icon = QLabel()
         search_icon.setPixmap(load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_MUTED).pixmap(18, 18))
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher..."))
         self.search_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -181,7 +182,7 @@ class MultiSelectionDialog(QDialog):
         search_icon = QLabel()
         search_icon.setPixmap(load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_MUTED).pixmap(18, 18))
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher un modèle...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher un modèle..."))
         self.search_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -232,7 +233,7 @@ class MultiSelectionDialog(QDialog):
 
         # Boutons d'action
         btn_layout = QHBoxLayout()
-        self.lbl_count = QLabel("0 modèle(s) sélectionné(s)")
+        self.lbl_count = QLabel(self.tr("0 modèle(s) sélectionné(s)"))
         self.lbl_count.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
         btn_layout.addWidget(self.lbl_count)
         btn_layout.addStretch()
@@ -292,7 +293,7 @@ class MultiSelectionDialog(QDialog):
 
     def _update_counter(self) -> None:
         count = len(self.checked_items)
-        self.lbl_count.setText(f"{count} modèle(s) sélectionné(s)")
+        self.lbl_count.setText(tr("%1 modèle(s) sélectionné(s)", count))
         self.btn_accept.setEnabled(count > 0)
 
     def get_selected_items(self) -> list[Any]:

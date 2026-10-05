@@ -33,7 +33,7 @@ class ConsultantChatInput(QPlainTextEdit):
         self.completer.mention_selected.connect(self._on_completion_activated)
 
         self.setFixedHeight(50)
-        self.setPlaceholderText("Posez une question, tapez '@' pour attacher ou '/' pour les commandes rapides...")
+        self.setPlaceholderText(self.tr("Posez une question, tapez '@' pour attacher ou '/' pour les commandes rapides..."))
         self.setStyleSheet(f"""
             QPlainTextEdit {{
                 border: none;

@@ -40,6 +40,7 @@ from ankiforge.ui.components.linter_widgets import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ class AIWozniakLinterTab(QWidget):
         lbl_ico.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE, weight="fill").pixmap(18, 18))
         lbl_ico.setStyleSheet("border: none; background: transparent;")
 
-        lbl_title = QLabel("Audit Wozniak")
+        lbl_title = QLabel(self.tr("Audit Wozniak"))
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
@@ -125,18 +126,18 @@ class AIWozniakLinterTab(QWidget):
 
         for c in configs:
             display_name = getattr(c, "display_name", getattr(c, "name", str(c)))
-            self.engine_combo.addItem(f"{display_name}", userData=c)
+            self.engine_combo.addItem(tr("%1", display_name), userData=c)
             self.engine_combo.setItemData(self.engine_combo.count() - 1, display_name, Qt.ItemDataRole.ToolTipRole)
 
-        self.btn_rules = SecondaryButton("Règles", tooltip="Activer, désactiver ou ajuster les 20 règles de formulation de Wozniak")
+        self.btn_rules = SecondaryButton("Règles", tooltip=self.tr("Activer, désactiver ou ajuster les 20 règles de formulation de Wozniak"))
         self.btn_rules.setIcon(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_PRIMARY))
         self.btn_rules.clicked.connect(self.open_rules_dialog)
 
-        self.btn_analyze = PrimaryButton("Lancer l'audit", tooltip="Lancer l'audit de conformité Wozniak sur le paquet sélectionné")
+        self.btn_analyze = PrimaryButton("Lancer l'audit", tooltip=self.tr("Lancer l'audit de conformité Wozniak sur le paquet sélectionné"))
         self.btn_analyze.setIcon(load_on_accent_icon("ph.arrows-clockwise"))
         self.btn_analyze.clicked.connect(lambda checked=False: self.refresh_audit(force=True))
 
-        self.score_badge = QLabel("Score : --")
+        self.score_badge = QLabel(self.tr("Score : --"))
         self.score_badge.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         self.score_badge.setStyleSheet(
             f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 12px;"
@@ -158,11 +159,11 @@ class AIWozniakLinterTab(QWidget):
         row2.setSpacing(8)
 
         self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Rechercher une carte, un mot-clé ou une anomalie...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher une carte, un mot-clé ou une anomalie..."))
         self.search_input.setMinimumWidth(260)
         self.search_input.textChanged.connect(self.filter_items_by_search)
 
-        self.lbl_status_summary = QLabel("Aucun paquet analysé")
+        self.lbl_status_summary = QLabel(self.tr("Aucun paquet analysé"))
         self.lbl_status_summary.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
 
         row2.addWidget(self.search_input)
@@ -193,7 +194,7 @@ class AIWozniakLinterTab(QWidget):
         self.cloze_banner.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 10px; }}")
         cb_layout = QHBoxLayout(self.cloze_banner)
 
-        lbl_cb = QLabel("Catégorie Cloze : Conversion en Questions Univoques Q/R")
+        lbl_cb = QLabel(self.tr("Catégorie Cloze : Conversion en Questions Univoques Q/R"))
         lbl_cb.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_cb.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
@@ -331,7 +332,7 @@ class AIWozniakLinterTab(QWidget):
         self.selected_deck_id = deck_id
         self.selected_deck_name = deck_name
         self.btn_deck.setText(deck_name)
-        self.lbl_status_summary.setText(f"Paquet actif : {deck_name} • Prêt pour l'audit")
+        self.lbl_status_summary.setText(tr("Paquet actif : %1 • Prêt pour l'audit", deck_name))
         logger.info("Paquet sélectionné pour audit : %s", deck_name)
         self.show_empty_state(f"Paquet '{deck_name}' sélectionné. Cliquez sur 'Analyser ce paquet' pour lancer le linter Wozniak.")
 
@@ -486,7 +487,7 @@ class AIWozniakLinterTab(QWidget):
                 kpi.update_pct(cat_score, sub_text)
 
         score_global = int(total_score / cat_count)
-        self.score_badge.setText(f"Score : {score_global} / 100")
+        self.score_badge.setText(tr("Score : %1 / 100", score_global))
         self.score_badge.setStyleSheet(
             f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER}; border-radius: 9999px; padding: 4px 14px;"
         )
@@ -548,7 +549,7 @@ class AIWozniakLinterTab(QWidget):
                 AuditRecordModel.create(note=note, note_version=new_version, is_compliant=True, rule_broken=None, reason="Corrigé manuellement via Linter")
 
             logger.info("Proposition appliquée avec succès pour la note #%d", note_id)
-            show_toast(self, f"Note #{note_id} mise à jour avec succès !")
+            show_toast(self, tr("Note #%1 mise à jour avec succès !", note_id))
             widget_to_remove.deleteLater()
 
         except Exception as e:
@@ -570,7 +571,7 @@ class AIWozniakLinterTab(QWidget):
 
             widget_to_remove.deleteLater()
             logger.info("Note #%d ignorée et marquée comme conforme.", note_id)
-            show_toast(self, f"Note #{note_id} marquée comme conforme.")
+            show_toast(self, tr("Note #%1 marquée comme conforme.", note_id))
 
         except Exception as e:
             logger.error("Erreur lors de l'ignorance de la note #%d : %s", note_id, e)

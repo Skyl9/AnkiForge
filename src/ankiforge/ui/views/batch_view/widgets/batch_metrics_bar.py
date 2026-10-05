@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QHBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.batch_view.widgets.cicd_metric_card import CicdMetricCard
+from ankiforge.utils.i18n import tr
 
 
 class BatchMetricsBar(QWidget):
@@ -37,28 +38,28 @@ class BatchMetricsBar(QWidget):
         row.setSpacing(12)
 
         self.card_status = CicdMetricCard(
-            "STATUT GLOBAL",
+            tr("STATUT GLOBAL"),
             "En attente",
             "ph.check-circle",
             color=DesignTokens.COLOR_GREEN,
         )
         self.card_time = CicdMetricCard(
-            "TEMPS ÉCOULÉ",
+            tr("TEMPS ÉCOULÉ"),
             "--:--:--",
             "ph.timer",
             color=DesignTokens.COLOR_BLUE,
         )
         self.card_cards = CicdMetricCard(
-            "CARTES GÉNÉRÉES",
+            tr("CARTES GÉNÉRÉES"),
             "0 cartes",
             "ph.cards",
             color=DesignTokens.COLOR_PURPLE,
             clickable=True,
         )
-        self.card_cards.title_lbl.setToolTip("Ouvrir la revue des cartes en attente de validation")
+        self.card_cards.title_lbl.setToolTip(self.tr("Ouvrir la revue des cartes en attente de validation"))
         self.card_cards.clicked.connect(self.staging_review_requested)
         self.card_cost = CicdMetricCard(
-            "COÛT ESTIMÉ",
+            tr("COÛT ESTIMÉ"),
             "$0.00",
             "ph.coin",
             color=DesignTokens.COLOR_YELLOW,

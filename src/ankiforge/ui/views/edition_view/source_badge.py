@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.elided_label import ElidedLabel
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -95,12 +96,12 @@ class DocumentSourceBadge(QFrame):
         self.lbl_title.setToolTip(full_tooltip)
         header_layout.addWidget(self.lbl_title, 1)
 
-        self.btn_go_doc = QPushButton("Voir le cours ➔")
+        self.btn_go_doc = QPushButton(self.tr("Voir le cours ➔"))
         self.btn_go_doc.setObjectName("sourceBadgeNavBtn")
         self.btn_go_doc.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_go_doc.setAccessibleName("Voir le document source")
         self.btn_go_doc.setAccessibleDescription(f"Ouvrir le cours '{self.doc_title}' dans la vue Documents")
-        self.btn_go_doc.setToolTip(f"Ouvrir '{self.doc_title}' dans la vue Documents")
+        self.btn_go_doc.setToolTip(tr("Ouvrir '%1' dans la vue Documents", self.doc_title))
 
         # Taille minimale garantie pour empêcher toute expulsion ou tronquage hors champ
         fm = self.btn_go_doc.fontMetrics()
@@ -149,7 +150,7 @@ class DocumentSourceBadge(QFrame):
             self.lbl_heading: ElidedLabel | None = ElidedLabel(self.heading)
             self.lbl_heading.setFont(QFont(DesignTokens.FONT_MAIN, 9))
             self.lbl_heading.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE_TEXT}; border: none; background: transparent;")
-            self.lbl_heading.setToolTip(f"Section : {self.heading}")
+            self.lbl_heading.setToolTip(tr("Section : %1", self.heading))
             breadcrumb_layout.addWidget(self.lbl_heading, 1)
 
             root_layout.addLayout(breadcrumb_layout)

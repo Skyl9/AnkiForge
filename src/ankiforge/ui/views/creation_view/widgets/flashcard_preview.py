@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from ankiforge.ui.components import Badge, IconButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
+from ankiforge.utils.i18n import tr
 
 
 class FlashcardPreview(QWidget):
@@ -29,9 +30,9 @@ class FlashcardPreview(QWidget):
         top_toolbar = QHBoxLayout()
         self.btn_prev = IconButton("ph.caret-left", "Carte précédente", 24)
         self.btn_next = IconButton("ph.caret-right", "Carte suivante", 24)
-        self.lbl_counter = QLabel("0 / 0")
+        self.lbl_counter = QLabel(self.tr("0 / 0"))
         self.lbl_counter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-weight: bold;")
-        self.status_badge = Badge("À valider", variant="warning")
+        self.status_badge = Badge(tr("À valider"), variant="warning")
 
         top_toolbar.addWidget(self.btn_prev)
         top_toolbar.addWidget(self.lbl_counter)
@@ -49,12 +50,12 @@ class FlashcardPreview(QWidget):
     def set_status(self, status: str, profile: Any = None) -> None:
         """Met à jour le badge de statut in-situ de la carte visualisée."""
         status_map: dict[str, tuple[str, str]] = {
-            "Validée": ("Validée", "success"),
-            "Acceptée": ("Validée", "success"),
-            "Refusée": ("Refusée", "danger"),
-            "À valider": ("À valider", "warning"),
-            "En attente": ("En attente", "warning"),
-            "Enregistrée": ("Enregistrée", "info"),
+            "Validée": (self.tr("Validée"), "success"),
+            "Acceptée": (self.tr("Validée"), "success"),
+            "Refusée": (self.tr("Refusée"), "danger"),
+            "À valider": (self.tr("À valider"), "warning"),
+            "En attente": (self.tr("En attente"), "warning"),
+            "Enregistrée": (self.tr("Enregistrée"), "info"),
         }
         text, variant = status_map.get(status, (status, "status"))
         self.status_badge.setText(text)

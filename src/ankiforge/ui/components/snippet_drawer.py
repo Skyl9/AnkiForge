@@ -29,6 +29,7 @@ from ankiforge.ui.components.flow_layout import FlowWidget
 from ankiforge.ui.components.inputs import GlowLineEdit, StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -79,11 +80,11 @@ class SnippetCardWidget(QFrame):
         title_lbl.setWordWrap(True)
         header_layout.addWidget(title_lbl, 1)
 
-        self.btn_insert = IconButton("ph.plus", tooltip="Insérer dans le code au curseur", size=18)
+        self.btn_insert = IconButton("ph.plus", tooltip=self.tr("Insérer dans le code au curseur"), size=18)
         self.btn_insert.clicked.connect(lambda: self.insert_requested.emit(self.snippet))
         header_layout.addWidget(self.btn_insert)
 
-        btn_edit = IconButton("ph.caret-right", tooltip="Inspecter et modifier le snippet", size=18)
+        btn_edit = IconButton("ph.caret-right", tooltip=self.tr("Inspecter et modifier le snippet"), size=18)
         btn_edit.clicked.connect(lambda: self.edit_requested.emit(self.snippet))
         header_layout.addWidget(btn_edit)
         layout.addLayout(header_layout)
@@ -147,7 +148,7 @@ class SnippetLibraryDrawer(QWidget):
         top_row.setContentsMargins(0, 0, 0, 0)
         top_row.setSpacing(6)
 
-        lbl_title = QLabel("BIBLIOTHÈQUE")
+        lbl_title = QLabel(self.tr("BIBLIOTHÈQUE"))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         top_row.addWidget(lbl_title)
         top_row.addStretch()
@@ -155,14 +156,14 @@ class SnippetLibraryDrawer(QWidget):
         btn_new = PrimaryButton("Nouveau")
         btn_new.setIcon(load_on_accent_icon("ph.plus"))
         btn_new.setFixedHeight(26)
-        btn_new.setToolTip("Créer un nouveau snippet personnalisé")
+        btn_new.setToolTip(self.tr("Créer un nouveau snippet personnalisé"))
         btn_new.clicked.connect(self._open_create_view)
         top_row.addWidget(btn_new)
 
         layout.addLayout(top_row)
 
         # Barre de recherche avec loupe intégrée, animation et contour focus
-        self.search_input = GlowLineEdit(placeholder="Rechercher un snippet...")
+        self.search_input = GlowLineEdit(placeholder=self.tr("Rechercher un snippet..."))
         self.search_input.setObjectName("snippetSearchInput")
         self.search_input.setProperty("role", "search")
         self.search_input.textChanged.connect(self._filter_snippets)
@@ -307,7 +308,7 @@ class SnippetLibraryDrawer(QWidget):
                     w.deleteLater()
 
         if not snippets:
-            empty_lbl = QLabel("Aucun snippet correspondant.")
+            empty_lbl = QLabel(self.tr("Aucun snippet correspondant."))
             empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; padding: 20px;")
             self.cards_layout.addWidget(empty_lbl)
@@ -340,12 +341,12 @@ class SnippetLibraryDrawer(QWidget):
         btn_back.clicked.connect(self._return_to_list)
         top_bar.addWidget(btn_back)
 
-        lbl_detail_title = QLabel("DÉTAIL DU SNIPPET")
+        lbl_detail_title = QLabel(self.tr("DÉTAIL DU SNIPPET"))
         lbl_detail_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
         top_bar.addWidget(lbl_detail_title)
         top_bar.addStretch()
 
-        self.btn_detail_delete = DangerButton("Supprimer", ghost=True)
+        self.btn_detail_delete = DangerButton(tr("Supprimer"), ghost=True)
         self.btn_detail_delete.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
         self.btn_detail_delete.setFixedHeight(28)
         self.btn_detail_delete.clicked.connect(self._delete_current_detail_snippet)
@@ -379,36 +380,36 @@ class SnippetLibraryDrawer(QWidget):
         meta_layout.setContentsMargins(10, 10, 10, 10)
         meta_layout.setSpacing(6)
 
-        lbl_meta_hdr = QLabel("INFORMATIONS GÉNÉRALES")
+        lbl_meta_hdr = QLabel(self.tr("INFORMATIONS GÉNÉRALES"))
         lbl_meta_hdr.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none;")
         meta_layout.addWidget(lbl_meta_hdr)
 
-        lbl_name = QLabel("Nom du snippet :")
+        lbl_name = QLabel(self.tr("Nom du snippet :"))
         lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         meta_layout.addWidget(lbl_name)
-        self.detail_name_input = StyledLineEdit(icon_name="ph.text-t", placeholder="Nom du composant")
+        self.detail_name_input = StyledLineEdit(icon_name="ph.text-t", placeholder=self.tr("Nom du composant"))
         meta_layout.addWidget(self.detail_name_input)
 
-        lbl_cat = QLabel("Catégorie :")
+        lbl_cat = QLabel(self.tr("Catégorie :"))
         lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         meta_layout.addWidget(lbl_cat)
-        self.detail_cat_input = StyledLineEdit(icon_name="ph.folder", placeholder="Catégorie")
+        self.detail_cat_input = StyledLineEdit(icon_name="ph.folder", placeholder=self.tr("Catégorie"))
         meta_layout.addWidget(self.detail_cat_input)
 
-        lbl_desc = QLabel("Description :")
+        lbl_desc = QLabel(self.tr("Description :"))
         lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         meta_layout.addWidget(lbl_desc)
-        self.detail_desc_input = StyledLineEdit(icon_name="ph.chat-centered-text", placeholder="Description")
+        self.detail_desc_input = StyledLineEdit(icon_name="ph.chat-centered-text", placeholder=self.tr("Description"))
         meta_layout.addWidget(self.detail_desc_input)
 
         # Icône avec preview dynamique
-        lbl_icon = QLabel("Icône Phosphor :")
+        lbl_icon = QLabel(self.tr("Icône Phosphor :"))
         lbl_icon.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         meta_layout.addWidget(lbl_icon)
 
         icon_row = QHBoxLayout()
         icon_row.setSpacing(6)
-        self.detail_icon_input = StyledLineEdit(icon_name="ph.sparkle", placeholder="ex: ph.info, ph.code")
+        self.detail_icon_input = StyledLineEdit(icon_name="ph.sparkle", placeholder=self.tr("ex: ph.info, ph.code"))
         self.detail_icon_input.textChanged.connect(self._update_detail_icon_preview)
         icon_row.addWidget(self.detail_icon_input, 1)
 
@@ -464,14 +465,14 @@ class SnippetLibraryDrawer(QWidget):
         self.detail_code_stack = QStackedWidget()
 
         self.detail_html_editor = CodeEditorWithGutter(
-            placeholder='<div class="custom-card">\n  {{Champ}}\n</div>',
+            placeholder=self.tr('<div class="custom-card">\n  {{Champ}}\n</div>'),
             mode="html",
         )
         self.detail_html_editor.setFixedHeight(140)
         self.detail_code_stack.addWidget(self.detail_html_editor)
 
         self.detail_css_editor = CodeEditorWithGutter(
-            placeholder=".custom-card {\n  margin: 10px 0;\n  padding: 12px;\n}",
+            placeholder=self.tr(".custom-card {\n  margin: 10px 0;\n  padding: 12px;\n}"),
             mode="css",
         )
         self.detail_css_editor.setFixedHeight(140)
@@ -496,7 +497,7 @@ class SnippetLibraryDrawer(QWidget):
         self.btn_insert_detail = SecondaryButton("Insérer au curseur")
         self.btn_insert_detail.setIcon(load_phosphor_icon("ph.cursor-click", color=DesignTokens.TEXT_PRIMARY))
         self.btn_insert_detail.setFixedHeight(28)
-        self.btn_insert_detail.setToolTip("Insérer ce snippet à la position actuelle du curseur dans l'éditeur actif.")
+        self.btn_insert_detail.setToolTip(self.tr("Insérer ce snippet à la position actuelle du curseur dans l'éditeur actif."))
         self.btn_insert_detail.clicked.connect(self._insert_current_detail_snippet)
         btn_actions_layout.addWidget(self.btn_insert_detail)
 
@@ -577,7 +578,7 @@ class SnippetLibraryDrawer(QWidget):
         btn_cancel.clicked.connect(self._return_to_list)
         top_bar.addWidget(btn_cancel)
 
-        lbl_create_title = QLabel("NOUVEAU SNIPPET")
+        lbl_create_title = QLabel(self.tr("NOUVEAU SNIPPET"))
         lbl_create_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
         top_bar.addWidget(lbl_create_title)
         top_bar.addStretch()
@@ -610,38 +611,38 @@ class SnippetLibraryDrawer(QWidget):
         meta_layout.setContentsMargins(10, 10, 10, 10)
         meta_layout.setSpacing(6)
 
-        lbl_meta_hdr = QLabel("INFORMATIONS GÉNÉRALES")
+        lbl_meta_hdr = QLabel(self.tr("INFORMATIONS GÉNÉRALES"))
         lbl_meta_hdr.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none;")
         meta_layout.addWidget(lbl_meta_hdr)
 
-        lbl_name = QLabel("Nom du snippet :")
+        lbl_name = QLabel(self.tr("Nom du snippet :"))
         lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         meta_layout.addWidget(lbl_name)
-        self.create_name_input = StyledLineEdit(icon_name="ph.text-t", placeholder="ex: Encadré Définition")
+        self.create_name_input = StyledLineEdit(icon_name="ph.text-t", placeholder=self.tr("ex: Encadré Définition"))
         meta_layout.addWidget(self.create_name_input)
 
-        lbl_cat = QLabel("Catégorie :")
+        lbl_cat = QLabel(self.tr("Catégorie :"))
         lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         meta_layout.addWidget(lbl_cat)
-        self.create_cat_input = StyledLineEdit(icon_name="ph.folder", placeholder="ex: Callouts & Remarques")
-        self.create_cat_input.setText("Personnalisé")
+        self.create_cat_input = StyledLineEdit(icon_name="ph.folder", placeholder=self.tr("ex: Callouts & Remarques"))
+        self.create_cat_input.setText(self.tr("Personnalisé"))
         meta_layout.addWidget(self.create_cat_input)
 
-        lbl_desc = QLabel("Description :")
+        lbl_desc = QLabel(self.tr("Description :"))
         lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         meta_layout.addWidget(lbl_desc)
-        self.create_desc_input = StyledLineEdit(icon_name="ph.chat-centered-text", placeholder="Courte description de l'usage")
+        self.create_desc_input = StyledLineEdit(icon_name="ph.chat-centered-text", placeholder=self.tr("Courte description de l'usage"))
         meta_layout.addWidget(self.create_desc_input)
 
         # Icône avec preview dynamique
-        lbl_icon = QLabel("Icône Phosphor :")
+        lbl_icon = QLabel(self.tr("Icône Phosphor :"))
         lbl_icon.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         meta_layout.addWidget(lbl_icon)
 
         icon_row = QHBoxLayout()
         icon_row.setSpacing(6)
-        self.create_icon_input = StyledLineEdit(icon_name="ph.sparkle", placeholder="ph.sparkle")
-        self.create_icon_input.setText("ph.sparkle")
+        self.create_icon_input = StyledLineEdit(icon_name="ph.sparkle", placeholder=self.tr("ph.sparkle"))
+        self.create_icon_input.setText(self.tr("ph.sparkle"))
         self.create_icon_input.textChanged.connect(self._update_create_icon_preview)
         icon_row.addWidget(self.create_icon_input, 1)
 
@@ -697,14 +698,14 @@ class SnippetLibraryDrawer(QWidget):
         self.create_code_stack = QStackedWidget()
 
         self.create_html_editor = CodeEditorWithGutter(
-            placeholder='<div class="af-custom-box">\n  <div class="af-custom-title">Titre</div>\n  <div class="af-custom-body">{{Contenu}}</div>\n</div>',
+            placeholder=self.tr('<div class="af-custom-box">\n  <div class="af-custom-title">Titre</div>\n  <div class="af-custom-body">{{Contenu}}</div>\n</div>'),
             mode="html",
         )
         self.create_html_editor.setFixedHeight(140)
         self.create_code_stack.addWidget(self.create_html_editor)
 
         self.create_css_editor = CodeEditorWithGutter(
-            placeholder=".af-custom-box {\n  margin: 12px 0;\n  padding: 10px;\n  border-radius: 8px;\n  background: rgba(99, 102, 241, 0.1);\n}",
+            placeholder=self.tr(".af-custom-box {\n  margin: 12px 0;\n  padding: 10px;\n  border-radius: 8px;\n  background: rgba(99, 102, 241, 0.1);\n}"),
             mode="css",
         )
         self.create_css_editor.setFixedHeight(140)
@@ -789,9 +790,9 @@ class SnippetLibraryDrawer(QWidget):
     @Slot()
     def _open_create_view(self) -> None:
         self.create_name_input.clear()
-        self.create_cat_input.setText("Personnalisé")
+        self.create_cat_input.setText(self.tr("Personnalisé"))
         self.create_desc_input.clear()
-        self.create_icon_input.setText("ph.sparkle")
+        self.create_icon_input.setText(self.tr("ph.sparkle"))
         self.create_html_editor.clear()
         self.create_css_editor.clear()
         self._update_create_icon_preview("ph.sparkle")
@@ -821,7 +822,7 @@ class SnippetLibraryDrawer(QWidget):
 
         name = self.detail_name_input.text().strip()
         if not name:
-            show_toast(self, "Le nom du snippet ne peut pas être vide.", is_error=True)
+            show_toast(self, self.tr("Le nom du snippet ne peut pas être vide."), is_error=True)
             return
 
         self._selected_snippet_for_detail.name = name
@@ -833,7 +834,7 @@ class SnippetLibraryDrawer(QWidget):
 
         SnippetLibrary.save_snippet(self._selected_snippet_for_detail)
         self.refresh_snippets()
-        show_toast(self, f"Snippet « {name} » mis à jour avec succès.")
+        show_toast(self, tr("Snippet « %1 » mis à jour avec succès.", name))
         self.stack.setCurrentIndex(0)
 
     @Slot()
@@ -843,14 +844,14 @@ class SnippetLibraryDrawer(QWidget):
 
         res = QMessageBox.question(
             self,
-            "Supprimer le Snippet",
-            f"Voulez-vous vraiment supprimer le snippet « {self._selected_snippet_for_detail.name} » ?",
+            self.tr("Supprimer le Snippet"),
+            tr("Voulez-vous vraiment supprimer le snippet « %1 » ?", self._selected_snippet_for_detail.name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if res == QMessageBox.StandardButton.Yes:
             SnippetLibrary.delete_snippet(self._selected_snippet_for_detail.id)
             self.refresh_snippets()
-            show_toast(self, "Snippet supprimé de la bibliothèque.")
+            show_toast(self, self.tr("Snippet supprimé de la bibliothèque."))
             self.stack.setCurrentIndex(0)
 
     @Slot()
@@ -862,7 +863,7 @@ class SnippetLibraryDrawer(QWidget):
     def _submit_create_snippet(self) -> None:
         name = self.create_name_input.text().strip()
         if not name:
-            show_toast(self, "Veuillez saisir un nom pour le snippet.", is_error=True)
+            show_toast(self, self.tr("Veuillez saisir un nom pour le snippet."), is_error=True)
             return
 
         cat = self.create_cat_input.text().strip() or "Personnalisé"
@@ -884,7 +885,7 @@ class SnippetLibraryDrawer(QWidget):
         )
 
         self.refresh_snippets()
-        show_toast(self, f"Snippet « {created.name} » créé avec succès.")
+        show_toast(self, tr("Snippet « %1 » créé avec succès.", created.name))
         self.stack.setCurrentIndex(0)
 
     def refresh_snippets(self) -> None:

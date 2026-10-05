@@ -17,7 +17,7 @@ class FloatingDockWindow(QWidget):
 
     def __init__(self):
         super().__init__(None, Qt.WindowType.Window)
-        self.setWindowTitle("AnkiForge - Detached Tab")
+        self.setWindowTitle(self.tr("AnkiForge - Detached Tab"))
         self.resize(800, 600)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")
 
@@ -198,7 +198,7 @@ class FloatingDockWindow(QWidget):
                 catalog[title] = (panel, info)
 
         if not catalog:
-            action = QAction("Aucun onglet disponible", self)
+            action = QAction(self.tr("Aucun onglet disponible"), self)
             action.setEnabled(False)
             menu.addAction(action)
         else:

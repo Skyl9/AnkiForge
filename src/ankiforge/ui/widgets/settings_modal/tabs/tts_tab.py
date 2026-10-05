@@ -9,6 +9,8 @@ from typing import Any
 
 from PySide6.QtCore import Qt, QThread, QUrl, Signal
 
+from ankiforge.utils.i18n import tr
+
 try:
     from PySide6.QtMultimedia import QAudioOutput, QMediaDevices, QMediaPlayer
 
@@ -127,7 +129,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         layout.setSpacing(14)
 
         # ── SECTION 1 : CONFIGURATION GÉNÉRALE TTS ──────────────────────────
-        self.lbl_sec_general = QLabel("CONFIGURATION DU MOTEUR VOCAL")
+        self.lbl_sec_general = QLabel(self.tr("CONFIGURATION DU MOTEUR VOCAL"))
         self.lbl_sec_general.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_general)
 
@@ -138,7 +140,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         # 1. Choix du Moteur
         row_engine = QHBoxLayout()
-        lbl_engine = QLabel("Moteur de synthèse :")
+        lbl_engine = QLabel(self.tr("Moteur de synthèse :"))
         lbl_engine.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_engine.addWidget(lbl_engine)
         row_engine.addStretch()
@@ -155,7 +157,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         # 2. Choix de la Voix
         row_voice = QHBoxLayout()
-        lbl_voice = QLabel("Voix par défaut :")
+        lbl_voice = QLabel(self.tr("Voix par défaut :"))
         lbl_voice.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_voice.addWidget(lbl_voice)
         row_voice.addStretch()
@@ -170,7 +172,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         # 3. Vitesse et Tonalité
         row_params = QHBoxLayout()
-        lbl_rate = QLabel("Vitesse d'élocution :")
+        lbl_rate = QLabel(self.tr("Vitesse d'élocution :"))
         lbl_rate.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_params.addWidget(lbl_rate)
         row_params.addStretch()
@@ -180,16 +182,16 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self.cb_rate.setFixedHeight(28)
         if self.cb_rate.view() is not None:
             self.cb_rate.view().setTextElideMode(Qt.TextElideMode.ElideRight)
-        self.cb_rate.addItem("Normale (100%)", "+0%")
-        self.cb_rate.addItem("Lente (85%)", "-15%")
-        self.cb_rate.addItem("Rapide (115%)", "+15%")
-        self.cb_rate.addItem("Très rapide (130%)", "+30%")
+        self.cb_rate.addItem(self.tr("Normale (100%)"), "+0%")
+        self.cb_rate.addItem(self.tr("Lente (85%)"), "-15%")
+        self.cb_rate.addItem(self.tr("Rapide (115%)"), "+15%")
+        self.cb_rate.addItem(self.tr("Très rapide (130%)"), "+30%")
         row_params.addWidget(self.cb_rate)
         card_gen_layout.addLayout(row_params)
 
         # 4. Périphérique de Sortie Audio
         row_device = QHBoxLayout()
-        lbl_device = QLabel("Sortie audio :")
+        lbl_device = QLabel(self.tr("Sortie audio :"))
         lbl_device.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_device.addWidget(lbl_device)
         row_device.addStretch()
@@ -218,7 +220,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_general)
 
         # ── SECTION 2 : GESTIONNAIRE LOCAL PIPER (SIDECAR DÉCOUPLÉ) ──────────
-        self.lbl_sec_piper = QLabel("MOTEUR LOCAL PIPER")
+        self.lbl_sec_piper = QLabel(self.tr("MOTEUR LOCAL PIPER"))
         self.lbl_sec_piper.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_piper)
 
@@ -229,7 +231,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         # Statut de Piper
         row_status = QHBoxLayout()
-        lbl_status_title = QLabel("Statut de Piper CLI :")
+        lbl_status_title = QLabel(self.tr("Statut de Piper CLI :"))
         lbl_status_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_status.addWidget(lbl_status_title)
 
@@ -242,7 +244,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         card_piper_layout.addLayout(row_status)
 
         # Emplacement
-        lbl_location = QLabel(f"Emplacement : {get_app_data_dir() / 'tools' / 'tts' / 'piper'}")
+        lbl_location = QLabel(tr("Emplacement : %1", get_app_data_dir() / "tools" / "tts" / "piper"))
         lbl_location.setWordWrap(True)
         lbl_location.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         card_piper_layout.addWidget(lbl_location)
@@ -265,7 +267,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self._update_piper_status_ui()
 
         # ── SECTION 3 : GESTIONNAIRE LOCAL KOKORO-82M (SIDECAR DÉPORTÉ) ──────
-        self.lbl_sec_kokoro = QLabel("MOTEUR LOCAL KOKORO-82M (OPTIONNEL)")
+        self.lbl_sec_kokoro = QLabel(self.tr("MOTEUR LOCAL KOKORO-82M (OPTIONNEL)"))
         self.lbl_sec_kokoro.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_kokoro)
 
@@ -276,7 +278,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         # Statut de Kokoro
         row_kokoro_status = QHBoxLayout()
-        lbl_kokoro_title = QLabel("Statut du Runner Kokoro :")
+        lbl_kokoro_title = QLabel(self.tr("Statut du Runner Kokoro :"))
         lbl_kokoro_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_kokoro_status.addWidget(lbl_kokoro_title)
 
@@ -289,14 +291,14 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         card_kokoro_layout.addLayout(row_kokoro_status)
 
         # Emplacement
-        lbl_kokoro_loc = QLabel(f"Emplacement : {get_app_data_dir() / 'tools' / 'tts' / 'kokoro'}")
+        lbl_kokoro_loc = QLabel(tr("Emplacement : %1", get_app_data_dir() / "tools" / "tts" / "kokoro"))
         lbl_kokoro_loc.setWordWrap(True)
         lbl_kokoro_loc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         card_kokoro_layout.addWidget(lbl_kokoro_loc)
 
         # Description / Guide
         lbl_kokoro_guide = QLabel(
-            "Kokoro-82M est un modèle local compact haute fidélité. Le runner s'exécute en processus déporté via ~/.ankiforge/tools/tts/kokoro/run.py ou un binaire 'kokoro' dans le PATH."
+            self.tr("Kokoro-82M est un modèle local compact haute fidélité. Le runner s'exécute en processus déporté via ~/.ankiforge/tools/tts/kokoro/run.py ou un binaire 'kokoro' dans le PATH.")
         )
         lbl_kokoro_guide.setWordWrap(True)
         lbl_kokoro_guide.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
@@ -329,13 +331,13 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         current_data = self.cb_engine.currentData()
         self.cb_engine.blockSignals(True)
         self.cb_engine.clear()
-        self.cb_engine.addItem("Edge-TTS (Voix Neuronales Cloud Gratuit)", "edge-tts")
-        self.cb_engine.addItem("Piper TTS (Local Hors-Ligne Standalone)", "piper")
-        self.cb_engine.addItem("Moteur Système OS (Fallback Natif)", "system")
+        self.cb_engine.addItem(self.tr("Edge-TTS (Voix Neuronales Cloud Gratuit)"), "edge-tts")
+        self.cb_engine.addItem(self.tr("Piper TTS (Local Hors-Ligne Standalone)"), "piper")
+        self.cb_engine.addItem(self.tr("Moteur Système OS (Fallback Natif)"), "system")
 
         is_kokoro_ok, _ = KokoroSidecarProvider.is_functional()
         if is_kokoro_ok:
-            self.cb_engine.addItem("Kokoro-82M (Runner Local Déporté)", "kokoro")
+            self.cb_engine.addItem(self.tr("Kokoro-82M (Runner Local Déporté)"), "kokoro")
 
         if current_data:
             idx = self.cb_engine.findData(current_data)
@@ -349,40 +351,40 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         if is_installed:
             is_functional, msg = PiperSidecarProvider.is_functional()
             if is_functional:
-                self.lbl_piper_status.setText("● Installé et opérationnel")
+                self.lbl_piper_status.setText(self.tr("● Installé et opérationnel"))
                 self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
                 if hasattr(self, "btn_install_piper"):
-                    self.btn_install_piper.setText(" Réinstaller Piper CLI (1-Clic)")
+                    self.btn_install_piper.setText(self.tr(" Réinstaller Piper CLI (1-Clic)"))
             else:
-                self.lbl_piper_status.setText("○ Inopérationnel (dépendance requise)")
+                self.lbl_piper_status.setText(self.tr("○ Inopérationnel (dépendance requise)"))
                 self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
-                self.lbl_piper_status.setToolTip(f"Dépendance manquante ou non fonctionnelle :\n{msg}")
+                self.lbl_piper_status.setToolTip(tr("Dépendance manquante ou non fonctionnelle :\n%1", msg))
                 if hasattr(self, "btn_install_piper"):
-                    self.btn_install_piper.setText(" Réinstaller Piper CLI (1-Clic)")
+                    self.btn_install_piper.setText(self.tr(" Réinstaller Piper CLI (1-Clic)"))
         else:
-            self.lbl_piper_status.setText("○ Non installé (binaire absent)")
+            self.lbl_piper_status.setText(self.tr("○ Non installé (binaire absent)"))
             self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
             if hasattr(self, "btn_install_piper"):
-                self.btn_install_piper.setText(" Télécharger Piper CLI (1-Clic)")
+                self.btn_install_piper.setText(self.tr(" Télécharger Piper CLI (1-Clic)"))
 
     def _update_kokoro_status_ui(self) -> None:
         """Met à jour le libellé et la couleur du statut d'installation de Kokoro."""
         is_functional, msg = KokoroSidecarProvider.is_functional()
         if is_functional:
-            self.lbl_kokoro_status.setText("● Installé et opérationnel")
+            self.lbl_kokoro_status.setText(self.tr("● Installé et opérationnel"))
             self.lbl_kokoro_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
             if hasattr(self, "btn_install_kokoro"):
                 self.btn_install_kokoro.setEnabled(False)
-                self.btn_install_kokoro.setText(" Kokoro déjà installé et prêt")
-                self.btn_install_kokoro.setToolTip("Le modèle Kokoro-82M est opérationnel sans configuration requise.")
+                self.btn_install_kokoro.setText(self.tr(" Kokoro déjà installé et prêt"))
+                self.btn_install_kokoro.setToolTip(self.tr("Le modèle Kokoro-82M est opérationnel sans configuration requise."))
         else:
-            self.lbl_kokoro_status.setText("○ Non installé (runner absent)")
+            self.lbl_kokoro_status.setText(self.tr("○ Non installé (runner absent)"))
             self.lbl_kokoro_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
             self.lbl_kokoro_status.setToolTip(msg)
             if hasattr(self, "btn_install_kokoro"):
                 self.btn_install_kokoro.setEnabled(True)
-                self.btn_install_kokoro.setText(" Installer Kokoro (1-Clic)")
-                self.btn_install_kokoro.setToolTip("Télécharger et installer le runner Kokoro local")
+                self.btn_install_kokoro.setText(self.tr(" Installer Kokoro (1-Clic)"))
+                self.btn_install_kokoro.setToolTip(self.tr("Télécharger et installer le runner Kokoro local"))
 
     def _on_engine_changed(self) -> None:
         """Met à jour la liste des voix lorsque le moteur change."""
@@ -393,9 +395,9 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             provider = self.tts_service.get_provider(engine_id)
             voices = provider.get_voices()
             for v in voices:
-                self.cb_voice.addItem(f"{v['name']} ({v.get('lang', '')})", v["id"])
+                self.cb_voice.addItem(tr("%1 (%2)", v["name"], v.get("lang", "")), v["id"])
         except Exception as e:
-            self.cb_voice.addItem(f"Erreur de chargement des voix : {e}", "default")
+            self.cb_voice.addItem(tr("Erreur de chargement des voix : %1", e), "default")
 
     def _load_settings(self) -> None:
         """Charge les paramètres enregistrés pour la synthèse vocale."""
@@ -410,7 +412,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             if engine == "kokoro":
                 show_toast(
                     self,
-                    "Le moteur Kokoro-82M n'est pas opérationnel sur cette machine. Repli automatique sur Edge-TTS.",
+                    self.tr("Le moteur Kokoro-82M n'est pas opérationnel sur cette machine. Repli automatique sur Edge-TTS."),
                     is_error=False,
                 )
             self.cb_engine.setCurrentIndex(0)
@@ -458,7 +460,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         """Remplit la liste des périphériques de sortie audio disponibles."""
         self.cb_device.clear()
         if not HAS_QTMULTIMEDIA or QMediaDevices is None:
-            self.cb_device.addItem("Sortie audio système par défaut", "")
+            self.cb_device.addItem(self.tr("Sortie audio système par défaut"), "")
             self.cb_device.setEnabled(False)
             return
 
@@ -501,16 +503,16 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         """Met à jour l'icône et l'intitulé du bouton de test selon la lecture."""
         is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and state == QMediaPlayer.PlaybackState.PlayingState
         if is_playing:
-            self.btn_test.setText(" Arrêter la lecture")
+            self.btn_test.setText(self.tr(" Arrêter la lecture"))
             self.btn_test.setIcon(load_phosphor_icon("ph.stop", color=DesignTokens.COLOR_RED))
         else:
-            self.btn_test.setText(" Tester la voix sélectionnée")
+            self.btn_test.setText(self.tr(" Tester la voix sélectionnée"))
             self.btn_test.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.ACCENT_PRIMARY))
 
     def _on_test_voice(self) -> None:
         """Génère et lit un échantillon de voix avec les réglages actuels."""
         if not self._player or QMediaPlayer is None:
-            show_toast(self, "La lecture audio n'est pas supportée sur ce système (libpulse manquant).", is_error=True)
+            show_toast(self, self.tr("La lecture audio n'est pas supportée sur ce système (libpulse manquant)."), is_error=True)
             return
 
         if hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
@@ -534,17 +536,17 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             self._player.setSource(QUrl.fromLocalFile(str(audio_path)))
             self._player.play()
             dev_desc = self._audio_output.device().description() if self._audio_output else "Sortie audio"
-            show_toast(self, f"Lecture audio en cours sur '{dev_desc}'...")
+            show_toast(self, tr("Lecture audio en cours sur '%1'...", dev_desc))
         except Exception as e:
             logger.exception("Erreur lors du test vocal : %s", e)
-            show_toast(self, f"Erreur lors du test vocal : {e}", is_error=True)
+            show_toast(self, tr("Erreur lors du test vocal : %1", e), is_error=True)
         finally:
             self.btn_test.setEnabled(True)
 
     def _on_install_piper(self) -> None:
         """Lance le téléchargement de Piper CLI en tâche de fond."""
         self.btn_install_piper.setEnabled(False)
-        self.lbl_install_progress.setText("Téléchargement en cours...")
+        self.lbl_install_progress.setText(self.tr("Téléchargement en cours..."))
 
         self._installer_worker = PiperInstallerWorker()
         self._installer_worker.progress.connect(self.lbl_install_progress.setText)
@@ -554,21 +556,21 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
     def _on_installer_success(self) -> None:
         self.btn_install_piper.setEnabled(True)
-        self.lbl_install_progress.setText("Piper installé avec succès !")
+        self.lbl_install_progress.setText(self.tr("Piper installé avec succès !"))
         self._update_piper_status_ui()
         self._populate_engines()
         self._on_engine_changed()
-        show_toast(self, "Piper TTS a été installé avec succès.")
+        show_toast(self, self.tr("Piper TTS a été installé avec succès."))
 
     def _on_installer_failed(self, err_msg: str) -> None:
         self.btn_install_piper.setEnabled(True)
-        self.lbl_install_progress.setText("Échec du téléchargement.")
-        show_toast(self, f"Installation de Piper échouée : {err_msg}", is_error=True)
+        self.lbl_install_progress.setText(self.tr("Échec du téléchargement."))
+        show_toast(self, tr("Installation de Piper échouée : %1", err_msg), is_error=True)
 
     def _on_install_kokoro(self) -> None:
         """Lance l'installation / configuration du runner Kokoro en tâche de fond."""
         self.btn_install_kokoro.setEnabled(False)
-        self.lbl_kokoro_install_progress.setText("Configuration en cours...")
+        self.lbl_kokoro_install_progress.setText(self.tr("Configuration en cours..."))
 
         self._kokoro_worker = KokoroInstallerWorker()
         self._kokoro_worker.progress.connect(self.lbl_kokoro_install_progress.setText)
@@ -577,20 +579,20 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self._kokoro_worker.start()
 
     def _on_kokoro_installer_success(self) -> None:
-        self.lbl_kokoro_install_progress.setText("Kokoro configuré avec succès !")
+        self.lbl_kokoro_install_progress.setText(self.tr("Kokoro configuré avec succès !"))
         self._update_kokoro_status_ui()
         self._populate_engines()
         self._on_engine_changed()
-        show_toast(self, "Le runner Kokoro-82M a été configuré avec succès.")
+        show_toast(self, self.tr("Le runner Kokoro-82M a été configuré avec succès."))
 
     def _on_kokoro_installer_failed(self, err_msg: str) -> None:
         self.btn_install_kokoro.setEnabled(True)
-        self.lbl_kokoro_install_progress.setText("Échec de la configuration.")
-        show_toast(self, f"Configuration de Kokoro échouée : {err_msg}", is_error=True)
+        self.lbl_kokoro_install_progress.setText(self.tr("Échec de la configuration."))
+        show_toast(self, tr("Configuration de Kokoro échouée : %1", err_msg), is_error=True)
 
     def _on_player_error(self, error: Any, error_string: str) -> None:
         logger.warning("Erreur du lecteur audio : %s - %s", error, error_string)
-        show_toast(self, f"Erreur de lecture audio : {error_string}", is_error=True)
+        show_toast(self, tr("Erreur de lecture audio : %1", error_string), is_error=True)
 
     def closeEvent(self, event: Any) -> None:
         if self._player and QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:

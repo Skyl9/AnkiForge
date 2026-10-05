@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QPush
 from ankiforge.ui.components import Badge
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.consultant_view.constants import apply_pill_style
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -43,15 +44,15 @@ class ToolCallWidget(QFrame):
         self.icon_lbl = QLabel()
         header.addWidget(self.icon_lbl)
 
-        self.lbl_tool = QLabel(f"Outil invoqué : <b>{tool_name}</b>")
+        self.lbl_tool = QLabel(tr("Outil invoqué : <b>%1</b>", tool_name))
         self.lbl_tool.setWordWrap(True)
         self.lbl_tool.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         header.addWidget(self.lbl_tool, 1)
 
-        self.badge_status = Badge("Exécution...", variant="status")
+        self.badge_status = Badge(tr("Exécution..."), variant="status")
         header.addWidget(self.badge_status)
 
-        self.btn_toggle = QPushButton("Voir données ▾")
+        self.btn_toggle = QPushButton(self.tr("Voir données ▾"))
         self.btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle.setStyleSheet(f"QPushButton {{ background: transparent; border: none; color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; }}")
         self.btn_toggle.clicked.connect(self._toggle_details)
@@ -64,7 +65,7 @@ class ToolCallWidget(QFrame):
         details_layout.setContentsMargins(0, 4, 0, 0)
         details_layout.setSpacing(4)
 
-        self.lbl_args = QLabel(f"<b>Entrée (JSON) :</b> <code>{args_json}</code>")
+        self.lbl_args = QLabel(tr("<b>Entrée (JSON) :</b> <code>%1</code>", args_json))
         self.lbl_args.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}';")
         self.lbl_args.setWordWrap(True)
         details_layout.addWidget(self.lbl_args)
@@ -117,16 +118,16 @@ class ToolCallWidget(QFrame):
         self._setup_style()
         if self.is_running:
             self.icon_lbl.setPixmap(load_phosphor_icon("ph.spinner", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
-            self.badge_status.setText("En cours...")
+            self.badge_status.setText(self.tr("En cours..."))
             apply_pill_style(self.badge_status, DesignTokens.COLOR_YELLOW)
         elif self.is_error:
             self.icon_lbl.setPixmap(load_phosphor_icon("ph.x-circle", color=DesignTokens.COLOR_RED).pixmap(14, 14))
-            self.badge_status.setText("Échec")
+            self.badge_status.setText(self.tr("Échec"))
             apply_pill_style(self.badge_status, DesignTokens.COLOR_RED)
         else:
             icon_name = "ph.database" if "peewee" in self.tool_name or "sql" in self.tool_name else ("ph.palette" if "css" in self.tool_name else "ph.check-circle")
             self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
-            self.badge_status.setText("Succès")
+            self.badge_status.setText(self.tr("Succès"))
             apply_pill_style(self.badge_status, DesignTokens.COLOR_GREEN)
 
     def update_result(self, result_str: str, is_error: bool = False) -> None:
@@ -140,10 +141,10 @@ class ToolCallWidget(QFrame):
     def _toggle_details(self) -> None:
         if self.details_box.isHidden():
             self.details_box.show()
-            self.btn_toggle.setText("Masquer ▴")
+            self.btn_toggle.setText(self.tr("Masquer ▴"))
         else:
             self.details_box.hide()
-            self.btn_toggle.setText("Voir données ▾")
+            self.btn_toggle.setText(self.tr("Voir données ▾"))
 
     def refresh_theme(self, profile: Any) -> None:
         self._setup_style()

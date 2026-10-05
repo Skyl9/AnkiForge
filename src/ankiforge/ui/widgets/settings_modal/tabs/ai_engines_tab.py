@@ -50,6 +50,7 @@ from ankiforge.ui.widgets.settings_modal.components.settings_card import (
 from ankiforge.ui.widgets.settings_modal.dialogs.vision_category_dialog import VisionCategoryDialog
 from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -188,7 +189,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         layout.setSpacing(14)
 
         # ── SECTION 1 : CLÉS D'AUTHENTIFICATION CLOUD ────────────────────────
-        self.lbl_sec_keys = QLabel("CLÉS API DES FOURNISSEURS CLOUD")
+        self.lbl_sec_keys = QLabel(self.tr("CLÉS API DES FOURNISSEURS CLOUD"))
         self.lbl_sec_keys.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_keys)
 
@@ -217,7 +218,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             icon_lbl.setPixmap(load_phosphor_icon(p_icon, color=DesignTokens.ACCENT_PRIMARY).pixmap(15, 15))
             row.addWidget(icon_lbl)
 
-            lbl = QLabel(f"{p_name} :")
+            lbl = QLabel(tr("%1 :", p_name))
             lbl.setMinimumWidth(85)
             lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
             row.addWidget(lbl)
@@ -241,7 +242,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             self.key_status_badges[p_id] = badge_st
             row.addWidget(badge_st)
             if initial_key:
-                badge_st.setText("Format valide")
+                badge_st.setText(self.tr("Format valide"))
                 apply_pill_badge_style(badge_st, DesignTokens.COLOR_GREEN)
                 badge_st.show()
             else:
@@ -252,7 +253,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_keys)
 
         # ── SECTION 2 : SERVEURS LOCAUX & PASSERELLES ───────────────────────
-        self.lbl_sec_ollama = QLabel("SERVEURS LOCAUX & PASSERELLES D'ACCÈS")
+        self.lbl_sec_ollama = QLabel(self.tr("SERVEURS LOCAUX & PASSERELLES D'ACCÈS"))
         self.lbl_sec_ollama.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_ollama)
 
@@ -267,7 +268,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         lbl_ol_icon = QLabel()
         lbl_ol_icon.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
         row_ol.addWidget(lbl_ol_icon)
-        self.lbl_ol_url = QLabel("Ollama Local :")
+        self.lbl_ol_url = QLabel(self.tr("Ollama Local :"))
         self.lbl_ol_url.setMinimumWidth(130)
         self.lbl_ol_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_ol.addWidget(self.lbl_ol_url)
@@ -291,13 +292,13 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         lbl_oc_icon = QLabel()
         lbl_oc_icon.setPixmap(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
         row_oc.addWidget(lbl_oc_icon)
-        self.lbl_oc_url = QLabel("Passerelle OpenCode :")
+        self.lbl_oc_url = QLabel(self.tr("Passerelle OpenCode :"))
         self.lbl_oc_url.setMinimumWidth(130)
         self.lbl_oc_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_oc.addWidget(self.lbl_oc_url)
         self.le_opencode_url = StyledLineEdit()
         self.le_opencode_url.setFixedHeight(28)
-        self.le_opencode_url.setPlaceholderText("https://opencode.ai/zen/v1")
+        self.le_opencode_url.setPlaceholderText(self.tr("https://opencode.ai/zen/v1"))
         self.le_opencode_url.setText(str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1"))
         row_oc.addWidget(self.le_opencode_url, 1)
         ollama_layout.addLayout(row_oc)
@@ -308,13 +309,13 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         lbl_or_icon = QLabel()
         lbl_or_icon.setPixmap(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
         row_or.addWidget(lbl_or_icon)
-        self.lbl_or_url = QLabel("API OpenRouter :")
+        self.lbl_or_url = QLabel(self.tr("API OpenRouter :"))
         self.lbl_or_url.setMinimumWidth(130)
         self.lbl_or_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_or.addWidget(self.lbl_or_url)
         self.le_openrouter_url = StyledLineEdit()
         self.le_openrouter_url.setFixedHeight(28)
-        self.le_openrouter_url.setPlaceholderText("https://openrouter.ai/api/v1")
+        self.le_openrouter_url.setPlaceholderText(self.tr("https://openrouter.ai/api/v1"))
         self.le_openrouter_url.setText(str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1"))
         row_or.addWidget(self.le_openrouter_url, 1)
         ollama_layout.addLayout(row_or)
@@ -322,7 +323,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_ollama)
 
         # ── SECTION 2b : SERVEUR MCP LOCAL (MODEL CONTEXT PROTOCOL) ──────────
-        self.lbl_sec_mcp = QLabel("SERVEUR MCP LOCAL (MODEL CONTEXT PROTOCOL)")
+        self.lbl_sec_mcp = QLabel(self.tr("SERVEUR MCP LOCAL (MODEL CONTEXT PROTOCOL)"))
         self.lbl_sec_mcp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_mcp)
 
@@ -344,14 +345,14 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         mcp_enabled_val = q_settings.value("mcp/enabled", True, type=bool)
         mcp_port_val = q_settings.value("mcp/port", 8765, type=int)
 
-        self.chk_mcp_enabled = QCheckBox("Activer le serveur MCP en arrière-plan")
+        self.chk_mcp_enabled = QCheckBox(self.tr("Activer le serveur MCP en arrière-plan"))
         self.chk_mcp_enabled.setChecked(mcp_enabled_val)
         self.chk_mcp_enabled.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_mcp.addWidget(self.chk_mcp_enabled)
 
         row_mcp.addStretch()
 
-        self.lbl_mcp_port = QLabel("Port d'écoute :")
+        self.lbl_mcp_port = QLabel(self.tr("Port d'écoute :"))
         self.lbl_mcp_port.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         row_mcp.addWidget(self.lbl_mcp_port)
 
@@ -364,7 +365,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         self.btn_rotate_mcp_token = SecondaryButton("Renouveler le jeton")
         self.btn_rotate_mcp_token.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_rotate_mcp_token.setToolTip("Régénère un nouveau jeton Bearer 256 bits pour sécuriser le serveur MCP.")
+        self.btn_rotate_mcp_token.setToolTip(self.tr("Régénère un nouveau jeton Bearer 256 bits pour sécuriser le serveur MCP."))
         self.btn_rotate_mcp_token.clicked.connect(self._on_rotate_mcp_token)
         row_mcp.addWidget(self.btn_rotate_mcp_token)
 
@@ -372,7 +373,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_mcp)
 
         # ── SECTION 3 : CATALOGUE DES MOTEURS IA ─────────────────────────────
-        self.lbl_sec_cat = QLabel("CATALOGUE DES MOTEURS & MODÈLES")
+        self.lbl_sec_cat = QLabel(self.tr("CATALOGUE DES MOTEURS & MODÈLES"))
         self.lbl_sec_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_cat)
 
@@ -401,11 +402,11 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         self.menu_add = QMenu(self)
 
-        act_from_catalog = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY), "Depuis le catalogue officiel...", self)
+        act_from_catalog = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY), self.tr("Depuis le catalogue officiel..."), self)
         act_from_catalog.triggered.connect(self._open_catalog_dialog)
         self.menu_add.addAction(act_from_catalog)
 
-        act_custom = QAction(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY), "Modèle personnalisé...", self)
+        act_custom = QAction(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY), self.tr("Modèle personnalisé..."), self)
         act_custom.triggered.connect(self._add_custom_engine)
         self.menu_add.addAction(act_custom)
 
@@ -413,27 +414,27 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         presets_menu = self.menu_add.addMenu("Presets rapides populaires")
 
-        act_gemini = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE), "Google Gemini 3.5 Flash Lite", self)
+        act_gemini = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE), self.tr("Google Gemini 3.5 Flash Lite"), self)
         act_gemini.triggered.connect(lambda: self._quick_add_engine("Google Gemini 3.5 Flash Lite", "gemini", "gemini-3.5-flash-lite", True, max_tokens=65536, sort_order=0))
         presets_menu.addAction(act_gemini)
 
-        act_openai = QAction(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY), "GPT-4o (OpenAI)", self)
+        act_openai = QAction(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY), self.tr("GPT-4o (OpenAI)"), self)
         act_openai.triggered.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False, max_tokens=16384, sort_order=10))
         presets_menu.addAction(act_openai)
 
-        act_claude = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), "Claude 3.7 Sonnet", self)
+        act_claude = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), self.tr("Claude 3.7 Sonnet"), self)
         act_claude.triggered.connect(lambda: self._quick_add_engine("Claude 3.7 Sonnet", "anthropic", "claude-3-7-sonnet-20250219", False, max_tokens=64000, sort_order=15))
         presets_menu.addAction(act_claude)
 
-        act_ollama = QAction(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN), "Ollama Local (llama3)", self)
+        act_ollama = QAction(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN), self.tr("Ollama Local (llama3)"), self)
         act_ollama.triggered.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True, max_tokens=16384, sort_order=30))
         presets_menu.addAction(act_ollama)
 
-        act_opencode = QAction(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY), "OpenCode (DeepSeek V4 Flash)", self)
+        act_opencode = QAction(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY), self.tr("OpenCode (DeepSeek V4 Flash)"), self)
         act_opencode.triggered.connect(lambda: self._quick_add_engine("OpenCode (DeepSeek V4 Flash)", "opencode", "deepseek-v4-flash", False, max_tokens=16384, sort_order=25))
         presets_menu.addAction(act_opencode)
 
-        act_openrouter = QAction(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN), "OpenRouter Gratuit (Qwen 3.8 27B)", self)
+        act_openrouter = QAction(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN), self.tr("OpenRouter Gratuit (Qwen 3.8 27B)"), self)
         act_openrouter.triggered.connect(lambda: self._quick_add_engine("OpenRouter Gratuit (Qwen 3.8 27B)", "openrouter", "qwen/qwen3.8-27b:free", True, max_tokens=8192, sort_order=26))
         presets_menu.addAction(act_openrouter)
 
@@ -442,13 +443,13 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         self.btn_edit_engine = SecondaryButton("Modifier")
         self.btn_edit_engine.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_edit_engine.setToolTip("Modifier les paramètres du moteur IA sélectionné")
+        self.btn_edit_engine.setToolTip(self.tr("Modifier les paramètres du moteur IA sélectionné"))
         self.btn_edit_engine.clicked.connect(lambda: self._edit_selected_engine())
         toolbar.addWidget(self.btn_edit_engine)
 
         toolbar.addStretch()
 
-        self.btn_del_engine = DangerButton("Supprimer", ghost=True)
+        self.btn_del_engine = DangerButton(tr("Supprimer"), ghost=True)
         self.btn_del_engine.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
         self.btn_del_engine.clicked.connect(lambda: self._del_engine())
         toolbar.addWidget(self.btn_del_engine)
@@ -456,7 +457,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         layout.addLayout(toolbar)
 
         # ── SECTION 4 : PRÉFÉRENCES IA GLOBALES ──────────────────────────────
-        self.lbl_sec_global_prefs = QLabel("PRÉFÉRENCES IA GLOBALES")
+        self.lbl_sec_global_prefs = QLabel(self.tr("PRÉFÉRENCES IA GLOBALES"))
         self.lbl_sec_global_prefs.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
         layout.addWidget(self.lbl_sec_global_prefs)
 
@@ -473,7 +474,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         icon_def_model.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(15, 15))
         model_row.addWidget(icon_def_model)
 
-        self.lbl_default_model = QLabel("Modèle IA par défaut global :")
+        self.lbl_default_model = QLabel(self.tr("Modèle IA par défaut global :"))
         self.lbl_default_model.setMinimumWidth(180)
         self.lbl_default_model.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         model_row.addWidget(self.lbl_default_model)
@@ -492,9 +493,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         temp_col = QVBoxLayout()
         temp_col.setSpacing(4)
         temp_hdr = QHBoxLayout()
-        self.lbl_temp_title = QLabel("Température :")
+        self.lbl_temp_title = QLabel(self.tr("Température :"))
         self.lbl_temp_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        self.lbl_temp_val = QLabel("0.70")
+        self.lbl_temp_val = QLabel(self.tr("0.70"))
         self.lbl_temp_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
         temp_hdr.addWidget(self.lbl_temp_title)
         temp_hdr.addStretch()
@@ -512,17 +513,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         # Max tokens
         tokens_col = QVBoxLayout()
         tokens_col.setSpacing(4)
-        self.lbl_tokens_title = QLabel("Plafond Max Tokens :")
+        self.lbl_tokens_title = QLabel(self.tr("Plafond Max Tokens :"))
         self.lbl_tokens_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         tokens_col.addWidget(self.lbl_tokens_title)
 
         self.cb_max_tokens = StyledComboBox()
-        self.cb_max_tokens.addItem("4 096 tokens", 4096)
-        self.cb_max_tokens.addItem("8 192 tokens", 8192)
-        self.cb_max_tokens.addItem("16 384 tokens (Standard)", 16384)
-        self.cb_max_tokens.addItem("32 768 tokens", 32768)
-        self.cb_max_tokens.addItem("65 536 tokens", 65536)
-        self.cb_max_tokens.addItem("128 000 tokens (Large)", 128000)
+        self.cb_max_tokens.addItem(self.tr("4 096 tokens"), 4096)
+        self.cb_max_tokens.addItem(self.tr("8 192 tokens"), 8192)
+        self.cb_max_tokens.addItem(self.tr("16 384 tokens (Standard)"), 16384)
+        self.cb_max_tokens.addItem(self.tr("32 768 tokens"), 32768)
+        self.cb_max_tokens.addItem(self.tr("65 536 tokens"), 65536)
+        self.cb_max_tokens.addItem(self.tr("128 000 tokens (Large)"), 128000)
         self.cb_max_tokens.setCurrentIndex(2)
         tokens_col.addWidget(self.cb_max_tokens)
         gen_grid.addLayout(tokens_col, 0, 1)
@@ -530,18 +531,18 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         # Thinking CoT Budget
         thinking_col = QVBoxLayout()
         thinking_col.setSpacing(4)
-        self.lbl_thinking_title = QLabel("Budget Réflexion (CoT) :")
+        self.lbl_thinking_title = QLabel(self.tr("Budget Réflexion (CoT) :"))
         self.lbl_thinking_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         thinking_col.addWidget(self.lbl_thinking_title)
 
         self.cb_thinking = StyledComboBox()
-        self.cb_thinking.addItem("Désactivé (0)", 0)
-        self.cb_thinking.addItem("1 024 tokens", 1024)
-        self.cb_thinking.addItem("2 048 tokens", 2048)
-        self.cb_thinking.addItem("4 096 tokens", 4096)
-        self.cb_thinking.addItem("8 192 tokens", 8192)
-        self.cb_thinking.addItem("16 384 tokens", 16384)
-        self.cb_thinking.addItem("32 768 tokens (Max)", 32768)
+        self.cb_thinking.addItem(self.tr("Désactivé (0)"), 0)
+        self.cb_thinking.addItem(self.tr("1 024 tokens"), 1024)
+        self.cb_thinking.addItem(self.tr("2 048 tokens"), 2048)
+        self.cb_thinking.addItem(self.tr("4 096 tokens"), 4096)
+        self.cb_thinking.addItem(self.tr("8 192 tokens"), 8192)
+        self.cb_thinking.addItem(self.tr("16 384 tokens"), 16384)
+        self.cb_thinking.addItem(self.tr("32 768 tokens (Max)"), 32768)
         self.cb_thinking.setCurrentIndex(0)
         thinking_col.addWidget(self.cb_thinking)
         gen_grid.addLayout(thinking_col, 0, 2)
@@ -549,17 +550,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         # Budget Tokens Consultant (Temps Réel)
         consultant_tokens_col = QVBoxLayout()
         consultant_tokens_col.setSpacing(4)
-        self.lbl_consultant_tokens_title = QLabel("Budget Tokens Consultant :")
+        self.lbl_consultant_tokens_title = QLabel(self.tr("Budget Tokens Consultant :"))
         self.lbl_consultant_tokens_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         consultant_tokens_col.addWidget(self.lbl_consultant_tokens_title)
 
         self.cb_consultant_token_budget = StyledComboBox()
-        self.cb_consultant_token_budget.addItem("10 000 tokens", 10000)
-        self.cb_consultant_token_budget.addItem("25 000 tokens", 25000)
-        self.cb_consultant_token_budget.addItem("50 000 tokens (Défaut)", 50000)
-        self.cb_consultant_token_budget.addItem("100 000 tokens", 100000)
-        self.cb_consultant_token_budget.addItem("200 000 tokens", 200000)
-        self.cb_consultant_token_budget.addItem("Illimité (0)", 0)
+        self.cb_consultant_token_budget.addItem(self.tr("10 000 tokens"), 10000)
+        self.cb_consultant_token_budget.addItem(self.tr("25 000 tokens"), 25000)
+        self.cb_consultant_token_budget.addItem(self.tr("50 000 tokens (Défaut)"), 50000)
+        self.cb_consultant_token_budget.addItem(self.tr("100 000 tokens"), 100000)
+        self.cb_consultant_token_budget.addItem(self.tr("200 000 tokens"), 200000)
+        self.cb_consultant_token_budget.addItem(self.tr("Illimité (0)"), 0)
         self.cb_consultant_token_budget.setCurrentIndex(2)
         consultant_tokens_col.addWidget(self.cb_consultant_token_budget)
         gen_grid.addLayout(consultant_tokens_col, 1, 0)
@@ -567,18 +568,18 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         # Budget Coût Consultant USD (Temps Réel)
         consultant_cost_col = QVBoxLayout()
         consultant_cost_col.setSpacing(4)
-        self.lbl_consultant_cost_title = QLabel("Budget Coût Consultant (USD) :")
+        self.lbl_consultant_cost_title = QLabel(self.tr("Budget Coût Consultant (USD) :"))
         self.lbl_consultant_cost_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         consultant_cost_col.addWidget(self.lbl_consultant_cost_title)
 
         self.cb_consultant_cost_budget = StyledComboBox()
-        self.cb_consultant_cost_budget.addItem("0.10 $", 0.10)
-        self.cb_consultant_cost_budget.addItem("0.25 $", 0.25)
-        self.cb_consultant_cost_budget.addItem("0.50 $ (Défaut)", 0.50)
-        self.cb_consultant_cost_budget.addItem("1.00 $", 1.00)
-        self.cb_consultant_cost_budget.addItem("2.00 $", 2.00)
-        self.cb_consultant_cost_budget.addItem("5.00 $", 5.00)
-        self.cb_consultant_cost_budget.addItem("Illimité (0.00 $)", 0.0)
+        self.cb_consultant_cost_budget.addItem(self.tr("0.10 $"), 0.10)
+        self.cb_consultant_cost_budget.addItem(self.tr("0.25 $"), 0.25)
+        self.cb_consultant_cost_budget.addItem(self.tr("0.50 $ (Défaut)"), 0.50)
+        self.cb_consultant_cost_budget.addItem(self.tr("1.00 $"), 1.00)
+        self.cb_consultant_cost_budget.addItem(self.tr("2.00 $"), 2.00)
+        self.cb_consultant_cost_budget.addItem(self.tr("5.00 $"), 5.00)
+        self.cb_consultant_cost_budget.addItem(self.tr("Illimité (0.00 $)"), 0.0)
         self.cb_consultant_cost_budget.setCurrentIndex(2)
         consultant_cost_col.addWidget(self.cb_consultant_cost_budget)
         gen_grid.addLayout(consultant_cost_col, 1, 1)
@@ -586,10 +587,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         # Note d'information sur le garde-fou 80 %
         info_guard_col = QVBoxLayout()
         info_guard_col.setSpacing(4)
-        lbl_guard_title = QLabel("Protection Budget Consultant :")
+        lbl_guard_title = QLabel(self.tr("Protection Budget Consultant :"))
         lbl_guard_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         info_guard_col.addWidget(lbl_guard_title)
-        self.lbl_guard_desc = QLabel("Arrêt préventif à 80 % du quota")
+        self.lbl_guard_desc = QLabel(self.tr("Arrêt préventif à 80 % du quota"))
         self.lbl_guard_desc.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: 600; padding-top: 4px;")
         info_guard_col.addWidget(self.lbl_guard_desc)
         gen_grid.addLayout(info_guard_col, 1, 2)
@@ -601,7 +602,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         icon_timeout.setPixmap(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_MUTED).pixmap(15, 15))
         timeout_row.addWidget(icon_timeout)
 
-        self.lbl_timeout_title = QLabel("Délai max. de génération :")
+        self.lbl_timeout_title = QLabel(self.tr("Délai max. de génération :"))
         self.lbl_timeout_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         timeout_row.addWidget(self.lbl_timeout_title)
 
@@ -630,10 +631,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         toggles_grid.setHorizontalSpacing(12)
         toggles_grid.setVerticalSpacing(8)
 
-        self.toggle_streaming = OptionToggleRow("Streaming des réponses", icon_name="ph.waveform", checked=True)
-        self.toggle_vision = OptionToggleRow("Capacités Vision activées", icon_name="ph.eye", checked=True)
-        self.toggle_autoval = OptionToggleRow("Validation automatique des cartes", icon_name="ph.shield-check", checked=False)
-        self.toggle_linter = OptionToggleRow("Audit Linter automatique", icon_name="ph.check-circle", checked=True)
+        self.toggle_streaming = OptionToggleRow(tr("Streaming des réponses"), icon_name="ph.waveform", checked=True)
+        self.toggle_vision = OptionToggleRow(tr("Capacités Vision activées"), icon_name="ph.eye", checked=True)
+        self.toggle_autoval = OptionToggleRow(tr("Validation automatique des cartes"), icon_name="ph.shield-check", checked=False)
+        self.toggle_linter = OptionToggleRow(tr("Audit Linter automatique"), icon_name="ph.check-circle", checked=True)
 
         toggles_grid.addWidget(self.toggle_streaming, 0, 0)
         toggles_grid.addWidget(self.toggle_vision, 0, 1)
@@ -652,9 +653,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         rag_topk_col = QVBoxLayout()
         rag_topk_col.setSpacing(4)
         rag_topk_hdr = QHBoxLayout()
-        self.lbl_rag_topk_title = QLabel("Chunks RAG (Top-K) :")
+        self.lbl_rag_topk_title = QLabel(self.tr("Chunks RAG (Top-K) :"))
         self.lbl_rag_topk_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        self.lbl_rag_topk_val = QLabel("5")
+        self.lbl_rag_topk_val = QLabel(self.tr("5"))
         self.lbl_rag_topk_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
         rag_topk_hdr.addWidget(self.lbl_rag_topk_title)
         rag_topk_hdr.addStretch()
@@ -673,9 +674,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         rag_sim_col = QVBoxLayout()
         rag_sim_col.setSpacing(4)
         rag_sim_hdr = QHBoxLayout()
-        self.lbl_rag_sim_title = QLabel("Seuil similarité min :")
+        self.lbl_rag_sim_title = QLabel(self.tr("Seuil similarité min :"))
         self.lbl_rag_sim_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        self.lbl_rag_sim_val = QLabel("70%")
+        self.lbl_rag_sim_val = QLabel(self.tr("70%"))
         self.lbl_rag_sim_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
         rag_sim_hdr.addWidget(self.lbl_rag_sim_title)
         rag_sim_hdr.addStretch()
@@ -686,7 +687,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.slider_rag_sim.setMinimum(40)
         self.slider_rag_sim.setMaximum(95)
         self.slider_rag_sim.setValue(70)
-        self.slider_rag_sim.valueChanged.connect(lambda v: self.lbl_rag_sim_val.setText(f"{v}%"))
+        self.slider_rag_sim.valueChanged.connect(lambda v: self.lbl_rag_sim_val.setText(tr("%1%%", v)))
         rag_sim_col.addWidget(self.slider_rag_sim)
         rag_grid.addLayout(rag_sim_col, 0, 1)
 
@@ -694,7 +695,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         rag_grid.setColumnStretch(1, 1)
 
         # Paramètres avancés : génération (température/tokens/CoT), timeout et RAG, repliés par défaut
-        self.sec_advanced_gen = CollapsibleSection("Options avancées de génération & RAG", collapsed=True)
+        self.sec_advanced_gen = CollapsibleSection(tr("Options avancées de génération & RAG"), collapsed=True)
         self.sec_advanced_gen.add_layout(gen_grid)
         self.sec_advanced_gen.add_layout(timeout_row)
         self.sec_advanced_gen.add_layout(rag_grid)
@@ -703,7 +704,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_global_prefs)
 
         # ── SECTION 5 : CATÉGORIES DE RECONNAISSANCE D'IMAGE (VISION, repliée) ─
-        self.lbl_sec_vision = QLabel("CATÉGORIES DE RECONNAISSANCE D'IMAGE")
+        self.lbl_sec_vision = QLabel(self.tr("CATÉGORIES DE RECONNAISSANCE D'IMAGE"))
         self.lbl_sec_vision.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
 
         self.vision_container = QVBoxLayout()
@@ -725,7 +726,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         vision_toolbar.addStretch()
 
-        self.sec_vision = CollapsibleSection("Catégories de reconnaissance d'image", collapsed=True)
+        self.sec_vision = CollapsibleSection(tr("Catégories de reconnaissance d'image"), collapsed=True)
         self.sec_vision.add_layout(self.vision_container)
         self.sec_vision.add_layout(vision_toolbar)
         layout.addWidget(self.sec_vision)
@@ -780,7 +781,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
             # Badge Thinking si actif
             if cat.thinking_budget > 0:
-                thinking_badge = QLabel(f"CoT {cat.thinking_budget}t")
+                thinking_badge = QLabel(tr("CoT %1t", cat.thinking_budget))
                 apply_pill_badge_style(thinking_badge, DesignTokens.ACCENT_PRIMARY)
                 title_row.addWidget(thinking_badge)
 
@@ -819,7 +820,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             if updated:
                 VisionCategoryService.save_category(updated)
                 self._render_vision_categories()
-                show_toast(self, f"Catégorie '{updated.name}' mise à jour !")
+                show_toast(self, tr("Catégorie '%1' mise à jour !", updated.name))
 
     def _add_vision_category(self) -> None:
         dialog = VisionCategoryDialog(category=None, parent=self)
@@ -828,17 +829,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             if new_cat:
                 VisionCategoryService.save_category(new_cat)
                 self._render_vision_categories()
-                show_toast(self, f"Catégorie '{new_cat.name}' créée avec succès !")
+                show_toast(self, tr("Catégorie '%1' créée avec succès !", new_cat.name))
 
     def _delete_vision_category(self, cat_id: str) -> None:
         if VisionCategoryService.delete_category(cat_id):
             self._render_vision_categories()
-            show_toast(self, "Catégorie de vision supprimée.")
+            show_toast(self, self.tr("Catégorie de vision supprimée."))
 
     def _reset_vision_categories(self) -> None:
         VisionCategoryService.reset_to_defaults()
         self._render_vision_categories()
-        show_toast(self, "Catégories de vision réinitialisées aux valeurs standard !")
+        show_toast(self, self.tr("Catégories de vision réinitialisées aux valeurs standard !"))
 
     def _test_cloud_key(self, provider_id: str, provider_name: str) -> None:
         key_edit = self.key_edits.get(provider_id)
@@ -848,10 +849,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         key_val = key_edit.text()
         if not key_val:
-            badge.setText("Clé vide")
+            badge.setText(self.tr("Clé vide"))
             apply_pill_badge_style(badge, DesignTokens.COLOR_YELLOW)
             badge.show()
-            show_toast(self, f"Veuillez saisir une clé {provider_name}.", is_error=True)
+            show_toast(self, tr("Veuillez saisir une clé %1.", provider_name), is_error=True)
             return
 
         valid_format = False
@@ -868,7 +869,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             valid_format = len(key_val) >= 16
 
         if valid_format:
-            badge.setText("Format valide")
+            badge.setText(self.tr("Format valide"))
             apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
             badge.show()
 
@@ -888,11 +889,11 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                         "Trousseau OS (keyring) indisponible : la clé '%s' n'a pas été enregistrée (aucun stockage en clair).",
                         provider_id,
                     )
-                    show_toast(self, f"Trousseau OS indisponible : clé {provider_name} non enregistrée (sécurité).", is_error=True)
+                    show_toast(self, tr("Trousseau OS indisponible : clé %1 non enregistrée (sécurité).", provider_name), is_error=True)
                     return
             except Exception as e:
                 logger.error("Échec de sauvegarde de la clé %s : %s", provider_id, e)
-                show_toast(self, f"Impossible d'enregistrer la clé {provider_name}.", is_error=True)
+                show_toast(self, tr("Impossible d'enregistrer la clé %1.", provider_name), is_error=True)
                 return
 
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
@@ -901,12 +902,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                 except Exception as e:
                     logger.warning("Erreur reload_provider dans _test_cloud_key: %s", e)
 
-            show_toast(self, f"Clé {provider_name} enregistrée et validée !")
+            show_toast(self, tr("Clé %1 enregistrée et validée !", provider_name))
 
             # Test de connectivité réseau non-bloquant en tâche de fond
             self._verify_cloud_key_online(provider_id, provider_name, key_val)
         else:
-            badge.setText("Format suspect")
+            badge.setText(self.tr("Format suspect"))
             apply_pill_badge_style(badge, DesignTokens.COLOR_RED)
             badge.show()
 
@@ -938,7 +939,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         if not (url.startswith("http://") or url.startswith("https://")):
             url = f"http://{url}"
         if not _is_loopback_url(url):
-            self.badge_ollama_status.setText("URL non locale (anti-SSRF)")
+            self.badge_ollama_status.setText(self.tr("URL non locale (anti-SSRF)"))
             apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
             self.badge_ollama_status.show()
             return
@@ -963,12 +964,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
     def _on_ollama_scan_ready(self, models: list[str], results: list[tuple[str, Any]]) -> None:
         """Reçoit les modèles scannés par le worker (thread principal) et persiste en BDD."""
         if not models:
-            self.badge_ollama_status.setText("En ligne (0 modèle)")
+            self.badge_ollama_status.setText(self.tr("En ligne (0 modèle)"))
             apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_YELLOW)
             self.badge_ollama_status.show()
             return
 
-        self.badge_ollama_status.setText(f"{len(models)} modèle(s) détecté(s)")
+        self.badge_ollama_status.setText(tr("%1 modèle(s) détecté(s)", len(models)))
         apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_GREEN)
         self.badge_ollama_status.show()
 
@@ -997,14 +998,14 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                     )
                     added_count += 1
         self.refresh_data()
-        show_toast(self, f"Ollama en ligne : {len(models)} modèles scannés (+{added_count} importés) !")
+        show_toast(self, tr("Ollama en ligne : %1 modèles scannés (+%2 importés) !", len(models), added_count))
 
     def _on_ollama_scan_failed(self, status_text: str) -> None:
         """Affiche l'état échec du scan Ollama."""
         self.badge_ollama_status.setText(status_text)
         apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
         self.badge_ollama_status.show()
-        show_toast(self, "Serveur Ollama inaccessible sur cette adresse.", is_error=True)
+        show_toast(self, self.tr("Serveur Ollama inaccessible sur cette adresse."), is_error=True)
 
     def refresh_data(self) -> None:
         """Recharge les moteurs IA et les catégories de vision."""
@@ -1045,13 +1046,13 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             default_model_id = SettingsService.get("ai/default_model_id", "")
             self.cb_default_model.blockSignals(True)
             self.cb_default_model.clear()
-            self.cb_default_model.addItem("Automatique (Premier modèle disponible)", "")
+            self.cb_default_model.addItem(self.tr("Automatique (Premier modèle disponible)"), "")
             sel_idx = 0
             for idx, eg in enumerate(engines):
                 m_id = getattr(eg, "model_id", "")
                 d_name = getattr(eg, "display_name", m_id)
                 p_name = getattr(eg, "provider", "").upper()
-                self.cb_default_model.addItem(f"{d_name} ({p_name})", m_id)
+                self.cb_default_model.addItem(tr("%1 (%2)", d_name, p_name), m_id)
                 if default_model_id and m_id == default_model_id:
                     sel_idx = idx + 1
             self.cb_default_model.setCurrentIndex(sel_idx)
@@ -1084,7 +1085,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                     timeout_idx = i
                     break
             if timeout_idx is None:
-                self.cb_timeout.addItem(f"{saved_timeout} s", saved_timeout)
+                self.cb_timeout.addItem(tr("%1 s", saved_timeout), saved_timeout)
                 timeout_idx = self.cb_timeout.count() - 1
             self.cb_timeout.setCurrentIndex(timeout_idx)
 
@@ -1116,7 +1117,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             saved_sim = float(SettingsService.get("ai/rag_similarity_threshold", 0.70))
             sim_pct = int(round(saved_sim * 100))
             self.slider_rag_sim.setValue(sim_pct)
-            self.lbl_rag_sim_val.setText(f"{sim_pct}%")
+            self.lbl_rag_sim_val.setText(tr("%1%%", sim_pct))
         except Exception as e:
             logger.warning("Erreur refresh_data global_prefs: %s", e)
 
@@ -1152,7 +1153,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         try:
             existing = LLMConfigModel.select().where((LLMConfigModel.provider == provider) & (LLMConfigModel.model_id == model_id)).first()
             if existing:
-                show_toast(self, f"Le modèle '{model_id}' est déjà configuré.", is_error=True)
+                show_toast(self, tr("Le modèle '%1' est déjà configuré.", model_id), is_error=True)
                 return
 
             spec = ModelCatalog.get_model_spec(provider, model_id)
@@ -1173,7 +1174,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                         "Trousseau OS (keyring) indisponible : la clé '%s' n'a pas été enregistrée (aucun stockage en clair).",
                         provider,
                     )
-                    show_toast(self, f"Trousseau OS indisponible : clé {provider} non enregistrée (sécurité).", is_error=True)
+                    show_toast(self, tr("Trousseau OS indisponible : clé %1 non enregistrée (sécurité).", provider), is_error=True)
                     api_key = ""
 
             effective_context_limit = context_limit if context_limit is not None else (spec.context_window if spec else (1048576 if provider == "gemini" else 128000))
@@ -1212,9 +1213,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                 )
             )
 
-            show_toast(self, f"Moteur '{name}' ajouté au catalogue !")
+            show_toast(self, tr("Moteur '%1' ajouté au catalogue !", name))
         except Exception as e:
-            show_toast(self, f"Erreur lors de l'ajout : {e}", is_error=True)
+            show_toast(self, tr("Erreur lors de l'ajout : %1", e), is_error=True)
 
     def _add_custom_engine(self) -> None:
         """Boîte de dialogue unifiée pour ajouter un moteur IA personnalisé."""
@@ -1227,14 +1228,14 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                 self.refresh_data()
                 if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                     self.ai_manager.reload_provider()
-                show_toast(self, f"Moteur '{new_cfg.display_name}' ajouté au catalogue !")
+                show_toast(self, tr("Moteur '%1' ajouté au catalogue !", new_cfg.display_name))
 
     def _edit_selected_engine(self, engine_id: int | None = None) -> None:
         """Ouvre le dialogue d'édition unifié pour le moteur IA sélectionné ou passé par id."""
         if engine_id is None:
             selected = self.table_engines.selectedItems()
             if not selected:
-                show_toast(self, "Veuillez sélectionner un moteur IA à modifier.", is_error=True)
+                show_toast(self, self.tr("Veuillez sélectionner un moteur IA à modifier."), is_error=True)
                 return
             row = selected[0].row()
             item = self.table_engines.item(row, 0)
@@ -1246,7 +1247,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         config = LLMConfigModel.get_or_none(LLMConfigModel.id == engine_id)
         if not config:
-            show_toast(self, "Moteur IA introuvable.", is_error=True)
+            show_toast(self, self.tr("Moteur IA introuvable."), is_error=True)
             return
 
         from ankiforge.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
@@ -1256,7 +1257,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             self.refresh_data()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                 self.ai_manager.reload_provider()
-            show_toast(self, f"Moteur '{config.display_name}' mis à jour !")
+            show_toast(self, tr("Moteur '%1' mis à jour !", config.display_name))
 
     def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
         first_item = self.table_engines.item(item.row(), 0)
@@ -1294,7 +1295,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         if engine_id is None:
             selected = self.table_engines.selectedItems()
             if not selected:
-                show_toast(self, "Veuillez sélectionner un moteur IA à supprimer.", is_error=True)
+                show_toast(self, self.tr("Veuillez sélectionner un moteur IA à supprimer."), is_error=True)
                 return
             row = selected[0].row()
             item = self.table_engines.item(row, 0)
@@ -1306,7 +1307,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         config = LLMConfigModel.get_or_none(LLMConfigModel.id == engine_id)
         if not config:
-            show_toast(self, "Moteur IA introuvable.", is_error=True)
+            show_toast(self, self.tr("Moteur IA introuvable."), is_error=True)
             return
         name = config.display_name or config.model_id
         deleted_model_id = config.model_id
@@ -1317,8 +1318,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
             res = QMessageBox.question(
                 self,
-                "Confirmer la suppression",
-                f"Êtes-vous sûr de vouloir supprimer le moteur IA '{name}' du catalogue ?",
+                self.tr("Confirmer la suppression"),
+                tr("Êtes-vous sûr de vouloir supprimer le moteur IA '%1' du catalogue ?", name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -1346,9 +1347,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                 )
             )
 
-            show_toast(self, f"Moteur IA '{name}' supprimé du catalogue.")
+            show_toast(self, tr("Moteur IA '%1' supprimé du catalogue.", name))
         except Exception as e:
-            show_toast(self, f"Erreur suppression : {e}", is_error=True)
+            show_toast(self, tr("Erreur suppression : %1", e), is_error=True)
 
     def save_tab(self) -> None:
         """Sauvegarde les clés d'API, l'URL Ollama, synchronise les LLMConfigModel, sauvegarde les options globales et recharge l'IA."""
@@ -1545,10 +1546,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         res = QMessageBox.question(
             self,
-            "Renouveler le jeton MCP",
-            "Voulez-vous générer un nouveau jeton d'authentification Bearer pour le serveur MCP ?\n\n"
-            "Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être "
-            "mis à jour avec ce nouveau jeton.",
+            self.tr("Renouveler le jeton MCP"),
+            self.tr(
+                "Voulez-vous générer un nouveau jeton d'authentification Bearer pour le serveur MCP ?\n\n"
+                "Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être mis à jour "
+                "avec ce nouveau jeton."
+            ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

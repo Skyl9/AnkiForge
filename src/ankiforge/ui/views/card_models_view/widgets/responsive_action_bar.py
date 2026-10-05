@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QWidget
 from ankiforge.ui.components import Badge, IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.buttons import apply_compact_style
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -34,36 +35,36 @@ class ResponsiveTopActionBar(QFrame):
         layout.addWidget(self.lbl_editor_icon)
 
         # Titre du Modèle
-        self.lbl_editor_title = QLabel("Modèle sélectionné")
+        self.lbl_editor_title = QLabel(self.tr("Modèle sélectionné"))
         self.lbl_editor_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
         self.lbl_editor_title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         layout.addWidget(self.lbl_editor_title)
 
-        self.model_type_badge = Badge("Standard", variant="neutral")
+        self.model_type_badge = Badge(tr("Standard"), variant="neutral")
         self.model_type_badge.setFixedHeight(20)
         layout.addWidget(self.model_type_badge)
 
-        self.template_count_badge = Badge("1 gabarit", variant="neutral")
+        self.template_count_badge = Badge(tr("1 gabarit"), variant="neutral")
         self.template_count_badge.setFixedHeight(20)
         layout.addWidget(self.template_count_badge)
 
         layout.addStretch(1)
 
         # Boutons d'action
-        self.btn_export_json = IconButton("ph.export", tooltip="Exporter le modèle au format JSON standardisé AnkiForge", size=24)
+        self.btn_export_json = IconButton("ph.export", tooltip=self.tr("Exporter le modèle au format JSON standardisé AnkiForge"), size=24)
 
         self.btn_toggle_preview = SecondaryButton("Aperçu en direct")
         self.btn_toggle_preview.setIcon(load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_PRIMARY))
         apply_compact_style(self.btn_toggle_preview, height=28)
-        self.btn_toggle_preview.setToolTip("Afficher / Masquer l'aperçu en direct à côté du code")
+        self.btn_toggle_preview.setToolTip(self.tr("Afficher / Masquer l'aperçu en direct à côté du code"))
         self.btn_toggle_preview.clicked.connect(self.preview_toggle_requested.emit)
 
-        self.btn_refresh = IconButton("ph.arrows-clockwise", tooltip="Actualiser la prévisualisation temps réel", size=24)
+        self.btn_refresh = IconButton("ph.arrows-clockwise", tooltip=self.tr("Actualiser la prévisualisation temps réel"), size=24)
 
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         apply_compact_style(self.btn_save, height=28)
-        self.btn_save.setToolTip("Sauvegarder les modifications du modèle")
+        self.btn_save.setToolTip(self.tr("Sauvegarder les modifications du modèle"))
 
         layout.addWidget(self.btn_export_json)
         layout.addWidget(self.btn_toggle_preview)

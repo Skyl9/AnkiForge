@@ -19,6 +19,7 @@ from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.nav_badge import NavBadgeButton
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
 
 
@@ -30,7 +31,7 @@ class DashboardTabButton(NavBadgeButton):
         self.setFixedHeight(34)
         self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
         self.setIconSize(QSize(18, 18))
-        self.setText(f" {self.title}")
+        self.setText(tr(" %1", self.title))
 
         self._update_style(False)
         self.toggled.connect(self._on_toggled)
@@ -119,12 +120,12 @@ class DashboardLayout(BaseLayout):
 
         title_box = QVBoxLayout()
         title_box.setSpacing(0)
-        title_lbl = QLabel("AnkiForge Portal")
+        title_lbl = QLabel(self.tr("AnkiForge Portal"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
-        self.profile_lbl = QLabel(f"Espace de travail : {self.profile_name}")
+        self.profile_lbl = QLabel(tr("Espace de travail : %1", self.profile_name))
         self.profile_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         self.profile_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.profile_lbl.setToolTip("Cliquez pour changer d'espace de travail")
+        self.profile_lbl.setToolTip(self.tr("Cliquez pour changer d'espace de travail"))
         self.profile_lbl.mousePressEvent = lambda event: self.profile_switch_requested.emit()
         title_box.addWidget(title_lbl)
         title_box.addWidget(self.profile_lbl)
@@ -134,7 +135,7 @@ class DashboardLayout(BaseLayout):
         header_layout.addStretch()
 
         # Token Tracker & Status
-        self.token_lbl = QLabel("🪙 0.00 $")
+        self.token_lbl = QLabel(self.tr("🪙 0.00 $"))
         self.token_lbl.setStyleSheet(f"""
             QLabel {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -149,7 +150,7 @@ class DashboardLayout(BaseLayout):
         """)
         header_layout.addWidget(self.token_lbl)
 
-        self.search_btn = IconButton("magnifying-glass", tooltip="Rechercher (Ctrl+K)", size=24)
+        self.search_btn = IconButton("magnifying-glass", tooltip=self.tr("Rechercher (Ctrl+K)"), size=24)
         self.search_btn.clicked.connect(self.search_clicked.emit)
         header_layout.addWidget(self.search_btn)
 
@@ -157,11 +158,11 @@ class DashboardLayout(BaseLayout):
         self.profile_btn.clicked.connect(self.profile_switch_requested.emit)
         header_layout.addWidget(self.profile_btn)
 
-        self.feedback_btn = IconButton("chat-circle-dots", tooltip="Aide & Retours", size=24)
+        self.feedback_btn = IconButton("chat-circle-dots", tooltip=self.tr("Aide & Retours"), size=24)
         self.feedback_btn.clicked.connect(self.feedback_requested.emit)
         header_layout.addWidget(self.feedback_btn)
 
-        self.settings_btn = IconButton("gear", tooltip="Paramètres", size=24)
+        self.settings_btn = IconButton("gear", tooltip=self.tr("Paramètres"), size=24)
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         header_layout.addWidget(self.settings_btn)
 
@@ -236,11 +237,11 @@ class DashboardLayout(BaseLayout):
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         clean_cost = str(cost).replace("$", "").strip()
-        self.token_lbl.setText(f"🪙 {clean_cost} $")
+        self.token_lbl.setText(tr("🪙 %1 $", clean_cost))
 
     def set_profile_name(self, profile_name: str) -> None:
         super().set_profile_name(profile_name)
         if hasattr(self, "profile_lbl") and self.profile_lbl:
-            self.profile_lbl.setText(f"Espace de travail : {profile_name}")
+            self.profile_lbl.setText(tr("Espace de travail : %1", profile_name))
         if hasattr(self, "profile_btn") and self.profile_btn:
-            self.profile_btn.setToolTip(f"Espace : {profile_name}")
+            self.profile_btn.setToolTip(tr("Espace : %1", profile_name))

@@ -24,6 +24,7 @@ from ankiforge.ui.widgets.settings_modal.components import (
 )
 from ankiforge.ui.widgets.settings_modal.tabs.general_tab import GeneralTab
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_active_profile
 
@@ -61,7 +62,7 @@ class SettingsModal(QDialog):
         self._addons_tab: AddonManagerWidget | None = None
         self._tabs: list[QWidget | None] = []
 
-        self.setWindowTitle("Paramètres AnkiForge")
+        self.setWindowTitle(self.tr("Paramètres AnkiForge"))
         self.setMinimumSize(820, 560)
         self.resize(880, 620)
         self.setModal(False)
@@ -256,18 +257,18 @@ class SettingsModal(QDialog):
         self.lbl_header_icon.setPixmap(load_phosphor_icon("ph.sliders-horizontal", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
         header_layout.addWidget(self.lbl_header_icon)
 
-        self.lbl_title = QLabel("Paramètres AnkiForge")
+        self.lbl_title = QLabel(self.tr("Paramètres AnkiForge"))
         self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
         header_layout.addWidget(self.lbl_title)
 
         active_prof = get_active_profile()
-        self.lbl_prof_badge = QLabel(f"Profil : {active_prof}")
+        self.lbl_prof_badge = QLabel(tr("Profil : %1", active_prof))
         apply_pill_badge_style(self.lbl_prof_badge, DesignTokens.ACCENT_PRIMARY)
         header_layout.addWidget(self.lbl_prof_badge)
 
         header_layout.addStretch()
 
-        self.btn_close = IconButton("ph.x", tooltip="Fermer la fenêtre (Échap)", size=26)
+        self.btn_close = IconButton("ph.x", tooltip=self.tr("Fermer la fenêtre (Échap)"), size=26)
         self.btn_close.clicked.connect(self.close)
         header_layout.addWidget(self.btn_close)
 
@@ -331,7 +332,7 @@ class SettingsModal(QDialog):
         footer_layout.setContentsMargins(16, 10, 16, 10)
         footer_layout.setSpacing(10)
 
-        self.lbl_shortcut = QLabel("⌨️ Échap pour fermer")
+        self.lbl_shortcut = QLabel(self.tr("⌨️ Échap pour fermer"))
         self.lbl_shortcut.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         footer_layout.addWidget(self.lbl_shortcut)
 
@@ -398,7 +399,7 @@ class SettingsModal(QDialog):
         Aucune écriture BDD/QSettings n'est déclenchée si aucun paramètre n'a changé.
         """
         if not self._tabs_have_changes():
-            self.lbl_save_status.setText("✓ Aucun paramètre modifié")
+            self.lbl_save_status.setText(self.tr("✓ Aucun paramètre modifié"))
             self.lbl_save_status.show()
             self._update_save_enabled()
             return
@@ -440,9 +441,9 @@ class SettingsModal(QDialog):
             from shiboken6 import isValid
 
             toast_parent = self if isValid(self) else (main_w if main_w and isValid(main_w) else None)
-            self.lbl_save_status.setText("✓ Paramètres sauvegardés")
+            self.lbl_save_status.setText(tr("✓ Paramètres sauvegardés"))
             self.lbl_save_status.show()
-            show_toast(toast_parent, "Tous les paramètres ont été enregistrés avec succès !")
+            show_toast(toast_parent, tr("Tous les paramètres ont été enregistrés avec succès !"))
 
         if apply_layout or apply_theme:
             from ankiforge.ui.widgets.theme_transition_overlay import show_theme_transition
@@ -451,7 +452,7 @@ class SettingsModal(QDialog):
             show_theme_transition(
                 parent=target_parent,
                 theme_title=theme_title,
-                subtext="Application des tokens et du design system...",
+                subtext=self.tr("Application des tokens et du design system..."),
                 duration_ms=450,
                 on_applied=apply_changes,
             )

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -59,7 +60,7 @@ class PersonaEmptyStateWidget(QWidget):
         container_layout.addWidget(lbl_icon)
 
         # Titre engageant
-        lbl_title = QLabel("Atelier de Personas & Modèles d'Agents")
+        lbl_title = QLabel(self.tr("Atelier de Personas & Modèles d'Agents"))
         lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_title.setStyleSheet(f"""
             color: {DesignTokens.TEXT_PRIMARY};
@@ -72,9 +73,12 @@ class PersonaEmptyStateWidget(QWidget):
 
         # Sous-titre vulgarisé
         lbl_desc = QLabel(
-            "Les <b>Personas</b> définissent la personnalité, les règles pédagogiques et les capacités "
-            "de vos assistants IA dans AnkiForge. Ils régissent la formulation minimale selon les 20 règles de Wozniak, "
-            "l'extraction de vocabulaire ou encore les diagnostics autonomes du Consultant MCP."
+            self.tr(
+                "Les <b>Personas</b> définissent la personnalité, les règles pédagogiques et les capacités "
+                "de vos assistants IA dans AnkiForge. Ils régissent la formulation minimale selon les "
+                "20 règles de Wozniak, l'extraction de vocabulaire ou encore les diagnostics autonomes "
+                "du Consultant MCP."
+            )
         )
         lbl_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_desc.setWordWrap(True)
@@ -120,7 +124,7 @@ class PersonaEmptyStateWidget(QWidget):
         guide_layout.setContentsMargins(12, 10, 12, 10)
         guide_layout.setSpacing(8)
 
-        lbl_guide_title = QLabel("💡 Comment tirer le meilleur parti des Personas :")
+        lbl_guide_title = QLabel(self.tr("💡 Comment tirer le meilleur parti des Personas :"))
         lbl_guide_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         guide_layout.addWidget(lbl_guide_title)
 
@@ -135,7 +139,7 @@ class PersonaEmptyStateWidget(QWidget):
             row.setSpacing(6)
             lbl_step = QLabel(step)
             lbl_step.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
-            lbl_text = QLabel(f"— {text}")
+            lbl_text = QLabel(tr("— %1", text))
             lbl_text.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
             row.addWidget(lbl_step)
             row.addWidget(lbl_text, 1)

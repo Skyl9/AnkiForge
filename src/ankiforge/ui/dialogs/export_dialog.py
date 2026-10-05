@@ -32,6 +32,7 @@ from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.hierarchy import descendants_prefix, to_filename_safe
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class ExportDialog(QDialog):
         self.selected_deck_name: str = "Tous les paquets (Collection entière)"
         self._deck_modal: DeckSelectWindow | None = None
 
-        self.setWindowTitle("Exporter un Paquet Anki")
+        self.setWindowTitle(self.tr("Exporter un Paquet Anki"))
         self.resize(600, 520)
 
         self._setup_ui(default_deck_id)
@@ -72,11 +73,11 @@ class ExportDialog(QDialog):
         icon_lbl.setStyleSheet("border: none; background: transparent;")
 
         title_vbox = QVBoxLayout()
-        title_lbl = QLabel("Exportation Anki (.apkg / .colpkg)")
+        title_lbl = QLabel(self.tr("Exportation Anki (.apkg / .colpkg)"))
         title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 15, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none;")
 
-        sub_lbl = QLabel("Packaging zstandard avec inclusion automatique des médias")
+        sub_lbl = QLabel(self.tr("Packaging zstandard avec inclusion automatique des médias"))
         sub_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
 
         title_vbox.addWidget(title_lbl)
@@ -100,7 +101,7 @@ class ExportDialog(QDialog):
         deck_layout.setContentsMargins(8, 8, 8, 8)
         deck_layout.setSpacing(6)
 
-        lbl_deck = QLabel("PAQUET À EXPORTER :")
+        lbl_deck = QLabel(self.tr("PAQUET À EXPORTER :"))
         lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         deck_layout.addWidget(lbl_deck)
 
@@ -135,34 +136,34 @@ class ExportDialog(QDialog):
         filters_layout.setContentsMargins(8, 8, 8, 8)
         filters_layout.setSpacing(8)
 
-        lbl_scope = QLabel("PORTÉE DE L'EXPORT :")
+        lbl_scope = QLabel(self.tr("PORTÉE DE L'EXPORT :"))
         lbl_scope.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         filters_layout.addWidget(lbl_scope)
 
-        self.radio_all = QRadioButton("Toutes les cartes du paquet")
+        self.radio_all = QRadioButton(self.tr("Toutes les cartes du paquet"))
         self.radio_all.setChecked(True)
         self.radio_all.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
 
-        self.radio_new_only = QRadioButton("Nouvelles cartes uniquement (statut 'new')")
+        self.radio_new_only = QRadioButton(self.tr("Nouvelles cartes uniquement (statut 'new')"))
         self.radio_new_only.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
 
         filters_layout.addWidget(self.radio_all)
         filters_layout.addWidget(self.radio_new_only)
 
         # Options Médias
-        self.chk_include_media = QCheckBox("Inclure tous les médias associés (images et sons)")
+        self.chk_include_media = QCheckBox(self.tr("Inclure tous les médias associés (images et sons)"))
         self.chk_include_media.setChecked(True)
         self.chk_include_media.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
         filters_layout.addWidget(self.chk_include_media)
 
         # Options Drapeaux & Suspensions
-        self.chk_sync_tags = QCheckBox("Synchroniser drapeaux et suspensions sous forme de tags (flag::couleur, is::suspended)")
+        self.chk_sync_tags = QCheckBox(self.tr("Synchroniser drapeaux et suspensions sous forme de tags (flag::couleur, is::suspended)"))
         self.chk_sync_tags.setChecked(True)
         self.chk_sync_tags.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
-        self.chk_sync_tags.setToolTip("Ajoute des tags aux notes pour garantir la visibilité des drapeaux et des cartes suspendues dans Anki, même sans importer la planification.")
+        self.chk_sync_tags.setToolTip(self.tr("Ajoute des tags aux notes pour garantir la visibilité des drapeaux et des cartes suspendues dans Anki, même sans importer la planification."))
         filters_layout.addWidget(self.chk_sync_tags)
 
-        lbl_anki_tip = QLabel("💡 <i>Pour restaurer les drapeaux de couleur et cartes suspendues natives dans Anki Desktop, cochez « Importer la planification » lors de l'import.</i>")
+        lbl_anki_tip = QLabel(self.tr("💡 <i>Pour restaurer les drapeaux de couleur et cartes suspendues natives dans Anki Desktop, cochez « Importer la planification » lors de l'import.</i>"))
         lbl_anki_tip.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; margin-top: 2px;")
         lbl_anki_tip.setWordWrap(True)
         filters_layout.addWidget(lbl_anki_tip)
@@ -236,7 +237,7 @@ class ExportDialog(QDialog):
         except RuntimeError:
             self._deck_modal = None
 
-        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet à exporter", parent=self)
+        self._deck_modal = DeckSelectWindow(title=self.tr("Sélectionner un paquet à exporter"), parent=self)
         self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
         self._deck_modal.show()
         self._deck_modal.raise_()
@@ -254,9 +255,9 @@ class ExportDialog(QDialog):
                 else:
                     cnt = 0
             formatted_cnt = f"{cnt:,}".replace(",", " ")
-            self.btn_select_deck.setText(f"📁 {self.selected_deck_name} ({formatted_cnt} cartes) ▾")
+            self.btn_select_deck.setText(tr("📁 %1 (%2 cartes) ▾", self.selected_deck_name, formatted_cnt))
         except Exception:
-            self.btn_select_deck.setText(f"📁 {self.selected_deck_name} ▾")
+            self.btn_select_deck.setText(tr("📁 %1 ▾", self.selected_deck_name))
 
     @Slot(int, str)
     def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
@@ -290,7 +291,7 @@ class ExportDialog(QDialog):
     def _start_export(self) -> None:
         dest_path = self.dest_input.text().strip()
         if not dest_path:
-            QMessageBox.warning(self, "Destination manquante", "Veuillez choisir un chemin de destination pour l'exportation.")
+            QMessageBox.warning(self, self.tr("Destination manquante"), self.tr("Veuillez choisir un chemin de destination pour l'exportation."))
             return
 
         # Normalisation automatique du chemin
@@ -308,7 +309,7 @@ class ExportDialog(QDialog):
 
         self.btn_export.setEnabled(False)
         self.progress_bar.show()
-        self.lbl_status.setText("Génération du paquet Anki en cours...")
+        self.lbl_status.setText(self.tr("Génération du paquet Anki en cours..."))
 
         try:
             count = self.export_manager.export_package(
@@ -325,11 +326,11 @@ class ExportDialog(QDialog):
             self.btn_export.setEnabled(True)
 
             parent_window = self.parentWidget() or self
-            show_toast(parent_window, f"✅ {count} cartes exportées avec succès !", level="success")
+            show_toast(parent_window, tr("✅ %1 cartes exportées avec succès !", count), level="success")
             QMessageBox.information(
                 self,
-                "Exportation Réussie",
-                f"Le fichier a été exporté avec succès :\n\n{dest_path}\n\n• {count} carte(s) empaquetée(s)\n• Prêt à être importé dans Anki Desktop !",
+                self.tr("Exportation Réussie"),
+                tr("Le fichier a été exporté avec succès :\n\n%1\n\n• %2 carte(s) empaquetée(s)\n• Prêt à être importé dans Anki Desktop !", dest_path, count),
             )
             self.export_finished.emit(dest_path, count)
             self.accept()
@@ -337,5 +338,5 @@ class ExportDialog(QDialog):
         except Exception as e:
             self.progress_bar.hide()
             self.btn_export.setEnabled(True)
-            self.lbl_status.setText("Erreur d'exportation.")
-            QMessageBox.critical(self, "Erreur d'Exportation", f"Impossible d'exporter le paquet :\n{str(e)}")
+            self.lbl_status.setText(self.tr("Erreur d'exportation."))
+            QMessageBox.critical(self, self.tr("Erreur d'Exportation"), tr("Impossible d'exporter le paquet :\n%1", str(e)))

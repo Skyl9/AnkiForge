@@ -55,6 +55,7 @@ from ankiforge.ui.views.card_models_view.widgets import (
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -114,14 +115,14 @@ class CardModelsView(QWidget):
         search_row = QHBoxLayout()
         search_row.setSpacing(6)
 
-        self.model_search_input = GlowLineEdit(placeholder="Rechercher...")
+        self.model_search_input = GlowLineEdit(placeholder=self.tr("Rechercher..."))
         self.model_search_input.setObjectName("modelSearchInput")
         self.model_search_input.setProperty("role", "search")
         self.model_search_input.setMinimumWidth(110)
         self.model_search_input.textChanged.connect(self._filter_models_list)
         search_row.addWidget(self.model_search_input, 1)
 
-        self.btn_new = PrimaryButton("Nouveau", tooltip="Créer un nouveau modèle de cartes Anki")
+        self.btn_new = PrimaryButton("Nouveau", tooltip=self.tr("Créer un nouveau modèle de cartes Anki"))
         self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
         apply_compact_style(self.btn_new, height=28)
         search_row.addWidget(self.btn_new)
@@ -172,12 +173,12 @@ class CardModelsView(QWidget):
         self.btn_starter_pack = SecondaryButton("Pack IA")
         self.btn_starter_pack.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_starter_pack.setFixedHeight(28)
-        self.btn_starter_pack.setToolTip("Explorer et installer les modèles communautaires (Starter Pack)")
+        self.btn_starter_pack.setToolTip(self.tr("Explorer et installer les modèles communautaires (Starter Pack)"))
         list_toolbar.addWidget(self.btn_starter_pack, 1)
 
-        self.btn_duplicate = IconButton("ph.copy", tooltip="Dupliquer le modèle sélectionné", size=24)
-        self.btn_import_json = IconButton("ph.download-simple", tooltip="Importer un modèle (.afmodel ou .json)", size=24)
-        self.btn_del = IconButton("ph.trash", tooltip="Supprimer le modèle", size=24)
+        self.btn_duplicate = IconButton("ph.copy", tooltip=self.tr("Dupliquer le modèle sélectionné"), size=24)
+        self.btn_import_json = IconButton("ph.download-simple", tooltip=self.tr("Importer un modèle (.afmodel ou .json)"), size=24)
+        self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer le modèle"), size=24)
 
         list_toolbar.addWidget(self.btn_duplicate)
         list_toolbar.addWidget(self.btn_import_json)
@@ -241,15 +242,15 @@ class CardModelsView(QWidget):
         fields_row = QHBoxLayout()
         fields_row.setSpacing(6)
 
-        lbl_fields = QLabel("Champs :")
+        lbl_fields = QLabel(self.tr("Champs :"))
         lbl_fields.setFixedWidth(55)
         lbl_fields.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         fields_row.addWidget(lbl_fields)
 
         self.fields_input = StyledLineEdit()
         self.fields_input.setFixedHeight(26)
-        self.fields_input.setText("Front, Back")
-        self.fields_input.setPlaceholderText("ex: Front, Back, Audio...")
+        self.fields_input.setText(self.tr("Front, Back"))
+        self.fields_input.setPlaceholderText(self.tr("ex: Front, Back, Audio..."))
         fields_row.addWidget(self.fields_input, 1)
 
         top_res_layout.addLayout(fields_row)
@@ -257,14 +258,14 @@ class CardModelsView(QWidget):
         desc_row = QHBoxLayout()
         desc_row.setSpacing(6)
 
-        lbl_desc = QLabel("Rôle IA :")
+        lbl_desc = QLabel(self.tr("Rôle IA :"))
         lbl_desc.setFixedWidth(55)
         lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         desc_row.addWidget(lbl_desc)
 
         self.description_input = StyledLineEdit()
         self.description_input.setFixedHeight(26)
-        self.description_input.setPlaceholderText("Directives sémantiques pour les agents IA...")
+        self.description_input.setPlaceholderText(self.tr("Directives sémantiques pour les agents IA..."))
         desc_row.addWidget(self.description_input, 1)
 
         top_res_layout.addLayout(desc_row)
@@ -286,11 +287,11 @@ class CardModelsView(QWidget):
         helpers_header.setContentsMargins(0, 0, 0, 0)
         helpers_header.setSpacing(6)
 
-        self.btn_collapse_helpers = IconButton("ph.caret-down", tooltip="Replier / Déplier le volet d'aides", size=18)
+        self.btn_collapse_helpers = IconButton("ph.caret-down", tooltip=self.tr("Replier / Déplier le volet d'aides"), size=18)
         self.btn_collapse_helpers.clicked.connect(self._toggle_helpers_collapsed)
         helpers_header.addWidget(self.btn_collapse_helpers)
 
-        lbl_helpers_title = QLabel("Aides d'insertion")
+        lbl_helpers_title = QLabel(self.tr("Aides d'insertion"))
         lbl_helpers_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         helpers_header.addWidget(lbl_helpers_title)
 
@@ -302,11 +303,11 @@ class CardModelsView(QWidget):
         self.helper_category_combo = StyledComboBox()
         self.helper_category_combo.setFixedHeight(22)
         self.helper_category_combo.setFixedWidth(130)
-        self.helper_category_combo.addItem("Toutes", userData="Tous")
-        self.helper_category_combo.addItem("Champs", userData="Champs")
-        self.helper_category_combo.addItem("Cloze", userData="Cloze")
-        self.helper_category_combo.addItem("Classes CSS", userData="Classes CSS")
-        self.helper_category_combo.addItem("Structure", userData="Structure")
+        self.helper_category_combo.addItem(self.tr("Toutes"), userData="Tous")
+        self.helper_category_combo.addItem(self.tr("Champs"), userData="Champs")
+        self.helper_category_combo.addItem(self.tr("Cloze"), userData="Cloze")
+        self.helper_category_combo.addItem(self.tr("Classes CSS"), userData="Classes CSS")
+        self.helper_category_combo.addItem(self.tr("Structure"), userData="Structure")
         self.helper_category_combo.currentIndexChanged.connect(self._on_helper_combo_category_selected)
         helpers_header.addWidget(self.helper_category_combo)
 
@@ -342,7 +343,7 @@ class CardModelsView(QWidget):
         card_sel_row.setContentsMargins(0, 0, 0, 0)
         card_sel_row.setSpacing(6)
 
-        lbl_card_sel = QLabel("Gabarit :")
+        lbl_card_sel = QLabel(self.tr("Gabarit :"))
         lbl_card_sel.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         card_sel_row.addWidget(lbl_card_sel)
 
@@ -352,10 +353,10 @@ class CardModelsView(QWidget):
         self.card_selector_combo.currentIndexChanged.connect(self._on_template_index_changed)
         card_sel_row.addWidget(self.card_selector_combo)
 
-        self.btn_add_card_tmpl = IconButton("ph.plus", tooltip="Ajouter un nouveau gabarit", size=20)
-        self.btn_dup_card_tmpl = IconButton("ph.copy", tooltip="Dupliquer le gabarit actuel", size=20)
-        self.btn_rename_card_tmpl = IconButton("ph.pencil-simple", tooltip="Renommer le gabarit", size=20)
-        self.btn_del_card_tmpl = IconButton("ph.trash", tooltip="Supprimer ce gabarit", size=20)
+        self.btn_add_card_tmpl = IconButton("ph.plus", tooltip=self.tr("Ajouter un nouveau gabarit"), size=20)
+        self.btn_dup_card_tmpl = IconButton("ph.copy", tooltip=self.tr("Dupliquer le gabarit actuel"), size=20)
+        self.btn_rename_card_tmpl = IconButton("ph.pencil-simple", tooltip=self.tr("Renommer le gabarit"), size=20)
+        self.btn_del_card_tmpl = IconButton("ph.trash", tooltip=self.tr("Supprimer ce gabarit"), size=20)
 
         card_sel_row.addWidget(self.btn_add_card_tmpl)
         card_sel_row.addWidget(self.btn_dup_card_tmpl)
@@ -378,9 +379,9 @@ class CardModelsView(QWidget):
         subtabs_row.setContentsMargins(4, 2, 4, 2)
         subtabs_row.setSpacing(6)
 
-        self.btn_subtab_css = SubTabButton("Style CSS", "ph.file-css")
-        self.btn_subtab_front = SubTabButton("HTML Recto", "ph.file-html")
-        self.btn_subtab_back = SubTabButton("HTML Verso", "ph.file-html")
+        self.btn_subtab_css = SubTabButton(tr("Style CSS"), "ph.file-css")
+        self.btn_subtab_front = SubTabButton(tr("HTML Recto"), "ph.file-html")
+        self.btn_subtab_back = SubTabButton(tr("HTML Verso"), "ph.file-html")
 
         subtabs_row.addWidget(self.btn_subtab_css)
         subtabs_row.addWidget(self.btn_subtab_front)
@@ -392,19 +393,19 @@ class CardModelsView(QWidget):
         self.editor_stack = QStackedWidget()
 
         self.css_editor_wrapper = CodeEditorWithGutter(
-            placeholder=".card { font-family: arial; text-align: center; }",
+            placeholder=self.tr(".card { font-family: arial; text-align: center; }"),
             mode="css",
         )
         self.editor_stack.addWidget(self.css_editor_wrapper)
 
         self.front_html_wrapper = CodeEditorWithGutter(
-            placeholder="{{Front}}",
+            placeholder=self.tr("{{Front}}"),
             mode="html",
         )
         self.editor_stack.addWidget(self.front_html_wrapper)
 
         self.back_html_wrapper = CodeEditorWithGutter(
-            placeholder='{{FrontSide}}\n<hr id="answer">\n{{Back}}',
+            placeholder=self.tr('{{FrontSide}}\n<hr id="answer">\n{{Back}}'),
             mode="html",
         )
         self.editor_stack.addWidget(self.back_html_wrapper)
@@ -444,21 +445,21 @@ class CardModelsView(QWidget):
         preview_header.setContentsMargins(0, 0, 0, 0)
         preview_header.setSpacing(6)
 
-        lbl_witness = QLabel("Témoin :")
+        lbl_witness = QLabel(self.tr("Témoin :"))
         lbl_witness.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         preview_header.addWidget(lbl_witness)
 
         self.note_witness_combo = StyledComboBox()
         self.note_witness_combo.setFixedHeight(24)
         self.note_witness_combo.setMinimumWidth(180)
-        self.note_witness_combo.addItem("Données d'exemple automatiques", userData=None)
+        self.note_witness_combo.addItem(self.tr("Données d'exemple automatiques"), userData=None)
         self.note_witness_combo.currentIndexChanged.connect(self._on_witness_note_changed)
         preview_header.addWidget(self.note_witness_combo, 1)
 
-        self.btn_preview_refresh = IconButton("ph.arrows-clockwise", tooltip="Rafraîchir la prévisualisation", size=22)
+        self.btn_preview_refresh = IconButton("ph.arrows-clockwise", tooltip=self.tr("Rafraîchir la prévisualisation"), size=22)
         preview_header.addWidget(self.btn_preview_refresh)
 
-        self.btn_close_preview = IconButton("ph.x", tooltip="Masquer l'aperçu en direct", size=22)
+        self.btn_close_preview = IconButton("ph.x", tooltip=self.tr("Masquer l'aperçu en direct"), size=22)
         preview_header.addWidget(self.btn_close_preview)
 
         preview_layout.addLayout(preview_header)
@@ -652,7 +653,7 @@ class CardModelsView(QWidget):
                 type_label = "Cloze" if is_m_cloze else f"{tmpl_count} carte{'s' if tmpl_count > 1 else ''}"
                 item = QListWidgetItem(f"{m.name}  ({type_label})")
                 item.setIcon(load_phosphor_icon(icon_str, color=DesignTokens.ACCENT_PRIMARY))
-                item.setToolTip(f"Modèle : {m.name}\nType : {'Texte à trous (Cloze)' if is_m_cloze else 'Standard'}\nGabarits : {tmpl_count}")
+                item.setToolTip(tr("Modèle : %1\nType : %2\nGabarits : %3", m.name, "Texte à trous (Cloze)" if is_m_cloze else "Standard", tmpl_count))
                 item.setData(Qt.ItemDataRole.UserRole, m)
                 self.list_widget.addItem(item)
 
@@ -701,7 +702,7 @@ class CardModelsView(QWidget):
         if is_hidden:
             self.tags_scroll_area.show()
             self.btn_collapse_helpers.setIcon(load_phosphor_icon("ph.caret-down", color=DesignTokens.TEXT_PRIMARY))
-            self.btn_collapse_helpers.setToolTip("Replier le volet d'aides")
+            self.btn_collapse_helpers.setToolTip(self.tr("Replier le volet d'aides"))
             self.helpers_frame.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
             self.helpers_frame.setMaximumHeight(16777215)
             self.helpers_frame.setMinimumHeight(0)
@@ -709,7 +710,7 @@ class CardModelsView(QWidget):
         else:
             self.tags_scroll_area.hide()
             self.btn_collapse_helpers.setIcon(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_PRIMARY))
-            self.btn_collapse_helpers.setToolTip("Déplier le volet d'aides")
+            self.btn_collapse_helpers.setToolTip(self.tr("Déplier le volet d'aides"))
             self.helpers_frame.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
             self.helpers_frame.setFixedHeight(34)
             self.editor_vertical_splitter.setSizes([70, 500])
@@ -718,7 +719,7 @@ class CardModelsView(QWidget):
     def _on_item_selected(self, current: QListWidgetItem | None, previous: QListWidgetItem | None) -> None:
         if not current:
             self._current_model = None
-            self.lbl_editor_title.setText("Aucun modèle sélectionné")
+            self.lbl_editor_title.setText(self.tr("Aucun modèle sélectionné"))
             return
 
         model: NoteTypeModel | None = current.data(Qt.ItemDataRole.UserRole)
@@ -739,11 +740,11 @@ class CardModelsView(QWidget):
                     if isinstance(parsed_fields, list):
                         self.fields_input.setText(", ".join(parsed_fields))
                     else:
-                        self.fields_input.setText("Front, Back")
+                        self.fields_input.setText(self.tr("Front, Back"))
                 except Exception:
-                    self.fields_input.setText("Front, Back")
+                    self.fields_input.setText(self.tr("Front, Back"))
             else:
-                self.fields_input.setText("Front, Back")
+                self.fields_input.setText(self.tr("Front, Back"))
             self.fields_input.setCursorPosition(0)
 
             default_css = (
@@ -772,7 +773,7 @@ class CardModelsView(QWidget):
         is_cloze = self._is_cloze_active()
         self.model_type_badge.setText("Cloze" if is_cloze else "Standard")
         cnt = len(self._templates_list)
-        self.template_count_badge.setText(f"{cnt} gabarit{'s' if cnt > 1 else ''}")
+        self.template_count_badge.setText(tr("%1 gabarit%2", cnt, "s" if cnt > 1 else ""))
 
         self._update_witness_notes_combo()
         self._update_tags_toolbar()
@@ -822,10 +823,10 @@ class CardModelsView(QWidget):
             self._populate_template_selector()
             self._load_current_template_to_editors()
             cnt = len(self._templates_list)
-            self.template_count_badge.setText(f"{cnt} gabarit{'s' if cnt > 1 else ''}")
+            self.template_count_badge.setText(tr("%1 gabarit%2", cnt, "s" if cnt > 1 else ""))
             self._update_tags_toolbar()
             self._update_preview()
-            show_toast(self, f"Gabarit '{name.strip()}' ajouté.")
+            show_toast(self, tr("Gabarit '%1' ajouté.", name.strip()))
 
     @Slot()
     def _on_dup_template(self) -> None:
@@ -844,10 +845,10 @@ class CardModelsView(QWidget):
         self._populate_template_selector()
         self._load_current_template_to_editors()
         cnt = len(self._templates_list)
-        self.template_count_badge.setText(f"{cnt} gabarit{'s' if cnt > 1 else ''}")
+        self.template_count_badge.setText(tr("%1 gabarit%2", cnt, "s" if cnt > 1 else ""))
         self._update_tags_toolbar()
         self._update_preview()
-        show_toast(self, f"Gabarit dupliqué sous '{dup_name}'.")
+        show_toast(self, tr("Gabarit dupliqué sous '%1'.", dup_name))
 
     @Slot()
     def _on_rename_template(self) -> None:
@@ -858,19 +859,19 @@ class CardModelsView(QWidget):
         if ok and name.strip():
             self._templates_list[self._current_template_idx]["name"] = name.strip()
             self._populate_template_selector()
-            show_toast(self, "Gabarit renommé.")
+            show_toast(self, self.tr("Gabarit renommé."))
 
     @Slot()
     def _on_del_template(self) -> None:
         if len(self._templates_list) <= 1:
-            QMessageBox.warning(self, "Suppression impossible", "Un modèle doit comporter au moins un gabarit de carte.")
+            QMessageBox.warning(self, self.tr("Suppression impossible"), self.tr("Un modèle doit comporter au moins un gabarit de carte."))
             return
 
         current_name = self._templates_list[self._current_template_idx].get("name", "")
         res = QMessageBox.question(
             self,
-            "Supprimer le Gabarit",
-            f"Voulez-vous vraiment supprimer le gabarit '{current_name}' ?",
+            self.tr("Supprimer le Gabarit"),
+            tr("Voulez-vous vraiment supprimer le gabarit '%1' ?", current_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if res == QMessageBox.StandardButton.Yes:
@@ -879,15 +880,15 @@ class CardModelsView(QWidget):
             self._populate_template_selector()
             self._load_current_template_to_editors()
             cnt = len(self._templates_list)
-            self.template_count_badge.setText(f"{cnt} gabarit{'s' if cnt > 1 else ''}")
+            self.template_count_badge.setText(tr("%1 gabarit%2", cnt, "s" if cnt > 1 else ""))
             self._update_tags_toolbar()
             self._update_preview()
-            show_toast(self, "Gabarit supprimé.")
+            show_toast(self, self.tr("Gabarit supprimé."))
 
     def _update_witness_notes_combo(self) -> None:
         self.note_witness_combo.blockSignals(True)
         self.note_witness_combo.clear()
-        self.note_witness_combo.addItem("Données d'exemple automatiques", userData=None)
+        self.note_witness_combo.addItem(self.tr("Données d'exemple automatiques"), userData=None)
 
         if self._current_model:
             notes = (
@@ -961,7 +962,7 @@ class CardModelsView(QWidget):
         self._switch_subtab(target_idx)
         target_wrapper.editor.setFocus()
 
-        show_toast(self, f"Snippet « {snippet.name} » inséré au curseur.")
+        show_toast(self, tr("Snippet « %1 » inséré au curseur.", snippet.name))
         self._update_tags_toolbar()
         self._update_preview()
 
@@ -1005,7 +1006,7 @@ class CardModelsView(QWidget):
             for f in raw_fields:
                 tag_str = f"{{{{{f}}}}}"
                 btn = TagPillButton(tag_str, variant="field")
-                btn.setToolTip(f"Insérer le champ {tag_str}")
+                btn.setToolTip(tr("Insérer le champ %1", tag_str))
                 btn.clicked.connect(lambda _, t=tag_str: self._insert_tag_to_active_editor(t))
                 self.tags_flow_layout.addWidget(btn)
 
@@ -1013,7 +1014,7 @@ class CardModelsView(QWidget):
             for f in raw_fields:
                 cloze_str = f"{{{{cloze:{f}}}}}"
                 btn_c = TagPillButton(cloze_str, variant="cloze")
-                btn_c.setToolTip(f"Insérer l'occlusion {cloze_str}")
+                btn_c.setToolTip(tr("Insérer l'occlusion %1", cloze_str))
                 btn_c.clicked.connect(lambda _, t=cloze_str: self._insert_tag_to_active_editor(t))
                 self.tags_flow_layout.addWidget(btn_c)
 
@@ -1022,31 +1023,31 @@ class CardModelsView(QWidget):
             detected_classes = extract_css_classes(css_text)
             for cls_name in detected_classes:
                 btn_cls = TagPillButton(f".{cls_name}", variant="css")
-                btn_cls.setToolTip(f"Insérer le conteneur <div class='{cls_name}'></div> ou la règle CSS .{cls_name}")
+                btn_cls.setToolTip(tr("Insérer le conteneur <div class='%1'></div> ou la règle CSS .%2", cls_name, cls_name))
                 btn_cls.clicked.connect(lambda _, c=cls_name: self._insert_css_class_to_active_editor(c))
                 self.tags_flow_layout.addWidget(btn_cls)
 
         if active_cat in ("Tous", "Structure"):
             btn_fs = TagPillButton("{{FrontSide}}", variant="structure")
-            btn_fs.setToolTip("Insérer le rappel du recto au verso")
+            btn_fs.setToolTip(self.tr("Insérer le rappel du recto au verso"))
             btn_fs.clicked.connect(lambda: self._insert_tag_to_active_editor("{{FrontSide}}"))
             self.tags_flow_layout.addWidget(btn_fs)
 
             btn_hr = TagPillButton('<hr id="answer">', variant="structure")
-            btn_hr.setToolTip("Insérer la ligne séparatrice de réponse Anki")
+            btn_hr.setToolTip(self.tr("Insérer la ligne séparatrice de réponse Anki"))
             btn_hr.clicked.connect(lambda: self._insert_tag_to_active_editor('<hr id="answer">'))
             self.tags_flow_layout.addWidget(btn_hr)
 
             for f in raw_fields:
                 cond_tag = f"{{{{#{f}}}}}"
                 btn_cond = TagPillButton(cond_tag, variant="condition")
-                btn_cond.setToolTip(f"Insérer le bloc conditionnel si '{f}' n'est pas vide")
+                btn_cond.setToolTip(tr("Insérer le bloc conditionnel si '%1' n'est pas vide", f))
                 cond_snippet = f"{{{{#{f}}}}}\n  {{{{{f}}}}}\n{{{{/{f}}}}}"
                 btn_cond.clicked.connect(lambda _, s=cond_snippet: self._insert_tag_to_active_editor(s))
                 self.tags_flow_layout.addWidget(btn_cond)
 
         total_pills = self.tags_flow_layout.count()
-        self.lbl_helpers_count.setText(f"{total_pills}")
+        self.lbl_helpers_count.setText(tr("%1", total_pills))
         self.tags_container.updateGeometry()
 
     def _insert_tag_to_active_editor(self, tag_str: str) -> None:
@@ -1139,7 +1140,7 @@ class CardModelsView(QWidget):
                     if item.data(Qt.ItemDataRole.UserRole).id == new_model.id:
                         self.list_widget.setCurrentItem(item)
                         break
-                show_toast(self, f"Modèle '{name.strip()}' créé avec succès.")
+                show_toast(self, tr("Modèle '%1' créé avec succès.", name.strip()))
             except Exception as e:
                 log_and_notify_error(e, context="Création du modèle", parent=self, title="Erreur")
 
@@ -1168,14 +1169,14 @@ class CardModelsView(QWidget):
                 if item.data(Qt.ItemDataRole.UserRole).id == created.id:
                     self.list_widget.setCurrentItem(item)
                     break
-                show_toast(self, f"Modèle dupliqué sous '{dup_name}'.")
+                show_toast(self, tr("Modèle dupliqué sous '%1'.", dup_name))
         except Exception as e:
             log_and_notify_error(e, context="Duplication du modèle", parent=self, title="Erreur")
 
     @Slot()
     def _on_export_json(self) -> None:
         if not self._current_model:
-            show_toast(self, "Aucun modèle sélectionné à exporter.", is_error=True)
+            show_toast(self, self.tr("Aucun modèle sélectionné à exporter."), is_error=True)
             return
 
         self._sync_current_template_from_editors()
@@ -1205,7 +1206,7 @@ class CardModelsView(QWidget):
                         if item.data(Qt.ItemDataRole.UserRole).id == dialog.imported_model.id:
                             self.list_widget.setCurrentItem(item)
                             break
-                    show_toast(self, f"Modèle '{dialog.imported_model.name}' importé avec succès.")
+                    show_toast(self, tr("Modèle '%1' importé avec succès.", dialog.imported_model.name))
             except Exception as e:
                 log_and_notify_error(e, context="Import de modèle", parent=self, title="Erreur d'importation")
 
@@ -1231,8 +1232,8 @@ class CardModelsView(QWidget):
         model_name = self._current_model.name
         res = QMessageBox.question(
             self,
-            "Supprimer le modèle",
-            f"Voulez-vous vraiment supprimer le modèle '{model_name}' ?",
+            self.tr("Supprimer le modèle"),
+            tr("Voulez-vous vraiment supprimer le modèle '%1' ?", model_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if res == QMessageBox.StandardButton.Yes:
@@ -1241,14 +1242,14 @@ class CardModelsView(QWidget):
                 self._current_model = None
                 logger.info("Modèle de carte '%s' supprimé.", model_name)
                 self.refresh_data()
-                show_toast(self, "Modèle supprimé.")
+                show_toast(self, self.tr("Modèle supprimé."))
             except Exception as e:
                 log_and_notify_error(e, context="Suppression du modèle", parent=self, title="Erreur")
 
     @Slot()
     def _on_save_model(self) -> None:
         if not self._current_model:
-            show_toast(self, "Aucun modèle sélectionné à sauvegarder.", is_error=True)
+            show_toast(self, self.tr("Aucun modèle sélectionné à sauvegarder."), is_error=True)
             return
 
         try:
@@ -1266,7 +1267,7 @@ class CardModelsView(QWidget):
             self._current_model.save()
 
             logger.info("Modèle de carte '%s' sauvegardé avec succès.", self._current_model.name)
-            show_toast(self, f"Modèle '{self._current_model.name}' sauvegardé avec succès.")
+            show_toast(self, tr("Modèle '%1' sauvegardé avec succès.", self._current_model.name))
             self._update_preview()
         except Exception as e:
             log_and_notify_error(e, context="Sauvegarde du modèle", parent=self, title="Erreur de sauvegarde")

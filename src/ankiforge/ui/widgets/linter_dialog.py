@@ -7,6 +7,7 @@ from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components import ActionButton, HeaderLabel, PrimaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
@@ -15,7 +16,7 @@ class LinterDialog(QDialog):
         super().__init__(parent)
         self.note_ids = note_ids
         self.store = StoreManager()
-        self.setWindowTitle("IA Linter - Audit des Cartes")
+        self.setWindowTitle(self.tr("IA Linter - Audit des Cartes"))
         self.setMinimumSize(800, 600)
         self.setModal(True)
 
@@ -30,7 +31,7 @@ class LinterDialog(QDialog):
         self.header = HeaderLabel("Audit basé sur les 20 règles de Piotr Wozniak")
         self.main_layout.addWidget(self.header)
 
-        self.status_label = QLabel("Initialisation...")
+        self.status_label = QLabel(self.tr("Initialisation..."))
         self.main_layout.addWidget(self.status_label)
 
         # Scroll area for results
@@ -52,7 +53,7 @@ class LinterDialog(QDialog):
         self.main_layout.addLayout(footer)
 
     def _start_audit(self):
-        self.status_label.setText("L'IA analyse les cartes, veuillez patienter...")
+        self.status_label.setText(self.tr("L'IA analyse les cartes, veuillez patienter..."))
         self.worker = LinterWorker(self.note_ids)
         self.worker.progress_update.connect(self.status_label.setText)
         self.worker.finished_processing.connect(self._on_audit_finished)
@@ -60,11 +61,11 @@ class LinterDialog(QDialog):
         self.worker.start()
 
     def _on_error(self, err: str):
-        self.status_label.setText("Erreur lors de l'audit.")
-        QMessageBox.critical(self, "Erreur", f"L'audit a échoué: {err}")
+        self.status_label.setText(self.tr("Erreur lors de l'audit."))
+        QMessageBox.critical(self, self.tr("Erreur"), tr("L'audit a échoué: %1", err))
 
     def _on_audit_finished(self, results: list[dict]):
-        self.status_label.setText(f"Audit terminé. {len(results)} cartes analysées.")
+        self.status_label.setText(tr("Audit terminé. %1 cartes analysées.", len(results)))
 
         for res in results:
             note_id = res.get("note_id")
@@ -79,20 +80,20 @@ class LinterDialog(QDialog):
             p_layout = QVBoxLayout(panel)
 
             if passed:
-                lbl = QLabel(f"✅ Carte #{note_id} : Parfait !")
+                lbl = QLabel(tr("✅ Carte #%1 : Parfait !", note_id))
                 lbl.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-weight: bold;")
                 p_layout.addWidget(lbl)
             else:
-                lbl = QLabel(f"⚠️ Carte #{note_id} : {rule}")
+                lbl = QLabel(tr("⚠️ Carte #%1 : %2", note_id, rule))
                 lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-weight: bold;")
                 p_layout.addWidget(lbl)
 
-                desc = QLabel(f"Raison : {reason}")
+                desc = QLabel(tr("Raison : %1", reason))
                 desc.setWordWrap(True)
                 p_layout.addWidget(desc)
 
                 if suggestion:
-                    sugg_lbl = QLabel(f"Suggestion : {json.dumps(suggestion, ensure_ascii=False, indent=2)}")
+                    sugg_lbl = QLabel(tr("Suggestion : %1", json.dumps(suggestion, ensure_ascii=False, indent=2)))
                     sugg_lbl.setStyleSheet("background: palette(alternate-base); padding: 5px; border-radius: 4px; font-family: Menlo;")
                     sugg_lbl.setWordWrap(True)
                     p_layout.addWidget(sugg_lbl)
@@ -111,6 +112,6 @@ class LinterDialog(QDialog):
         try:
             self.store.apply_linter_suggestion(note_id, suggestion)
             panel.hide()
-            show_toast(self, f"Suggestion appliquée pour la carte #{note_id}", is_error=False)
+            show_toast(self, tr("Suggestion appliquée pour la carte #%1", note_id), is_error=False)
         except Exception as e:
-            QMessageBox.warning(self, "Erreur", f"Impossible d'appliquer la suggestion: {e}")
+            QMessageBox.warning(self, self.tr("Erreur"), tr("Impossible d'appliquer la suggestion: %1", e))

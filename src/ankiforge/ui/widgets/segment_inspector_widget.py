@@ -35,6 +35,7 @@ from ankiforge.ui.components.buttons import IconButton, SecondaryButton
 from ankiforge.ui.components.inputs import StyledComboBox, StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.chunker import smart_chunk_text
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.paths import get_resource_path
 
@@ -85,7 +86,7 @@ class SegmentItemWidget(QWidget):
         self.checkbox = QCheckBox(self)
         self.checkbox.setChecked(is_checked)
         self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.checkbox.setToolTip("Inclure ou exclure ce fragment de la génération")
+        self.checkbox.setToolTip(self.tr("Inclure ou exclure ce fragment de la génération"))
         self.checkbox.setStyleSheet(f"""
             QCheckBox {{
                 spacing: 0px;
@@ -111,7 +112,7 @@ class SegmentItemWidget(QWidget):
         self.checkbox.toggled.connect(self._on_checkbox_toggled)
         header_layout.addWidget(self.checkbox)
 
-        idx_badge = QLabel(f"#{index + 1}")
+        idx_badge = QLabel(tr("#%1", index + 1))
         idx_badge.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.ACCENT_PRIMARY}; background: {DesignTokens.ACCENT_BG}; border-radius: 3px; padding: 1px 4px;")
         header_layout.addWidget(idx_badge)
 
@@ -121,7 +122,7 @@ class SegmentItemWidget(QWidget):
         header_layout.addWidget(self.title_lbl, 1)
 
         token_col = DesignTokens.COLOR_GREEN if token_count < 2500 else (DesignTokens.COLOR_YELLOW if token_count < 5000 else DesignTokens.COLOR_RED)
-        token_badge = QLabel(f"~{token_count:,} tok.")
+        token_badge = QLabel(tr("~%1 tok.", f"{token_count:,}"))
         token_badge.setStyleSheet(f"font-size: 10px; color: {token_col}; font-family: '{DesignTokens.FONT_CODE}';")
         header_layout.addWidget(token_badge)
 
@@ -216,11 +217,11 @@ class SegmentInspectorWidget(QFrame):
         self.scope_ico.setStyleSheet("border: none; background: transparent;")
         top_row.addWidget(self.scope_ico)
 
-        self.lbl_scope = QLabel("PORTÉE DU DOCUMENT")
+        self.lbl_scope = QLabel(self.tr("PORTÉE DU DOCUMENT"))
         self.lbl_scope.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         top_row.addWidget(self.lbl_scope)
 
-        self.scope_badge = Badge("1 page", variant="neutral")
+        self.scope_badge = Badge(tr("1 page"), variant="neutral")
         self.scope_badge.hide()
 
         top_row.addStretch()
@@ -228,7 +229,7 @@ class SegmentInspectorWidget(QFrame):
         self.btn_delimit = SecondaryButton("Délimiter...")
         self.btn_delimit.setFixedHeight(22)
         self.btn_delimit.setIcon(load_phosphor_icon("ph.crop", color=DesignTokens.TEXT_MUTED))
-        self.btn_delimit.setToolTip("Ouvrir l'outil de délimitation visuelle du document")
+        self.btn_delimit.setToolTip(self.tr("Ouvrir l'outil de délimitation visuelle du document"))
         self.btn_delimit.setStyleSheet(f"font-size: 10px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_delimit.clicked.connect(self.open_delimitation_requested.emit)
         top_row.addWidget(self.btn_delimit)
@@ -268,11 +269,11 @@ class SegmentInspectorWidget(QFrame):
         scope_text_col.setContentsMargins(0, 0, 0, 0)
         scope_text_col.setSpacing(2)
 
-        self.lbl_active_scope_title = QLabel("Portée : Tout le document")
+        self.lbl_active_scope_title = QLabel(self.tr("Portée : Tout le document"))
         self.lbl_active_scope_title.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         scope_text_col.addWidget(self.lbl_active_scope_title)
 
-        self.lbl_scope_stats = QLabel("~1 200 mots • ~6 cartes estimées")
+        self.lbl_scope_stats = QLabel(self.tr("~1 200 mots • ~6 cartes estimées"))
         self.lbl_scope_stats.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         scope_text_col.addWidget(self.lbl_scope_stats)
         card_layout.addLayout(scope_text_col, 1)
@@ -291,11 +292,11 @@ class SegmentInspectorWidget(QFrame):
         legacy_layout.setContentsMargins(0, 0, 0, 0)
 
         preset_row = QHBoxLayout()
-        self.btn_preset_all = QPushButton("Tout le doc")
+        self.btn_preset_all = QPushButton(self.tr("Tout le doc"))
         self.btn_preset_all.clicked.connect(self._on_preset_all)
-        self.btn_preset_page = QPushButton("Page 1")
+        self.btn_preset_page = QPushButton(self.tr("Page 1"))
         self.btn_preset_page.clicked.connect(self._on_preset_single_page)
-        self.btn_preset_range = QPushButton("1 – 10")
+        self.btn_preset_range = QPushButton(self.tr("1 – 10"))
         self.btn_preset_range.clicked.connect(self._on_preset_range)
         preset_row.addWidget(self.btn_preset_all)
         preset_row.addWidget(self.btn_preset_page)
@@ -305,7 +306,7 @@ class SegmentInspectorWidget(QFrame):
         self.range_input_frame = QFrame()
         input_layout = QHBoxLayout(self.range_input_frame)
         self.input_page_scope = StyledLineEdit()
-        self.input_page_scope.setText("1-10")
+        self.input_page_scope.setText(self.tr("1-10"))
         self.input_page_scope.textChanged.connect(self._on_scope_text_changed)
         self.input_page_range = self.input_page_scope
         self.btn_scope_minus = IconButton("ph.minus", "Réduire", 16)
@@ -339,7 +340,7 @@ class SegmentInspectorWidget(QFrame):
         strat_layout.setContentsMargins(0, 0, 0, 0)
         strat_layout.setSpacing(6)
 
-        lbl_strat = QLabel("Découpage :")
+        lbl_strat = QLabel(self.tr("Découpage :"))
         lbl_strat.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-weight: 600;")
         strat_layout.addWidget(lbl_strat)
 
@@ -355,7 +356,7 @@ class SegmentInspectorWidget(QFrame):
         slider_layout.setContentsMargins(0, 0, 0, 0)
         slider_layout.setSpacing(6)
 
-        self.lbl_token_size = QLabel("1 500 tok.")
+        self.lbl_token_size = QLabel(self.tr("1 500 tok."))
         self.lbl_token_size.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_CODE}';")
 
         self.token_slider = QSlider(Qt.Orientation.Horizontal)
@@ -365,7 +366,7 @@ class SegmentInspectorWidget(QFrame):
         self.token_slider.valueChanged.connect(self._on_slider_value_changed)
         self.token_slider.sliderReleased.connect(self.recompute_segments)
 
-        slider_layout.addWidget(QLabel("Taille :"))
+        slider_layout.addWidget(QLabel(self.tr("Taille :")))
         slider_layout.addWidget(self.token_slider, 1)
         slider_layout.addWidget(self.lbl_token_size)
         self.token_slider_frame.setVisible(False)
@@ -421,7 +422,7 @@ class SegmentInspectorWidget(QFrame):
 
         bottom_row.addStretch()
 
-        self.lbl_summary = QLabel("0 segment")
+        self.lbl_summary = QLabel(self.tr("0 segment"))
         self.lbl_summary.setStyleSheet(f"font-size: 10px; font-weight: 600; color: {DesignTokens.ACCENT_PRIMARY};")
         bottom_row.addWidget(self.lbl_summary)
 
@@ -475,7 +476,7 @@ class SegmentInspectorWidget(QFrame):
                 self.configure_scope("PORTÉE DU CONTENU", tot, sp, ep, "section", "sections", "sec")
         else:
             self.scope_container.setVisible(False)
-            self.lbl_scope.setText("DÉCOUPAGE & SEGMENTS")
+            self.lbl_scope.setText(self.tr("DÉCOUPAGE & SEGMENTS"))
 
         self._populate_strategies()
         self.recompute_segments()
@@ -507,18 +508,18 @@ class SegmentInspectorWidget(QFrame):
 
         useful_count = end_u - start_u + 1
         if start_u > 1 or end_u < total_u:
-            self.btn_preset_all.setText(f"Utile ({useful_count}{unit_abbrev})")
-            self.btn_preset_page.setText(f"{unit_singular.capitalize()} {start_u}")
-            self.btn_preset_range.setText(f"{start_u} – {min(start_u + 9, end_u)}")
+            self.btn_preset_all.setText(tr("Utile (%1%2)", useful_count, unit_abbrev))
+            self.btn_preset_page.setText(tr("%1 %2", unit_singular.capitalize(), start_u))
+            self.btn_preset_range.setText(tr("%1 – %2", start_u, min(start_u + 9, end_u)))
             self.input_page_scope.blockSignals(True)
-            self.input_page_scope.setText(f"{start_u}-{min(start_u + 9, end_u)}")
+            self.input_page_scope.setText(tr("%1-%2", start_u, min(start_u + 9, end_u)))
             self.input_page_scope.blockSignals(False)
         else:
-            self.btn_preset_all.setText(f"Tout ({total_u}{unit_abbrev})")
-            self.btn_preset_page.setText(f"{unit_singular.capitalize()} 1")
-            self.btn_preset_range.setText(f"1 – {min(10, total_u)}")
+            self.btn_preset_all.setText(tr("Tout (%1%2)", total_u, unit_abbrev))
+            self.btn_preset_page.setText(tr("%1 1", unit_singular.capitalize()))
+            self.btn_preset_range.setText(tr("1 – %1", min(10, total_u)))
             self.input_page_scope.blockSignals(True)
-            self.input_page_scope.setText(f"1-{min(10, total_u)}")
+            self.input_page_scope.setText(tr("1-%1", min(10, total_u)))
             self.input_page_scope.blockSignals(False)
 
         self._update_scope_stats_and_badge()
@@ -540,7 +541,7 @@ class SegmentInspectorWidget(QFrame):
     def _on_preset_range(self) -> None:
         total = getattr(self, "_current_doc_total_units", 10) or 10
         start_u = getattr(self, "_current_doc_start_unit", 1) or 1
-        self.input_page_scope.setText(f"{start_u}-{min(start_u + 9, total)}")
+        self.input_page_scope.setText(tr("%1-%2", start_u, min(start_u + 9, total)))
 
     @Slot()
     def _on_scope_step_minus(self) -> None:
@@ -557,7 +558,7 @@ class SegmentInspectorWidget(QFrame):
             sorted_p = sorted(list(pages))
             total = getattr(self, "_current_doc_total_units", 9999) or 9999
             new_end = min(total, sorted_p[-1] + 1)
-            self.input_page_scope.setText(f"{sorted_p[0]}-{new_end}")
+            self.input_page_scope.setText(tr("%1-%2", sorted_p[0], new_end))
 
     def _on_scope_text_changed(self, text: str) -> None:
         self._update_scope_stats_and_badge()
@@ -571,19 +572,19 @@ class SegmentInspectorWidget(QFrame):
         unit_pl = getattr(self, "_current_doc_unit_plural", "pages")
 
         if not pages:
-            self.scope_badge.setText(f"0 {unit_pl}")
+            self.scope_badge.setText(tr("0 %1", unit_pl))
             self.scope_badge.set_variant("danger")
-            self.lbl_scope_stats.setText(f"Aucune sélection ({unit_pl})")
+            self.lbl_scope_stats.setText(tr("Aucune sélection (%1)", unit_pl))
             if hasattr(self, "lbl_active_scope_title"):
-                self.lbl_active_scope_title.setText(f"Aucune sélection ({unit_pl})")
+                self.lbl_active_scope_title.setText(tr("Aucune sélection (%1)", unit_pl))
             return
 
         count = len(pages)
         if count == 1:
-            self.scope_badge.setText(f"1 {unit_sg}")
+            self.scope_badge.setText(tr("1 %1", unit_sg))
             self.scope_badge.set_variant("neutral")
         else:
-            self.scope_badge.setText(f"{count} {unit_pl}")
+            self.scope_badge.setText(tr("%1 %2", count, unit_pl))
             self.scope_badge.set_variant("success")
 
         approx_words = count * 280
@@ -596,11 +597,11 @@ class SegmentInspectorWidget(QFrame):
 
         if hasattr(self, "lbl_active_scope_title"):
             if count == total:
-                self.lbl_active_scope_title.setText(f"Tout le document ({count} {unit_pl})")
+                self.lbl_active_scope_title.setText(tr("Tout le document (%1 %2)", count, unit_pl))
             elif count == 1:
-                self.lbl_active_scope_title.setText(f"{unit_sg.capitalize()} {sorted_pages[0]}")
+                self.lbl_active_scope_title.setText(tr("%1 %2", unit_sg.capitalize(), sorted_pages[0]))
             else:
-                self.lbl_active_scope_title.setText(f"{unit_pl.capitalize()} {sorted_pages[0]} à {sorted_pages[-1]} ({count} {unit_pl})")
+                self.lbl_active_scope_title.setText(tr("%1 %2 à %3 (%4 %5)", unit_pl.capitalize(), sorted_pages[0], sorted_pages[-1], count, unit_pl))
 
     def _populate_strategies(self) -> None:
         """Remplit le ComboBox des stratégies adaptées au type de document."""
@@ -610,23 +611,23 @@ class SegmentInspectorWidget(QFrame):
         ft = (getattr(self._doc, "file_type", "") or "md").lower() if self._doc else "md"
 
         if ft in ("pdf", "album", "pptx", "epub"):
-            self.combo_strategy.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_SECONDARY), "Par Page (1 page = 1 segment)", "page")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_SECONDARY), "Plage complète en 1 bloc", "range")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.bookmarks", color=DesignTokens.TEXT_SECONDARY), "Par Chapitre (Titres / TOC)", "toc")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.ruler", color=DesignTokens.TEXT_SECONDARY), "Fenêtre de tokens fixe", "tokens")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Page (1 page = 1 segment)"), "page")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_SECONDARY), self.tr("Plage complète en 1 bloc"), "range")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.bookmarks", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Chapitre (Titres / TOC)"), "toc")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.ruler", color=DesignTokens.TEXT_SECONDARY), self.tr("Fenêtre de tokens fixe"), "tokens")
         elif ft in ("audio", "mp3", "m4a", "wav", "youtube", "video"):
-            self.combo_strategy.addItem(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_SECONDARY), "Par Intervalle (3 minutes)", "time_3m")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_SECONDARY), "Par Intervalle (5 minutes)", "time_5m")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.film-strip", color=DesignTokens.TEXT_SECONDARY), "Par Chapitre / Section", "toc")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_SECONDARY), "Portée complète en 1 bloc", "range")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.ruler", color=DesignTokens.TEXT_SECONDARY), "Fenêtre de tokens", "tokens")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Intervalle (3 minutes)"), "time_3m")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Intervalle (5 minutes)"), "time_5m")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.film-strip", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Chapitre / Section"), "toc")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_SECONDARY), self.tr("Portée complète en 1 bloc"), "range")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.ruler", color=DesignTokens.TEXT_SECONDARY), self.tr("Fenêtre de tokens"), "tokens")
         else:
             # Markdown, Texte, Web
-            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-two", color=DesignTokens.TEXT_SECONDARY), "Par Titre H2 (Recommandé)", "h2")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-one", color=DesignTokens.TEXT_SECONDARY), "Par Grand Chapitre (H1)", "h1")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-three", color=DesignTokens.TEXT_SECONDARY), "Par Sous-Section (H3)", "h3")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.square", color=DesignTokens.TEXT_SECONDARY), "Bloc unique (Tout en 1 bloc)", "range")
-            self.combo_strategy.addItem(load_phosphor_icon("ph.arrows-split", color=DesignTokens.TEXT_SECONDARY), "Fenêtre glissante (Tokens + Overlap)", "tokens")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-two", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Titre H2 (Recommandé)"), "h2")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-one", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Grand Chapitre (H1)"), "h1")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-three", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Sous-Section (H3)"), "h3")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.square", color=DesignTokens.TEXT_SECONDARY), self.tr("Bloc unique (Tout en 1 bloc)"), "range")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.arrows-split", color=DesignTokens.TEXT_SECONDARY), self.tr("Fenêtre glissante (Tokens + Overlap)"), "tokens")
 
         self.combo_strategy.blockSignals(False)
         self._update_controls_visibility()
@@ -640,7 +641,7 @@ class SegmentInspectorWidget(QFrame):
         self.token_slider_frame.setVisible(strat_key == "tokens")
 
     def _on_slider_value_changed(self, value: int) -> None:
-        self.lbl_token_size.setText(f"{value:,} tok.")
+        self.lbl_token_size.setText(tr("%1 tok.", f"{value:,}"))
 
     def recompute_segments(self) -> None:
         """Exécute le découpage selon la portée et la stratégie sélectionnée et recharge la liste."""
@@ -888,7 +889,7 @@ class SegmentInspectorWidget(QFrame):
         total = self.segments_list.count()
         active = sum(1 for i in range(total) if self.segments_list.item(i).checkState() == Qt.CheckState.Checked)
         total_tokens = sum(int(self.segments_list.item(i).data(Qt.ItemDataRole.UserRole).get("tokens", 0)) for i in range(total) if self.segments_list.item(i).checkState() == Qt.CheckState.Checked)
-        self.lbl_summary.setText(f"{active}/{total} segment(s) (~{total_tokens:,} tok.)")
+        self.lbl_summary.setText(tr("%1/%2 segment(s) (~%3 tok.)", active, total, f"{total_tokens:,}"))
         self.segments_updated.emit(active, total)
 
     def get_active_segments(self) -> list[dict[str, Any]]:

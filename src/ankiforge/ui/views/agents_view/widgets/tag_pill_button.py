@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QPushButton, QSizePolicy, QWidget
 
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 
 
 class TagPillButton(QPushButton):
@@ -20,7 +21,7 @@ class TagPillButton(QPushButton):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(24)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.setToolTip(f"{tooltip}\nInsère : {template_code}")
+        self.setToolTip(tr("%1\nInsère : %2", tooltip, template_code))
 
         if variant == "cloze":
             bg_tint = DesignTokens.COLOR_PURPLE_BG

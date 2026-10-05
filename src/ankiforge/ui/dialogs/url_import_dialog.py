@@ -36,6 +36,7 @@ from ankiforge.services.workers.url_import_worker import UrlImportTask, UrlImpor
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ class UrlImportDialog(QDialog):
         self._js_pending: list[int] = []
         self._pending_titles: dict[int, str] = {}
 
-        self.setWindowTitle("Importer depuis le Web")
+        self.setWindowTitle(self.tr("Importer depuis le Web"))
         self.resize(880, 620)
 
         self._setup_ui()
@@ -78,11 +79,11 @@ class UrlImportDialog(QDialog):
         icon_lbl.setStyleSheet("border: none; background: transparent;")
 
         title_box = QVBoxLayout()
-        title_lbl = QLabel("Importer depuis le Web")
+        title_lbl = QLabel(self.tr("Importer depuis le Web"))
         title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 15, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        sub_lbl = QLabel("Analyse, prévisualisation puis import de votre contenu pour la génération de cartes.")
+        sub_lbl = QLabel(self.tr("Analyse, prévisualisation puis import de votre contenu pour la génération de cartes."))
         sub_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         title_box.addWidget(title_lbl)
         title_box.addWidget(sub_lbl)
@@ -92,22 +93,22 @@ class UrlImportDialog(QDialog):
         header.addStretch()
         layout.addLayout(header)
 
-        url_lbl = QLabel("URLs (une par ligne)")
+        url_lbl = QLabel(self.tr("URLs (une par ligne)"))
         url_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; background: transparent; border: none;")
         layout.addWidget(url_lbl)
 
         self.url_editor = QPlainTextEdit()
-        self.url_editor.setPlaceholderText("https://fr.wikipedia.org/wiki/…\nhttps://blog.example.com/article-1")
+        self.url_editor.setPlaceholderText(self.tr("https://fr.wikipedia.org/wiki/…\nhttps://blog.example.com/article-1"))
         self.url_editor.setMaximumHeight(90)
         self.url_editor.setStyleSheet(self._editor_style())
         layout.addWidget(self.url_editor)
 
-        self.chk_images = QCheckBox("Télécharger les images")
-        self.chk_images.setToolTip("Enregistre les images de la page dans les médias du profil et les référence dans le Markdown.")
+        self.chk_images = QCheckBox(self.tr("Télécharger les images"))
+        self.chk_images.setToolTip(self.tr("Enregistre les images de la page dans les médias du profil et les référence dans le Markdown."))
         self.chk_images.setStyleSheet(self._checkbox_style())
 
-        self.chk_pagination = QCheckBox("Fusionner les articles multi-pages")
-        self.chk_pagination.setToolTip("Suit les liens 'page suivante' (rel=next) et assemble les pages en un seul document.")
+        self.chk_pagination = QCheckBox(self.tr("Fusionner les articles multi-pages"))
+        self.chk_pagination.setToolTip(self.tr("Suit les liens 'page suivante' (rel=next) et assemble les pages en un seul document."))
         self.chk_pagination.setStyleSheet(self._checkbox_style())
         self.chk_pagination.toggled.connect(self._on_pagination_toggled)
 
@@ -115,18 +116,18 @@ class UrlImportDialog(QDialog):
         self.spin_max_pages.setRange(1, 10)
         self.spin_max_pages.setValue(3)
         self.spin_max_pages.setEnabled(False)
-        self.spin_max_pages.setToolTip("Nombre maximum de pages à fusionner.")
+        self.spin_max_pages.setToolTip(self.tr("Nombre maximum de pages à fusionner."))
         self.spin_max_pages.setStyleSheet(
             f"QSpinBox {{ background:{DesignTokens.BG_INPUT}; color:{DesignTokens.TEXT_PRIMARY};"
             f" border:1px solid {DesignTokens.BORDER_COLOR}; border-radius:{DesignTokens.RADIUS_SM}px; padding:2px 4px; }}"
         )
 
-        self.chk_js = QCheckBox("Rendu JavaScript si page dynamique (SPA)")
-        self.chk_js.setToolTip("Tente un rendu via le moteur Web intégré lorsque le contenu statique est vide (sites générés côté client).")
+        self.chk_js = QCheckBox(self.tr("Rendu JavaScript si page dynamique (SPA)"))
+        self.chk_js.setToolTip(self.tr("Tente un rendu via le moteur Web intégré lorsque le contenu statique est vide (sites générés côté client)."))
         self.chk_js.setStyleSheet(self._checkbox_style())
 
         self.cmb_folder = QComboBox()
-        self.cmb_folder.setToolTip("Dossier de destination dans la bibliothèque de documents.")
+        self.cmb_folder.setToolTip(self.tr("Dossier de destination dans la bibliothèque de documents."))
         self.cmb_folder.setMinimumWidth(180)
         self.cmb_folder.setStyleSheet(self._combo_style())
 
@@ -139,12 +140,12 @@ class UrlImportDialog(QDialog):
             options_layout.addWidget(widget)
         options_layout.addWidget(self.chk_js)
         options_layout.addStretch()
-        options_layout.addWidget(QLabel("Dossier:"))
+        options_layout.addWidget(QLabel(self.tr("Dossier:")))
         options_layout.addWidget(self.cmb_folder)
         layout.addWidget(options_frame)
 
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["#", "URL", "Statut", "Titre"])
+        self.table.setHorizontalHeaderLabels([self.tr("#"), self.tr("URL"), self.tr("Statut"), self.tr("Titre")])
         self.table.setColumnWidth(0, 40)
         self.table.setColumnWidth(1, 300)
         self.table.setColumnWidth(2, 260)
@@ -163,14 +164,14 @@ class UrlImportDialog(QDialog):
         preview_layout.setSpacing(6)
 
         preview_header = QHBoxLayout()
-        title_caption = QLabel("Titre du document")
+        title_caption = QLabel(self.tr("Titre du document"))
         title_caption.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; background: transparent; border: none;")
         preview_header.addWidget(title_caption)
         preview_header.addStretch()
         preview_layout.addLayout(preview_header)
 
         self.txt_title = QLineEdit()
-        self.txt_title.setPlaceholderText("Titre du document importé (modifiable)")
+        self.txt_title.setPlaceholderText(self.tr("Titre du document importé (modifiable)"))
         self.txt_title.setStyleSheet(
             f"QLineEdit {{ background:{DesignTokens.BG_INPUT}; color:{DesignTokens.TEXT_PRIMARY};"
             f" border:1px solid {DesignTokens.BORDER_COLOR}; border-radius:{DesignTokens.RADIUS_SM}px; padding:6px 8px; }}"
@@ -182,19 +183,19 @@ class UrlImportDialog(QDialog):
         self.lbl_warnings.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW_TEXT}; font-size: 11px; background: transparent; border: none;")
         preview_layout.addWidget(self.lbl_warnings)
 
-        content_caption = QLabel("Contenu extrait (Markdown)")
+        content_caption = QLabel(self.tr("Contenu extrait (Markdown)"))
         content_caption.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; background: transparent; border: none;")
         preview_layout.addWidget(content_caption)
 
         self.preview_edit = QPlainTextEdit()
         self.preview_edit.setReadOnly(True)
-        self.preview_edit.setPlaceholderText("Sélectionnez une URL analysée pour prévisualiser son contenu…")
+        self.preview_edit.setPlaceholderText(self.tr("Sélectionnez une URL analysée pour prévisualiser son contenu…"))
         self.preview_edit.setStyleSheet(self._editor_style())
         preview_layout.addWidget(self.preview_edit, 1)
 
         preview_footer = QHBoxLayout()
         self.btn_render_js = SecondaryButton("Rendre avec JavaScript")
-        self.btn_render_js.setToolTip("Active le moteur Web intégré pour extraire une page générée dynamiquement.")
+        self.btn_render_js.setToolTip(self.tr("Active le moteur Web intégré pour extraire une page générée dynamiquement."))
         self.btn_render_js.setEnabled(False)
         self.btn_render_js.clicked.connect(self._on_render_selected_with_js)
         preview_footer.addWidget(self.btn_render_js)
@@ -224,7 +225,7 @@ class UrlImportDialog(QDialog):
         self.btn_import.clicked.connect(self._on_import)
 
         self.btn_cards = SecondaryButton("Créer des cartes")
-        self.btn_cards.setToolTip("Ouvre le Studio de Création sur le dernier document importé.")
+        self.btn_cards.setToolTip(self.tr("Ouvre le Studio de Création sur le dernier document importé."))
         self.btn_cards.setEnabled(False)
         self.btn_cards.clicked.connect(self._on_create_cards)
 
@@ -246,7 +247,7 @@ class UrlImportDialog(QDialog):
         return [
             self.chk_images,
             self.chk_pagination,
-            QLabel("Pages max:"),
+            QLabel(self.tr("Pages max:")),
             self.spin_max_pages,
         ]
 
@@ -278,7 +279,7 @@ class UrlImportDialog(QDialog):
 
     def _populate_folders(self) -> None:
         folders = self.doc_repo.get_all_folders()
-        self.cmb_folder.addItem("(Aucun dossier)", None)
+        self.cmb_folder.addItem(self.tr("(Aucun dossier)"), None)
         for folder in folders:
             self.cmb_folder.addItem(folder.name, folder.id)
 
@@ -308,7 +309,7 @@ class UrlImportDialog(QDialog):
     def _on_analyze(self) -> None:
         collected = self._collect_requests()
         if not collected:
-            show_toast(self, "Saisissez au moins une URL.", is_error=True)
+            show_toast(self, self.tr("Saisissez au moins une URL."), is_error=True)
             return
 
         self._rows = {}
@@ -500,7 +501,7 @@ class UrlImportDialog(QDialog):
     def _on_import(self) -> None:
         ok_keys = [idx for idx, st in self._rows.items() if st["status"] == "ok" and st["result"] is not None and st["saved_doc_id"] is None]
         if not ok_keys:
-            show_toast(self, "Aucune URL valide à importer.", is_error=True)
+            show_toast(self, self.tr("Aucune URL valide à importer."), is_error=True)
             return
 
         folder = self.cmb_folder.currentData()
@@ -511,8 +512,8 @@ class UrlImportDialog(QDialog):
         if dedup_keys:
             reply = QMessageBox.question(
                 self,
-                "Contenu déjà importé",
-                f"{len(dedup_keys)} URL(s) correspondent déjà à un document existant.\nVoulez-vous mettre à jour les documents existants (contenu rafraîchi) ?",
+                self.tr("Contenu déjà importé"),
+                tr("%1 URL(s) correspondent déjà à un document existant.\nVoulez-vous mettre à jour les documents existants (contenu rafraîchi) ?", len(dedup_keys)),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Yes,
             )
@@ -548,9 +549,9 @@ class UrlImportDialog(QDialog):
         if saved_ids:
             self.import_completed.emit(saved_ids)
             self.btn_cards.setEnabled(True)
-            show_toast(self, f"{len(saved_ids)} document(s) importé(s) avec succès.")
+            show_toast(self, tr("%1 document(s) importé(s) avec succès.", len(saved_ids)))
         if errors:
-            show_toast(self, "Certaines URL n'ont pas pu être importées.", is_error=True)
+            show_toast(self, self.tr("Certaines URL n'ont pas pu être importées."), is_error=True)
         self._refresh_summary()
 
     @Slot()
@@ -560,7 +561,7 @@ class UrlImportDialog(QDialog):
                 self.cards_requested.emit(int(st["saved_doc_id"]))
                 self.accept()
                 return
-        show_toast(self, "Importez d'abord au moins un document.", is_error=True)
+        show_toast(self, self.tr("Importez d'abord au moins un document."), is_error=True)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

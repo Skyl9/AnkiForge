@@ -175,7 +175,7 @@ class TagButton(QPushButton):
         layout.addWidget(self.lbl)
 
         if removable:
-            self.del_lbl = QLabel("×")
+            self.del_lbl = QLabel(self.tr("×"))
             self.del_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 14px;")
             layout.addWidget(self.del_lbl)
 

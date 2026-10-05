@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QWidget
 
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ class EditorToolbarWidget(QWidget):
         """)
 
         # Bouton Toggle Table (Replier/Déplier la liste)
-        self.btn_toggle_table = IconButton("caret-up", tooltip="Replier la liste des cartes (Ctrl+Shift+T)", size=24, parent=self)
+        self.btn_toggle_table = IconButton("caret-up", tooltip=self.tr("Replier la liste des cartes (Ctrl+Shift+T)"), size=24, parent=self)
         self.btn_toggle_table.clicked.connect(self.toggle_table_requested.emit)
         self.main_layout.addWidget(self.btn_toggle_table)
 
@@ -81,7 +82,7 @@ class EditorToolbarWidget(QWidget):
         self.main_layout.addLayout(self.tools_layout)
 
         # Bouton Menu Trois Points (Personnalisation & Overflow)
-        self.btn_customize = IconButton("dots-three-vertical", tooltip="Personnaliser la barre d'outils...", size=24, parent=self)
+        self.btn_customize = IconButton("dots-three-vertical", tooltip=self.tr("Personnaliser la barre d'outils..."), size=24, parent=self)
         self.btn_customize.clicked.connect(self._open_customize_menu)
         self.main_layout.addWidget(self.btn_customize)
 
@@ -90,7 +91,7 @@ class EditorToolbarWidget(QWidget):
         # Bouton Dé-silotage : Consulter l'IA sur la note courante
         self.btn_consult_ai = SecondaryButton("Consulter l'IA")
         self.btn_consult_ai.setIcon(load_phosphor_icon("sparkle", color=DesignTokens.COLOR_PURPLE))
-        self.btn_consult_ai.setToolTip("Ouvrir le Consultant IA pour auditer ou optimiser cette note")
+        self.btn_consult_ai.setToolTip(self.tr("Ouvrir le Consultant IA pour auditer ou optimiser cette note"))
         self.btn_consult_ai.setFixedHeight(26)
         self.btn_consult_ai.setStyleSheet(f"""
             QPushButton {{
@@ -109,7 +110,7 @@ class EditorToolbarWidget(QWidget):
         # Boutons système à droite : Historique + Sauvegarder + Toggle Preview
         self.btn_history = SecondaryButton("Historique")
         self.btn_history.setIcon(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_history.setToolTip("Machine à Remonter le Temps (Ctrl+H)")
+        self.btn_history.setToolTip(self.tr("Machine à Remonter le Temps (Ctrl+H)"))
         self.btn_history.setFixedHeight(26)
         self.btn_history.setStyleSheet("""
             QPushButton {
@@ -123,7 +124,7 @@ class EditorToolbarWidget(QWidget):
 
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_on_accent_icon("floppy-disk"))
-        self.btn_save.setToolTip("Sauvegarder les modifications (Ctrl+S)")
+        self.btn_save.setToolTip(self.tr("Sauvegarder les modifications (Ctrl+S)"))
         self.btn_save.setFixedHeight(26)
         self.btn_save.setStyleSheet("""
             QPushButton {
@@ -135,7 +136,7 @@ class EditorToolbarWidget(QWidget):
         self.btn_save.clicked.connect(self.save_requested.emit)
         self.main_layout.addWidget(self.btn_save)
 
-        self.btn_toggle_preview = IconButton("sidebar-simple", tooltip="Afficher / Masquer l'aperçu (Ctrl+P)", size=24, parent=self)
+        self.btn_toggle_preview = IconButton("sidebar-simple", tooltip=self.tr("Afficher / Masquer l'aperçu (Ctrl+P)"), size=24, parent=self)
         self.btn_toggle_preview.clicked.connect(self.toggle_preview_requested.emit)
         self.main_layout.addWidget(self.btn_toggle_preview)
 
@@ -363,13 +364,13 @@ class EditorToolbarWidget(QWidget):
         # 1. Actions actuellement masquées (accès direct en un clic)
         hidden_actions = [self._actions[aid] for aid in self._hidden_action_ids if aid in self._actions]
         if hidden_actions:
-            lbl_hidden = menu.addAction("Actions masquées :")
+            lbl_hidden = menu.addAction(self.tr("Actions masquées :"))
             lbl_hidden.setEnabled(False)
             for act in hidden_actions:
                 shortcut_txt = f"\t{act.shortcut}" if act.shortcut else ""
                 item = menu.addAction(
                     load_phosphor_icon(act.icon_name, color=DesignTokens.TEXT_PRIMARY),
-                    f"{act.label}{shortcut_txt}",
+                    tr("%1%2", act.label, shortcut_txt),
                 )
                 item.triggered.connect(act.callback)
             menu.addSeparator()
@@ -397,21 +398,21 @@ class EditorToolbarWidget(QWidget):
         # 3. Action pour ouvrir ToolbarCustomizeDialog
         action_dialog = menu.addAction(
             load_phosphor_icon("sliders", color=DesignTokens.TEXT_PRIMARY),
-            "Personnaliser la barre...",
+            self.tr("Personnaliser la barre..."),
         )
         action_dialog.triggered.connect(self._open_customize_dialog)
 
         # 4. Action "Tout afficher"
         action_all = menu.addAction(
             load_phosphor_icon("check-circle", color=DesignTokens.TEXT_PRIMARY),
-            "Tout afficher",
+            self.tr("Tout afficher"),
         )
         action_all.triggered.connect(self.show_all_actions)
 
         # 5. Action "Rétablir par défaut"
         action_reset = menu.addAction(
             load_phosphor_icon("arrow-counter-clockwise", color=DesignTokens.TEXT_PRIMARY),
-            "Rétablir par défaut",
+            self.tr("Rétablir par défaut"),
         )
         action_reset.triggered.connect(self.reset_customization)
 

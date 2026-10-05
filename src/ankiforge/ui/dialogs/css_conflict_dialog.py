@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -32,7 +33,7 @@ class CSSConflictDialog(QDialog):
         self.snippet_name = snippet_name
         self.selected_action = "cancel"  # "replace" | "rename" | "html_only" | "cancel"
 
-        self.setWindowTitle("Conflit de Styles CSS Détecté")
+        self.setWindowTitle(self.tr("Conflit de Styles CSS Détecté"))
         self.setFixedWidth(520)
         self.setModal(True)
         self._setup_ui()
@@ -53,10 +54,10 @@ class CSSConflictDialog(QDialog):
         title_vbox = QVBoxLayout()
         title_vbox.setSpacing(2)
 
-        title_lbl = QLabel("Collision de classes CSS")
+        title_lbl = QLabel(self.tr("Collision de classes CSS"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold; border: none;")
 
-        subtitle_lbl = QLabel(f"Le snippet « {self.snippet_name} » utilise des classes déjà présentes dans votre modèle.")
+        subtitle_lbl = QLabel(tr("Le snippet « %1 » utilise des classes déjà présentes dans votre modèle.", self.snippet_name))
         subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; border: none;")
         subtitle_lbl.setWordWrap(True)
 
@@ -81,7 +82,7 @@ class CSSConflictDialog(QDialog):
         classes_layout.setContentsMargins(8, 8, 8, 8)
         classes_layout.setSpacing(4)
 
-        classes_title = QLabel("Classes en conflit :")
+        classes_title = QLabel(self.tr("Classes en conflit :"))
         classes_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none;")
         classes_layout.addWidget(classes_title)
 
@@ -94,7 +95,7 @@ class CSSConflictDialog(QDialog):
         layout.addWidget(classes_frame)
 
         # Explications des choix
-        info_lbl = QLabel("Comment souhaitez-vous intégrer ce composant ?")
+        info_lbl = QLabel(self.tr("Comment souhaitez-vous intégrer ce composant ?"))
         info_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 600; border: none;")
         layout.addWidget(info_lbl)
 
@@ -105,21 +106,21 @@ class CSSConflictDialog(QDialog):
         # Option 1 : Créer une variante unique (Recommandé)
         self.btn_rename = PrimaryButton("✨ Créer une variante unique (Recommandé)")
         self.btn_rename.setIcon(load_on_accent_icon("ph.sparkle"))
-        self.btn_rename.setToolTip("Renomme automatiquement les classes pour éviter toute perturbation du style existant.")
+        self.btn_rename.setToolTip(self.tr("Renomme automatiquement les classes pour éviter toute perturbation du style existant."))
         self.btn_rename.clicked.connect(self._on_rename_clicked)
         btn_layout.addWidget(self.btn_rename)
 
         # Option 2 : Remplacer la règle CSS
         self.btn_replace = SecondaryButton("🔄 Remplacer les règles CSS existantes")
         self.btn_replace.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_replace.setToolTip("Écrase les définitions CSS précédentes par celles du nouveau snippet.")
+        self.btn_replace.setToolTip(self.tr("Écrase les définitions CSS précédentes par celles du nouveau snippet."))
         self.btn_replace.clicked.connect(self._on_replace_clicked)
         btn_layout.addWidget(self.btn_replace)
 
         # Option 3 : Insérer le HTML seul
         self.btn_html_only = SecondaryButton("📄 Insérer le HTML uniquement (Conserver le CSS actuel)")
         self.btn_html_only.setIcon(load_phosphor_icon("ph.file-html", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_html_only.setToolTip("Insère le balisage HTML sans modifier la feuille de styles CSS.")
+        self.btn_html_only.setToolTip(self.tr("Insère le balisage HTML sans modifier la feuille de styles CSS."))
         self.btn_html_only.clicked.connect(self._on_html_only_clicked)
         btn_layout.addWidget(self.btn_html_only)
 

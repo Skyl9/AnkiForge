@@ -28,6 +28,7 @@ from ankiforge.services.markdown.ai_structurer import (
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.model_selector import ModelSelectorWidget
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,7 @@ class AIDocumentStructureDialog(QDialog):
         self.structured_result = ""
         self._worker: StructuringWorker | None = None
 
-        self.setWindowTitle(f"Structurer avec l'IA — {doc_title}")
+        self.setWindowTitle(tr("Structurer avec l'IA — %1", doc_title))
         self.resize(920, 680)
         self._setup_ui()
 
@@ -122,9 +123,9 @@ class AIDocumentStructureDialog(QDialog):
 
         info_layout = QVBoxLayout()
         info_layout.setSpacing(2)
-        title_lbl = QLabel(f"Restructuration Documentaire Intelligente : <b>{self.doc_title}</b>")
+        title_lbl = QLabel(tr("Restructuration Documentaire Intelligente : <b>%1</b>", self.doc_title))
         title_lbl.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        subtitle_lbl = QLabel("Transforme les transcriptions orales (YouTube / Audio) et textes bruts en cours didactiques structurés (KaTeX, chapitres, vocabulaire).")
+        subtitle_lbl = QLabel(self.tr("Transforme les transcriptions orales (YouTube / Audio) et textes bruts en cours didactiques structurés (KaTeX, chapitres, vocabulaire)."))
         subtitle_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         info_layout.addWidget(title_lbl)
         info_layout.addWidget(subtitle_lbl)
@@ -151,12 +152,12 @@ class AIDocumentStructureDialog(QDialog):
         # Choix du profil
         col_prof = QVBoxLayout()
         col_prof.setSpacing(4)
-        lbl_prof = QLabel("Profil pédagogique :")
+        lbl_prof = QLabel(self.tr("Profil pédagogique :"))
         lbl_prof.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.TEXT_SECONDARY};")
         self.cb_profile = QComboBox()
-        self.cb_profile.addItem("🎓 Synthèse Didactique & Pédagogique (Cours, KaTeX, Définitions)", StructuringProfile.DIDACTIC.value)
-        self.cb_profile.addItem("📝 Retranscription Polie & Chapitrée (Verbatim structuré)", StructuringProfile.POLISHED_VERBATIM.value)
-        self.cb_profile.addItem("⚡ Fiche de Synthèse (Cheatsheet, Tableaux, Points Clés)", StructuringProfile.EXECUTIVE_SUMMARY.value)
+        self.cb_profile.addItem(self.tr("🎓 Synthèse Didactique & Pédagogique (Cours, KaTeX, Définitions)"), StructuringProfile.DIDACTIC.value)
+        self.cb_profile.addItem(self.tr("📝 Retranscription Polie & Chapitrée (Verbatim structuré)"), StructuringProfile.POLISHED_VERBATIM.value)
+        self.cb_profile.addItem(self.tr("⚡ Fiche de Synthèse (Cheatsheet, Tableaux, Points Clés)"), StructuringProfile.EXECUTIVE_SUMMARY.value)
         self.cb_profile.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -173,7 +174,7 @@ class AIDocumentStructureDialog(QDialog):
         # Sélecteur de modèle LLM
         col_model = QVBoxLayout()
         col_model.setSpacing(4)
-        lbl_model = QLabel("Moteur IA utilisé :")
+        lbl_model = QLabel(self.tr("Moteur IA utilisé :"))
         lbl_model.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.TEXT_SECONDARY};")
         self.model_selector = ModelSelectorWidget(allow_inherit=True, show_badges=False, parent=self)
         col_model.addWidget(lbl_model)
@@ -185,11 +186,11 @@ class AIDocumentStructureDialog(QDialog):
         # Rangée des cases à cocher
         cb_row = QHBoxLayout()
         cb_row.setSpacing(16)
-        self.chk_timestamps = QCheckBox("Conserver les repères temporels [MM:SS]")
+        self.chk_timestamps = QCheckBox(self.tr("Conserver les repères temporels [MM:SS]"))
         self.chk_timestamps.setChecked(True)
-        self.chk_katex = QCheckBox("Normaliser KaTeX ($..$ / $$..$$)")
+        self.chk_katex = QCheckBox(self.tr("Normaliser KaTeX ($..$ / $$..$$)"))
         self.chk_katex.setChecked(True)
-        self.chk_takeaways = QCheckBox("Générer les Points Clés à Retenir")
+        self.chk_takeaways = QCheckBox(self.tr("Générer les Points Clés à Retenir"))
         self.chk_takeaways.setChecked(True)
 
         cb_row.addWidget(self.chk_timestamps)
@@ -213,7 +214,7 @@ class AIDocumentStructureDialog(QDialog):
         self.progress_bar.hide()
         c_layout.addWidget(self.progress_bar)
 
-        self.lbl_status = QLabel("Prêt à structurer.")
+        self.lbl_status = QLabel(self.tr("Prêt à structurer."))
         self.lbl_status.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         c_layout.addWidget(self.lbl_status)
 
@@ -227,7 +228,7 @@ class AIDocumentStructureDialog(QDialog):
         orig_layout = QVBoxLayout(orig_container)
         orig_layout.setContentsMargins(0, 0, 0, 0)
         orig_layout.setSpacing(4)
-        lbl_orig = QLabel(f"Texte d'origine ({len(self.original_content.split()):,} mots) :")
+        lbl_orig = QLabel(tr("Texte d'origine (%1 mots) :", f"{len(self.original_content.split()):,}"))
         lbl_orig.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.TEXT_MUTED};")
         self.txt_original = QPlainTextEdit()
         self.txt_original.setPlainText(self.original_content)
@@ -252,10 +253,10 @@ class AIDocumentStructureDialog(QDialog):
         res_layout = QVBoxLayout(res_container)
         res_layout.setContentsMargins(0, 0, 0, 0)
         res_layout.setSpacing(4)
-        lbl_res = QLabel("Résultat structuré par l'IA :")
+        lbl_res = QLabel(self.tr("Résultat structuré par l'IA :"))
         lbl_res.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.ACCENT_PRIMARY};")
         self.txt_result = QPlainTextEdit()
-        self.txt_result.setPlaceholderText("Le document structuré et formaté apparaîtra ici après génération...")
+        self.txt_result.setPlaceholderText(self.tr("Le document structuré et formaté apparaîtra ici après génération..."))
         self.txt_result.setStyleSheet(f"""
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -286,14 +287,14 @@ class AIDocumentStructureDialog(QDialog):
 
         self.btn_save_copy = SecondaryButton("📄 Créer une copie structurée")
         self.btn_save_copy.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.COLOR_BLUE))
-        self.btn_save_copy.setToolTip("Enregistre un nouveau document 'Titre (Structuré IA)' dans votre collection")
+        self.btn_save_copy.setToolTip(self.tr("Enregistre un nouveau document 'Titre (Structuré IA)' dans votre collection"))
         self.btn_save_copy.setEnabled(False)
         self.btn_save_copy.clicked.connect(self._on_save_as_copy)
         bottom_bar.addWidget(self.btn_save_copy)
 
         self.btn_apply_editor = PrimaryButton("💾 Remplacer dans l'éditeur")
         self.btn_apply_editor.setIcon(load_on_accent_icon("ph.check"))
-        self.btn_apply_editor.setToolTip("Remplace le contenu actuel de l'éditeur par le résultat structuré")
+        self.btn_apply_editor.setToolTip(self.tr("Remplace le contenu actuel de l'éditeur par le résultat structuré"))
         self.btn_apply_editor.setEnabled(False)
         self.btn_apply_editor.clicked.connect(self._on_apply_to_editor)
         bottom_bar.addWidget(self.btn_apply_editor)
@@ -323,7 +324,7 @@ class AIDocumentStructureDialog(QDialog):
         self.btn_run.setEnabled(False)
         self.progress_bar.show()
         self.progress_bar.setValue(10)
-        self.lbl_status.setText("Initialisation de l'IA...")
+        self.lbl_status.setText(self.tr("Initialisation de l'IA..."))
 
         self._worker = StructuringWorker(
             content=self.original_content,
@@ -349,13 +350,13 @@ class AIDocumentStructureDialog(QDialog):
         self.btn_run.setEnabled(True)
         self.btn_apply_editor.setEnabled(True)
         self.btn_save_copy.setEnabled(True)
-        self.lbl_status.setText(f"✅ Structuration terminée ({len(structured_text.split()):,} mots générés).")
+        self.lbl_status.setText(tr("✅ Structuration terminée (%1 mots générés).", f"{len(structured_text.split()):,}"))
 
     @Slot(str)
     def _on_worker_error(self, err_msg: str) -> None:
         self.progress_bar.hide()
         self.btn_run.setEnabled(True)
-        self.lbl_status.setText(f"❌ Erreur : {err_msg}")
+        self.lbl_status.setText(tr("❌ Erreur : %1", err_msg))
 
     @Slot()
     def _on_apply_to_editor(self) -> None:

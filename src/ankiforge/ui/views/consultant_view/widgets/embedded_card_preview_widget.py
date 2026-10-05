@@ -116,7 +116,7 @@ class EmbeddedCardPreviewWidget(QFrame):
         self.lbl_title.setObjectName("EmbeddedCardPreviewTitle")
         header_layout.addWidget(self.lbl_title, 1)
 
-        self.lbl_side_badge = QLabel("RECTO")
+        self.lbl_side_badge = QLabel(self.tr("RECTO"))
         self.lbl_side_badge.setObjectName("EmbeddedCardSideBadge")
         header_layout.addWidget(self.lbl_side_badge)
 
@@ -157,7 +157,7 @@ class EmbeddedCardPreviewWidget(QFrame):
 
         self.btn_flip = QPushButton()
         self.btn_flip.setIcon(load_phosphor_icon("ph.arrows-left-right", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_flip.setText("Verso")
+        self.btn_flip.setText(self.tr("Verso"))
         self.btn_flip.setFixedHeight(26)
         self.btn_flip.clicked.connect(self._on_flip)
         footer_layout.addWidget(self.btn_flip)
@@ -167,7 +167,7 @@ class EmbeddedCardPreviewWidget(QFrame):
         if self._note_id:
             self.btn_open = QPushButton()
             self.btn_open.setIcon(load_phosphor_icon("ph.arrow-square-out", color=DesignTokens.ACCENT_PRIMARY))
-            self.btn_open.setText("Ouvrir dans l'Éditeur")
+            self.btn_open.setText(self.tr("Ouvrir dans l'Éditeur"))
             self.btn_open.setFixedHeight(26)
             self.btn_open.clicked.connect(lambda: self.open_editor_requested.emit(self._note_id or 0))
             footer_layout.addWidget(self.btn_open)

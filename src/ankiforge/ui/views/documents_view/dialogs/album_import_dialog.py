@@ -28,6 +28,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class AlbumImportDialog(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Créer un Album d'Images")
+        self.setWindowTitle(self.tr("Créer un Album d'Images"))
         self.setMinimumSize(540, 520)
         self.resize(580, 560)
         self._image_paths: list[str] = []
@@ -75,9 +76,9 @@ class AlbumImportDialog(QDialog):
 
         title_vbox = QVBoxLayout()
         title_vbox.setSpacing(2)
-        title_lbl = QLabel("Nouvel Album d'Images")
+        title_lbl = QLabel(self.tr("Nouvel Album d'Images"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold;")
-        desc_lbl = QLabel("Rassemblez vos polycopiés, fiches manuscrites et cours photographiés page par page.")
+        desc_lbl = QLabel(self.tr("Rassemblez vos polycopiés, fiches manuscrites et cours photographiés page par page."))
         desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         title_vbox.addWidget(title_lbl)
         title_vbox.addWidget(desc_lbl)
@@ -100,12 +101,12 @@ class AlbumImportDialog(QDialog):
         form_layout.setSpacing(12)
 
         # 1. Titre de l'album
-        lbl_title = QLabel("Titre de l'album :")
+        lbl_title = QLabel(self.tr("Titre de l'album :"))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         form_layout.addWidget(lbl_title)
 
         self.input_title = StyledLineEdit()
-        self.input_title.setPlaceholderText("ex: Biochimie - Chapitre 3 : Les Lipides")
+        self.input_title.setPlaceholderText(self.tr("ex: Biochimie - Chapitre 3 : Les Lipides"))
         form_layout.addWidget(self.input_title)
 
         # 2. Dossier parent & Mode de tri
@@ -115,7 +116,7 @@ class AlbumImportDialog(QDialog):
         # Dossier
         vbox_folder = QVBoxLayout()
         vbox_folder.setSpacing(4)
-        lbl_folder = QLabel("Dossier de classement :")
+        lbl_folder = QLabel(self.tr("Dossier de classement :"))
         lbl_folder.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         self.combo_folder = StyledComboBox()
         vbox_folder.addWidget(lbl_folder)
@@ -125,12 +126,12 @@ class AlbumImportDialog(QDialog):
         # Mode de tri
         vbox_sort = QVBoxLayout()
         vbox_sort.setSpacing(4)
-        lbl_sort = QLabel("Ordre de tri initial :")
+        lbl_sort = QLabel(self.tr("Ordre de tri initial :"))
         lbl_sort.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         self.combo_sort = StyledComboBox()
-        self.combo_sort.addItem("Tri alphanumérique naturel (page_1, page_2...)", "natural")
-        self.combo_sort.addItem("Date de prise de vue EXIF (appareil)", "exif")
-        self.combo_sort.addItem("Ordre d'importation brut", "none")
+        self.combo_sort.addItem(self.tr("Tri alphanumérique naturel (page_1, page_2...)"), "natural")
+        self.combo_sort.addItem(self.tr("Date de prise de vue EXIF (appareil)"), "exif")
+        self.combo_sort.addItem(self.tr("Ordre d'importation brut"), "none")
         self.combo_sort.currentIndexChanged.connect(self._re_sort_paths)
         vbox_sort.addWidget(lbl_sort)
         vbox_sort.addWidget(self.combo_sort)
@@ -141,7 +142,7 @@ class AlbumImportDialog(QDialog):
 
         # ── Section Fichiers / Planche de sélection ───────────────────────────
         files_header = QHBoxLayout()
-        self.lbl_files_count = QLabel("Images sélectionnées : 0")
+        self.lbl_files_count = QLabel(self.tr("Images sélectionnées : 0"))
         self.lbl_files_count.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         files_header.addWidget(self.lbl_files_count)
         files_header.addStretch()
@@ -153,7 +154,7 @@ class AlbumImportDialog(QDialog):
         self.btn_browse.clicked.connect(self._on_browse_images)
         files_header.addWidget(self.btn_browse)
 
-        self.btn_clear = IconButton("ph.trash", tooltip="Vider la sélection", size=24)
+        self.btn_clear = IconButton("ph.trash", tooltip=self.tr("Vider la sélection"), size=24)
         self.btn_clear.clicked.connect(self._on_clear_images)
         files_header.addWidget(self.btn_clear)
 
@@ -198,11 +199,11 @@ class AlbumImportDialog(QDialog):
     def _load_folders(self) -> None:
         """Charge les dossiers existants dans la liste déroulante."""
         self.combo_folder.clear()
-        self.combo_folder.addItem("📁 Racine (Aucun dossier)", None)
+        self.combo_folder.addItem(self.tr("📁 Racine (Aucun dossier)"), None)
         try:
             folders = list(FolderModel.select().order_by(FolderModel.name))
             for f in folders:
-                self.combo_folder.addItem(f"📁 {f.name}", f.id)
+                self.combo_folder.addItem(tr("📁 %1", f.name), f.id)
         except Exception as e:
             logger.warning("Erreur chargement dossiers: %s", e)
 
@@ -258,7 +259,7 @@ class AlbumImportDialog(QDialog):
             self.files_list.addItem(item)
 
         total = len(self._image_paths)
-        self.lbl_files_count.setText(f"Images sélectionnées : {total}")
+        self.lbl_files_count.setText(tr("Images sélectionnées : %1", total))
         self.btn_create.setEnabled(total > 0)
 
     @Slot()
@@ -266,12 +267,12 @@ class AlbumImportDialog(QDialog):
         """Valide et déclenche la création atomique de l'album en base."""
         title = self.input_title.text().strip()
         if not title:
-            show_toast(self, "Veuillez renseigner un titre pour l'album.", is_error=True)
+            show_toast(self, self.tr("Veuillez renseigner un titre pour l'album."), is_error=True)
             self.input_title.setFocus()
             return
 
         if not self._image_paths:
-            show_toast(self, "Veuillez sélectionner au moins une image.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner au moins une image."), is_error=True)
             return
 
         folder_id = self.combo_folder.currentData()
@@ -284,9 +285,9 @@ class AlbumImportDialog(QDialog):
                 folder_id=folder_id,
                 sort_mode=sort_mode,
             )
-            show_toast(self, f"Album '{doc.title}' créé avec succès ({len(self._image_paths)} pages).")
+            show_toast(self, tr("Album '%1' créé avec succès (%2 pages).", doc.title, len(self._image_paths)))
             self.album_created.emit(doc.id)
             self.accept()
         except Exception as e:
             logger.exception("Erreur lors de la création de l'album: %s", e)
-            QMessageBox.critical(self, "Erreur de création", f"Impossible de créer l'album : {e}")
+            QMessageBox.critical(self, self.tr("Erreur de création"), tr("Impossible de créer l'album : %1", e))

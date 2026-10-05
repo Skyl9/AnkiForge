@@ -23,6 +23,7 @@ from ankiforge.utils.event_bus import (
     ThemeChangedEvent,
     event_bus,
 )
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ class DummyView(QWidget):
     def __init__(self, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        lbl = QLabel(f"[{title}] View Content Placeholder")
+        lbl = QLabel(tr("[%1] View Content Placeholder", title))
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 24px;")
         layout.addWidget(lbl)
@@ -49,31 +50,40 @@ class DummyView(QWidget):
 class MainWindow(QMainWindow):
     """Fenêtre principale ankiforge_obsidian."""
 
-    from ankiforge.ui.views.ab_tests_view import ABTestsView
-    from ankiforge.ui.views.analysis_view import AnalysisView
-    from ankiforge.ui.views.batch_view import BatchView
-    from ankiforge.ui.views.card_models_view import CardModelsView
-    from ankiforge.ui.views.consultant_view import ConsultantView
-    from ankiforge.ui.views.creation_view import CreationView
-    from ankiforge.ui.views.dashboard_view import DashboardView
-    from ankiforge.ui.views.documents_view import DocumentsView
-    from ankiforge.ui.views.edition_view import EditionView
-    from ankiforge.ui.views.pipelines_view import PipelinesView
+    #: view_id -> (catégorie, icône, titre, WidgetClass)
+    #:
+    #: La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés
+    #: ne peuvent être résolus qu'une fois le traducteur installé, donc au premier usage. Une
+    #: constante de classe figerait le français à l'import du module — c'est-à-dire avant
+    #: `install_translator()` — et la navigation resterait française dans une interface
+    #: anglaise. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne
+    #: casse rien, les vues d'un même groupe partagent toujours la même clef.
+    @staticmethod
+    def view_registry() -> dict[str, tuple[str, str, str, type[QWidget]]]:
+        from ankiforge.ui.views.ab_tests_view import ABTestsView
+        from ankiforge.ui.views.analysis_view import AnalysisView
+        from ankiforge.ui.views.batch_view import BatchView
+        from ankiforge.ui.views.card_models_view import CardModelsView
+        from ankiforge.ui.views.consultant_view import ConsultantView
+        from ankiforge.ui.views.creation_view import CreationView
+        from ankiforge.ui.views.dashboard_view import DashboardView
+        from ankiforge.ui.views.documents_view import DocumentsView
+        from ankiforge.ui.views.edition_view import EditionView
+        from ankiforge.ui.views.pipelines_view import PipelinesView
 
-    VIEW_REGISTRY: dict[str, tuple[str, str, str, type[QWidget]]] = {
-        # view_id -> (category, icon, title, WidgetClass)
-        "dashboard": ("Général", "squares-four", "Tableau de bord", DashboardView),
-        "creation": ("Forge & Outils", "magic-wand", "Studio de Création", CreationView),
-        "edition": ("Forge & Outils", "cards", "Édition & Navigateur", EditionView),
-        "analysis": ("Forge & Outils", "chart-line-up", "Analyse & Audit IA", AnalysisView),
-        "consultant": ("Forge & Outils", "robot", "AI Consultant", ConsultantView),
-        "batch": ("Forge & Outils", "factory", "Batch Factory", BatchView),
-        "documents": ("Bibliothèque", "file-text", "My Documents", DocumentsView),
-        "card-models": ("Bibliothèque", "swatches", "Card Models", CardModelsView),
-        "agents": ("Laboratoire IA", "cpu", "Éditeur d'Agents", AgentsView),
-        "pipelines": ("Laboratoire IA", "git-merge", "Pipelines", PipelinesView),
-        "ab-tests": ("Laboratoire IA", "scales", "Tests A/B", ABTestsView),
-    }
+        return {
+            "dashboard": (tr("Général"), "squares-four", tr("Tableau de bord"), DashboardView),
+            "creation": (tr("Forge & Outils"), "magic-wand", tr("Studio de Création"), CreationView),
+            "edition": (tr("Forge & Outils"), "cards", tr("Édition & Navigateur"), EditionView),
+            "analysis": (tr("Forge & Outils"), "chart-line-up", tr("Analyse & Audit IA"), AnalysisView),
+            "consultant": (tr("Forge & Outils"), "robot", tr("AI Consultant"), ConsultantView),
+            "batch": (tr("Forge & Outils"), "factory", tr("Batch Factory"), BatchView),
+            "documents": (tr("Bibliothèque"), "file-text", tr("My Documents"), DocumentsView),
+            "card-models": (tr("Bibliothèque"), "swatches", tr("Card Models"), CardModelsView),
+            "agents": (tr("Laboratoire IA"), "cpu", tr("Éditeur d'Agents"), AgentsView),
+            "pipelines": (tr("Laboratoire IA"), "git-merge", tr("Pipelines"), PipelinesView),
+            "ab-tests": (tr("Laboratoire IA"), "scales", tr("Tests A/B"), ABTestsView),
+        }
 
     mcp_data_mutated = Signal(dict)
 
@@ -87,7 +97,7 @@ class MainWindow(QMainWindow):
         from ankiforge.utils.environment import is_development
 
         title_suffix = f" [DEV] - profil: {profile_name} (v{__version__})" if is_development() else f" - {profile_name}"
-        self.setWindowTitle(f"AnkiForge{title_suffix}")
+        self.setWindowTitle(tr("AnkiForge%1", title_suffix))
         self.setMinimumSize(1200, 720)
 
         # Application & Window Icon
@@ -111,7 +121,7 @@ class MainWindow(QMainWindow):
         from ankiforge.ui.layouts.layout_manager import LayoutManager
 
         self._view_widgets: dict[str, QWidget] = {}
-        self._view_registry = dict(self.VIEW_REGISTRY)
+        self._view_registry = self.view_registry()
         self._register_addon_views()
         self._current_view_id: str | None = None
         self._settings_window: QWidget | None = None
@@ -353,7 +363,7 @@ class MainWindow(QMainWindow):
                 token=new_token,
             )
 
-        show_toast(self, "Nouveau jeton d'authentification MCP généré.")
+        show_toast(self, self.tr("Nouveau jeton d'authentification MCP généré."))
         return new_token
 
     def _on_mcp_data_mutated(self, mutation: dict[str, Any]) -> None:
@@ -391,8 +401,12 @@ class MainWindow(QMainWindow):
 
             reply = QMessageBox.question(
                 self,
-                "Reprise de Pipeline DAG",
-                f"Un pipeline DAG « {pipe_name} » n'a pas été terminé lors de la session précédente (interrompu à l'étape {step_order}).\n\nSouhaitez-vous reprendre l'exécution de ce pipeline ?",
+                self.tr("Reprise de Pipeline DAG"),
+                tr(
+                    "Un pipeline DAG « %1 » n'a pas été terminé lors de la session précédente (interrompu à l'étape %2).\n\nSouhaitez-vous reprendre l'exécution de ce pipeline ?",
+                    pipe_name,
+                    step_order,
+                ),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )
@@ -419,7 +433,7 @@ class MainWindow(QMainWindow):
             orchestrator = PipelineOrchestrator.resume_run(run_id, ai_provider=provider)
             QThreadPool.globalInstance().start(orchestrator)
             pipe_name = run.pipeline.name if run.pipeline and hasattr(run.pipeline, "name") else f"#{run.pipeline_id}"
-            show_toast(self, f"Reprise du pipeline « {pipe_name} » lancée en arrière-plan.")
+            show_toast(self, tr("Reprise du pipeline « %1 » lancée en arrière-plan.", pipe_name))
         except Exception as err:
             logger.warning("Échec de la reprise du run %d : %s", run_id, err)
 
@@ -767,8 +781,8 @@ class MainWindow(QMainWindow):
         titles = "\n".join(f"• {title}" for title in dirty)
         reply = QMessageBox.question(
             self,
-            "Modifications non sauvegardées",
-            f"Vous avez du travail non enregistré dans :\n{titles}\n\nVoulez-vous vraiment {action_label} ? Ce travail sera perdu.",
+            self.tr("Modifications non sauvegardées"),
+            tr("Vous avez du travail non enregistré dans :\n%1\n\nVoulez-vous vraiment %2 ? Ce travail sera perdu.", titles, action_label),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -922,9 +936,13 @@ class MainWindow(QMainWindow):
             pid_hint = f" (PID {lock_info.pid})" if lock_info else ""
             QMessageBox.warning(
                 self,
-                "Profil en cours d'utilisation",
-                f"Impossible de basculer vers l'espace « {new_profile} » : il est actuellement ouvert par une autre instance{pid_hint}.\n\n"
-                "L'accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.",
+                self.tr("Profil en cours d'utilisation"),
+                tr(
+                    "Impossible de basculer vers l'espace « %1 » : il est actuellement ouvert par une autre instance%2.\n\nL'accès simultané au même profil est bloqué pour protéger vos "
+                    "données contre les corruptions.",
+                    new_profile,
+                    pid_hint,
+                ),
             )
             return
 
@@ -961,7 +979,7 @@ class MainWindow(QMainWindow):
         self._on_view_selected(target_view)
 
         event_bus.publish(ProfileSwitchedEvent(profile_name=new_profile))
-        show_toast(self, f"Espace de travail actif : « {new_profile} »")
+        show_toast(self, tr("Espace de travail actif : « %1 »", new_profile))
 
     def _reset_view_widgets(self) -> None:
         """Réinitialise les instances de vues pour nettoyer tout cache BDD lié au précédent profil."""

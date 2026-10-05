@@ -18,6 +18,7 @@ from ankiforge.ui.views.pipelines_view.constants import (
     STEP_TYPES_META,
     apply_pill_style,
 )
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -67,7 +68,7 @@ class StepItemWidget(QFrame):
         row1.addWidget(icon_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         title_escaped = html.escape(str(title))
-        self.title_lbl = QLabel(f"<b>{order}.</b> {title_escaped}")
+        self.title_lbl = QLabel(tr("<b>%1.</b> %2", order, title_escaped))
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; background: transparent;")
         self.title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         row1.addWidget(self.title_lbl, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -86,14 +87,14 @@ class StepItemWidget(QFrame):
         cfg = step_data.get("config", {})
         var_in = cfg.get("input_variable", meta.get("default_input", "text_source"))
         var_out = cfg.get("output_variable", meta.get("default_output", "generated_cards"))
-        lbl_vars = QLabel(f"📥 {var_in} ➔ 📤 {var_out}")
+        lbl_vars = QLabel(tr("📥 %1 ➔ 📤 %2", var_in, var_out))
         lbl_vars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}'; background: transparent;")
         lbl_vars.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         row2.addWidget(lbl_vars, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_up = IconButton("ph.arrow-up", tooltip="Monter d'un rang", size=20)
-        self.btn_down = IconButton("ph.arrow-down", tooltip="Descendre d'un rang", size=20)
-        self.btn_delete = IconButton("ph.trash", tooltip="Supprimer cette étape", size=20)
+        self.btn_up = IconButton("ph.arrow-up", tooltip=self.tr("Monter d'un rang"), size=20)
+        self.btn_down = IconButton("ph.arrow-down", tooltip=self.tr("Descendre d'un rang"), size=20)
+        self.btn_delete = IconButton("ph.trash", tooltip=self.tr("Supprimer cette étape"), size=20)
 
         row2.addWidget(self.btn_up, alignment=Qt.AlignmentFlag.AlignVCenter)
         row2.addWidget(self.btn_down, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -146,9 +147,9 @@ class InlineInsertButton(QWidget):
         line_left.setStyleSheet(f"border: none; border-top: 1px dashed {DesignTokens.BORDER_COLOR};")
         layout.addWidget(line_left, 1)
 
-        self.btn = QPushButton("+")
+        self.btn = QPushButton(self.tr("+"))
         self.btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn.setToolTip(f"Insérer une étape à la position {insert_index + 1}")
+        self.btn.setToolTip(tr("Insérer une étape à la position %1", insert_index + 1))
         self.btn.setFixedSize(20, 20)
         self.btn.setStyleSheet(f"""
             QPushButton {{

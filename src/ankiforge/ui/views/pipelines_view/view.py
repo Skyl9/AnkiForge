@@ -56,6 +56,7 @@ from ankiforge.ui.views.pipelines_view.widgets import (
 )
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import event_bus
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -113,7 +114,7 @@ class PipelinesView(QWidget):
         lbl_pipe_icon.setPixmap(load_phosphor_icon("ph.git-branch", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
         pipeline_sel_row.addWidget(lbl_pipe_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        lbl_pipe = QLabel("PIPELINE :")
+        lbl_pipe = QLabel(self.tr("PIPELINE :"))
         lbl_pipe.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
         pipeline_sel_row.addWidget(lbl_pipe, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -122,18 +123,18 @@ class PipelinesView(QWidget):
         self.pipeline_combo.setFixedHeight(30)
         pipeline_sel_row.addWidget(self.pipeline_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.lbl_pipeline_steps_badge = Badge("0 étapes", variant="neutral")
+        self.lbl_pipeline_steps_badge = Badge(tr("0 étapes"), variant="neutral")
         apply_pill_style(self.lbl_pipeline_steps_badge, DesignTokens.TEXT_MUTED)
         self.lbl_pipeline_steps_badge.setFixedHeight(20)
         pipeline_sel_row.addWidget(self.lbl_pipeline_steps_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_rename_pipeline = IconButton("ph.pencil-simple", tooltip="Renommer le pipeline", size=28)
+        self.btn_rename_pipeline = IconButton("ph.pencil-simple", tooltip=self.tr("Renommer le pipeline"), size=28)
         pipeline_sel_row.addWidget(self.btn_rename_pipeline, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         pipeline_sel_row.addStretch()
 
         # Action Principale : Tester DAG
-        self.btn_test_full = SecondaryButton("Tester le DAG", tooltip="Exécuter une simulation pas-à-pas du pipeline DAG sur un texte de test")
+        self.btn_test_full = SecondaryButton("Tester le DAG", tooltip=self.tr("Exécuter une simulation pas-à-pas du pipeline DAG sur un texte de test"))
         self.btn_test_full.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_PRIMARY))
         self.btn_test_full.setIconSize(QSize(14, 14))
         self.btn_test_full.setFixedHeight(30)
@@ -141,7 +142,7 @@ class PipelinesView(QWidget):
         pipeline_sel_row.addWidget(self.btn_test_full, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Action Secondaire : Sauvegarder
-        self.btn_save_pipeline = PrimaryButton("Enregistrer", tooltip="Enregistrer la structure et la configuration du pipeline (Ctrl+S)")
+        self.btn_save_pipeline = PrimaryButton("Enregistrer", tooltip=self.tr("Enregistrer la structure et la configuration du pipeline (Ctrl+S)"))
         self.btn_save_pipeline.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_pipeline.setIconSize(QSize(14, 14))
         self.btn_save_pipeline.setFixedHeight(30)
@@ -149,7 +150,7 @@ class PipelinesView(QWidget):
         pipeline_sel_row.addWidget(self.btn_save_pipeline, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Menu d'Actions Groupées (•••)
-        self.btn_more_menu = IconButton("ph.dots-three-vertical", tooltip="Options avancées (Nouveau, Dupliquer, Modèles, Export/Import, Supprimer)", size=28)
+        self.btn_more_menu = IconButton("ph.dots-three-vertical", tooltip=self.tr("Options avancées (Nouveau, Dupliquer, Modèles, Export/Import, Supprimer)"), size=28)
         self.btn_more_menu.clicked.connect(self._on_open_more_menu)
         pipeline_sel_row.addWidget(self.btn_more_menu, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -170,12 +171,12 @@ class PipelinesView(QWidget):
         left_layout.setSpacing(8)
 
         steps_header = QHBoxLayout()
-        lbl_steps_title = QLabel("ÉTAPES DU WORKFLOW :")
+        lbl_steps_title = QLabel(self.tr("ÉTAPES DU WORKFLOW :"))
         lbl_steps_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         steps_header.addWidget(lbl_steps_title)
         steps_header.addStretch()
 
-        self.lbl_step_count = QLabel("0 étape")
+        self.lbl_step_count = QLabel(self.tr("0 étape"))
         self.lbl_step_count.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         steps_header.addWidget(self.lbl_step_count)
         left_layout.addLayout(steps_header)
@@ -194,7 +195,7 @@ class PipelinesView(QWidget):
         scroll.setWidget(self.steps_inner)
         left_layout.addWidget(scroll, 1)
 
-        self.btn_add_step = PrimaryButton("Ajouter une étape au workflow", tooltip="Ajouter une étape (LLM, RAG, Outil, Map-Reduce) à ce workflow")
+        self.btn_add_step = PrimaryButton("Ajouter une étape au workflow", tooltip=self.tr("Ajouter une étape (LLM, RAG, Outil, Map-Reduce) à ce workflow"))
         self.btn_add_step.setIcon(load_on_accent_icon("ph.plus"))
         self.btn_add_step.setIconSize(QSize(14, 14))
         self.btn_add_step.setFixedHeight(32)
@@ -223,19 +224,19 @@ class PipelinesView(QWidget):
         """Affiche le menu contextuel élégant regroupant toutes les actions secondaires."""
         menu = StyledMenu(self)
 
-        act_new = menu.addAction(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY), "Nouveau Pipeline...")
-        act_clone = menu.addAction(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY), "Dupliquer le Pipeline")
-        act_templates = menu.addAction(load_phosphor_icon("ph.puzzle-piece", color=DesignTokens.TEXT_PRIMARY), "Modèles Prédéfinis...")
+        act_new = menu.addAction(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY), self.tr("Nouveau Pipeline..."))
+        act_clone = menu.addAction(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY), self.tr("Dupliquer le Pipeline"))
+        act_templates = menu.addAction(load_phosphor_icon("ph.puzzle-piece", color=DesignTokens.TEXT_PRIMARY), self.tr("Modèles Prédéfinis..."))
 
         menu.addSeparator()
 
-        act_export = menu.addAction(load_phosphor_icon("ph.export", color=DesignTokens.TEXT_PRIMARY), "Exporter en JSON...")
-        act_import = menu.addAction(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY), "Importer un JSON...")
-        act_import_profile = menu.addAction(load_phosphor_icon("ph.users-three", color=DesignTokens.TEXT_PRIMARY), "Importer depuis un profil...")
+        act_export = menu.addAction(load_phosphor_icon("ph.export", color=DesignTokens.TEXT_PRIMARY), self.tr("Exporter en JSON..."))
+        act_import = menu.addAction(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY), self.tr("Importer un JSON..."))
+        act_import_profile = menu.addAction(load_phosphor_icon("ph.users-three", color=DesignTokens.TEXT_PRIMARY), self.tr("Importer depuis un profil..."))
 
         menu.addSeparator()
 
-        act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "Supprimer ce Pipeline")
+        act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), self.tr("Supprimer ce Pipeline"))
 
         action = menu.exec(QCursor.pos())
         if action == act_new:
@@ -338,8 +339,8 @@ class PipelinesView(QWidget):
 
         self._step_widgets.clear()
         total = len(self.current_steps)
-        self.lbl_step_count.setText(f"{total} étape{'s' if total > 1 else ''}")
-        self.lbl_pipeline_steps_badge.setText(f"{total} étape{'s' if total > 1 else ''}")
+        self.lbl_step_count.setText(tr("%1 étape%2", total, "s" if total > 1 else ""))
+        self.lbl_pipeline_steps_badge.setText(tr("%1 étape%2", total, "s" if total > 1 else ""))
 
         for idx, step_data in enumerate(self.current_steps, start=1):
             is_sel = (idx - 1) == self._selected_step_index
@@ -391,7 +392,7 @@ class PipelinesView(QWidget):
             meta = STEP_TYPES_META.get(cur.get("type", "LLM_PROMPT"), STEP_TYPES_META["LLM_PROMPT"])
             title = cur.get("custom_title") or (persona.name if persona else meta["default_title"])
             title_escaped = html.escape(str(title))
-            self._step_widgets[self._selected_step_index].title_lbl.setText(f"<b>{self._selected_step_index + 1}.</b> {title_escaped}")
+            self._step_widgets[self._selected_step_index].title_lbl.setText(tr("<b>%1.</b> %2", self._selected_step_index + 1, title_escaped))
 
     def _move_step_up(self, index: int) -> None:
         if index > 0:
@@ -442,7 +443,7 @@ class PipelinesView(QWidget):
             self._selected_step_index = len(self.current_steps) - 1
 
         self._render_steps()
-        show_toast(self, f"Étape '{new_step['custom_title']}' ajoutée", is_error=False)
+        show_toast(self, tr("Étape '%1' ajoutée", new_step["custom_title"]), is_error=False)
 
     def _on_add_step_clicked(self, insert_at: int | None = None) -> None:
         """Ouvre la palette/catalogue de composants modernes pour choisir l'étape."""
@@ -457,7 +458,7 @@ class PipelinesView(QWidget):
         if ok and new_name.strip():
             self._current_pipeline.name = new_name.strip()
             self._current_pipeline.save()
-            show_toast(self, "Pipeline renommé avec succès", is_error=False)
+            show_toast(self, self.tr("Pipeline renommé avec succès"), is_error=False)
             self.refresh_data()
 
     def _on_new_pipeline(self) -> None:
@@ -465,7 +466,7 @@ class PipelinesView(QWidget):
         if ok and name.strip():
             try:
                 p = self.pipeline_repo.create_pipeline(name=name.strip(), description="Pipeline personnalisé")
-                show_toast(self, f"Pipeline '{p.name}' créé !", is_error=False)
+                show_toast(self, tr("Pipeline '%1' créé !", p.name), is_error=False)
                 self.refresh_data()
                 for i in range(self.pipeline_combo.count()):
                     if self.pipeline_combo.itemText(i) == p.name:
@@ -481,7 +482,7 @@ class PipelinesView(QWidget):
         try:
             new_pipe = self.pipeline_repo.duplicate_pipeline(self._current_pipeline.id, clone_name)
             if new_pipe:
-                show_toast(self, f"Pipeline dupliqué sous le nom '{clone_name}' !", is_error=False)
+                show_toast(self, tr("Pipeline dupliqué sous le nom '%1' !", clone_name), is_error=False)
                 self.refresh_data()
                 for i in range(self.pipeline_combo.count()):
                     if self.pipeline_combo.itemText(i) == clone_name:
@@ -495,14 +496,14 @@ class PipelinesView(QWidget):
             return
         reply = QMessageBox.question(
             self,
-            "Supprimer le pipeline",
-            f"Voulez-vous vraiment supprimer définitivement le pipeline '{self._current_pipeline.name}' ?",
+            self.tr("Supprimer le pipeline"),
+            tr("Voulez-vous vraiment supprimer définitivement le pipeline '%1' ?", self._current_pipeline.name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 self.pipeline_repo.delete_pipeline(self._current_pipeline.id)
-                show_toast(self, "Pipeline supprimé", is_error=False)
+                show_toast(self, self.tr("Pipeline supprimé"), is_error=False)
                 self.refresh_data()
             except Exception as e:
                 log_and_notify_error(e, context="Suppression du pipeline", parent=self, title="Erreur")
@@ -542,7 +543,7 @@ class PipelinesView(QWidget):
                     if need_update:
                         ps.save()
 
-            show_toast(self, f"Pipeline '{self._current_pipeline.name}' sauvegardé avec succès !", is_error=False)
+            show_toast(self, tr("Pipeline '%1' sauvegardé avec succès !", self._current_pipeline.name), is_error=False)
         except Exception as e:
             log_and_notify_error(e, context="Sauvegarde du pipeline", parent=self, title="Erreur de sauvegarde")
 
@@ -559,7 +560,7 @@ class PipelinesView(QWidget):
     def _on_open_templates(self) -> None:
         """Affiche la bibliothèque de modèles prédéfinis pour charger un workflow en 1 clic."""
         dlg = QDialog(self)
-        dlg.setWindowTitle("Bibliothèque de Modèles Prédéfinis")
+        dlg.setWindowTitle(self.tr("Bibliothèque de Modèles Prédéfinis"))
         dlg.resize(620, 420)
         dlg.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_PRIMARY};")
 
@@ -567,7 +568,7 @@ class PipelinesView(QWidget):
         dlg_layout.setContentsMargins(16, 16, 16, 16)
         dlg_layout.setSpacing(12)
 
-        lbl = QLabel("Sélectionnez un modèle de workflow à instancier :")
+        lbl = QLabel(self.tr("Sélectionnez un modèle de workflow à instancier :"))
         lbl.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         dlg_layout.addWidget(lbl)
 
@@ -593,7 +594,7 @@ class PipelinesView(QWidget):
             """)
             c_l = QVBoxLayout(card)
             c_l.setSpacing(4)
-            lbl_t = QLabel(f"<b>{tpl['name']}</b>")
+            lbl_t = QLabel(tr("<b>%1</b>", tpl["name"]))
             lbl_t.setStyleSheet(f"font-size: 13px; color: {DesignTokens.TEXT_PRIMARY};")
             lbl_d = QLabel(tpl["description"])
             lbl_d.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
@@ -634,7 +635,7 @@ class PipelinesView(QWidget):
                         step_order=idx,
                         config_data=json.dumps(s.get("config", {})),
                     )
-            show_toast(self, f"Modèle '{tpl['name']}' instancié !", is_error=False)
+            show_toast(self, tr("Modèle '%1' instancié !", tpl["name"]), is_error=False)
             self.refresh_data()
             for i in range(self.pipeline_combo.count()):
                 if self.pipeline_combo.itemText(i) == pipe_name:
@@ -667,7 +668,7 @@ class PipelinesView(QWidget):
             try:
                 with open(file_path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2, ensure_ascii=False)
-                show_toast(self, "Pipeline exporté en JSON avec succès !", is_error=False)
+                show_toast(self, self.tr("Pipeline exporté en JSON avec succès !"), is_error=False)
             except Exception as e:
                 log_and_notify_error(e, context="Export JSON", parent=self, title="Erreur d'exportation")
 
@@ -703,7 +704,7 @@ class PipelinesView(QWidget):
                         config_data=json.dumps(s.get("config", {})),
                     )
 
-            show_toast(self, f"Pipeline '{name}' importé avec succès !", is_error=False)
+            show_toast(self, tr("Pipeline '%1' importé avec succès !", name), is_error=False)
             self.refresh_data()
             for i in range(self.pipeline_combo.count()):
                 if self.pipeline_combo.itemText(i) == name:
@@ -715,7 +716,7 @@ class PipelinesView(QWidget):
     def _on_import_pipeline_from_profile(self) -> None:
         profiles = [name for name in ProfileManager().list_profiles() if name != self.profile_name]
         if not profiles:
-            show_toast(self, "Aucun autre profil n'est disponible.", is_error=True)
+            show_toast(self, self.tr("Aucun autre profil n'est disponible."), is_error=True)
             return
         source_profile, accepted = QInputDialog.getItem(self, "Importer un pipeline", "Profil source :", profiles, 0, False)
         if not accepted:
@@ -723,7 +724,7 @@ class PipelinesView(QWidget):
         try:
             names = ProfileContentTransfer.list_pipelines(source_profile)
             if not names:
-                show_toast(self, f"Le profil '{source_profile}' ne contient aucun pipeline.", is_error=True)
+                show_toast(self, tr("Le profil '%1' ne contient aucun pipeline.", source_profile), is_error=True)
                 return
             pipeline_name, accepted = QInputDialog.getItem(self, "Importer un pipeline", "Pipeline à importer :", names, 0, False)
             if not accepted:
@@ -734,6 +735,6 @@ class PipelinesView(QWidget):
                 if self.pipeline_combo.itemText(index) == imported.name:
                     self.pipeline_combo.setCurrentIndex(index)
                     break
-            show_toast(self, f"Pipeline '{imported.name}' importé depuis '{source_profile}'.")
+            show_toast(self, tr("Pipeline '%1' importé depuis '%2'.", imported.name, source_profile))
         except Exception as e:
             log_and_notify_error(e, context="Import de pipeline depuis un profil", parent=self, title="Erreur d'importation")

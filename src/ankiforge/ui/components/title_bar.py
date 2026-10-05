@@ -26,7 +26,7 @@ class GlobalTitleBar(QFrame):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.title_lbl = QLabel("AnkiForge")
+        self.title_lbl = QLabel(self.tr("AnkiForge"))
         self.title_lbl.setObjectName("GlobalTitleBarLabel")
         self.title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.title_lbl)

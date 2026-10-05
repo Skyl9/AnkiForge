@@ -21,6 +21,7 @@ from shiboken6 import isValid
 from ankiforge.services.audit.metrics_service import MetricsService
 from ankiforge.ui.components import IdePanel, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -76,14 +77,14 @@ class DashboardHeroBanner(QFrame):
         layout.addWidget(self.icon_wrapper, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Titre centré agrandi
-        self.title = QLabel(f'Bienvenue dans <span style="color: {DesignTokens.ACCENT_PRIMARY};">AnkiForge</span>')
+        self.title = QLabel(tr('Bienvenue dans <span style="color: %1;">AnkiForge</span>', DesignTokens.ACCENT_PRIMARY))
         self.title.setFont(QFont(DesignTokens.FONT_MAIN, 20, QFont.Weight.Bold))
         self.title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.title)
 
         # Sous-titre centré
-        self.subtitle = QLabel("Le générateur de cartes intelligent et votre assistant d'apprentissage personnel.")
+        self.subtitle = QLabel(self.tr("Le générateur de cartes intelligent et votre assistant d'apprentissage personnel."))
         self.subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 12))
         self.subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         self.subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -110,7 +111,7 @@ class DashboardHeroBanner(QFrame):
             }}
         """)
         self.icon_label.setPixmap(load_phosphor_icon("ph.stack", color=profile.accent_primary).pixmap(24, 24))
-        self.title.setText(f'Bienvenue dans <span style="color: {profile.accent_primary};">AnkiForge</span>')
+        self.title.setText(tr('Bienvenue dans <span style="color: %1;">AnkiForge</span>', profile.accent_primary))
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
@@ -325,7 +326,7 @@ class ProactiveDiagnosticsWidget(QFrame):
 
         self.header_icon = QLabel()
         self.header_icon.setPixmap(load_phosphor_icon("ph.shield-check", color=DesignTokens.TEXT_PRIMARY).pixmap(16, 16))
-        self.header_title = QLabel("Diagnostics & Actions Proactives")
+        self.header_title = QLabel(self.tr("Diagnostics & Actions Proactives"))
         self.header_title.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         self.header_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
@@ -361,7 +362,7 @@ class ProactiveDiagnosticsWidget(QFrame):
         empty_icon = QLabel()
         empty_icon.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(20, 20))
         empty_layout.addWidget(empty_icon)
-        self.empty_text = QLabel("✨ Toutes vos cartes et documents sont conformes et à jour !")
+        self.empty_text = QLabel(self.tr("✨ Toutes vos cartes et documents sont conformes et à jour !"))
         self.empty_text.setFont(QFont(DesignTokens.FONT_MAIN, 11))
         self.empty_text.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         empty_layout.addWidget(self.empty_text)
@@ -506,13 +507,13 @@ class DashboardDropZone(QFrame):
         self.icon_label.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.icon_label)
 
-        self.title = QLabel("Glissez un PDF, Document ou Paquet Anki ici")
+        self.title = QLabel(self.tr("Glissez un PDF, Document ou Paquet Anki ici"))
         self.title.setFont(QFont(DesignTokens.FONT_MAIN, 14, QFont.Weight.Bold))
         self.title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.title)
 
-        self.subtitle = QLabel("L'analyse sémantique, l'importation ou la génération démarreront automatiquement.")
+        self.subtitle = QLabel(self.tr("L'analyse sémantique, l'importation ou la génération démarreront automatiquement."))
         self.subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 11))
         self.subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         self.subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -668,7 +669,7 @@ class DashboardView(QWidget):
         actions_header = QHBoxLayout()
         self.actions_icon = QLabel()
         self.actions_icon.setPixmap(load_phosphor_icon("ph.lightning", color=DesignTokens.TEXT_PRIMARY).pixmap(14, 14))
-        self.actions_title = QLabel("Actions Rapides")
+        self.actions_title = QLabel(self.tr("Actions Rapides"))
         self.actions_title.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         self.actions_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
         actions_header.addWidget(self.actions_icon)
@@ -679,13 +680,13 @@ class DashboardView(QWidget):
         actions_layout = QHBoxLayout()
         actions_layout.setSpacing(8)
 
-        self.btn_forge = DashboardActionButton("Forger des cartes", "Depuis un document", "ph.hammer", DesignTokens.COLOR_BLUE, DesignTokens.BG_ACTIVE)
+        self.btn_forge = DashboardActionButton(tr("Forger des cartes"), "Depuis un document", "ph.hammer", DesignTokens.COLOR_BLUE, DesignTokens.BG_ACTIVE)
         self.btn_forge.clicked.connect(lambda: self._navigate("creation"))
-        self.btn_import = DashboardActionButton("Importer .apkg", "Paquet ou collection", "ph.download-simple", DesignTokens.COLOR_YELLOW, DesignTokens.BG_ACTIVE)
+        self.btn_import = DashboardActionButton(tr("Importer .apkg"), "Paquet ou collection", "ph.download-simple", DesignTokens.COLOR_YELLOW, DesignTokens.BG_ACTIVE)
         self.btn_import.clicked.connect(self._open_import_dialog)
-        self.btn_export = DashboardActionButton("Exporter .apkg", "Vers Anki Desktop", "ph.upload-simple", DesignTokens.ACCENT_PRIMARY, DesignTokens.BG_ACTIVE)
+        self.btn_export = DashboardActionButton(tr("Exporter .apkg"), "Vers Anki Desktop", "ph.upload-simple", DesignTokens.ACCENT_PRIMARY, DesignTokens.BG_ACTIVE)
         self.btn_export.clicked.connect(self._open_export_dialog)
-        self.btn_library = DashboardActionButton("Bibliothèque", "Explorer paquets", "ph.books", DesignTokens.COLOR_GREEN, DesignTokens.BG_ACTIVE)
+        self.btn_library = DashboardActionButton(tr("Bibliothèque"), "Explorer paquets", "ph.books", DesignTokens.COLOR_GREEN, DesignTokens.BG_ACTIVE)
         self.btn_library.clicked.connect(lambda: self._navigate("documents"))
 
         actions_layout.addWidget(self.btn_forge)
@@ -770,7 +771,7 @@ class DashboardView(QWidget):
         activity_scroll.setWidget(activity_inner)
         activity_layout.addWidget(activity_scroll, 1)
 
-        view_all_btn = SecondaryButton("Voir tout l'historique", tooltip="Ouvrir l'Éditeur & Navigateur pour inspecter toutes les cartes de la collection")
+        view_all_btn = SecondaryButton("Voir tout l'historique", tooltip=self.tr("Ouvrir l'Éditeur & Navigateur pour inspecter toutes les cartes de la collection"))
         view_all_btn.setFixedHeight(28)
         view_all_btn.clicked.connect(lambda: self._navigate("edition"))
         activity_layout.addWidget(view_all_btn)
@@ -820,13 +821,13 @@ class DashboardView(QWidget):
         lbl_empty_ico.setStyleSheet("border: none; background: transparent;")
         eb_layout.addWidget(lbl_empty_ico)
 
-        lbl_empty_text = QLabel("Aucune activité récente")
+        lbl_empty_text = QLabel(self.tr("Aucune activité récente"))
         lbl_empty_text.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_empty_text.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
         lbl_empty_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         eb_layout.addWidget(lbl_empty_text)
 
-        lbl_empty_sub = QLabel("Forgez des cartes ou importez des documents pour voir votre historique.")
+        lbl_empty_sub = QLabel(self.tr("Forgez des cartes ou importez des documents pour voir votre historique."))
         lbl_empty_sub.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         lbl_empty_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         lbl_empty_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)

@@ -53,6 +53,7 @@ from ankiforge.ui.views.documents_view.widgets.album_thumbnails import (
     request_thumbnail,
 )
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ class AlbumPageCard(QFrame):
         self.page_badge = Badge(f"P. {page.page_number}", variant="neutral")
         header_layout.addWidget(self.page_badge)
 
-        self.crop_badge = Badge("Recadrée", variant="info")
+        self.crop_badge = Badge(tr("Recadrée"), variant="info")
         self.crop_badge.setVisible(bool(getattr(page, "crop_data", None)))
         header_layout.addWidget(self.crop_badge)
 
@@ -147,19 +148,19 @@ class AlbumPageCard(QFrame):
         actions_layout.setContentsMargins(0, 0, 0, 0)
         actions_layout.setSpacing(2)
 
-        self.btn_left = IconButton("ph.caret-left", tooltip="Déplacer vers la gauche (page précédente)", size=22)
+        self.btn_left = IconButton("ph.caret-left", tooltip=self.tr("Déplacer vers la gauche (page précédente)"), size=22)
         self.btn_left.clicked.connect(lambda: self.move_requested.emit(self.page.id, -1))
 
-        self.btn_right = IconButton("ph.caret-right", tooltip="Déplacer vers la droite (page suivante)", size=22)
+        self.btn_right = IconButton("ph.caret-right", tooltip=self.tr("Déplacer vers la droite (page suivante)"), size=22)
         self.btn_right.clicked.connect(lambda: self.move_requested.emit(self.page.id, 1))
 
-        self.btn_rotate = IconButton("ph.arrow-clockwise", tooltip="Tourner de 90°", size=22)
+        self.btn_rotate = IconButton("ph.arrow-clockwise", tooltip=self.tr("Tourner de 90°"), size=22)
         self.btn_rotate.clicked.connect(lambda: self.rotate_requested.emit(self.page.id))
 
-        self.btn_inspect = IconButton("ph.arrow-square-out", tooltip="Inspecter la page", size=22)
+        self.btn_inspect = IconButton("ph.arrow-square-out", tooltip=self.tr("Inspecter la page"), size=22)
         self.btn_inspect.clicked.connect(lambda: self.inspect_requested.emit(self.page.id))
 
-        self.btn_delete = IconButton("ph.trash", tooltip="Supprimer cette page", size=22)
+        self.btn_delete = IconButton("ph.trash", tooltip=self.tr("Supprimer cette page"), size=22)
         self.btn_delete.clicked.connect(lambda: self.delete_requested.emit(self.page.id))
 
         actions_layout.addWidget(self.btn_left)
@@ -181,7 +182,7 @@ class AlbumPageCard(QFrame):
         """
         device_ratio = self.devicePixelRatioF() if hasattr(self, "devicePixelRatioF") else 1.0
         wanted = max(1, int(self.THUMBNAIL_PX * (device_ratio or 1.0)))
-        self.img_lbl.setText("Chargement…")
+        self.img_lbl.setText(self.tr("Chargement…"))
         self._thumb_task = request_thumbnail(
             self.page,
             wanted,
@@ -202,7 +203,7 @@ class AlbumPageCard(QFrame):
         if page_id != self.page.id:
             return
         self.img_lbl.setPixmap(QPixmap())
-        self.img_lbl.setText("Aperçu indisponible")
+        self.img_lbl.setText(self.tr("Aperçu indisponible"))
         self.img_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         logger.warning("Vignette indisponible pour la planche %d : %s", page_id, message)
 
@@ -224,9 +225,9 @@ class AlbumPageCard(QFrame):
         active_status = status if status is not None else getattr(self.page, "status", "ready")
 
         if active_status == "stale":
-            self.ocr_badge.setText("Périmé")
+            self.ocr_badge.setText(self.tr("Périmé"))
             self.ocr_badge.set_variant("warning")
-            self.ocr_badge.setToolTip("La planche a changé depuis sa transcription : retranscrivez-la pour la mettre à jour.")
+            self.ocr_badge.setToolTip(self.tr("La planche a changé depuis sa transcription : retranscrivez-la pour la mettre à jour."))
             return
 
         has_ocr = bool(ocr_text and ocr_text.strip())
@@ -374,57 +375,57 @@ class PageInspectorWidget(QWidget):
         self.btn_back.clicked.connect(self.close_requested.emit)
         top_layout.addWidget(self.btn_back)
 
-        self.lbl_title = QLabel("Inspecteur de page")
+        self.lbl_title = QLabel(self.tr("Inspecteur de page"))
         self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 14px;")
         top_layout.addWidget(self.lbl_title)
 
-        self.crop_badge = Badge("Recadrée", variant="info")
+        self.crop_badge = Badge(tr("Recadrée"), variant="info")
         self.crop_badge.setVisible(False)
         top_layout.addWidget(self.crop_badge)
 
         top_layout.addStretch()
 
         # Navigation entre pages
-        self.btn_prev = IconButton("ph.caret-left", tooltip="Page précédente", size=26)
+        self.btn_prev = IconButton("ph.caret-left", tooltip=self.tr("Page précédente"), size=26)
         self.btn_prev.clicked.connect(lambda: self.navigate_requested.emit(-1))
         top_layout.addWidget(self.btn_prev)
 
-        self.btn_next = IconButton("ph.caret-right", tooltip="Page suivante", size=26)
+        self.btn_next = IconButton("ph.caret-right", tooltip=self.tr("Page suivante"), size=26)
         self.btn_next.clicked.connect(lambda: self.navigate_requested.emit(1))
         top_layout.addWidget(self.btn_next)
 
         # Rotation
-        self.btn_rotate = IconButton("ph.arrow-clockwise", tooltip="Tourner de 90°", size=26)
+        self.btn_rotate = IconButton("ph.arrow-clockwise", tooltip=self.tr("Tourner de 90°"), size=26)
         self.btn_rotate.clicked.connect(self._on_rotate_clicked)
         top_layout.addWidget(self.btn_rotate)
 
         # Recadrage
-        self.btn_crop = IconButton("ph.selection", tooltip="Recadrer la planche", size=26)
+        self.btn_crop = IconButton("ph.selection", tooltip=self.tr("Recadrer la planche"), size=26)
         self.btn_crop.clicked.connect(self._on_start_crop)
         top_layout.addWidget(self.btn_crop)
 
-        self.btn_remove_crop = IconButton("ph.selection-slash", tooltip="Retirer le recadrage (restituer la planche intégrale)", size=26)
+        self.btn_remove_crop = IconButton("ph.selection-slash", tooltip=self.tr("Retirer le recadrage (restituer la planche intégrale)"), size=26)
         self.btn_remove_crop.clicked.connect(self._on_remove_crop)
         self.btn_remove_crop.setVisible(False)
         top_layout.addWidget(self.btn_remove_crop)
 
         # Contrôles de zoom
-        self.btn_zoom_out = IconButton("ph.magnifying-glass-minus", tooltip="Zoom arrière", size=26)
+        self.btn_zoom_out = IconButton("ph.magnifying-glass-minus", tooltip=self.tr("Zoom arrière"), size=26)
         self.btn_zoom_out.clicked.connect(self._on_zoom_out)
         top_layout.addWidget(self.btn_zoom_out)
 
-        self.btn_zoom_reset = IconButton("ph.arrows-out-simple", tooltip="Ajuster à la fenêtre", size=26)
+        self.btn_zoom_reset = IconButton("ph.arrows-out-simple", tooltip=self.tr("Ajuster à la fenêtre"), size=26)
         self.btn_zoom_reset.clicked.connect(self._on_zoom_reset)
         top_layout.addWidget(self.btn_zoom_reset)
 
-        self.btn_zoom_in = IconButton("ph.magnifying-glass-plus", tooltip="Zoom avant", size=26)
+        self.btn_zoom_in = IconButton("ph.magnifying-glass-plus", tooltip=self.tr("Zoom avant"), size=26)
         self.btn_zoom_in.clicked.connect(self._on_zoom_in)
         top_layout.addWidget(self.btn_zoom_in)
 
         # Bouton Image Occlusion IA
         self.btn_occlusion = SecondaryButton("Image Occlusion")
         self.btn_occlusion.setIcon(load_phosphor_icon("ph.bounding-box", color=DesignTokens.ACCENT_PRIMARY))
-        self.btn_occlusion.setToolTip("Créer des masques d'Image Occlusion sur cette page avec l'IA")
+        self.btn_occlusion.setToolTip(self.tr("Créer des masques d'Image Occlusion sur cette page avec l'IA"))
         self.btn_occlusion.clicked.connect(self._on_open_image_occlusion)
         top_layout.addWidget(self.btn_occlusion)
 
@@ -443,7 +444,7 @@ class PageInspectorWidget(QWidget):
         crop_banner_layout.setContentsMargins(12, 6, 12, 6)
         crop_banner_layout.setSpacing(8)
 
-        lbl_crop_hint = QLabel("Mode recadrage : tracez un rectangle sur l'image pour borner la zone à conserver.")
+        lbl_crop_hint = QLabel(self.tr("Mode recadrage : tracez un rectangle sur l'image pour borner la zone à conserver."))
         lbl_crop_hint.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         crop_banner_layout.addWidget(lbl_crop_hint)
 
@@ -498,7 +499,7 @@ class PageInspectorWidget(QWidget):
         ocr_layout.setSpacing(8)
 
         ocr_header = QHBoxLayout()
-        lbl_ocr_title = QLabel("Transcription OCR & Notes")
+        lbl_ocr_title = QLabel(self.tr("Transcription OCR & Notes"))
         lbl_ocr_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 13px;")
         ocr_header.addWidget(lbl_ocr_title)
         ocr_header.addStretch()
@@ -514,7 +515,7 @@ class PageInspectorWidget(QWidget):
         # L'inspecteur montre aussi l'état périmé : l'utilisateur y passe pour corriger
         # une transcription, et corriger un texte qui décrit une orientation abandonnée
         # revient à recopier une erreur. Le bandeau reste donc visible, pas une infobulle.
-        self.stale_notice = QLabel("Transcription périmée : la planche a changé depuis. Retranscrivez cette page pour la mettre à jour.")
+        self.stale_notice = QLabel(self.tr("Transcription périmée : la planche a changé depuis. Retranscrivez cette page pour la mettre à jour."))
         self.stale_notice.setWordWrap(True)
         self.stale_notice.setVisible(False)
         self.stale_notice.setStyleSheet(f"""
@@ -530,7 +531,7 @@ class PageInspectorWidget(QWidget):
         ocr_layout.addWidget(self.stale_notice)
 
         self.ocr_text_edit = QTextEdit()
-        self.ocr_text_edit.setPlaceholderText("Aucun texte transcrit pour cette page. Lancez la transcription par Vision IA ou saisissez vos notes ici.")
+        self.ocr_text_edit.setPlaceholderText(self.tr("Aucun texte transcrit pour cette page. Lancez la transcription par Vision IA ou saisissez vos notes ici."))
         self.ocr_text_edit.setStyleSheet(f"""
             QTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -562,7 +563,7 @@ class PageInspectorWidget(QWidget):
         """
         self._total_pages = total_pages
         self.current_page = page
-        self.lbl_title.setText(f"Page {page.page_number} sur {total_pages}")
+        self.lbl_title.setText(tr("Page %1 sur %2", page.page_number, total_pages))
         self.ocr_text_edit.setPlainText(page.ocr_text or "")
         self.stale_notice.setVisible(getattr(page, "status", None) == "stale")
         self._full_pixmap = None
@@ -681,7 +682,7 @@ class PageInspectorWidget(QWidget):
     def _apply_image_transformations(self) -> None:
         """Applique le zoom courant à l'image affichée."""
         if not self._raw_pixmap or self._raw_pixmap.isNull():
-            self.image_display.setText("Image non disponible")
+            self.image_display.setText(self.tr("Image non disponible"))
             self.image_display.setPixmap(QPixmap())
             return
 
@@ -761,7 +762,7 @@ class PageInspectorWidget(QWidget):
         sel_rect = self.image_display.get_selection_rect()
         pix = self.image_display.pixmap()
         if not pix or pix.isNull() or sel_rect.width() < 5 or sel_rect.height() < 5:
-            show_toast(self, "Veuillez tracer un rectangle sur l'image pour borner la zone à conserver.", is_error=True)
+            show_toast(self, self.tr("Veuillez tracer un rectangle sur l'image pour borner la zone à conserver."), is_error=True)
             return
 
         offset_x = max(0, (self.image_display.width() - pix.width()) // 2)
@@ -775,7 +776,7 @@ class PageInspectorWidget(QWidget):
         sel_w = sel_x2 - sel_x1
         sel_h = sel_y2 - sel_y1
         if sel_w < 5 or sel_h < 5:
-            show_toast(self, "Zone de recadrage trop petite.", is_error=True)
+            show_toast(self, self.tr("Zone de recadrage trop petite."), is_error=True)
             return
 
         try:
@@ -786,13 +787,13 @@ class PageInspectorWidget(QWidget):
             )
         except Exception as e:
             logger.exception("Erreur lors du recadrage de la page %d : %s", self.current_page.id, e)
-            show_toast(self, f"Erreur lors du recadrage : {e}", is_error=True)
+            show_toast(self, tr("Erreur lors du recadrage : %1", e), is_error=True)
             return
 
         self.crop_banner.setVisible(False)
         self.image_display.set_crop_mode(False)
         self.page_crop_changed.emit(self.current_page.id)
-        show_toast(self, "Planche recadrée avec succès.")
+        show_toast(self, self.tr("Planche recadrée avec succès."))
         self.load_page(DocumentPageModel.get_by_id(self.current_page.id), self._total_pages)
 
     def _on_remove_crop(self) -> None:
@@ -801,7 +802,7 @@ class PageInspectorWidget(QWidget):
             return
         self._album_service.remove_page_crop(self.current_page.id)
         self.page_crop_changed.emit(self.current_page.id)
-        show_toast(self, "Recadrage retiré — planche intégrale restituée.")
+        show_toast(self, self.tr("Recadrage retiré — planche intégrale restituée."))
         self.load_page(DocumentPageModel.get_by_id(self.current_page.id), self._total_pages)
 
     def _on_save_ocr(self) -> None:
@@ -811,7 +812,7 @@ class PageInspectorWidget(QWidget):
         self.current_page.ocr_text = text
         self.current_page.save()
         self.page_saved.emit(self.current_page.id, text)
-        show_toast(self, "Transcription enregistrée avec succès.")
+        show_toast(self, self.tr("Transcription enregistrée avec succès."))
 
     def _on_open_image_occlusion(self) -> None:
         """
@@ -841,7 +842,7 @@ class PageInspectorWidget(QWidget):
                 image = self._album_service.render_page_image(self.current_page)
             except (FileNotFoundError, UnidentifiedImageError, OSError) as e:
                 logger.warning("Occlusion impossible : %s", e)
-                show_toast(self, "Image de la planche illisible.", is_error=True)
+                show_toast(self, self.tr("Image de la planche illisible."), is_error=True)
                 return
             try:
                 from ankiforge.services.ai.ocr_service import save_rendered_page
@@ -910,16 +911,16 @@ class AlbumViewerWidget(QWidget):
         album_ico.setPixmap(load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE).pixmap(20, 20))
         row1.addWidget(album_ico)
 
-        self.lbl_album_title = QLabel("Album d'images")
+        self.lbl_album_title = QLabel(self.tr("Album d'images"))
         self.lbl_album_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
         self.lbl_album_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.lbl_album_title.setMinimumWidth(50)
         row1.addWidget(self.lbl_album_title, 1)
 
-        self.pages_badge = Badge("0 pages", variant="neutral")
+        self.pages_badge = Badge(tr("0 pages"), variant="neutral")
         row1.addWidget(self.pages_badge)
 
-        self.btn_forge = PrimaryButton("Forger des cartes", tooltip="Forger des cartes flash à partir des planches de cet album")
+        self.btn_forge = PrimaryButton("Forger des cartes", tooltip=self.tr("Forger des cartes flash à partir des planches de cet album"))
         self.btn_forge.setIcon(load_on_accent_icon("ph.cards"))
         self.btn_forge.setFixedHeight(28)
         self.btn_forge.setStyleSheet("font-size: 11px; padding: 3px 12px;")
@@ -937,14 +938,14 @@ class AlbumViewerWidget(QWidget):
         self.combo_category.setFixedWidth(180)
         self.combo_category.setFixedHeight(26)
         self.combo_category.setStyleSheet("font-size: 11px;")
-        self.combo_category.setToolTip("Catégorie de transcription : elle détermine le modèle de vision utilisé sur les planches")
+        self.combo_category.setToolTip(self.tr("Catégorie de transcription : elle détermine le modèle de vision utilisé sur les planches"))
         self.combo_category.currentIndexChanged.connect(lambda _idx: self._on_category_changed())
         self.combo_category.setVisible(False)
         self.toolbar_flow_layout.addWidget(self.combo_category)
 
         self.btn_ocr = SecondaryButton("Transcrire l'album…")
         self.btn_ocr.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
-        self.btn_ocr.setToolTip("Configurer et lancer la transcription de l'album")
+        self.btn_ocr.setToolTip(self.tr("Configurer et lancer la transcription de l'album"))
         self.btn_ocr.setFixedHeight(26)
         self.btn_ocr.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_ocr.clicked.connect(self._on_open_transcription_dialog)
@@ -953,19 +954,19 @@ class AlbumViewerWidget(QWidget):
 
         self.btn_rag = SecondaryButton("RAG Visuel")
         self.btn_rag.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_GREEN))
-        self.btn_rag.setToolTip("Indexer les planches et schémas dans FAISS pour la recherche multimodale")
+        self.btn_rag.setToolTip(self.tr("Indexer les planches et schémas dans FAISS pour la recherche multimodale"))
         self.btn_rag.setFixedHeight(26)
         self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_rag.clicked.connect(lambda: self.visual_rag_requested.emit(self._doc.id) if self._doc else None)
         self.toolbar_flow_layout.addWidget(self.btn_rag)
 
-        self.btn_search_rag = IconButton("ph.magnifying-glass", tooltip="Recherche sémantique visuelle", size=26)
+        self.btn_search_rag = IconButton("ph.magnifying-glass", tooltip=self.tr("Recherche sémantique visuelle"), size=26)
         self.btn_search_rag.clicked.connect(lambda: self.search_rag_requested.emit(self._doc.id) if self._doc else None)
         self.toolbar_flow_layout.addWidget(self.btn_search_rag)
 
         self.btn_compile_pdf = SecondaryButton("Compiler en PDF")
         self.btn_compile_pdf.setIcon(load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
-        self.btn_compile_pdf.setToolTip("Assembler toutes les pages en un document PDF de lecture")
+        self.btn_compile_pdf.setToolTip(self.tr("Assembler toutes les pages en un document PDF de lecture"))
         self.btn_compile_pdf.setFixedHeight(26)
         self.btn_compile_pdf.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_compile_pdf.clicked.connect(self._on_compile_pdf)
@@ -973,7 +974,7 @@ class AlbumViewerWidget(QWidget):
 
         self.btn_add_pages = SecondaryButton("Ajouter des images")
         self.btn_add_pages.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.COLOR_BLUE))
-        self.btn_add_pages.setToolTip("Ajouter de nouvelles planches ou images à cet album")
+        self.btn_add_pages.setToolTip(self.tr("Ajouter de nouvelles planches ou images à cet album"))
         self.btn_add_pages.setFixedHeight(26)
         self.btn_add_pages.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_add_pages.clicked.connect(self._on_add_pages)
@@ -996,7 +997,7 @@ class AlbumViewerWidget(QWidget):
         prog_layout.setContentsMargins(6, 4, 6, 4)
         prog_layout.setSpacing(8)
 
-        self.lbl_progress_info = QLabel("Transcription IA en cours...")
+        self.lbl_progress_info = QLabel(self.tr("Transcription IA en cours..."))
         self.lbl_progress_info.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500;")
         prog_layout.addWidget(self.lbl_progress_info)
 
@@ -1026,7 +1027,7 @@ class AlbumViewerWidget(QWidget):
         self.btn_retry_failures.clicked.connect(self._on_retry_failures)
         prog_layout.addWidget(self.btn_retry_failures)
 
-        self.btn_cancel_ocr = IconButton("ph.x", tooltip="Arrêter la transcription", size=20)
+        self.btn_cancel_ocr = IconButton("ph.x", tooltip=self.tr("Arrêter la transcription"), size=20)
         self.btn_cancel_ocr.clicked.connect(self._on_cancel_ocr)
         prog_layout.addWidget(self.btn_cancel_ocr)
 
@@ -1049,7 +1050,7 @@ class AlbumViewerWidget(QWidget):
         pdf_prog_layout.setContentsMargins(6, 4, 6, 4)
         pdf_prog_layout.setSpacing(8)
 
-        self.lbl_pdf_progress = QLabel("Compilation PDF en cours...")
+        self.lbl_pdf_progress = QLabel(self.tr("Compilation PDF en cours..."))
         self.lbl_pdf_progress.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500;")
         pdf_prog_layout.addWidget(self.lbl_pdf_progress)
 
@@ -1071,7 +1072,7 @@ class AlbumViewerWidget(QWidget):
         """)
         pdf_prog_layout.addWidget(self.pdf_progress_bar, 1)
 
-        self.btn_cancel_pdf = IconButton("ph.x", tooltip="Arrêter la compilation", size=20)
+        self.btn_cancel_pdf = IconButton("ph.x", tooltip=self.tr("Arrêter la compilation"), size=20)
         self.btn_cancel_pdf.clicked.connect(self._on_cancel_pdf)
         pdf_prog_layout.addWidget(self.btn_cancel_pdf)
 
@@ -1133,7 +1134,7 @@ class AlbumViewerWidget(QWidget):
         self._pages = list(DocumentPageModel.select().where(DocumentPageModel.document == self._doc).order_by(DocumentPageModel.page_number))
 
         total = len(self._pages)
-        self.pages_badge.setText(f"{total} page{'s' if total > 1 else ''}")
+        self.pages_badge.setText(tr("%1 page%2", total, "s" if total > 1 else ""))
 
         for page in self._pages:
             # Service partagé : une instance par carte ouvrirait N handles de média pour
@@ -1160,10 +1161,10 @@ class AlbumViewerWidget(QWidget):
                 self.inspector.load_page(DocumentPageModel.get_by_id(page_id), len(self._pages))
             if self._doc:
                 self.album_modified.emit(self._doc.id)
-            show_toast(self, f"Page pivotée (actuellement {new_rotation}°).")
+            show_toast(self, tr("Page pivotée (actuellement %1°).", new_rotation))
         except Exception as e:
             logger.exception("Erreur lors de la rotation de la page %d: %s", page_id, e)
-            show_toast(self, "Erreur lors de la rotation de la page.", is_error=True)
+            show_toast(self, self.tr("Erreur lors de la rotation de la page."), is_error=True)
 
     @Slot(int)
     def _on_page_crop_changed(self, page_id: int) -> None:
@@ -1197,15 +1198,15 @@ class AlbumViewerWidget(QWidget):
             self.album_modified.emit(self._doc.id)
         except Exception as e:
             logger.exception("Erreur lors du réordonnancement des pages: %s", e)
-            show_toast(self, "Erreur lors du réordonnancement.", is_error=True)
+            show_toast(self, self.tr("Erreur lors du réordonnancement."), is_error=True)
 
     @Slot(int)
     def _on_delete_page(self, page_id: int) -> None:
         """Supprime une page de l'album après confirmation utilisateur."""
         reply = QMessageBox.question(
             self,
-            "Supprimer la page",
-            "Êtes-vous sûr de vouloir retirer cette page de l'album ?",
+            self.tr("Supprimer la page"),
+            self.tr("Êtes-vous sûr de vouloir retirer cette page de l'album ?"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -1215,10 +1216,10 @@ class AlbumViewerWidget(QWidget):
                 self.refresh_pages()
                 if self._doc:
                     self.album_modified.emit(self._doc.id)
-                show_toast(self, "Page supprimée de l'album.")
+                show_toast(self, self.tr("Page supprimée de l'album."))
             except Exception as e:
                 logger.exception("Erreur lors de la suppression de la page %d: %s", page_id, e)
-                show_toast(self, "Erreur lors de la suppression.", is_error=True)
+                show_toast(self, self.tr("Erreur lors de la suppression."), is_error=True)
 
     @Slot(int)
     def _on_open_inspector(self, page_id: int) -> None:
@@ -1268,10 +1269,10 @@ class AlbumViewerWidget(QWidget):
             self._album_service.add_pages_to_album(self._doc.id, file_paths)
             self.refresh_pages()
             self.album_modified.emit(self._doc.id)
-            show_toast(self, f"{len(file_paths)} image(s) ajoutée(s) à l'album.")
+            show_toast(self, tr("%1 image(s) ajoutée(s) à l'album.", len(file_paths)))
         except Exception as e:
             logger.exception("Erreur lors de l'ajout d'images: %s", e)
-            show_toast(self, "Erreur lors de l'ajout des images.", is_error=True)
+            show_toast(self, self.tr("Erreur lors de l'ajout des images."), is_error=True)
 
     @Slot()
     def _on_compile_pdf(self) -> None:
@@ -1297,7 +1298,7 @@ class AlbumViewerWidget(QWidget):
         self.btn_ocr.setEnabled(False)
         self.pdf_progress_container.setVisible(True)
         self.pdf_progress_bar.setValue(0)
-        self.lbl_pdf_progress.setText("Compilation du PDF...")
+        self.lbl_pdf_progress.setText(self.tr("Compilation du PDF..."))
 
         worker = AlbumPDFWorker(document_id=self._doc.id, output_path=out_path, album_service=self._album_service)
         # La référence est lâchée sur `QThread.finished` (le signal de `QThread`, pas le
@@ -1316,17 +1317,17 @@ class AlbumViewerWidget(QWidget):
     def _on_pdf_progress(self, current: int, total: int) -> None:
         pct = int((current / max(1, total)) * 100)
         self.pdf_progress_bar.setValue(pct)
-        self.lbl_pdf_progress.setText(f"Compilation : {current}/{total} planches ({pct}%)")
+        self.lbl_pdf_progress.setText(tr("Compilation : %1/%2 planches (%3%%)", current, total, pct))
 
     @Slot(str)
     def _on_pdf_finished(self, output_path: str) -> None:
         self._restore_pdf_controls()
-        show_toast(self, f"PDF généré avec succès : {Path(output_path).name}")
+        show_toast(self, tr("PDF généré avec succès : %1", Path(output_path).name))
 
     @Slot(int, int)
     def _on_pdf_cancelled(self, done: int, total: int) -> None:
         self._restore_pdf_controls()
-        show_toast(self, f"Compilation annulée ({done}/{total} planches).")
+        show_toast(self, tr("Compilation annulée (%1/%2 planches).", done, total))
 
     @Slot(str)
     def _on_pdf_error(self, message: str) -> None:
@@ -1335,13 +1336,13 @@ class AlbumViewerWidget(QWidget):
         # deviner entre un disque plein, un chemin non inscriptible et un média manquant.
         # Le chemin OCR fait déjà de même ; la compilation ne devait pas être le cas laxiste.
         logger.error("Échec de la compilation PDF de l'album %s : %s", getattr(self._doc, "id", "?"), message)
-        show_toast(self, f"Erreur de compilation PDF : {message}", is_error=True)
+        show_toast(self, tr("Erreur de compilation PDF : %1", message), is_error=True)
 
     @Slot()
     def _on_cancel_pdf(self) -> None:
         if self._pdf_worker:
             self._pdf_worker.cancel()
-            self.lbl_pdf_progress.setText("Annulation en cours...")
+            self.lbl_pdf_progress.setText(self.tr("Annulation en cours..."))
 
     @Slot()
     def _release_worker(self, kind: str) -> None:
@@ -1424,23 +1425,23 @@ class AlbumViewerWidget(QWidget):
         category = self._category_service.get_category_by_id(category_id) if category_id else None
         if category is None:
             self.btn_ocr.setEnabled(True)
-            self.btn_ocr.setToolTip("Lancer l'analyse et la transcription de l'album avec le modèle IA sélectionné")
+            self.btn_ocr.setToolTip(self.tr("Lancer l'analyse et la transcription de l'album avec le modèle IA sélectionné"))
             return
 
         supports_vision = self._category_service.category_declares_vision(category)
         if supports_vision is False:
             self.btn_ocr.setEnabled(False)
-            self.btn_ocr.setToolTip(f"{VISION_UNSUPPORTED_LABEL} : « {category.name} » pointe vers un moteur qui ne sait pas lire les planches.")
+            self.btn_ocr.setToolTip(tr("%1 : « %2 » pointe vers un moteur qui ne sait pas lire les planches.", VISION_UNSUPPORTED_LABEL, category.name))
             return
 
         self.btn_ocr.setEnabled(True)
-        self.btn_ocr.setToolTip(f"Lancer l'analyse et la transcription de l'album avec « {category.name} »")
+        self.btn_ocr.setToolTip(tr("Lancer l'analyse et la transcription de l'album avec « %1 »", category.name))
 
     @Slot()
     def _on_open_transcription_dialog(self) -> None:
         """Ouvre le dialogue modal dédié à la transcription de l'album."""
         if not self._doc or not self._pages:
-            show_toast(self, "Aucune planche à transcrire dans cet album.", is_error=True)
+            show_toast(self, self.tr("Aucune planche à transcrire dans cet album."), is_error=True)
             return
 
         from ankiforge.ui.dialogs.album_transcription_dialog import AlbumTranscriptionDialog
@@ -1483,12 +1484,12 @@ class AlbumViewerWidget(QWidget):
     ) -> None:
         """Déclenche la transcription IA asynchrone des pages de l'album."""
         if not self._doc or not self._pages:
-            show_toast(self, "Aucune page à transcrire.", is_error=True)
+            show_toast(self, self.tr("Aucune page à transcrire."), is_error=True)
             return
 
         category_id = options.category_id if options else self._current_category_id()
         if not category_id:
-            show_toast(self, "Aucune catégorie de transcription configurée.", is_error=True)
+            show_toast(self, self.tr("Aucune catégorie de transcription configurée."), is_error=True)
             return
 
         self._selected_category_id = category_id
@@ -1502,7 +1503,7 @@ class AlbumViewerWidget(QWidget):
         self.progress_container.setVisible(True)
         self.ocr_progress_bar.setValue(0)
         self.btn_retry_failures.setVisible(False)
-        self.lbl_progress_info.setText("Démarrage de la transcription IA...")
+        self.lbl_progress_info.setText(self.tr("Démarrage de la transcription IA..."))
 
         worker = (
             AlbumOCRWorker(
@@ -1532,7 +1533,7 @@ class AlbumViewerWidget(QWidget):
     def _on_worker_progress(self, current: int, total: int) -> None:
         pct = int((current / max(1, total)) * 100)
         self.ocr_progress_bar.setValue(pct)
-        self.lbl_progress_info.setText(f"Transcription : {current}/{total} pages ({pct}%)")
+        self.lbl_progress_info.setText(tr("Transcription : %1/%2 pages (%3%%)", current, total, pct))
 
     @Slot(int, int, str)
     def _on_worker_page_processed(self, page_id: int, page_number: int, text: str) -> None:
@@ -1553,8 +1554,8 @@ class AlbumViewerWidget(QWidget):
         if error_count and self._ocr_worker and getattr(self._ocr_worker, "failed_page_ids", None):
             self._failed_page_ids = list(self._ocr_worker.failed_page_ids)
             self.progress_container.setVisible(True)
-            self.lbl_progress_info.setText(f"Échec partiel : {success_count} réussie(s), {error_count} en échec")
-            self.btn_retry_failures.setText(f"Relancer les échecs ({len(self._failed_page_ids)})")
+            self.lbl_progress_info.setText(tr("Échec partiel : %1 réussie(s), %2 en échec", success_count, error_count))
+            self.btn_retry_failures.setText(tr("Relancer les échecs (%1)", len(self._failed_page_ids)))
             self.btn_retry_failures.setVisible(True)
         else:
             self._failed_page_ids = []
@@ -1563,11 +1564,11 @@ class AlbumViewerWidget(QWidget):
         # Le compte rendu nomme ce qui a échoué au lieu de valider un « terminé » : un album
         # dont toutes les planches ont échoué ne doit pas s'annoncer comme transcrit.
         if error_count and success_count == 0:
-            show_toast(self, f"Transcription en échec : {error_count} page(s) sans résultat exploitable.", is_error=True)
+            show_toast(self, tr("Transcription en échec : %1 page(s) sans résultat exploitable.", error_count), is_error=True)
         elif error_count:
-            show_toast(self, f"Transcription partielle : {success_count} page(s) transcrites, {error_count} en échec.", is_error=True)
+            show_toast(self, tr("Transcription partielle : %1 page(s) transcrites, %2 en échec.", success_count, error_count), is_error=True)
         else:
-            show_toast(self, f"Transcription achevée : {success_count} page(s) transcrites.")
+            show_toast(self, tr("Transcription achevée : %1 page(s) transcrites.", success_count))
 
         if self._doc:
             self.album_modified.emit(self._doc.id)
@@ -1575,12 +1576,12 @@ class AlbumViewerWidget(QWidget):
     @Slot(int, int)
     def _on_worker_cancelled(self, done: int, total: int) -> None:
         self._restore_ocr_controls()
-        show_toast(self, f"Transcription interrompue : {done}/{total} page(s) traitées.")
+        show_toast(self, tr("Transcription interrompue : %1/%2 page(s) traitées.", done, total))
 
     @Slot(str)
     def _on_worker_error(self, message: str) -> None:
         self._restore_ocr_controls()
-        show_toast(self, f"Erreur transcription : {message}", is_error=True)
+        show_toast(self, tr("Erreur transcription : %1", message), is_error=True)
 
     def _restore_ocr_controls(self) -> None:
         self.progress_container.setVisible(False)
@@ -1600,7 +1601,7 @@ class AlbumViewerWidget(QWidget):
     def _on_cancel_ocr(self) -> None:
         if self._ocr_worker:
             self._ocr_worker.cancel()
-            self.lbl_progress_info.setText("Annulation en cours...")
+            self.lbl_progress_info.setText(self.tr("Annulation en cours..."))
 
     @Slot()
     def _on_forge_clicked(self) -> None:
@@ -1630,7 +1631,7 @@ class AlbumViewerWidget(QWidget):
             # fermeture est donc refusée tant qu'un worker tourne, et l'utilisateur
             # refera la fenêtre une fois l'annulation terminée.
             logger.warning("Worker d'album encore actif après 3 s : fermeture refusée pour éviter un crash natif.")
-            show_toast(self, "Annulation en cours : refermez la fenêtre à nouveau dans un instant.", is_error=True)
+            show_toast(self, self.tr("Annulation en cours : refermez la fenêtre à nouveau dans un instant."), is_error=True)
             event.ignore()
             return
 

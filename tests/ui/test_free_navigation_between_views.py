@@ -351,7 +351,7 @@ class TestNavBadge:
 
         layout = LayoutManager.create_layout(layout_id, profile_name="default")
         qtbot.addWidget(layout)
-        layout.populate_navigation(dict(MainWindow.VIEW_REGISTRY))
+        layout.populate_navigation(MainWindow.view_registry())
         layout.resize(1400, 900)
         layout.show()
         qtbot.waitExposed(layout)
@@ -380,7 +380,7 @@ class TestNavBadge:
 
         layout = LayoutManager.create_layout(layout_id, profile_name="default")
         qtbot.addWidget(layout)
-        layout.populate_navigation(dict(MainWindow.VIEW_REGISTRY))
+        layout.populate_navigation(MainWindow.view_registry())
 
         layout.set_nav_badge("vue-inexistante", 5)
 

@@ -60,6 +60,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -355,17 +356,17 @@ class ImageOcclusionEditor(QWidget):
         top_layout.setSpacing(8)
 
         # Mode Pointeur
-        self.btn_select = IconButton("ph.cursor", tooltip="Mode Sélection / Déplacement", size=26)
+        self.btn_select = IconButton("ph.cursor", tooltip=self.tr("Mode Sélection / Déplacement"), size=26)
         self.btn_select.clicked.connect(lambda: self._set_tool_mode("select"))
         top_layout.addWidget(self.btn_select)
 
         # Mode Tracé de masque
-        self.btn_draw = IconButton("ph.bounding-box", tooltip="Mode Tracé : cliquer-glisser pour créer un masque", size=26)
+        self.btn_draw = IconButton("ph.bounding-box", tooltip=self.tr("Mode Tracé : cliquer-glisser pour créer un masque"), size=26)
         self.btn_draw.clicked.connect(lambda: self._set_tool_mode("draw"))
         top_layout.addWidget(self.btn_draw)
 
         # Supprimer le masque sélectionné
-        self.btn_delete = IconButton("ph.trash", tooltip="Supprimer le masque sélectionné (Suppr)", size=26)
+        self.btn_delete = IconButton("ph.trash", tooltip=self.tr("Supprimer le masque sélectionné (Suppr)"), size=26)
         self.btn_delete.clicked.connect(self._delete_selected_box)
         top_layout.addWidget(self.btn_delete)
 
@@ -374,7 +375,7 @@ class ImageOcclusionEditor(QWidget):
         # Bouton Détection IA
         self.btn_ai_detect = SecondaryButton("Détecter avec l'IA")
         self.btn_ai_detect.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
-        self.btn_ai_detect.setToolTip("Détecte automatiquement toutes les annotations et légendes via Vision IA")
+        self.btn_ai_detect.setToolTip(self.tr("Détecte automatiquement toutes les annotations et légendes via Vision IA"))
         self.btn_ai_detect.clicked.connect(self._on_ai_detect_clicked)
         top_layout.addWidget(self.btn_ai_detect)
 
@@ -389,15 +390,15 @@ class ImageOcclusionEditor(QWidget):
         top_layout.addStretch()
 
         # Contrôles de zoom
-        self.btn_zoom_out = IconButton("ph.magnifying-glass-minus", tooltip="Zoom arrière", size=26)
+        self.btn_zoom_out = IconButton("ph.magnifying-glass-minus", tooltip=self.tr("Zoom arrière"), size=26)
         self.btn_zoom_out.clicked.connect(lambda: self.canvas_view.scale(0.85, 0.85))
         top_layout.addWidget(self.btn_zoom_out)
 
-        self.btn_zoom_reset = IconButton("ph.arrows-out-simple", tooltip="Ajuster à l'écran", size=26)
+        self.btn_zoom_reset = IconButton("ph.arrows-out-simple", tooltip=self.tr("Ajuster à l'écran"), size=26)
         self.btn_zoom_reset.clicked.connect(self._fit_to_view)
         top_layout.addWidget(self.btn_zoom_reset)
 
-        self.btn_zoom_in = IconButton("ph.magnifying-glass-plus", tooltip="Zoom avant", size=26)
+        self.btn_zoom_in = IconButton("ph.magnifying-glass-plus", tooltip=self.tr("Zoom avant"), size=26)
         self.btn_zoom_in.clicked.connect(lambda: self.canvas_view.scale(1.15, 1.15))
         top_layout.addWidget(self.btn_zoom_in)
 
@@ -427,14 +428,14 @@ class ImageOcclusionEditor(QWidget):
         side_layout.setSpacing(12)
 
         # En-tête du panneau
-        lbl_panel_title = QLabel("Masques & Légendes")
+        lbl_panel_title = QLabel(self.tr("Masques & Légendes"))
         lbl_panel_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 13px;")
         side_layout.addWidget(lbl_panel_title)
 
         # Tableau des masques
         self.table_boxes = QTableWidget()
         self.table_boxes.setColumnCount(3)
-        self.table_boxes.setHorizontalHeaderLabels(["#", "Texte / Réponse", "Indice"])
+        self.table_boxes.setHorizontalHeaderLabels([self.tr("#"), self.tr("Texte / Réponse"), self.tr("Indice")])
         self.table_boxes.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_boxes.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table_boxes.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
@@ -463,23 +464,23 @@ class ImageOcclusionEditor(QWidget):
         side_layout.addWidget(self.table_boxes)
 
         # Options pédagogiques d'occlusion
-        lbl_mode = QLabel("Mode d'occlusion :")
+        lbl_mode = QLabel(self.tr("Mode d'occlusion :"))
         lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         side_layout.addWidget(lbl_mode)
 
         self.combo_mode = StyledComboBox()
-        self.combo_mode.addItem("Masquer tout, révéler un (Hide All)", "hide_all")
-        self.combo_mode.addItem("Masquer un, révéler un (Hide One)", "hide_one")
+        self.combo_mode.addItem(self.tr("Masquer tout, révéler un (Hide All)"), "hide_all")
+        self.combo_mode.addItem(self.tr("Masquer un, révéler un (Hide One)"), "hide_one")
         side_layout.addWidget(self.combo_mode)
 
-        self.chk_keep_other_masks = QCheckBox("Garder les autres masques fermés au verso")
+        self.chk_keep_other_masks = QCheckBox(self.tr("Garder les autres masques fermés au verso"))
         self.chk_keep_other_masks.setChecked(True)
-        self.chk_keep_other_masks.setToolTip("Évite les fuites d'indices contextuels : en mode Hide All, les autres étiquettes restent masquées lors de l'affichage de la réponse.")
+        self.chk_keep_other_masks.setToolTip(self.tr("Évite les fuites d'indices contextuels : en mode Hide All, les autres étiquettes restent masquées lors de l'affichage de la réponse."))
         self.chk_keep_other_masks.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         side_layout.addWidget(self.chk_keep_other_masks)
 
         # Paquet Anki de destination
-        lbl_deck = QLabel("Paquet cible :")
+        lbl_deck = QLabel(self.tr("Paquet cible :"))
         lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         side_layout.addWidget(lbl_deck)
 
@@ -488,12 +489,12 @@ class ImageOcclusionEditor(QWidget):
         side_layout.addWidget(self.combo_deck)
 
         # En-tête / Titre du schéma
-        lbl_header = QLabel("Titre de la carte (En-tête) :")
+        lbl_header = QLabel(self.tr("Titre de la carte (En-tête) :"))
         lbl_header.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         side_layout.addWidget(lbl_header)
 
         self.txt_header = QLineEdit()
-        self.txt_header.setPlaceholderText("Ex: Anatomie de l'Œil - Coupe sagittale")
+        self.txt_header.setPlaceholderText(self.tr("Ex: Anatomie de l'Œil - Coupe sagittale"))
         self.txt_header.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -506,11 +507,11 @@ class ImageOcclusionEditor(QWidget):
         side_layout.addWidget(self.txt_header)
 
         # Tags
-        lbl_tags = QLabel("Tags (séparés par des virgules) :")
+        lbl_tags = QLabel(self.tr("Tags (séparés par des virgules) :"))
         lbl_tags.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         side_layout.addWidget(lbl_tags)
 
-        self.txt_tags = QLineEdit("image-occlusion")
+        self.txt_tags = QLineEdit(self.tr("image-occlusion"))
         self.txt_tags.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -547,7 +548,7 @@ class ImageOcclusionEditor(QWidget):
                 decks = [default_deck]
 
             for d in decks:
-                self.combo_deck.addItem(f"📦 {d.name}", d.id)
+                self.combo_deck.addItem(tr("📦 %1", d.name), d.id)
         except Exception as err:
             logger.debug("Erreur lors de la lecture des paquets : %s", err)
 
@@ -555,12 +556,12 @@ class ImageOcclusionEditor(QWidget):
         """Charge une image source sur le canevas."""
         self.image_path = Path(image_path)
         if not self.image_path.exists():
-            show_toast(self, "Fichier image introuvable", is_error=True)
+            show_toast(self, self.tr("Fichier image introuvable"), is_error=True)
             return
 
         self._raw_image = QImage(str(self.image_path))
         if self._raw_image.isNull():
-            show_toast(self, "Format d'image non reconnu ou illisible", is_error=True)
+            show_toast(self, self.tr("Format d'image non reconnu ou illisible"), is_error=True)
             return
 
         # Nettoyage de la scène
@@ -705,7 +706,7 @@ class ImageOcclusionEditor(QWidget):
             self.table_boxes.setItem(row, 2, item_hint)
 
         self.table_boxes.blockSignals(False)
-        self.btn_generate.setText(f"Créer {len(self.boxes)} cartes d'occlusion")
+        self.btn_generate.setText(tr("Créer %1 cartes d'occlusion", len(self.boxes)))
 
     def _update_table_row_for_box(self, box: OcclusionBox) -> None:
         """Met à jour une ligne du tableau lors d'une modification géométrique."""
@@ -736,12 +737,12 @@ class ImageOcclusionEditor(QWidget):
     def _on_ai_detect_clicked(self) -> None:
         """Déclenche la détection IA de vision en arrière-plan."""
         if not self.image_path or not self.image_path.exists():
-            show_toast(self, "Aucune image chargée pour la détection", is_error=True)
+            show_toast(self, self.tr("Aucune image chargée pour la détection"), is_error=True)
             return
 
         self.btn_ai_detect.setEnabled(False)
         self.ai_spinner.setVisible(True)
-        show_toast(self, "Analyse de vision par l'IA en cours...", is_error=False)
+        show_toast(self, self.tr("Analyse de vision par l'IA en cours..."), is_error=False)
 
         self._worker = ImageOcclusionDetectionWorker(
             image_path=self.image_path,
@@ -759,7 +760,7 @@ class ImageOcclusionEditor(QWidget):
         self.ai_spinner.setVisible(False)
 
         if not boxes:
-            show_toast(self, "Aucune étiquette détectée par l'IA sur cette image", is_error=False)
+            show_toast(self, self.tr("Aucune étiquette détectée par l'IA sur cette image"), is_error=False)
             return
 
         # Remplacement ou ajout
@@ -772,28 +773,28 @@ class ImageOcclusionEditor(QWidget):
             self._add_box_item(box)
 
         self._refresh_table()
-        show_toast(self, f"✓ {len(boxes)} légendes détectées par l'IA !", is_error=False)
+        show_toast(self, tr("✓ %1 légendes détectées par l'IA !", len(boxes)), is_error=False)
 
     @Slot(str)
     def _on_ai_detection_error(self, error_msg: str) -> None:
         """Gère les erreurs de l'analyse visuelle."""
         self.btn_ai_detect.setEnabled(True)
         self.ai_spinner.setVisible(False)
-        show_toast(self, f"Erreur Vision : {error_msg}", is_error=True)
+        show_toast(self, tr("Erreur Vision : %1", error_msg), is_error=True)
 
     def _generate_cards(self) -> None:
         """Génère les cartes d'occlusion en base de données et dans le paquet cible."""
         if not self.image_path or not self.image_path.exists():
-            show_toast(self, "Image source introuvable", is_error=True)
+            show_toast(self, self.tr("Image source introuvable"), is_error=True)
             return
 
         if not self.boxes:
-            show_toast(self, "Ajoutez au moins un masque d'occlusion avant de créer des cartes.", is_error=False)
+            show_toast(self, self.tr("Ajoutez au moins un masque d'occlusion avant de créer des cartes."), is_error=False)
             return
 
         deck_id = self.combo_deck.currentData()
         if not deck_id:
-            show_toast(self, "Veuillez sélectionner un paquet de destination.", is_error=False)
+            show_toast(self, self.tr("Veuillez sélectionner un paquet de destination."), is_error=False)
             return
 
         mode = self.combo_mode.currentData()
@@ -814,12 +815,12 @@ class ImageOcclusionEditor(QWidget):
                 tags=tags,
             )
 
-            show_toast(self, f"✓ {len(created_notes)} cartes d'occlusion créées avec succès !", is_error=False)
+            show_toast(self, tr("✓ %1 cartes d'occlusion créées avec succès !", len(created_notes)), is_error=False)
             self.notes_created.emit(created_notes)
 
         except Exception as err:
             logger.exception("Échec de la génération des cartes d'occlusion : %s", err)
-            show_toast(self, f"Erreur de création : {err}", is_error=True)
+            show_toast(self, tr("Erreur de création : %1", err), is_error=True)
 
     def keyPressEvent(self, event: Any) -> None:
         """Raccourci clavier Suppr pour effacer le masque sélectionné."""

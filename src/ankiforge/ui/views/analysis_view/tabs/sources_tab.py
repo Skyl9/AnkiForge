@@ -38,6 +38,7 @@ from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.region_address import RegionAddress, RegionScope
 
@@ -129,7 +130,7 @@ class LinkedNoteCard(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAccessibleName(f"Carte Anki liée à la note #{note_id}")
         self.setAccessibleDescription("Clic ou Entrée pour ouvrir cette note dans l'éditeur de cartes")
-        self.setToolTip("Ouvrir cette note dans l'éditeur de cartes")
+        self.setToolTip(self.tr("Ouvrir cette note dans l'éditeur de cartes"))
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -191,7 +192,7 @@ class DocumentInspectorPanel(QWidget):
         h_layout.setContentsMargins(12, 8, 12, 8)
         h_layout.setSpacing(10)
 
-        btn_back = SecondaryButton("Retour", tooltip="Retourner à la liste générale des documents")
+        btn_back = SecondaryButton("Retour", tooltip=self.tr("Retourner à la liste générale des documents"))
         btn_back.setIcon(load_phosphor_icon("ph.arrow-left", color=DesignTokens.TEXT_PRIMARY))
         btn_back.clicked.connect(self.back_requested.emit)
 
@@ -209,28 +210,28 @@ class DocumentInspectorPanel(QWidget):
         header_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         header_lbl.setMinimumWidth(120)
 
-        self.lbl_doc_summary = QLabel("Couverture : 0%")
+        self.lbl_doc_summary = QLabel(self.tr("Couverture : 0%"))
         self.lbl_doc_summary.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         self.lbl_doc_summary.setStyleSheet(
             f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 4px 10px;"
         )
 
-        self.btn_fill_orphans = PrimaryButton("Générer les cartes manquantes", tooltip="Générer automatiquement des flashcards pour les sections non couvertes")
+        self.btn_fill_orphans = PrimaryButton("Générer les cartes manquantes", tooltip=self.tr("Générer automatiquement des flashcards pour les sections non couvertes"))
         self.btn_fill_orphans.setIcon(load_on_accent_icon("ph.sparkle"))
         self.btn_fill_orphans.clicked.connect(self._on_fill_all_orphans)
 
-        self.btn_reindex = SecondaryButton("Ré-indexer FAISS", tooltip="Recalculer les embeddings vectoriels et réindexer ce document dans FAISS")
+        self.btn_reindex = SecondaryButton("Ré-indexer FAISS", tooltip=self.tr("Recalculer les embeddings vectoriels et réindexer ce document dans FAISS"))
         self.btn_reindex.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
         self.btn_reindex.clicked.connect(self._on_reindex_faiss)
 
         self.btn_align_cards = SecondaryButton("Synchroniser les fiches")
         self.btn_align_cards.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE))
-        self.btn_align_cards.setToolTip("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce cours")
+        self.btn_align_cards.setToolTip(self.tr("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce cours"))
         self.btn_align_cards.clicked.connect(self._on_align_cards)
 
         self.btn_refine_links = SecondaryButton("Affiner les liens")
         self.btn_refine_links.setIcon(load_phosphor_icon("ph.crosshair", color=DesignTokens.COLOR_BLUE))
-        self.btn_refine_links.setToolTip("Rattacher aux sous-sections (H3+) les cartes liées à un titre parent large (H1/H2) — affinement déterministe, local et instantané")
+        self.btn_refine_links.setToolTip(self.tr("Rattacher aux sous-sections (H3+) les cartes liées à un titre parent large (H1/H2) — affinement déterministe, local et instantané"))
         self.btn_refine_links.clicked.connect(self._on_refine_links)
 
         h_layout.addWidget(btn_back)
@@ -254,7 +255,7 @@ class DocumentInspectorPanel(QWidget):
         left_layout.setContentsMargins(10, 10, 10, 10)
         left_layout.setSpacing(8)
 
-        lbl_toc = QLabel("Sommaire & Sections du Document")
+        lbl_toc = QLabel(self.tr("Sommaire & Sections du Document"))
         lbl_toc.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_toc.setStyleSheet(
             f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; "
@@ -298,14 +299,14 @@ class DocumentInspectorPanel(QWidget):
         scope_row.setContentsMargins(0, 0, 0, 0)
         scope_row.setSpacing(6)
 
-        self.btn_exclude_section = SecondaryButton("Exclure cette section", tooltip="Retirer la section sélectionnée du périmètre du document")
+        self.btn_exclude_section = SecondaryButton("Exclure cette section", tooltip=self.tr("Retirer la section sélectionnée du périmètre du document"))
         self.btn_exclude_section.setIcon(load_phosphor_icon("ph.prohibit", color=DesignTokens.TEXT_PRIMARY))
         # `clicked` émet un `checked` booléen : on court-circuite par un slot sans argument
         # pour que ce booléen ne soit pas pris pour un identifiant de fragment.
         self.btn_exclude_section.clicked.connect(lambda _checked=False: self.toggle_section_exclusion())
         scope_row.addWidget(self.btn_exclude_section)
 
-        self.btn_neutralize_section = SecondaryButton("Neutraliser cette section", tooltip="Retirer la section du dénominateur de couverture sans sortir sa matière du document")
+        self.btn_neutralize_section = SecondaryButton("Neutraliser cette section", tooltip=self.tr("Retirer la section du dénominateur de couverture sans sortir sa matière du document"))
         self.btn_neutralize_section.setIcon(load_phosphor_icon("ph.minus-circle", color=DesignTokens.TEXT_PRIMARY))
         self.btn_neutralize_section.clicked.connect(lambda _checked=False: self.toggle_section_neutralization())
         scope_row.addWidget(self.btn_neutralize_section)
@@ -316,7 +317,7 @@ class DocumentInspectorPanel(QWidget):
         scope_row.addWidget(lbl_scope_status, 1)
         left_layout.addLayout(scope_row)
 
-        lbl_text_title = QLabel("Extrait de la Section Sélectionnée")
+        lbl_text_title = QLabel(self.tr("Extrait de la Section Sélectionnée"))
         lbl_text_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         lbl_text_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent; padding-top: 4px;")
         left_layout.addWidget(lbl_text_title)
@@ -341,7 +342,7 @@ class DocumentInspectorPanel(QWidget):
         right_layout.setContentsMargins(10, 10, 10, 10)
         right_layout.setSpacing(8)
 
-        lbl_cards_title = QLabel("Cartes Anki Liées & Action de Forge")
+        lbl_cards_title = QLabel(self.tr("Cartes Anki Liées & Action de Forge"))
         lbl_cards_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_cards_title.setStyleSheet(
             f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; "
@@ -396,7 +397,7 @@ class DocumentInspectorPanel(QWidget):
         }
 
         if not chunks:
-            self.lbl_doc_summary.setText("Non indexé (0 section)")
+            self.lbl_doc_summary.setText(self.tr("Non indexé (0 section)"))
             self.lbl_scope_status.setText(self._scope_status_text(0, "sections"))
             self.text_preview.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED};'>Ce document n'a pas encore été fragmenté. Cliquez sur 'Ré-indexer FAISS'.</p>")
             self._sync_exclusion_action()
@@ -576,7 +577,7 @@ class DocumentInspectorPanel(QWidget):
                 title = str(item.data(0, _ROLE_TITLE) or "")
                 carte_label = "carte" if total_cards <= 1 else "cartes"
                 section_label = "sous-section" if child_count <= 1 else "sous-sections"
-                item.setText(0, f"{title}  ·  {child_count} {section_label} · {total_cards} {carte_label}")
+                item.setText(0, tr("%1  ·  %2 %3 · %4 %5", title, child_count, section_label, total_cards, carte_label))
             it += 1
 
     def _aggregate_descendant_cards(self, item: QTreeWidgetItem) -> int:
@@ -639,25 +640,25 @@ class DocumentInspectorPanel(QWidget):
         full_path = str(item.data(0, _ROLE_FULL_PATH) or title_str)
 
         if is_excluded:
-            item.setText(0, f"⊘ {title_str}  ·  Exclue de l'analyse")
+            item.setText(0, tr("⊘ %1  ·  Exclue de l'analyse", title_str))
             item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
-            item.setToolTip(0, f"{full_path}\nHors périmètre : cette section ne compte plus dans la couverture du document.")
+            item.setToolTip(0, tr("%1\nHors périmètre : cette section ne compte plus dans la couverture du document.", full_path))
             return
 
         if is_container:
             # Le texte définitif est appliqué par _update_container_aggregates.
             item.setText(0, title_str)
             item.setForeground(0, QColor(DesignTokens.TEXT_SECONDARY))
-            item.setToolTip(0, f"{full_path}\nConteneur structural : neutre dans le calcul de couverture.")
+            item.setToolTip(0, tr("%1\nConteneur structural : neutre dans le calcul de couverture.", full_path))
             return
 
         if card_count > 0:
-            item.setText(0, f"● {title_str}  ·  {card_count} carte(s)")
+            item.setText(0, tr("● %1  ·  %2 carte(s)", title_str, card_count))
             item.setForeground(0, QColor(DesignTokens.COLOR_GREEN))
         else:
-            item.setText(0, f"○ {title_str}  ·  Trou (0 carte)")
+            item.setText(0, tr("○ %1  ·  Trou (0 carte)", title_str))
             item.setForeground(0, QColor(DesignTokens.COLOR_YELLOW))
-        item.setToolTip(0, f"{full_path}\nClic droit pour exclure cette section de l'analyse.")
+        item.setToolTip(0, tr("%1\nClic droit pour exclure cette section de l'analyse.", full_path))
 
     def _refresh_row_states(self) -> None:
         """Recalcule les compteurs de cartes et réapplique l'état à chaque ligne, sans reconstruire le sommaire."""
@@ -705,12 +706,12 @@ class DocumentInspectorPanel(QWidget):
         if total_units == 0 and excluded_units > 0:
             # Périmètre entièrement exclu : afficher « 0 % » en rouge sanctionnerait un choix
             # de l'utilisateur, alors qu'aucune section active ne demande de carte.
-            self.lbl_doc_summary.setText("Périmètre vide (0 section active)")
+            self.lbl_doc_summary.setText(self.tr("Périmètre vide (0 section active)"))
             self.lbl_doc_summary.setStyleSheet(
                 f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 10px;"
             )
             return
-        self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_units}/{total_units} {unit_label} · {total_cards} cartes)")
+        self.lbl_doc_summary.setText(tr("Couverture : %1%% (%2/%3 %4 · %5 cartes)", f"{percent:.0f}", covered_units, total_units, unit_label, total_cards))
         if percent >= 90:
             self.lbl_doc_summary.setStyleSheet(
                 f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 4px 10px;"
@@ -772,11 +773,11 @@ class DocumentInspectorPanel(QWidget):
         self.btn_exclude_section.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
         self.btn_exclude_section.setEnabled(applicable)
         if not applicable:
-            self.btn_exclude_section.setToolTip("Sélectionnez une section titrée : un fragment au libellé de page n'a pas de titre de section à exclure.")
+            self.btn_exclude_section.setToolTip(self.tr("Sélectionnez une section titrée : un fragment au libellé de page n'a pas de titre de section à exclure."))
         elif is_excluded:
-            self.btn_exclude_section.setToolTip(f"Réintégrer « {title} » au périmètre du document et à sa couverture.")
+            self.btn_exclude_section.setToolTip(tr("Réintégrer « %1 » au périmètre du document et à sa couverture.", title))
         else:
-            self.btn_exclude_section.setToolTip(f"Retirer « {title} » du périmètre : la section ne comptera plus comme une lacune de couverture.")
+            self.btn_exclude_section.setToolTip(tr("Retirer « %1 » du périmètre : la section ne comptera plus comme une lacune de couverture.", title))
 
     def _neutralization_spec(self, item: QTreeWidgetItem | None) -> tuple[str, str, bool, bool]:
         """Libellé, icône, état et applicabilité de l'action de neutralisation.
@@ -812,12 +813,12 @@ class DocumentInspectorPanel(QWidget):
         self.btn_neutralize_section.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
         self.btn_neutralize_section.setEnabled(applicable)
         if not applicable:
-            self.btn_neutralize_section.setToolTip("Sélectionnez une section titrée : un fragment au libellé de page n'a pas de titre de section à neutraliser.")
+            self.btn_neutralize_section.setToolTip(self.tr("Sélectionnez une section titrée : un fragment au libellé de page n'a pas de titre de section à neutraliser."))
         elif is_neutralized:
-            self.btn_neutralize_section.setToolTip(f"Réactiver « {title} » : la section redevient une unité de couverture, ses sous-sections comprises.")
+            self.btn_neutralize_section.setToolTip(tr("Réactiver « %1 » : la section redevient une unité de couverture, ses sous-sections comprises.", title))
         else:
             effect = "la section cesse de compter comme une unité de couverture — sa matière, ses cartes et ses sous-sections restent dans le document"
-            self.btn_neutralize_section.setToolTip(f"Neutraliser « {title} » : {effect}.{self._candidate_hint(heading)}")
+            self.btn_neutralize_section.setToolTip(tr("Neutraliser « %1 » : %2.%3", title, effect, self._candidate_hint(heading)))
 
     def _candidate_hint(self, heading: str) -> str:
         """Rappelle le seuil de 25 mots quand il qualifie le titre comme candidat.
@@ -858,7 +859,7 @@ class DocumentInspectorPanel(QWidget):
 
         heading = str(item.data(0, _ROLE_HEADING) or "")
         if not DocumentRepository.is_excludable_heading(heading):
-            show_toast(self, "Cette section n'a pas de titre exploitable : elle ne peut pas être neutralisée.")
+            show_toast(self, self.tr("Cette section n'a pas de titre exploitable : elle ne peut pas être neutralisée."))
             return
 
         target = RegionAddress(scope, heading)
@@ -876,7 +877,7 @@ class DocumentInspectorPanel(QWidget):
         self._refresh_coverage_summary()
         self._sync_neutralization_action()
         grain = " et ses sous-sections" if scope is RegionScope.HEADING else " seul"
-        show_toast(self, f"Section « {item.data(0, _ROLE_TITLE) or heading} » {'réactivée' if was_neutralized else 'neutralisée'}{grain}.")
+        show_toast(self, tr("Section « %1 » %2%3.", item.data(0, _ROLE_TITLE) or heading, "réactivée" if was_neutralized else "neutralisée", grain))
 
     def toggle_section_exclusion(self, *, scope: RegionScope = RegionScope.HEADING) -> None:
         """Exclut ou réintègre la région sélectionnée du périmètre d'analyse du document.
@@ -892,7 +893,7 @@ class DocumentInspectorPanel(QWidget):
 
         heading = str(item.data(0, _ROLE_HEADING) or "")
         if not DocumentRepository.is_excludable_heading(heading):
-            show_toast(self, "Cette section n'a pas de titre exploitable : elle ne peut pas être exclue de l'analyse.")
+            show_toast(self, self.tr("Cette section n'a pas de titre exploitable : elle ne peut pas être exclue de l'analyse."))
             return
 
         target = RegionAddress(scope, heading)
@@ -907,7 +908,7 @@ class DocumentInspectorPanel(QWidget):
         self._refresh_coverage_summary()
         self._sync_exclusion_action()
         self._sync_neutralization_action()
-        show_toast(self, f"Section « {item.data(0, _ROLE_TITLE) or heading} » {'réintégrée' if was_excluded else 'exclue'} de l'analyse.")
+        show_toast(self, tr("Section « %1 » %2 de l'analyse.", item.data(0, _ROLE_TITLE) or heading, "réintégrée" if was_excluded else "exclue"))
 
         self._applying_local_coverage_change = True
         try:
@@ -1083,13 +1084,13 @@ class DocumentInspectorPanel(QWidget):
             b_layout = QVBoxLayout(box)
             b_layout.setSpacing(10)
 
-            lbl_warn = QLabel("Trou de cours détecté : Aucune flashcard n'a encore été générée pour cette section.")
+            lbl_warn = QLabel(self.tr("Trou de cours détecté : Aucune flashcard n'a encore été générée pour cette section."))
             lbl_warn.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
             lbl_warn.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; border: none; background: transparent;")
             lbl_warn.setWordWrap(True)
             b_layout.addWidget(lbl_warn)
 
-            lbl_desc = QLabel("Forgez des cartes ciblées pour combler ce manque et garantir la complétion de votre apprentissage.")
+            lbl_desc = QLabel(self.tr("Forgez des cartes ciblées pour combler ce manque et garantir la complétion de votre apprentissage."))
             lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
             lbl_desc.setWordWrap(True)
             b_layout.addWidget(lbl_desc)
@@ -1101,7 +1102,7 @@ class DocumentInspectorPanel(QWidget):
 
             self.cards_layout.addWidget(box)
         else:
-            lbl_cnt = QLabel(f"{len(links)} carte(s) Anki forgée(s) depuis cette section :")
+            lbl_cnt = QLabel(tr("%1 carte(s) Anki forgée(s) depuis cette section :", len(links)))
             lbl_cnt.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
             lbl_cnt.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; margin-bottom: 4px; border: none; background: transparent;")
             self.cards_layout.addWidget(lbl_cnt)
@@ -1121,13 +1122,13 @@ class DocumentInspectorPanel(QWidget):
         b_layout = QVBoxLayout(box)
         b_layout.setSpacing(10)
 
-        lbl_title = QLabel("Conteneur structural")
+        lbl_title = QLabel(self.tr("Conteneur structural"))
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
         b_layout.addWidget(lbl_title)
 
         section_label = "sous-section" if child_count <= 1 else "sous-sections"
-        lbl_desc = QLabel(f"Ce titre regroupe {child_count} {section_label}. Consultez les sous-sections pour identifier les trous de couverture.")
+        lbl_desc = QLabel(tr("Ce titre regroupe %1 %2. Consultez les sous-sections pour identifier les trous de couverture.", child_count, section_label))
         lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         lbl_desc.setWordWrap(True)
         b_layout.addWidget(lbl_desc)
@@ -1171,19 +1172,19 @@ class DocumentInspectorPanel(QWidget):
         back = fields.get("Back") or fields.get("Verso") or fields.get("Answer") or ""
 
         top_row = QHBoxLayout()
-        lbl_deck = QLabel(f"Paquet : {self._note_deck_name(note)}")
+        lbl_deck = QLabel(tr("Paquet : %1", self._note_deck_name(note)))
         lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; background: transparent;")
         top_row.addWidget(lbl_deck)
         top_row.addStretch()
         c_layout.addLayout(top_row)
 
-        lbl_front = QLabel(f"Q : {front}")
+        lbl_front = QLabel(tr("Q : %1", front))
         lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
         lbl_front.setWordWrap(True)
         c_layout.addWidget(lbl_front)
 
         if back:
-            lbl_back = QLabel(f"R : {back}")
+            lbl_back = QLabel(tr("R : %1", back))
             lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
             lbl_back.setWordWrap(True)
             c_layout.addWidget(lbl_back)
@@ -1274,18 +1275,18 @@ class DocumentInspectorPanel(QWidget):
         if orphan:
             self._on_forge_chunk(orphan.id)
         else:
-            show_toast(self, "Toutes les sections de ce cours sont déjà couvertes !")
+            show_toast(self, self.tr("Toutes les sections de ce cours sont déjà couvertes !"))
 
     def _on_reindex_faiss(self) -> None:
         from ankiforge.services.workers.coverage_worker import CoverageWorker
 
-        show_toast(self, "Indexation FAISS et structuration en cours...")
+        show_toast(self, self.tr("Indexation FAISS et structuration en cours..."))
         self._coverage_worker = CoverageWorker(self.doc.id)
         self._coverage_worker.finished_processing.connect(self._on_coverage_finished)
         self._coverage_worker.start()
 
     def _on_coverage_finished(self) -> None:
-        show_toast(self, "Indexation FAISS terminée avec succès !")
+        show_toast(self, self.tr("Indexation FAISS terminée avec succès !"))
         self.load_chunks()
 
     @Slot()
@@ -1294,12 +1295,12 @@ class DocumentInspectorPanel(QWidget):
             return
         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-        show_toast(self, "Synchronisation des fiches Anki via les tags en cours...")
+        show_toast(self, self.tr("Synchronisation des fiches Anki via les tags en cours..."))
         res = CoverageAlignmentService.align_document(self.doc.id)
         matched = res.get("matched_notes", 0)
         cov_pct = res.get("coverage_pct", 0.0)
         self.load_chunks()
-        show_toast(self, f"✅ {matched} fiches Anki synchronisées via les tags ! Couverture : {cov_pct:.0f}%")
+        show_toast(self, tr("✅ %1 fiches Anki synchronisées via les tags ! Couverture : %2%%", matched, f"{cov_pct:.0f}"))
 
 
 class AISourcesDiagnosticTab(QWidget):
@@ -1365,7 +1366,7 @@ class AISourcesDiagnosticTab(QWidget):
             lbl_t = QLabel(title)
             lbl_t.setFont(QFont(DesignTokens.FONT_MAIN, 10))
             lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
-            lbl_v = QLabel("--")
+            lbl_v = QLabel(tr("--"))
             lbl_v.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
             lbl_v.setStyleSheet(f"color: {icon_color}; border: none; background: transparent;")
             c_lay.addWidget(ico)
@@ -1403,12 +1404,12 @@ class AISourcesDiagnosticTab(QWidget):
         row1.setSpacing(8)
 
         self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Rechercher un document ou cours...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher un document ou cours..."))
         self.search_input.setMinimumWidth(220)
         self.search_input.textChanged.connect(self.refresh_data)
 
         self.status_combo = QComboBox()
-        self.status_combo.addItems(["Tous les statuts", "Couverts à 100%", "Trous à forger (<100%)", "Non indexés"])
+        self.status_combo.addItems([self.tr("Tous les statuts"), self.tr("Couverts à 100%"), self.tr("Trous à forger (<100%)"), self.tr("Non indexés")])
         self.status_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -1423,12 +1424,12 @@ class AISourcesDiagnosticTab(QWidget):
         self.sort_combo = QComboBox()
         self.sort_combo.addItems(
             [
-                "Taux de couverture ↓",
-                "Taux de couverture ↑",
-                "Nombre de cartes ↓",
-                "Sections orphelines ↓",
-                "Nom du fichier (A-Z)",
-                "Date d'importation ↓",
+                self.tr("Taux de couverture ↓"),
+                self.tr("Taux de couverture ↑"),
+                self.tr("Nombre de cartes ↓"),
+                self.tr("Sections orphelines ↓"),
+                self.tr("Nom du fichier (A-Z)"),
+                self.tr("Date d'importation ↓"),
             ]
         )
         self.sort_combo.setStyleSheet(f"""
@@ -1455,7 +1456,7 @@ class AISourcesDiagnosticTab(QWidget):
         row2 = QHBoxLayout()
         row2.setSpacing(6)
 
-        lbl_filter = QLabel("Formats :")
+        lbl_filter = QLabel(self.tr("Formats :"))
         lbl_filter.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         lbl_filter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         row2.addWidget(lbl_filter)
@@ -1484,7 +1485,7 @@ class AISourcesDiagnosticTab(QWidget):
         self.btn_align_all.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE))
         self.btn_align_all.setFixedHeight(26)
         self.btn_align_all.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        self.btn_align_all.setToolTip("Associer via les tags de traçabilité les fiches Anki à l'ensemble des cours importés")
+        self.btn_align_all.setToolTip(self.tr("Associer via les tags de traçabilité les fiches Anki à l'ensemble des cours importés"))
         self.btn_align_all.clicked.connect(self._on_align_all_sources)
         row2.addWidget(self.btn_align_all)
 
@@ -1643,11 +1644,11 @@ class AISourcesDiagnosticTab(QWidget):
                 }
             )
 
-        self.lbl_kpi_docs_val.setText(f"{len(docs)}")
+        self.lbl_kpi_docs_val.setText(tr("%1", len(docs)))
         avg_cov = (total_forge_covered / total_forge_chunks * 100) if total_forge_chunks > 0 else 0.0
         self.lbl_kpi_coverage_val.setText(f"{avg_cov:.0f}%")
-        self.lbl_kpi_orphans_val.setText(f"{total_forge_orphans}")
-        self.lbl_kpi_cards_val.setText(f"{total_forge_cards}")
+        self.lbl_kpi_orphans_val.setText(tr("%1", total_forge_orphans))
+        self.lbl_kpi_cards_val.setText(tr("%1", total_forge_cards))
 
         sort_idx = self.sort_combo.currentIndex()
         if sort_idx == 0:
@@ -1692,12 +1693,12 @@ class AISourcesDiagnosticTab(QWidget):
                 },
             )
         else:
-            show_toast(self, "Toutes les sections de ce cours sont déjà couvertes !")
+            show_toast(self, self.tr("Toutes les sections de ce cours sont déjà couvertes !"))
 
     def _on_card_reindex_requested(self, doc_id: int) -> None:
         from ankiforge.services.workers.coverage_worker import CoverageWorker
 
-        show_toast(self, "Indexation FAISS en cours...")
+        show_toast(self, self.tr("Indexation FAISS en cours..."))
         self._coverage_worker = CoverageWorker(doc_id)
         self._coverage_worker.finished_processing.connect(self.refresh_data)
         self._coverage_worker.start()
@@ -1706,11 +1707,11 @@ class AISourcesDiagnosticTab(QWidget):
     def _on_align_all_sources(self) -> None:
         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-        show_toast(self, "Synchronisation des fiches Anki pour l'ensemble des cours...")
+        show_toast(self, self.tr("Synchronisation des fiches Anki pour l'ensemble des cours..."))
         res = CoverageAlignmentService.align_all_documents()
         total_matched = res.get("total_matched_links", 0)
         self.refresh_data()
-        show_toast(self, f"✅ {total_matched} fiches Anki synchronisées via les tags sur l'ensemble des cours !")
+        show_toast(self, tr("✅ %1 fiches Anki synchronisées via les tags sur l'ensemble des cours !", total_matched))
 
     def show_inspector(self, doc_id: int) -> None:
         while self.page_inspector.layout().count():

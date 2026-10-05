@@ -29,6 +29,7 @@ from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
@@ -145,7 +146,7 @@ class TimeMachineDialog(QDialog):
         self.selected_version: NoteVersionModel | None = None
         self.active_content: dict[str, str] = {}
 
-        self.setWindowTitle(f"🕒 Machine à Remonter le Temps — Carte #{getattr(self.note, 'id', '?')}")
+        self.setWindowTitle(tr("🕒 Machine à Remonter le Temps — Carte #%1", getattr(self.note, "id", "?")))
         self.resize(920, 580)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
 
@@ -159,12 +160,12 @@ class TimeMachineDialog(QDialog):
 
         # En-tête
         header_layout = QHBoxLayout()
-        header_title = QLabel(f"Historique & Versions de la Note #{getattr(self.note, 'id', '?')}")
+        header_title = QLabel(tr("Historique & Versions de la Note #%1", getattr(self.note, "id", "?")))
         header_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         header_layout.addWidget(header_title)
 
         note_type_name = getattr(getattr(self.note, "note_type", None), "name", "Standard")
-        lbl_model = QLabel(f"Modèle : {note_type_name}")
+        lbl_model = QLabel(tr("Modèle : %1", note_type_name))
         lbl_model.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         header_layout.addWidget(lbl_model)
         header_layout.addStretch()
@@ -181,7 +182,7 @@ class TimeMachineDialog(QDialog):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(6)
 
-        timeline_lbl = QLabel("TIMELINE DES VERSIONS")
+        timeline_lbl = QLabel(self.tr("TIMELINE DES VERSIONS"))
         timeline_lbl.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 1px;")
         left_layout.addWidget(timeline_lbl)
 
@@ -239,11 +240,11 @@ class TimeMachineDialog(QDialog):
 
         # Onglet 1 : Diff Textuel
         self.diff_viewer = DiffViewerWidget()
-        self.tabs.addTab(self.diff_viewer, "🔍 Diff Comparatif")
+        self.tabs.addTab(self.diff_viewer, self.tr("🔍 Diff Comparatif"))
 
         # Onglet 2 : Rendu Live Preview
         self.preview_widget = CardPreviewWidget(show_header=False)
-        self.tabs.addTab(self.preview_widget, "👁️ Aperçu du Rendu")
+        self.tabs.addTab(self.preview_widget, self.tr("👁️ Aperçu du Rendu"))
 
         right_layout.addWidget(self.tabs)
 
@@ -254,13 +255,13 @@ class TimeMachineDialog(QDialog):
 
         # Barre d'actions inférieure
         bottom_layout = QHBoxLayout()
-        self.btn_close = SecondaryButton("Fermer", tooltip="Fermer l'historique sans restaurer")
+        self.btn_close = SecondaryButton("Fermer", tooltip=self.tr("Fermer l'historique sans restaurer"))
         self.btn_close.clicked.connect(self.reject)
         bottom_layout.addWidget(self.btn_close)
 
         bottom_layout.addStretch()
 
-        self.btn_restore = PrimaryButton("Restaurer cette version", tooltip="Rétablir cette révision historique comme version active de la note")
+        self.btn_restore = PrimaryButton("Restaurer cette version", tooltip=self.tr("Rétablir cette révision historique comme version active de la note"))
         self.btn_restore.setIcon(load_on_accent_icon("arrow-counter-clockwise"))
         self.btn_restore.clicked.connect(self._restore_selected_version)
         self.btn_restore.setEnabled(False)
@@ -293,7 +294,7 @@ class TimeMachineDialog(QDialog):
             active_badge = " [Actuelle]" if v.is_active else ""
             date_str = v.created_at.strftime("%d/%m/%Y %H:%M") if hasattr(v, "created_at") and v.created_at else ""
 
-            item.setText(f"v{v.version_number}{active_badge}  —  {src_label}\n📅 {date_str}")
+            item.setText(tr("v%1%2  —  %3\n📅 %4", v.version_number, active_badge, src_label, date_str))
             item.setData(Qt.ItemDataRole.UserRole, v)
             self.version_list.addItem(item)
 
@@ -342,8 +343,8 @@ class TimeMachineDialog(QDialog):
 
         reply = QMessageBox.question(
             self,
-            "Confirmer la restauration",
-            f"Voulez-vous restaurer la version v{self.selected_version.version_number} ?\nUne nouvelle version sera automatiquement créée.",
+            self.tr("Confirmer la restauration"),
+            tr("Voulez-vous restaurer la version v%1 ?\nUne nouvelle version sera automatiquement créée.", self.selected_version.version_number),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
@@ -356,7 +357,7 @@ class TimeMachineDialog(QDialog):
                 new_v = self.note.add_version(content_dict, source=f"restore_v{self.selected_version.version_number}")
 
             self.version_restored.emit(self.note.id, content_dict)
-            show_toast(self, f"Version v{self.selected_version.version_number} restaurée avec succès (v{new_v.version_number}).")
+            show_toast(self, tr("Version v%1 restaurée avec succès (v%2).", self.selected_version.version_number, new_v.version_number))
             self.accept()
         except Exception as e:
-            QMessageBox.critical(self, "Erreur de restauration", f"Impossible de restaurer la version : {e}")
+            QMessageBox.critical(self, self.tr("Erreur de restauration"), tr("Impossible de restaurer la version : %1", e))

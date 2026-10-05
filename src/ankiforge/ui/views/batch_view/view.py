@@ -76,6 +76,7 @@ from ankiforge.ui.views.batch_view.widgets import (
 )
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 from ankiforge.utils.tags import build_document_tags, serialize_note_tags
@@ -240,7 +241,7 @@ class BatchView(QWidget):
         target_ico = QLabel()
         target_ico.setPixmap(load_phosphor_icon("ph.cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         target_ico.setStyleSheet("border: none; background: transparent;")
-        lbl_target = QLabel("CIBLES ANKI")
+        lbl_target = QLabel(self.tr("CIBLES ANKI"))
         lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         target_top.addWidget(target_ico)
         target_top.addWidget(lbl_target)
@@ -283,7 +284,7 @@ class BatchView(QWidget):
         ai_ico = QLabel()
         ai_ico.setPixmap(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
         ai_ico.setStyleSheet("border: none; background: transparent;")
-        lbl_ai = QLabel("ORCHESTRATION IA")
+        lbl_ai = QLabel(self.tr("ORCHESTRATION IA"))
         lbl_ai.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         ai_top.addWidget(ai_ico)
         ai_top.addWidget(lbl_ai)
@@ -320,17 +321,17 @@ class BatchView(QWidget):
         opt_layout.setSpacing(6)
 
         saved_vision = SettingsService.get("batch/use_vision", True)
-        self.cb_vision = OptionToggleRow("Vision (PDF)", icon_name="ph.eye", checked=bool(saved_vision), tooltip=VISION_TOOLTIP)
+        self.cb_vision = OptionToggleRow(tr("Vision (PDF)"), icon_name="ph.eye", checked=bool(saved_vision), tooltip=VISION_TOOLTIP)
         self.cb_vision.toggled.connect(lambda s: SettingsService.set("batch/use_vision", s, category="batch"))
 
         self.vision_cap_badge = VisionCapabilityBadge()
 
         saved_autoval = SettingsService.get("batch/auto_validation", False)
-        self.cb_autoval = OptionToggleRow("Validation auto", icon_name="ph.shield-check", checked=bool(saved_autoval))
+        self.cb_autoval = OptionToggleRow(tr("Validation auto"), icon_name="ph.shield-check", checked=bool(saved_autoval))
         self.cb_autoval.toggled.connect(lambda s: SettingsService.set("batch/auto_validation", s, category="batch"))
 
         saved_full_document = SettingsService.get("batch/process_full_document", False)
-        self.cb_full_document = OptionToggleRow("Document complet par chunks", icon_name="ph.files", checked=bool(saved_full_document))
+        self.cb_full_document = OptionToggleRow(tr("Document complet par chunks"), icon_name="ph.files", checked=bool(saved_full_document))
         self.cb_full_document.hide()
 
         opt_layout.addWidget(self.cb_vision, 1)
@@ -353,11 +354,11 @@ class BatchView(QWidget):
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_toggle_advanced.setToolTip("Déplier / replier les options avancées de découpage et vision")
+        self.btn_toggle_advanced.setToolTip(self.tr("Déplier / replier les options avancées de découpage et vision"))
 
         advanced_header = QHBoxLayout(self.btn_toggle_advanced)
         advanced_header.setContentsMargins(0, 0, 0, 0)
-        self.adv_lbl = QLabel("Paramètres Avancés")
+        self.adv_lbl = QLabel(self.tr("Paramètres Avancés"))
         self.adv_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; background: transparent; border: none;")
 
         self.advanced_icon = QLabel()
@@ -386,7 +387,7 @@ class BatchView(QWidget):
 
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
-        self.temp_lbl = QLabel("Température")
+        self.temp_lbl = QLabel(self.tr("Température"))
         self.temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
         saved_temp = float(SettingsService.get("batch/temperature", 0.7))
         self.val_temp_lbl = QLabel(f"{saved_temp:.1f}")
@@ -407,7 +408,7 @@ class BatchView(QWidget):
 
         tokens_layout = QVBoxLayout()
         tokens_header = QHBoxLayout()
-        self.tokens_lbl = QLabel("Max Tokens")
+        self.tokens_lbl = QLabel(self.tr("Max Tokens"))
         self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
         saved_tokens = int(SettingsService.get("batch/max_tokens", 65536))
         tokens_step = max(1, min(64, round(saved_tokens / 1024)))
@@ -449,20 +450,20 @@ class BatchView(QWidget):
         compose_ico = QLabel()
         compose_ico.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
         compose_ico.setStyleSheet("border: none; background: transparent;")
-        self.lbl_compose = QLabel("COMPOSER LE LOT")
+        self.lbl_compose = QLabel(self.tr("COMPOSER LE LOT"))
         self.lbl_compose.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         compose_top.addWidget(compose_ico)
         compose_top.addWidget(self.lbl_compose)
         compose_top.addStretch()
         compose_layout.addLayout(compose_top)
 
-        self.btn_compose_batch = PrimaryButton("Composer le lot…", tooltip="Choisir le document, son mode de découpage (direct / auto), puis ses parties")
+        self.btn_compose_batch = PrimaryButton("Composer le lot…", tooltip=self.tr("Choisir le document, son mode de découpage (direct / auto), puis ses parties"))
         self.btn_compose_batch.setIcon(load_on_accent_icon("ph.plus"))
         apply_shadow(self.btn_compose_batch, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
         self.btn_compose_batch.clicked.connect(self._on_open_batch_composer)
         compose_layout.addWidget(self.btn_compose_batch)
 
-        compose_hint = QLabel("Flux unique : ouvrir le document → choisir le mode de découpage (Direct ou Auto) → sélectionner les parties → Ajouter à la Queue.")
+        compose_hint = QLabel(self.tr("Flux unique : ouvrir le document → choisir le mode de découpage (Direct ou Auto) → sélectionner les parties → Ajouter à la Queue."))
         compose_hint.setWordWrap(True)
         compose_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         compose_layout.addWidget(compose_hint)
@@ -476,11 +477,11 @@ class BatchView(QWidget):
         # RIGHT PANEL
         self.queue_panel = IdePanel(detachable=True)
 
-        self.btn_clear_table = IconButton("ph.trash", tooltip="Vider la file d'attente", size=22)
+        self.btn_clear_table = IconButton("ph.trash", tooltip=self.tr("Vider la file d'attente"), size=22)
         self.btn_clear_table.clicked.connect(self._on_clear_queue)
         self.queue_panel.add_header_widget(self.btn_clear_table)
 
-        self.btn_start_pipeline = PrimaryButton("Démarrer Pipeline", tooltip="Démarrer l'exécution du traitement par lots en arrière-plan")
+        self.btn_start_pipeline = PrimaryButton("Démarrer Pipeline", tooltip=self.tr("Démarrer l'exécution du traitement par lots en arrière-plan"))
         self.btn_start_pipeline.setIcon(load_on_accent_icon("ph.play"))
         self.btn_start_pipeline.setStyleSheet(f"""
             QPushButton {{
@@ -501,7 +502,7 @@ class BatchView(QWidget):
         self.btn_start_pipeline.clicked.connect(self._on_start_batch)
         self.queue_panel.add_header_widget(self.btn_start_pipeline)
 
-        self.btn_resume_batch = SecondaryButton("Reprendre le Lot", tooltip="Relancer uniquement les documents non terminés ou en échec")
+        self.btn_resume_batch = SecondaryButton("Reprendre le Lot", tooltip=self.tr("Relancer uniquement les documents non terminés ou en échec"))
         self.btn_resume_batch.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
         self.btn_resume_batch.setVisible(False)
         self.btn_resume_batch.clicked.connect(self._on_resume_batch)
@@ -534,16 +535,16 @@ class BatchView(QWidget):
         self._terminal_min_height: int = self.terminal_panel.minimumHeight()
         self._terminal_max_height: int = self.terminal_panel.maximumHeight()
 
-        self.btn_toggle_terminal = IconButton("ph.caret-down", tooltip="Réduire / Déplier le terminal", size=20)
+        self.btn_toggle_terminal = IconButton("ph.caret-down", tooltip=self.tr("Réduire / Déplier le terminal"), size=20)
         self.btn_toggle_terminal.clicked.connect(self._toggle_terminal)
         self.terminal_panel.add_header_widget(self.btn_toggle_terminal)
 
-        self.btn_clear_terminal = IconButton("ph.trash", tooltip="Effacer les logs du terminal", size=20)
+        self.btn_clear_terminal = IconButton("ph.trash", tooltip=self.tr("Effacer les logs du terminal"), size=20)
         self.btn_clear_terminal.clicked.connect(self._on_clear_terminal_clicked)
         self.terminal_panel.add_header_widget(self.btn_clear_terminal)
 
-        self.btn_scroll_lock = IconButton("ph.lock-key", tooltip="Verrouiller le défilement", size=20)
-        self.btn_scroll_lock.clicked.connect(lambda: show_toast(self, "Verrouillage du défilement activé."))
+        self.btn_scroll_lock = IconButton("ph.lock-key", tooltip=self.tr("Verrouiller le défilement"), size=20)
+        self.btn_scroll_lock.clicked.connect(lambda: show_toast(self, self.tr("Verrouillage du défilement activé.")))
         self.terminal_panel.add_header_widget(self.btn_scroll_lock)
 
         self.terminal_content = QWidget()
@@ -647,7 +648,7 @@ class BatchView(QWidget):
         self.btn_select_model.clicked.connect(self._on_click_select_model)
         self.btn_toggle_advanced.clicked.connect(self._toggle_advanced_settings)
         self.btn_no_engine_help.clicked.connect(self._open_settings_modal)
-        self.btn_no_pipeline_help.clicked.connect(lambda: show_toast(self, "Créez un pipeline dans l'onglet Pipelines."))
+        self.btn_no_pipeline_help.clicked.connect(lambda: show_toast(self, self.tr("Créez un pipeline dans l'onglet Pipelines.")))
 
     def refresh_data(self) -> None:
         """Recharge uniquement les caches de référence (paquets, modèles, moteurs, pipelines).
@@ -822,7 +823,7 @@ class BatchView(QWidget):
                 return
         except RuntimeError:
             self._deck_modal = None
-        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet cible", parent=self)
+        self._deck_modal = DeckSelectWindow(title=self.tr("Sélectionner un paquet cible"), parent=self)
         self._deck_modal.deck_selected.connect(self._on_deck_selected)
         self._deck_modal.show()
 
@@ -891,7 +892,7 @@ class BatchView(QWidget):
             clean_ext = ext.lstrip(".").lower() or "md"
             doc, _ = DocumentModel.get_or_create(title=title, defaults={"file_type": clean_ext, "content": f"Contenu du fichier {title}"})
             self.refresh_data()
-            show_toast(self, f"Document '{title}' chargé !")
+            show_toast(self, tr("Document '%1' chargé !", title))
 
     @staticmethod
     def _resolve_batch_chunks(doc: DocumentModel) -> list[dict[str, Any]]:
@@ -979,20 +980,20 @@ class BatchView(QWidget):
         self.batch_view_model.clear()
         self._update_queue_table()
         self._update_estimates_summary()
-        show_toast(self, "File d'attente vidée.")
+        show_toast(self, self.tr("File d'attente vidée."))
 
     def _update_estimates_summary(self) -> None:
         total_tokens = sum(task.get("tokens_est", 25000) for task in self.queue_tasks_data)
         count = len(self.queue_tasks_data)
 
         self.card_status.val_lbl.setText("En attente" if count > 0 else "Prêt")
-        self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+        self.card_cards.val_lbl.setText(tr("%1 cartes", self._total_cards_accumulated))
         self.card_cost.val_lbl.setText(f"${(total_tokens / 1000000 * 0.15):.2f}")
 
     def _set_running_ui_state(self, is_running: bool) -> None:
         """Met à jour l'apparence du bouton de lancement et des métriques."""
         if is_running:
-            self.btn_start_pipeline.setText("Arrêter le Batch")
+            self.btn_start_pipeline.setText(self.tr("Arrêter le Batch"))
             self.btn_start_pipeline.setIcon(load_on_accent_icon("ph.stop"))
             self.btn_start_pipeline.setStyleSheet(f"""
                 QPushButton {{
@@ -1008,10 +1009,10 @@ class BatchView(QWidget):
                     background-color: {DesignTokens.COLOR_RED_TEXT};
                 }}
             """)
-            self.card_status.val_lbl.setText("En cours")
+            self.card_status.val_lbl.setText(self.tr("En cours"))
             self.card_status.val_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 15px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
         else:
-            self.btn_start_pipeline.setText("Démarrer Pipeline")
+            self.btn_start_pipeline.setText(self.tr("Démarrer Pipeline"))
             self.btn_start_pipeline.setIcon(load_on_accent_icon("ph.play"))
             self.btn_start_pipeline.setStyleSheet(f"""
                 QPushButton {{
@@ -1062,7 +1063,7 @@ class BatchView(QWidget):
             return
 
         if not self.queue_tasks_data:
-            show_toast(self, "La file d'attente est vide ! Ajoutez des tâches avant de lancer.", is_error=True)
+            show_toast(self, self.tr("La file d'attente est vide ! Ajoutez des tâches avant de lancer."), is_error=True)
             return
 
         tasks_payloads: list[BatchTaskPayload | BatchTaskSnapshot] = []
@@ -1165,13 +1166,13 @@ class BatchView(QWidget):
                 tasks_payloads.append(payload)
 
         if not tasks_payloads:
-            show_toast(self, "Toutes les tâches de la file sont déjà terminées avec succès.", is_error=False)
+            show_toast(self, self.tr("Toutes les tâches de la file sont déjà terminées avec succès."), is_error=False)
             return
 
         self._update_queue_table()
         self.start_timestamp = time.time()
         self._total_cards_accumulated = sum(int(t.get("cards_count", 0)) for t in self.queue_tasks_data if t.get("status") in ("Succès", "Acceptée"))
-        self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+        self.card_cards.val_lbl.setText(tr("%1 cartes", self._total_cards_accumulated))
 
         self._set_running_ui_state(True)
         self._start_run_clock()
@@ -1227,7 +1228,7 @@ class BatchView(QWidget):
             self.queue_widget.sync_started(task_idx)
 
         total = len(self.queue_tasks_data)
-        self.card_status.val_lbl.setText(f"En cours ({task_idx + 1}/{total})")
+        self.card_status.val_lbl.setText(tr("En cours (%1/%2)", task_idx + 1, total))
 
     @Slot(int, int, str)
     def _on_task_progress(self, task_idx: int, progress_pct: int, step_detail: str) -> None:
@@ -1267,7 +1268,7 @@ class BatchView(QWidget):
 
                 self.queue_widget.sync_completed(task_idx, "Succès", cards_count)
                 self._total_cards_accumulated += cards_count
-                self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+                self.card_cards.val_lbl.setText(tr("%1 cartes", self._total_cards_accumulated))
 
             else:
                 # Mode staging : mettre la tâche en revue, ne pas sauvegarder
@@ -1315,7 +1316,7 @@ class BatchView(QWidget):
                 doc_id = task["doc"].id if hasattr(task.get("doc"), "id") else 0
                 self._save_extracted_notes_to_db(notes, deck_id, model_id, doc_id)
             self._total_cards_accumulated += len(notes)
-            self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+            self.card_cards.val_lbl.setText(tr("%1 cartes", self._total_cards_accumulated))
             return
 
         if status_value == BatchTaskStatus.REVIEW.value:
@@ -1338,7 +1339,7 @@ class BatchView(QWidget):
     def _on_task_accepted(self, task_idx: int, cards_count: int) -> None:
         """Mode validation automatique : la tâche est acceptée sans revue."""
         if 0 <= task_idx < len(self.queue_tasks_data):
-            self.card_status.val_lbl.setText(f"Acceptée ({task_idx + 1})")
+            self.card_status.val_lbl.setText(tr("Acceptée (%1)", task_idx + 1))
 
     def _default_queue_targets(self) -> dict[str, Any]:
         """Valeurs par défaut des nouvelles tâches de la file (deck, modèle, engine, pipeline, ...)."""
@@ -1412,7 +1413,7 @@ class BatchView(QWidget):
             self.batch_view_model.add_tasks(accepted)
             self._update_queue_table()
             self._update_estimates_summary()
-            show_toast(self, f"{added_count} tâche(s) ajoutée(s) à la Queue !")
+            show_toast(self, tr("%1 tâche(s) ajoutée(s) à la Queue !", added_count))
             self._log_formatted_line("INFO", f"➕ {added_count} nouvelle(s) tâche(s) ajoutée(s) à la file d'attente.")
 
     def _chunk_to_queue_task(self, doc: DocumentModel, chunk: dict[str, Any]) -> dict[str, Any] | None:
@@ -1529,7 +1530,7 @@ class BatchView(QWidget):
             if task.get("_is_snapshot_task"):
                 prev_attempts = task.get("_attempt_count", 0)
                 if prev_attempts >= 3:
-                    show_toast(self, "Tentative maximale de relance atteinte pour cette tâche.", is_error=True)
+                    show_toast(self, self.tr("Tentative maximale de relance atteinte pour cette tâche."), is_error=True)
                     return
             task["status"] = "En attente"
             task["progress_pct"] = 0
@@ -1593,7 +1594,7 @@ class BatchView(QWidget):
         """Clic sur le badge 'N à valider' : ouvre la revue de la première tâche en attente."""
         review_tasks = self._staging_task_list()
         if not review_tasks:
-            show_toast(self, "Aucune carte en attente de validation.", is_error=False)
+            show_toast(self, self.tr("Aucune carte en attente de validation."), is_error=False)
             return
         task_idx, task, notes = review_tasks[0]
         self.staging_panel.load_task(task_idx, task, notes, force=True)
@@ -1616,7 +1617,7 @@ class BatchView(QWidget):
                 self.staging_panel.load_task(task_idx, task, notes, force=True)
                 self._focus_review_tab()
             else:
-                show_toast(self, "Aucune carte en attente de revue pour cette tâche.", is_error=True)
+                show_toast(self, self.tr("Aucune carte en attente de revue pour cette tâche."), is_error=True)
 
     @Slot(str, list)
     def _on_staging_accepted(self, task_uid: str, accepted_cards: list[dict[str, Any]]) -> None:
@@ -1629,7 +1630,7 @@ class BatchView(QWidget):
         task["status"] = "Acceptée"
         task["cards_count"] = len(accepted_cards)
         self._total_cards_accumulated += len(accepted_cards)
-        self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+        self.card_cards.val_lbl.setText(tr("%1 cartes", self._total_cards_accumulated))
 
         self.queue_widget.sync_completed(task_idx, "Acceptée", len(accepted_cards))
 
@@ -1835,7 +1836,7 @@ class BatchView(QWidget):
         unlinked_hint = f", {self._batch_unlinked_cards} hors couverture" if self._batch_unlinked_cards else ""
         show_toast(
             self,
-            f"Batch terminé : {success_count} réussis, {error_count} erreurs ({total_cards} cartes créées{unlinked_hint})",
+            tr("Batch terminé : %1 réussis, %2 erreurs (%3 cartes créées%4)", success_count, error_count, total_cards, unlinked_hint),
             level="warning" if self._batch_unlinked_cards else None,
         )
         self._update_resume_button_visibility()
@@ -1844,17 +1845,17 @@ class BatchView(QWidget):
     def _on_batch_cancelled(self) -> None:
         self._stop_run_clock()
         self._set_running_ui_state(False)
-        self.card_status.val_lbl.setText("Interrompu")
+        self.card_status.val_lbl.setText(self.tr("Interrompu"))
         self.card_status.val_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 15px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
         self._log_formatted_line("WARN", "Traitement par lots interrompu par l'utilisateur.")
-        show_toast(self, "Batch interrompu par l'utilisateur.", is_error=False)
+        show_toast(self, self.tr("Batch interrompu par l'utilisateur."), is_error=False)
 
         self._update_queue_table()
         self._update_resume_button_visibility()
 
     @Slot(str)
     def _on_batch_error(self, error_msg: str) -> None:
-        self.card_status.val_lbl.setText("Erreur")
+        self.card_status.val_lbl.setText(self.tr("Erreur"))
         self.card_status.val_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 16px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
         self._log_formatted_line("ERROR", error_msg)
         log_and_notify_error(error_msg, context="Exécution du pipeline", parent=self, title="Erreur Pipeline")

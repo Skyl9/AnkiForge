@@ -35,6 +35,7 @@ from ankiforge.services.update_checker import UpdateInfo
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.version import VERSION_INFO
 
@@ -50,7 +51,7 @@ class UpdateDialog(QDialog):
         self._downloaded_file: Path | None = None
         self._downloader_worker: UpdateDownloaderWorker | None = None
 
-        self.setWindowTitle(f"Mise à jour disponible — v{self.update_info.version}")
+        self.setWindowTitle(tr("Mise à jour disponible — v%1", self.update_info.version))
         self.setMinimumSize(580, 520)
         self.resize(620, 560)
 
@@ -78,7 +79,7 @@ class UpdateDialog(QDialog):
         main_title.setStyleSheet(f"font-size: 18px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
         title_col.addWidget(main_title)
 
-        sub_title = QLabel("Une nouvelle version optimisée d'AnkiForge est disponible au téléchargement.")
+        sub_title = QLabel(self.tr("Une nouvelle version optimisée d'AnkiForge est disponible au téléchargement."))
         sub_title.setStyleSheet(f"font-size: 13px; color: {DesignTokens.TEXT_MUTED};")
         title_col.addWidget(sub_title)
 
@@ -92,13 +93,13 @@ class UpdateDialog(QDialog):
         badge_layout.setContentsMargins(12, 6, 12, 6)
         badge_layout.setSpacing(12)
 
-        curr_lbl = QLabel(f"Version installée : <b>v{VERSION_INFO.version}</b>")
+        curr_lbl = QLabel(tr("Version installée : <b>v%1</b>", VERSION_INFO.version))
         curr_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 13px;")
         badge_layout.addWidget(curr_lbl)
 
         badge_layout.addStretch(1)
 
-        arrow_lbl = QLabel("➔")
+        arrow_lbl = QLabel(self.tr("➔"))
         arrow_lbl.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-weight: bold; font-size: 14px;")
         badge_layout.addWidget(arrow_lbl)
 
@@ -111,7 +112,7 @@ class UpdateDialog(QDialog):
         root_layout.addWidget(badge_card)
 
         # ── 3. Visualiseur des Notes de Version (Markdown) ──
-        notes_lbl = QLabel("Notes de Version & Nouveautés :")
+        notes_lbl = QLabel(self.tr("Notes de Version & Nouveautés :"))
         notes_lbl.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY};")
         root_layout.addWidget(notes_lbl)
 
@@ -135,7 +136,7 @@ class UpdateDialog(QDialog):
         progress_layout.setContentsMargins(0, 4, 0, 4)
         progress_layout.setSpacing(6)
 
-        self.progress_status_lbl = QLabel("Téléchargement de la mise à jour...")
+        self.progress_status_lbl = QLabel(self.tr("Téléchargement de la mise à jour..."))
         self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 500; color: {DesignTokens.TEXT_PRIMARY};")
         progress_layout.addWidget(self.progress_status_lbl)
 
@@ -203,7 +204,7 @@ class UpdateDialog(QDialog):
         except ValueError as err:
             logger.error("URL de téléchargement rejetée : %s", err)
             self.progress_container.setVisible(True)
-            self.progress_status_lbl.setText(f"❌ URL invalide ou non sécurisée : {err}\nCliquez sur 'Lien web GitHub' pour télécharger manuellement.")
+            self.progress_status_lbl.setText(tr("❌ URL invalide ou non sécurisée : %1\nCliquez sur 'Lien web GitHub' pour télécharger manuellement.", err))
             self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_RED};")
             return
 
@@ -215,8 +216,8 @@ class UpdateDialog(QDialog):
         # Transition visuelle vers l'état DOWNLOADING
         self.progress_container.setVisible(True)
         self.action_btn.setEnabled(False)
-        self.action_btn.setText("Téléchargement...")
-        self.cancel_btn.setText("Annuler")
+        self.action_btn.setText(self.tr("Téléchargement..."))
+        self.cancel_btn.setText(self.tr("Annuler"))
 
         self._downloader_worker = UpdateDownloaderWorker(
             download_url=download_url,
@@ -236,38 +237,38 @@ class UpdateDialog(QDialog):
         down_mb = downloaded / (1024 * 1024)
         total_mb = total / (1024 * 1024) if total > 0 else 0
         if total_mb > 0:
-            self.progress_status_lbl.setText(f"Téléchargement : {down_mb:.1f} Mo / {total_mb:.1f} Mo ({percentage}%)")
+            self.progress_status_lbl.setText(tr("Téléchargement : %1 Mo / %2 Mo (%3%%)", f"{down_mb:.1f}", f"{total_mb:.1f}", percentage))
         else:
-            self.progress_status_lbl.setText(f"Téléchargement : {down_mb:.1f} Mo...")
+            self.progress_status_lbl.setText(tr("Téléchargement : %1 Mo...", f"{down_mb:.1f}"))
 
     def _on_download_finished(self, dest_path: object, sha256_hash: str) -> None:
         """Gestionnaire de fin de téléchargement avec vérification d'intégrité."""
         self._downloaded_file = cast(Path, dest_path)
         self.progress_bar.setValue(100)
-        self.progress_status_lbl.setText(f"🔒 Signature Ed25519 & SHA-256 validés ({sha256_hash[:12]}...)")
+        self.progress_status_lbl.setText(tr("🔒 Signature Ed25519 & SHA-256 validés (%1...)", sha256_hash[:12]))
         self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_GREEN};")
 
         self.action_btn.setEnabled(True)
-        self.cancel_btn.setText("Fermer")
+        self.cancel_btn.setText(self.tr("Fermer"))
 
         if is_standalone_app():
-            self.action_btn.setText("🔄 Redémarrer et Installer")
+            self.action_btn.setText(self.tr("🔄 Redémarrer et Installer"))
             self.action_btn.clicked.disconnect()
             self.action_btn.clicked.connect(self._on_apply_and_restart)
         else:
-            self.action_btn.setText("Prêt (Mode Dev)")
+            self.action_btn.setText(self.tr("Prêt (Mode Dev)"))
             self.action_btn.setEnabled(False)
             self.progress_status_lbl.setText(
-                "✅ Téléchargé avec succès (Signature Ed25519 & SHA-256 validés).\nℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source."
+                self.tr("✅ Téléchargé avec succès (Signature Ed25519 & SHA-256 validés).\nℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source.")
             )
 
     def _on_download_failed(self, error_msg: str) -> None:
         """Gestionnaire d'erreur de téléchargement."""
-        self.progress_status_lbl.setText(f"❌ Échec du téléchargement : {error_msg}")
+        self.progress_status_lbl.setText(tr("❌ Échec du téléchargement : %1", error_msg))
         self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_RED};")
         self.action_btn.setEnabled(True)
-        self.action_btn.setText("Réessayer")
-        self.cancel_btn.setText("Fermer")
+        self.action_btn.setText(self.tr("Réessayer"))
+        self.cancel_btn.setText(self.tr("Fermer"))
 
     def _on_apply_and_restart(self) -> None:
         """Applique la mise à jour et quitte l'application active pour le swap."""

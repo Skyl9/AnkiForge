@@ -48,7 +48,7 @@ class PersonaPromptOverrideDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Surcharge locale du prompt de l'étape")
+        self.setWindowTitle(self.tr("Surcharge locale du prompt de l'étape"))
         self.resize(680, 620)
 
         persona_name = persona_label(persona) or None
@@ -63,7 +63,7 @@ class PersonaPromptOverrideDialog(QDialog):
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
 
-        lbl_title = QLabel("<b>Surcharge locale du prompt de l'étape</b>")
+        lbl_title = QLabel(self.tr("<b>Surcharge locale du prompt de l'étape</b>"))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px;")
         layout.addWidget(lbl_title)
 
@@ -78,7 +78,7 @@ class PersonaPromptOverrideDialog(QDialog):
         self.edit_prompt = StyledTextEdit()
         self.edit_prompt.setPlainText(seeded)
         self.edit_prompt.setMinimumHeight(300)
-        self.edit_prompt.setPlaceholderText("Laisser vide pour reprendre le prompt de l'agent au lieu de le figer.")
+        self.edit_prompt.setPlaceholderText(self.tr("Laisser vide pour reprendre le prompt de l'agent au lieu de le figer."))
         self.edit_prompt.setStyleSheet(f"""
             QPlainTextEdit {{
                 background: {DesignTokens.BG_INPUT};
@@ -104,7 +104,7 @@ class PersonaPromptOverrideDialog(QDialog):
         btn_row.setSpacing(8)
         btn_row.addStretch()
 
-        btn_cancel = QPushButton("Annuler")
+        btn_cancel = QPushButton(self.tr("Annuler"))
         btn_cancel.setFixedHeight(30)
         btn_cancel.setFlat(True)
         btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)

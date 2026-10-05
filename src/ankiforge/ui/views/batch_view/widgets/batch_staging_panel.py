@@ -47,6 +47,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import ToastManager, show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -106,7 +107,7 @@ class BatchStagingPanel(QWidget):
         ico.setPixmap(load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.COLOR_PURPLE).pixmap(16, 16))
         ico.setStyleSheet("border: none; background: transparent;")
 
-        self.lbl_title = QLabel("Revue & Staging — sélectionnez une tâche terminée")
+        self.lbl_title = QLabel(self.tr("Revue & Staging — sélectionnez une tâche terminée"))
         self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 600; border: none; background: transparent;")
 
         self.lbl_count = QLabel("")
@@ -117,15 +118,15 @@ class BatchStagingPanel(QWidget):
         header_row.addWidget(self.lbl_count)
 
         # Navigation entre les tâches 'À réviser' (revue agrégée du lot)
-        self.btn_prev_task = IconButton("ph.caret-left", tooltip="Tranche précédente à valider", size=18)
-        self.btn_next_task = IconButton("ph.caret-right", tooltip="Tranche suivante à valider", size=18)
+        self.btn_prev_task = IconButton("ph.caret-left", tooltip=self.tr("Tranche précédente à valider"), size=18)
+        self.btn_next_task = IconButton("ph.caret-right", tooltip=self.tr("Tranche suivante à valider"), size=18)
         self.btn_prev_task.clicked.connect(lambda: self._nav_to_task(-1))
         self.btn_next_task.clicked.connect(lambda: self._nav_to_task(1))
         header_row.addWidget(self.btn_prev_task)
         header_row.addWidget(self.btn_next_task)
 
         # Bouton fermer (ferme la revue, pas l'onglet : la tâche reste consultable dans la file)
-        btn_close = IconButton("ph.x", tooltip="Fermer la revue (la tâche reste dans la file)", size=20)
+        btn_close = IconButton("ph.x", tooltip=self.tr("Fermer la revue (la tâche reste dans la file)"), size=20)
         btn_close.clicked.connect(lambda: self.show_empty_state("Revue fermée — la tâche reste 'À réviser' dans la file."))
         header_row.addWidget(btn_close)
 
@@ -141,7 +142,7 @@ class BatchStagingPanel(QWidget):
         left_layout.setSpacing(0)
 
         self.cards_table = QTableWidget(0, 3)
-        self.cards_table.setHorizontalHeaderLabels(["STATUT", "CONTENU (Recto)", "CHAMPS"])
+        self.cards_table.setHorizontalHeaderLabels([self.tr("STATUT"), self.tr("CONTENU (Recto)"), self.tr("CHAMPS")])
         self.cards_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.cards_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.cards_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -207,10 +208,10 @@ class BatchStagingPanel(QWidget):
         self.btn_prev_card.clicked.connect(self._on_prev_card)
         self.btn_next_card.clicked.connect(self._on_next_card)
 
-        self.lbl_card_counter = QLabel("0 / 0")
+        self.lbl_card_counter = QLabel(self.tr("0 / 0"))
         self.lbl_card_counter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-weight: bold; font-size: 11px;")
 
-        self.status_badge = Badge("En attente", variant="warning")
+        self.status_badge = Badge(tr("En attente"), variant="warning")
 
         preview_nav_layout.addWidget(self.btn_prev_card)
         preview_nav_layout.addWidget(self.lbl_card_counter)
@@ -243,12 +244,12 @@ class BatchStagingPanel(QWidget):
         # Pôle Gauche : Enregistrer & Tout valider
         self.btn_save_anki = PrimaryButton("Enregistrer dans la Forge (0/0)")
         self.btn_save_anki.setIcon(load_on_accent_icon("ph.floppy-disk"))
-        self.btn_save_anki.setToolTip("Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)")
+        self.btn_save_anki.setToolTip(self.tr("Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)"))
         self.btn_save_anki.clicked.connect(self._on_save_anki)
 
         self.btn_accept_all = SecondaryButton("Tout valider")
         self.btn_accept_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
-        self.btn_accept_all.setToolTip("Marquer toutes les cartes comme validées (1-clic)")
+        self.btn_accept_all.setToolTip(self.tr("Marquer toutes les cartes comme validées (1-clic)"))
         self.btn_accept_all.clicked.connect(self._on_mark_all_accepted)
 
         action_row.addWidget(self.btn_save_anki)
@@ -257,25 +258,25 @@ class BatchStagingPanel(QWidget):
         action_row.addStretch()
 
         # Pôle Droit : Actions granulaires (Rejeter, Éditer, Valider, Rejeter tranche)
-        self.btn_rejeter = DangerButton("Rejeter", ghost=True)
+        self.btn_rejeter = DangerButton(tr("Rejeter"), ghost=True)
         self.btn_rejeter.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
-        self.btn_rejeter.setToolTip("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)")
+        self.btn_rejeter.setToolTip(self.tr("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)"))
         self.btn_rejeter.clicked.connect(self._on_reject_card)
 
         self.btn_editer = SecondaryButton("Éditer")
         self.btn_editer.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_editer.setToolTip("Modifier les champs de la carte (Raccourci: E ou double-clic)")
+        self.btn_editer.setToolTip(self.tr("Modifier les champs de la carte (Raccourci: E ou double-clic)"))
         self.btn_editer.clicked.connect(self._on_edit_card)
 
         self.btn_valider = PrimaryButton("Valider la carte")
         self.btn_valider.setIcon(load_on_accent_icon("ph.check"))
-        self.btn_valider.setToolTip("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)")
+        self.btn_valider.setToolTip(self.tr("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)"))
         self.btn_valider.clicked.connect(self._on_validate_card)
 
         self.btn_reject_task = SecondaryButton("Rejeter la tranche")
         self.btn_reject_task.setIcon(load_phosphor_icon("ph.x-circle", color=DesignTokens.COLOR_RED))
         self.btn_reject_task.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; border-color: {DesignTokens.COLOR_RED};")
-        self.btn_reject_task.setToolTip("Abandonner toute la tranche et ses cartes")
+        self.btn_reject_task.setToolTip(self.tr("Abandonner toute la tranche et ses cartes"))
         self.btn_reject_task.clicked.connect(self._on_reject_task)
 
         action_row.addWidget(self.btn_rejeter)
@@ -368,8 +369,8 @@ class BatchStagingPanel(QWidget):
             note.setdefault("_staging_status", "pending")
 
         doc_title: str = str(task_data.get("doc_title") or task_data.get("doc", {}).get("title", "Document"))
-        self.lbl_title.setText(f"Revue — {doc_title[:60]}")
-        self.lbl_count.setText(f"{len(self._prepared_notes)} carte(s)")
+        self.lbl_title.setText(tr("Revue — %1", doc_title[:60]))
+        self.lbl_count.setText(tr("%1 carte(s)", len(self._prepared_notes)))
 
         self._rebuild_table()
         self._refresh_save_button()
@@ -461,8 +462,8 @@ class BatchStagingPanel(QWidget):
         """Met à jour l'aperçu WebEngine, le compteur et le badge de statut in-situ."""
         if not self._prepared_notes or not (0 <= self._current_card_idx < len(self._prepared_notes)):
             self.card_preview.set_empty_state("Sélectionnez une carte pour la prévisualiser.")
-            self.lbl_card_counter.setText("0 / 0")
-            self.status_badge.setText("En attente")
+            self.lbl_card_counter.setText(self.tr("0 / 0"))
+            self.status_badge.setText(self.tr("En attente"))
             self.status_badge.set_variant("warning")
             self.btn_prev_card.setEnabled(False)
             self.btn_next_card.setEnabled(False)
@@ -470,7 +471,7 @@ class BatchStagingPanel(QWidget):
 
         note = self._prepared_notes[self._current_card_idx]
         total = len(self._prepared_notes)
-        self.lbl_card_counter.setText(f"{self._current_card_idx + 1} / {total}")
+        self.lbl_card_counter.setText(tr("%1 / %2", self._current_card_idx + 1, total))
         self.btn_prev_card.setEnabled(self._current_card_idx > 0)
         self.btn_next_card.setEnabled(self._current_card_idx < total - 1)
 
@@ -501,10 +502,10 @@ class BatchStagingPanel(QWidget):
         accepted_count = sum(1 for c in self._prepared_notes if c.get("_staging_status") == "accepted")
         total_count = len(self._prepared_notes)
         if total_count > 0:
-            self.btn_save_anki.setText(f"Enregistrer dans la Forge ({accepted_count}/{total_count})")
+            self.btn_save_anki.setText(tr("Enregistrer dans la Forge (%1/%2)", accepted_count, total_count))
             self.btn_save_anki.setEnabled(True)
         else:
-            self.btn_save_anki.setText("Enregistrer dans la Forge (0)")
+            self.btn_save_anki.setText(self.tr("Enregistrer dans la Forge (0)"))
             self.btn_save_anki.setEnabled(False)
 
     # ── Slots de Navigation Carte ─────────────────────────────────────────
@@ -552,7 +553,7 @@ class BatchStagingPanel(QWidget):
             self._select_card(next_idx)
         else:
             self._select_card(self._current_card_idx)
-            show_toast(self, "Toutes les cartes ont été passées en revue !", is_error=False)
+            show_toast(self, self.tr("Toutes les cartes ont été passées en revue !"), is_error=False)
 
     @Slot()
     def _on_reject_card(self) -> None:
@@ -585,7 +586,7 @@ class BatchStagingPanel(QWidget):
             self._select_card(next_idx)
         else:
             self._select_card(self._current_card_idx)
-            show_toast(self, "Toutes les cartes ont été passées en revue !", is_error=False)
+            show_toast(self, self.tr("Toutes les cartes ont été passées en revue !"), is_error=False)
 
     @Slot()
     def _on_edit_card(self) -> None:
@@ -624,7 +625,7 @@ class BatchStagingPanel(QWidget):
 
             self._rebuild_table()
             self._update_card_preview()
-            show_toast(self, "Carte modifiée en mémoire.")
+            show_toast(self, self.tr("Carte modifiée en mémoire."))
 
     @Slot()
     def _on_mark_all_accepted(self) -> None:
@@ -638,7 +639,7 @@ class BatchStagingPanel(QWidget):
             self._rebuild_table()
             self._refresh_save_button()
             self._update_card_preview()
-            show_toast(self, f"{changed} carte(s) marquée(s) comme validée(s).", is_error=False)
+            show_toast(self, tr("%1 carte(s) marquée(s) comme validée(s).", changed), is_error=False)
 
     def _toggle_card_status(self, row_idx: int, status: str) -> None:
         """Bascule le statut de staging d'une carte (sans sauvegarde, revue en cours)."""
@@ -676,16 +677,16 @@ class BatchStagingPanel(QWidget):
         selected_rows = {idx.row() for idx in self.cards_table.selectedIndexes()}
         count = len(selected_rows)
         if count > 1:
-            self.btn_valider.setText(f"Valider la sélection ({count})")
-            self.btn_valider.setToolTip(f"Marquer les {count} cartes sélectionnées comme validées")
-            self.btn_rejeter.setText(f"Rejeter la sélection ({count})")
-            self.btn_rejeter.setToolTip(f"Marquer les {count} cartes sélectionnées comme rejetées")
+            self.btn_valider.setText(tr("Valider la sélection (%1)", count))
+            self.btn_valider.setToolTip(tr("Marquer les %1 cartes sélectionnées comme validées", count))
+            self.btn_rejeter.setText(tr("Rejeter la sélection (%1)", count))
+            self.btn_rejeter.setToolTip(tr("Marquer les %1 cartes sélectionnées comme rejetées", count))
             self.btn_editer.setEnabled(False)
         else:
-            self.btn_valider.setText("Valider la carte")
-            self.btn_valider.setToolTip("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)")
-            self.btn_rejeter.setText("Rejeter")
-            self.btn_rejeter.setToolTip("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)")
+            self.btn_valider.setText(self.tr("Valider la carte"))
+            self.btn_valider.setToolTip(self.tr("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)"))
+            self.btn_rejeter.setText(self.tr("Rejeter"))
+            self.btn_rejeter.setToolTip(self.tr("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)"))
             self.btn_editer.setEnabled(True)
             if count == 1:
                 row = next(iter(selected_rows))
@@ -713,42 +714,42 @@ class BatchStagingPanel(QWidget):
         menu = QMenu(self)
 
         if len(selected_rows) > 1:
-            act_val_sel = menu.addAction(f"Valider la sélection ({len(selected_rows)})")
+            act_val_sel = menu.addAction(tr("Valider la sélection (%1)", len(selected_rows)))
             act_val_sel.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
             act_val_sel.triggered.connect(self._on_validate_card)
 
-            act_rej_sel = menu.addAction(f"Rejeter la sélection ({len(selected_rows)})")
+            act_rej_sel = menu.addAction(tr("Rejeter la sélection (%1)", len(selected_rows)))
             act_rej_sel.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
             act_rej_sel.triggered.connect(self._on_reject_card)
 
-            act_reset_sel = menu.addAction(f"Remettre en attente ({len(selected_rows)})")
+            act_reset_sel = menu.addAction(tr("Remettre en attente (%1)", len(selected_rows)))
             act_reset_sel.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
             act_reset_sel.triggered.connect(self._on_reset_selection)
             menu.addSeparator()
         elif row >= 0:
-            act_accept = menu.addAction("Valider la carte (V)")
+            act_accept = menu.addAction(self.tr("Valider la carte (V)"))
             act_accept.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
             act_accept.triggered.connect(lambda _=False, r=row: self._set_single_status(r, "accepted"))
 
-            act_reject = menu.addAction("Rejeter la carte (R)")
+            act_reject = menu.addAction(self.tr("Rejeter la carte (R)"))
             act_reject.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
             act_reject.triggered.connect(lambda _=False, r=row: self._set_single_status(r, "rejected"))
 
-            act_reset = menu.addAction("Remettre en attente")
+            act_reset = menu.addAction(self.tr("Remettre en attente"))
             act_reset.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
             act_reset.triggered.connect(lambda _=False, r=row: self._set_single_status(r, "pending"))
 
-            act_edit = menu.addAction("Éditer la carte... (E)")
+            act_edit = menu.addAction(self.tr("Éditer la carte... (E)"))
             act_edit.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
             act_edit.triggered.connect(self._on_edit_card)
             menu.addSeparator()
 
-        act_all = menu.addAction("Tout valider")
+        act_all = menu.addAction(self.tr("Tout valider"))
         act_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
         act_all.triggered.connect(self._on_mark_all_accepted)
 
         menu.addSeparator()
-        act_rej_task = menu.addAction("Rejeter la tranche entière")
+        act_rej_task = menu.addAction(self.tr("Rejeter la tranche entière"))
         act_rej_task.setIcon(load_phosphor_icon("ph.x-circle", color=DesignTokens.COLOR_RED))
         act_rej_task.triggered.connect(self._on_reject_task)
 
@@ -760,7 +761,7 @@ class BatchStagingPanel(QWidget):
     def _on_save_anki(self) -> None:
         """Enregistre les cartes validées dans AnkiForge avec dialogue de validation si cartes en attente."""
         if not self._prepared_notes:
-            show_toast(self, "Aucune carte générée à enregistrer.", is_error=True)
+            show_toast(self, self.tr("Aucune carte générée à enregistrer."), is_error=True)
             return
 
         pending_cards = [c for c in self._prepared_notes if c.get("_staging_status") == "pending"]
@@ -769,8 +770,8 @@ class BatchStagingPanel(QWidget):
         if pending_cards:
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Question)
-            msg_box.setWindowTitle("Enregistrement des Cartes")
-            msg_box.setText(f"Il reste <b>{len(pending_cards)} carte(s)</b> en attente de décision.")
+            msg_box.setWindowTitle(self.tr("Enregistrement des Cartes"))
+            msg_box.setText(tr("Il reste <b>%1 carte(s)</b> en attente de décision.", len(pending_cards)))
             msg_box.setInformativeText("Souhaitez-vous tout valider automatiquement ou enregistrer uniquement les cartes déjà marquées 'Validée' ?")
 
             btn_accept_all = msg_box.addButton(
@@ -793,13 +794,13 @@ class BatchStagingPanel(QWidget):
                 accepted_cards = [c for c in self._prepared_notes if c.get("_staging_status") == "accepted"]
             elif clicked_btn == btn_save_validated:
                 if not accepted_cards:
-                    show_toast(self, "Aucune carte n'a encore été marquée 'Validée'. Validez des cartes d'abord.", is_error=True)
+                    show_toast(self, self.tr("Aucune carte n'a encore été marquée 'Validée'. Validez des cartes d'abord."), is_error=True)
                     return
             else:
                 return
 
         if not accepted_cards:
-            show_toast(self, "Aucune carte 'Validée' à enregistrer.", is_error=True)
+            show_toast(self, self.tr("Aucune carte 'Validée' à enregistrer."), is_error=True)
             return
 
         self._save_and_emit(accepted_cards)

@@ -18,6 +18,7 @@ from ankiforge.services.tools.tool_sandbox import run_python_tool
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 
 
 class ToolEditorDialog(QDialog):
@@ -66,7 +67,7 @@ class ToolEditorDialog(QDialog):
         layout.setSpacing(12)
 
         # En-tête
-        lbl_header = QLabel("🐍 Conception de Script Python pour Workflow DAG")
+        lbl_header = QLabel(self.tr("🐍 Conception de Script Python pour Workflow DAG"))
         lbl_header.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         layout.addWidget(lbl_header)
 
@@ -75,19 +76,19 @@ class ToolEditorDialog(QDialog):
         row_names.setSpacing(10)
 
         col_name = QVBoxLayout()
-        lbl_name = QLabel("Identifiant technique (name) :")
+        lbl_name = QLabel(self.tr("Identifiant technique (name) :"))
         lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.edit_name = QLineEdit()
-        self.edit_name.setPlaceholderText("ex: clean_custom_formulas")
+        self.edit_name.setPlaceholderText(self.tr("ex: clean_custom_formulas"))
         self.edit_name.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 6px; border-radius: 4px;")
         col_name.addWidget(lbl_name)
         col_name.addWidget(self.edit_name)
 
         col_display = QVBoxLayout()
-        lbl_display = QLabel("Nom d'affichage (Interface) :")
+        lbl_display = QLabel(self.tr("Nom d'affichage (Interface) :"))
         lbl_display.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.edit_display = QLineEdit()
-        self.edit_display.setPlaceholderText("ex: 🧹 Nettoyeur Formules Spéciales")
+        self.edit_display.setPlaceholderText(self.tr("ex: 🧹 Nettoyeur Formules Spéciales"))
         self.edit_display.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 6px; border-radius: 4px;")
         col_display.addWidget(lbl_display)
         col_display.addWidget(self.edit_display)
@@ -97,16 +98,16 @@ class ToolEditorDialog(QDialog):
         layout.addLayout(row_names)
 
         # 2. Description
-        lbl_desc = QLabel("Description du traitement :")
+        lbl_desc = QLabel(self.tr("Description du traitement :"))
         lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.edit_desc = QLineEdit()
-        self.edit_desc.setPlaceholderText("Expliquez brièvement ce que fait ce filtre ou script...")
+        self.edit_desc.setPlaceholderText(self.tr("Expliquez brièvement ce que fait ce filtre ou script..."))
         self.edit_desc.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 6px; border-radius: 4px;")
         layout.addWidget(lbl_desc)
         layout.addWidget(self.edit_desc)
 
         # 3. Éditeur de code Python
-        lbl_code = QLabel("Code Python exécutable (doit contenir 'def run(state):') :")
+        lbl_code = QLabel(self.tr("Code Python exécutable (doit contenir 'def run(state):') :"))
         lbl_code.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
         layout.addWidget(lbl_code)
 
@@ -130,7 +131,7 @@ class ToolEditorDialog(QDialog):
         self.edit_console = QTextEdit()
         self.edit_console.setReadOnly(True)
         self.edit_console.setMaximumHeight(80)
-        self.edit_console.setPlaceholderText("Console de test : Cliquez sur '🧪 Tester le Script' pour valider...")
+        self.edit_console.setPlaceholderText(self.tr("Console de test : Cliquez sur '🧪 Tester le Script' pour valider..."))
         self.edit_console.setStyleSheet(f"""
             QTextEdit {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -152,7 +153,7 @@ class ToolEditorDialog(QDialog):
 
         row_actions.addStretch()
 
-        btn_cancel = QPushButton("Annuler")
+        btn_cancel = QPushButton(self.tr("Annuler"))
         btn_cancel.setStyleSheet(
             f"background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_MUTED}; padding: 6px 14px; border-radius: {DesignTokens.RADIUS_SM}px;"
         )
@@ -214,17 +215,17 @@ class ToolEditorDialog(QDialog):
         code = self.edit_code.toPlainText().strip()
 
         if not name or not display:
-            QMessageBox.warning(self, "Champs requis", "Veuillez spécifier un identifiant et un nom d'affichage.")
+            QMessageBox.warning(self, self.tr("Champs requis"), self.tr("Veuillez spécifier un identifiant et un nom d'affichage."))
             return
 
         if "def run(" not in code:
-            QMessageBox.warning(self, "Signature requise", "Le code doit définir la fonction 'def run(state):'.")
+            QMessageBox.warning(self, self.tr("Signature requise"), self.tr("Le code doit définir la fonction 'def run(state):'."))
             return
 
         try:
             compile(code, "<custom_tool>", "exec")
         except SyntaxError as e:
-            QMessageBox.critical(self, "Erreur de syntaxe", f"Impossible d'enregistrer : {e}")
+            QMessageBox.critical(self, self.tr("Erreur de syntaxe"), tr("Impossible d'enregistrer : %1", e))
             return
 
         is_builtin = self.tool.is_builtin if self.tool else False

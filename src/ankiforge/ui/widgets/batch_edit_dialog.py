@@ -2,13 +2,14 @@ from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QSpinBox,
 
 from ankiforge.database.models import LLMConfigModel, PersonaModel
 from ankiforge.ui.components import ActionButton, PrimaryButton
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
 class BatchEditDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("✨ Audit & Modification par l'IA")
+        self.setWindowTitle(self.tr("✨ Audit & Modification par l'IA"))
         self.setMinimumWidth(500)
         self.setStyleSheet("QDialog { background-color: palette(window); }")
 
@@ -16,35 +17,35 @@ class BatchEditDialog(QDialog):
         layout.setSpacing(15)
 
         # 1. Choix du Moteur IA
-        layout.addWidget(QLabel("<b>1. Moteur IA :</b>"))
+        layout.addWidget(QLabel(self.tr("<b>1. Moteur IA :</b>")))
         self.cb_llm = QComboBox()
         for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
             self.cb_llm.addItem(llm.display_name, userData=llm.id)
         layout.addWidget(self.cb_llm)
 
         # 2. Choix du mode opératoire (Agent ou Libre)
-        layout.addWidget(QLabel("<b>2. Instruction (Agent ou Prompt libre) :</b>"))
+        layout.addWidget(QLabel(self.tr("<b>2. Instruction (Agent ou Prompt libre) :</b>")))
         self.cb_agent = QComboBox()
-        self.cb_agent.addItem("-- ✍️ Prompt Libre (Saisir ci-dessous) --", userData=None)
+        self.cb_agent.addItem(self.tr("-- ✍️ Prompt Libre (Saisir ci-dessous) --"), userData=None)
         for agent in PersonaModel.select().order_by(PersonaModel.name):
-            self.cb_agent.addItem(f"Agent : {agent.name}", userData=agent.id)
+            self.cb_agent.addItem(tr("Agent : %1", agent.name), userData=agent.id)
         self.cb_agent.currentIndexChanged.connect(self._on_agent_changed)
         layout.addWidget(self.cb_agent)
 
         self.text_prompt = QTextEdit()
-        self.text_prompt.setPlaceholderText("Ex: Traduis le champ 'Verso' en anglais et ajoute une astuce mnémotechnique...")
+        self.text_prompt.setPlaceholderText(self.tr("Ex: Traduis le champ 'Verso' en anglais et ajoute une astuce mnémotechnique..."))
         self.text_prompt.setMinimumHeight(100)
         layout.addWidget(self.text_prompt)
 
         # 3. Taille du découpage (Le Chunk Size !)
-        layout.addWidget(QLabel("<b>3. Taille des lots (Découpage) :</b>"))
+        layout.addWidget(QLabel(self.tr("<b>3. Taille des lots (Découpage) :</b>")))
         chunk_layout = QHBoxLayout()
         self.spin_chunk = QSpinBox()
         self.spin_chunk.setRange(1, 100)
         self.spin_chunk.setValue(5)  # Par défaut, on traite par 5
         self.spin_chunk.setSuffix(" cartes par requête")
 
-        lbl_chunk_desc = QLabel("<i>Un nombre petit (3-5) réduit les erreurs de formatage de l'IA.</i>")
+        lbl_chunk_desc = QLabel(self.tr("<i>Un nombre petit (3-5) réduit les erreurs de formatage de l'IA.</i>"))
         lbl_chunk_desc.setStyleSheet("color: palette(placeholder-text);")
 
         chunk_layout.addWidget(self.spin_chunk)

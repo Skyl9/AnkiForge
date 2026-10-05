@@ -10,6 +10,7 @@ from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import AIReponseParser
 from ankiforge.ui.components import PrimaryButton
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 from ankiforge.utils.tags import parse_note_tags, serialize_note_tags
 
@@ -99,7 +100,7 @@ class AutoTagDialog(QDialog):
         self.note_ids = note_ids
         self.worker: AutoTaggingThread | None = None
 
-        self.setWindowTitle("🏷️ L'Archiviste IA (Auto-Tagging)")
+        self.setWindowTitle(self.tr("🏷️ L'Archiviste IA (Auto-Tagging)"))
         self.resize(600, 500)
         self.setModal(True)
 
@@ -118,19 +119,19 @@ class AutoTagDialog(QDialog):
         layout.setSpacing(15)
 
         # Info
-        lbl_info = QLabel(f"Vous vous apprêtez à catégoriser automatiquement <b>{len(self.note_ids)} carte(s)</b>.")
+        lbl_info = QLabel(tr("Vous vous apprêtez à catégoriser automatiquement <b>%1 carte(s)</b>.", len(self.note_ids)))
         layout.addWidget(lbl_info)
 
         # Moteur IA
-        layout.addWidget(QLabel("Moteur IA à utiliser :"))
+        layout.addWidget(QLabel(self.tr("Moteur IA à utiliser :")))
         self.llm_selector = QComboBox()
         self._populate_llms()
         layout.addWidget(self.llm_selector)
 
         # Directives
-        layout.addWidget(QLabel("Directives spécifiques (Optionnel) :"))
+        layout.addWidget(QLabel(self.tr("Directives spécifiques (Optionnel) :")))
         self.instruction_input = QTextEdit()
-        self.instruction_input.setPlaceholderText("Ex: Utilise uniquement des tags liés au droit civil. Ignore les dates.")
+        self.instruction_input.setPlaceholderText(self.tr("Ex: Utilise uniquement des tags liés au droit civil. Ignore les dates."))
         self.instruction_input.setMaximumHeight(80)
         layout.addWidget(self.instruction_input)
 
@@ -159,10 +160,10 @@ class AutoTagDialog(QDialog):
         self.page2 = QWidget()
         layout = QVBoxLayout(self.page2)
 
-        layout.addWidget(QLabel("Validation des tags proposés :"))
+        layout.addWidget(QLabel(self.tr("Validation des tags proposés :")))
 
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["ID Note", "Tags Proposés", "Valider"])
+        self.table.setHorizontalHeaderLabels([self.tr("ID Note"), self.tr("Tags Proposés"), self.tr("Valider")])
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -172,8 +173,8 @@ class AutoTagDialog(QDialog):
 
         # Boutons de sélection
         sel_layout = QHBoxLayout()
-        btn_check_all = QPushButton("Tout cocher")
-        btn_uncheck_all = QPushButton("Tout décocher")
+        btn_check_all = QPushButton(self.tr("Tout cocher"))
+        btn_uncheck_all = QPushButton(self.tr("Tout décocher"))
         btn_check_all.clicked.connect(self._check_all)
         btn_uncheck_all.clicked.connect(self._uncheck_all)
         sel_layout.addWidget(btn_check_all)
@@ -255,7 +256,7 @@ class AutoTagDialog(QDialog):
 
     @Slot(str)
     def on_error(self, err: str) -> None:
-        self.lbl_status.setText(f"<span style='color:red;'>Erreur : {err}</span>")
+        self.lbl_status.setText(tr("<span style='color:red;'>Erreur : %1</span>", err))
         self.btn_start.setEnabled(True)
 
     def _check_all(self) -> None:

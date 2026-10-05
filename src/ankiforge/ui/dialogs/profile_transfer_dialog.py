@@ -29,6 +29,7 @@ from ankiforge.services.profile_content_transfer import ProfileContentTransfer, 
 from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_active_profile
 
@@ -57,7 +58,7 @@ class ProfileTransferDialog(QDialog):
         self.active_profile = get_active_profile() or "default"
         self._is_updating_preview = False
 
-        self.setWindowTitle("Transférer du contenu entre Espaces de Travail — AnkiForge")
+        self.setWindowTitle(self.tr("Transférer du contenu entre Espaces de Travail — AnkiForge"))
         self.setMinimumSize(640, 680)
         self.resize(680, 720)
         self.setModal(True)
@@ -102,11 +103,11 @@ class ProfileTransferDialog(QDialog):
         title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.setSpacing(2)
 
-        self.title_lbl = QLabel("Transfert de Contenu Inter-Profils")
+        self.title_lbl = QLabel(self.tr("Transfert de Contenu Inter-Profils"))
         self.title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        self.subtitle_lbl = QLabel(f"Copier des paquets, notes et médias vers le profil actif « {self.active_profile} ».")
+        self.subtitle_lbl = QLabel(tr("Copier des paquets, notes et médias vers le profil actif « %1 ».", self.active_profile))
         self.subtitle_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         self.subtitle_lbl.setWordWrap(True)
@@ -131,7 +132,7 @@ class ProfileTransferDialog(QDialog):
         source_layout.setContentsMargins(12, 8, 12, 8)
         source_layout.setSpacing(10)
 
-        lbl_source = QLabel("Espace source :")
+        lbl_source = QLabel(self.tr("Espace source :"))
         lbl_source.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.DemiBold))
         lbl_source.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         source_layout.addWidget(lbl_source)
@@ -201,10 +202,10 @@ class ProfileTransferDialog(QDialog):
         self.list_decks.itemChanged.connect(self._on_item_changed)
 
         deck_actions = QHBoxLayout()
-        self.btn_select_all_decks = SecondaryButton("Tout cocher", tooltip="Sélectionner tous les paquets")
+        self.btn_select_all_decks = SecondaryButton("Tout cocher", tooltip=self.tr("Sélectionner tous les paquets"))
         self.btn_select_all_decks.setFixedHeight(28)
         self.btn_select_all_decks.clicked.connect(lambda: self._set_all_checked(self.list_decks, True))
-        self.btn_deselect_all_decks = SecondaryButton("Tout décocher", tooltip="Désélectionner tous les paquets")
+        self.btn_deselect_all_decks = SecondaryButton("Tout décocher", tooltip=self.tr("Désélectionner tous les paquets"))
         self.btn_deselect_all_decks.setFixedHeight(28)
         self.btn_deselect_all_decks.clicked.connect(lambda: self._set_all_checked(self.list_decks, False))
         deck_actions.addWidget(self.btn_select_all_decks)
@@ -214,7 +215,7 @@ class ProfileTransferDialog(QDialog):
 
         decks_layout.addWidget(self.list_decks, 1)
 
-        self.tab_widget.addTab(tab_decks, "Paquets (Decks)")
+        self.tab_widget.addTab(tab_decks, self.tr("Paquets (Decks)"))
 
         # Onglet 2 : Tags
         tab_tags = QWidget()
@@ -227,10 +228,10 @@ class ProfileTransferDialog(QDialog):
         self.list_tags.itemChanged.connect(self._on_item_changed)
 
         tag_actions = QHBoxLayout()
-        self.btn_select_all_tags = SecondaryButton("Tout cocher", tooltip="Sélectionner tous les tags")
+        self.btn_select_all_tags = SecondaryButton("Tout cocher", tooltip=self.tr("Sélectionner tous les tags"))
         self.btn_select_all_tags.setFixedHeight(28)
         self.btn_select_all_tags.clicked.connect(lambda: self._set_all_checked(self.list_tags, True))
-        self.btn_deselect_all_tags = SecondaryButton("Tout décocher", tooltip="Désélectionner tous les tags")
+        self.btn_deselect_all_tags = SecondaryButton("Tout décocher", tooltip=self.tr("Désélectionner tous les tags"))
         self.btn_deselect_all_tags.setFixedHeight(28)
         self.btn_deselect_all_tags.clicked.connect(lambda: self._set_all_checked(self.list_tags, False))
         tag_actions.addWidget(self.btn_select_all_tags)
@@ -240,12 +241,12 @@ class ProfileTransferDialog(QDialog):
 
         tags_layout.addWidget(self.list_tags, 1)
 
-        self.tab_widget.addTab(tab_tags, "Tags")
+        self.tab_widget.addTab(tab_tags, self.tr("Tags"))
 
         layout.addWidget(self.tab_widget, 1)
 
         # ── 4. Options de réconciliation ───────────────────────────────────────
-        self.chk_update_existing = QCheckBox("Mettre à jour les notes existantes si le GUID existe déjà (crée une nouvelle version)")
+        self.chk_update_existing = QCheckBox(self.tr("Mettre à jour les notes existantes si le GUID existe déjà (crée une nouvelle version)"))
         self.chk_update_existing.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.chk_update_existing.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_update_existing.setStyleSheet(f"""
@@ -305,12 +306,12 @@ class ProfileTransferDialog(QDialog):
 
         bottom_layout.addStretch()
 
-        self.btn_cancel = SecondaryButton("Annuler", tooltip="Fermer sans rien transférer")
+        self.btn_cancel = SecondaryButton("Annuler", tooltip=self.tr("Fermer sans rien transférer"))
         self.btn_cancel.setFixedHeight(36)
         self.btn_cancel.clicked.connect(self.reject)
         bottom_layout.addWidget(self.btn_cancel)
 
-        self.btn_transfer = PrimaryButton("Transférer le Contenu", tooltip="Lancer l'importation atomique du contenu sélectionné")
+        self.btn_transfer = PrimaryButton("Transférer le Contenu", tooltip=self.tr("Lancer l'importation atomique du contenu sélectionné"))
         self.btn_transfer.setFixedHeight(36)
         self.btn_transfer.setIcon(load_on_accent_icon("arrow-right"))
         self.btn_transfer.clicked.connect(self._on_transfer_clicked)
@@ -361,7 +362,7 @@ class ProfileTransferDialog(QDialog):
 
         self.combo_source.clear()
         if not available:
-            self.combo_source.addItem("Aucun autre espace de travail disponible")
+            self.combo_source.addItem(self.tr("Aucun autre espace de travail disponible"))
             self.combo_source.setEnabled(False)
             self.btn_transfer.setEnabled(False)
             return
@@ -438,10 +439,10 @@ class ProfileTransferDialog(QDialog):
 
         # Si aucun deck ni tag n'est coché, estimation à 0
         if not selected_decks and not selected_tags:
-            self.lbl_metric_notes[1].setText("0")
-            self.lbl_metric_models[1].setText("0")
-            self.lbl_metric_cards[1].setText("0")
-            self.lbl_metric_media[1].setText("0 (0 Ko)")
+            self.lbl_metric_notes[1].setText(self.tr("0"))
+            self.lbl_metric_models[1].setText(self.tr("0"))
+            self.lbl_metric_cards[1].setText(self.tr("0"))
+            self.lbl_metric_media[1].setText(self.tr("0 (0 Ko)"))
             return
 
         try:
@@ -478,8 +479,8 @@ class ProfileTransferDialog(QDialog):
         if not selected_decks and not selected_tags:
             QMessageBox.warning(
                 self,
-                "Aucun élément sélectionné",
-                "Veuillez cocher au moins un paquet ou un tag à transférer.",
+                self.tr("Aucun élément sélectionné"),
+                self.tr("Veuillez cocher au moins un paquet ou un tag à transférer."),
             )
             return
 
@@ -503,13 +504,13 @@ class ProfileTransferDialog(QDialog):
                 f"• Types de notes créés : {report.note_types_created}\n"
                 f"• Médias transférés : {report.media_transferred}"
             )
-            QMessageBox.information(self, "Transfert Réussi", msg)
+            QMessageBox.information(self, self.tr("Transfert Réussi"), msg)
             self.transfer_completed.emit(report)
             self.accept()
         except Exception as err:
             logger.error("Échec du transfert inter-profils : %s", err, exc_info=True)
             QMessageBox.critical(
                 self,
-                "Erreur de Transfert",
-                f"Une erreur est survenue pendant le transfert :\n{err}",
+                self.tr("Erreur de Transfert"),
+                tr("Une erreur est survenue pendant le transfert :\n%1", err),
             )

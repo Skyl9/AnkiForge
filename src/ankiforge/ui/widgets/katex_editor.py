@@ -267,14 +267,14 @@ class KaTeXEditor(QWidget):
         toggle_layout.setContentsMargins(2, 2, 2, 2)
         toggle_layout.setSpacing(0)
 
-        self.btn_mode_raw = QPushButton("Texte Brut")
+        self.btn_mode_raw = QPushButton(self.tr("Texte Brut"))
         self.btn_mode_raw.setCheckable(True)
 
-        self.btn_mode_split = QPushButton("Mixte")
+        self.btn_mode_split = QPushButton(self.tr("Mixte"))
         self.btn_mode_split.setCheckable(True)
         self.btn_mode_split.setChecked(True)
 
-        self.btn_mode_preview = QPushButton("Aperçu (KaTeX)")
+        self.btn_mode_preview = QPushButton(self.tr("Aperçu (KaTeX)"))
         self.btn_mode_preview.setCheckable(True)
 
         toggle_layout.addWidget(self.btn_mode_raw)

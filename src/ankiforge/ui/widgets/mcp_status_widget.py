@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QMenu, QPushButton, QWidget
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -217,7 +218,7 @@ class MCPStatusWidget(QPushButton):
         clipboard = QGuiApplication.clipboard()
         if clipboard is not None:
             clipboard.setText(cfg_json)
-            show_toast(self, "Configuration client MCP copiée dans le presse-papiers.")
+            show_toast(self, self.tr("Configuration client MCP copiée dans le presse-papiers."))
             logger.info("Configuration client MCP copiée dans le presse-papiers.")
 
     def _copy_endpoint_url(self, url: str, label: str) -> None:
@@ -225,7 +226,7 @@ class MCPStatusWidget(QPushButton):
         clipboard = QGuiApplication.clipboard()
         if clipboard is not None:
             clipboard.setText(url)
-            show_toast(self, f"URL {label} copiée : {url}")
+            show_toast(self, tr("URL %1 copiée : %2", label, url))
             logger.info("URL %s copiée : %s", label, url)
 
     def copy_url(self) -> None:
@@ -251,10 +252,10 @@ class MCPStatusWidget(QPushButton):
             clipboard = QGuiApplication.clipboard()
             if clipboard is not None:
                 clipboard.setText(self._token)
-                show_toast(self, "Jeton d'authentification MCP copié.")
+                show_toast(self, self.tr("Jeton d'authentification MCP copié."))
                 logger.info("Jeton d'authentification MCP copié.")
         else:
-            show_toast(self, "Aucun jeton d'authentification disponible (serveur inactif).", is_error=True)
+            show_toast(self, self.tr("Aucun jeton d'authentification disponible (serveur inactif)."), is_error=True)
 
     def show_context_menu(self, pos: QPoint | None = None) -> None:
         """Affiche le menu contextuel interactif à la position indiquée."""
@@ -264,19 +265,19 @@ class MCPStatusWidget(QPushButton):
         menu = QMenu(self)
 
         # Section 1 : Actions de copie
-        act_copy_config = QAction(load_phosphor_icon("ph.copy"), "Copier la configuration JSON (Claude / agy)", self)
+        act_copy_config = QAction(load_phosphor_icon("ph.copy"), self.tr("Copier la configuration JSON (Claude / agy)"), self)
         act_copy_config.triggered.connect(self.copy_client_config)
         menu.addAction(act_copy_config)
 
-        act_copy_url = QAction(load_phosphor_icon("ph.link"), f"Copier l'URL Streamable HTTP ({self.url})", self)
+        act_copy_url = QAction(load_phosphor_icon("ph.link"), tr("Copier l'URL Streamable HTTP (%1)", self.url), self)
         act_copy_url.triggered.connect(self.copy_url)
         menu.addAction(act_copy_url)
 
-        act_copy_sse = QAction(load_phosphor_icon("ph.link"), f"Copier l'URL SSE legacy ({self.sse_url})", self)
+        act_copy_sse = QAction(load_phosphor_icon("ph.link"), tr("Copier l'URL SSE legacy (%1)", self.sse_url), self)
         act_copy_sse.triggered.connect(self.copy_sse_url)
         menu.addAction(act_copy_sse)
 
-        act_copy_token = QAction(load_phosphor_icon("ph.key"), "Copier le token d'authentification", self)
+        act_copy_token = QAction(load_phosphor_icon("ph.key"), self.tr("Copier le token d'authentification"), self)
         act_copy_token.triggered.connect(self.copy_token)
         menu.addAction(act_copy_token)
 
@@ -284,29 +285,29 @@ class MCPStatusWidget(QPushButton):
 
         # Section 2 : Pilotage du serveur
         is_running = self._status == "running"
-        act_start = QAction(load_phosphor_icon("ph.play"), "Démarrer le serveur", self)
+        act_start = QAction(load_phosphor_icon("ph.play"), self.tr("Démarrer le serveur"), self)
         act_start.setEnabled(not is_running)
         act_start.triggered.connect(self.start_requested.emit)
         menu.addAction(act_start)
 
-        act_stop = QAction(load_phosphor_icon("ph.stop"), "Arrêter le serveur", self)
+        act_stop = QAction(load_phosphor_icon("ph.stop"), self.tr("Arrêter le serveur"), self)
         act_stop.setEnabled(is_running)
         act_stop.triggered.connect(self.stop_requested.emit)
         menu.addAction(act_stop)
 
-        act_restart = QAction(load_phosphor_icon("ph.arrows-clockwise"), "Redémarrer le serveur", self)
+        act_restart = QAction(load_phosphor_icon("ph.arrows-clockwise"), self.tr("Redémarrer le serveur"), self)
         act_restart.setEnabled(is_running)
         act_restart.triggered.connect(self.restart_requested.emit)
         menu.addAction(act_restart)
 
-        act_rotate_token = QAction(load_phosphor_icon("ph.key"), "Renouveler le jeton Bearer...", self)
+        act_rotate_token = QAction(load_phosphor_icon("ph.key"), self.tr("Renouveler le jeton Bearer..."), self)
         act_rotate_token.triggered.connect(self._confirm_and_rotate_token)
         menu.addAction(act_rotate_token)
 
         menu.addSeparator()
 
         # Section 3 : Accès aux paramètres
-        act_prefs = QAction(load_phosphor_icon("ph.gear"), "Préférences MCP...", self)
+        act_prefs = QAction(load_phosphor_icon("ph.gear"), self.tr("Préférences MCP..."), self)
         act_prefs.triggered.connect(self.open_preferences_requested.emit)
         menu.addAction(act_prefs)
 
@@ -318,8 +319,10 @@ class MCPStatusWidget(QPushButton):
 
         res = QMessageBox.question(
             self,
-            "Renouveler le jeton MCP",
-            "Voulez-vous générer un nouveau jeton Bearer pour le serveur MCP ?\n\nTous les clients MCP externes connectés (Claude Desktop, etc.) devront être mis à jour avec le nouveau jeton.",
+            self.tr("Renouveler le jeton MCP"),
+            self.tr(
+                "Voulez-vous générer un nouveau jeton Bearer pour le serveur MCP ?\n\nTous les clients MCP externes connectés (Claude Desktop, etc.) devront être mis à jour avec le nouveau jeton."
+            ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

@@ -24,7 +24,7 @@ class PasswordLineEdit(QWidget):
         self.edit.setText(initial_text)
         layout.addWidget(self.edit, 1)
 
-        self.btn_toggle = IconButton("ph.eye", tooltip="Afficher / Masquer la clé", size=26, parent=self)
+        self.btn_toggle = IconButton("ph.eye", tooltip=self.tr("Afficher / Masquer la clé"), size=26, parent=self)
         self.btn_toggle.clicked.connect(self._toggle_visibility)
         layout.addWidget(self.btn_toggle)
 

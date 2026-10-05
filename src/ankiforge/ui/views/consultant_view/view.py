@@ -65,6 +65,7 @@ from ankiforge.ui.views.consultant_view.widgets import (
 )
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import event_bus
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -182,9 +183,9 @@ class ContextPillBadge(Badge):
         self.is_committed = is_committed
         if not is_committed:
             self.setCursor(Qt.CursorShape.PointingHandCursor)
-            self.setToolTip("Cliquer pour retirer du contexte")
+            self.setToolTip(self.tr("Cliquer pour retirer du contexte"))
         else:
-            self.setToolTip("Source ancrée dans l'historique de cette discussion")
+            self.setToolTip(self.tr("Source ancrée dans l'historique de cette discussion"))
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and not self.is_committed:
@@ -369,7 +370,7 @@ class ConsultantView(QWidget):
         self.chat_panel.set_menu_button_visible(False)
 
         # Bouton toggle de la sidebar (intégré dans l'en-tête de l'onglet)
-        self.btn_toggle_sidebar = IconButton("ph.sidebar-simple", tooltip="Afficher/Masquer l'historique des discussions", size=22)
+        self.btn_toggle_sidebar = IconButton("ph.sidebar-simple", tooltip=self.tr("Afficher/Masquer l'historique des discussions"), size=22)
         self.btn_toggle_sidebar.clicked.connect(self._toggle_sidebar)
         self.chat_panel.add_header_widget(self.btn_toggle_sidebar)
         self.chat_panel.add_header_separator()
@@ -381,13 +382,13 @@ class ConsultantView(QWidget):
         self.chat_panel.add_header_separator()
 
         # Bouton toggle de l'inspecteur
-        self.btn_toggle_inspector = IconButton("ph.brain", tooltip="Afficher/Masquer le Hub de Contexte", size=22)
+        self.btn_toggle_inspector = IconButton("ph.brain", tooltip=self.tr("Afficher/Masquer le Hub de Contexte"), size=22)
         self.btn_toggle_inspector.clicked.connect(self._toggle_inspector)
         self.chat_panel.add_header_widget(self.btn_toggle_inspector)
         self.chat_panel.add_header_separator()
 
         # Bouton export de la session en Markdown
-        self.btn_export_session = IconButton("ph.export", tooltip="Exporter la session complète en Markdown", size=22)
+        self.btn_export_session = IconButton("ph.export", tooltip=self.tr("Exporter la session complète en Markdown"), size=22)
         self.btn_export_session.clicked.connect(self._on_export_session_clicked)
         self.chat_panel.add_header_widget(self.btn_export_session)
 
@@ -493,10 +494,10 @@ class ConsultantView(QWidget):
 
         tools_layout = QHBoxLayout()
         tools_layout.setSpacing(4)
-        self.btn_attach = IconButton("ph.paperclip", tooltip="Attacher une ressource au contexte (Paquet, Document, Modèle)", size=22)
+        self.btn_attach = IconButton("ph.paperclip", tooltip=self.tr("Attacher une ressource au contexte (Paquet, Document, Modèle)"), size=22)
         self.btn_attach.clicked.connect(self._on_add_context)
 
-        self.btn_mention = IconButton("ph.at", tooltip="Mentionner une ressource spécifique (@)", size=22)
+        self.btn_mention = IconButton("ph.at", tooltip=self.tr("Mentionner une ressource spécifique (@)"), size=22)
         self.btn_mention.clicked.connect(self._on_add_context)
 
         self.btn_add_context = self.btn_attach
@@ -506,7 +507,7 @@ class ConsultantView(QWidget):
         box_footer.addLayout(tools_layout)
         box_footer.addStretch()
 
-        self.tokens_badge = QLabel("0 tokens")
+        self.tokens_badge = QLabel(self.tr("0 tokens"))
         self.tokens_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; margin-right: 10px;")
         box_footer.addWidget(self.tokens_badge)
 
@@ -520,7 +521,7 @@ class ConsultantView(QWidget):
         box_layout.addLayout(box_footer)
         input_area_layout.addWidget(self.chat_box_frame)
 
-        disclaimer_lbl = QLabel("Le Consultant IA propose des refactorisations sous forme de diffs validables avant écriture en BDD.")
+        disclaimer_lbl = QLabel(self.tr("Le Consultant IA propose des refactorisations sous forme de diffs validables avant écriture en BDD."))
         disclaimer_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         disclaimer_lbl.setWordWrap(True)
         disclaimer_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; margin-top: 2px;")
@@ -557,9 +558,9 @@ class ConsultantView(QWidget):
         self.sources_list = QListWidget()
         self.sources_list.hide()
         self.sources_list.itemDoubleClicked.connect(self._on_source_item_double_clicked)
-        self.lbl_tokens_usage = QLabel("0")
-        self.lbl_cards_in_context = QLabel("0")
-        self.lbl_cards_modified = QLabel("0")
+        self.lbl_tokens_usage = QLabel(self.tr("0"))
+        self.lbl_cards_in_context = QLabel(self.tr("0"))
+        self.lbl_cards_modified = QLabel(self.tr("0"))
         self.workspace_inspector = WorkspaceInspectorWidget()
         self.workspace_inspector.next_step_requested.connect(self._on_next_step_clicked)
         self.workspace_inspector.action_applied.connect(self._on_workspace_action_applied)
@@ -604,7 +605,7 @@ class ConsultantView(QWidget):
             s.title = new_title
             s.save()
             self.view_model.load_sessions()
-            show_toast(self, "Discussion renommée.")
+            show_toast(self, self.tr("Discussion renommée."))
 
     @Slot(int)
     def _on_sidebar_session_deleted(self, session_id: int) -> None:
@@ -616,13 +617,13 @@ class ConsultantView(QWidget):
                 self.view_model.switch_session(self.view_model.sessions[0].id)
             else:
                 self.view_model.create_new_session()
-            show_toast(self, "Discussion supprimée.")
+            show_toast(self, self.tr("Discussion supprimée."))
 
     @Slot()
     def _on_export_session_clicked(self) -> None:
         session = self.view_model.current_session
         if not session:
-            show_toast(self, "Aucune session active à exporter.", is_error=True)
+            show_toast(self, self.tr("Aucune session active à exporter."), is_error=True)
             return
 
         markdown_content = format_session_to_markdown(session)
@@ -639,10 +640,10 @@ class ConsultantView(QWidget):
             try:
                 Path(file_path).write_text(markdown_content, encoding="utf-8")
                 QApplication.clipboard().setText(markdown_content)
-                show_toast(self, f"Session exportée avec succès ({Path(file_path).name}) !")
+                show_toast(self, tr("Session exportée avec succès (%1) !", Path(file_path).name))
             except Exception as e:
                 logger.error("Erreur lors de l'export de session : %s", e)
-                show_toast(self, f"Erreur lors de l'export : {e}", is_error=True)
+                show_toast(self, tr("Erreur lors de l'export : %1", e), is_error=True)
 
     @Slot(int)
     def _on_sidebar_session_exported(self, session_id: int) -> None:
@@ -651,7 +652,7 @@ class ConsultantView(QWidget):
             return
         markdown_content = format_session_to_markdown(s)
         QApplication.clipboard().setText(markdown_content)
-        show_toast(self, "Discussion copiée dans le presse-papier en Markdown !")
+        show_toast(self, self.tr("Discussion copiée dans le presse-papier en Markdown !"))
 
     @Slot(int, int)
     def _on_stats_updated(self, tokens: int, cards: int) -> None:
@@ -679,7 +680,7 @@ class ConsultantView(QWidget):
             for ag in agents:
                 p_type = getattr(ag, "persona_type", "mcp")
                 type_prefix = "🤝 " if p_type == "mcp" else "🌐 "
-                self.persona_combo.addItem(f"{type_prefix}{ag.name}", userData=ag)
+                self.persona_combo.addItem(tr("%1%2", type_prefix, ag.name), userData=ag)
 
             self.persona_combo.blockSignals(False)
             if hasattr(self, "context_hub"):
@@ -702,7 +703,7 @@ class ConsultantView(QWidget):
         self.session_selector.blockSignals(True)
         self.session_selector.clear()
         for s in sessions:
-            self.session_selector.addItem(f"💬 {s.title}", userData=s.id)
+            self.session_selector.addItem(tr("💬 %1", s.title), userData=s.id)
         if self.view_model.current_session:
             idx = self.session_selector.findData(self.view_model.current_session.id)
             if idx != -1:
@@ -722,7 +723,7 @@ class ConsultantView(QWidget):
         self.refresh_context_list()
         self._clear_messages_ui()
         self._insert_welcome_message()
-        show_toast(self, "Nouvelle discussion démarrée.")
+        show_toast(self, self.tr("Nouvelle discussion démarrée."))
 
     @Slot()
     def _on_compact_requested(self) -> None:
@@ -780,10 +781,10 @@ class ConsultantView(QWidget):
             return
 
         menu = StyledMenu(self)
-        act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.TEXT_PRIMARY), "Renommer la discussion...")
-        act_export = menu.addAction(load_phosphor_icon("ph.share-network", color=DesignTokens.TEXT_PRIMARY), "Copier la discussion en Markdown")
+        act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.TEXT_PRIMARY), self.tr("Renommer la discussion..."))
+        act_export = menu.addAction(load_phosphor_icon("ph.share-network", color=DesignTokens.TEXT_PRIMARY), self.tr("Copier la discussion en Markdown"))
         menu.addSeparator()
-        act_delete = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "Supprimer cette discussion")
+        act_delete = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), self.tr("Supprimer cette discussion"))
 
         pos = self.btn_session_menu.mapToGlobal(self.btn_session_menu.rect().bottomLeft())
         action = menu.exec(pos)
@@ -794,7 +795,7 @@ class ConsultantView(QWidget):
                 curr_session.title = new_title.strip()
                 curr_session.save()
                 self.view_model.load_sessions()
-                show_toast(self, "Discussion renommée.")
+                show_toast(self, self.tr("Discussion renommée."))
 
         elif action == act_export:
             export_lines = [f"# Discussion AnkiForge AI — {curr_session.title}\n"]
@@ -803,13 +804,13 @@ class ConsultantView(QWidget):
                 export_lines.append(f"### {r}\n{m.get('text', '')}\n")
             markdown_content = "\n".join(export_lines)
             QApplication.clipboard().setText(markdown_content)
-            show_toast(self, "Discussion copiée dans le presse-papier en Markdown !")
+            show_toast(self, self.tr("Discussion copiée dans le presse-papier en Markdown !"))
 
         elif action == act_delete:
             ret = QMessageBox.question(
                 self,
-                "Confirmer la suppression",
-                f"Voulez-vous vraiment supprimer la discussion '{curr_session.title}' ?",
+                self.tr("Confirmer la suppression"),
+                tr("Voulez-vous vraiment supprimer la discussion '%1' ?", curr_session.title),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if ret == QMessageBox.StandardButton.Yes:
@@ -819,7 +820,7 @@ class ConsultantView(QWidget):
                     self.view_model.switch_session(self.view_model.sessions[0].id)
                 else:
                     self.view_model.create_new_session()
-                show_toast(self, "Discussion supprimée.")
+                show_toast(self, self.tr("Discussion supprimée."))
 
     @Slot(object)
     def _on_active_session_reloaded(self, session: ConsultantSessionModel) -> None:
@@ -876,7 +877,7 @@ class ConsultantView(QWidget):
             self.modified_cards_count -= 1
             self.lbl_cards_modified.setText(str(self.modified_cards_count))
         self.refresh_context_list()
-        show_toast(self, "Action annulée en BDD.")
+        show_toast(self, self.tr("Action annulée en BDD."))
 
     @Slot(dict)
     def _on_diff_inspect_requested(self, patch_data: dict[str, Any]) -> None:
@@ -904,7 +905,7 @@ class ConsultantView(QWidget):
         if 0 <= idx < len(self.active_context):
             ctx_id = self.active_context[idx]
             self._remove_context(ctx_id)
-            show_toast(self, "Élément retiré du contexte.")
+            show_toast(self, self.tr("Élément retiré du contexte."))
 
     def _clear_messages_ui(self) -> None:
         while self.chat_messages_layout.count() > 1:
@@ -918,7 +919,7 @@ class ConsultantView(QWidget):
 
         if is_running:
             self.btn_send.setIcon(load_on_accent_icon("ph.stop"))
-            self.btn_send.setToolTip("Interrompre la génération (Stop)")
+            self.btn_send.setToolTip(self.tr("Interrompre la génération (Stop)"))
             self.btn_send.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.COLOR_RED};
@@ -932,7 +933,7 @@ class ConsultantView(QWidget):
             """)
         else:
             self.btn_send.setIcon(load_on_accent_icon("ph.arrow-up"))
-            self.btn_send.setToolTip("Envoyer la requête")
+            self.btn_send.setToolTip(self.tr("Envoyer la requête"))
             self.btn_send.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.ACCENT_PRIMARY};
@@ -950,18 +951,18 @@ class ConsultantView(QWidget):
         if agent and hasattr(agent, "system_prompt") and agent.system_prompt:
             prompt_str = str(agent.system_prompt)
             prompt_snippet = prompt_str[:140] + "..." if len(prompt_str) > 140 else prompt_str
-            self.sys_prompt_lbl.setText(f'"{prompt_snippet}"')
+            self.sys_prompt_lbl.setText(tr('"%1"', prompt_snippet))
 
     def _remove_context(self, ctx_id: str) -> None:
         """Supprime une source du contexte si elle n'a pas encore été engagée dans un message envoyé."""
         if ctx_id in self.committed_context:
-            show_toast(self, "Cette source est ancrée dans l'historique de cette discussion.")
+            show_toast(self, self.tr("Cette source est ancrée dans l'historique de cette discussion."))
             return
 
         if ctx_id in self.active_context:
             self.active_context.remove(ctx_id)
             self.refresh_context_list()
-            show_toast(self, "Source retirée du contexte.")
+            show_toast(self, self.tr("Source retirée du contexte."))
 
     def refresh_context_list(self) -> None:
         self.sources_list.clear()
@@ -977,7 +978,7 @@ class ConsultantView(QWidget):
             empty_item = QListWidgetItem("Aucun contexte attaché (cliquez sur + ou tapez @)")
             empty_item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.sources_list.addItem(empty_item)
-            self.lbl_cards_in_context.setText("0")
+            self.lbl_cards_in_context.setText(self.tr("0"))
         else:
             total_cards_in_context = 0
 
@@ -1083,7 +1084,7 @@ class ConsultantView(QWidget):
     def _on_input_text_changed(self) -> None:
         text = self.chat_input.toPlainText()
         tokens = int(len(text.split()) * 1.3)
-        self.tokens_badge.setText(f"{tokens} tokens")
+        self.tokens_badge.setText(tr("%1 tokens", tokens))
 
     @Slot(str, str)
     def _on_mention_completed(self, m_type: str, m_id: str) -> None:
@@ -1117,7 +1118,7 @@ class ConsultantView(QWidget):
             self.workspace_inspector.set_next_steps(steps)
             if hasattr(self, "context_hub"):
                 self.context_hub._update_proactive_actions(has_deck=any("deck_" in c for c in self.active_context), has_doc=any("doc_" in c for c in self.active_context))
-            show_toast(self, "Contexte compacté avec succès !")
+            show_toast(self, self.tr("Contexte compacté avec succès !"))
             self.chat_input.clear()
             return True
         elif cmd_clean == "/help":
@@ -1154,7 +1155,7 @@ class ConsultantView(QWidget):
             sources = ["consultant_refactor", "consultant_split", "consultant_workspace", "consultant_inline", "consultant_split_inline"]
             last_version = NoteVersionModel.select().where(NoteVersionModel.source.in_(sources)).order_by(NoteVersionModel.id.desc()).first()
             if not last_version:
-                show_toast(self, "Aucune version récente du consultant à annuler.", is_error=True)
+                show_toast(self, self.tr("Aucune version récente du consultant à annuler."), is_error=True)
                 return
 
             note = last_version.note
@@ -1165,15 +1166,15 @@ class ConsultantView(QWidget):
                     last_version.save()
                     prev_version.is_active = True
                     prev_version.save()
-                show_toast(self, f"Note #{note.id} restaurée à la version {prev_version.version_number} !")
+                show_toast(self, tr("Note #%1 restaurée à la version %2 !", note.id, prev_version.version_number))
                 undo_msg = f"↩️ <b>Time Machine :</b> Note #{note.id} restaurée avec succès à la version précédente {prev_version.version_number}."
                 w = ChatMessageWidget("AnkiForge AI", undo_msg, is_user=False)
                 self.chat_messages_layout.insertWidget(self.chat_messages_layout.count() - 1, w)
             else:
-                show_toast(self, "Pas de version antérieure disponible pour cette note.", is_error=True)
+                show_toast(self, self.tr("Pas de version antérieure disponible pour cette note."), is_error=True)
         except Exception as e:
             logger.error("Erreur undo Time Machine : %s", e)
-            show_toast(self, f"Erreur Time Machine : {e}", is_error=True)
+            show_toast(self, tr("Erreur Time Machine : %1", e), is_error=True)
 
     @Slot(str)
     def _on_quick_prompt_clicked(self, key: str) -> None:
@@ -1200,19 +1201,19 @@ class ConsultantView(QWidget):
         """Affiche un menu de sélection de catégorie (Paquets, Documents, Modèles, Cartes)."""
         menu = StyledMenu(self)
 
-        act_deck = QAction("🎴 Paquet Anki...", self)
+        act_deck = QAction(self.tr("🎴 Paquet Anki..."), self)
         act_deck.triggered.connect(self._open_deck_selection_dialog)
         menu.addAction(act_deck)
 
-        act_doc = QAction("📄 Cours / Document PDF...", self)
+        act_doc = QAction(self.tr("📄 Cours / Document PDF..."), self)
         act_doc.triggered.connect(self._open_doc_selection_dialog)
         menu.addAction(act_doc)
 
-        act_model = QAction("🎨 Modèle de carte...", self)
+        act_model = QAction(self.tr("🎨 Modèle de carte..."), self)
         act_model.triggered.connect(self._open_model_selection_dialog)
         menu.addAction(act_model)
 
-        act_card = QAction("🗂️ Carte ciblée...", self)
+        act_card = QAction(self.tr("🗂️ Carte ciblée..."), self)
         act_card.triggered.connect(self._open_card_selection_dialog)
         menu.addAction(act_card)
 
@@ -1241,7 +1242,7 @@ class ConsultantView(QWidget):
         except RuntimeError:
             self._deck_modal = None
 
-        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet à attacher au contexte", parent=self)
+        self._deck_modal = DeckSelectWindow(title=self.tr("Sélectionner un paquet à attacher au contexte"), parent=self)
         self._deck_modal.deck_selected.connect(self._on_deck_modal_selected)
         self._deck_modal.show()
 
@@ -1261,7 +1262,7 @@ class ConsultantView(QWidget):
         except RuntimeError:
             self._doc_modal = None
 
-        self._doc_modal = DocumentSelectWindow(title="Sélectionner un cours / document à attacher", parent=self)
+        self._doc_modal = DocumentSelectWindow(title=self.tr("Sélectionner un cours / document à attacher"), parent=self)
         self._doc_modal.document_selected.connect(self._on_doc_modal_selected)
         self._doc_modal.show()
 
@@ -1318,7 +1319,7 @@ class ConsultantView(QWidget):
         if ctx_id not in self.active_context:
             self.active_context.append(ctx_id)
             self.refresh_context_list()
-            show_toast(self, "Contexte attaché !")
+            show_toast(self, self.tr("Contexte attaché !"))
 
     def attach_and_prompt(self, context_item: str, prompt: str = "") -> None:
         """Attache un élément de contexte et pré-remplit le champ de saisie du chat."""
@@ -1334,13 +1335,13 @@ class ConsultantView(QWidget):
         self.active_context.clear()
         self.refresh_context_list()
         self.used_tokens_count = 0
-        self.lbl_tokens_usage.setText("0")
+        self.lbl_tokens_usage.setText(self.tr("0"))
         self.view_model.create_new_session()
         self.workspace_inspector.set_empty_state()
 
         self._clear_messages_ui()
         self._insert_welcome_message()
-        show_toast(self, "Session réinitialisée.")
+        show_toast(self, self.tr("Session réinitialisée."))
 
     @Slot(str)
     def _on_next_step_clicked(self, step_text: str) -> None:
@@ -1444,7 +1445,7 @@ class ConsultantView(QWidget):
     @Slot()
     def _on_send_or_stop_clicked(self) -> None:
         if self.worker and self.worker.isRunning():
-            self.lbl_chat_status.setText("⏹ Interruption en cours...")
+            self.lbl_chat_status.setText(self.tr("⏹ Interruption en cours..."))
             self.worker.cancel()
             return
 
@@ -1481,7 +1482,7 @@ class ConsultantView(QWidget):
         self.refresh_context_list()
 
         self._set_send_button_mode(is_running=True)
-        self.lbl_chat_status.setText("⏳ Analyse et streaming en direct...")
+        self.lbl_chat_status.setText(self.tr("⏳ Analyse et streaming en direct..."))
 
         ai_provider = None
         if self.ai_manager and hasattr(self.ai_manager, "create_provider_from_config") and selected_engine:
@@ -1528,7 +1529,7 @@ class ConsultantView(QWidget):
         cost_ratio = (cost_usd / cost_budget) if cost_budget > 0.0 else 0.0
         if max(token_ratio, cost_ratio) >= 0.8:
             self.lbl_tokens_usage.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-weight: bold; background: {DesignTokens.COLOR_YELLOW_BG}; padding: 2px 6px; border-radius: 4px;")
-            self.lbl_chat_status.setText("⚠️ Quota budget proche de la limite (80%)")
+            self.lbl_chat_status.setText(self.tr("⚠️ Quota budget proche de la limite (80%)"))
         else:
             self.lbl_tokens_usage.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
@@ -1590,7 +1591,7 @@ class ConsultantView(QWidget):
 
     @Slot(str)
     def _on_ai_progress(self, msg: str) -> None:
-        self.lbl_chat_status.setText(f"⏳ {msg}")
+        self.lbl_chat_status.setText(tr("⏳ %1", msg))
 
     @Slot(list)
     def _on_next_steps_received(self, next_steps: list[str]) -> None:
@@ -1692,7 +1693,7 @@ class ConsultantView(QWidget):
         self.lbl_chat_status.setText("")
         if self._active_ai_message:
             self._active_ai_message.mark_as_cancelled()
-        show_toast(self, "Génération interrompue.")
+        show_toast(self, self.tr("Génération interrompue."))
 
     @Slot(str)
     def _on_ai_error(self, error: str) -> None:

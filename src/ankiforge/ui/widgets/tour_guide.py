@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.buttons import ActionButton, PrimaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ class TourBubble(QWidget):
         bg_layout.setContentsMargins(20, 20, 20, 18)
         bg_layout.setSpacing(12)
 
-        self.lbl_title = QLabel("Titre")
+        self.lbl_title = QLabel(self.tr("Titre"))
         self.lbl_title.setStyleSheet(f"""
             font-size: 16px;
             font-weight: bold;
@@ -93,7 +94,7 @@ class TourBubble(QWidget):
         """)
         bg_layout.addWidget(self.lbl_title)
 
-        self.lbl_text = QLabel("Description...")
+        self.lbl_text = QLabel(self.tr("Description..."))
         self.lbl_text.setStyleSheet(f"""
             font-size: 13px;
             line-height: 1.4;
@@ -119,7 +120,7 @@ class TourBubble(QWidget):
         self.btn_prev.clicked.connect(self.prev_step)
         btn_layout.addWidget(self.btn_prev)
 
-        self.lbl_counter = QLabel("1/x")
+        self.lbl_counter = QLabel(self.tr("1/x"))
         self.lbl_counter.setStyleSheet(f"""
             color: {DesignTokens.TEXT_MUTED};
             font-weight: 600;
@@ -184,16 +185,16 @@ class TourBubble(QWidget):
 
         self.lbl_title.setText(step.title)
         self.lbl_text.setText(step.text)
-        self.lbl_counter.setText(f"{self.current_step + 1}/{len(self.steps)}")
+        self.lbl_counter.setText(tr("%1/%2", self.current_step + 1, len(self.steps)))
 
         # Gestion des boutons
         self.btn_prev.setVisible(self.current_step > 0)
 
         if self.current_step == len(self.steps) - 1:
-            self.btn_next.setText(" Terminer")
+            self.btn_next.setText(self.tr(" Terminer"))
             self.btn_next.setIcon(load_on_accent_icon("check"))
         else:
-            self.btn_next.setText(" Suivant")
+            self.btn_next.setText(self.tr(" Suivant"))
             self.btn_next.setIcon(load_on_accent_icon("arrow-right"))
 
         QApplication.processEvents()

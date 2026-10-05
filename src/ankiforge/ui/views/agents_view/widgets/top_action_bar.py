@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QWidget
 from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.buttons import apply_compact_style
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -36,14 +37,14 @@ class ResponsiveAgentTopActionBar(QFrame):
         layout.addWidget(self.lbl_agent_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Titre de l'Agent
-        self.lbl_agent_title = QLabel("Agent sélectionné")
+        self.lbl_agent_title = QLabel(self.tr("Agent sélectionné"))
         self.lbl_agent_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
         self.lbl_agent_title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         self.lbl_agent_title.setMaximumWidth(220)
         layout.addWidget(self.lbl_agent_title, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Badges sémantiques
-        self.scope_badge = Badge("Pipeline", variant="primary")
+        self.scope_badge = Badge(tr("Pipeline"), variant="primary")
         self.scope_badge.setFixedHeight(20)
         layout.addWidget(self.scope_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -58,25 +59,25 @@ class ResponsiveAgentTopActionBar(QFrame):
         self.btn_history.setIcon(load_phosphor_icon("ph.clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY))
         self.btn_history.setIconSize(QSize(14, 14))
         apply_compact_style(self.btn_history, height=30)
-        self.btn_history.setToolTip("Machine à Remonter le Temps : Historique et diffs des prompts")
+        self.btn_history.setToolTip(self.tr("Machine à Remonter le Temps : Historique et diffs des prompts"))
 
         self.btn_test = SecondaryButton("Tester")
         self.btn_test.setIcon(load_phosphor_icon("ph.flask", color=DesignTokens.TEXT_PRIMARY))
         self.btn_test.setIconSize(QSize(14, 14))
         apply_compact_style(self.btn_test, height=30)
-        self.btn_test.setToolTip("Tester unitairement cet agent avec un extrait de texte")
+        self.btn_test.setToolTip(self.tr("Tester unitairement cet agent avec un extrait de texte"))
 
         self.btn_import = SecondaryButton("Importer")
         self.btn_import.setIcon(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY))
         self.btn_import.setIconSize(QSize(14, 14))
         apply_compact_style(self.btn_import, height=30)
-        self.btn_import.setToolTip("Importer un agent depuis un autre profil")
+        self.btn_import.setToolTip(self.tr("Importer un agent depuis un autre profil"))
 
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save.setIconSize(QSize(14, 14))
         apply_compact_style(self.btn_save, height=30)
-        self.btn_save.setToolTip("Enregistrer les modifications de l'agent")
+        self.btn_save.setToolTip(self.tr("Enregistrer les modifications de l'agent"))
 
         layout.addWidget(self.btn_history)
         layout.addWidget(self.btn_test)

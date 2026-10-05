@@ -43,7 +43,7 @@ class ImageOcclusionDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Masquage d'Images Intelligent & Vision (Image Occlusion)")
+        self.setWindowTitle(self.tr("Masquage d'Images Intelligent & Vision (Image Occlusion)"))
         self.resize(1100, 750)
         self.setMinimumSize(850, 600)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
@@ -74,7 +74,7 @@ class ImageOcclusionDialog(QDialog):
         icon_lbl.setPixmap(load_phosphor_icon("ph.bounding-box", color=DesignTokens.ACCENT_PRIMARY).pixmap(22, 22))
         header_layout.addWidget(icon_lbl)
 
-        title_lbl = QLabel("Masquage d'Images Intelligent (Image Occlusion IA)")
+        title_lbl = QLabel(self.tr("Masquage d'Images Intelligent (Image Occlusion IA)"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 15px;")
         header_layout.addWidget(title_lbl)
 
@@ -93,7 +93,7 @@ class ImageOcclusionDialog(QDialog):
         header_layout.addWidget(btn_paste)
 
         # Bouton Fermer
-        btn_close = IconButton("ph.x", tooltip="Fermer le dialogue", size=24)
+        btn_close = IconButton("ph.x", tooltip=self.tr("Fermer le dialogue"), size=24)
         btn_close.clicked.connect(self.accept)
         header_layout.addWidget(btn_close)
 
@@ -120,7 +120,7 @@ class ImageOcclusionDialog(QDialog):
         clipboard = QGuiApplication.clipboard()
         image = clipboard.image()
         if image.isNull():
-            show_toast(self, "Aucune image trouvée dans le presse-papier.", is_error=False)
+            show_toast(self, self.tr("Aucune image trouvée dans le presse-papier."), is_error=False)
             return
 
         # Sauvegarde temporaire pour traitement
@@ -130,7 +130,7 @@ class ImageOcclusionDialog(QDialog):
         self._temp_files.append(temp_path)
 
         self.editor.load_image(temp_path)
-        show_toast(self, "Image collée depuis le presse-papier avec succès !", is_error=False)
+        show_toast(self, self.tr("Image collée depuis le presse-papier avec succès !"), is_error=False)
 
     def _on_notes_created(self, notes: list[NoteModel]) -> None:
         """Gère la confirmation de génération des cartes."""

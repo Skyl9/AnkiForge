@@ -40,6 +40,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view.constants import PERSONA_TYPE_SPECS
 from ankiforge.ui.views.agents_view.widgets.sub_tab_button import SubTabButton
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -142,7 +143,7 @@ class PersonaCreationWizardDialog(QDialog):
         self._template_cards: list[tuple[TemplateCard, PersonaTemplate]] = []
         self._active_category: str = "all"
 
-        self.setWindowTitle("Créer un Nouvel Agent IA — Galerie de Modèles")
+        self.setWindowTitle(self.tr("Créer un Nouvel Agent IA — Galerie de Modèles"))
         self.resize(920, 620)
         self.setStyleSheet(f"""
             QDialog {{
@@ -162,8 +163,8 @@ class PersonaCreationWizardDialog(QDialog):
         top_bar = QHBoxLayout()
         top_bar.setSpacing(8)
 
-        self.btn_mode_gallery = SubTabButton("✨ Modèles Prêts à l'Emploi", "ph.sparkle")
-        self.btn_mode_custom = SubTabButton("➕ Agent Vierge Personnalisé", "ph.plus")
+        self.btn_mode_gallery = SubTabButton(tr("✨ Modèles Prêts à l'Emploi"), "ph.sparkle")
+        self.btn_mode_custom = SubTabButton(tr("➕ Agent Vierge Personnalisé"), "ph.plus")
 
         self.btn_mode_gallery.clicked.connect(lambda: self._switch_mode(0))
         self.btn_mode_custom.clicked.connect(lambda: self._switch_mode(1))
@@ -195,7 +196,7 @@ class PersonaCreationWizardDialog(QDialog):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(8)
 
-        self.edit_gallery_search = GlowLineEdit(placeholder="Rechercher un modèle (Wozniak, Langues, KaTeX, Médecine)...")
+        self.edit_gallery_search = GlowLineEdit(placeholder=self.tr("Rechercher un modèle (Wozniak, Langues, KaTeX, Médecine)..."))
         self.edit_gallery_search.setFixedHeight(30)
         self.edit_gallery_search.textChanged.connect(self._apply_gallery_filters)
         left_layout.addWidget(self.edit_gallery_search)
@@ -259,7 +260,7 @@ class PersonaCreationWizardDialog(QDialog):
         right_layout.addWidget(self.lbl_preview_title)
 
         # Champ Nom de l'agent (personnalisable)
-        lbl_custom_name = QLabel("NOM DE VOTRE NOUVEL AGENT :")
+        lbl_custom_name = QLabel(self.tr("NOM DE VOTRE NOUVEL AGENT :"))
         lbl_custom_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         right_layout.addWidget(lbl_custom_name)
 
@@ -268,7 +269,7 @@ class PersonaCreationWizardDialog(QDialog):
         right_layout.addWidget(self.edit_template_agent_name)
 
         # Dossier de destination
-        lbl_dest_folder = QLabel("DOSSIER DE DESTINATION :")
+        lbl_dest_folder = QLabel(self.tr("DOSSIER DE DESTINATION :"))
         lbl_dest_folder.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         right_layout.addWidget(lbl_dest_folder)
 
@@ -277,7 +278,7 @@ class PersonaCreationWizardDialog(QDialog):
         right_layout.addWidget(self.combo_gallery_folder)
 
         # Aperçu du prompt système
-        lbl_prompt_prev = QLabel("APERÇU DU PROMPT SYSTÈME (JINJA2) :")
+        lbl_prompt_prev = QLabel(self.tr("APERÇU DU PROMPT SYSTÈME (JINJA2) :"))
         lbl_prompt_prev.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         right_layout.addWidget(lbl_prompt_prev)
 
@@ -323,24 +324,24 @@ class PersonaCreationWizardDialog(QDialog):
         custom_layout.setContentsMargins(16, 16, 16, 16)
         custom_layout.setSpacing(12)
 
-        lbl_custom_header = QLabel("Créer un Agent Personnalisé (Page Blanche)")
+        lbl_custom_header = QLabel(self.tr("Créer un Agent Personnalisé (Page Blanche)"))
         lbl_custom_header.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         custom_layout.addWidget(lbl_custom_header)
 
         # Nom
-        lbl_c_name = QLabel("NOM DE L'AGENT :")
+        lbl_c_name = QLabel(self.tr("NOM DE L'AGENT :"))
         lbl_c_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         custom_layout.addWidget(lbl_c_name)
         self.edit_custom_name = StyledLineEdit()
-        self.edit_custom_name.setPlaceholderText("ex: Mon Agent Spécialiste")
+        self.edit_custom_name.setPlaceholderText(self.tr("ex: Mon Agent Spécialiste"))
         custom_layout.addWidget(self.edit_custom_name)
 
         # Description
-        lbl_c_desc = QLabel("DESCRIPTION & MISSION :")
+        lbl_c_desc = QLabel(self.tr("DESCRIPTION & MISSION :"))
         lbl_c_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         custom_layout.addWidget(lbl_c_desc)
         self.edit_custom_desc = StyledLineEdit()
-        self.edit_custom_desc.setPlaceholderText("ex: Extrait les définitions et cas pratiques du cours.")
+        self.edit_custom_desc.setPlaceholderText(self.tr("ex: Extrait les définitions et cas pratiques du cours."))
         custom_layout.addWidget(self.edit_custom_desc)
 
         # Ligne Portée + Format + Dossier
@@ -348,7 +349,7 @@ class PersonaCreationWizardDialog(QDialog):
         row_c_props.setSpacing(10)
 
         col_scope = QVBoxLayout()
-        lbl_s = QLabel("PORTÉE D'USAGE :")
+        lbl_s = QLabel(self.tr("PORTÉE D'USAGE :"))
         lbl_s.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         col_scope.addWidget(lbl_s)
         self.combo_custom_scope = StyledComboBox()
@@ -358,16 +359,16 @@ class PersonaCreationWizardDialog(QDialog):
         row_c_props.addLayout(col_scope, 1)
 
         col_fmt = QVBoxLayout()
-        lbl_f = QLabel("FORMAT DE SORTIE :")
+        lbl_f = QLabel(self.tr("FORMAT DE SORTIE :"))
         lbl_f.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         col_fmt.addWidget(lbl_f)
         self.combo_custom_format = StyledComboBox()
-        self.combo_custom_format.addItems(["json", "cloze", "markdown", "text"])
+        self.combo_custom_format.addItems([self.tr("json"), self.tr("cloze"), self.tr("markdown"), self.tr("text")])
         col_fmt.addWidget(self.combo_custom_format)
         row_c_props.addLayout(col_fmt, 1)
 
         col_folder = QVBoxLayout()
-        lbl_fol = QLabel("DOSSIER :")
+        lbl_fol = QLabel(self.tr("DOSSIER :"))
         lbl_fol.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         col_folder.addWidget(lbl_fol)
         self.combo_custom_folder = StyledComboBox()
@@ -378,11 +379,11 @@ class PersonaCreationWizardDialog(QDialog):
         custom_layout.addLayout(row_c_props)
 
         # Prompt
-        lbl_c_prompt = QLabel("PROMPT SYSTÈME INITIAL :")
+        lbl_c_prompt = QLabel(self.tr("PROMPT SYSTÈME INITIAL :"))
         lbl_c_prompt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         custom_layout.addWidget(lbl_c_prompt)
         self.edit_custom_prompt = QPlainTextEdit()
-        self.edit_custom_prompt.setPlaceholderText("Tu es un assistant expert pour Anki...\nUtilisez {{ text_source }}.")
+        self.edit_custom_prompt.setPlaceholderText(self.tr("Tu es un assistant expert pour Anki...\nUtilisez {{ text_source }}."))
         self.edit_custom_prompt.setPlainText("Tu es un assistant expert pour Anki.\n\n### Mission :\n{{ text_source }}")
         self.edit_custom_prompt.setStyleSheet(f"""
             QPlainTextEdit {{
@@ -424,12 +425,12 @@ class PersonaCreationWizardDialog(QDialog):
 
     def _populate_folder_combo(self, combo: StyledComboBox) -> None:
         combo.clear()
-        combo.addItem("📁 Racine (Sans dossier)", userData=None)
+        combo.addItem(self.tr("📁 Racine (Sans dossier)"), userData=None)
 
         def _add_recursive(parent_id: int | None, prefix: str = "") -> None:
             children = [f for f in self.cached_folders if (f.parent.id if f.parent else None) == parent_id]
             for ch in children:
-                combo.addItem(f"{prefix}📁 {ch.name}", userData=ch.id)
+                combo.addItem(tr("%1📁 %2", prefix, ch.name), userData=ch.id)
                 _add_recursive(ch.id, prefix + "   ")
 
         _add_recursive(None)
@@ -467,7 +468,7 @@ class PersonaCreationWizardDialog(QDialog):
         tpl = self._selected_template
         agent_name = self.edit_template_agent_name.text().strip()
         if not agent_name:
-            show_toast(self, "Veuillez renseigner un nom pour votre agent.", is_error=True)
+            show_toast(self, self.tr("Veuillez renseigner un nom pour votre agent."), is_error=True)
             return
 
         folder_id = self.combo_gallery_folder.currentData()
@@ -488,7 +489,7 @@ class PersonaCreationWizardDialog(QDialog):
                 )
 
             self.created_persona = new_p
-            show_toast(self, f"Agent '{agent_name}' créé avec succès !")
+            show_toast(self, tr("Agent '%1' créé avec succès !", agent_name))
             self.accept()
         except Exception as e:
             log_and_notify_error(e, context="Création d'agent depuis modèle", parent=self, title="Erreur de création")
@@ -496,7 +497,7 @@ class PersonaCreationWizardDialog(QDialog):
     def _on_create_custom_persona(self) -> None:
         name = self.edit_custom_name.text().strip()
         if not name:
-            show_toast(self, "Le nom de l'agent ne peut pas être vide.", is_error=True)
+            show_toast(self, self.tr("Le nom de l'agent ne peut pas être vide."), is_error=True)
             return
 
         desc = self.edit_custom_desc.text().strip()
@@ -522,7 +523,7 @@ class PersonaCreationWizardDialog(QDialog):
                 )
 
             self.created_persona = new_p
-            show_toast(self, f"Agent '{name}' créé avec succès !")
+            show_toast(self, tr("Agent '%1' créé avec succès !", name))
             self.accept()
         except Exception as e:
             log_and_notify_error(e, context="Création d'agent vierge", parent=self, title="Erreur de création")

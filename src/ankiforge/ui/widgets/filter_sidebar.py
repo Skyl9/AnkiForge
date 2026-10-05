@@ -10,6 +10,7 @@ from ankiforge.database.models import CardModel, DeckModel, NoteModel
 from ankiforge.ui.components import RoundedPanel
 from ankiforge.ui.theme import StyledMenu
 from ankiforge.utils.hierarchy import descendants_prefix, join_hierarchy, split_hierarchy
+from ankiforge.utils.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class FilterSidebar(RoundedPanel):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
 
-        lbl_nav = QLabel("EXPLORATEUR")
+        lbl_nav = QLabel(tr("EXPLORATEUR"))
         lbl_nav.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         layout.addWidget(lbl_nav)
 
@@ -48,7 +49,7 @@ class FilterSidebar(RoundedPanel):
         separator.setStyleSheet("background-color: palette(alternate-base); max-height: 1px; border: none; margin-top: 8px; margin-bottom: 8px;")
         layout.addWidget(separator)
 
-        lbl_tags = QLabel("FILTRES (TAGS)")
+        lbl_tags = QLabel(tr("FILTRES (TAGS)"))
         layout.addSpacing(10)
         lbl_tags.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         layout.addWidget(lbl_tags)
@@ -156,6 +157,6 @@ class FilterSidebar(RoundedPanel):
             return
 
         menu = StyledMenu(self)
-        action = QAction(f"Options pour '{tag}'", self)
+        action = QAction(tr("Options pour '%1'", tag), self)
         menu.addAction(action)
         menu.exec(self.tag_list.mapToGlobal(pos))

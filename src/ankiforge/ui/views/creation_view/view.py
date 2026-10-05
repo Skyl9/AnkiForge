@@ -88,6 +88,7 @@ from ankiforge.utils.event_bus import (
     event_bus,
 )
 from ankiforge.utils.hierarchy import SEPARATOR
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error, redact_secrets
 from ankiforge.utils.tags import build_document_tags
@@ -186,7 +187,7 @@ class CreationView(QWidget):
         explorer_layout.setContentsMargins(10, 10, 10, 10)
         explorer_layout.setSpacing(8)
 
-        self.btn_new_free_input = SecondaryButton("Nouvelle Saisie Libre", tooltip="Créer une saisie libre sans document source")
+        self.btn_new_free_input = SecondaryButton("Nouvelle Saisie Libre", tooltip=self.tr("Créer une saisie libre sans document source"))
         self.btn_new_free_input.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
         explorer_layout.addWidget(self.btn_new_free_input)
 
@@ -252,7 +253,7 @@ class CreationView(QWidget):
         src_ico = QLabel()
         src_ico.setPixmap(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
         src_ico.setStyleSheet("border: none; background: transparent;")
-        lbl_src = QLabel("DOCUMENT SOURCE")
+        lbl_src = QLabel(self.tr("DOCUMENT SOURCE"))
         lbl_src.setMinimumWidth(0)
         lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         src_top.addWidget(src_ico)
@@ -309,7 +310,7 @@ class CreationView(QWidget):
         target_ico = QLabel()
         target_ico.setPixmap(load_phosphor_icon("ph.cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         target_ico.setStyleSheet("border: none; background: transparent;")
-        lbl_target = QLabel("CIBLES ANKI")
+        lbl_target = QLabel(self.tr("CIBLES ANKI"))
         lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         target_top.addWidget(target_ico)
         target_top.addWidget(lbl_target)
@@ -359,7 +360,7 @@ class CreationView(QWidget):
         ai_ico = QLabel()
         ai_ico.setPixmap(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
         ai_ico.setStyleSheet("border: none; background: transparent;")
-        lbl_ai = QLabel("ORCHESTRATION IA")
+        lbl_ai = QLabel(self.tr("ORCHESTRATION IA"))
         lbl_ai.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         ai_top.addWidget(ai_ico)
         ai_top.addWidget(lbl_ai)
@@ -412,7 +413,7 @@ class CreationView(QWidget):
         vision_top = QHBoxLayout()
         self.lbl_vision_icon = QLabel()
         self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
-        self.lbl_vision_title = QLabel("Vision Multimodale")
+        self.lbl_vision_title = QLabel(self.tr("Vision Multimodale"))
         self.lbl_vision_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
 
         self.vision_badge = Badge("OFF", variant="neutral")
@@ -426,7 +427,7 @@ class CreationView(QWidget):
         vision_top.addWidget(self.vision_badge)
         vision_layout.addLayout(vision_top)
 
-        self.lbl_vision_desc = QLabel("Extraction multimodale des figures, schémas & planches.")
+        self.lbl_vision_desc = QLabel(self.tr("Extraction multimodale des figures, schémas & planches."))
         self.lbl_vision_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         self.lbl_vision_desc.setWordWrap(True)
         vision_layout.addWidget(self.lbl_vision_desc)
@@ -451,11 +452,11 @@ class CreationView(QWidget):
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_toggle_advanced.setToolTip("Afficher ou masquer les réglages avancés de génération")
+        self.btn_toggle_advanced.setToolTip(self.tr("Afficher ou masquer les réglages avancés de génération"))
 
         advanced_header = QHBoxLayout(self.btn_toggle_advanced)
         advanced_header.setContentsMargins(0, 0, 0, 0)
-        advanced_lbl = QLabel("Paramètres Avancés")
+        advanced_lbl = QLabel(self.tr("Paramètres Avancés"))
         advanced_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; background: transparent; border: none;")
 
         self.advanced_icon = QLabel()
@@ -485,9 +486,9 @@ class CreationView(QWidget):
 
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
-        temp_lbl = QLabel("Température")
+        temp_lbl = QLabel(self.tr("Température"))
         temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
-        self.val_temp_lbl = QLabel("0.7")
+        self.val_temp_lbl = QLabel(self.tr("0.7"))
         self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         temp_header.addWidget(temp_lbl)
         temp_header.addStretch()
@@ -505,9 +506,9 @@ class CreationView(QWidget):
 
         tokens_layout = QVBoxLayout()
         tokens_header = QHBoxLayout()
-        tokens_lbl = QLabel("Max Tokens")
+        tokens_lbl = QLabel(self.tr("Max Tokens"))
         tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
-        self.val_tokens_lbl = QLabel("65 536 tks")
+        self.val_tokens_lbl = QLabel(self.tr("65 536 tks"))
         self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         tokens_header.addWidget(tokens_lbl)
         tokens_header.addStretch()
@@ -591,29 +592,29 @@ class CreationView(QWidget):
         self.btn_save_anki = PrimaryButton("Enregistrer dans la Forge (0)")
         self.btn_save_anki.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_anki.setEnabled(False)
-        self.btn_save_anki.setToolTip("Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)")
+        self.btn_save_anki.setToolTip(self.tr("Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)"))
         main_bot_toolbar.addWidget(self.btn_save_anki)
 
         self.btn_accept_all = SecondaryButton("Tout valider")
         self.btn_accept_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
         self.btn_accept_all.setEnabled(False)
-        self.btn_accept_all.setToolTip("Marquer toutes les cartes générées comme 'Validée' (1-clic)")
+        self.btn_accept_all.setToolTip(self.tr("Marquer toutes les cartes générées comme 'Validée' (1-clic)"))
         self.btn_accept_all.clicked.connect(self._on_mark_all_accepted)
         main_bot_toolbar.addWidget(self.btn_accept_all)
 
         main_bot_toolbar.addStretch()
 
-        self.btn_rejeter = DangerButton("Rejeter", ghost=True)
+        self.btn_rejeter = DangerButton(tr("Rejeter"), ghost=True)
         self.btn_rejeter.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
-        self.btn_rejeter.setToolTip("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)")
+        self.btn_rejeter.setToolTip(self.tr("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)"))
 
         self.btn_editer = SecondaryButton("Éditer")
         self.btn_editer.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_editer.setToolTip("Modifier le texte de la carte (Raccourci: E)")
+        self.btn_editer.setToolTip(self.tr("Modifier le texte de la carte (Raccourci: E)"))
 
         self.btn_valider = PrimaryButton("Valider la carte")
         self.btn_valider.setIcon(load_on_accent_icon("ph.check"))
-        self.btn_valider.setToolTip("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)")
+        self.btn_valider.setToolTip(self.tr("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)"))
 
         main_bot_toolbar.addWidget(self.btn_rejeter)
         main_bot_toolbar.addWidget(self.btn_editer)
@@ -631,13 +632,13 @@ class CreationView(QWidget):
         logs_toolbar.setContentsMargins(0, 0, 0, 0)
         logs_toolbar.setSpacing(8)
 
-        logs_title_lbl = QLabel("Journal d'exécution en direct")
+        logs_title_lbl = QLabel(self.tr("Journal d'exécution en direct"))
         logs_title_lbl.setStyleSheet(f"font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         logs_toolbar.addWidget(logs_title_lbl)
 
         logs_toolbar.addStretch()
 
-        self.cb_autoscroll = QCheckBox("Défilement auto")
+        self.cb_autoscroll = QCheckBox(self.tr("Défilement auto"))
         self.cb_autoscroll.setChecked(True)
         self.cb_autoscroll.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         logs_toolbar.addWidget(self.cb_autoscroll)
@@ -659,7 +660,7 @@ class CreationView(QWidget):
 
         self.generation_logs_console = QPlainTextEdit()
         self.generation_logs_console.setReadOnly(True)
-        self.generation_logs_console.setPlaceholderText("Les étapes et messages de progression de la génération apparaîtront ici...")
+        self.generation_logs_console.setPlaceholderText(self.tr("Les étapes et messages de progression de la génération apparaîtront ici..."))
         self.generation_logs_console.setStyleSheet(
             f"background: {DesignTokens.BG_INPUT}; "
             f"border: 1px solid {DesignTokens.BORDER_COLOR}; "
@@ -681,7 +682,7 @@ class CreationView(QWidget):
         err_toolbar.setContentsMargins(0, 0, 0, 0)
         err_toolbar.setSpacing(8)
 
-        err_title_lbl = QLabel("Rapport d'erreurs")
+        err_title_lbl = QLabel(self.tr("Rapport d'erreurs"))
         err_title_lbl.setStyleSheet(f"font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         err_toolbar.addWidget(err_title_lbl)
 
@@ -693,7 +694,7 @@ class CreationView(QWidget):
 
         erreurs_layout.addLayout(err_toolbar)
 
-        self.err_lbl = QLabel("Aucune erreur lors du processus de génération.")
+        self.err_lbl = QLabel(self.tr("Aucune erreur lors du processus de génération."))
         self.err_lbl.setWordWrap(True)
         self.err_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
         erreurs_layout.addWidget(self.err_lbl)
@@ -980,7 +981,7 @@ class CreationView(QWidget):
         if not doc:
             from ankiforge.ui.widgets.toast import show_toast
 
-            show_toast(self, "Veuillez sélectionner un document à délimiter.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document à délimiter."), is_error=True)
             return
         if getattr(doc, "id", None):
             try:
@@ -997,7 +998,7 @@ class CreationView(QWidget):
             sp = getattr(reloaded_doc, "start_page", 1) or 1
             ep = getattr(reloaded_doc, "end_page", None)
             if ep is not None:
-                self.segment_inspector.input_page_scope.setText(f"{sp}-{ep}")
+                self.segment_inspector.input_page_scope.setText(tr("%1-%2", sp, ep))
             self.segment_inspector.set_document(reloaded_doc)
 
     @Slot()
@@ -1006,7 +1007,7 @@ class CreationView(QWidget):
         if not doc:
             from ankiforge.ui.widgets.toast import show_toast
 
-            show_toast(self, "Veuillez sélectionner un document pour définir sa portée.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document pour définir sa portée."), is_error=True)
             return
         if getattr(doc, "id", None):
             try:
@@ -1026,7 +1027,7 @@ class CreationView(QWidget):
     @Slot()
     def _on_preset_range(self) -> None:
         doc_total = getattr(self, "_current_doc_total_pages", 10) or 10
-        self.input_page_scope.setText(f"1-{min(10, doc_total)}")
+        self.input_page_scope.setText(tr("1-%1", min(10, doc_total)))
 
     @Slot(int)
     def _on_album_page_selected(self, page_num: int) -> None:
@@ -1179,7 +1180,7 @@ class CreationView(QWidget):
         is_visual = is_pdf or is_album or is_pptx
         self.vision_card.setVisible(is_visual)
         if is_visual:
-            self.lbl_vision_title.setText("Vision Multimodale")
+            self.lbl_vision_title.setText(self.tr("Vision Multimodale"))
             self.lbl_vision_desc.setText(vision_desc)
 
         self._on_page_scope_changed()
@@ -1190,7 +1191,7 @@ class CreationView(QWidget):
         if hasattr(self, "doc_picker_btn"):
             self.doc_picker_btn._open_selector_modal()
         else:
-            show_toast(self, "Sélectionnez ou double-cliquez sur un document à gauche.")
+            show_toast(self, self.tr("Sélectionnez ou double-cliquez sur un document à gauche."))
 
     def _toggle_vision_card(self) -> None:
         if not self.vision_card.isEnabled():
@@ -1240,7 +1241,7 @@ class CreationView(QWidget):
         self.lbl_vision_desc.setStyleSheet(f"color: {muted}; font-size: 11px; border: none; background: transparent;")
 
         if effective:
-            self.vision_badge.setText("ON")
+            self.vision_badge.setText(self.tr("ON"))
             self.vision_badge.set_variant("warning")
             self.vision_card.setStyleSheet(f"""
                 QFrame#visionCard {{
@@ -1250,7 +1251,7 @@ class CreationView(QWidget):
                 }}
             """)
         else:
-            self.vision_badge.setText("OFF")
+            self.vision_badge.setText(self.tr("OFF"))
             self.vision_badge.set_variant("neutral")
             border = muted if blocked else DesignTokens.BORDER_COLOR
             self.vision_card.setStyleSheet(f"""
@@ -1395,7 +1396,7 @@ class CreationView(QWidget):
 
             if not docs and not folders:
                 item = QTreeWidgetItem(self.file_tree)
-                item.setText(0, "Aucun document")
+                item.setText(0, self.tr("Aucun document"))
                 item.setIcon(0, load_phosphor_icon("ph.warning-circle", color=DesignTokens.TEXT_MUTED))
             else:
                 for doc in docs:
@@ -1415,13 +1416,13 @@ class CreationView(QWidget):
                     if is_album:
                         p_count = getattr(doc, "total_pages", 0) or 0
                         item.setIcon(0, load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE, weight="fill"))
-                        item.setText(0, f"{doc.title} ({p_count} planches)")
+                        item.setText(0, tr("%1 (%2 planches)", doc.title, p_count))
                     elif is_pdf:
                         if has_content:
                             item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED, weight="fill"))
                         else:
                             item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
-                            item.setText(0, f"{doc.title} (Non extrait)")
+                            item.setText(0, tr("%1 (Non extrait)", doc.title))
                     elif f_type == "epub" or title_lower.endswith(".epub"):
                         item.setIcon(0, load_phosphor_icon("ph.book-open", color=DesignTokens.COLOR_PURPLE, weight="fill"))
                     elif f_type == "pptx" or title_lower.endswith(".pptx"):
@@ -1458,7 +1459,7 @@ class CreationView(QWidget):
                 new_deck = self.deck_repo.get_or_create_deck_hierarchical(dk_name, description="Nouveau paquet créé depuis le Studio.")
                 self.refresh_data()
                 self._set_current_deck(new_deck)
-                show_toast(self, f"Paquet '{new_deck.name}' créé avec succès !")
+                show_toast(self, tr("Paquet '%1' créé avec succès !", new_deck.name))
             except Exception as e:
                 log_and_notify_error(e, context="Création de paquet", parent=self, title="Erreur")
 
@@ -1554,7 +1555,7 @@ class CreationView(QWidget):
         has_content = bool(doc.content and doc.content.strip())
 
         if is_pdf and not has_content:
-            show_toast(self, "Ce PDF n'a pas encore été extrait. Vous ne pouvez pas l'ouvrir en texte.", is_error=True)
+            show_toast(self, self.tr("Ce PDF n'a pas encore été extrait. Vous ne pouvez pas l'ouvrir en texte."), is_error=True)
             return
 
         doc_content = doc.content or ""
@@ -1620,7 +1621,7 @@ class CreationView(QWidget):
         if pages:
             doc_total = getattr(self, "_current_doc_total_pages", 9999) or 9999
             new_end = min(doc_total, pages[-1] + 1)
-            self.input_page_scope.setText(f"{pages[0]}-{new_end}")
+            self.input_page_scope.setText(tr("%1-%2", pages[0], new_end))
 
     @Slot()
     def _on_page_scope_changed(self) -> None:
@@ -1636,7 +1637,7 @@ class CreationView(QWidget):
             if active_segs:
                 count = len(active_segs)
                 unit_name = "section" if count == 1 else "sections"
-                self.scope_badge.setText(f"{count} {unit_name}")
+                self.scope_badge.setText(tr("%1 %2", count, unit_name))
                 self.scope_badge.set_variant("success")
                 total_words = sum(len(str(s.get("content", "")).split()) for s in active_segs)
                 approx_cards = max(1, total_words // 180) if total_words > 0 else 0
@@ -1652,9 +1653,9 @@ class CreationView(QWidget):
                         editor.set_album_scope(seg_pages)
                 return
 
-            self.scope_badge.setText(f"0 {unit_pl}")
+            self.scope_badge.setText(tr("0 %1", unit_pl))
             self.scope_badge.set_variant("danger")
-            self.lbl_scope_stats.setText(f"Aucune sélection ({unit_pl})")
+            self.lbl_scope_stats.setText(tr("Aucune sélection (%1)", unit_pl))
             editor = self._get_current_editor()
             if editor:
                 editor.set_scoped_extract("", "Aucune sélection", 0, is_scoped=True)
@@ -1662,10 +1663,10 @@ class CreationView(QWidget):
 
         count = len(pages)
         if count == 1:
-            self.scope_badge.setText(f"1 {unit_sg}")
+            self.scope_badge.setText(tr("1 %1", unit_sg))
             self.scope_badge.set_variant("neutral")
         else:
-            self.scope_badge.setText(f"{count} {unit_pl}")
+            self.scope_badge.setText(tr("%1 %2", count, unit_pl))
             self.scope_badge.set_variant("success")
 
         approx_words = count * 280
@@ -1746,12 +1747,12 @@ class CreationView(QWidget):
     def _on_generate_from_tree(self) -> None:
         selected_items = self.file_tree.selectedItems()
         if not selected_items:
-            show_toast(self, "Veuillez sélectionner un document dans l'arborescence.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document dans l'arborescence."), is_error=True)
             return
 
         doc = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
         if not doc or not hasattr(doc, "content"):
-            show_toast(self, "Veuillez sélectionner un document valide.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner un document valide."), is_error=True)
             return
 
         is_album = getattr(doc, "file_type", "") == "album"
@@ -1782,13 +1783,13 @@ class CreationView(QWidget):
             elif doc.content and doc.content.strip():
                 content_to_use = doc.content
             elif pages:
-                show_toast(self, "Cet album n'a pas encore été analysé par RAG Visuel ou Vision IA.", is_error=True)
+                show_toast(self, self.tr("Cet album n'a pas encore été analysé par RAG Visuel ou Vision IA."), is_error=True)
                 return
             else:
-                show_toast(self, "Cet album ne contient aucune page.", is_error=True)
+                show_toast(self, self.tr("Cet album ne contient aucune page."), is_error=True)
                 return
         elif not content_to_use or not content_to_use.strip():
-            show_toast(self, "Ce document est vide ou n'a pas encore été extrait.", is_error=True)
+            show_toast(self, self.tr("Ce document est vide ou n'a pas encore été extrait."), is_error=True)
             return
 
         self._on_generate(content_to_use, doc.title)
@@ -1803,7 +1804,7 @@ class CreationView(QWidget):
         except RuntimeError:
             self._deck_modal = None
 
-        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet cible", parent=self)
+        self._deck_modal = DeckSelectWindow(title=self.tr("Sélectionner un paquet cible"), parent=self)
         self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
         self._deck_modal.show()
 
@@ -1851,9 +1852,9 @@ class CreationView(QWidget):
             self.btn_select_model.setText(name)
         elif len(self.selected_models) > 1:
             first_name = getattr(self.selected_models[0], "name", str(self.selected_models[0]))
-            self.btn_select_model.setText(f"{first_name} (+{len(self.selected_models) - 1})")
+            self.btn_select_model.setText(tr("%1 (+%2)", first_name, len(self.selected_models) - 1))
         else:
-            self.btn_select_model.setText("Sélectionner un modèle...")
+            self.btn_select_model.setText(self.tr("Sélectionner un modèle..."))
 
     def _set_current_model(self, model: Any) -> None:
         self.current_model = model
@@ -1896,12 +1897,12 @@ class CreationView(QWidget):
         if hasattr(self, "segment_inspector") and has_doc and self.segment_inspector.segments_list.count() > 0:
             active_segs = self.segment_inspector.get_active_segments()
             if not active_segs:
-                show_toast(self, "Aucun fragment coché pour la génération. Cochez au moins un segment.", is_error=True)
+                show_toast(self, self.tr("Aucun fragment coché pour la génération. Cochez au moins un segment."), is_error=True)
                 return
             text_source = "\n\n---\n\n".join(seg["content"] for seg in active_segs)
 
         if not text_source:
-            show_toast(self, "Veuillez saisir un texte source ou sélectionner un document.", is_error=True)
+            show_toast(self, self.tr("Veuillez saisir un texte source ou sélectionner un document."), is_error=True)
             return
 
         selected_nt = self.current_model
@@ -1909,7 +1910,7 @@ class CreationView(QWidget):
         selected_engine = self.engine_combo.currentData()
 
         if not selected_engine:
-            show_toast(self, "Aucun moteur IA configuré. Veuillez configurer les clés API dans les paramètres.", is_error=True)
+            show_toast(self, self.tr("Aucun moteur IA configuré. Veuillez configurer les clés API dans les paramètres."), is_error=True)
             return
 
         nt_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
@@ -1982,7 +1983,7 @@ class CreationView(QWidget):
             self._append_generation_log(f'Source active : Saisie libre ({len(text_source)} car. : "{preview}")', level="INFO")
 
         # Réinitialiser l'état d'erreur
-        self.err_lbl.setText("Aucune erreur lors du processus de génération.")
+        self.err_lbl.setText(self.tr("Aucune erreur lors du processus de génération."))
         self.err_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
         self.results_panel.set_tab_title(self.TAB_INDEX_ERRORS, "Journal des Erreurs")
 
@@ -2011,17 +2012,17 @@ class CreationView(QWidget):
         clipboard = QApplication.clipboard()
         if clipboard:
             clipboard.setText(self.generation_logs_console.toPlainText())
-            show_toast(self, "Journal copié dans le presse-papiers.")
+            show_toast(self, self.tr("Journal copié dans le presse-papiers."))
 
     def _on_clear_logs(self) -> None:
         self.generation_logs_console.clear()
         self._last_generation_thoughts = {}
         self.btn_view_thoughts.setEnabled(False)
-        show_toast(self, "Journal d'exécution effacé.")
+        show_toast(self, self.tr("Journal d'exécution effacé."))
 
     def _on_view_thoughts(self) -> None:
         if not self._last_generation_thoughts:
-            show_toast(self, "Aucune réflexion IA capturée pour cette génération.")
+            show_toast(self, self.tr("Aucune réflexion IA capturée pour cette génération."))
             return
         from ankiforge.ui.views.creation_view.dialogs import ReasoningViewerDialog
 
@@ -2032,7 +2033,7 @@ class CreationView(QWidget):
         clipboard = QApplication.clipboard()
         if clipboard:
             clipboard.setText(self.err_lbl.text())
-            show_toast(self, "Erreur copiée dans le presse-papiers.")
+            show_toast(self, self.tr("Erreur copiée dans le presse-papiers."))
 
     def _append_generation_log(self, message: str, level: str = "INFO") -> None:
         """Ajoute une ligne horodatée et préfixée dans la console de logs d'exécution."""
@@ -2068,7 +2069,7 @@ class CreationView(QWidget):
         self._update_running_indicator()
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
-            active_editor.raw_editor.setPlaceholderText(f"Étape {step_order}: {desc}...")
+            active_editor.raw_editor.setPlaceholderText(tr("Étape %1: %2...", step_order, desc))
 
     @Slot(int, int, str)
     def _on_orchestrator_step_progress(self, current: int, total: int, detail: str) -> None:
@@ -2080,7 +2081,7 @@ class CreationView(QWidget):
         self._update_running_indicator()
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
-            active_editor.raw_editor.setPlaceholderText(f"{detail} ({current}/{total})...")
+            active_editor.raw_editor.setPlaceholderText(tr("%1 (%2/%3)...", detail, current, total))
 
     def _running_indicator_text(self) -> str:
         step_desc = getattr(self, "_running_step_desc", None) or "Génération…"
@@ -2142,12 +2143,12 @@ class CreationView(QWidget):
         dialog = HumanValidationDialog(state, self)
         res = dialog.exec()
         if res == QDialog.DialogCode.Accepted:
-            show_toast(self, "Plan validé ! Poursuite du pipeline...", is_error=False)
+            show_toast(self, self.tr("Plan validé ! Poursuite du pipeline..."), is_error=False)
             self._append_generation_log("Plan validé par l'utilisateur. Reprise du pipeline...", level="INFO")
             if self.orchestrator:
                 self.orchestrator.resume(state)
         else:
-            show_toast(self, "Génération interrompue par l'utilisateur.", is_error=False)
+            show_toast(self, self.tr("Génération interrompue par l'utilisateur."), is_error=False)
             self._append_generation_log("Génération interrompue lors de la validation humaine.", level="CANCEL")
             if self.orchestrator:
                 self.orchestrator.cancel()
@@ -2219,7 +2220,7 @@ class CreationView(QWidget):
         else:
             self._append_generation_log("Pipeline terminé (aucune carte générée). Vérifiez la sortie du modèle ou augmentez max_tokens.", level="ERROR")
             self.view_model.fail_generation("Aucune carte générée par le pipeline.")
-            show_toast(self, "Pipeline terminé : aucune carte générée. Vérifiez la sortie du modèle ou augmentez le budget de tokens.", is_error=True)
+            show_toast(self, self.tr("Pipeline terminé : aucune carte générée. Vérifiez la sortie du modèle ou augmentez le budget de tokens."), is_error=True)
         logger.info("[Orchestrateur] Fin du Pipeline. %d cartes obtenues.", len(cleaned_notes))
 
     @Slot(list)
@@ -2234,7 +2235,7 @@ class CreationView(QWidget):
         self._refresh_save_button()
         if len(cards) > 0:
             self.results_panel.set_active_tab(self.TAB_INDEX_CARDS)
-        show_toast(self, f"{len(cards)} cartes générées avec succès !", duration_ms=2500)
+        show_toast(self, tr("%1 cartes générées avec succès !", len(cards)), duration_ms=2500)
 
     @Slot(str)
     def _on_generation_error(self, err_msg: str) -> None:
@@ -2243,11 +2244,11 @@ class CreationView(QWidget):
         self._clear_running_indicator()
         self.results_panel.show()
         self._append_generation_log(f"Erreur de génération : {err_msg}", level="ERROR")
-        self.err_lbl.setText(f"Erreur de génération : {err_msg}")
+        self.err_lbl.setText(tr("Erreur de génération : %1", err_msg))
         self.err_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 12px;")
         self.results_panel.set_tab_title(self.TAB_INDEX_ERRORS, "Journal des Erreurs (1)")
         self.results_panel.set_active_tab(self.TAB_INDEX_ERRORS)
-        show_toast(self, f"Erreur : {err_msg}", is_error=True)
+        show_toast(self, tr("Erreur : %1", err_msg), is_error=True)
 
     @Slot()
     def _on_generation_cancelled(self) -> None:
@@ -2255,7 +2256,7 @@ class CreationView(QWidget):
         self.view_model.cancel_generation()
         self._clear_running_indicator()
         self._append_generation_log("Génération annulée.", level="CANCEL")
-        show_toast(self, "Génération annulée.", is_error=False)
+        show_toast(self, self.tr("Génération annulée."), is_error=False)
 
     def eventFilter(self, obj: Any, event: Any) -> bool:
         if obj == self.results_table and event.type() == QEvent.Type.KeyPress:
@@ -2279,7 +2280,7 @@ class CreationView(QWidget):
             self.view_model.cancel_generation()
             self._set_all_generation_states(False)
             self._append_generation_log("Annulation demandée par l'utilisateur...", level="CANCEL")
-            show_toast(self, "Pipeline annulé.", is_error=False)
+            show_toast(self, self.tr("Pipeline annulé."), is_error=False)
 
     def _get_table_field_columns(self) -> list[str]:
         """Détermine la liste ordonnée et unique des champs à afficher en colonnes dans le tableau."""
@@ -2368,13 +2369,15 @@ class CreationView(QWidget):
             header.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(len(headers) - 1, QHeaderView.ResizeMode.ResizeToContents)
 
+        # Clés = identifiants de statut persistés (donc littéraux), premier tuple = libellé
+        # affiché : seul celui-ci est traduit.
         _STATUS_META = {
-            "Acceptée": ("Validée", "ph.check-circle", "success"),
-            "Validée": ("Validée", "ph.check-circle", "success"),
-            "Refusée": ("Refusée", "ph.x-circle", "danger"),
-            "À valider": ("À valider", "ph.hourglass-simple", "warning"),
-            "En attente": ("En attente", "ph.hourglass-simple", "warning"),
-            "Enregistrée": ("Enregistrée", "ph.floppy-disk", "info"),
+            "Acceptée": (self.tr("Validée"), "ph.check-circle", "success"),
+            "Validée": (self.tr("Validée"), "ph.check-circle", "success"),
+            "Refusée": (self.tr("Refusée"), "ph.x-circle", "danger"),
+            "À valider": (self.tr("À valider"), "ph.hourglass-simple", "warning"),
+            "En attente": (self.tr("En attente"), "ph.hourglass-simple", "warning"),
+            "Enregistrée": (self.tr("Enregistrée"), "ph.floppy-disk", "info"),
         }
 
         for row, card in enumerate(self.generated_cards):
@@ -2432,7 +2435,7 @@ class CreationView(QWidget):
                     item.setToolTip(str(val))
                 else:
                     item = QTableWidgetItem("—")
-                    item.setToolTip(f"Le champ '{f_name}' ne fait pas partie du modèle '{card_model_name}'")
+                    item.setToolTip(tr("Le champ '%1' ne fait pas partie du modèle '%2'", f_name, card_model_name))
                     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable & ~Qt.ItemFlag.ItemIsSelectable)
                     item.setForeground(QColor(DesignTokens.TEXT_MUTED))
                     item.setBackground(QColor(DesignTokens.BG_INPUT))
@@ -2466,12 +2469,12 @@ class CreationView(QWidget):
     def _update_card_preview(self) -> None:
         total = len(self.generated_cards)
         if total == 0:
-            self.preview_widget.lbl_counter.setText("0 / 0")
+            self.preview_widget.lbl_counter.setText(self.tr("0 / 0"))
             self.preview_widget.set_status("À valider")
             return
 
         self.current_preview_index = max(0, min(self.current_preview_index, total - 1))
-        self.preview_widget.lbl_counter.setText(f"{self.current_preview_index + 1} / {total}")
+        self.preview_widget.lbl_counter.setText(tr("%1 / %2", self.current_preview_index + 1, total))
 
         card = self.generated_cards[self.current_preview_index]
         self.preview_widget.set_status(card.get("status", "À valider"))
@@ -2496,16 +2499,16 @@ class CreationView(QWidget):
         selected_rows = {idx.row() for idx in self.results_table.selectedIndexes()}
         count = len(selected_rows)
         if count > 1:
-            self.btn_valider.setText(f"Valider la sélection ({count})")
-            self.btn_valider.setToolTip(f"Valider les {count} cartes sélectionnées")
-            self.btn_rejeter.setText(f"Rejeter la sélection ({count})")
-            self.btn_rejeter.setToolTip(f"Rejeter les {count} cartes sélectionnées")
+            self.btn_valider.setText(tr("Valider la sélection (%1)", count))
+            self.btn_valider.setToolTip(tr("Valider les %1 cartes sélectionnées", count))
+            self.btn_rejeter.setText(tr("Rejeter la sélection (%1)", count))
+            self.btn_rejeter.setToolTip(tr("Rejeter les %1 cartes sélectionnées", count))
             self.btn_editer.setEnabled(False)
         else:
-            self.btn_valider.setText("Valider la carte")
-            self.btn_valider.setToolTip("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)")
-            self.btn_rejeter.setText("Rejeter")
-            self.btn_rejeter.setToolTip("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)")
+            self.btn_valider.setText(self.tr("Valider la carte"))
+            self.btn_valider.setToolTip(self.tr("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)"))
+            self.btn_rejeter.setText(self.tr("Rejeter"))
+            self.btn_rejeter.setToolTip(self.tr("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)"))
             self.btn_editer.setEnabled(True)
             if count == 1:
                 row = next(iter(selected_rows))
@@ -2570,11 +2573,11 @@ class CreationView(QWidget):
         validated_count = self._count_validated()
         total_count = len(self.generated_cards)
         if total_count > 0:
-            self.btn_save_anki.setText(f"Enregistrer dans la Forge ({validated_count}/{total_count})")
+            self.btn_save_anki.setText(tr("Enregistrer dans la Forge (%1/%2)", validated_count, total_count))
             self.btn_save_anki.setEnabled(True)
             self.btn_accept_all.setEnabled(True)
         else:
-            self.btn_save_anki.setText("Enregistrer dans la Forge (0)")
+            self.btn_save_anki.setText(self.tr("Enregistrer dans la Forge (0)"))
             self.btn_save_anki.setEnabled(False)
             self.btn_accept_all.setEnabled(False)
 
@@ -2612,7 +2615,7 @@ class CreationView(QWidget):
         else:
             self.results_table.selectRow(self.current_preview_index)
             self._update_card_preview()
-            show_toast(self, "Toutes les cartes ont été passées en revue !", is_error=False)
+            show_toast(self, self.tr("Toutes les cartes ont été passées en revue !"), is_error=False)
 
     @Slot()
     def _on_edit_card(self) -> None:
@@ -2658,7 +2661,7 @@ class CreationView(QWidget):
             card["status"] = previous_status
             self._populate_results_table()
             self._update_card_preview()
-            show_toast(self, "Carte modifiée en mémoire.")
+            show_toast(self, self.tr("Carte modifiée en mémoire."))
 
     @Slot()
     def _on_reject_card(self) -> None:
@@ -2695,7 +2698,7 @@ class CreationView(QWidget):
         else:
             self.results_table.selectRow(self.current_preview_index)
             self._update_card_preview()
-            show_toast(self, "Toutes les cartes ont été passées en revue.", is_error=False)
+            show_toast(self, self.tr("Toutes les cartes ont été passées en revue."), is_error=False)
 
     @Slot()
     def _on_mark_all_accepted(self) -> None:
@@ -2709,7 +2712,7 @@ class CreationView(QWidget):
             self._populate_results_table()
             self._refresh_save_button()
             self._update_card_preview()
-            show_toast(self, f"{changed} carte(s) marquée(s) comme 'Validée'.", is_error=False)
+            show_toast(self, tr("%1 carte(s) marquée(s) comme 'Validée'.", changed), is_error=False)
 
     def _on_table_context_menu(self, pos: Any) -> None:
         """Menu contextuel granulaire pour le tableau des cartes."""
@@ -2718,37 +2721,37 @@ class CreationView(QWidget):
         menu = QMenu(self)
 
         if len(selected_rows) > 1:
-            act_val_sel = menu.addAction(f"Valider la sélection ({len(selected_rows)})")
+            act_val_sel = menu.addAction(tr("Valider la sélection (%1)", len(selected_rows)))
             act_val_sel.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
             act_val_sel.triggered.connect(self._on_validate_card)
 
-            act_rej_sel = menu.addAction(f"Rejeter la sélection ({len(selected_rows)})")
+            act_rej_sel = menu.addAction(tr("Rejeter la sélection (%1)", len(selected_rows)))
             act_rej_sel.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
             act_rej_sel.triggered.connect(self._on_reject_card)
 
-            act_reset_sel = menu.addAction(f"Remettre en attente ({len(selected_rows)})")
+            act_reset_sel = menu.addAction(tr("Remettre en attente (%1)", len(selected_rows)))
             act_reset_sel.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
             act_reset_sel.triggered.connect(self._on_reset_table_selection)
             menu.addSeparator()
         elif row >= 0:
-            act_accept = menu.addAction("Valider la carte (V)")
+            act_accept = menu.addAction(self.tr("Valider la carte (V)"))
             act_accept.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
             act_accept.triggered.connect(lambda _=False, r=row: self._set_card_status(r, "Validée"))
 
-            act_reject = menu.addAction("Rejeter la carte (R)")
+            act_reject = menu.addAction(self.tr("Rejeter la carte (R)"))
             act_reject.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
             act_reject.triggered.connect(lambda _=False, r=row: self._set_card_status(r, "Refusée"))
 
-            act_reset = menu.addAction("Remettre en attente")
+            act_reset = menu.addAction(self.tr("Remettre en attente"))
             act_reset.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
             act_reset.triggered.connect(lambda _=False, r=row: self._set_card_status(r, "À valider"))
 
-            act_edit = menu.addAction("Éditer la carte... (E)")
+            act_edit = menu.addAction(self.tr("Éditer la carte... (E)"))
             act_edit.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
             act_edit.triggered.connect(self._on_edit_card)
             menu.addSeparator()
 
-        act_all = menu.addAction("Tout valider")
+        act_all = menu.addAction(self.tr("Tout valider"))
         act_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
         act_all.triggered.connect(self._on_mark_all_accepted)
 
@@ -2775,7 +2778,7 @@ class CreationView(QWidget):
     @Slot()
     def _on_save_anki(self) -> None:
         if not self.generated_cards:
-            show_toast(self, "Aucune carte générée à enregistrer.", is_error=True)
+            show_toast(self, self.tr("Aucune carte générée à enregistrer."), is_error=True)
             return
 
         pending_cards = [c for c in self.generated_cards if c.get("status") in ("À valider", "En attente")]
@@ -2784,8 +2787,8 @@ class CreationView(QWidget):
         if pending_cards:
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Question)
-            msg_box.setWindowTitle("Enregistrement des Cartes")
-            msg_box.setText(f"Il reste <b>{len(pending_cards)} carte(s)</b> en attente de décision.")
+            msg_box.setWindowTitle(self.tr("Enregistrement des Cartes"))
+            msg_box.setText(tr("Il reste <b>%1 carte(s)</b> en attente de décision.", len(pending_cards)))
             msg_box.setInformativeText("Souhaitez-vous tout valider automatiquement ou enregistrer uniquement les cartes déjà marquées 'Validée' ?")
 
             btn_accept_all = msg_box.addButton(
@@ -2808,18 +2811,18 @@ class CreationView(QWidget):
                 validated_cards = [c for c in self.generated_cards if c.get("status") == "Validée"]
             elif clicked_btn == btn_save_validated:
                 if not validated_cards:
-                    show_toast(self, "Aucune carte n'a encore été marquée 'Validée'. Utilisez 'Garder' ou validez tout.", is_error=True)
+                    show_toast(self, self.tr("Aucune carte n'a encore été marquée 'Validée'. Utilisez 'Garder' ou validez tout."), is_error=True)
                     return
             else:
                 return
 
         if not validated_cards:
-            show_toast(self, "Aucune carte 'Validée' à enregistrer. Utilisez 'Garder' pour valider des cartes.", is_error=True)
+            show_toast(self, self.tr("Aucune carte 'Validée' à enregistrer. Utilisez 'Garder' pour valider des cartes."), is_error=True)
             return
 
         selected_nt = self.current_model
         if not selected_nt:
-            show_toast(self, "Aucun modèle de carte sélectionné.", is_error=True)
+            show_toast(self, self.tr("Aucun modèle de carte sélectionné."), is_error=True)
             return
 
         deck_data = self.current_deck
@@ -2933,7 +2936,7 @@ class CreationView(QWidget):
                     CoverageAlignmentService.sync_coverage_from_tags(doc_id=active_doc.id)
                 except Exception as err:
                     logger.debug("Synchronisation de la couverture ignorée : %s", err)
-            show_toast(self, f"{saved_count} carte(s) enregistrée(s) dans la Forge !", is_error=False)
+            show_toast(self, tr("%1 carte(s) enregistrée(s) dans la Forge !", saved_count), is_error=False)
             self._check_completion()
 
         except Exception as e:
@@ -2946,7 +2949,7 @@ class CreationView(QWidget):
             if pending:
                 show_toast(
                     self,
-                    f"{pending} carte(s) restante(s) à traiter (Garder ou Rejeter).",
+                    tr("%1 carte(s) restante(s) à traiter (Garder ou Rejeter).", pending),
                     is_error=False,
                 )
             return
@@ -2956,7 +2959,7 @@ class CreationView(QWidget):
         refused = counts.get("Refusée", 0)
         show_toast(
             self,
-            f"Session terminée : {saved} carte(s) enregistrée(s), {refused} refusée(s).",
+            tr("Session terminée : %1 carte(s) enregistrée(s), %2 refusée(s).", saved, refused),
             is_error=False,
         )
 
@@ -2972,8 +2975,8 @@ class CreationView(QWidget):
             unsaved_count = sum(1 for c in self.generated_cards if c.get("status") in ("Validée", "À valider", "En attente"))
             reply = QMessageBox.question(
                 self,
-                "Quitter le Studio de Création ?",
-                f"{unsaved_count} carte(s) générée(s) n'ont pas encore été enregistrées dans la Forge.\n\nVoulez-vous vraiment fermer sans enregistrer ?",
+                self.tr("Quitter le Studio de Création ?"),
+                tr("%1 carte(s) générée(s) n'ont pas encore été enregistrées dans la Forge.\n\nVoulez-vous vraiment fermer sans enregistrer ?", unsaved_count),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )

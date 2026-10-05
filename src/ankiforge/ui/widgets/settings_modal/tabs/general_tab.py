@@ -26,6 +26,7 @@ from ankiforge.ui.widgets.settings_modal.components import (
     SettingsCard,
 )
 from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
+from ankiforge.utils.i18n import FALLBACK_LANGUAGE, available_languages, language_label, normalize_language, tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         profile_name = self._get_profile_name()
 
         # ── SECTION 1 : APPARENCE & INTERFACE ────────────────────────────────
-        self.lbl_sec_app = QLabel("APPARENCE & INTERFACE")
+        self.lbl_sec_app = QLabel(self.tr("APPARENCE & INTERFACE"))
         self.lbl_sec_app.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_app)
 
@@ -86,7 +87,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.rows_labels: list[QLabel] = []
 
         # 1. Disposition de l'interface (Layout) : Grille de miniatures
-        self.lbl_layout_title = QLabel("Disposition de l'interface (Layout) :")
+        self.lbl_layout_title = QLabel(self.tr("Disposition de l'interface (Layout) :"))
         self.lbl_layout_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         card_app_layout.addWidget(self.lbl_layout_title)
 
@@ -100,9 +101,9 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.cb_mode = StyledComboBox()
         self.cb_mode.setMinimumWidth(260)
         self.cb_mode.setFixedHeight(30)
-        self.cb_mode.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.ACCENT_PRIMARY), "Mode Sombre (Dark)", "dark")
-        self.cb_mode.addItem(load_phosphor_icon("ph.sun", color=DesignTokens.COLOR_YELLOW), "Mode Clair (Light)", "light")
-        self.cb_mode.addItem(load_phosphor_icon("ph.monitor", color=DesignTokens.TEXT_PRIMARY), "Suivre le thème système", "system")
+        self.cb_mode.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.ACCENT_PRIMARY), self.tr("Mode Sombre (Dark)"), "dark")
+        self.cb_mode.addItem(load_phosphor_icon("ph.sun", color=DesignTokens.COLOR_YELLOW), self.tr("Mode Clair (Light)"), "light")
+        self.cb_mode.addItem(load_phosphor_icon("ph.monitor", color=DesignTokens.TEXT_PRIMARY), self.tr("Suivre le thème système"), "system")
 
         # Les deux axes d'apparence sont lus séparément : plus de Variante persistée (ADR 0004).
         self._loaded_preference = engine.get_appearance_preference(profile_name)
@@ -112,7 +113,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             self.cb_mode.setCurrentIndex(mode_idx)
         else:
             self.cb_mode.setCurrentIndex(0)
-        self.rows_labels.append(add_setting_row(card_app_layout, "Mode d'Apparence :", self.cb_mode))
+        self.rows_labels.append(add_setting_row(card_app_layout, self.tr("Mode d'Apparence :"), self.cb_mode))
 
         # 3. Famille de Thèmes (12 Familles bivalentes) — axe indépendant du Mode
         self.cb_theme = StyledComboBox()
@@ -127,7 +128,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         self.btn_import_theme = SecondaryButton("")
         self.btn_import_theme.setIcon(load_phosphor_icon("ph.upload-simple", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_import_theme.setToolTip("Importer une famille de thème au format JSON...")
+        self.btn_import_theme.setToolTip(self.tr("Importer une famille de thème au format JSON..."))
         self.btn_import_theme.setAccessibleName("Importer une famille de thème")
         self.btn_import_theme.setFixedHeight(30)
         self.btn_import_theme.clicked.connect(self._import_theme)
@@ -135,7 +136,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         self.btn_export_theme = SecondaryButton("")
         self.btn_export_theme.setIcon(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_export_theme.setToolTip("Exporter la famille de thème sélectionnée au format JSON...")
+        self.btn_export_theme.setToolTip(self.tr("Exporter la famille de thème sélectionnée au format JSON..."))
         self.btn_export_theme.setAccessibleName("Exporter la famille de thème")
         self.btn_export_theme.setFixedHeight(30)
         self.btn_export_theme.clicked.connect(self._export_theme)
@@ -174,7 +175,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
                 default_family = engine.get_default_family_for_layout(LayoutManager.get_saved_layout_id(profile_name))
                 self.cb_theme.addItem(
                     load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.TEXT_MUTED),
-                    f"Famille par défaut du layout ({default_family.name})",
+                    tr("Famille par défaut du layout (%1)", default_family.name),
                     None,
                 )
                 families = engine.get_theme_families()
@@ -191,7 +192,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
                 if selected_family_id is not None and all(fam.id != selected_family_id for fam in families):
                     self.cb_theme.addItem(
                         load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_YELLOW),
-                        f"{selected_family_id} (indisponible)",
+                        tr("%1 (indisponible)", selected_family_id),
                         selected_family_id,
                     )
                 select_family(selected_family_id)
@@ -217,13 +218,13 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             self._update_effective_variant_summary()
 
         self.cb_layout.currentIndexChanged.connect(on_layout_changed)
-        self.rows_labels.append(add_setting_row(card_app_layout, "Famille de Thèmes :", theme_box))
+        self.rows_labels.append(add_setting_row(card_app_layout, self.tr("Famille de Thèmes :"), theme_box))
 
         # Résumé séparé de la Variante effective (affiché quand la Source est « Système »)
         self.row_effective_variant = QWidget()
         row_effective_layout = QHBoxLayout(self.row_effective_variant)
         row_effective_layout.setContentsMargins(0, 0, 0, 0)
-        self.lbl_effective_variant_title = QLabel("Variante effective appliquée :")
+        self.lbl_effective_variant_title = QLabel(self.tr("Variante effective appliquée :"))
         self.lbl_effective_variant_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
         row_effective_layout.addWidget(self.lbl_effective_variant_title)
         row_effective_layout.addStretch()
@@ -241,29 +242,34 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.destroyed.connect(self._cleanup_connections)
         self._update_effective_variant_summary()
 
-        # 4. Langue
+        # 4. Langue — la liste vient du dossier de catalogues, pas d'une constante : un
+        # catalogue déposé par la build (ou par l'utilisateur) devient sélectionnable sans
+        # toucher au code. Le libellé est un endonyme (« Français », « English ») et n'est
+        # donc pas traduit ; le code ISO est conservé en ``userData``.
         self.cb_lang = StyledComboBox()
         self.cb_lang.setMinimumWidth(260)
         self.cb_lang.setFixedHeight(30)
-        self.cb_lang.addItem(load_phosphor_icon("ph.translate", color=DesignTokens.TEXT_PRIMARY), "Français")
-        self.cb_lang.addItem(load_phosphor_icon("ph.translate", color=DesignTokens.TEXT_PRIMARY), "English")
-        self.cb_lang.setCurrentText(str(SettingsService.get("ui/language", "Français")))
-        self.rows_labels.append(add_setting_row(card_app_layout, "Langue de l'interface :", self.cb_lang))
+        lang_icon = load_phosphor_icon("ph.translate", color=DesignTokens.TEXT_PRIMARY)
+        for code in available_languages():
+            self.cb_lang.addItem(lang_icon, language_label(code), code)
+        current_lang = normalize_language(str(SettingsService.get("ui/language", "")))
+        self.cb_lang.setCurrentIndex(max(0, self.cb_lang.findData(current_lang)))
+        self.rows_labels.append(add_setting_row(card_app_layout, self.tr("Langue de l'interface :"), self.cb_lang))
 
         # 5. Style Studio de Création
         self.cb_batch_style = StyledComboBox()
         self.cb_batch_style.setMinimumWidth(260)
         self.cb_batch_style.setFixedHeight(30)
-        self.cb_batch_style.addItem(load_phosphor_icon("ph.gauge", color=DesignTokens.TEXT_PRIMARY), "CI/CD (Tableau de bord industriel)")
-        self.cb_batch_style.addItem(load_phosphor_icon("ph.kanban", color=DesignTokens.TEXT_PRIMARY), "Kanban (Flux de tâches)")
-        self.cb_batch_style.addItem(load_phosphor_icon("ph.steps", color=DesignTokens.TEXT_PRIMARY), "Assistant (Pas-à-pas)")
+        self.cb_batch_style.addItem(load_phosphor_icon("ph.gauge", color=DesignTokens.TEXT_PRIMARY), self.tr("CI/CD (Tableau de bord industriel)"))
+        self.cb_batch_style.addItem(load_phosphor_icon("ph.kanban", color=DesignTokens.TEXT_PRIMARY), self.tr("Kanban (Flux de tâches)"))
+        self.cb_batch_style.addItem(load_phosphor_icon("ph.steps", color=DesignTokens.TEXT_PRIMARY), self.tr("Assistant (Pas-à-pas)"))
         self.cb_batch_style.setCurrentText(str(SettingsService.get("app/batch_factory_style", "CI/CD (Tableau de bord industriel)")))
-        self.rows_labels.append(add_setting_row(card_app_layout, "Style Studio de Création :", self.cb_batch_style))
+        self.rows_labels.append(add_setting_row(card_app_layout, self.tr("Style Studio de Création :"), self.cb_batch_style))
 
         layout.addWidget(self.card_app)
 
         # ── SECTION 2 : DOSSIERS & CHEMINS DE SORTIE ─────────────────────────
-        self.lbl_sec_exp = QLabel("DOSSIERS & CHEMINS DE SORTIE")
+        self.lbl_sec_exp = QLabel(self.tr("DOSSIERS & CHEMINS DE SORTIE"))
         self.lbl_sec_exp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         layout.addWidget(self.lbl_sec_exp)
 
@@ -273,7 +279,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         card_exp_layout.setSpacing(10)
 
         exp_row = QHBoxLayout()
-        self.lbl_exp_dir = QLabel("Dossier d'exportation par défaut :")
+        self.lbl_exp_dir = QLabel(self.tr("Dossier d'exportation par défaut :"))
         self.lbl_exp_dir.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         exp_row.addWidget(self.lbl_exp_dir)
 
@@ -285,7 +291,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         btn_browse = SecondaryButton("")
         btn_browse.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_PRIMARY))
-        btn_browse.setToolTip("Parcourir et sélectionner le dossier")
+        btn_browse.setToolTip(self.tr("Parcourir et sélectionner le dossier"))
         btn_browse.setAccessibleName("Parcourir le dossier d'exportation")
         btn_browse.setFixedHeight(30)
         btn_browse.clicked.connect(self._browse_export)
@@ -293,7 +299,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         btn_open = SecondaryButton("")
         btn_open.setIcon(load_phosphor_icon("ph.arrow-square-out", color=DesignTokens.TEXT_PRIMARY))
-        btn_open.setToolTip("Ouvrir dans l'explorateur de fichiers")
+        btn_open.setToolTip(self.tr("Ouvrir dans l'explorateur de fichiers"))
         btn_open.setAccessibleName("Ouvrir le dossier d'exportation dans l'explorateur")
         btn_open.setFixedHeight(30)
         btn_open.clicked.connect(self._open_export_dir)
@@ -303,7 +309,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_exp)
 
         # ── SECTION 3 : ESPACES DE TRAVAIL & DÉMARRAGE ──────────────────────
-        self.lbl_sec_startup = QLabel("ESPACES DE TRAVAIL & DÉMARRAGE")
+        self.lbl_sec_startup = QLabel(self.tr("ESPACES DE TRAVAIL & DÉMARRAGE"))
         self.lbl_sec_startup.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         layout.addWidget(self.lbl_sec_startup)
 
@@ -319,7 +325,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         default_prof_val = str(q_settings.value("profiles/default_startup_profile", profile_name or "default"))
 
         # 1. Checkbox ouverture automatique
-        self.chk_auto_startup = QCheckBox("Toujours ouvrir l'espace par défaut sans demander au lancement")
+        self.chk_auto_startup = QCheckBox(self.tr("Toujours ouvrir l'espace par défaut sans demander au lancement"))
         self.chk_auto_startup.setChecked(auto_open_val)
         self.chk_auto_startup.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.chk_auto_startup.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
@@ -343,12 +349,12 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         if idx >= 0:
             self.cb_default_profile.setCurrentIndex(idx)
 
-        self.rows_labels.append(add_setting_row(card_startup_layout, "Espace de travail de démarrage :", self.cb_default_profile))
+        self.rows_labels.append(add_setting_row(card_startup_layout, self.tr("Espace de travail de démarrage :"), self.cb_default_profile))
 
         layout.addWidget(self.card_startup)
 
         # ── SECTION 4 : À PROPOS & MISES À JOUR ─────────────────────────────
-        self.lbl_sec_about = QLabel("À PROPOS & MISES À JOUR")
+        self.lbl_sec_about = QLabel(self.tr("À PROPOS & MISES À JOUR"))
         self.lbl_sec_about.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         layout.addWidget(self.lbl_sec_about)
 
@@ -363,7 +369,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # 1. Version et informations système
         version_row = QHBoxLayout()
-        lbl_v_title = QLabel("Version d'AnkiForge :")
+        lbl_v_title = QLabel(self.tr("Version d'AnkiForge :"))
         lbl_v_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         self.rows_labels.append(lbl_v_title)
         version_row.addWidget(lbl_v_title)
@@ -372,7 +378,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         v_badge = Badge(f"v{VERSION_INFO.version}", variant="primary")
         version_row.addWidget(v_badge)
 
-        lbl_meta = QLabel(f"({VERSION_INFO.commit_hash}) · {VERSION_INFO.platform_str}")
+        lbl_meta = QLabel(tr("(%1) · %2", VERSION_INFO.commit_hash, VERSION_INFO.platform_str))
         lbl_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11.5px;")
         version_row.addWidget(lbl_meta)
         card_about_layout.addLayout(version_row)
@@ -381,15 +387,15 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.cb_update_channel = StyledComboBox()
         self.cb_update_channel.setMinimumWidth(260)
         self.cb_update_channel.setFixedHeight(30)
-        self.cb_update_channel.addItem(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN), "Canal Stable (Recommandé)", "stable")
-        self.cb_update_channel.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.COLOR_YELLOW), "Canal Nightly (Bêta / Edge)", "nightly")
+        self.cb_update_channel.addItem(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN), self.tr("Canal Stable (Recommandé)"), "stable")
+        self.cb_update_channel.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.COLOR_YELLOW), self.tr("Canal Nightly (Bêta / Edge)"), "nightly")
 
         saved_channel = str(q_settings.value(SETTINGS_KEY_CHANNEL, "stable"))
         ch_idx = self.cb_update_channel.findData(saved_channel)
         if ch_idx >= 0:
             self.cb_update_channel.setCurrentIndex(ch_idx)
 
-        self.rows_labels.append(add_setting_row(card_about_layout, "Canal de distribution des mises à jour :", self.cb_update_channel))
+        self.rows_labels.append(add_setting_row(card_about_layout, self.tr("Canal de distribution des mises à jour :"), self.cb_update_channel))
 
         # 3. Fréquence de recherche automatique
         from ankiforge.services.update_checker import get_check_interval_seconds
@@ -397,21 +403,21 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.cb_check_interval = StyledComboBox()
         self.cb_check_interval.setMinimumWidth(260)
         self.cb_check_interval.setFixedHeight(30)
-        self.cb_check_interval.addItem(load_phosphor_icon("ph.clock", color=DesignTokens.TEXT_PRIMARY), "Toutes les 4 heures (Recommandé)", 14400)
-        self.cb_check_interval.addItem(load_phosphor_icon("ph.calendar", color=DesignTokens.TEXT_PRIMARY), "Quotidien (Toutes les 24 heures)", 86400)
-        self.cb_check_interval.addItem(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_GREEN), "Au démarrage de l'application", 0)
-        self.cb_check_interval.addItem(load_phosphor_icon("ph.pause-circle", color=DesignTokens.COLOR_YELLOW), "Manuel uniquement (Désactivé)", -1)
+        self.cb_check_interval.addItem(load_phosphor_icon("ph.clock", color=DesignTokens.TEXT_PRIMARY), self.tr("Toutes les 4 heures (Recommandé)"), 14400)
+        self.cb_check_interval.addItem(load_phosphor_icon("ph.calendar", color=DesignTokens.TEXT_PRIMARY), self.tr("Quotidien (Toutes les 24 heures)"), 86400)
+        self.cb_check_interval.addItem(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_GREEN), self.tr("Au démarrage de l'application"), 0)
+        self.cb_check_interval.addItem(load_phosphor_icon("ph.pause-circle", color=DesignTokens.COLOR_YELLOW), self.tr("Manuel uniquement (Désactivé)"), -1)
 
         saved_interval = get_check_interval_seconds()
         int_idx = self.cb_check_interval.findData(saved_interval)
         if int_idx >= 0:
             self.cb_check_interval.setCurrentIndex(int_idx)
 
-        self.rows_labels.append(add_setting_row(card_about_layout, "Fréquence de recherche automatique :", self.cb_check_interval))
+        self.rows_labels.append(add_setting_row(card_about_layout, self.tr("Fréquence de recherche automatique :"), self.cb_check_interval))
 
         # 4. Action de recherche manuelle
         check_row = QHBoxLayout()
-        lbl_check_title = QLabel("Recherche de mises à jour :")
+        lbl_check_title = QLabel(self.tr("Recherche de mises à jour :"))
         lbl_check_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         self.rows_labels.append(lbl_check_title)
         check_row.addWidget(lbl_check_title)
@@ -431,7 +437,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # 4. Retours & Boîte à idées
         feedback_row = QHBoxLayout()
-        lbl_feedback_title = QLabel("Retours & Suggestions :")
+        lbl_feedback_title = QLabel(self.tr("Retours & Suggestions :"))
         lbl_feedback_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         self.rows_labels.append(lbl_feedback_title)
         feedback_row.addWidget(lbl_feedback_title)
@@ -461,7 +467,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         selected_channel = str(self.cb_update_channel.currentData() or "stable")
         self.btn_check_updates.setEnabled(False)
-        self.lbl_update_status.setText("Recherche en cours...")
+        self.lbl_update_status.setText(self.tr("Recherche en cours..."))
         self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11.5px;")
 
         worker = UpdateCheckerWorker(channel=selected_channel, force=True)
@@ -470,7 +476,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         def on_avail(info: Any) -> None:
             self._update_worker = None
             self.btn_check_updates.setEnabled(True)
-            self.lbl_update_status.setText(f"Version v{info.version} disponible !")
+            self.lbl_update_status.setText(tr("Version v%1 disponible !", info.version))
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px; font-weight: bold;")
             if isinstance(info, UpdateInfo):
                 dialog = UpdateDialog(info, parent=self.window())
@@ -479,13 +485,13 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         def on_none(_cur: str) -> None:
             self._update_worker = None
             self.btn_check_updates.setEnabled(True)
-            self.lbl_update_status.setText(f"Vous disposez de la version la plus récente ({VERSION_INFO.short_display_version})")
+            self.lbl_update_status.setText(tr("Vous disposez de la version la plus récente (%1)", VERSION_INFO.short_display_version))
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px;")
 
         def on_err(msg: str) -> None:
             self._update_worker = None
             self.btn_check_updates.setEnabled(True)
-            self.lbl_update_status.setText(f"Échec : {msg}")
+            self.lbl_update_status.setText(tr("Échec : %1", msg))
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11.5px;")
 
         worker.signals.update_available.connect(on_avail)
@@ -569,17 +575,19 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             fallback_mode = getattr(self, "_last_manual_mode", ModeSource.DARK)
             fallback_label = "Sombre" if fallback_mode is ModeSource.DARK else "Clair"
             effective_variant = family.dark_theme if fallback_mode is ModeSource.DARK else family.light_theme
-            self.lbl_effective_variant_badge.setText(f"Système non déclaré · Repli {fallback_label} → {effective_variant.name}")
+            self.lbl_effective_variant_badge.setText(tr("Système non déclaré · Repli %1 → %2", fallback_label, effective_variant.name))
             self.lbl_effective_variant_badge.setToolTip(
-                f"Le système d'exploitation n'annonce aucun régime clair ou sombre.\n"
-                f"L'application retombe sur votre dernier choix manuel ({fallback_label}).\n"
-                f"Variante active : {effective_variant.name}"
+                tr(
+                    "Le système d'exploitation n'annonce aucun régime clair ou sombre.\nL'application retombe sur votre dernier choix manuel (%1).\nVariante active : %2",
+                    fallback_label,
+                    effective_variant.name,
+                )
             )
         else:
             system_label = "Sombre" if system_regime is ModeSource.DARK else "Clair"
             effective_variant = family.dark_theme if system_regime is ModeSource.DARK else family.light_theme
-            self.lbl_effective_variant_badge.setText(f"Système ({system_label}) → {effective_variant.name}")
-            self.lbl_effective_variant_badge.setToolTip(f"Régime système détecté : {system_label}.\nVariante active : {effective_variant.name}")
+            self.lbl_effective_variant_badge.setText(tr("Système (%1) → %2", system_label, effective_variant.name))
+            self.lbl_effective_variant_badge.setToolTip(tr("Régime système détecté : %1.\nVariante active : %2", system_label, effective_variant.name))
 
     def _selected_appearance_preference(self) -> AppearancePreference:
         """Préférence d'apparence correspondant aux deux sélecteurs."""
@@ -611,7 +619,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # Enregistrement uniquement des paramètres réellement modifiés
         for key, current_val, initial_key in (
-            ("ui/language", self.cb_lang.currentText(), "lang"),
+            ("ui/language", str(self.cb_lang.currentData() or FALLBACK_LANGUAGE), "lang"),
             ("app/batch_factory_style", self.cb_batch_style.currentText(), "batch_style"),
             ("app/export_path", self.le_export.text().strip(), "export_path"),
         ):
@@ -660,7 +668,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "layout": self.cb_layout.currentData(),
             "theme": self.cb_theme.currentData(),
             "mode": self.cb_mode.currentData(),
-            "lang": self.cb_lang.currentText(),
+            "lang": str(self.cb_lang.currentData() or FALLBACK_LANGUAGE),
             "batch_style": self.cb_batch_style.currentText(),
             "export_path": self.le_export.text().strip(),
             "auto_startup": self.chk_auto_startup.isChecked() if hasattr(self, "chk_auto_startup") else False,
@@ -693,7 +701,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "layout": self.cb_layout.currentData(),
             "theme": self.cb_theme.currentData(),
             "mode": self.cb_mode.currentData(),
-            "lang": self.cb_lang.currentText(),
+            "lang": str(self.cb_lang.currentData() or FALLBACK_LANGUAGE),
             "batch_style": self.cb_batch_style.currentText(),
             "export_path": self.le_export.text().strip(),
             "auto_startup": self.chk_auto_startup.isChecked() if hasattr(self, "chk_auto_startup") else False,
@@ -759,10 +767,10 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
                 self._populate_theme_families()
             if hasattr(self, "_select_family"):
                 self._select_family(family.id)
-            show_toast(self, f"Thème '{family.name}' importé avec succès !", is_error=False)
+            show_toast(self, tr("Thème '%1' importé avec succès !", family.name), is_error=False)
         except Exception as err:
             logger.error("Erreur lors de l'import du thème %s : %s", file_path, err)
-            show_toast(self, f"Échec de l'import du thème : {err}", is_error=True)
+            show_toast(self, tr("Échec de l'import du thème : %1", err), is_error=True)
 
     def _export_theme(self) -> None:
         """Exporte la famille de thème sélectionnée au format JSON."""
@@ -780,7 +788,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             family = engine.get_family_for_theme(current_family_id)
 
         if family is None:
-            show_toast(self, "Aucune famille de thème disponible pour l'export.", is_error=True)
+            show_toast(self, self.tr("Aucune famille de thème disponible pour l'export."), is_error=True)
             return
 
         suggested_name = f"{family.id}.json"
@@ -795,10 +803,10 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         try:
             engine.export_theme(family, file_path)
-            show_toast(self, f"Famille '{family.name}' exportée avec succès !", is_error=False)
+            show_toast(self, tr("Famille '%1' exportée avec succès !", family.name), is_error=False)
         except Exception as err:
             logger.error("Erreur lors de l'export du thème %s : %s", file_path, err)
-            show_toast(self, f"Échec de l'export du thème : {err}", is_error=True)
+            show_toast(self, tr("Échec de l'export du thème : %1", err), is_error=True)
 
     def _on_open_feedback_clicked(self) -> None:
         """Déclenche l'événement d'ouverture de la boîte de dialogue de feedback."""

@@ -52,6 +52,7 @@ from ankiforge.ui.views.pipelines_view.widgets.common import (
 from ankiforge.ui.views.pipelines_view.widgets.prompt_override import PromptOverrideIndicator
 from ankiforge.ui.views.pipelines_view.widgets.step_picker import PersonaSelectorDialog
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -87,18 +88,18 @@ class PersonaIdentityCard(QFrame):
         self.lbl_persona_icon.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.BRANCH_A).pixmap(16, 16))
         h_row.addWidget(self.lbl_persona_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.lbl_title = QLabel("<b>Agent : Non défini</b>")
+        self.lbl_title = QLabel(self.tr("<b>Agent : Non défini</b>"))
         self.lbl_title.setStyleSheet(f"font-size: 12.5px; color: {DesignTokens.TEXT_PRIMARY};")
         h_row.addWidget(self.lbl_title, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.badge_role = Badge("Agent IA", variant="status")
+        self.badge_role = Badge(tr("Agent IA"), variant="status")
         apply_pill_style(self.badge_role, DesignTokens.BRANCH_A)
         self.badge_role.setFixedHeight(18)
         h_row.addWidget(self.badge_role, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout.addLayout(h_row)
 
         # Description / System Prompt preview
-        self.lbl_desc = QLabel("Prompt système...")
+        self.lbl_desc = QLabel(self.tr("Prompt système..."))
         self.lbl_desc.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-style: italic;")
         self.lbl_desc.setWordWrap(True)
         layout.addWidget(self.lbl_desc)
@@ -116,7 +117,7 @@ class PersonaIdentityCard(QFrame):
         self.btn_edit_prompt.setIcon(load_phosphor_icon("ph.snowflake", color=DesignTokens.TEXT_PRIMARY))
         self.btn_edit_prompt.setIconSize(QSize(14, 14))
         self.btn_edit_prompt.setFixedHeight(28)
-        self.btn_edit_prompt.setToolTip("Écrire un prompt propre à cette étape, sans modifier l'agent partagé. Le texte sera figé : il ne suivra pas les réécritures de l'agent.")
+        self.btn_edit_prompt.setToolTip(self.tr("Écrire un prompt propre à cette étape, sans modifier l'agent partagé. Le texte sera figé : il ne suivra pas les réécritures de l'agent."))
         self.btn_edit_prompt.clicked.connect(self.edit_prompt_requested.emit)
         b_row.addWidget(self.btn_edit_prompt)
 
@@ -125,17 +126,17 @@ class PersonaIdentityCard(QFrame):
 
     def set_persona(self, persona: PersonaModel | None) -> None:
         if persona:
-            self.lbl_title.setText(f"<b>Agent : {persona.name}</b>")
+            self.lbl_title.setText(tr("<b>Agent : %1</b>", persona.name))
             desc = persona.system_prompt.strip().replace("\n", " ") if persona.system_prompt else "Agent IA spécialisé."
             if len(desc) > 95:
                 desc = desc[:92] + "..."
-            self.lbl_desc.setText(f"« {desc} »")
-            self.badge_role.setText("Agent IA")
+            self.lbl_desc.setText(tr("« %1 »", desc))
+            self.badge_role.setText(self.tr("Agent IA"))
             apply_pill_style(self.badge_role, DesignTokens.BRANCH_A)
         else:
-            self.lbl_title.setText("<b>Aucun Agent IA (Prompt Pur)</b>")
-            self.lbl_desc.setText("L'étape s'exécutera avec le prompt personnalisé ci-dessous sans persona de base.")
-            self.badge_role.setText("Prompt Pur")
+            self.lbl_title.setText(self.tr("<b>Aucun Agent IA (Prompt Pur)</b>"))
+            self.lbl_desc.setText(self.tr("L'étape s'exécutera avec le prompt personnalisé ci-dessous sans persona de base."))
+            self.badge_role.setText(self.tr("Prompt Pur"))
             apply_pill_style(self.badge_role, DesignTokens.TEXT_MUTED)
 
 
@@ -154,7 +155,7 @@ class PromptPreviewDialog(QDialog):
         self.step_data = step_data or {}
         self.all_steps = all_steps or []
 
-        self.setWindowTitle("Aperçu du Prompt Interpolé (Jinja2)")
+        self.setWindowTitle(self.tr("Aperçu du Prompt Interpolé (Jinja2)"))
         self.resize(750, 560)
         self.setStyleSheet(f"""
             QDialog {{
@@ -196,7 +197,7 @@ class PromptPreviewDialog(QDialog):
         icon_eye.setPixmap(load_phosphor_icon("ph.eye", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
         row_header.addWidget(icon_eye)
 
-        lbl_header = QLabel("Ce que recevra l'Agent IA (variables résolues) :")
+        lbl_header = QLabel(self.tr("Ce que recevra l'Agent IA (variables résolues) :"))
         lbl_header.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         row_header.addWidget(lbl_header)
         row_header.addStretch()
@@ -207,11 +208,11 @@ class PromptPreviewDialog(QDialog):
             apply_pill_style(badge_src, DesignTokens.BRANCH_A)
             row_header.addWidget(badge_src)
         elif result.source_type == "override":
-            badge_src = Badge("Surcharge d'étape", variant="warning")
+            badge_src = Badge(tr("Surcharge d'étape"), variant="warning")
             apply_pill_style(badge_src, DesignTokens.COLOR_YELLOW)
             row_header.addWidget(badge_src)
         elif result.source_type == "query":
-            badge_src = Badge("Requête Sémantique RAG", variant="info")
+            badge_src = Badge(tr("Requête Sémantique RAG"), variant="info")
             apply_pill_style(badge_src, DesignTokens.BRANCH_B)
             row_header.addWidget(badge_src)
 
@@ -219,7 +220,7 @@ class PromptPreviewDialog(QDialog):
         tot_tokens = result.estimated_system_tokens + result.estimated_user_tokens
         badge_tokens = Badge(f"~{tot_tokens} tokens", variant="neutral")
         apply_pill_style(badge_tokens, DesignTokens.TEXT_MUTED)
-        badge_tokens.setToolTip(f"Estimation : ~{result.estimated_system_tokens} tokens (Système) + ~{result.estimated_user_tokens} tokens (Entrée)")
+        badge_tokens.setToolTip(tr("Estimation : ~%1 tokens (Système) + ~%2 tokens (Entrée)", result.estimated_system_tokens, result.estimated_user_tokens))
         row_header.addWidget(badge_tokens)
 
         # Bouton Copier
@@ -233,7 +234,7 @@ class PromptPreviewDialog(QDialog):
             clipboard = QApplication.clipboard()
             if clipboard:
                 clipboard.setText(result.system_prompt)
-                show_toast(self, "Prompt copié dans le presse-papiers !")
+                show_toast(self, tr("Prompt copié dans le presse-papiers !"))
 
         btn_copy.clicked.connect(_copy_prompt)
         row_header.addWidget(btn_copy)
@@ -258,14 +259,14 @@ class PromptPreviewDialog(QDialog):
             err_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
             err_icon.setPixmap(load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_RED).pixmap(14, 14))
             err_layout.addWidget(err_icon)
-            err_lbl = QLabel(f"<b>Erreur de syntaxe Jinja2 :</b> {result.error_message}")
+            err_lbl = QLabel(tr("<b>Erreur de syntaxe Jinja2 :</b> %1", result.error_message))
             err_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-size: 11px;")
             err_lbl.setWordWrap(True)
             err_layout.addWidget(err_lbl, 1)
             layout.addWidget(error_frame)
 
         # Zone 1 : Prompt Système Interpolé
-        lbl_sys_title = QLabel("PROMPT SYSTÈME INTERPOLÉ :")
+        lbl_sys_title = QLabel(self.tr("PROMPT SYSTÈME INTERPOLÉ :"))
         lbl_sys_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(lbl_sys_title)
 
@@ -288,7 +289,7 @@ class PromptPreviewDialog(QDialog):
 
         # Zone 2 : Entrée Utilisateur (Payload) pour les étapes LLM / Map-Reduce
         if result.source_type != "query" and result.user_prompt:
-            lbl_user_title = QLabel(f"ENTRÉE UTILISATEUR / PAYLOAD (Variable : {result.input_variable}) :")
+            lbl_user_title = QLabel(tr("ENTRÉE UTILISATEUR / PAYLOAD (Variable : %1) :", result.input_variable))
             lbl_user_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
             layout.addWidget(lbl_user_title)
 
@@ -358,7 +359,7 @@ class StepInspectorPanel(QFrame):
         self.lbl_step_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_layout.addWidget(self.lbl_step_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.edit_step_title = StyledLineEdit(placeholder="Nom personnalisé de l'étape...")
+        self.edit_step_title = StyledLineEdit(placeholder=self.tr("Nom personnalisé de l'étape..."))
         self.edit_step_title.setFixedHeight(30)
         self.edit_step_title.setStyleSheet("font-weight: bold; font-size: 13px;")
         self.edit_step_title.textChanged.connect(self._on_title_changed)
@@ -383,11 +384,11 @@ class StepInspectorPanel(QFrame):
         subtabs_bar.setSpacing(4)
         subtabs_bar.setContentsMargins(0, 0, 0, 0)
 
-        self.btn_subtab_params = SubTabButton("Paramètres && Prompt", "ph.gear", is_active=True)
+        self.btn_subtab_params = SubTabButton(tr("Paramètres && Prompt"), "ph.gear", is_active=True)
         self.btn_subtab_params.clicked.connect(lambda: self._switch_subtab(0))
         subtabs_bar.addWidget(self.btn_subtab_params)
 
-        self.btn_subtab_dag = SubTabButton("Transitions DAG && Erreurs", "ph.git-branch", is_active=False)
+        self.btn_subtab_dag = SubTabButton(tr("Transitions DAG && Erreurs"), "ph.git-branch", is_active=False)
         self.btn_subtab_dag.clicked.connect(lambda: self._switch_subtab(1))
         subtabs_bar.addWidget(self.btn_subtab_dag)
 
@@ -481,7 +482,7 @@ class StepInspectorPanel(QFrame):
         lbl_succ_icon.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
         header_succ.addWidget(lbl_succ_icon)
 
-        lbl_succ_title = QLabel("TRANSITION DE SUCCÈS")
+        lbl_succ_title = QLabel(self.tr("TRANSITION DE SUCCÈS"))
         lbl_succ_title.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN_TEXT}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
         header_succ.addWidget(lbl_succ_title)
         header_succ.addStretch()
@@ -490,7 +491,7 @@ class StepInspectorPanel(QFrame):
         # Rangée horizontale label / combo
         row_succ = QHBoxLayout()
         row_succ.setSpacing(10)
-        lbl_succ = QLabel("Étape suivante :")
+        lbl_succ = QLabel(self.tr("Étape suivante :"))
         lbl_succ.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         lbl_succ.setFixedWidth(105)
         row_succ.addWidget(lbl_succ)
@@ -530,7 +531,7 @@ class StepInspectorPanel(QFrame):
         lbl_fail_icon.setPixmap(load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
         header_fail.addWidget(lbl_fail_icon)
 
-        lbl_fail_title = QLabel("GESTION DES ERREURS & REPLI")
+        lbl_fail_title = QLabel(self.tr("GESTION DES ERREURS & REPLI"))
         lbl_fail_title.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW_TEXT}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
         header_fail.addWidget(lbl_fail_title)
         header_fail.addStretch()
@@ -539,7 +540,7 @@ class StepInspectorPanel(QFrame):
         # Rangée 1 : Comportement d'interruption
         row_fail_beh = QHBoxLayout()
         row_fail_beh.setSpacing(10)
-        lbl_fail_beh = QLabel("Comportement :")
+        lbl_fail_beh = QLabel(self.tr("Comportement :"))
         lbl_fail_beh.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         lbl_fail_beh.setFixedWidth(105)
         row_fail_beh.addWidget(lbl_fail_beh)
@@ -548,17 +549,17 @@ class StepInspectorPanel(QFrame):
         self.combo_fail_beh.setFixedHeight(30)
         self.combo_fail_beh.addItem(
             load_phosphor_icon("ph.stop-circle", color=DesignTokens.COLOR_RED),
-            "Arrêter le pipeline (stop)",
+            self.tr("Arrêter le pipeline (stop)"),
             userData="stop",
         )
         self.combo_fail_beh.addItem(
             load_phosphor_icon("ph.skip-forward", color=DesignTokens.COLOR_YELLOW),
-            "Continuer malgré l'erreur (continue)",
+            self.tr("Continuer malgré l'erreur (continue)"),
             userData="continue",
         )
         self.combo_fail_beh.addItem(
             load_phosphor_icon("ph.arrow-bend-down-right", color=DesignTokens.COLOR_PURPLE),
-            "Sauter vers une étape de secours",
+            self.tr("Sauter vers une étape de secours"),
             userData="goto_failure_step",
         )
         self.combo_fail_beh.currentIndexChanged.connect(self._on_fail_beh_changed)
@@ -572,7 +573,7 @@ class StepInspectorPanel(QFrame):
         row_fail_target.setContentsMargins(0, 0, 0, 0)
         row_fail_target.setSpacing(10)
 
-        self.lbl_fail_target = QLabel("Étape de secours :")
+        self.lbl_fail_target = QLabel(self.tr("Étape de secours :"))
         self.lbl_fail_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         self.lbl_fail_target.setFixedWidth(105)
         row_fail_target.addWidget(self.lbl_fail_target)
@@ -670,7 +671,7 @@ class StepInspectorPanel(QFrame):
             # Surcharge LLM
             row_llm = QVBoxLayout()
             row_llm.setSpacing(4)
-            lbl_m = QLabel("Modèle LLM dédié :")
+            lbl_m = QLabel(self.tr("Modèle LLM dédié :"))
             lbl_m.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             selector_llm = ModelSelectorWidget(allow_inherit=True, inherit_label="Modèle par défaut du profil")
             cur_llm_id = cfg.get("llm_config_id")
@@ -683,7 +684,7 @@ class StepInspectorPanel(QFrame):
 
             if step_type == "MAP_REDUCE":
                 row_mr = QHBoxLayout()
-                lbl_batch = QLabel("Taille des lots :")
+                lbl_batch = QLabel(self.tr("Taille des lots :"))
                 lbl_batch.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
                 spin_batch = QSpinBox()
                 spin_batch.setRange(1, 10)
@@ -696,12 +697,12 @@ class StepInspectorPanel(QFrame):
                 row_mr.addWidget(lbl_batch)
                 row_mr.addWidget(spin_batch)
 
-                lbl_mode = QLabel("Découpage :")
+                lbl_mode = QLabel(self.tr("Découpage :"))
                 lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-left: 10px;")
                 combo_mode = StyledComboBox()
-                combo_mode.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_PRIMARY), "Par Page (PDF)", userData="page")
-                combo_mode.addItem(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_PRIMARY), "Par Section / Chapitre", userData="chapter")
-                combo_mode.addItem(load_phosphor_icon("ph.package", color=DesignTokens.TEXT_PRIMARY), "Par Lots de Paragraphes", userData="paragraphs")
+                combo_mode.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_PRIMARY), self.tr("Par Page (PDF)"), userData="page")
+                combo_mode.addItem(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_PRIMARY), self.tr("Par Section / Chapitre"), userData="chapter")
+                combo_mode.addItem(load_phosphor_icon("ph.package", color=DesignTokens.TEXT_PRIMARY), self.tr("Par Lots de Paragraphes"), userData="paragraphs")
                 combo_mode.currentIndexChanged.connect(lambda: self._on_config_changed("split_mode", combo_mode.currentData()))
                 row_mr.addWidget(lbl_mode)
                 row_mr.addWidget(combo_mode, 1)
@@ -712,9 +713,9 @@ class StepInspectorPanel(QFrame):
 
             col_in = QVBoxLayout()
             col_in.setSpacing(4)
-            lbl_in = QLabel("Variable d'entrée :")
+            lbl_in = QLabel(self.tr("Variable d'entrée :"))
             lbl_in.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-            edit_in = StyledLineEdit(placeholder="ex: text_source")
+            edit_in = StyledLineEdit(placeholder=self.tr("ex: text_source"))
             edit_in.setText(cfg.get("input_variable", meta.get("default_input", "text_source")))
             edit_in.setFixedHeight(30)
             edit_in.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
@@ -725,9 +726,9 @@ class StepInspectorPanel(QFrame):
 
             col_out = QVBoxLayout()
             col_out.setSpacing(4)
-            lbl_out = QLabel("Variable de sortie :")
+            lbl_out = QLabel(self.tr("Variable de sortie :"))
             lbl_out.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-            edit_out = StyledLineEdit(placeholder="ex: generated_cards")
+            edit_out = StyledLineEdit(placeholder=self.tr("ex: generated_cards"))
             edit_out.setText(cfg.get("output_variable", meta.get("default_output", "generated_cards")))
             edit_out.setFixedHeight(30)
             edit_out.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
@@ -738,11 +739,11 @@ class StepInspectorPanel(QFrame):
 
             col_fmt = QVBoxLayout()
             col_fmt.setSpacing(4)
-            lbl_fmt = QLabel("Format de sortie :")
+            lbl_fmt = QLabel(self.tr("Format de sortie :"))
             lbl_fmt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             combo_fmt = StyledComboBox()
-            combo_fmt.addItem("JSON Strict (Cartes)", userData="json")
-            combo_fmt.addItem("Markdown / Texte", userData="text")
+            combo_fmt.addItem(self.tr("JSON Strict (Cartes)"), userData="json")
+            combo_fmt.addItem(self.tr("Markdown / Texte"), userData="text")
             cur_fmt = cfg.get("output_format", "json")
             combo_fmt.setCurrentIndex(0 if cur_fmt == "json" else 1)
             combo_fmt.currentIndexChanged.connect(lambda: self._on_config_changed("output_format", combo_fmt.currentData()))
@@ -753,18 +754,18 @@ class StepInspectorPanel(QFrame):
             layout_params.addLayout(vars_row)
 
             row_doc = OptionToggleRow(
-                "Tagguer les cartes avec leur section source",
+                tr("Tagguer les cartes avec leur section source"),
                 icon_name="ph.tags",
                 checked=bool(cfg.get("declasser_sections_dans_tags", True)),
             )
-            row_doc.setToolTip("Active la documentation de couverture : l'IA localise et renseigne la section (H1→H6) d'origine de chaque carte ; désactiver coupe le suivi documentaire.")
+            row_doc.setToolTip(self.tr("Active la documentation de couverture : l'IA localise et renseigne la section (H1→H6) d'origine de chaque carte ; désactiver coupe le suivi documentaire."))
             row_doc.toggled.connect(lambda chk: self._on_config_changed("declasser_sections_dans_tags", chk))
             layout_params.addWidget(row_doc)
 
             row_prompt_header = QHBoxLayout()
             # On garde « Template Jinja2 » dans le libellé : le champ rend toujours du Jinja2,
             # et la nouvelle formulation aurait laissé croire qu'il ne rend plus rien.
-            lbl_prompt = QLabel("Surcharge locale du prompt de l'étape (Template Jinja2) :")
+            lbl_prompt = QLabel(self.tr("Surcharge locale du prompt de l'étape (Template Jinja2) :"))
             lbl_prompt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             row_prompt_header.addWidget(lbl_prompt)
             row_prompt_header.addStretch()
@@ -785,7 +786,7 @@ class StepInspectorPanel(QFrame):
             # L'indication nomme la source RÉELLE du prompt résolu : un champ vide ne
             # retombe pas sur un « prompt par défaut » de persona, il retombe sur l'agent.
             self.edit_prompt.setPlaceholderText(prompt_override_field_hint(cur_persona))
-            self.edit_prompt.setToolTip("Prompt système de cette étape, en Jinja2. Laisser vide reprend le prompt de l'agent. Un texte saisi ici est figé et n'affecte aucun autre pipeline.")
+            self.edit_prompt.setToolTip(self.tr("Prompt système de cette étape, en Jinja2. Laisser vide reprend le prompt de l'agent. Un texte saisi ici est figé et n'affecte aucun autre pipeline."))
             self.edit_prompt.setPlainText(str(cfg.get(PROMPT_OVERRIDE_KEY, "")))
             self.edit_prompt.setMinimumHeight(150)
             self.edit_prompt.setStyleSheet(f"""
@@ -841,7 +842,7 @@ class StepInspectorPanel(QFrame):
 
         elif step_type == "RAG_RETRIEVAL":
             row_rag = QHBoxLayout()
-            lbl_topk = QLabel("Nombre de fragments (Top-K) :")
+            lbl_topk = QLabel(self.tr("Nombre de fragments (Top-K) :"))
             lbl_topk.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             spin_topk = QSpinBox()
             spin_topk.setRange(1, 20)
@@ -855,7 +856,7 @@ class StepInspectorPanel(QFrame):
             layout_params.addLayout(row_rag)
 
             row_rag_header = QHBoxLayout()
-            lbl_query = QLabel("Template de Requête Sémantique (Jinja2) :")
+            lbl_query = QLabel(self.tr("Template de Requête Sémantique (Jinja2) :"))
             lbl_query.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
             row_rag_header.addWidget(lbl_query)
             row_rag_header.addStretch()
@@ -867,7 +868,7 @@ class StepInspectorPanel(QFrame):
             row_rag_header.addWidget(btn_preview_rag)
             layout_params.addLayout(row_rag_header)
 
-            edit_query = StyledLineEdit(icon_name="ph.magnifying-glass", placeholder="{{ state.initial_prompt }}")
+            edit_query = StyledLineEdit(icon_name="ph.magnifying-glass", placeholder=self.tr("{{ state.initial_prompt }}"))
             edit_query.setText(cfg.get("rag_query_template", "{{ state.initial_prompt }}"))
             edit_query.setFixedHeight(30)
             edit_query.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
@@ -891,17 +892,17 @@ class StepInspectorPanel(QFrame):
             layout_params.addStretch()
 
         elif step_type == "HUMAN_VALIDATION":
-            lbl_ht = QLabel("Titre de l'Interruption Humaine :")
+            lbl_ht = QLabel(self.tr("Titre de l'Interruption Humaine :"))
             lbl_ht.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             layout_params.addWidget(lbl_ht)
 
-            edit_ht = StyledLineEdit(icon_name="ph.hand-palm", placeholder="Validation du Plan de Cours")
+            edit_ht = StyledLineEdit(icon_name="ph.hand-palm", placeholder=self.tr("Validation du Plan de Cours"))
             edit_ht.setText(cfg.get("human_title", "Validation du Plan de Cours"))
             edit_ht.setFixedHeight(30)
             edit_ht.textChanged.connect(lambda t: self._on_config_changed("human_title", t))
             layout_params.addWidget(edit_ht)
 
-            lbl_hm = QLabel("Message d'Instructions :")
+            lbl_hm = QLabel(self.tr("Message d'Instructions :"))
             lbl_hm.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
             layout_params.addWidget(lbl_hm)
 
@@ -913,7 +914,7 @@ class StepInspectorPanel(QFrame):
 
         elif step_type == "PYTHON_TOOL":
             row_sel = QHBoxLayout()
-            lbl_tool = QLabel("Outil Python Déterministe :")
+            lbl_tool = QLabel(self.tr("Outil Python Déterministe :"))
             lbl_tool.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             row_sel.addWidget(lbl_tool)
 
@@ -931,7 +932,7 @@ class StepInspectorPanel(QFrame):
             sel_tool_idx = 0
             for idx, t in enumerate(tools_list):
                 tag = " (Natif)" if t.is_builtin else " (Custom)"
-                combo_tool.addItem(f"{t.display_name}{tag}", userData=t.name)
+                combo_tool.addItem(tr("%1%2", t.display_name, tag), userData=t.name)
                 if t.name == cur_tool_name:
                     sel_tool_idx = idx
             combo_tool.setCurrentIndex(sel_tool_idx)
@@ -962,11 +963,11 @@ class StepInspectorPanel(QFrame):
             row_tool_actions.addStretch()
             layout_params.addLayout(row_tool_actions)
 
-            lbl_out = QLabel("Variable de sortie du résultat :")
+            lbl_out = QLabel(self.tr("Variable de sortie du résultat :"))
             lbl_out.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
             layout_params.addWidget(lbl_out)
 
-            edit_out = StyledLineEdit(placeholder="tool_result")
+            edit_out = StyledLineEdit(placeholder=self.tr("tool_result"))
             edit_out.setText(cfg.get("output_variable", "tool_result"))
             edit_out.setFixedHeight(30)
             edit_out.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
@@ -1005,7 +1006,7 @@ class StepInspectorPanel(QFrame):
         self.combo_succ.clear()
         self.combo_succ.addItem(
             load_phosphor_icon("ph.arrow-right", color=DesignTokens.COLOR_GREEN),
-            "Étape suivante par défaut (séquentiel)",
+            self.tr("Étape suivante par défaut (séquentiel)"),
             userData=None,
         )
         current_succ = self.step_data.get("on_success_order")
@@ -1040,7 +1041,7 @@ class StepInspectorPanel(QFrame):
         self.combo_fail_target.clear()
         self.combo_fail_target.addItem(
             load_phosphor_icon("ph.x-circle", color=DesignTokens.TEXT_MUTED),
-            "Aucune étape de secours",
+            self.tr("Aucune étape de secours"),
             userData=None,
         )
         current_fail = self.step_data.get("on_failure_order")

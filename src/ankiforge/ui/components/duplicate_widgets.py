@@ -25,6 +25,7 @@ from ankiforge.ui.models import SimilarityBadgeDelegate, SrsMasteryDelegate
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import get_mathjax_script
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_media_dir
 
@@ -69,11 +70,11 @@ class DuplicateMatrixTable(QFrame):
         icon_title.setPixmap(load_phosphor_icon("ph.git-diff", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
         icon_title.setStyleSheet("border: none; background: transparent;")
 
-        lbl_title = QLabel("Matrice de Doublons Détectés")
+        lbl_title = QLabel(self.tr("Matrice de Doublons Détectés"))
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: none; background: transparent;")
 
-        self.badge_count = QLabel("0 paire à examiner")
+        self.badge_count = QLabel(self.tr("0 paire à examiner"))
         self.badge_count.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         self.badge_count.setStyleSheet(
             f"background: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.BORDER_COLOR};"
@@ -96,19 +97,19 @@ class DuplicateMatrixTable(QFrame):
         h_line1.setContentsMargins(0, 0, 0, 4)
         h_line1.setSpacing(10)
 
-        lbl_target = QLabel("PAQUET CIBLE :")
+        lbl_target = QLabel(self.tr("PAQUET CIBLE :"))
         lbl_target.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
         lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 
-        self.btn_deck = SecondaryButton("L'ensemble des paquets", tooltip="Sélectionner le paquet Anki cible pour la détection de doublons")
+        self.btn_deck = SecondaryButton("L'ensemble des paquets", tooltip=self.tr("Sélectionner le paquet Anki cible pour la détection de doublons"))
         self.btn_deck.setIcon(load_phosphor_icon("ph.cards", color=DesignTokens.TEXT_PRIMARY))
         self.btn_deck.setFixedHeight(28)
 
-        self.btn_auto_merge = PrimaryButton("Auto-fusionner >95%", tooltip="Fusionner automatiquement les doublons dont la similarité dépasse 95%")
+        self.btn_auto_merge = PrimaryButton("Auto-fusionner >95%", tooltip=self.tr("Fusionner automatiquement les doublons dont la similarité dépasse 95%"))
         self.btn_auto_merge.setIcon(load_on_accent_icon("ph.lightning"))
         self.btn_auto_merge.setFixedHeight(28)
 
-        self.btn_reanalyze = PrimaryButton("Relancer l'analyse", tooltip="Relancer le scan de détection vectorielle des doublons sur ce paquet")
+        self.btn_reanalyze = PrimaryButton("Relancer l'analyse", tooltip=self.tr("Relancer le scan de détection vectorielle des doublons sur ce paquet"))
         self.btn_reanalyze.setIcon(load_on_accent_icon("ph.arrows-clockwise"))
         self.btn_reanalyze.setFixedHeight(28)
 
@@ -125,7 +126,7 @@ class DuplicateMatrixTable(QFrame):
         h_line2.setContentsMargins(0, 0, 0, 6)
         h_line2.setSpacing(8)
 
-        lbl_filters = QLabel("FILTRES :")
+        lbl_filters = QLabel(self.tr("FILTRES :"))
         lbl_filters.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
         lbl_filters.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 
@@ -152,13 +153,13 @@ class DuplicateMatrixTable(QFrame):
         h_line2.addWidget(self.btn_filter_srs)
 
         h_line2.addSpacing(10)
-        lbl_threshold = QLabel("Seuil :")
+        lbl_threshold = QLabel(self.tr("Seuil :"))
         lbl_threshold.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
         lbl_threshold.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 
         self.combo_threshold = QComboBox()
         self.combo_threshold.setFixedHeight(26)
-        self.combo_threshold.addItems(["Seuil > 80%", "Seuil > 90%", "Seuil > 95%"])
+        self.combo_threshold.addItems([self.tr("Seuil > 80%"), self.tr("Seuil > 90%"), self.tr("Seuil > 95%")])
         self.combo_threshold.setCurrentIndex(1)
 
         h_line2.addWidget(lbl_threshold)
@@ -169,7 +170,7 @@ class DuplicateMatrixTable(QFrame):
 
         # 3. Table
         self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(["", "Similitude", "Carte A (Originale)", "Carte B (Duplicata)", "Écart de Maîtrise SRS", "Statut"])
+        self.table.setHorizontalHeaderLabels(["", self.tr("Similitude"), self.tr("Carte A (Originale)"), self.tr("Carte B (Duplicata)"), self.tr("Écart de Maîtrise SRS"), self.tr("Statut")])
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
@@ -224,7 +225,7 @@ class DuplicateMatrixTable(QFrame):
 
         layout.addWidget(self.table)
 
-        self.empty_state = QLabel("Aucun doublon détecté dans ce paquet")
+        self.empty_state = QLabel(self.tr("Aucun doublon détecté dans ce paquet"))
         self.empty_state.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.empty_state.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent; padding: 18px;")
         self.empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -328,7 +329,7 @@ class DuplicateMergeInspector(QFrame):
         icon_merge.setPixmap(load_phosphor_icon("ph.git-merge", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
         icon_merge.setStyleSheet("border: none; background: transparent;")
 
-        lbl_title = QLabel("Inspection & Fusion de Paire")
+        lbl_title = QLabel(self.tr("Inspection & Fusion de Paire"))
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         h_header.addWidget(icon_merge)
@@ -342,7 +343,7 @@ class DuplicateMergeInspector(QFrame):
 
         btn_prev = IconButton("ph.caret-left", "", 12)
         btn_prev.setFixedSize(22, 22)
-        self.lbl_nav = QLabel("Paire #1 / 14")
+        self.lbl_nav = QLabel(self.tr("Paire #1 / 14"))
         self.lbl_nav.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         self.lbl_nav.setStyleSheet("border: none; background: transparent;")
         btn_next = IconButton("ph.caret-right", "", 12)
@@ -361,7 +362,7 @@ class DuplicateMergeInspector(QFrame):
 
         h_header.addStretch()
 
-        self.lbl_sim = QLabel("Similitude : --%")
+        self.lbl_sim = QLabel(self.tr("Similitude : --%"))
         self.lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         self.lbl_sim.setStyleSheet(
             f"background: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
@@ -393,7 +394,7 @@ class DuplicateMergeInspector(QFrame):
         icon_sparkle = QLabel()
         icon_sparkle.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         icon_sparkle.setStyleSheet("border: none; background: transparent;")
-        f_title = QLabel("FUSION")
+        f_title = QLabel(self.tr("FUSION"))
         f_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         f_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: none; background: transparent;")
         f_header.addWidget(icon_sparkle)
@@ -495,15 +496,15 @@ class DuplicateMergeInspector(QFrame):
         srs_layout.setContentsMargins(0, 0, 0, 4)
         srs_layout.setSpacing(4)
 
-        lbl_srs_state = QLabel("🟢 Maîtrisée")
+        lbl_srs_state = QLabel(self.tr("🟢 Maîtrisée"))
         lbl_srs_state.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
         lbl_srs_state.setStyleSheet(f"background: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
 
-        lbl_srs_ivl = QLabel("35 j")
+        lbl_srs_ivl = QLabel(self.tr("35 j"))
         lbl_srs_ivl.setFont(QFont(DesignTokens.FONT_MAIN, 8))
         lbl_srs_ivl.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_SECONDARY}; padding: 2px 6px; border-radius: 4px;")
 
-        lbl_srs_ease = QLabel("250%")
+        lbl_srs_ease = QLabel(self.tr("250%"))
         lbl_srs_ease.setFont(QFont(DesignTokens.FONT_MAIN, 8))
         lbl_srs_ease.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_MUTED}; padding: 2px 6px; border-radius: 4px;")
 
@@ -708,7 +709,7 @@ class DuplicateMergeInspector(QFrame):
         idx = 1
         for field_name, field_val in content_dict.items():
             field_header = QHBoxLayout()
-            field_lbl = QLabel(f"{idx}. {field_name.upper()} :")
+            field_lbl = QLabel(tr("%1. %2 :", idx, field_name.upper()))
             field_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
             field_lbl.setStyleSheet(f"color: {color};")
             field_header.addWidget(field_lbl)
@@ -805,35 +806,35 @@ class DuplicateMergeInspector(QFrame):
         if has_srs:
             reps = getattr(note, "srs_reps", 0)
             if reps > 21:
-                srs_dict["state"].setText("🟢 Maîtrisée")
+                srs_dict["state"].setText(self.tr("🟢 Maîtrisée"))
                 srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
             elif reps > 5:
-                srs_dict["state"].setText("🟡 Apprentissage")
+                srs_dict["state"].setText(self.tr("🟡 Apprentissage"))
                 srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW}; padding: 2px 6px; border-radius: 4px;")
             else:
-                srs_dict["state"].setText("🔴 Nouvelle")
+                srs_dict["state"].setText(self.tr("🔴 Nouvelle"))
                 srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; padding: 2px 6px; border-radius: 4px;")
 
-            srs_dict["ivl"].setText(f"{getattr(note, 'srs_ivl', 0)} j")
-            srs_dict["ease"].setText(f"{getattr(note, 'srs_ease', 250)}%")
+            srs_dict["ivl"].setText(tr("%1 j", getattr(note, "srs_ivl", 0)))
+            srs_dict["ease"].setText(tr("%1%%", getattr(note, "srs_ease", 250)))
         else:
-            srs_dict["state"].setText("⚪ Non synchronisé")
+            srs_dict["state"].setText(self.tr("⚪ Non synchronisé"))
             srs_dict["state"].setStyleSheet(
                 f"background: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; padding: 2px 6px; border-radius: 4px; border: 1px dashed {DesignTokens.BORDER_COLOR};"
             )
-            srs_dict["ivl"].setText("Non étudiée")
-            srs_dict["ease"].setText("N/A")
+            srs_dict["ivl"].setText(self.tr("Non étudiée"))
+            srs_dict["ease"].setText(self.tr("N/A"))
 
     def load_conflict(self, row_data: dict) -> None:
         self.current_conflict = row_data
         sim = row_data.get("sim", 0.0)
-        self.lbl_sim.setText(f"Similitude : {sim * 100:.1f}%")
+        self.lbl_sim.setText(tr("Similitude : %1%%", f"{sim * 100:.1f}"))
 
         note_a = row_data["note_a"]
         note_b = row_data["note_b"]
 
-        self.lbl_title_a.setText("CARTE #1")
-        self.lbl_title_b.setText("CARTE #2")
+        self.lbl_title_a.setText(self.tr("CARTE #1"))
+        self.lbl_title_b.setText(self.tr("CARTE #2"))
 
         self._update_srs(note_a, self.srs_a)
         self._update_srs(note_b, self.srs_b)
@@ -883,9 +884,9 @@ class DuplicateMergeInspector(QFrame):
     def reset_inspector(self) -> None:
         """Réinitialise l'inspecteur lorsqu'aucun conflit n'est sélectionné."""
         self.current_conflict = None
-        self.lbl_title_a.setText("CARTE #1")
-        self.lbl_title_b.setText("CARTE #2")
-        self.lbl_sim.setText("Similitude : --%")
+        self.lbl_title_a.setText(self.tr("CARTE #1"))
+        self.lbl_title_b.setText(self.tr("CARTE #2"))
+        self.lbl_sim.setText(self.tr("Similitude : --%"))
         self._clear_layout(self.layout_a)
         self._clear_layout(self.layout_b)
         self._clear_layout(self.merged_content_layout)

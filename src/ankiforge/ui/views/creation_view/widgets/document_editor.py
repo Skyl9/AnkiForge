@@ -30,6 +30,7 @@ from ankiforge.ui.components import (
     StyledTextEdit,
 )
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import resolve_media_path
 
@@ -65,17 +66,17 @@ class TextScopeBannerWidget(QFrame):
         self.icon_lbl.setPixmap(load_phosphor_icon("ph.funnel", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         self.icon_lbl.setStyleSheet("border: none; background: transparent;")
 
-        self.lbl_status = QLabel("Portée active")
+        self.lbl_status = QLabel(self.tr("Portée active"))
         self.lbl_status.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 11px; border: none; background: transparent;")
 
-        self.badge_status = Badge("Extrait filtré", variant="success")
+        self.badge_status = Badge(tr("Extrait filtré"), variant="success")
 
         layout.addWidget(self.icon_lbl)
         layout.addWidget(self.lbl_status)
         layout.addWidget(self.badge_status)
         layout.addStretch()
 
-        self.btn_toggle_display = QPushButton("Afficher tout le document")
+        self.btn_toggle_display = QPushButton(self.tr("Afficher tout le document"))
         self.btn_toggle_display.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle_display.setStyleSheet(f"""
             QPushButton {{
@@ -106,15 +107,15 @@ class TextScopeBannerWidget(QFrame):
     def set_scope_info(self, title: str, chunks_count: int, is_showing_full: bool = False) -> None:
         unit = "fragment" if chunks_count == 1 else "fragments"
         chunks_str = f" ({chunks_count} {unit})" if chunks_count > 0 else ""
-        self.lbl_status.setText(f"Portée active : {title}{chunks_str}")
+        self.lbl_status.setText(tr("Portée active : %1%2", title, chunks_str))
         if is_showing_full:
-            self.badge_status.setText("Document entier (filtre en pause)")
+            self.badge_status.setText(self.tr("Document entier (filtre en pause)"))
             self.badge_status.set_variant("neutral")
-            self.btn_toggle_display.setText("Afficher l'extrait filtré")
+            self.btn_toggle_display.setText(self.tr("Afficher l'extrait filtré"))
         else:
-            self.badge_status.setText("Extrait filtré")
+            self.badge_status.setText(self.tr("Extrait filtré"))
             self.badge_status.set_variant("success")
-            self.btn_toggle_display.setText("Afficher tout le document")
+            self.btn_toggle_display.setText(self.tr("Afficher tout le document"))
 
 
 class AlbumPageMiniWidget(QFrame):
@@ -146,9 +147,9 @@ class AlbumPageMiniWidget(QFrame):
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
-        self.lbl_page = QLabel(f"Planche {page_num}")
+        self.lbl_page = QLabel(tr("Planche %1", page_num))
         self.lbl_page.setStyleSheet(f"font-weight: 700; font-size: 11px; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
-        self.badge = Badge("Portée", variant="success")
+        self.badge = Badge(tr("Portée"), variant="success")
         header.addWidget(self.lbl_page)
         header.addStretch()
         header.addWidget(self.badge)
@@ -187,7 +188,7 @@ class AlbumPageMiniWidget(QFrame):
                     border-radius: {DesignTokens.RADIUS_MD}px;
                 }}
             """)
-            self.badge.setText("Portée")
+            self.badge.setText(self.tr("Portée"))
             self.badge.set_variant("success")
         else:
             self.setStyleSheet(f"""
@@ -197,7 +198,7 @@ class AlbumPageMiniWidget(QFrame):
                     border-radius: {DesignTokens.RADIUS_MD}px;
                 }}
             """)
-            self.badge.setText("Hors portée")
+            self.badge.setText(self.tr("Hors portée"))
             self.badge.set_variant("neutral")
 
 
@@ -283,12 +284,12 @@ class DocumentEditorWidget(QWidget):
             secondary_btn_text = "Source Markdown"
 
         self.btn_view_pdf = QPushButton(primary_btn_text)
-        self.btn_view_pdf.setToolTip("Basculer vers la vue PDF / rendu du document")
+        self.btn_view_pdf.setToolTip(self.tr("Basculer vers la vue PDF / rendu du document"))
         self.btn_view_pdf.setCheckable(True)
         self.btn_view_pdf.setChecked(True)
 
         self.btn_view_md = QPushButton(secondary_btn_text)
-        self.btn_view_md.setToolTip("Basculer vers l'éditeur Markdown extrait")
+        self.btn_view_md.setToolTip(self.tr("Basculer vers l'éditeur Markdown extrait"))
         self.btn_view_md.setCheckable(True)
 
         toggle_layout.addWidget(self.btn_view_pdf)
@@ -333,10 +334,10 @@ class DocumentEditorWidget(QWidget):
         ico_pdf_scope.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
         ico_pdf_scope.setStyleSheet("border: none; background: transparent;")
 
-        self.lbl_pdf_scope_status = QLabel("Portée : Pages 1 à 10")
+        self.lbl_pdf_scope_status = QLabel(self.tr("Portée : Pages 1 à 10"))
         self.lbl_pdf_scope_status.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px; border: none; background: transparent;")
 
-        self.badge_pdf_scope = Badge("Dans la portée", variant="success")
+        self.badge_pdf_scope = Badge(tr("Dans la portée"), variant="success")
 
         scope_banner_layout.addWidget(ico_pdf_scope)
         scope_banner_layout.addWidget(self.lbl_pdf_scope_status)
@@ -346,7 +347,7 @@ class DocumentEditorWidget(QWidget):
         self.btn_pdf_scope_prev = IconButton("ph.caret-left", "Page précédente de la sélection", 16)
         self.btn_pdf_scope_prev.clicked.connect(self._on_pdf_scope_prev)
 
-        self.lbl_pdf_scope_cur = QLabel("Page 1 / 10")
+        self.lbl_pdf_scope_cur = QLabel(self.tr("Page 1 / 10"))
         self.lbl_pdf_scope_cur.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600; border: none; background: transparent;")
 
         self.btn_pdf_scope_next = IconButton("ph.caret-right", "Page suivante de la sélection", 16)
@@ -356,14 +357,14 @@ class DocumentEditorWidget(QWidget):
         scope_banner_layout.addWidget(self.lbl_pdf_scope_cur)
         scope_banner_layout.addWidget(self.btn_pdf_scope_next)
 
-        sep = QLabel("|")
+        sep = QLabel(self.tr("|"))
         sep.setStyleSheet(f"color: {DesignTokens.BORDER_COLOR}; font-size: 11px; margin: 0 4px; background: transparent; border: none;")
         scope_banner_layout.addWidget(sep)
 
         self.btn_pdf_zoom_out = IconButton("ph.magnifying-glass-minus", "Dézoomer (Ctrl -)", 16)
         self.btn_pdf_zoom_out.clicked.connect(self._on_pdf_zoom_out)
 
-        self.lbl_pdf_zoom = QLabel("100%")
+        self.lbl_pdf_zoom = QLabel(self.tr("100%"))
         self.lbl_pdf_zoom.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; min-width: 32px; background: transparent; border: none;")
         self.lbl_pdf_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -402,7 +403,7 @@ class DocumentEditorWidget(QWidget):
 
         self.raw_editor = StyledTextEdit()
         self.raw_editor.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}';")
-        self.raw_editor.setPlaceholderText("Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
+        self.raw_editor.setPlaceholderText(self.tr("Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)..."))
         self.raw_editor.textChanged.connect(self._on_text_changed)
 
         self.markdown_viewer = QTextBrowser()
@@ -447,7 +448,7 @@ class DocumentEditorWidget(QWidget):
         bot_layout = QHBoxLayout(bot_widget)
         bot_layout.setContentsMargins(0, 6, 0, 0)
 
-        self.tokens_lbl = QLabel("Aa 0 chars  |  ~0 Tokens")
+        self.tokens_lbl = QLabel(self.tr("Aa 0 chars  |  ~0 Tokens"))
         self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
         bot_layout.addWidget(self.tokens_lbl)
         bot_layout.addStretch()
@@ -457,15 +458,15 @@ class DocumentEditorWidget(QWidget):
         self.running_lbl.hide()
         bot_layout.addWidget(self.running_lbl)
 
-        self.btn_paste = SecondaryButton("Coller", tooltip="Coller le contenu du presse-papier (Ctrl+V)")
+        self.btn_paste = SecondaryButton("Coller", tooltip=self.tr("Coller le contenu du presse-papier (Ctrl+V)"))
         self.btn_paste.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
         self.btn_paste.clicked.connect(self.raw_editor.paste)
 
-        self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)", tooltip="Lancer la forge des flashcards avec le modèle IA sélectionné (Ctrl+Entrée)")
+        self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)", tooltip=self.tr("Lancer la forge des flashcards avec le modèle IA sélectionné (Ctrl+Entrée)"))
         self.btn_generate.setIcon(load_on_accent_icon("ph.play"))
         self.btn_generate.clicked.connect(self._on_generate_clicked)
 
-        self.btn_cancel = DangerButton("Arrêter", ghost=True, tooltip="Interrompre la génération de cartes en cours")
+        self.btn_cancel = DangerButton(tr("Arrêter"), ghost=True, tooltip="Interrompre la génération de cartes en cours")
         self.btn_cancel.setIcon(load_phosphor_icon("ph.stop-circle", color=DesignTokens.COLOR_RED))
         self.btn_cancel.hide()
         self.btn_cancel.clicked.connect(self.cancel_requested.emit)
@@ -569,7 +570,7 @@ class DocumentEditorWidget(QWidget):
             self.lbl_audio_title = QLabel(self.doc_model.title if self.doc_model else "Audio")
             self.lbl_audio_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600; border: none; background: transparent;")
 
-            self.lbl_audio_time = QLabel("00:00 / 00:00")
+            self.lbl_audio_time = QLabel(self.tr("00:00 / 00:00"))
             self.lbl_audio_time.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}'; border: none; background: transparent;")
 
             audio_layout.addWidget(ico)
@@ -670,8 +671,8 @@ class DocumentEditorWidget(QWidget):
         """Met à jour la portée active du PDF et asservit le bandeau de navigation."""
         self._pdf_selected_pages = sorted(pages)
         if not self._pdf_selected_pages:
-            self.lbl_pdf_scope_status.setText("Aucune page sélectionnée")
-            self.badge_pdf_scope.setText("0 page")
+            self.lbl_pdf_scope_status.setText(self.tr("Aucune page sélectionnée"))
+            self.badge_pdf_scope.setText(self.tr("0 page"))
             self.badge_pdf_scope.set_variant("danger")
             return
 
@@ -682,9 +683,9 @@ class DocumentEditorWidget(QWidget):
 
         range_str = format_page_ranges(self._pdf_selected_pages)
         if count == 1:
-            self.lbl_pdf_scope_status.setText(f"Portée : Page {first_p}")
+            self.lbl_pdf_scope_status.setText(tr("Portée : Page %1", first_p))
         else:
-            self.lbl_pdf_scope_status.setText(f"Portée : Pages {range_str} ({count} pages)")
+            self.lbl_pdf_scope_status.setText(tr("Portée : Pages %1 (%2 pages)", range_str, count))
 
         self.jump_pdf_to_page(first_p - 1)
         self._update_scope_indicator(first_p - 1)
@@ -700,13 +701,13 @@ class DocumentEditorWidget(QWidget):
         current_1_based = current_page_idx + 1
         if current_1_based in self._pdf_selected_pages:
             idx_in_scope = self._pdf_selected_pages.index(current_1_based) + 1
-            self.badge_pdf_scope.setText("Dans la portée")
+            self.badge_pdf_scope.setText(self.tr("Dans la portée"))
             self.badge_pdf_scope.set_variant("success")
-            self.lbl_pdf_scope_cur.setText(f"Sélection {idx_in_scope} / {len(self._pdf_selected_pages)} (p. {current_1_based})")
+            self.lbl_pdf_scope_cur.setText(tr("Sélection %1 / %2 (p. %3)", idx_in_scope, len(self._pdf_selected_pages), current_1_based))
         else:
-            self.badge_pdf_scope.setText(f"Hors-portée (p. {current_1_based})")
+            self.badge_pdf_scope.setText(tr("Hors-portée (p. %1)", current_1_based))
             self.badge_pdf_scope.set_variant("warning")
-            self.lbl_pdf_scope_cur.setText(f"Page {current_1_based}")
+            self.lbl_pdf_scope_cur.setText(tr("Page %1", current_1_based))
 
     @Slot()
     def _on_pdf_scope_prev(self) -> None:
@@ -738,7 +739,7 @@ class DocumentEditorWidget(QWidget):
             self.pdf_view.setZoomMode(QPdfView.ZoomMode.Custom)
             new_factor = min(3.0, self.pdf_view.zoomFactor() * 1.2)
             self.pdf_view.setZoomFactor(new_factor)
-            self.lbl_pdf_zoom.setText(f"{int(new_factor * 100)}%")
+            self.lbl_pdf_zoom.setText(tr("%1%%", int(new_factor * 100)))
 
     @Slot()
     def _on_pdf_zoom_out(self) -> None:
@@ -748,7 +749,7 @@ class DocumentEditorWidget(QWidget):
             self.pdf_view.setZoomMode(QPdfView.ZoomMode.Custom)
             new_factor = max(0.4, self.pdf_view.zoomFactor() / 1.2)
             self.pdf_view.setZoomFactor(new_factor)
-            self.lbl_pdf_zoom.setText(f"{int(new_factor * 100)}%")
+            self.lbl_pdf_zoom.setText(tr("%1%%", int(new_factor * 100)))
 
     @Slot()
     def _on_pdf_fit_width(self) -> None:
@@ -756,7 +757,7 @@ class DocumentEditorWidget(QWidget):
             from PySide6.QtPdfWidgets import QPdfView
 
             self.pdf_view.setZoomMode(QPdfView.ZoomMode.FitToWidth)
-            self.lbl_pdf_zoom.setText("Auto")
+            self.lbl_pdf_zoom.setText(self.tr("Auto"))
 
     def eventFilter(self, obj: Any, event: Any) -> bool:
         if hasattr(self, "pdf_view") and (obj == self.pdf_view or (hasattr(self.pdf_view, "viewport") and obj == self.pdf_view.viewport())) and event.type() == QEvent.Type.Wheel:
@@ -805,8 +806,8 @@ class DocumentEditorWidget(QWidget):
         self.markdown_viewer.setHtml(markdown.markdown(raw, extensions=["fenced_code", "tables"]))
 
         if file_type == "pdf":
-            self.btn_view_pdf.setText("PDF")
-            self.btn_view_md.setText("Texte Extrait")
+            self.btn_view_pdf.setText(self.tr("PDF"))
+            self.btn_view_md.setText(self.tr("Texte Extrait"))
             self.view_toggle_frame.show()
             media = getattr(doc, "original_media", None)
             if media and getattr(media, "filename", None) and hasattr(self, "pdf_document") and self.pdf_document is not None:
@@ -818,14 +819,14 @@ class DocumentEditorWidget(QWidget):
         elif file_type == "album":
             if not hasattr(self, "album_container"):
                 self._init_album_container()
-            self.btn_view_pdf.setText("Galerie Planches")
-            self.btn_view_md.setText("Texte & Analyse")
+            self.btn_view_pdf.setText(self.tr("Galerie Planches"))
+            self.btn_view_md.setText(self.tr("Texte & Analyse"))
             self.view_toggle_frame.show()
             self.btn_view_pdf.setChecked(True)
             self._on_view_toggled("pdf")
         else:
-            self.btn_view_pdf.setText("Rendu Stylisé")
-            self.btn_view_md.setText("Source Markdown")
+            self.btn_view_pdf.setText(self.tr("Rendu Stylisé"))
+            self.btn_view_md.setText(self.tr("Source Markdown"))
             self.view_toggle_frame.show()
             self.btn_view_pdf.setChecked(True)
             self._on_view_toggled("pdf")
@@ -929,7 +930,7 @@ class DocumentEditorWidget(QWidget):
         chars = len(text)
         words = len(text.split())
         estimated_tokens = int(words * 1.3)
-        self.tokens_lbl.setText(f"Aa {chars} chars  |  ~{estimated_tokens} Tokens")
+        self.tokens_lbl.setText(tr("Aa %1 chars  |  ~%2 Tokens", chars, estimated_tokens))
 
     @Slot()
     def _on_generate_clicked(self) -> None:

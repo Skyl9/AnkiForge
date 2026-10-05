@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QProgre
 from ankiforge.database.models import IgnoredDuplicateModel, NoteModel, db
 from ankiforge.ui.components import ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
@@ -16,7 +17,7 @@ class DuplicateResolverDialog(QDialog):
         self.current_index = 0
         self.resolved_count = 0
 
-        self.setWindowTitle("Résolution des Doublons (Git Merge)")
+        self.setWindowTitle(self.tr("Résolution des Doublons (Git Merge)"))
         self.setMinimumSize(1000, 600)
         self.setStyleSheet("QDialog { background-color: palette(window); }")
 
@@ -53,7 +54,7 @@ class DuplicateResolverDialog(QDialog):
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_left = QLabel("📄 CARTE A (ANCIENNE / ORIGINALE)")
+        lbl_left = QLabel(self.tr("📄 CARTE A (ANCIENNE / ORIGINALE)"))
         lbl_left.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         left_layout.addWidget(lbl_left)
 
@@ -75,7 +76,7 @@ class DuplicateResolverDialog(QDialog):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_right = QLabel("✨ CARTE B (NOUVELLE)")
+        lbl_right = QLabel(self.tr("✨ CARTE B (NOUVELLE)"))
         lbl_right.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         right_layout.addWidget(lbl_right)
 
@@ -136,11 +137,11 @@ class DuplicateResolverDialog(QDialog):
 
     def load_current_conflict(self):
         if self.current_index >= len(self.conflicts):
-            QMessageBox.information(self, "Terminé", f"Tous les conflits ont été traités ({self.resolved_count} résolus).")
+            QMessageBox.information(self, self.tr("Terminé"), tr("Tous les conflits ont été traités (%1 résolus).", self.resolved_count))
             self.accept()
             return
 
-        self.lbl_status.setText(f"Conflit {self.current_index + 1} sur {len(self.conflicts)}")
+        self.lbl_status.setText(tr("Conflit %1 sur %2", self.current_index + 1, len(self.conflicts)))
         self.progress_bar.setValue(self.current_index)
 
         # On récupère maintenant les dictionnaires complets
@@ -181,7 +182,7 @@ class DuplicateResolverDialog(QDialog):
                 NoteModel.delete_by_id(note_to_delete.id)
             self.resolved_count += 1
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Impossible de supprimer la note : {e}")
+            QMessageBox.critical(self, self.tr("Erreur"), tr("Impossible de supprimer la note : %1", e))
 
         self.current_index += 1
         self.load_current_conflict()

@@ -34,6 +34,7 @@ from ankiforge.services.markdown.models import HeadingNode
 from ankiforge.services.markdown.structurer import MarkdownStructurer
 from ankiforge.ui.components import GlowLineEdit, IconButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -208,12 +209,12 @@ class DocumentOutlineWidget(QWidget):
         search_layout.setSpacing(4)
 
         self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Filtrer les titres...")
+        self.search_input.setPlaceholderText(self.tr("Filtrer les titres..."))
         self.search_input.setFixedHeight(28)
         self.search_input.textChanged.connect(self._on_search_text_changed)
         search_layout.addWidget(self.search_input, 1)
 
-        self.btn_clear_search = IconButton("ph.x", tooltip="Effacer la recherche (Échap)", size=26)
+        self.btn_clear_search = IconButton("ph.x", tooltip=self.tr("Effacer la recherche (Échap)"), size=26)
         self.btn_clear_search.clicked.connect(self._on_clear_search_clicked)
         search_layout.addWidget(self.btn_clear_search)
 
@@ -247,7 +248,7 @@ class DocumentOutlineWidget(QWidget):
             }}
         """
 
-        self.btn_depth_all = QPushButton("Tous")
+        self.btn_depth_all = QPushButton(self.tr("Tous"))
         self.btn_depth_all.setCheckable(True)
         self.btn_depth_all.setChecked(True)
         self.btn_depth_all.setFixedHeight(24)
@@ -255,21 +256,21 @@ class DocumentOutlineWidget(QWidget):
         self.depth_group.addButton(self.btn_depth_all, 6)
         controls_layout.addWidget(self.btn_depth_all)
 
-        self.btn_depth_h1 = QPushButton("H1")
+        self.btn_depth_h1 = QPushButton(self.tr("H1"))
         self.btn_depth_h1.setCheckable(True)
         self.btn_depth_h1.setFixedHeight(24)
         self.btn_depth_h1.setStyleSheet(depth_btn_style)
         self.depth_group.addButton(self.btn_depth_h1, 1)
         controls_layout.addWidget(self.btn_depth_h1)
 
-        self.btn_depth_h2 = QPushButton("H1-H2")
+        self.btn_depth_h2 = QPushButton(self.tr("H1-H2"))
         self.btn_depth_h2.setCheckable(True)
         self.btn_depth_h2.setFixedHeight(24)
         self.btn_depth_h2.setStyleSheet(depth_btn_style)
         self.depth_group.addButton(self.btn_depth_h2, 2)
         controls_layout.addWidget(self.btn_depth_h2)
 
-        self.btn_depth_h3 = QPushButton("H1-H3")
+        self.btn_depth_h3 = QPushButton(self.tr("H1-H3"))
         self.btn_depth_h3.setCheckable(True)
         self.btn_depth_h3.setFixedHeight(24)
         self.btn_depth_h3.setStyleSheet(depth_btn_style)
@@ -280,18 +281,18 @@ class DocumentOutlineWidget(QWidget):
 
         controls_layout.addStretch(1)
 
-        self.btn_expand_all = IconButton("ph.arrows-out", tooltip="Déplier tout le plan", size=24)
+        self.btn_expand_all = IconButton("ph.arrows-out", tooltip=self.tr("Déplier tout le plan"), size=24)
         self.btn_expand_all.clicked.connect(self.tree_expand_all)
         controls_layout.addWidget(self.btn_expand_all)
 
-        self.btn_collapse_all = IconButton("ph.arrows-in", tooltip="Replier tout le plan", size=24)
+        self.btn_collapse_all = IconButton("ph.arrows-in", tooltip=self.tr("Replier tout le plan"), size=24)
         self.btn_collapse_all.clicked.connect(self.tree_collapse_all)
         controls_layout.addWidget(self.btn_collapse_all)
 
         layout.addLayout(controls_layout)
 
         # --- Rangée 3 : Métadonnées / Synthèse documentaire ---
-        self.lbl_stats = QLabel("📑 0 section • 0 mot")
+        self.lbl_stats = QLabel(self.tr("📑 0 section • 0 mot"))
         self.lbl_stats.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; padding: 1px 2px;")
         layout.addWidget(self.lbl_stats)
 
@@ -333,7 +334,7 @@ class DocumentOutlineWidget(QWidget):
         layout.addWidget(self.tree, 1)
 
         # Message informatif si aucun titre Markdown détecté
-        self.lbl_empty = QLabel("Aucun titre Markdown (# Titre) détecté.")
+        self.lbl_empty = QLabel(self.tr("Aucun titre Markdown (# Titre) détecté."))
         self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_empty.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; padding: 20px;")
         self.lbl_empty.hide()
@@ -345,7 +346,7 @@ class DocumentOutlineWidget(QWidget):
 
         self.btn_repair = SecondaryButton("Réparer Titres")
         self.btn_repair.setIcon(load_phosphor_icon("ph.wrench", color=DesignTokens.COLOR_YELLOW))
-        self.btn_repair.setToolTip("Harmonise la hiérarchie des titres (corrige les sauts anormaux H1->H3)")
+        self.btn_repair.setToolTip(self.tr("Harmonise la hiérarchie des titres (corrige les sauts anormaux H1->H3)"))
         self.btn_repair.setFixedHeight(26)
         self.btn_repair.setStyleSheet(f"font-size: 11px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_repair.clicked.connect(self.repair_requested.emit)
@@ -353,7 +354,7 @@ class DocumentOutlineWidget(QWidget):
 
         self.btn_toc = SecondaryButton("Sommaire (TOC)")
         self.btn_toc.setIcon(load_phosphor_icon("ph.list-numbers", color=DesignTokens.COLOR_BLUE))
-        self.btn_toc.setToolTip("Génère et insère une Table des Matières Markdown standardisée")
+        self.btn_toc.setToolTip(self.tr("Génère et insère une Table des Matières Markdown standardisée"))
         self.btn_toc.setFixedHeight(26)
         self.btn_toc.setStyleSheet(f"font-size: 11px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_toc.clicked.connect(self.toc_requested.emit)
@@ -383,7 +384,7 @@ class DocumentOutlineWidget(QWidget):
         if not content or not content.strip():
             self.lbl_empty.show()
             self.tree.hide()
-            self.lbl_stats.setText("📑 0 section • 0 mot")
+            self.lbl_stats.setText(self.tr("📑 0 section • 0 mot"))
             if self._last_has_headings is not False:
                 self._last_has_headings = False
                 self.outline_availability_changed.emit(False)
@@ -395,7 +396,7 @@ class DocumentOutlineWidget(QWidget):
         if not tree_nodes:
             self.lbl_empty.show()
             self.tree.hide()
-            self.lbl_stats.setText("📑 0 section • 0 mot")
+            self.lbl_stats.setText(self.tr("📑 0 section • 0 mot"))
             if self._last_has_headings is not False:
                 self._last_has_headings = False
                 self.outline_availability_changed.emit(False)
@@ -415,7 +416,7 @@ class DocumentOutlineWidget(QWidget):
             max_level = max(max_level, level)
 
         self.tree.expandAll()
-        self.lbl_stats.setText(f"📑 {total_nodes} sections • {total_words:,} mots • Profondeur max H{max_level}")
+        self.lbl_stats.setText(tr("📑 %1 sections • %2 mots • Profondeur max H%3", total_nodes, f"{total_words:,}", max_level))
 
         if self._last_has_headings is not True:
             self._last_has_headings = True
@@ -433,7 +434,7 @@ class DocumentOutlineWidget(QWidget):
         display_title = f"H{node.level}  {node.title}"
         item = QTreeWidgetItem(parent_item if parent_item is not None else self.tree)
         item.setText(0, display_title)
-        item.setText(1, f"{node.word_count} m. • L{node.line_number}")
+        item.setText(1, tr("%1 m. • L%2", node.word_count, node.line_number))
 
         item.setData(0, ROLE_LINE_NUMBER, node.line_number)
         item.setData(0, ROLE_LEVEL, node.level)
@@ -447,7 +448,7 @@ class DocumentOutlineWidget(QWidget):
         item.setData(1, ROLE_WORD_COUNT, node.word_count)
         item.setData(1, ROLE_COVERAGE_COUNT, None)
 
-        item.setToolTip(0, f"Niveau {node.level} • {node.word_count} mots • Lignes {node.line_number}-{node.end_line or node.line_number}")
+        item.setToolTip(0, tr("Niveau %1 • %2 mots • Lignes %3-%4", node.level, node.word_count, node.line_number, node.end_line or node.line_number))
 
         total_nodes = 1
         total_words = node.word_count
@@ -527,7 +528,7 @@ class DocumentOutlineWidget(QWidget):
             if count is not None:
                 badge_str = "🟢 Couvert" if count > 0 else "⚠️ Non couvert"
                 tooltip = item.toolTip(0)
-                item.setToolTip(0, f"{tooltip} • {badge_str} ({count} carte{'s' if count > 1 else ''})")
+                item.setToolTip(0, tr("%1 • %2 (%3 carte%4)", tooltip, badge_str, count, "s" if count > 1 else ""))
 
             it += 1
 
@@ -607,26 +608,26 @@ class DocumentOutlineWidget(QWidget):
 
         # Forger cette section
         short_title = title if len(title) <= 24 else f"{title[:22]}…"
-        act_forge = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), f"Forger la section « {short_title} »", menu)
+        act_forge = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), tr("Forger la section « %1 »", short_title), menu)
         act_forge.triggered.connect(lambda: self._trigger_forge_section(item))
         menu.addAction(act_forge)
 
         menu.addSeparator()
 
         # Copier l'ancre Markdown
-        act_copy_anchor = QAction(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE), f"Copier l'ancre (#{slug})", menu)
-        act_copy_anchor.triggered.connect(lambda: QGuiApplication.clipboard().setText(f"#{slug}"))
+        act_copy_anchor = QAction(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE), tr("Copier l'ancre (#%1)", slug), menu)
+        act_copy_anchor.triggered.connect(lambda: QGuiApplication.clipboard().setText(tr("#%1", slug)))
         menu.addAction(act_copy_anchor)
 
         # Copier le contenu de la section
-        act_copy_content = QAction(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY), "Copier le texte de la section", menu)
+        act_copy_content = QAction(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY), self.tr("Copier le texte de la section"), menu)
         act_copy_content.triggered.connect(lambda: self._copy_section_content(line_start, line_end))
         menu.addAction(act_copy_content)
 
         menu.addSeparator()
 
         # Naviguer vers la section
-        act_jump = QAction(load_phosphor_icon("ph.arrow-right", color=DesignTokens.ACCENT_PRIMARY), f"Aller à la ligne {line_start}", menu)
+        act_jump = QAction(load_phosphor_icon("ph.arrow-right", color=DesignTokens.ACCENT_PRIMARY), tr("Aller à la ligne %1", line_start), menu)
         act_jump.triggered.connect(lambda: self._on_item_clicked(item, 0))
         menu.addAction(act_jump)
 

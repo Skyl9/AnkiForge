@@ -48,6 +48,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
 )
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ class RawContextDialog(QDialog):
 
     def __init__(self, raw_data_dict: dict[str, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Inspection du Contexte Brut (Prompt Augmenté)")
+        self.setWindowTitle(self.tr("Inspection du Contexte Brut (Prompt Augmenté)"))
         self.resize(750, 550)
         self.setStyleSheet(f"""
             QDialog {{
@@ -70,7 +71,7 @@ class RawContextDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        header = QLabel("🔍 Payload JSON et Scope injectés dans la fenêtre d'attention")
+        header = QLabel(self.tr("🔍 Payload JSON et Scope injectés dans la fenêtre d'attention"))
         header.setStyleSheet(f"font-weight: bold; font-size: 13px; color: {DesignTokens.TEXT_PRIMARY};")
         layout.addWidget(header)
 
@@ -188,7 +189,7 @@ class ContextAssetCard(QFrame):
         layout.addLayout(text_layout, 1)
 
         # Badge de tokens
-        lbl_tokens = QLabel(f"~{token_est:,} tok")
+        lbl_tokens = QLabel(tr("~%1 tok", f"{token_est:,}"))
         lbl_tokens.setStyleSheet(f"""
             QLabel {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -206,11 +207,11 @@ class ContextAssetCard(QFrame):
         if is_committed:
             lbl_lock = QLabel()
             lbl_lock.setPixmap(load_phosphor_icon("ph.lock-simple", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
-            lbl_lock.setToolTip("Cette source est ancrée dans l'historique de cette discussion")
+            lbl_lock.setToolTip(self.tr("Cette source est ancrée dans l'historique de cette discussion"))
             layout.addWidget(lbl_lock)
         else:
             # Source non encore envoyée : retirable librement
-            btn_del = IconButton("ph.x", tooltip="Retirer du contexte de travail", size=18)
+            btn_del = IconButton("ph.x", tooltip=self.tr("Retirer du contexte de travail"), size=18)
             from PySide6.QtCore import QTimer
 
             btn_del.clicked.connect(lambda: QTimer.singleShot(0, lambda: self.remove_requested.emit(self.ctx_id)))
@@ -266,7 +267,7 @@ class ContextHubWidget(QWidget):
         lbl_persona_icon.setPixmap(load_phosphor_icon("ph.brain", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         sec_persona_header.addWidget(lbl_persona_icon)
 
-        lbl_persona_sec = QLabel("PERSONA & DIRECTIVE ACTIVE")
+        lbl_persona_sec = QLabel(self.tr("PERSONA & DIRECTIVE ACTIVE"))
         lbl_persona_sec.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         sec_persona_header.addWidget(lbl_persona_sec)
         sec_persona_header.addStretch()
@@ -310,7 +311,7 @@ class ContextHubWidget(QWidget):
         self.persona_badge.setMinimumWidth(44)
         persona_top_row.addWidget(self.persona_badge)
 
-        self.tools_count_badge = Badge("Tous outils", variant="success")
+        self.tools_count_badge = Badge(tr("Tous outils"), variant="success")
         self.tools_count_badge.setMinimumWidth(55)
         persona_top_row.addWidget(self.tools_count_badge)
         persona_layout.addLayout(persona_top_row)
@@ -329,7 +330,7 @@ class ContextHubWidget(QWidget):
         dir_layout.setContentsMargins(8, 6, 8, 6)
         dir_layout.setSpacing(2)
 
-        self.lbl_system_directive = QLabel('"Directeur qualité : 20 règles de Piotr Wozniak, atomicité et clarté"')
+        self.lbl_system_directive = QLabel(self.tr('"Directeur qualité : 20 règles de Piotr Wozniak, atomicité et clarté"'))
         self.lbl_system_directive.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY}; font-style: italic; background: transparent; border: none; line-height: 1.4;")
         self.lbl_system_directive.setWordWrap(True)
         dir_layout.addWidget(self.lbl_system_directive)
@@ -346,7 +347,7 @@ class ContextHubWidget(QWidget):
         lbl_scope_icon.setPixmap(load_phosphor_icon("ph.stack", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         scope_header.addWidget(lbl_scope_icon)
 
-        lbl_scope = QLabel("ESPACE DE TRAVAIL")
+        lbl_scope = QLabel(self.tr("ESPACE DE TRAVAIL"))
         lbl_scope.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         scope_header.addWidget(lbl_scope)
 
@@ -397,12 +398,12 @@ class ContextHubWidget(QWidget):
         empty_icon.setPixmap(load_phosphor_icon("ph.folder-dashed", color=DesignTokens.TEXT_MUTED).pixmap(24, 24))
         empty_layout.addWidget(empty_icon)
 
-        empty_title = QLabel("Aucune source active")
+        empty_title = QLabel(self.tr("Aucune source active"))
         empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_title.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         empty_layout.addWidget(empty_title)
 
-        empty_sub = QLabel("Tapez @ ou liez un paquet pour contextualiser les analyses.")
+        empty_sub = QLabel(self.tr("Tapez @ ou liez un paquet pour contextualiser les analyses."))
         empty_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_sub.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         empty_sub.setWordWrap(True)
@@ -413,7 +414,7 @@ class ContextHubWidget(QWidget):
         quick_btns_layout.setSpacing(6)
         quick_btns_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        btn_quick_deck = QPushButton("🎴 Paquet Anki")
+        btn_quick_deck = QPushButton(self.tr("🎴 Paquet Anki"))
         btn_quick_deck.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_quick_deck.setFixedHeight(22)
         btn_quick_deck.setStyleSheet(f"""
@@ -434,7 +435,7 @@ class ContextHubWidget(QWidget):
         btn_quick_deck.clicked.connect(self.add_deck_requested.emit)
         quick_btns_layout.addWidget(btn_quick_deck)
 
-        btn_quick_doc = QPushButton("📄 Cours / PDF")
+        btn_quick_doc = QPushButton(self.tr("📄 Cours / PDF"))
         btn_quick_doc.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_quick_doc.setFixedHeight(22)
         btn_quick_doc.setStyleSheet(f"""
@@ -471,12 +472,12 @@ class ContextHubWidget(QWidget):
         lbl_mem_icon.setPixmap(load_phosphor_icon("ph.chart-pie-slice", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         sec_mem_header.addWidget(lbl_mem_icon)
 
-        lbl_memory_sec = QLabel("FENÊTRE D'ATTENTION & TOKENS")
+        lbl_memory_sec = QLabel(self.tr("FENÊTRE D'ATTENTION & TOKENS"))
         lbl_memory_sec.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         sec_mem_header.addWidget(lbl_memory_sec)
         sec_mem_header.addStretch()
 
-        self.btn_inspect_raw = IconButton("ph.magnifying-glass", tooltip="Inspecter le prompt brut complet (JSON)", size=20)
+        self.btn_inspect_raw = IconButton("ph.magnifying-glass", tooltip=self.tr("Inspecter le prompt brut complet (JSON)"), size=20)
         self.btn_inspect_raw.clicked.connect(self._show_raw_dialog)
         sec_mem_header.addWidget(self.btn_inspect_raw)
         container_layout.addLayout(sec_mem_header)
@@ -496,7 +497,7 @@ class ContextHubWidget(QWidget):
         # En-tête métrique : 1,190 / 128k tokens + Badge pourcentage
         bar_header = QHBoxLayout()
         bar_header.setContentsMargins(0, 0, 0, 0)
-        self.lbl_token_usage_total = QLabel("0 / 128k tokens (0%)")
+        self.lbl_token_usage_total = QLabel(self.tr("0 / 128k tokens (0%)"))
         self.lbl_token_usage_total.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         bar_header.addWidget(self.lbl_token_usage_total)
         bar_header.addStretch()
@@ -531,14 +532,14 @@ class ContextHubWidget(QWidget):
         # Ligne 1 : Persona
         row_sys = QHBoxLayout()
         row_sys.setContentsMargins(0, 0, 0, 0)
-        dot_sys = QLabel("🟣")
+        dot_sys = QLabel(self.tr("🟣"))
         dot_sys.setStyleSheet("font-size: 9px;")
         row_sys.addWidget(dot_sys)
-        lbl_sys_title = QLabel("Persona & Consignes")
+        lbl_sys_title = QLabel(self.tr("Persona & Consignes"))
         lbl_sys_title.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
         row_sys.addWidget(lbl_sys_title)
         row_sys.addStretch()
-        self.lbl_bd_system = QLabel("~250 tok")
+        self.lbl_bd_system = QLabel(self.tr("~250 tok"))
         self.lbl_bd_system.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.lbl_bd_system.setMinimumWidth(60)
         self.lbl_bd_system.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600;")
@@ -548,14 +549,14 @@ class ContextHubWidget(QWidget):
         # Ligne 2 : Sources
         row_src = QHBoxLayout()
         row_src.setContentsMargins(0, 0, 0, 0)
-        dot_src = QLabel("🔵")
+        dot_src = QLabel(self.tr("🔵"))
         dot_src.setStyleSheet("font-size: 9px;")
         row_src.addWidget(dot_src)
-        lbl_src_title = QLabel("Sources de travail")
+        lbl_src_title = QLabel(self.tr("Sources de travail"))
         lbl_src_title.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
         row_src.addWidget(lbl_src_title)
         row_src.addStretch()
-        self.lbl_bd_sources = QLabel("0 tok")
+        self.lbl_bd_sources = QLabel(self.tr("0 tok"))
         self.lbl_bd_sources.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.lbl_bd_sources.setMinimumWidth(60)
         self.lbl_bd_sources.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600;")
@@ -565,14 +566,14 @@ class ContextHubWidget(QWidget):
         # Ligne 3 : Historique
         row_hist = QHBoxLayout()
         row_hist.setContentsMargins(0, 0, 0, 0)
-        dot_hist = QLabel("🟢")
+        dot_hist = QLabel(self.tr("🟢"))
         dot_hist.setStyleSheet("font-size: 9px;")
         row_hist.addWidget(dot_hist)
-        lbl_hist_title = QLabel("Historique de chat")
+        lbl_hist_title = QLabel(self.tr("Historique de chat"))
         lbl_hist_title.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
         row_hist.addWidget(lbl_hist_title)
         row_hist.addStretch()
-        self.lbl_bd_history = QLabel("0 tok")
+        self.lbl_bd_history = QLabel(self.tr("0 tok"))
         self.lbl_bd_history.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.lbl_bd_history.setMinimumWidth(60)
         self.lbl_bd_history.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600;")
@@ -583,7 +584,7 @@ class ContextHubWidget(QWidget):
 
         # Bouton compacter
         self.btn_compact = SecondaryButton("⚡ Compacter (/compact)")
-        self.btn_compact.setToolTip("Résumer automatiquement l'historique pour libérer des tokens")
+        self.btn_compact.setToolTip(self.tr("Résumer automatiquement l'historique pour libérer des tokens"))
         self.btn_compact.setIcon(load_phosphor_icon("ph.arrows-in-line-vertical", color=DesignTokens.TEXT_PRIMARY))
         self.btn_compact.clicked.connect(self.compact_requested.emit)
         memory_layout.addWidget(self.btn_compact)
@@ -620,7 +621,7 @@ class ContextHubWidget(QWidget):
         for p in personas:
             p_type = getattr(p, "persona_type", "mcp")
             type_prefix = "🤝 " if p_type == "mcp" else "🌐 "
-            self.persona_combo.addItem(f"{type_prefix}{p.name}", userData=p)
+            self.persona_combo.addItem(tr("%1%2", type_prefix, p.name), userData=p)
 
         if active_persona:
             idx = self.persona_combo.findText(f"🤝 {active_persona.name}")
@@ -757,8 +758,8 @@ class ContextHubWidget(QWidget):
         self.progress_tokens.setValue(pct)
         self._update_progress_bar_style(pct)
 
-        self.lbl_token_usage_total.setText(f"{total:,} / {self._max_context_limit // 1000}k tokens ({pct}%)")
-        self.badge_usage_pct.setText(f"{pct}%")
+        self.lbl_token_usage_total.setText(tr("%1 / %2k tokens (%3%%)", f"{total:,}", self._max_context_limit // 1000, pct))
+        self.badge_usage_pct.setText(tr("%1%%", pct))
         if pct < 60:
             self.badge_usage_pct.set_variant("success")
         elif pct < 85:
@@ -766,9 +767,9 @@ class ContextHubWidget(QWidget):
         else:
             self.badge_usage_pct.set_variant("danger")
 
-        self.lbl_bd_system.setText(f"~{self._persona_tokens:,} tok")
+        self.lbl_bd_system.setText(tr("~%1 tok", f"{self._persona_tokens:,}"))
         self.lbl_bd_sources.setText(f"~{self._sources_tokens:,} tok ({len(self.active_context)} act.)" if self.active_context else "0 tok")
-        self.lbl_bd_history.setText(f"~{self._history_tokens:,} tok")
+        self.lbl_bd_history.setText(tr("~%1 tok", f"{self._history_tokens:,}"))
 
     def _update_proactive_actions(self, has_deck: bool, has_doc: bool) -> None:
         """Méthode de compatibilité conservée sans boutons manuels superflus."""
@@ -789,17 +790,17 @@ class ContextHubWidget(QWidget):
                 snip = f"{words}..."
             else:
                 snip = pr_text
-            self.lbl_system_directive.setText(f'"{snip}"')
+            self.lbl_system_directive.setText(tr('"%1"', snip))
             self._persona_tokens = ContextCompactor.estimate_tokens(pr_text) + 200
             p_type = getattr(p, "persona_type", "mcp")
             if p_type == "mcp":
-                self.persona_badge.setText("MCP")
+                self.persona_badge.setText(self.tr("MCP"))
                 self.persona_badge.set_variant("neutral")
             elif p_type == "pipeline":
-                self.persona_badge.setText("Pipeline")
+                self.persona_badge.setText(self.tr("Pipeline"))
                 self.persona_badge.set_variant("info")
             else:
-                self.persona_badge.setText("Global")
+                self.persona_badge.setText(self.tr("Global"))
                 self.persona_badge.set_variant("success")
 
             raw_tools = getattr(p, "allowed_tools", "[]") or "[]"
@@ -809,14 +810,14 @@ class ContextHubWidget(QWidget):
                 tools = []
 
             if not tools or "*" in tools or "all" in tools:
-                self.tools_count_badge.setText("Tous outils")
+                self.tools_count_badge.setText(self.tr("Tous outils"))
                 self.tools_count_badge.set_variant("success")
-                self.tools_count_badge.setToolTip("Cet agent dispose d'un accès intégral à tous les outils de la collection.")
+                self.tools_count_badge.setToolTip(self.tr("Cet agent dispose d'un accès intégral à tous les outils de la collection."))
             else:
-                self.tools_count_badge.setText(f"{len(tools)} outils")
+                self.tools_count_badge.setText(tr("%1 outils", len(tools)))
                 self.tools_count_badge.set_variant("primary")
                 tools_list_tt = "\n".join(f"• {t}" for t in tools)
-                self.tools_count_badge.setToolTip(f"Outils autorisés pour cet agent :\n{tools_list_tt}")
+                self.tools_count_badge.setToolTip(tr("Outils autorisés pour cet agent :\n%1", tools_list_tt))
         self.update_token_breakdown()
 
     def _show_raw_dialog(self) -> None:

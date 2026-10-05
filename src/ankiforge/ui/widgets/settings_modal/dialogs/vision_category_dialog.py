@@ -59,7 +59,7 @@ class VisionCategoryDialog(QDialog):
         icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(22, 22))
         header_row.addWidget(icon_lbl)
 
-        title_lbl = QLabel("Configuration de la Catégorie d'Analyse d'Image")
+        title_lbl = QLabel(self.tr("Configuration de la Catégorie d'Analyse d'Image"))
         title_lbl.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         header_row.addWidget(title_lbl, 1)
         layout.addLayout(header_row)
@@ -69,11 +69,11 @@ class VisionCategoryDialog(QDialog):
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         # Nom
-        self.le_name = StyledLineEdit(placeholder="Ex: Raisonnement Visuel Complexe")
+        self.le_name = StyledLineEdit(placeholder=self.tr("Ex: Raisonnement Visuel Complexe"))
         form.addRow(self._make_label("Nom de la catégorie :"), self.le_name)
 
         # Description
-        self.le_desc = StyledLineEdit(placeholder="Ex: Formules mathématiques et schémas scientifiques")
+        self.le_desc = StyledLineEdit(placeholder=self.tr("Ex: Formules mathématiques et schémas scientifiques"))
         form.addRow(self._make_label("Description :"), self.le_desc)
 
         # Fournisseur
@@ -82,16 +82,16 @@ class VisionCategoryDialog(QDialog):
         self.combo_provider.setStyleSheet(
             f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 4px 8px;"
         )
-        self.combo_provider.addItem("Anthropic (Claude 3.7)", "anthropic")
-        self.combo_provider.addItem("Google Gemini (Flash / Pro)", "gemini")
-        self.combo_provider.addItem("Ollama Local (Qwen2.5-VL)", "ollama")
-        self.combo_provider.addItem("OpenAI (GPT-4o)", "openai")
-        self.combo_provider.addItem("Natif Matériel macOS (Apple Vision)", "native")
+        self.combo_provider.addItem(self.tr("Anthropic (Claude 3.7)"), "anthropic")
+        self.combo_provider.addItem(self.tr("Google Gemini (Flash / Pro)"), "gemini")
+        self.combo_provider.addItem(self.tr("Ollama Local (Qwen2.5-VL)"), "ollama")
+        self.combo_provider.addItem(self.tr("OpenAI (GPT-4o)"), "openai")
+        self.combo_provider.addItem(self.tr("Natif Matériel macOS (Apple Vision)"), "native")
         self.combo_provider.currentIndexChanged.connect(self._on_provider_changed)
         form.addRow(self._make_label("Fournisseur d'IA :"), self.combo_provider)
 
         # Identifiant Modèle
-        self.le_model_id = StyledLineEdit(placeholder="Ex: claude-3-7-sonnet-20250219")
+        self.le_model_id = StyledLineEdit(placeholder=self.tr("Ex: claude-3-7-sonnet-20250219"))
         form.addRow(self._make_label("Modèle Cible :"), self.le_model_id)
 
         # Budget de Réflexion (Thinking Tokens)
@@ -100,7 +100,7 @@ class VisionCategoryDialog(QDialog):
         self.spin_thinking.setSingleStep(1024)
         self.spin_thinking.setFixedHeight(30)
         self.spin_thinking.setSuffix(" tokens")
-        self.spin_thinking.setToolTip("Alloué pour le mode Thinking de Claude 3.7 (0 pour désactiver le raisonnement pas-à-pas)")
+        self.spin_thinking.setToolTip(self.tr("Alloué pour le mode Thinking de Claude 3.7 (0 pour désactiver le raisonnement pas-à-pas)"))
         self.spin_thinking.setStyleSheet(
             f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 2px 6px;"
         )
@@ -119,7 +119,7 @@ class VisionCategoryDialog(QDialog):
         # Directives spécialisées
         self.te_instructions = StyledTextEdit()
         self.te_instructions.setFixedHeight(80)
-        self.te_instructions.setPlaceholderText("Instructions optionnelles injectées au prompt système pour cette catégorie...")
+        self.te_instructions.setPlaceholderText(self.tr("Instructions optionnelles injectées au prompt système pour cette catégorie..."))
         form.addRow(self._make_label("Directives IA :"), self.te_instructions)
 
         layout.addLayout(form)
@@ -159,7 +159,7 @@ class VisionCategoryDialog(QDialog):
             self.le_name.setText("")
             self.le_desc.setText("")
             self.combo_provider.setCurrentIndex(0)
-            self.le_model_id.setText("claude-3-7-sonnet-20250219")
+            self.le_model_id.setText(self.tr("claude-3-7-sonnet-20250219"))
             self.spin_thinking.setValue(2048)
             self.spin_temp.setValue(0.2)
             self.te_instructions.setPlainText("")
@@ -169,27 +169,27 @@ class VisionCategoryDialog(QDialog):
     def _on_provider_changed(self, index: int) -> None:
         prov = self.combo_provider.currentData()
         if prov == "native":
-            self.le_model_id.setText("apple_vision")
+            self.le_model_id.setText(self.tr("apple_vision"))
             self.le_model_id.setEnabled(False)
             self.spin_thinking.setValue(0)
             self.spin_thinking.setEnabled(False)
             self.spin_temp.setEnabled(False)
             self.te_instructions.setEnabled(False)
-            self.te_instructions.setPlaceholderText("Non applicable : le moteur optique matériel n'utilise pas de prompt.")
+            self.te_instructions.setPlaceholderText(self.tr("Non applicable : le moteur optique matériel n'utilise pas de prompt."))
         else:
             self.le_model_id.setEnabled(True)
             self.spin_temp.setEnabled(True)
             self.te_instructions.setEnabled(True)
-            self.te_instructions.setPlaceholderText("Instructions optionnelles injectées au prompt système pour cette catégorie...")
+            self.te_instructions.setPlaceholderText(self.tr("Instructions optionnelles injectées au prompt système pour cette catégorie..."))
             self.spin_thinking.setEnabled(prov == "anthropic")
             if prov == "anthropic" and not self.le_model_id.text().startswith("claude"):
-                self.le_model_id.setText("claude-3-7-sonnet-20250219")
+                self.le_model_id.setText(self.tr("claude-3-7-sonnet-20250219"))
                 self.spin_thinking.setValue(2048)
             elif prov == "gemini" and not self.le_model_id.text().startswith("gemini"):
-                self.le_model_id.setText("gemini-2.5-flash")
+                self.le_model_id.setText(self.tr("gemini-2.5-flash"))
                 self.spin_thinking.setValue(0)
             elif prov == "ollama" and not self.le_model_id.text().startswith("qwen"):
-                self.le_model_id.setText("qwen2.5-vl:7b")
+                self.le_model_id.setText(self.tr("qwen2.5-vl:7b"))
                 self.spin_thinking.setValue(0)
 
     def _on_save(self) -> None:

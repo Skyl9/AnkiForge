@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -45,17 +46,17 @@ class WozniakHubWidget(QWidget):
         ico_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ico_badge.setStyleSheet("background: transparent; border: none;")
 
-        lbl_header = QLabel(f"""
-            <div style="text-align: center; max-width: 650px;">
-                <div style="color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 14px; margin-bottom: 6px;">
-                    Audit Ergonomique & Linter Wozniak
-                </div>
-                <div style="color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; line-height: 140%;">
-                    Analyse cognitive automatisée de vos cartes Anki basée sur les 20 règles fondamentales de Piotr Wozniak (SuperMemo).<br>
-                    Détectez les formulations ambiguës, scindez les cartes volumineuses et sublimez vos formules mathématiques.
-                </div>
-            </div>
-        """)
+        lbl_header = QLabel(
+            tr(
+                '\n            <div style="text-align: center; max-width: 650px;">\n                <div style="color: %1; font-weight: bold; font-size: '
+                '14px; margin-bottom: 6px;">\n                    Audit Ergonomique & Linter Wozniak\n                </div>\n                <div '
+                'style="color: %2; font-size: 11px; line-height: 140%%;">\n                    Analyse cognitive automatisée de vos cartes Anki basée sur '
+                "les 20 règles fondamentales de Piotr Wozniak (SuperMemo).<br>\n                    Détectez les formulations ambiguës, scindez les "
+                "cartes volumineuses et sublimez vos formules mathématiques.\n                </div>\n            </div>\n        ",
+                DesignTokens.TEXT_PRIMARY,
+                DesignTokens.TEXT_SECONDARY,
+            )
+        )
         lbl_header.setTextFormat(Qt.TextFormat.RichText)
         lbl_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_header.setStyleSheet("background: transparent; border: none;")
@@ -211,9 +212,9 @@ class WozniakKpiCard(QFrame):
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.lbl_icon.setPixmap(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_MUTED).pixmap(15, 15))
             self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
-            self.lbl_pct.setText("--")
+            self.lbl_pct.setText(self.tr("--"))
             self.lbl_pct.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
-            self.lbl_sub.setText("En attente d'audit")
+            self.lbl_sub.setText(self.tr("En attente d'audit"))
             self.lbl_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
             self.progress.setValue(0)
             self.progress.setStyleSheet(f"""
@@ -256,7 +257,7 @@ class WozniakKpiCard(QFrame):
     def update_pct(self, pct: int, subtitle: str = "") -> None:
         """Met à jour le score et dégrise automatiquement la carte."""
         self.set_pending(False)
-        self.lbl_pct.setText(f"{pct}%")
+        self.lbl_pct.setText(tr("%1%%", pct))
         self.progress.setValue(pct)
         if subtitle:
             self.lbl_sub.setText(subtitle)
@@ -307,7 +308,7 @@ class FieldInspectorWidget(QFrame):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
 
-        lbl_header = QLabel("Inspecteur MCP · 5 Champs SQLite vs Proposition IA")
+        lbl_header = QLabel(self.tr("Inspecteur MCP · 5 Champs SQLite vs Proposition IA"))
         lbl_header.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_header.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 4px;")
         layout.addWidget(lbl_header)
@@ -319,7 +320,7 @@ class FieldInspectorWidget(QFrame):
         orig_box = QFrame()
         orig_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px; }}")
         orig_layout = QVBoxLayout(orig_box)
-        orig_title = QLabel("CARTE ACTUELLE EN BASE (SQLite)")
+        orig_title = QLabel(self.tr("CARTE ACTUELLE EN BASE (SQLite)"))
         orig_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         orig_title.setStyleSheet(f"color: {DesignTokens.COLOR_RED};")
         orig_layout.addWidget(orig_title)
@@ -336,7 +337,7 @@ class FieldInspectorWidget(QFrame):
             else:
                 val = original_data.get(key, "-")
 
-            lbl = QLabel(f"<b>{key} :</b> {val}")
+            lbl = QLabel(tr("<b>%1 :</b> %2", key, val))
             lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
             lbl.setWordWrap(True)
             lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")
@@ -346,7 +347,7 @@ class FieldInspectorWidget(QFrame):
         prop_box = QFrame()
         prop_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 4px; padding: 8px; }}")
         prop_layout = QVBoxLayout(prop_box)
-        prop_title = QLabel("PROPOSITION MUTÉE IA MCP")
+        prop_title = QLabel(self.tr("PROPOSITION MUTÉE IA MCP"))
         prop_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         prop_title.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN};")
         prop_layout.addWidget(prop_title)
@@ -362,7 +363,7 @@ class FieldInspectorWidget(QFrame):
             else:
                 val = proposal_data.get(key, "-")
 
-            lbl = QLabel(f"<b>{key} :</b> {val}")
+            lbl = QLabel(tr("<b>%1 :</b> %2", key, val))
             lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
             lbl.setWordWrap(True)
             lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
@@ -437,7 +438,7 @@ class WozniakCardItemWidget(QFrame):
         """)
         op_layout = QVBoxLayout(orig_panel)
         op_layout.setSpacing(4)
-        op_title = QLabel("CARTE ACTUELLE EN BASE :")
+        op_title = QLabel(self.tr("CARTE ACTUELLE EN BASE :"))
         op_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         op_title.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; border: none; background: transparent;")
 
@@ -502,7 +503,7 @@ class WozniakCardItemWidget(QFrame):
         ab_layout.setContentsMargins(8, 4, 8, 4)
         ab_layout.setSpacing(8)
 
-        chk_synthese = QCheckBox("Générer la Carte Synthèse Master (#synthese)")
+        chk_synthese = QCheckBox(self.tr("Générer la Carte Synthèse Master (#synthese)"))
         chk_synthese.setChecked(True)
         chk_synthese.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 10px; border: none; background: transparent;")
 
@@ -513,7 +514,7 @@ class WozniakCardItemWidget(QFrame):
 
         self.btn_consult_ai = SecondaryButton("Consulter l'IA")
         self.btn_consult_ai.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_PURPLE))
-        self.btn_consult_ai.setToolTip("Ouvrir cette carte dans le Consultant IA")
+        self.btn_consult_ai.setToolTip(self.tr("Ouvrir cette carte dans le Consultant IA"))
         self.btn_consult_ai.setFixedHeight(24)
         self.btn_consult_ai.clicked.connect(self.on_consult_ai)
 
@@ -578,7 +579,7 @@ class KatexLivePreviewWidget(QFrame):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(6)
 
-        lbl_title = QLabel("Panneau Live Preview KaTeX (Interactif)")
+        lbl_title = QLabel(self.tr("Panneau Live Preview KaTeX (Interactif)"))
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY};")
         layout.addWidget(lbl_title)
@@ -616,7 +617,7 @@ class KatexLivePreviewWidget(QFrame):
 
     def _on_formula_changed(self, text: str) -> None:
         clean = text.strip()
-        self.canvas_preview.setText(f"\\[ {clean} \\]")
+        self.canvas_preview.setText(tr("\\[ %1 \\]", clean))
 
 
 class RetentionCurveCanvas(QWidget):
@@ -884,7 +885,7 @@ class SourceDiagnosticCardWidget(QFrame):
         # Footer
         h_foot = QHBoxLayout()
         words_cnt = data.get("word_count", 0)
-        self.lbl_meta = QLabel(f".{ext.upper()} · {words_cnt:,} mots")
+        self.lbl_meta = QLabel(tr(".%1 · %2 mots", ext.upper(), f"{words_cnt:,}"))
         self.lbl_meta.setFont(QFont(DesignTokens.FONT_CODE, 9))
         self.lbl_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 

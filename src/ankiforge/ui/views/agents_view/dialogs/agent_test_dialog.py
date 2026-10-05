@@ -15,6 +15,7 @@ from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.ai.persona_templates import SAMPLE_TEST_INPUTS
 from ankiforge.ui.components import PrimaryButton, SecondaryButton, StyledComboBox
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
@@ -28,7 +29,7 @@ class AgentTestDialog(QDialog):
         super().__init__(parent)
         self.persona = persona
         self.ai_manager = ai_manager
-        self.setWindowTitle(f"Test d'Agent : {persona.name}")
+        self.setWindowTitle(tr("Test d'Agent : %1", persona.name))
         self.resize(680, 520)
         self.setStyleSheet(f"""
             QDialog {{
@@ -45,28 +46,28 @@ class AgentTestDialog(QDialog):
         layout.setSpacing(12)
 
         input_header = QHBoxLayout()
-        lbl_input = QLabel("Texte source d'entrée (User Prompt) :")
+        lbl_input = QLabel(self.tr("Texte source d'entrée (User Prompt) :"))
         lbl_input.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         input_header.addWidget(lbl_input)
         input_header.addStretch()
 
         self.sample_combo = StyledComboBox()
         self.sample_combo.setFixedHeight(26)
-        self.sample_combo.addItem("Charger un échantillon de cours...", userData="")
+        self.sample_combo.addItem(self.tr("Charger un échantillon de cours..."), userData="")
         for title, sample_text in SAMPLE_TEST_INPUTS:
-            self.sample_combo.addItem(f"📄 {title}", userData=sample_text)
+            self.sample_combo.addItem(tr("📄 %1", title), userData=sample_text)
         self.sample_combo.currentIndexChanged.connect(self._on_sample_selected)
         input_header.addWidget(self.sample_combo)
         layout.addLayout(input_header)
 
         self.edit_user_input = QTextEdit()
-        self.edit_user_input.setPlaceholderText("Saisissez un extrait de cours pour tester la génération de cet agent...")
-        self.edit_user_input.setText("La photosynthèse est le processus bioénergétique qui permet aux plantes de synthétiser de la matière organique grâce à la lumière du soleil.")
+        self.edit_user_input.setPlaceholderText(self.tr("Saisissez un extrait de cours pour tester la génération de cet agent..."))
+        self.edit_user_input.setText(self.tr("La photosynthèse est le processus bioénergétique qui permet aux plantes de synthétiser de la matière organique grâce à la lumière du soleil."))
         self.edit_user_input.setMaximumHeight(90)
         self.edit_user_input.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; border-radius: 4px; padding: 6px;")
         layout.addWidget(self.edit_user_input)
 
-        lbl_output = QLabel("Réponse du Modèle IA :")
+        lbl_output = QLabel(self.tr("Réponse du Modèle IA :"))
         lbl_output.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         layout.addWidget(lbl_output)
 

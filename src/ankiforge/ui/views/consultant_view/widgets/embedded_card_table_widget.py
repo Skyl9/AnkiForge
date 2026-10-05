@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -96,7 +97,7 @@ class EmbeddedCardTableWidget(QFrame):
         self.lbl_count.setObjectName("EmbeddedCardTableCount")
         header_layout.addWidget(self.lbl_count)
 
-        self.lbl_frozen_badge = QLabel("🔒 Figé")
+        self.lbl_frozen_badge = QLabel(self.tr("🔒 Figé"))
         self.lbl_frozen_badge.setVisible(False)
         self.lbl_frozen_badge.setObjectName("EmbeddedCardFrozenBadge")
         header_layout.addWidget(self.lbl_frozen_badge)
@@ -107,7 +108,7 @@ class EmbeddedCardTableWidget(QFrame):
         self.table = QTableWidget()
         self.table.setObjectName("EmbeddedCardTable")
         self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(["ID", "Modèle", "Recto", "Verso", ""])
+        self.table.setHorizontalHeaderLabels([self.tr("ID"), self.tr("Modèle"), self.tr("Recto"), self.tr("Verso"), ""])
         self.table.horizontalHeader().setSortIndicatorShown(True)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
@@ -129,7 +130,7 @@ class EmbeddedCardTableWidget(QFrame):
     def _populate(self, card_rows: list[dict[str, Any]]) -> None:
         """Remplit le tableau avec les données de cartes."""
         self.table.setRowCount(len(card_rows))
-        self.lbl_count.setText(f"{len(card_rows)} carte{'s' if len(card_rows) > 1 else ''}")
+        self.lbl_count.setText(tr("%1 carte%2", len(card_rows), "s" if len(card_rows) > 1 else ""))
 
         for row_idx, row in enumerate(card_rows):
             note_id = int(row.get("id", 0))
@@ -154,7 +155,7 @@ class EmbeddedCardTableWidget(QFrame):
             btn_open = QPushButton()
             btn_open.setIcon(load_phosphor_icon("ph.arrow-square-out", color=DesignTokens.ACCENT_PRIMARY))
             btn_open.setFixedSize(28, 26)
-            btn_open.setToolTip(f"Ouvrir la note #{note_id} dans l'Éditeur")
+            btn_open.setToolTip(tr("Ouvrir la note #%1 dans l'Éditeur", note_id))
             btn_open.clicked.connect(lambda _, nid=note_id: self.open_editor_requested.emit(nid))
 
             cell_widget = QWidget()

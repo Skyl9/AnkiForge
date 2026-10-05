@@ -92,7 +92,7 @@ class ModelCapabilityBadgesWidget(QWidget):
                 widget.deleteLater()
 
         if model is None:
-            lbl_none = QLabel("—")
+            lbl_none = QLabel(self.tr("—"))
             lbl_none.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
             self.layout_h.addWidget(lbl_none)
             return
@@ -130,7 +130,7 @@ class ModelCapabilityBadgesWidget(QWidget):
                 "ph.eye",
                 "Vision" if not self.compact else "Vis",
                 DesignTokens.COLOR_BLUE,
-                tooltip="Capacité multimodale : analyse d'images, figures et schémas",
+                tooltip=self.tr("Capacité multimodale : analyse d'images, figures et schémas"),
                 parent=self,
             )
             self.layout_h.addWidget(pill_vis)
@@ -141,7 +141,7 @@ class ModelCapabilityBadgesWidget(QWidget):
                 "ph.brain",
                 "Thinking" if not self.compact else "CoT",
                 DesignTokens.COLOR_PURPLE,
-                tooltip="Mode réflexion approfondie par chaîne de pensée (Chain-of-Thought)",
+                tooltip=self.tr("Mode réflexion approfondie par chaîne de pensée (Chain-of-Thought)"),
                 parent=self,
             )
             self.layout_h.addWidget(pill_think)
@@ -164,7 +164,7 @@ class ModelCapabilityBadgesWidget(QWidget):
                 "ph.cpu",
                 "100% Local" if not self.compact else "Local",
                 DesignTokens.COLOR_GREEN,
-                tooltip="Exécution 100% locale sur votre machine via Ollama (zéro cloud, zéro coût)",
+                tooltip=self.tr("Exécution 100% locale sur votre machine via Ollama (zéro cloud, zéro coût)"),
                 parent=self,
             )
             self.layout_h.addWidget(pill_local)
@@ -173,7 +173,7 @@ class ModelCapabilityBadgesWidget(QWidget):
                 "ph.coins",
                 "Gratuit" if not self.compact else "Free",
                 DesignTokens.COLOR_GREEN,
-                tooltip="Modèle accessible gratuitement (Tier gratuit du fournisseur)",
+                tooltip=self.tr("Modèle accessible gratuitement (Tier gratuit du fournisseur)"),
                 parent=self,
             )
             self.layout_h.addWidget(pill_free)

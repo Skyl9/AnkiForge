@@ -10,6 +10,8 @@ from typing import Any
 
 from PySide6.QtCore import QTime, QUrl, Signal, Slot
 
+from ankiforge.utils.i18n import tr
+
 try:
     from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
@@ -97,16 +99,16 @@ class AudioPlayerWidget(QFrame):
         self.lbl_icon.setPixmap(load_phosphor_icon("ph.waveform", color=DesignTokens.COLOR_GREEN).pixmap(18, 18))
         top_row.addWidget(self.lbl_icon)
 
-        self.lbl_title = QLabel("Aucun enregistrement audio chargé")
+        self.lbl_title = QLabel(self.tr("Aucun enregistrement audio chargé"))
         self.lbl_title.setStyleSheet(f"font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         top_row.addWidget(self.lbl_title, 1)
 
-        self.lbl_time = QLabel("00:00 / 00:00")
+        self.lbl_time = QLabel(self.tr("00:00 / 00:00"))
         self.lbl_time.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
         top_row.addWidget(self.lbl_time)
 
         self.combo_speed = QComboBox()
-        self.combo_speed.addItems(["0.75x", "1.0x", "1.25x", "1.5x", "2.0x"])
+        self.combo_speed.addItems([self.tr("0.75x"), self.tr("1.0x"), self.tr("1.25x"), self.tr("1.5x"), self.tr("2.0x")])
         self.combo_speed.setCurrentIndex(1)  # 1.0x
         self.combo_speed.setFixedWidth(70)
         self.combo_speed.currentTextChanged.connect(self._on_speed_changed)
@@ -118,15 +120,15 @@ class AudioPlayerWidget(QFrame):
         ctrl_row = QHBoxLayout()
         ctrl_row.setSpacing(8)
 
-        self.btn_prev_10 = IconButton("ph.arrow-counter-clockwise", tooltip="Reculer de 10 secondes", size=24)
+        self.btn_prev_10 = IconButton("ph.arrow-counter-clockwise", tooltip=self.tr("Reculer de 10 secondes"), size=24)
         self.btn_prev_10.clicked.connect(self._on_skip_backward)
         ctrl_row.addWidget(self.btn_prev_10)
 
-        self.btn_play = IconButton("ph.play", tooltip="Lecture / Pause", size=26)
+        self.btn_play = IconButton("ph.play", tooltip=self.tr("Lecture / Pause"), size=26)
         self.btn_play.clicked.connect(self.toggle_play)
         ctrl_row.addWidget(self.btn_play)
 
-        self.btn_next_10 = IconButton("ph.arrow-clockwise", tooltip="Avancer de 10 secondes", size=24)
+        self.btn_next_10 = IconButton("ph.arrow-clockwise", tooltip=self.tr("Avancer de 10 secondes"), size=24)
         self.btn_next_10.clicked.connect(self._on_skip_forward)
         ctrl_row.addWidget(self.btn_next_10)
 
@@ -140,7 +142,7 @@ class AudioPlayerWidget(QFrame):
         ctrl_row.addWidget(self.slider_timeline, 1)
 
         # Contrôle du volume
-        self.btn_mute = IconButton("ph.speaker-high", tooltip="Couper / Rétablir le son", size=22)
+        self.btn_mute = IconButton("ph.speaker-high", tooltip=self.tr("Couper / Rétablir le son"), size=22)
         self.btn_mute.clicked.connect(self._on_toggle_mute)
         ctrl_row.addWidget(self.btn_mute)
 
@@ -186,8 +188,8 @@ class AudioPlayerWidget(QFrame):
             self._player.setSource(QUrl.fromLocalFile(str(path_obj.resolve())))
             self.lbl_title.setText(path_obj.name)
         else:
-            self.lbl_title.setText(f"{path_obj.name} (Audio non supporté)")
-        self.lbl_time.setText("00:00 / 00:00")
+            self.lbl_title.setText(tr("%1 (Audio non supporté)", path_obj.name))
+        self.lbl_time.setText(self.tr("00:00 / 00:00"))
         self.slider_timeline.setValue(0)
         logger.info("Fichier audio chargé dans le lecteur : %s", path_obj.name)
         return True
@@ -237,7 +239,7 @@ class AudioPlayerWidget(QFrame):
             self.slider_timeline.setValue(position_ms)
         current_str = format_duration(position_ms)
         total_str = format_duration(self._duration_ms)
-        self.lbl_time.setText(f"{current_str} / {total_str}")
+        self.lbl_time.setText(tr("%1 / %2", current_str, total_str))
         self.position_changed.emit(position_ms)
 
     @Slot(int)
@@ -248,7 +250,7 @@ class AudioPlayerWidget(QFrame):
         pos = self._player.position() if self._player else 0
         current_str = format_duration(pos)
         total_str = format_duration(duration_ms)
-        self.lbl_time.setText(f"{current_str} / {total_str}")
+        self.lbl_time.setText(tr("%1 / %2", current_str, total_str))
 
     @Slot(object)
     def _on_playback_state_changed(self, state: Any) -> None:
@@ -256,10 +258,10 @@ class AudioPlayerWidget(QFrame):
         is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and state == QMediaPlayer.PlaybackState.PlayingState
         if is_playing:
             self.btn_play.setIcon(load_phosphor_icon("ph.pause", color=DesignTokens.TEXT_PRIMARY))
-            self.btn_play.setToolTip("Mettre en pause")
+            self.btn_play.setToolTip(self.tr("Mettre en pause"))
         else:
             self.btn_play.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_PRIMARY))
-            self.btn_play.setToolTip("Lancer la lecture")
+            self.btn_play.setToolTip(self.tr("Lancer la lecture"))
 
     @Slot()
     def _on_slider_pressed(self) -> None:
@@ -277,7 +279,7 @@ class AudioPlayerWidget(QFrame):
     def _on_slider_moved(self, value_ms: int) -> None:
         current_str = format_duration(value_ms)
         total_str = format_duration(self._duration_ms)
-        self.lbl_time.setText(f"{current_str} / {total_str}")
+        self.lbl_time.setText(tr("%1 / %2", current_str, total_str))
 
     @Slot()
     def _on_skip_backward(self) -> None:

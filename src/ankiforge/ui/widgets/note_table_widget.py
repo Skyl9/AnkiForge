@@ -12,6 +12,7 @@ from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeM
 from ankiforge.ui.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.utils.hierarchy import descendants_prefix
+from ankiforge.utils.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,15 @@ class SortableTableItem(QTableWidgetItem):
             return float(text_self) < float(text_other)
         except ValueError:
             return self.text().lower() < other.text().lower()
+
+
+#: Modes d'affichage du tableau. Ce sont des **identifiants** : ils sont comparés, indexés
+#: et servent de clef d'état, donc jamais traduits. Le libellé affiché est résolu par
+#: `tr()` au remplissage de la combo et le mode se lit via `currentData()` — lire
+#: `currentText()` rendrait la logique de filtrage dépendante de la langue de l'interface.
+VIEW_MODE_CARDS = "cards"
+VIEW_MODE_NOTES = "notes"
+VIEW_MODE_QUARANTINE = "quarantine"
 
 
 class NoteTableWidget(RoundedPanel):
@@ -72,32 +82,37 @@ class NoteTableWidget(RoundedPanel):
 
         # --- Toolbar ---
         toolbar_layout = QHBoxLayout()
-        lbl_mode = QLabel("MODE D'AFFICHAGE :")
+        lbl_mode = QLabel(tr("MODE D'AFFICHAGE :"))
         lbl_mode.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
         toolbar_layout.addWidget(lbl_mode)
 
         self.view_mode_cb = QComboBox()
-        self.view_mode_cb.addItems(["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)", "Vue : Quarantaine (À valider)"])
+        for label, mode_id in (
+            (tr("Vue : Cartes (Métadonnées)"), VIEW_MODE_CARDS),
+            (tr("Vue : Notes (Texte)"), VIEW_MODE_NOTES),
+            (tr("Vue : Quarantaine (À valider)"), VIEW_MODE_QUARANTINE),
+        ):
+            self.view_mode_cb.addItem(label, mode_id)
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
 
-        self.btn_approve = PrimaryButton("Approuver", tooltip="Approuver les cartes sélectionnées et lever la quarantaine")
+        self.btn_approve = PrimaryButton("Approuver", tooltip=tr("Approuver les cartes sélectionnées et lever la quarantaine"))
         self.btn_approve.setVisible(False)
-        self.btn_reject = DangerButton("Rejeter", tooltip="Rejeter et supprimer définitivement les cartes sélectionnées")
+        self.btn_reject = DangerButton(tr("Rejeter"), tooltip="Rejeter et supprimer définitivement les cartes sélectionnées")
         self.btn_reject.setVisible(False)
 
-        self.btn_new_note = PrimaryButton("Nouvelle Note", tooltip="Créer une nouvelle note dans le paquet sélectionné (Ctrl+N)")
+        self.btn_new_note = PrimaryButton("Nouvelle Note", tooltip=tr("Créer une nouvelle note dans le paquet sélectionné (Ctrl+N)"))
         self.btn_new_note.setEnabled(False)
 
-        self.btn_scan_dupes = ActionButton("magnifying-glass", " Traquer les doublons", tooltip="Lancer l'algorithme FAISS / Levenshtein pour détecter les doublons")
+        self.btn_scan_dupes = ActionButton("magnifying-glass", " Traquer les doublons", tooltip=tr("Lancer l'algorithme FAISS / Levenshtein pour détecter les doublons"))
 
-        self.btn_batch_ai = ActionButton("sparkle", " Modification IA", tooltip="Appliquer une instruction IA sur toutes les cartes sélectionnées")
+        self.btn_batch_ai = ActionButton("sparkle", " Modification IA", tooltip=tr("Appliquer une instruction IA sur toutes les cartes sélectionnées"))
         self.btn_batch_ai.setEnabled(False)
 
-        self.btn_auto_tag = ActionButton("tag", " Auto-Tag IA", tooltip="Générer automatiquement des étiquettes sémantiques par l'IA")
+        self.btn_auto_tag = ActionButton("tag", " Auto-Tag IA", tooltip=tr("Générer automatiquement des étiquettes sémantiques par l'IA"))
         self.btn_auto_tag.setEnabled(False)
 
-        self.btn_audit_ai = ActionButton("clipboard-text", " Auditer IA", tooltip="Auditer les cartes sélectionnées avec le linter IA Wozniak")
+        self.btn_audit_ai = ActionButton("clipboard-text", " Auditer IA", tooltip=tr("Auditer les cartes sélectionnées avec le linter IA Wozniak"))
         self.btn_audit_ai.setEnabled(False)
 
         toolbar_layout.addWidget(self.btn_new_note)
@@ -154,10 +169,11 @@ class NoteTableWidget(RoundedPanel):
         self.data_table.horizontalHeader().sectionMoved.connect(self._save_table_state)
 
     def _on_view_mode_changed(self):
-        self.view_mode_changed.emit(self.view_mode_cb.currentText())
+        self.view_mode_changed.emit(self.get_current_view_mode())
 
     def get_current_view_mode(self) -> str:
-        return self.view_mode_cb.currentText()
+        """Mode d'affichage courant, sous forme d'identifiant stable (jamais traduit)."""
+        return str(self.view_mode_cb.currentData() or VIEW_MODE_CARDS)
 
     def _on_selection_changed(self):
         selected_ids = self.get_selected_note_ids()
@@ -165,7 +181,7 @@ class NoteTableWidget(RoundedPanel):
         self.btn_auto_tag.setEnabled(bool(selected_ids))
         self.btn_audit_ai.setEnabled(bool(selected_ids))
 
-        is_quarantine = self.view_mode_cb.currentText() == "Vue : Quarantaine (À valider)"
+        is_quarantine = self.get_current_view_mode() == VIEW_MODE_QUARANTINE
         if is_quarantine:
             self.btn_approve.setEnabled(bool(selected_ids))
             self.btn_reject.setEnabled(bool(selected_ids))
@@ -225,8 +241,8 @@ class NoteTableWidget(RoundedPanel):
         self.data_table.setSortingEnabled(False)
         self.data_table.setRowCount(0)
 
-        mode = self.view_mode_cb.currentText()
-        is_quarantine = mode == "Vue : Quarantaine (À valider)"
+        mode = self.get_current_view_mode()
+        is_quarantine = mode == VIEW_MODE_QUARANTINE
 
         self.btn_approve.setVisible(is_quarantine)
         self.btn_reject.setVisible(is_quarantine)
@@ -242,7 +258,7 @@ class NoteTableWidget(RoundedPanel):
 
             if mode == "Vue : Cartes (Métadonnées)":
                 self.data_table.setColumnCount(4)
-                self.data_table.setHorizontalHeaderLabels(["ID Carte", "Modèle", "Paquet", "Template"])
+                self.data_table.setHorizontalHeaderLabels([tr("ID Carte"), tr("Modèle"), tr("Paquet"), tr("Template")])
 
                 self.data_table.horizontalHeader().setStretchLastSection(False)
                 self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -278,7 +294,7 @@ class NoteTableWidget(RoundedPanel):
 
             else:
                 self.data_table.setColumnCount(5)
-                self.data_table.setHorizontalHeaderLabels(["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags", "Version"])
+                self.data_table.setHorizontalHeaderLabels([tr("Question (Aperçu)"), tr("Réponse (Aperçu)"), tr("Modèle"), tr("Tags"), tr("Version")])
 
                 self.data_table.horizontalHeader().setStretchLastSection(False)
                 self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Question s'étire
@@ -339,7 +355,7 @@ class NoteTableWidget(RoundedPanel):
             self._restore_table_state()
         except Exception as e:
             logger.exception("Erreur lors du rafraîchissement du tableau de données :")
-            QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
+            QMessageBox.critical(self, tr("Erreur d'affichage"), tr("Impossible de charger le tableau :\n%1", e))
 
         if self.data_table.rowCount() == 0:
             self.data_table.hide()
@@ -370,8 +386,8 @@ class NoteTableWidget(RoundedPanel):
         self._save_table_state()
 
     def _get_table_state_key(self) -> str:
-        mode = self.view_mode_cb.currentText()
-        if mode == "Vue : Cartes (Métadonnées)":
+        mode = self.get_current_view_mode()
+        if mode == VIEW_MODE_CARDS:
             return "EditionView/TableState_Cards"
         else:
             return "EditionView/TableState_Notes"
@@ -397,7 +413,7 @@ class NoteTableWidget(RoundedPanel):
                 verso = strip_html(values[1]) if len(values) > 1 else ""
 
                 # Attention au mode de vue pour les index de colonnes
-                if self.view_mode_cb.currentText() == "Vue : Notes (Texte)":
+                if self.get_current_view_mode() == VIEW_MODE_NOTES:
                     self.data_table.setItem(row, 0, SortableTableItem(recto))
                     self.data_table.setItem(row, 1, SortableTableItem(verso))
                     item_version = SortableTableItem(f"v{version_num}")

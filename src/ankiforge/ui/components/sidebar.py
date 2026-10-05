@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.nav_badge import NavBadgeButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class SidebarItem(NavBadgeButton):
         # Set icon
         self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
         self.setIconSize(QSize(20, 20))
-        self.setText(f"  {self.title.replace('&', '&&')}")
+        self.setText(tr("  %1", self.title.replace("&", "&&")))
         self.toggled.connect(self._on_toggled)
 
     def set_collapsed(self, collapsed: bool) -> None:
@@ -59,7 +60,7 @@ class SidebarItem(NavBadgeButton):
             self.setText("")
             self.setToolTip(self.title)
         else:
-            self.setText(f"  {self.title.replace('&', '&&')}")
+            self.setText(tr("  %1", self.title.replace("&", "&&")))
             self.setToolTip("")
 
     def _on_toggled(self, checked: bool) -> None:
@@ -95,10 +96,10 @@ class SidebarProfileItem(QPushButton):
     def _update_text(self) -> None:
         if self._collapsed:
             self.setText("")
-            self.setToolTip(f"Profil : {self.profile_name} (Changer de profil)")
+            self.setToolTip(tr("Profil : %1 (Changer de profil)", self.profile_name))
         else:
-            self.setText(f"  Profil : {self.profile_name}")
-            self.setToolTip("Changer d'espace de travail / profil")
+            self.setText(tr("  Profil : %1", self.profile_name))
+            self.setToolTip(self.tr("Changer d'espace de travail / profil"))
 
     def set_collapsed(self, collapsed: bool) -> None:
         self._collapsed = collapsed
@@ -140,9 +141,9 @@ class Sidebar(QWidget):
         from ankiforge.utils.icon_loader import load_logo_icon
 
         self.logo_icon.setPixmap(load_logo_icon(DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
-        self.logo_text = QLabel("AnkiForge", self)
+        self.logo_text = QLabel(self.tr("AnkiForge"), self)
         self.logo_text.hide()
-        self.toggle_btn = IconButton("list", tooltip="Toggle Sidebar", size=24, parent=self)
+        self.toggle_btn = IconButton("list", tooltip=self.tr("Toggle Sidebar"), size=24, parent=self)
         self.toggle_btn.hide()
         self.toggle_btn.clicked.connect(self.toggle_requested.emit)
 

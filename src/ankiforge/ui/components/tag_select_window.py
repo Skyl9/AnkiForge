@@ -46,7 +46,7 @@ class TagSelectWindow(QWidget):
 
         # Search Bar
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher ou saisir un nouveau tag...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher ou saisir un nouveau tag..."))
         search_icon = load_phosphor_icon("magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.search_input.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
         self.search_input.setFixedHeight(32)

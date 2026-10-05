@@ -64,7 +64,7 @@ class Omnibox(QDialog):
 
         # 1. La barre de recherche
         self.search_bar = QLineEdit()
-        self.search_bar.setPlaceholderText("Rechercher dans les cours ou les flashcards...")
+        self.search_bar.setPlaceholderText(self.tr("Rechercher dans les cours ou les flashcards..."))
         self.search_bar.textChanged.connect(self._on_text_changed)
         layout.addWidget(self.search_bar)
 

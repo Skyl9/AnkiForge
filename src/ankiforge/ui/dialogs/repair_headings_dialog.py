@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from ankiforge.services.markdown.models import HeadingRepairItem
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ class RepairHeadingsDialog(QDialog):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("Harmonisation des Titres Markdown")
+        self.setWindowTitle(self.tr("Harmonisation des Titres Markdown"))
         self.setMinimumWidth(640)
         self.setMinimumHeight(420)
         self.resize(700, 480)
@@ -71,11 +72,13 @@ class RepairHeadingsDialog(QDialog):
         desc_layout = QVBoxLayout()
         desc_layout.setSpacing(3)
 
-        title_lbl = QLabel(f"{len(self.repairs)} anomalie(s) de hiérarchie détectée(s)")
+        title_lbl = QLabel(tr("%1 anomalie(s) de hiérarchie détectée(s)", len(self.repairs)))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: bold;")
         desc_layout.addWidget(title_lbl)
 
-        sub_lbl = QLabel("AnkiForge a repéré des sauts de niveau illégaux (ex: H1 suivi directement de H3). Vérifiez ci-dessous les ajustements proposés. Rien ne sera modifié sans votre accord.")
+        sub_lbl = QLabel(
+            self.tr("AnkiForge a repéré des sauts de niveau illégaux (ex: H1 suivi directement de H3). Vérifiez ci-dessous les ajustements proposés. Rien ne sera modifié sans votre accord.")
+        )
         sub_lbl.setWordWrap(True)
         sub_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         desc_layout.addWidget(sub_lbl)
@@ -86,7 +89,7 @@ class RepairHeadingsDialog(QDialog):
         # Tableau des réparations proposées
         self.table = QTableWidget()
         self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(["Appliquer", "Ligne", "Titre de la Section", "Niveau", "Raison du saut"])
+        self.table.setHorizontalHeaderLabels([self.tr("Appliquer"), self.tr("Ligne"), self.tr("Titre de la Section"), self.tr("Niveau"), self.tr("Raison du saut")])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)

@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 
 
 class SettingsTabBar(QWidget):
@@ -21,7 +22,7 @@ class SettingsTabBar(QWidget):
 
     def add_tab(self, title: str, icon_name: str) -> int:
         idx = len(self.tabs)
-        btn = QPushButton(f"{icon_name}  {title}")
+        btn = QPushButton(tr("%1  %2", icon_name, title))
         btn.setCheckable(True)
         btn.setFixedHeight(36)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)

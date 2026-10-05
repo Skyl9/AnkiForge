@@ -30,6 +30,7 @@ from ankiforge.ui.components import Badge, EmptyStateWidget, IconButton, StyledT
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.batch_view.constants import apply_pill_style
 from ankiforge.ui.views.batch_view.widgets.progress_cell_widget import ProgressTableCellWidget
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 _STATUS_COLORS: dict[str, str] = {
@@ -46,16 +47,28 @@ _STATUS_COLORS: dict[str, str] = {
     "Échec": DesignTokens.COLOR_RED,
 }
 
-_STATUS_PROGRESS_TEXT: dict[str, str] = {
-    "Succès": "Terminé",
-    "En cours": "En cours...",
-    "Erreur": "Erreur",
-    "Annulé": "Annulé",
-    "À réviser": "à valider",
-    "Acceptée": "Validé",
-    "Rejetée": "Rejeté",
-    "Partielle": "Partiel",
-}
+
+def _status_progress_text() -> dict[str, str]:
+    """Libellé de progression par statut.
+
+    Les clés sont des identifiants de statut, pas des libellés : elles sont comparées aux
+    valeurs stockées et ne doivent donc jamais être traduites. Seules les valeurs, affichées,
+    passent par ``tr()``.
+
+    Une fonction, et non une constante : une constante de module serait résolue à l'import,
+    donc avant l'installation du traducteur, et figerait ces libellés en français.
+    """
+    return {
+        "Succès": tr("Terminé"),
+        "En cours": tr("En cours..."),
+        "Erreur": tr("Erreur"),
+        "Annulé": tr("Annulé"),
+        "À réviser": tr("à valider"),
+        "Acceptée": tr("Validé"),
+        "Rejetée": tr("Rejeté"),
+        "Partielle": tr("Partiel"),
+    }
+
 
 _FILTERS = (
     ("Tous", ()),
@@ -64,6 +77,21 @@ _FILTERS = (
     ("Terminés", ("Succès", "Acceptée", "Partielle", "Rejetée")),
     ("Erreurs", ("Erreur", "Annulé", "Interrompu", "Échec")),
 )
+
+
+def _filter_labels() -> dict[str, str]:
+    """Libellés affichés des filtres, séparés de leur clé d'identification.
+
+    ``set_filter()`` et les tests manipulent la clé, seul le chip doit être traduit — même
+    raison que pour `_status_progress_text()` : construit à l'appel, pas à l'import.
+    """
+    return {
+        "Tous": tr("Tous"),
+        "En attente": tr("En attente"),
+        "À réviser": tr("À réviser"),
+        "Terminés": tr("Terminés"),
+        "Erreurs": tr("Erreurs"),
+    }
 
 
 class BatchQueueTable(QWidget):
@@ -121,8 +149,9 @@ class BatchQueueTable(QWidget):
         filter_row.setSpacing(4)
 
         self.filter_buttons: dict[str, QLabel] = {}
+        filter_labels = _filter_labels()
         for label, _ in _FILTERS:
-            chip = QLabel(label)
+            chip = QLabel(filter_labels[label])
             chip.setStyleSheet(
                 f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9px; background: transparent;"
             )
@@ -263,10 +292,9 @@ class BatchQueueTable(QWidget):
             source_label = f"{doc_title} › {chunk_label}" if chunk_label else doc_title
             doc_item = QTableWidgetItem(source_label)
             doc_item.setIcon(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
-            doc_item.setToolTip(
-                f"Type: {getattr(doc, 'file_type', 'doc') if doc is not None else 'doc'} | "
-                f"Mots: {len(str(task.get('doc_content') or (getattr(doc, 'content', '') if doc is not None else '') or '').split())}"
-            )
+            doc_file_type = getattr(doc, "file_type", "doc") if doc is not None else "doc"
+            doc_content = str(task.get("doc_content") or (getattr(doc, "content", "") if doc is not None else "") or "")
+            doc_item.setToolTip(tr("Type: %1 | Mots: %2", doc_file_type, len(doc_content.split())))
             if status == "À réviser" and has_notes:
                 doc_item.setToolTip(doc_item.toolTip() + "\nCliquer pour examiner et valider les cartes.")
             elif i in self._reopen_rows:
@@ -279,14 +307,15 @@ class BatchQueueTable(QWidget):
             self.table.setItem(i, 5, QTableWidgetItem(str(task.get("pipeline_name", "Standard"))))
 
             # Col 6: Progression
+            progress_text = _status_progress_text()
             p_color = DesignTokens.ACCENT_PRIMARY
             p_text = "En attente..."
             if status == "En cours":
                 p_color = DesignTokens.COLOR_BLUE
                 p_text = f"{progress_pct}%"
-            elif status in _STATUS_PROGRESS_TEXT:
+            elif status in progress_text:
                 p_color = _STATUS_COLORS.get(status, DesignTokens.ACCENT_PRIMARY)
-                p_text = _STATUS_PROGRESS_TEXT[status]
+                p_text = progress_text[status]
                 if status == "À réviser":
                     p_text = f"{cards_count} carte(s) à valider"
             prog_widget = ProgressTableCellWidget(progress_pct=progress_pct, status_text=p_text, color=p_color)
@@ -316,18 +345,18 @@ class BatchQueueTable(QWidget):
         action_layout.setSpacing(2)
 
         if status == "À réviser":
-            btn_review = IconButton("ph.magnifying-glass", tooltip="Examiner & valider les cartes", size=18)
+            btn_review = IconButton("ph.magnifying-glass", tooltip=self.tr("Examiner & valider les cartes"), size=18)
             btn_review.clicked.connect(lambda _=False, row_idx=row_idx: self.review_requested.emit(row_idx))
             btn_review.setStyleSheet(f"border: 1px solid {DesignTokens.COLOR_PURPLE}; border-radius: 4px;")
             action_layout.addWidget(btn_review)
 
         if status in ("Erreur", "Échec", "Interrompu"):
-            btn_retry = IconButton("ph.arrow-clockwise", tooltip="Relancer la tâche", size=18)
+            btn_retry = IconButton("ph.arrow-clockwise", tooltip=self.tr("Relancer la tâche"), size=18)
             btn_retry.clicked.connect(lambda _=False, row_idx=row_idx: self.retry_requested.emit(row_idx))
             btn_retry.setStyleSheet(f"border: 1px solid {DesignTokens.COLOR_YELLOW}; border-radius: 4px;")
             action_layout.addWidget(btn_retry)
 
-        btn_del = IconButton("ph.x", tooltip="Retirer de la queue", size=18)
+        btn_del = IconButton("ph.x", tooltip=self.tr("Retirer de la queue"), size=18)
         btn_del.clicked.connect(lambda _=False, row_idx=row_idx: self.remove_requested.emit(row_idx))
         action_layout.addWidget(btn_del)
 
@@ -349,7 +378,7 @@ class BatchQueueTable(QWidget):
             self._set_progress(row_idx, 100, f"{cards_count} cartes à valider", DesignTokens.COLOR_PURPLE)
             self._set_cards(row_idx, f"{cards_count} ⏳")
         else:
-            self._set_progress(row_idx, 100, _STATUS_PROGRESS_TEXT.get(status, "Terminé"), color)
+            self._set_progress(row_idx, 100, _status_progress_text().get(status, tr("Terminé")), color)
             self._set_cards(row_idx, f"{cards_count} cartes" if cards_count > 0 else "-")
 
     def sync_failed(self, row_idx: int) -> None:
@@ -407,7 +436,7 @@ class BatchQueueTable(QWidget):
             visible = self._status_matches(status)
             self.table.setRowHidden(row_idx, not visible)
         visible_rows = sum(1 for row_idx in range(self.table.rowCount()) if not self.table.isRowHidden(row_idx))
-        self.lbl_filter_info.setText(f"{visible_rows}/{len(self._tasks)} tâche(s)")
+        self.lbl_filter_info.setText(tr("%1/%2 tâche(s)", visible_rows, len(self._tasks)))
 
     def _status_matches(self, status: str) -> bool:
         for label, statuses in _FILTERS:

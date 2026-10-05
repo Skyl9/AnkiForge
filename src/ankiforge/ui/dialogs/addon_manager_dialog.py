@@ -38,6 +38,7 @@ from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.components.tables import StyledTableWidget
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ class AddonConfigForm(QWidget):
 
         config_data = self.addon_info.config_schema
         if not config_data:
-            lbl_empty = QLabel("Cet addon ne possède aucun paramètre de configuration personnalisable.")
+            lbl_empty = QLabel(self.tr("Cet addon ne possède aucun paramètre de configuration personnalisable."))
             lbl_empty.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-style: italic; font-size: 12px;")
             layout.addWidget(lbl_empty)
             layout.addStretch()
@@ -102,7 +103,7 @@ class AddonConfigForm(QWidget):
             row_layout = QHBoxLayout(row_frame)
             row_layout.setContentsMargins(8, 6, 8, 6)
 
-            lbl = QLabel(f"<b>{key}</b>")
+            lbl = QLabel(tr("<b>%1</b>", key))
             lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
             row_layout.addWidget(lbl)
             row_layout.addStretch()
@@ -210,7 +211,7 @@ class AddonDetailWidget(QWidget):
         self.ph_icon.setPixmap(load_phosphor_icon("ph.puzzle-piece", color=DesignTokens.TEXT_MUTED).pixmap(36, 36))
         ph_layout.addWidget(self.ph_icon)
 
-        self.lbl_placeholder = QLabel("Sélectionnez une extension dans la liste pour voir ses détails.")
+        self.lbl_placeholder = QLabel(self.tr("Sélectionnez une extension dans la liste pour voir ses détails."))
         self.lbl_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_placeholder.setWordWrap(True)
         self.lbl_placeholder.setMaximumWidth(380)
@@ -233,11 +234,11 @@ class AddonDetailWidget(QWidget):
         h_layout.setSpacing(6)
 
         top_row = QHBoxLayout()
-        self.lbl_name = QLabel("Nom de l'extension")
+        self.lbl_name = QLabel(self.tr("Nom de l'extension"))
         self.lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold;")
         top_row.addWidget(self.lbl_name)
 
-        self.badge_status = Badge("Actif", variant="success")
+        self.badge_status = Badge(tr("Actif"), variant="success")
         top_row.addWidget(self.badge_status)
         top_row.addStretch()
 
@@ -247,11 +248,11 @@ class AddonDetailWidget(QWidget):
 
         h_layout.addLayout(top_row)
 
-        self.lbl_meta = QLabel("v1.0.0 • Auteur: Anonyme")
+        self.lbl_meta = QLabel(self.tr("v1.0.0 • Auteur: Anonyme"))
         self.lbl_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         h_layout.addWidget(self.lbl_meta)
 
-        self.lbl_desc = QLabel("Description courte de l'addon...")
+        self.lbl_desc = QLabel(self.tr("Description courte de l'addon..."))
         self.lbl_desc.setWordWrap(True)
         self.lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; margin-top: 4px;")
         h_layout.addWidget(self.lbl_desc)
@@ -289,13 +290,13 @@ class AddonDetailWidget(QWidget):
         self.config_container = QWidget()
         self.config_container_layout = QVBoxLayout(self.config_container)
         self.config_container_layout.setContentsMargins(0, 0, 0, 0)
-        self.tabs.addTab(self.config_container, "⚙️ Réglages")
+        self.tabs.addTab(self.config_container, self.tr("⚙️ Réglages"))
 
         # Tab 2: Documentation Markdown
         self.doc_edit = QTextEdit()
         self.doc_edit.setReadOnly(True)
         self.doc_edit.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY}; border: none; padding: 12px;")
-        self.tabs.addTab(self.doc_edit, "📖 Documentation")
+        self.tabs.addTab(self.doc_edit, self.tr("📖 Documentation"))
 
         # Tab 3: Logs d'Erreur (affiché si statut ERROR)
         self.error_edit = QTextEdit()
@@ -303,7 +304,7 @@ class AddonDetailWidget(QWidget):
         self.error_edit.setStyleSheet(
             f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.COLOR_RED}; border: none; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; padding: 10px;"
         )
-        self.tabs.addTab(self.error_edit, "⚠️ Diagnostic Erreur")
+        self.tabs.addTab(self.error_edit, self.tr("⚠️ Diagnostic Erreur"))
 
         content_layout.addWidget(self.tabs, 1)
 
@@ -316,7 +317,7 @@ class AddonDetailWidget(QWidget):
 
         bottom_row.addStretch()
 
-        self.btn_uninstall = DangerButton("Désinstaller l'extension")
+        self.btn_uninstall = DangerButton(tr("Désinstaller l'extension"))
         self.btn_uninstall.setIcon(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED))
         self.btn_uninstall.clicked.connect(self._uninstall)
         bottom_row.addWidget(self.btn_uninstall)
@@ -335,30 +336,30 @@ class AddonDetailWidget(QWidget):
         self.content_box.setVisible(True)
 
         self.lbl_name.setText(addon_info.name)
-        self.lbl_meta.setText(f"v{addon_info.version} • Auteur: {addon_info.author} • ID: {addon_info.id}")
+        self.lbl_meta.setText(tr("v%1 • Auteur: %2 • ID: %3", addon_info.version, addon_info.author, addon_info.id))
         self.lbl_desc.setText(addon_info.description or "Aucune description fournie.")
 
         # Badge & Bouton de toggle
         if addon_info.status == AddonStatus.ACTIVE:
-            self.badge_status.setText("Actif")
+            self.badge_status.setText(self.tr("Actif"))
             self.badge_status.set_variant("success")
             self.btn_toggle_enable.setEnabled(True)
-            self.btn_toggle_enable.setText("Désactiver")
+            self.btn_toggle_enable.setText(self.tr("Désactiver"))
         elif addon_info.status == AddonStatus.INCOMPATIBLE:
-            self.badge_status.setText("Incompatible")
+            self.badge_status.setText(self.tr("Incompatible"))
             self.badge_status.set_variant("warning")
             self.btn_toggle_enable.setEnabled(False)
-            self.btn_toggle_enable.setText("Incompatible")
+            self.btn_toggle_enable.setText(self.tr("Incompatible"))
         elif addon_info.status == AddonStatus.ERROR:
-            self.badge_status.setText("Erreur")
+            self.badge_status.setText(self.tr("Erreur"))
             self.badge_status.set_variant("danger")
             self.btn_toggle_enable.setEnabled(True)
-            self.btn_toggle_enable.setText("Réessayer")
+            self.btn_toggle_enable.setText(self.tr("Réessayer"))
         else:
-            self.badge_status.setText("Désactivé")
+            self.badge_status.setText(self.tr("Désactivé"))
             self.badge_status.set_variant("neutral")
             self.btn_toggle_enable.setEnabled(True)
-            self.btn_toggle_enable.setText("Activer")
+            self.btn_toggle_enable.setText(self.tr("Activer"))
 
         # Remplir l'onglet Réglages
         # Nettoyer l'ancien formulaire
@@ -378,16 +379,16 @@ class AddonDetailWidget(QWidget):
 
         # Logs d'erreur ou d'incompatibilité
         if addon_info.status == AddonStatus.INCOMPATIBLE:
-            self.tabs.setTabText(2, "⚠️ Incompatibilité")
+            self.tabs.setTabText(2, self.tr("⚠️ Incompatibilité"))
             self.error_edit.setText(addon_info.error_message or "Cette extension est incompatible avec la version actuelle d'AnkiForge.")
             self.tabs.setTabVisible(2, True)
         elif addon_info.error_message:
-            self.tabs.setTabText(2, "⚠️ Diagnostic Erreur")
+            self.tabs.setTabText(2, self.tr("⚠️ Diagnostic Erreur"))
             self.error_edit.setText(addon_info.error_message)
             self.tabs.setTabVisible(2, True)
         else:
-            self.tabs.setTabText(2, "⚠️ Diagnostic Erreur")
-            self.error_edit.setText("Aucune anomalie détectée.")
+            self.tabs.setTabText(2, self.tr("⚠️ Diagnostic Erreur"))
+            self.error_edit.setText(self.tr("Aucune anomalie détectée."))
             self.tabs.setTabVisible(2, False)
 
         self.tabs.setCurrentIndex(0)
@@ -426,8 +427,8 @@ class AddonDetailWidget(QWidget):
         name = self.current_addon.name
         reply = QMessageBox.question(
             self,
-            "Confirmer la suppression",
-            f"Êtes-vous sûr de vouloir supprimer définitivement l'extension '{name}' ?",
+            self.tr("Confirmer la suppression"),
+            tr("Êtes-vous sûr de vouloir supprimer définitivement l'extension '%1' ?", name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
@@ -472,12 +473,12 @@ class AddonManagerWidget(QWidget):
 
         # En-tête & Barre d'outils
         top_bar = QHBoxLayout()
-        lbl_title = QLabel("EXTENSIONS & ADDONS")
+        lbl_title = QLabel(self.tr("EXTENSIONS & ADDONS"))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         top_bar.addWidget(lbl_title)
 
         if self.plugin_manager.is_safe_mode:
-            badge_safe = Badge("🛡️ Mode Sans Échec Actif", variant="warning")
+            badge_safe = Badge(tr("🛡️ Mode Sans Échec Actif"), variant="warning")
             top_bar.addWidget(badge_safe)
 
         top_bar.addStretch()
@@ -504,7 +505,7 @@ class AddonManagerWidget(QWidget):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(8)
 
-        self.search_input = StyledLineEdit(icon_name="magnifying-glass", placeholder="Filtrer les extensions...")
+        self.search_input = StyledLineEdit(icon_name="magnifying-glass", placeholder=self.tr("Filtrer les extensions..."))
         self.search_input.textChanged.connect(self._filter_addons)
         left_layout.addWidget(self.search_input)
 
@@ -613,7 +614,7 @@ class AddonManagerWidget(QWidget):
                 _safe_show_toast(self, msg, is_error=False)
                 self.refresh_addons_list()
             else:
-                QMessageBox.critical(self, "Erreur d'installation", msg)
+                QMessageBox.critical(self, self.tr("Erreur d'installation"), msg)
 
     def refresh_theme(self, profile: Any) -> None:
         """Met à jour les composants internes selon le thème actif."""
@@ -628,7 +629,7 @@ class AddonManagerDialog(QDialog):
 
     def __init__(self, plugin_manager: PluginManager | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Gestionnaire d'Extensions AnkiForge")
+        self.setWindowTitle(self.tr("Gestionnaire d'Extensions AnkiForge"))
         self.setMinimumSize(820, 520)
         self.resize(920, 580)
         layout = QVBoxLayout(self)

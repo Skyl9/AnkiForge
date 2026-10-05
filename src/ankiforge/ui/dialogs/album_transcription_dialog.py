@@ -39,6 +39,7 @@ from ankiforge.services.ai.vision_category_service import (
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import Badge, IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ class AlbumTranscriptionDialog(QDialog):
         self._pages: list[DocumentPageModel] = list(DocumentPageModel.select().where(DocumentPageModel.document == self._doc).order_by(DocumentPageModel.page_number.asc()))
 
         self.setObjectName("albumTranscriptionDialog")
-        self.setWindowTitle("Transcription de l'album")
+        self.setWindowTitle(self.tr("Transcription de l'album"))
         self.resize(700, 760)
         self.setMinimumSize(600, 620)
         self.setStyleSheet(f"""
@@ -142,14 +143,14 @@ class AlbumTranscriptionDialog(QDialog):
         title_ico.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW).pixmap(22, 22))
         title_row.addWidget(title_ico)
 
-        lbl_title = QLabel("Transcription de l'album")
+        lbl_title = QLabel(self.tr("Transcription de l'album"))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 17px; font-weight: bold;")
         title_row.addWidget(lbl_title)
         title_row.addStretch()
         header_layout.addLayout(title_row)
 
         doc_title = self._doc.title if self._doc else "Album"
-        lbl_sub = QLabel(f"Document : « {doc_title} » — {len(self._pages)} planche(s) au total")
+        lbl_sub = QLabel(tr("Document : « %1 » — %2 planche(s) au total", doc_title, len(self._pages)))
         lbl_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
         header_layout.addWidget(lbl_sub)
         main_layout.addLayout(header_layout)
@@ -174,7 +175,7 @@ class AlbumTranscriptionDialog(QDialog):
 
         # Mode Tout l'album
         row_all = QHBoxLayout()
-        self.rb_all = QRadioButton("Tout l'album")
+        self.rb_all = QRadioButton(self.tr("Tout l'album"))
         self.lbl_count_all = Badge("(0)", variant="neutral")
         row_all.addWidget(self.rb_all)
         row_all.addWidget(self.lbl_count_all)
@@ -184,7 +185,7 @@ class AlbumTranscriptionDialog(QDialog):
 
         # Mode Non transcrites
         row_untrans = QHBoxLayout()
-        self.rb_untranscribed = QRadioButton("Planches non transcrites uniquement")
+        self.rb_untranscribed = QRadioButton(self.tr("Planches non transcrites uniquement"))
         self.lbl_count_untranscribed = Badge("(0)", variant="neutral")
         row_untrans.addWidget(self.rb_untranscribed)
         row_untrans.addWidget(self.lbl_count_untranscribed)
@@ -194,7 +195,7 @@ class AlbumTranscriptionDialog(QDialog):
 
         # Mode Périmées (stale)
         row_stale = QHBoxLayout()
-        self.rb_stale = QRadioButton("Planches périmées (modifiées/pivotées)")
+        self.rb_stale = QRadioButton(self.tr("Planches périmées (modifiées/pivotées)"))
         self.lbl_count_stale = Badge("(0)", variant="warning")
         row_stale.addWidget(self.rb_stale)
         row_stale.addWidget(self.lbl_count_stale)
@@ -204,7 +205,7 @@ class AlbumTranscriptionDialog(QDialog):
 
         # Mode Intervalle personnalisé
         row_custom = QHBoxLayout()
-        self.rb_custom = QRadioButton("Intervalle personnalisé")
+        self.rb_custom = QRadioButton(self.tr("Intervalle personnalisé"))
         self.lbl_count_custom = Badge("(0)", variant="neutral")
         row_custom.addWidget(self.rb_custom)
         row_custom.addWidget(self.lbl_count_custom)
@@ -213,7 +214,7 @@ class AlbumTranscriptionDialog(QDialog):
         scope_layout.addLayout(row_custom)
 
         self.le_custom_range = QLineEdit()
-        self.le_custom_range.setPlaceholderText("ex: 1-5, 8, 12-15")
+        self.le_custom_range.setPlaceholderText(self.tr("ex: 1-5, 8, 12-15"))
         self.le_custom_range.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -248,7 +249,7 @@ class AlbumTranscriptionDialog(QDialog):
 
         dt_row = QHBoxLayout()
         dt_row.setSpacing(8)
-        lbl_dt = QLabel("Contenu des planches :")
+        lbl_dt = QLabel(self.tr("Contenu des planches :"))
         lbl_dt.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         dt_row.addWidget(lbl_dt)
 
@@ -278,7 +279,7 @@ class AlbumTranscriptionDialog(QDialog):
 
         combo_row = QHBoxLayout()
         combo_row.setSpacing(8)
-        lbl_cat = QLabel("Moteur sélectionné :")
+        lbl_cat = QLabel(self.tr("Moteur sélectionné :"))
         lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         combo_row.addWidget(lbl_cat)
 
@@ -309,8 +310,8 @@ class AlbumTranscriptionDialog(QDialog):
         # Badges de capacités
         badges_row = QHBoxLayout()
         badges_row.setSpacing(6)
-        self.badge_vision = Badge("Vision multimodale", variant="info")
-        self.badge_thinking = Badge("CoT Thinking", variant="primary")
+        self.badge_vision = Badge(tr("Vision multimodale"), variant="info")
+        self.badge_thinking = Badge(tr("CoT Thinking"), variant="primary")
         self.badge_thinking.setVisible(False)
         badges_row.addWidget(self.badge_vision)
         badges_row.addWidget(self.badge_thinking)
@@ -339,8 +340,11 @@ class AlbumTranscriptionDialog(QDialog):
         hw_ico.setStyleSheet("border: none; background: transparent;")
         hw_layout.addWidget(hw_ico)
         hw_lbl = QLabel(
-            "Moteur optique haute vitesse : optimisé pour le texte suivi et la prose en bloc. "
-            "Pour les tableaux structurés, schémas et formules mathématiques, privilégiez un modèle multimodal (VLM, ex: Qwen2.5-VL ou Gemini)."
+            self.tr(
+                "Moteur optique haute vitesse : optimisé pour le texte suivi et la prose en bloc. "
+                "Pour les tableaux structurés, schémas et formules mathématiques, privilégiez "
+                "un modèle multimodal (VLM, ex: Qwen2.5-VL ou Gemini)."
+            )
         )
         hw_lbl.setWordWrap(True)
         hw_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none; background: transparent;")
@@ -362,11 +366,11 @@ class AlbumTranscriptionDialog(QDialog):
         adv_layout.setSpacing(8)
 
         adv_row1 = QHBoxLayout()
-        lbl_model = QLabel("Surcharge modèle :")
+        lbl_model = QLabel(self.tr("Surcharge modèle :"))
         lbl_model.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         adv_row1.addWidget(lbl_model)
         self.le_model_override = QLineEdit()
-        self.le_model_override.setPlaceholderText("Laisser vide pour utiliser le modèle par défaut")
+        self.le_model_override.setPlaceholderText(self.tr("Laisser vide pour utiliser le modèle par défaut"))
         self.le_model_override.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_MAIN};
@@ -381,7 +385,7 @@ class AlbumTranscriptionDialog(QDialog):
         adv_layout.addLayout(adv_row1)
 
         adv_row2 = QHBoxLayout()
-        lbl_temp = QLabel("Température :")
+        lbl_temp = QLabel(self.tr("Température :"))
         lbl_temp.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         adv_row2.addWidget(lbl_temp)
         self.spin_temp = QDoubleSpinBox()
@@ -390,7 +394,7 @@ class AlbumTranscriptionDialog(QDialog):
         self.spin_temp.setValue(0.2)
         adv_row2.addWidget(self.spin_temp)
 
-        lbl_think = QLabel("Budget de réflexion :")
+        lbl_think = QLabel(self.tr("Budget de réflexion :"))
         lbl_think.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         adv_row2.addWidget(lbl_think)
         self.spin_thinking = QSpinBox()
@@ -408,28 +412,28 @@ class AlbumTranscriptionDialog(QDialog):
         # ── 4. Section Directives de transcription & Formatage ────────────────
         self.directives_group, dir_layout = self._create_card("Directives d'extraction & Formatage", "ph.text-t", "directivesCard")
 
-        self.cb_latex = QCheckBox("Formules mathématiques et scientifiques en LaTeX ($...$, $$...$$)")
+        self.cb_latex = QCheckBox(self.tr("Formules mathématiques et scientifiques en LaTeX ($...$, $$...$$)"))
         self.cb_latex.setChecked(True)
         dir_layout.addWidget(self.cb_latex)
 
-        self.cb_tables = QCheckBox("Tableaux structurés en Markdown ou HTML")
+        self.cb_tables = QCheckBox(self.tr("Tableaux structurés en Markdown ou HTML"))
         self.cb_tables.setChecked(True)
         dir_layout.addWidget(self.cb_tables)
 
-        self.cb_headings = QCheckBox("Structure et hiérarchie par titres Markdown (#, ##)")
+        self.cb_headings = QCheckBox(self.tr("Structure et hiérarchie par titres Markdown (#, ##)"))
         self.cb_headings.setChecked(True)
         dir_layout.addWidget(self.cb_headings)
 
-        self.cb_figures = QCheckBox("Descriptions textuelles denses des figures et schémas ([Figure: ...])")
+        self.cb_figures = QCheckBox(self.tr("Descriptions textuelles denses des figures et schémas ([Figure: ...])"))
         self.cb_figures.setChecked(False)
         dir_layout.addWidget(self.cb_figures)
 
-        lbl_inst = QLabel("Consignes contextuelles spécifiques :")
+        lbl_inst = QLabel(self.tr("Consignes contextuelles spécifiques :"))
         lbl_inst.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; margin-top: 6px;")
         dir_layout.addWidget(lbl_inst)
 
         self.txt_custom_instructions = QTextEdit()
-        self.txt_custom_instructions.setPlaceholderText("ex: Vocabulaire anatomique en latin, ne pas transcrire les en-têtes et bas de page...")
+        self.txt_custom_instructions.setPlaceholderText(self.tr("ex: Vocabulaire anatomique en latin, ne pas transcrire les en-têtes et bas de page..."))
         self.txt_custom_instructions.setFixedHeight(70)
         self.txt_custom_instructions.setStyleSheet(f"""
             QTextEdit {{
@@ -574,14 +578,14 @@ class AlbumTranscriptionDialog(QDialog):
 
         # Actualisation des badges de capacités
         if is_hardware:
-            self.badge_vision.setText("OCR optique local")
+            self.badge_vision.setText(self.tr("OCR optique local"))
             self.badge_vision.set_variant("neutral")
             self.badge_thinking.setVisible(False)
         else:
-            self.badge_vision.setText("Vision multimodale")
+            self.badge_vision.setText(self.tr("Vision multimodale"))
             self.badge_vision.set_variant("info")
             if category.thinking_budget > 0:
-                self.badge_thinking.setText(f"CoT Thinking ({category.thinking_budget}t)")
+                self.badge_thinking.setText(tr("CoT Thinking (%1t)", category.thinking_budget))
                 self.badge_thinking.setVisible(True)
             else:
                 self.badge_thinking.setVisible(False)
@@ -617,9 +621,9 @@ class AlbumTranscriptionDialog(QDialog):
         untranscribed = sum(1 for p in self._pages if not (p.ocr_text and p.ocr_text.strip()))
         stale = sum(1 for p in self._pages if getattr(p, "status", None) == "stale")
 
-        self.lbl_count_all.setText(f"({total})")
-        self.lbl_count_untranscribed.setText(f"({untranscribed})")
-        self.lbl_count_stale.setText(f"({stale})")
+        self.lbl_count_all.setText(tr("(%1)", total))
+        self.lbl_count_untranscribed.setText(tr("(%1)", untranscribed))
+        self.lbl_count_stale.setText(tr("(%1)", stale))
 
         self._refresh_custom_count()
 
@@ -650,7 +654,7 @@ class AlbumTranscriptionDialog(QDialog):
     def _refresh_custom_count(self) -> None:
         max_page = max((p.page_number for p in self._pages), default=0)
         valid_page_nums = parse_page_ranges(self.le_custom_range.text(), max_page)
-        self.lbl_count_custom.setText(f"({len(valid_page_nums)})")
+        self.lbl_count_custom.setText(tr("(%1)", len(valid_page_nums)))
 
     def _resolve_target_page_ids(self) -> list[int]:
         if self.rb_stale.isChecked():
@@ -670,7 +674,7 @@ class AlbumTranscriptionDialog(QDialog):
 
         if count == 0:
             self.btn_start.setEnabled(False)
-            self.lbl_status_feedback.setText("Aucune planche ciblée avec ce filtre.")
+            self.lbl_status_feedback.setText(self.tr("Aucune planche ciblée avec ce filtre."))
         else:
             self.btn_start.setEnabled(True)
             self.lbl_status_feedback.setText("")

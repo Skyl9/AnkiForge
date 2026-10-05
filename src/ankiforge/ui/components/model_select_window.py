@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import NoteModel, NoteTypeModel
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,7 @@ class ModelSelectWindow(QWidget):
 
         # 1. Barre de recherche
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher un modèle de carte (ex: Basique, Cloze, Front)...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher un modèle de carte (ex: Basique, Cloze, Front)..."))
         search_icon = load_phosphor_icon("magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.search_input.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
         self.search_input.setFixedHeight(32)
@@ -172,7 +173,7 @@ class ModelSelectWindow(QWidget):
 
         # 0. Item racine "Tous les modèles" si allow_all=True
         if self.allow_all:
-            global_item = QTreeWidgetItem(["Tous les modèles"])
+            global_item = QTreeWidgetItem([self.tr("Tous les modèles")])
             global_item.setData(0, Qt.ItemDataRole.UserRole, -1)
             global_item.setData(0, Qt.ItemDataRole.UserRole + 1, "Tous les modèles")
             global_item.setIcon(0, load_phosphor_icon("cards", color=DesignTokens.COLOR_BLUE))
@@ -201,7 +202,7 @@ class ModelSelectWindow(QWidget):
             notes_str = f"({notes_num} note{'s' if notes_num != 1 else ''})"
             fields_str = f"{len(fields)} champ{'s' if len(fields) > 1 else ''} : {', '.join(fields)}"
 
-            item = QTreeWidgetItem([f"{m.name}  {notes_str}"])
+            item = QTreeWidgetItem([tr("%1  %2", m.name, notes_str)])
             item.setData(0, Qt.ItemDataRole.UserRole, m.id)
             item.setData(0, Qt.ItemDataRole.UserRole + 1, m.name)
             item.setData(0, Qt.ItemDataRole.UserRole + 2, fields_str)
@@ -211,7 +212,7 @@ class ModelSelectWindow(QWidget):
             item.setIcon(0, load_phosphor_icon("cards", color=icon_color))
 
             # Sous-élément présentant les champs
-            child = QTreeWidgetItem([f"↳ {fields_str}"])
+            child = QTreeWidgetItem([tr("↳ %1", fields_str)])
             child.setData(0, Qt.ItemDataRole.UserRole, m.id)
             child.setData(0, Qt.ItemDataRole.UserRole + 1, m.name)
             child.setForeground(0, QColor(DesignTokens.TEXT_MUTED))

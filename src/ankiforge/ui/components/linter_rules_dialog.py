@@ -29,6 +29,7 @@ from ankiforge.database.models import LinterRuleModel, seed_default_linter_rules
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class LinterRulesManagerDialog(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("⚙️ Atelier des Règles d'Audit & Catégories Personnalisées")
+        self.setWindowTitle(self.tr("⚙️ Atelier des Règles d'Audit & Catégories Personnalisées"))
         self.resize(920, 620)
         self.setStyleSheet(f"""
             QDialog {{
@@ -97,7 +98,7 @@ class LinterRulesManagerDialog(QDialog):
         icon_lbl.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
         header.addWidget(icon_lbl)
 
-        title_lbl = QLabel("Configuration des Règles d'Audit & Catégories Personnalisées")
+        title_lbl = QLabel(self.tr("Configuration des Règles d'Audit & Catégories Personnalisées"))
         title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
         header.addWidget(title_lbl)
@@ -122,13 +123,13 @@ class LinterRulesManagerDialog(QDialog):
         # Filtre & Recherche
         search_row = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher une règle...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher une règle..."))
         self.search_input.textChanged.connect(self._filter_rules)
         search_row.addWidget(self.search_input)
         left_layout.addLayout(search_row)
 
         self.category_filter_combo = QComboBox()
-        self.category_filter_combo.addItem("Toutes les catégories", userData="all")
+        self.category_filter_combo.addItem(self.tr("Toutes les catégories"), userData="all")
         self.category_filter_combo.currentIndexChanged.connect(self._filter_rules)
         left_layout.addWidget(self.category_filter_combo)
 
@@ -165,29 +166,29 @@ class LinterRulesManagerDialog(QDialog):
         self.right_layout.setContentsMargins(8, 0, 0, 0)
         self.right_layout.setSpacing(10)
 
-        form_title = QLabel("Détails & Instructions de la Règle")
+        form_title = QLabel(self.tr("Détails & Instructions de la Règle"))
         form_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         form_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 4px;")
         self.right_layout.addWidget(form_title)
 
         # Nom
-        self.right_layout.addWidget(QLabel("Nom de la règle :"))
+        self.right_layout.addWidget(QLabel(self.tr("Nom de la règle :")))
         self.txt_name = QLineEdit()
-        self.txt_name.setPlaceholderText("Ex: Principe d'Atomicité Minimale")
+        self.txt_name.setPlaceholderText(self.tr("Ex: Principe d'Atomicité Minimale"))
         self.right_layout.addWidget(self.txt_name)
 
         # Catégorie & Label
         cat_row = QHBoxLayout()
         cat_box_layout = QVBoxLayout()
-        cat_box_layout.addWidget(QLabel("Identifiant Catégorie :"))
+        cat_box_layout.addWidget(QLabel(self.tr("Identifiant Catégorie :")))
         self.txt_category = QLineEdit()
-        self.txt_category.setPlaceholderText("Ex: cat-atomicite, cat-medical, cat-vocab")
+        self.txt_category.setPlaceholderText(self.tr("Ex: cat-atomicite, cat-medical, cat-vocab"))
         cat_box_layout.addWidget(self.txt_category)
 
         lbl_box_layout = QVBoxLayout()
-        lbl_box_layout.addWidget(QLabel("Titre affiché dans les KPIs :"))
+        lbl_box_layout.addWidget(QLabel(self.tr("Titre affiché dans les KPIs :")))
         self.txt_category_label = QLineEdit()
-        self.txt_category_label.setPlaceholderText("Ex: Atomicité & Restructuration")
+        self.txt_category_label.setPlaceholderText(self.tr("Ex: Atomicité & Restructuration"))
         lbl_box_layout.addWidget(self.txt_category_label)
 
         cat_row.addLayout(cat_box_layout)
@@ -197,13 +198,13 @@ class LinterRulesManagerDialog(QDialog):
         # Style (Couleur et Icône)
         style_row = QHBoxLayout()
         col_box = QVBoxLayout()
-        col_box.addWidget(QLabel("Couleur (Hex) :"))
+        col_box.addWidget(QLabel(self.tr("Couleur (Hex) :")))
         self.txt_color = QLineEdit(DesignTokens.COLOR_RED)
         col_box.addWidget(self.txt_color)
 
         ico_box = QVBoxLayout()
-        ico_box.addWidget(QLabel("Icône Phosphor :"))
-        self.txt_icon = QLineEdit("squares-four")
+        ico_box.addWidget(QLabel(self.tr("Icône Phosphor :")))
+        self.txt_icon = QLineEdit(self.tr("squares-four"))
         ico_box.addWidget(self.txt_icon)
 
         style_row.addLayout(col_box)
@@ -211,36 +212,36 @@ class LinterRulesManagerDialog(QDialog):
         self.right_layout.addLayout(style_row)
 
         # Statut actif
-        self.chk_is_active = QCheckBox("Activer cette règle lors de l'audit IA")
+        self.chk_is_active = QCheckBox(self.tr("Activer cette règle lors de l'audit IA"))
         self.chk_is_active.setChecked(True)
         self.chk_is_active.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold;")
         self.right_layout.addWidget(self.chk_is_active)
 
         # Description
-        self.right_layout.addWidget(QLabel("Description pédagogique :"))
+        self.right_layout.addWidget(QLabel(self.tr("Description pédagogique :")))
         self.txt_desc = QTextEdit()
         self.txt_desc.setMaximumHeight(60)
-        self.txt_desc.setPlaceholderText("Explication de ce que cette règle vise à vérifier.")
+        self.txt_desc.setPlaceholderText(self.tr("Explication de ce que cette règle vise à vérifier."))
         self.right_layout.addWidget(self.txt_desc)
 
         # Prompt Injection
-        self.right_layout.addWidget(QLabel("Instruction système passée à l'IA (Prompt Injection) :"))
+        self.right_layout.addWidget(QLabel(self.tr("Instruction système passée à l'IA (Prompt Injection) :")))
         self.txt_prompt = QTextEdit()
         self.txt_prompt.setMaximumHeight(80)
-        self.txt_prompt.setPlaceholderText("Consigne stricte pour l'IA (ex: Si le verso fait plus de 20 mots, signale une erreur et reformule...).")
+        self.txt_prompt.setPlaceholderText(self.tr("Consigne stricte pour l'IA (ex: Si le verso fait plus de 20 mots, signale une erreur et reformule...)."))
         self.right_layout.addWidget(self.txt_prompt)
 
         # Exemples Few-Shot
-        self.right_layout.addWidget(QLabel("Exemple de mauvaise carte (JSON) :"))
+        self.right_layout.addWidget(QLabel(self.tr("Exemple de mauvaise carte (JSON) :")))
         self.txt_example_bad = QTextEdit()
         self.txt_example_bad.setMaximumHeight(60)
-        self.txt_example_bad.setPlaceholderText('{"Recto": "Question complexe...", "Verso": "Réponse surchargée..."}')
+        self.txt_example_bad.setPlaceholderText(self.tr('{"Recto": "Question complexe...", "Verso": "Réponse surchargée..."}'))
         self.right_layout.addWidget(self.txt_example_bad)
 
-        self.right_layout.addWidget(QLabel("Exemple de carte corrigée (JSON) :"))
+        self.right_layout.addWidget(QLabel(self.tr("Exemple de carte corrigée (JSON) :")))
         self.txt_example_good = QTextEdit()
         self.txt_example_good.setMaximumHeight(60)
-        self.txt_example_good.setPlaceholderText('{"Recto": "Question atomique ?", "Verso": "Réponse claire", "Champ Annexe Extra": "Contexte"}')
+        self.txt_example_good.setPlaceholderText(self.tr('{"Recto": "Question atomique ?", "Verso": "Réponse claire", "Champ Annexe Extra": "Contexte"}'))
         self.right_layout.addWidget(self.txt_example_good)
 
         # Bouton Sauvegarder
@@ -277,17 +278,17 @@ class LinterRulesManagerDialog(QDialog):
         self.category_filter_combo.currentData()
         self.category_filter_combo.blockSignals(True)
         self.category_filter_combo.clear()
-        self.category_filter_combo.addItem("Toutes les catégories", userData="all")
+        self.category_filter_combo.addItem(self.tr("Toutes les catégories"), userData="all")
         for cat in categories:
             sample_rule = next((r for r in rules if r.category == cat), None)
             label = sample_rule.category_label if sample_rule and sample_rule.category_label else cat
-            self.category_filter_combo.addItem(f"📁 {label}", userData=cat)
+            self.category_filter_combo.addItem(tr("📁 %1", label), userData=cat)
         self.category_filter_combo.blockSignals(False)
 
         for rule in rules:
             item = QListWidgetItem()
             status_symbol = "🟢" if rule.is_active else "⚪"
-            item.setText(f"{status_symbol} {rule.name}")
+            item.setText(tr("%1 %2", status_symbol, rule.name))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if rule.is_active else Qt.CheckState.Unchecked)
             item.setData(Qt.ItemDataRole.UserRole, rule.id)
@@ -351,7 +352,7 @@ class LinterRulesManagerDialog(QDialog):
                 rule.is_active = is_active
                 rule.save()
                 status_symbol = "🟢" if is_active else "⚪"
-                item.setText(f"{status_symbol} {rule.name}")
+                item.setText(tr("%1 %2", status_symbol, rule.name))
                 if self._current_rule_id == rule.id:
                     self.chk_is_active.setChecked(is_active)
                 self.rules_updated.emit()
@@ -360,11 +361,11 @@ class LinterRulesManagerDialog(QDialog):
         """Prépare le formulaire pour la création d'une nouvelle règle."""
         self._current_rule_id = None
         self.btn_delete.setEnabled(False)
-        self.txt_name.setText("Nouvelle Règle d'Audit")
-        self.txt_category.setText("cat-custom")
-        self.txt_category_label.setText("Règles Personnalisées")
+        self.txt_name.setText(self.tr("Nouvelle Règle d'Audit"))
+        self.txt_category.setText(self.tr("cat-custom"))
+        self.txt_category_label.setText(self.tr("Règles Personnalisées"))
         self.txt_color.setText(DesignTokens.COLOR_GREEN)
-        self.txt_icon.setText("check-circle")
+        self.txt_icon.setText(self.tr("check-circle"))
         self.chk_is_active.setChecked(True)
         self.txt_desc.setPlainText("Description de votre règle d'audit...")
         self.txt_prompt.setPlainText("Consigne stricte pour l'IA...")
@@ -376,7 +377,7 @@ class LinterRulesManagerDialog(QDialog):
         """Sauvegarde ou crée la règle en base de données."""
         name = self.txt_name.text().strip()
         if not name:
-            show_toast(self, "Le nom de la règle est obligatoire.", is_error=True)
+            show_toast(self, self.tr("Le nom de la règle est obligatoire."), is_error=True)
             return
 
         cat = self.txt_category.text().strip() or "cat-custom"
@@ -403,7 +404,7 @@ class LinterRulesManagerDialog(QDialog):
                 rule.example_bad = ex_bad
                 rule.example_good = ex_good
                 rule.save()
-                show_toast(self, f"Règle '{name}' mise à jour.")
+                show_toast(self, tr("Règle '%1' mise à jour.", name))
             else:
                 rule = LinterRuleModel.create(
                     name=name,
@@ -418,14 +419,14 @@ class LinterRulesManagerDialog(QDialog):
                     example_good=ex_good,
                 )
                 self._current_rule_id = rule.id
-                show_toast(self, f"Règle '{name}' créée avec succès !")
+                show_toast(self, tr("Règle '%1' créée avec succès !", name))
 
             self._load_rules()
             self.rules_updated.emit()
 
         except Exception as e:
             logger.error("Erreur sauvegarde règle : %s", e)
-            QMessageBox.critical(self, "Erreur", f"Impossible d'enregistrer la règle : {e}")
+            QMessageBox.critical(self, self.tr("Erreur"), tr("Impossible d'enregistrer la règle : %1", e))
 
     def _on_delete_rule(self) -> None:
         if not self._current_rule_id:
@@ -437,14 +438,14 @@ class LinterRulesManagerDialog(QDialog):
 
         reply = QMessageBox.question(
             self,
-            "Supprimer la règle",
-            f"Voulez-vous vraiment supprimer la règle '{rule.name}' ?",
+            self.tr("Supprimer la règle"),
+            tr("Voulez-vous vraiment supprimer la règle '%1' ?", rule.name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             rule.delete_instance()
             self._current_rule_id = None
-            show_toast(self, "Règle supprimée.")
+            show_toast(self, self.tr("Règle supprimée."))
             self._load_rules()
             self.rules_updated.emit()
 
@@ -452,13 +453,13 @@ class LinterRulesManagerDialog(QDialog):
         """Rétablit les règles Wozniak d'origine."""
         reply = QMessageBox.question(
             self,
-            "Réinitialiser les règles",
-            "Voulez-vous réinitialiser toutes les règles d'audit aux valeurs d'origine de Piotr Wozniak ?",
+            self.tr("Réinitialiser les règles"),
+            self.tr("Voulez-vous réinitialiser toutes les règles d'audit aux valeurs d'origine de Piotr Wozniak ?"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             LinterRuleModel.delete().execute()
             seed_default_linter_rules()
-            show_toast(self, "Règles Wozniak d'origine rétablies !")
+            show_toast(self, self.tr("Règles Wozniak d'origine rétablies !"))
             self._load_rules()
             self.rules_updated.emit()

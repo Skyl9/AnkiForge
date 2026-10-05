@@ -9,6 +9,7 @@ from ankiforge.services.workers.duplicate_worker import DuplicateWorker
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.duplicate_widgets import DuplicateMatrixTable, DuplicateMergeInspector
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class AIDuplicatesMergeTab(QWidget):
             self.selected_deck_id = -1
 
         self.matrix_table.btn_reanalyze.setEnabled(False)
-        self.matrix_table.btn_reanalyze.setText("Recherche...")
+        self.matrix_table.btn_reanalyze.setText(self.tr("Recherche..."))
         self.matrix_table.table.setRowCount(0)
 
         self.worker = DuplicateWorker(deck_id=self.selected_deck_id, parent=self)
@@ -87,7 +88,7 @@ class AIDuplicatesMergeTab(QWidget):
 
     def on_scan_finished(self, conflicts: list) -> None:
         self.matrix_table.btn_reanalyze.setEnabled(True)
-        self.matrix_table.btn_reanalyze.setText("Relancer l'analyse")
+        self.matrix_table.btn_reanalyze.setText(self.tr("Relancer l'analyse"))
         self.conflicts = conflicts
         self.merge_inspector.reset_inspector()
         self.merge_inspector.hide()
@@ -96,7 +97,7 @@ class AIDuplicatesMergeTab(QWidget):
         if not conflicts:
             self._update_badge(0)
             self.matrix_table.empty_state.setVisible(True)
-            show_toast(self, "Aucun doublon détecté dans ce paquet.")
+            show_toast(self, self.tr("Aucun doublon détecté dans ce paquet."))
             return
 
         self.matrix_table.empty_state.setVisible(False)
@@ -114,11 +115,11 @@ class AIDuplicatesMergeTab(QWidget):
 
     def _update_badge(self, count: int) -> None:
         label = "paire à examiner" if count <= 1 else "paires à examiner"
-        self.matrix_table.badge_count.setText(f"{count} {label}")
+        self.matrix_table.badge_count.setText(tr("%1 %2", count, label))
 
     def on_scan_error(self, err: str) -> None:
         self.matrix_table.btn_reanalyze.setEnabled(True)
-        self.matrix_table.btn_reanalyze.setText("Relancer l'analyse")
+        self.matrix_table.btn_reanalyze.setText(self.tr("Relancer l'analyse"))
         logger.error("Erreur lors du scan des doublons : %s", err)
 
     def on_table_selection_changed(self) -> None:

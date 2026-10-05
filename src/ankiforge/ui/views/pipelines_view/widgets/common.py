@@ -17,6 +17,7 @@ from ankiforge.ui.views.pipelines_view.constants import (
     STEP_TYPES_META,
     audit_pipeline_dag,
 )
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -36,7 +37,7 @@ class TagPillButton(QPushButton):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(24)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.setToolTip(f"{tooltip}\nInsère : {template_code}")
+        self.setToolTip(tr("%1\nInsère : %2", tooltip, template_code))
 
         if variant == "cloze":
             bg_tint = DesignTokens.COLOR_PURPLE_BG
@@ -98,7 +99,7 @@ class StatusPillBadge(QFrame):
         self.lbl_icon.setFixedSize(16, 16)
         self.lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.lbl_text = QLabel("DAG Valide")
+        self.lbl_text = QLabel(self.tr("DAG Valide"))
         self.lbl_text.setStyleSheet("font-size: 11px; font-weight: bold;")
 
         layout.addWidget(self.lbl_icon)
@@ -191,7 +192,7 @@ class DagFlowOverviewWidget(QFrame):
                     w.deleteLater()
 
         if not steps:
-            lbl_empty = QLabel("Workflow vide. Ajoutez des étapes ci-dessous.")
+            lbl_empty = QLabel(self.tr("Workflow vide. Ajoutez des étapes ci-dessous."))
             lbl_empty.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic;")
             self.nodes_layout.addWidget(lbl_empty)
             self.health_badge.set_status(is_valid=False, message="Workflow vide", tooltip="Ajoutez au moins une étape pour valider le pipeline.")
@@ -209,7 +210,7 @@ class DagFlowOverviewWidget(QFrame):
         lbl_start.setFixedSize(18, 18)
         lbl_start.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_start.setPixmap(load_phosphor_icon("ph.play-circle", color=DesignTokens.TEXT_MUTED).pixmap(15, 15))
-        lbl_start.setToolTip("Point d'entrée du pipeline")
+        lbl_start.setToolTip(self.tr("Point d'entrée du pipeline"))
         self.nodes_layout.addWidget(lbl_start)
 
         for idx, step_data in enumerate(steps, start=1):
@@ -227,7 +228,7 @@ class DagFlowOverviewWidget(QFrame):
 
             is_active = (idx - 1) == active_index
 
-            btn_node = QPushButton(f"{idx}. {title_escaped}")
+            btn_node = QPushButton(tr("%1. %2", idx, title_escaped))
             btn_node.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_node.setIcon(load_phosphor_icon(meta["icon"], color=meta["badge_color"]))
             btn_node.setIconSize(QSize(14, 14))
@@ -254,9 +255,9 @@ class DagFlowOverviewWidget(QFrame):
 
             succ_order = step_data.get("on_success_order")
             if succ_order:
-                lbl_jump = QLabel(f"↳ {succ_order}")
+                lbl_jump = QLabel(tr("↳ %1", succ_order))
                 lbl_jump.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 10px; font-weight: bold;")
-                lbl_jump.setToolTip(f"Saute directement vers l'étape {succ_order} en cas de succès")
+                lbl_jump.setToolTip(tr("Saute directement vers l'étape %1 en cas de succès", succ_order))
                 self.nodes_layout.addWidget(lbl_jump)
 
         # Point d'arrivée
@@ -270,7 +271,7 @@ class DagFlowOverviewWidget(QFrame):
         lbl_end.setFixedSize(18, 18)
         lbl_end.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_end.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(15, 15))
-        lbl_end.setToolTip("Sortie finale : cartes forgées et prêtes")
+        lbl_end.setToolTip(self.tr("Sortie finale : cartes forgées et prêtes"))
         self.nodes_layout.addWidget(lbl_end)
 
 

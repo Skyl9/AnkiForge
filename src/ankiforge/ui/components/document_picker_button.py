@@ -23,6 +23,7 @@ from ankiforge.database.models import DocumentModel
 from ankiforge.ui.components.document_select_window import DocumentSelectWindow, document_meta_line
 from ankiforge.ui.components.elided_label import ElidedLabel
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -87,12 +88,12 @@ class DocumentPickerButton(QFrame):
         text_layout.setContentsMargins(0, 0, 0, 0)
         text_layout.setSpacing(2)
 
-        self.title_label = ElidedLabel("Sélectionner un cours...")
+        self.title_label = ElidedLabel(tr("Sélectionner un cours..."))
         self.title_label.setMinimumWidth(0)
         self.title_label.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; background: transparent; border: none;")
         text_layout.addWidget(self.title_label)
 
-        self.meta_label = ElidedLabel("Aucun document lié • Saisie libre")
+        self.meta_label = ElidedLabel(tr("Aucun document lié • Saisie libre"))
         self.meta_label.setMinimumWidth(0)
         self.meta_label.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; background: transparent; border: none;")
         text_layout.addWidget(self.meta_label)
@@ -102,7 +103,7 @@ class DocumentPickerButton(QFrame):
         self.btn_clear = QPushButton()
         self.btn_clear.setFixedSize(24, 24)
         self.btn_clear.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_MUTED))
-        self.btn_clear.setToolTip("Désélectionner le document (revenir en saisie libre)")
+        self.btn_clear.setToolTip(self.tr("Désélectionner le document (revenir en saisie libre)"))
         self.btn_clear.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.btn_clear.setStyleSheet(f"""
             QPushButton {{
@@ -160,7 +161,7 @@ class DocumentPickerButton(QFrame):
 
         # Toujours recréer une instance fraîche pour éviter les états corrompus.
         current_id = self._current_doc.id if self._current_doc else None
-        self._modal = DocumentSelectWindow(title="Sélectionner un document source", parent=self.window(), selected_doc_id=current_id)
+        self._modal = DocumentSelectWindow(title=self.tr("Sélectionner un document source"), parent=self.window(), selected_doc_id=current_id)
         self._modal.document_selected.connect(self._on_modal_document_selected)
         self._modal.show()
 
@@ -203,10 +204,10 @@ class DocumentPickerButton(QFrame):
     def _update_display(self) -> None:
         """Met à jour les icônes, titres et sous-titres selon le document sélectionné."""
         if not self._current_doc:
-            self.title_label.setText("Sélectionner un cours...")
+            self.title_label.setText(self.tr("Sélectionner un cours..."))
             self.title_label.setToolTip("")
             self.title_label.setStyleSheet(f"font-size: 12px; font-weight: 500; color: {DesignTokens.TEXT_MUTED}; background: transparent; border: none;")
-            self.meta_label.setText("Aucun document lié • Saisie libre")
+            self.meta_label.setText(self.tr("Aucun document lié • Saisie libre"))
             self.meta_label.setToolTip("")
             self.icon_label.setPixmap(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED).pixmap(18, 18))
             self.icon_badge.setStyleSheet(f"""

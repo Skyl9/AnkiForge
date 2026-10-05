@@ -14,7 +14,7 @@ class AgentPromptPreviewDialog(QDialog):
 
     def __init__(self, template_str: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Aperçu du Prompt Interpolé (Jinja2)")
+        self.setWindowTitle(self.tr("Aperçu du Prompt Interpolé (Jinja2)"))
         self.resize(700, 500)
         self.setStyleSheet(f"""
             QDialog {{
@@ -30,7 +30,7 @@ class AgentPromptPreviewDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        lbl_header = QLabel("Ce que recevra le Modèle LLM (variables interpolées) :")
+        lbl_header = QLabel(self.tr("Ce que recevra le Modèle LLM (variables interpolées) :"))
         lbl_header.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         layout.addWidget(lbl_header)
 

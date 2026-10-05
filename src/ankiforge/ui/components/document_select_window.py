@@ -103,7 +103,7 @@ class DocumentSelectWindow(QWidget):
 
         # Barre de recherche avec icône Phosphor
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher un document (ex: Anatomie, Cardiologie)...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher un document (ex: Anatomie, Cardiologie)..."))
         search_icon = load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.search_input.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
         self.search_input.setFixedHeight(32)

@@ -39,6 +39,7 @@ from ankiforge.ui.components.buttons import IconButton, PrimaryButton, Secondary
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.toast import ToastLevel, show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ class FeedbackDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Retours & Suggestions AnkiForge")
+        self.setWindowTitle(self.tr("Retours & Suggestions AnkiForge"))
         self.setMinimumSize(840, 680)
         self.resize(880, 740)
         self.setObjectName("FeedbackDialog")
@@ -99,17 +100,17 @@ class FeedbackDialog(QDialog):
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
 
-        main_title = QLabel("Retours & Suggestions")
+        main_title = QLabel(self.tr("Retours & Suggestions"))
         main_title.setStyleSheet(f"font-size: 17px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
         title_col.addWidget(main_title)
 
-        sub_title = QLabel("Partagez un problème rencontré ou proposez une nouvelle fonctionnalité pour faire évoluer AnkiForge.")
+        sub_title = QLabel(self.tr("Partagez un problème rencontré ou proposez une nouvelle fonctionnalité pour faire évoluer AnkiForge."))
         sub_title.setStyleSheet(f"font-size: 12px; color: {DesignTokens.TEXT_MUTED};")
         title_col.addWidget(sub_title)
 
         header_layout.addLayout(title_col, stretch=1)
 
-        btn_close = IconButton("ph.x", tooltip="Fermer la fenêtre (Échap)", size=26)
+        btn_close = IconButton("ph.x", tooltip=self.tr("Fermer la fenêtre (Échap)"), size=26)
         btn_close.clicked.connect(self.close)
         header_layout.addWidget(btn_close)
 
@@ -119,8 +120,8 @@ class FeedbackDialog(QDialog):
         self.tab_bar = QTabBar()
         self.tab_bar.setExpanding(False)
         self.tab_bar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.tab_bar.addTab("🐛 Signaler un bug")
-        self.tab_bar.addTab("💡 Proposer une idée")
+        self.tab_bar.addTab(self.tr("🐛 Signaler un bug"))
+        self.tab_bar.addTab(self.tr("💡 Proposer une idée"))
         self.tab_bar.currentChanged.connect(self._on_tab_changed)
         root_layout.addWidget(self.tab_bar)
 
@@ -157,19 +158,19 @@ class FeedbackDialog(QDialog):
         footer_layout.addStretch(1)
 
         self.btn_copy = SecondaryButton("📋 Copier Markdown")
-        self.btn_copy.setToolTip("Copier le rapport complet au format Markdown dans le presse-papier")
+        self.btn_copy.setToolTip(self.tr("Copier le rapport complet au format Markdown dans le presse-papier"))
         self.btn_copy.setFixedHeight(32)
         self.btn_copy.clicked.connect(self._on_copy_clicked)
         footer_layout.addWidget(self.btn_copy)
 
         self.btn_export = SecondaryButton("💾 Exporter (.md)...")
-        self.btn_export.setToolTip("Enregistrer le rapport dans un fichier Markdown")
+        self.btn_export.setToolTip(self.tr("Enregistrer le rapport dans un fichier Markdown"))
         self.btn_export.setFixedHeight(32)
         self.btn_export.clicked.connect(self._on_export_clicked)
         footer_layout.addWidget(self.btn_export)
 
         self.btn_github = PrimaryButton("🚀 Ouvrir sur GitHub Issues ↗")
-        self.btn_github.setToolTip("Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis")
+        self.btn_github.setToolTip(self.tr("Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis"))
         self.btn_github.setFixedHeight(32)
         apply_shadow(self.btn_github, blur=10, offset_y=0, color=DesignTokens.ACCENT_GLOW)
         self.btn_github.clicked.connect(self._on_github_clicked)
@@ -203,10 +204,10 @@ class FeedbackDialog(QDialog):
             if not warning_icon.isNull():
                 banner_icon.setPixmap(warning_icon.pixmap(20, 20))
             else:
-                banner_icon.setText("⚠️")
+                banner_icon.setText(self.tr("⚠️"))
             banner_layout.addWidget(banner_icon)
 
-            banner_text = QLabel("Une anomalie a été interceptée par l'application. La trace d'erreur a été automatiquement injectée ci-dessous pour analyse.")
+            banner_text = QLabel(self.tr("Une anomalie a été interceptée par l'application. La trace d'erreur a été automatiquement injectée ci-dessous pour analyse."))
             banner_text.setWordWrap(True)
             banner_text.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-size: 12px; font-weight: 600;")
             banner_layout.addWidget(banner_text, stretch=1)
@@ -215,11 +216,11 @@ class FeedbackDialog(QDialog):
             self.error_banner = None
 
         # Titre
-        lbl_title = QLabel("Titre du problème :")
+        lbl_title = QLabel(self.tr("Titre du problème :"))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         layout.addWidget(lbl_title)
 
-        self.bug_title_input = GlowLineEdit(placeholder="Ex: Erreur lors de l'exportation d'un paquet de cartes...")
+        self.bug_title_input = GlowLineEdit(placeholder=self.tr("Ex: Erreur lors de l'exportation d'un paquet de cartes..."))
         if self._initial_title:
             self.bug_title_input.setText(self._initial_title)
         layout.addWidget(self.bug_title_input)
@@ -229,17 +230,17 @@ class FeedbackDialog(QDialog):
         row_params.setSpacing(12)
 
         col_sev = QVBoxLayout()
-        lbl_sev = QLabel("Sévérité :")
+        lbl_sev = QLabel(self.tr("Sévérité :"))
         lbl_sev.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         col_sev.addWidget(lbl_sev)
 
         self.bug_severity_combo = QComboBox()
         self.bug_severity_combo.addItems(
             [
-                "Normal",
-                "Faible / Cosmétique",
-                "Élevé / Bloquant",
-                "Crash complet",
+                self.tr("Normal"),
+                self.tr("Faible / Cosmétique"),
+                self.tr("Élevé / Bloquant"),
+                self.tr("Crash complet"),
             ]
         )
         if self._context_error:
@@ -249,11 +250,11 @@ class FeedbackDialog(QDialog):
 
         # Info badge
         col_badge = QVBoxLayout()
-        lbl_badge_title = QLabel("Profil & Version :")
+        lbl_badge_title = QLabel(self.tr("Profil & Version :"))
         lbl_badge_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         col_badge.addWidget(lbl_badge_title)
 
-        lbl_badge = QLabel(f"Profil : {self._diagnostics.active_profile} · {self._diagnostics.ankiforge_version}")
+        lbl_badge = QLabel(tr("Profil : %1 · %2", self._diagnostics.active_profile, self._diagnostics.ankiforge_version))
         lbl_badge.setStyleSheet(
             f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; "
             f"border-radius: {DesignTokens.RADIUS_SM}; color: {DesignTokens.TEXT_SECONDARY}; padding: 6px 10px; font-size: 11px;"
@@ -264,12 +265,12 @@ class FeedbackDialog(QDialog):
         layout.addLayout(row_params)
 
         # Étapes de reproduction
-        lbl_steps = QLabel("Étapes pour reproduire :")
+        lbl_steps = QLabel(self.tr("Étapes pour reproduire :"))
         lbl_steps.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         layout.addWidget(lbl_steps)
 
         self.bug_steps_edit = QTextEdit()
-        self.bug_steps_edit.setPlaceholderText("1. Aller sur le Studio de Création...\n2. Sélectionner un document Markdown...\n3. Cliquer sur 'Générer les flashcards'...")
+        self.bug_steps_edit.setPlaceholderText(self.tr("1. Aller sur le Studio de Création...\n2. Sélectionner un document Markdown...\n3. Cliquer sur 'Générer les flashcards'..."))
         self.bug_steps_edit.setFixedHeight(75)
         layout.addWidget(self.bug_steps_edit)
 
@@ -279,21 +280,21 @@ class FeedbackDialog(QDialog):
 
         col_obs = QVBoxLayout()
         if self._context_error:
-            self.lbl_observed = QLabel("Comportement observé (Trace d'erreur interceptée) :")
+            self.lbl_observed = QLabel(self.tr("Comportement observé (Trace d'erreur interceptée) :"))
             self.lbl_observed.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-weight: 700; font-size: 12px;")
         else:
-            self.lbl_observed = QLabel("Comportement observé :")
+            self.lbl_observed = QLabel(self.tr("Comportement observé :"))
             self.lbl_observed.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         col_obs.addWidget(self.lbl_observed)
 
         self.bug_observed_edit = QTextEdit()
         self.bug_observed_edit.setObjectName("BugObservedEdit")
-        self.bug_observed_edit.setPlaceholderText("Ce qui s'est produit ou message d'erreur affiché...")
+        self.bug_observed_edit.setPlaceholderText(self.tr("Ce qui s'est produit ou message d'erreur affiché..."))
         self.bug_observed_edit.setFont(QFont(DesignTokens.FONT_CODE, 10))
         self.bug_observed_edit.setMinimumHeight(180)
         if self._context_error:
             self.bug_observed_edit.setProperty("hasError", "true")
-            self.bug_observed_edit.setText(f"Erreur interceptée :\n{self._context_error}")
+            self.bug_observed_edit.setText(tr("Erreur interceptée :\n%1", self._context_error))
             cursor = self.bug_observed_edit.textCursor()
             cursor.movePosition(cursor.MoveOperation.Start)
             self.bug_observed_edit.setTextCursor(cursor)
@@ -301,11 +302,11 @@ class FeedbackDialog(QDialog):
         obs_exp_row.addLayout(col_obs)
 
         col_exp = QVBoxLayout()
-        lbl_exp = QLabel("Comportement attendu :")
+        lbl_exp = QLabel(self.tr("Comportement attendu :"))
         lbl_exp.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         col_exp.addWidget(lbl_exp)
         self.bug_expected_edit = QTextEdit()
-        self.bug_expected_edit.setPlaceholderText("Ce qui aurait dû se produire...")
+        self.bug_expected_edit.setPlaceholderText(self.tr("Ce qui aurait dû se produire..."))
         self.bug_expected_edit.setMinimumHeight(180)
         col_exp.addWidget(self.bug_expected_edit)
         obs_exp_row.addLayout(col_exp)
@@ -313,14 +314,14 @@ class FeedbackDialog(QDialog):
         layout.addLayout(obs_exp_row)
 
         # Checkbox diagnostics
-        self.bug_include_diag_cb = QCheckBox("Inclure les diagnostics système anonymisés et les logs récents de l'application (recommandé)")
+        self.bug_include_diag_cb = QCheckBox(self.tr("Inclure les diagnostics système anonymisés et les logs récents de l'application (recommandé)"))
         self.bug_include_diag_cb.setChecked(True)
         self.bug_include_diag_cb.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; margin-top: 4px;")
         self.bug_include_diag_cb.toggled.connect(self._on_diag_checkbox_toggled)
         layout.addWidget(self.bug_include_diag_cb)
 
         # Tiroir repliable d'inspection des diagnostics
-        self.btn_toggle_drawer = QPushButton("▶ Afficher les informations de diagnostic système collectées")
+        self.btn_toggle_drawer = QPushButton(self.tr("▶ Afficher les informations de diagnostic système collectées"))
         self.btn_toggle_drawer.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle_drawer.setStyleSheet(f"text-align: left; background: transparent; border: none; color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; padding: 2px 0;")
         self.btn_toggle_drawer.clicked.connect(self._toggle_diagnostics_drawer)
@@ -346,11 +347,11 @@ class FeedbackDialog(QDialog):
         layout.setSpacing(10)
 
         # Titre
-        lbl_title = QLabel("Titre de la fonctionnalité :")
+        lbl_title = QLabel(self.tr("Titre de la fonctionnalité :"))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         layout.addWidget(lbl_title)
 
-        self.feature_title_input = GlowLineEdit(placeholder="Ex: Raccourci clavier universel pour basculer de profil...")
+        self.feature_title_input = GlowLineEdit(placeholder=self.tr("Ex: Raccourci clavier universel pour basculer de profil..."))
         layout.addWidget(self.feature_title_input)
 
         # Catégorie & Priorité
@@ -358,36 +359,36 @@ class FeedbackDialog(QDialog):
         row_meta.setSpacing(12)
 
         col_cat = QVBoxLayout()
-        lbl_cat = QLabel("Catégorie :")
+        lbl_cat = QLabel(self.tr("Catégorie :"))
         lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         col_cat.addWidget(lbl_cat)
 
         self.feature_cat_combo = QComboBox()
         self.feature_cat_combo.addItems(
             [
-                "Studio de Création",
-                "RAG & Documents",
-                "Édition & Navigateur",
-                "Modèles de Cartes",
-                "Agents & Pipelines IA",
-                "Interface & Ergonomie",
-                "Autre",
+                self.tr("Studio de Création"),
+                self.tr("RAG & Documents"),
+                self.tr("Édition & Navigateur"),
+                self.tr("Modèles de Cartes"),
+                self.tr("Agents & Pipelines IA"),
+                self.tr("Interface & Ergonomie"),
+                self.tr("Autre"),
             ]
         )
         col_cat.addWidget(self.feature_cat_combo)
         row_meta.addLayout(col_cat, stretch=1)
 
         col_prio = QVBoxLayout()
-        lbl_prio = QLabel("Priorité souhaitée :")
+        lbl_prio = QLabel(self.tr("Priorité souhaitée :"))
         lbl_prio.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         col_prio.addWidget(lbl_prio)
 
         self.feature_prio_combo = QComboBox()
         self.feature_prio_combo.addItems(
             [
-                "Très utile",
-                "Optionnel (Nice-to-have)",
-                "Essentiel",
+                self.tr("Très utile"),
+                self.tr("Optionnel (Nice-to-have)"),
+                self.tr("Essentiel"),
             ]
         )
         col_prio.addWidget(self.feature_prio_combo)
@@ -396,22 +397,22 @@ class FeedbackDialog(QDialog):
         layout.addLayout(row_meta)
 
         # Problème résolu / Cas d'usage
-        lbl_problem = QLabel("Quel problème ou besoin cette fonctionnalité résout-elle ?")
+        lbl_problem = QLabel(self.tr("Quel problème ou besoin cette fonctionnalité résout-elle ?"))
         lbl_problem.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         layout.addWidget(lbl_problem)
 
         self.feature_problem_edit = QTextEdit()
-        self.feature_problem_edit.setPlaceholderText("Décrivez le contexte d'utilisation, le cas concret d'usage ou la frustration actuelle que vous rencontrez...")
+        self.feature_problem_edit.setPlaceholderText(self.tr("Décrivez le contexte d'utilisation, le cas concret d'usage ou la frustration actuelle que vous rencontrez..."))
         self.feature_problem_edit.setMinimumHeight(110)
         layout.addWidget(self.feature_problem_edit)
 
         # Solution suggérée
-        lbl_sol = QLabel("Comment imaginez-vous cette fonctionnalité ?")
+        lbl_sol = QLabel(self.tr("Comment imaginez-vous cette fonctionnalité ?"))
         lbl_sol.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         layout.addWidget(lbl_sol)
 
         self.feature_solution_edit = QTextEdit()
-        self.feature_solution_edit.setPlaceholderText("Décrivez le comportement attendu, l'emplacement idéal dans l'interface ou les options souhaitées...")
+        self.feature_solution_edit.setPlaceholderText(self.tr("Décrivez le comportement attendu, l'emplacement idéal dans l'interface ou les options souhaitées..."))
         self.feature_solution_edit.setMinimumHeight(120)
         layout.addWidget(self.feature_solution_edit)
 
@@ -521,7 +522,7 @@ class FeedbackDialog(QDialog):
         show_it = self.diag_preview_edit.isHidden()
         self.diag_preview_edit.setVisible(show_it)
         prefix = "▼ Masquer" if show_it else "▶ Afficher"
-        self.btn_toggle_drawer.setText(f"{prefix} les informations de diagnostic système collectées")
+        self.btn_toggle_drawer.setText(tr("%1 les informations de diagnostic système collectées", prefix))
 
     def _on_diag_checkbox_toggled(self, checked: bool) -> None:
         self.btn_toggle_drawer.setEnabled(checked)
@@ -570,12 +571,12 @@ class FeedbackDialog(QDialog):
         clipboard = QApplication.clipboard()
         if clipboard:
             clipboard.setText(body)
-            self.lbl_status.setText("✓ Rapport copié dans le presse-papier !")
+            self.lbl_status.setText(self.tr("✓ Rapport copié dans le presse-papier !"))
             show_toast(
                 parent=self,
-                message="Le rapport Markdown a été copié dans votre presse-papier.",
+                message=self.tr("Le rapport Markdown a été copié dans votre presse-papier."),
                 level=ToastLevel.SUCCESS,
-                title="Copié",
+                title=self.tr("Copié"),
                 duration_ms=3000,
             )
 
@@ -593,12 +594,12 @@ class FeedbackDialog(QDialog):
         )
         if file_path:
             FeedbackService.export_report_to_file(Path(file_path), body)
-            self.lbl_status.setText(f"✓ Rapport enregistré : {Path(file_path).name}")
+            self.lbl_status.setText(tr("✓ Rapport enregistré : %1", Path(file_path).name))
             show_toast(
                 parent=self,
-                message=f"Rapport sauvegardé avec succès dans {Path(file_path).name}",
+                message=tr("Rapport sauvegardé avec succès dans %1", Path(file_path).name),
                 level=ToastLevel.SUCCESS,
-                title="Export Réussi",
+                title=self.tr("Export Réussi"),
                 duration_ms=4000,
             )
 
@@ -610,11 +611,11 @@ class FeedbackDialog(QDialog):
         # Ouvrir l'URL dans le navigateur par défaut
         qurl = QUrl(url_str)
         QDesktopServices.openUrl(qurl)
-        self.lbl_status.setText("✓ Page GitHub ouverte dans votre navigateur")
+        self.lbl_status.setText(self.tr("✓ Page GitHub ouverte dans votre navigateur"))
         show_toast(
             parent=self,
-            message="Le ticket a été préparé sur GitHub. Vérifiez et cliquez sur 'Submit issue'.",
+            message=self.tr("Le ticket a été préparé sur GitHub. Vérifiez et cliquez sur 'Submit issue'."),
             level=ToastLevel.INFO,
-            title="GitHub Issues",
+            title=self.tr("GitHub Issues"),
             duration_ms=4000,
         )

@@ -43,6 +43,7 @@ from ankiforge.database.models import (
 from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -200,23 +201,23 @@ class FieldDiffWidget(QFrame):
         header.setContentsMargins(0, 0, 0, 0)
         header.setSpacing(6)
 
-        lbl_name = QLabel(f"<b>{html.escape(self.field_name)}</b>")
+        lbl_name = QLabel(tr("<b>%1</b>", html.escape(self.field_name)))
         lbl_name.setStyleSheet(f"font-size: 11px; color: {DesignTokens.ACCENT_PRIMARY}; border: none; background: transparent;")
         header.addWidget(lbl_name)
 
         # Compteur comparatif de mots
         words_orig = len(self.original_val.split()) if self.original_val else 0
         words_mod = len(self.modified_val.split()) if self.modified_val else 0
-        self.lbl_badge = QLabel(f"{words_orig} ➔ {words_mod} mots")
+        self.lbl_badge = QLabel(tr("%1 ➔ %2 mots", words_orig, words_mod))
         self.lbl_badge.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; border: none; background: transparent;")
         header.addWidget(self.lbl_badge)
         header.addStretch()
 
         # Bouton d'affichage des ratures (visible en mode unifié)
-        self.btn_toggle_deletions = QPushButton("🔍 Ratures")
+        self.btn_toggle_deletions = QPushButton(self.tr("🔍 Ratures"))
         self.btn_toggle_deletions.setFixedHeight(20)
         self.btn_toggle_deletions.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_toggle_deletions.setToolTip("Afficher/masquer les mots supprimés barrés")
+        self.btn_toggle_deletions.setToolTip(self.tr("Afficher/masquer les mots supprimés barrés"))
         self.btn_toggle_deletions.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -241,7 +242,7 @@ class FieldDiffWidget(QFrame):
         self.btn_toggle_deletions.setVisible(self.current_mode == "unified" and not self.is_applied)
         header.addWidget(self.btn_toggle_deletions)
 
-        self.btn_mode_toggle = QPushButton("✏️ Modifier")
+        self.btn_mode_toggle = QPushButton(self.tr("✏️ Modifier"))
         self.btn_mode_toggle.setFixedHeight(20)
         self.btn_mode_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_mode_toggle.setStyleSheet(f"""
@@ -302,7 +303,7 @@ class FieldDiffWidget(QFrame):
         col_orig_layout = QVBoxLayout(col_orig)
         col_orig_layout.setContentsMargins(6, 6, 6, 6)
         col_orig_layout.setSpacing(4)
-        lbl_orig_header = QLabel("⏮️ Actuel (Original)")
+        lbl_orig_header = QLabel(self.tr("⏮️ Actuel (Original)"))
         lbl_orig_header.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.COLOR_RED}; border: none; background: transparent;")
         col_orig_layout.addWidget(lbl_orig_header)
 
@@ -326,7 +327,7 @@ class FieldDiffWidget(QFrame):
         col_mod_layout = QVBoxLayout(col_mod)
         col_mod_layout.setContentsMargins(6, 6, 6, 6)
         col_mod_layout.setSpacing(4)
-        lbl_mod_header = QLabel("✨ Proposition IA (Éditable)")
+        lbl_mod_header = QLabel(self.tr("✨ Proposition IA (Éditable)"))
         lbl_mod_header.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.COLOR_GREEN}; border: none; background: transparent;")
         col_mod_layout.addWidget(lbl_mod_header)
 
@@ -389,7 +390,7 @@ class FieldDiffWidget(QFrame):
 
         words_orig = len(self.original_val.split()) if self.original_val else 0
         words_mod = len(self.modified_val.split()) if self.modified_val else 0
-        self.lbl_badge.setText(f"{words_orig} ➔ {words_mod} mots")
+        self.lbl_badge.setText(tr("%1 ➔ %2 mots", words_orig, words_mod))
 
     def _toggle_deletions(self) -> None:
         """Bascule l'affichage des ratures rouges barrées (True) vs Unification Totale (False)."""
@@ -410,7 +411,7 @@ class FieldDiffWidget(QFrame):
     def set_view_mode(self, mode: str) -> None:
         self.current_mode = mode
         self._is_editing = False
-        self.btn_mode_toggle.setText("✏️ Modifier")
+        self.btn_mode_toggle.setText(self.tr("✏️ Modifier"))
         self.btn_toggle_deletions.setVisible(mode == "unified" and not self.is_applied)
         if mode in ["split", "side_by_side"]:
             self.stack.setCurrentIndex(1)
@@ -422,7 +423,7 @@ class FieldDiffWidget(QFrame):
         self._is_editing = not self._is_editing
         if self._is_editing:
             self.stack.setCurrentIndex(2)
-            self.btn_mode_toggle.setText("👁️ Diff")
+            self.btn_mode_toggle.setText(self.tr("👁️ Diff"))
             self.editor.setFocus()
         else:
             self._refresh_diff_and_badge()
@@ -459,7 +460,7 @@ class SplitCardItemWidget(QFrame):
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
 
-        self.chk_include = QCheckBox(f"Carte atomique #{self.index + 1}")
+        self.chk_include = QCheckBox(tr("Carte atomique #%1", self.index + 1))
         self.chk_include.setChecked(True)
         self.chk_include.setStyleSheet(f"font-weight: 600; font-size: 11px; color: {DesignTokens.TEXT_PRIMARY};")
         header.addWidget(self.chk_include)
@@ -475,7 +476,7 @@ class SplitCardItemWidget(QFrame):
             for k, v in valid_fields:
                 col = QVBoxLayout()
                 col.setSpacing(2)
-                lbl_f = QLabel(f"<b>{k} :</b>")
+                lbl_f = QLabel(tr("<b>%1 :</b>", k))
                 lbl_f.setStyleSheet(f"font-size: 10px; color: {DesignTokens.ACCENT_PRIMARY}; border: none; background: transparent;")
                 col.addWidget(lbl_f)
                 editor = QTextEdit()
@@ -497,7 +498,7 @@ class SplitCardItemWidget(QFrame):
             layout.addLayout(cols_layout)
         else:
             for k, v in valid_fields:
-                lbl_f = QLabel(f"<b>{k} :</b>")
+                lbl_f = QLabel(tr("<b>%1 :</b>", k))
                 lbl_f.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
                 layout.addWidget(lbl_f)
                 editor = QTextEdit()
@@ -569,13 +570,13 @@ class InlineDiffCardWidget(QFrame):
         header.setContentsMargins(0, 0, 0, 0)
 
         title = self.patch_data.get("title", "Proposition de Modification")
-        lbl_title = QLabel(f"<b>🛡️ {html.escape(title)}</b>")
+        lbl_title = QLabel(tr("<b>🛡️ %1</b>", html.escape(title)))
         lbl_title.setWordWrap(True)
         lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
         header.addWidget(lbl_title, 1)
         header.addStretch()
 
-        self.status_badge = Badge("🛡️ En attente", variant="status")
+        self.status_badge = Badge(tr("🛡️ En attente"), variant="status")
         header.addWidget(self.status_badge)
         layout.addLayout(header)
 
@@ -601,7 +602,7 @@ class InlineDiffCardWidget(QFrame):
             lbl_bulb.setStyleSheet("border: none; background: transparent;")
             exp_layout.addWidget(lbl_bulb)
 
-            lbl_exp = QLabel(f"<b>Intention de l'IA :</b> {html.escape(explanation)}")
+            lbl_exp = QLabel(tr("<b>Intention de l'IA :</b> %1", html.escape(explanation)))
             lbl_exp.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
             lbl_exp.setWordWrap(True)
             exp_layout.addWidget(lbl_exp, 1)
@@ -612,7 +613,7 @@ class InlineDiffCardWidget(QFrame):
         mode_control_layout.setContentsMargins(0, 2, 0, 4)
         mode_control_layout.setSpacing(6)
 
-        lbl_view_mode = QLabel("Vue :")
+        lbl_view_mode = QLabel(self.tr("Vue :"))
         lbl_view_mode.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-weight: 500; border: none; background: transparent;")
         mode_control_layout.addWidget(lbl_view_mode)
 
@@ -638,13 +639,13 @@ class InlineDiffCardWidget(QFrame):
             }}
         """
 
-        self.btn_view_unified = QPushButton("📑 Vue Unifiée")
+        self.btn_view_unified = QPushButton(self.tr("📑 Vue Unifiée"))
         self.btn_view_unified.setFixedHeight(24)
         self.btn_view_unified.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_view_unified.setStyleSheet(btn_mode_style)
         self.btn_view_unified.clicked.connect(lambda: self.set_view_mode("unified"))
 
-        self.btn_view_split = QPushButton("⫴ Vue Côte à côte")
+        self.btn_view_split = QPushButton(self.tr("⫴ Vue Côte à côte"))
         self.btn_view_split.setFixedHeight(24)
         self.btn_view_split.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_view_split.setStyleSheet(btn_mode_style)
@@ -686,11 +687,11 @@ class InlineDiffCardWidget(QFrame):
                 logger.debug("Vérification BDD diff note #%s: %s", note_id, e)
 
         if self.is_applied:
-            self.status_badge.setText("✅ Appliqué en BDD")
+            self.status_badge.setText(self.tr("✅ Appliqué en BDD"))
 
         if p_type == "split" and isinstance(mod, list):
             # Mode Scission : affichage de chaque carte atomique fille
-            lbl_split_intro = QLabel(f"Cette note est scindée en {len(mod)} cartes atomiques. Vous pouvez ajuster ou décocher :")
+            lbl_split_intro = QLabel(tr("Cette note est scindée en %1 cartes atomiques. Vous pouvez ajuster ou décocher :", len(mod)))
             lbl_split_intro.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
             layout.addWidget(lbl_split_intro)
 
@@ -757,10 +758,10 @@ class InlineDiffCardWidget(QFrame):
         self.btn_reject.clicked.connect(self._on_reject_clicked)
         actions_layout.addWidget(self.btn_reject)
 
-        self.btn_open_editor = QPushButton("Éditeur ↗")
+        self.btn_open_editor = QPushButton(self.tr("Éditeur ↗"))
         self.btn_open_editor.setFixedHeight(26)
         self.btn_open_editor.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_open_editor.setToolTip("Ouvrir cette carte dans l'onglet Édition")
+        self.btn_open_editor.setToolTip(self.tr("Ouvrir cette carte dans l'onglet Édition"))
         self.btn_open_editor.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -785,7 +786,7 @@ class InlineDiffCardWidget(QFrame):
         layout.addLayout(actions_layout)
 
         if self.is_applied:
-            self.btn_apply.setText("Annuler (Revert)")
+            self.btn_apply.setText(self.tr("Annuler (Revert)"))
             self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
             try:
                 self.btn_apply.clicked.disconnect()
@@ -846,13 +847,13 @@ class InlineDiffCardWidget(QFrame):
                     result = StagedPatchRegistry.apply_staged_patch(str(patch_id))
                     if result.get("status") == "conflict":
                         show_toast(self, result.get("message", "Conflit de version détecté."), is_error=True)
-                        self.status_badge.setText("⚠️ Conflit de version")
+                        self.status_badge.setText(self.tr("⚠️ Conflit de version"))
                         return
                     elif result.get("status") == "applied":
                         self.is_applied = True
                         self.patch_data["is_applied"] = True
-                        self.status_badge.setText("✅ Appliqué en BDD")
-                        self.btn_apply.setText("Annuler (Revert)")
+                        self.status_badge.setText(self.tr("✅ Appliqué en BDD"))
+                        self.btn_apply.setText(self.tr("Annuler (Revert)"))
                         self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
                         try:
                             self.btn_apply.clicked.disconnect()
@@ -874,11 +875,11 @@ class InlineDiffCardWidget(QFrame):
                     with db.atomic():
                         nt.css_style = (nt.css_style or "") + f"\n\n/* Appliqué depuis le Chat */\n{snippet}"
                         nt.save()
-                    self.status_badge.setText("✅ Appliqué en BDD")
+                    self.status_badge.setText(self.tr("✅ Appliqué en BDD"))
                     self.btn_apply.setEnabled(False)
                     self.btn_reject.setEnabled(False)
                     self.applied.emit(f"CSS validé pour {nt.name}")
-                    show_toast(self, f"Style CSS appliqué sur '{nt.name}' !")
+                    show_toast(self, tr("Style CSS appliqué sur '%1' !", nt.name))
 
             elif p_type == "card" and note_id:
                 # Récupérer les valeurs effectives des champs (potentiellement retouchées par l'utilisateur)
@@ -907,8 +908,8 @@ class InlineDiffCardWidget(QFrame):
                         )
                     self.is_applied = True
                     self.patch_data["is_applied"] = True
-                    self.status_badge.setText("✅ Appliqué en BDD")
-                    self.btn_apply.setText("Annuler (Revert)")
+                    self.status_badge.setText(self.tr("✅ Appliqué en BDD"))
+                    self.btn_apply.setText(self.tr("Annuler (Revert)"))
                     self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
                     try:
                         self.btn_apply.clicked.disconnect()
@@ -937,7 +938,7 @@ class InlineDiffCardWidget(QFrame):
                         logger.debug("Mise à jour staged_diffs_json BDD : %s", ex_db)
 
                     self.applied.emit(f"Note #{note.id} refactorisée")
-                    show_toast(self, f"Note #{note.id} mise à jour en BDD (version {new_v_num}) !")
+                    show_toast(self, tr("Note #%1 mise à jour en BDD (version %2) !", note.id, new_v_num))
 
             elif p_type == "split" and note_id:
                 # Récupérer les cartes cochées par l'utilisateur
@@ -973,15 +974,15 @@ class InlineDiffCardWidget(QFrame):
                                 CardModel.create(note=new_note, deck=target_deck, template_index=0)
                         note.status = "archived"
                         note.save()
-                    self.status_badge.setText("✅ Appliqué en BDD")
+                    self.status_badge.setText(self.tr("✅ Appliqué en BDD"))
                     self.btn_apply.setEnabled(False)
                     self.btn_reject.setEnabled(False)
                     self.applied.emit(f"Note #{note.id} scindée en {len(cards_to_apply)} cartes")
-                    show_toast(self, f"Note #{note.id} scindée en {len(cards_to_apply)} cartes atomiques !")
+                    show_toast(self, tr("Note #%1 scindée en %2 cartes atomiques !", note.id, len(cards_to_apply)))
 
         except Exception as e:
             logger.error("Erreur application inline diff : %s", e)
-            show_toast(self, f"Erreur d'application : {e}", is_error=True)
+            show_toast(self, tr("Erreur d'application : %1", e), is_error=True)
 
     @Slot()
     def _on_revert_clicked(self) -> None:
@@ -1012,8 +1013,8 @@ class InlineDiffCardWidget(QFrame):
             self.patch_data["is_applied"] = False
             for fw in self.field_widgets:
                 fw.set_applied(False)
-            self.status_badge.setText("↩️ Annulé")
-            self.btn_apply.setText("Appliquer")
+            self.status_badge.setText(self.tr("↩️ Annulé"))
+            self.btn_apply.setText(self.tr("Appliquer"))
             self.btn_apply.setIcon(load_on_accent_icon("ph.check"))
             try:
                 self.btn_apply.clicked.disconnect()
@@ -1022,10 +1023,10 @@ class InlineDiffCardWidget(QFrame):
             self.btn_apply.clicked.connect(self._on_apply_clicked)
             self.btn_reject.setEnabled(True)
             self.reverted.emit(f"Modification de la note #{note_id} annulée")
-            show_toast(self, "Modification annulée avec succès !")
+            show_toast(self, self.tr("Modification annulée avec succès !"))
         except Exception as e:
             logger.error("Erreur lors de l'annulation du patch : %s", e)
-            show_toast(self, f"Erreur d'annulation : {e}", is_error=True)
+            show_toast(self, tr("Erreur d'annulation : %1", e), is_error=True)
 
     @Slot()
     def _on_reject_clicked(self) -> None:
@@ -1037,11 +1038,11 @@ class InlineDiffCardWidget(QFrame):
 
             StagedPatchRegistry.reject_staged_patch(str(patch_id), reason="Rejet utilisateur IHM")
 
-        self.status_badge.setText("❌ Rejeté")
+        self.status_badge.setText(self.tr("❌ Rejeté"))
         self.btn_apply.setEnabled(False)
         self.btn_reject.setEnabled(False)
         self.rejected.emit("Proposition inline rejetée")
-        show_toast(self, "Proposition rejetée.")
+        show_toast(self, self.tr("Proposition rejetée."))
 
     @Slot()
     def _on_open_editor_clicked(self) -> None:
@@ -1056,7 +1057,7 @@ class InlineDiffCardWidget(QFrame):
                 return
             except (ValueError, TypeError):
                 pass
-        show_toast(self, "Identifiant de note indisponible pour l'ouverture dans l'Éditeur.", is_error=True)
+        show_toast(self, self.tr("Identifiant de note indisponible pour l'ouverture dans l'Éditeur."), is_error=True)
 
     @Slot()
     def _on_inspect_clicked(self) -> None:

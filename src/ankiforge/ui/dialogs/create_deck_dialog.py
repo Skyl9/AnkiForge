@@ -21,6 +21,7 @@ from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.hierarchy import SEPARATOR
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class CreateDeckDialog(QDialog):
 
     def __init__(self, initial_name: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Créer un nouveau paquet")
+        self.setWindowTitle(self.tr("Créer un nouveau paquet"))
         self.setFixedWidth(460)
         self.setModal(True)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
@@ -67,9 +68,9 @@ class CreateDeckDialog(QDialog):
 
         title_vbox = QVBoxLayout()
         title_vbox.setSpacing(2)
-        title_lbl = QLabel("Nouveau paquet Anki")
+        title_lbl = QLabel(self.tr("Nouveau paquet Anki"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; border: none;")
-        subtitle_lbl = QLabel("Créez un paquet ou une arborescence de sous-paquets.")
+        subtitle_lbl = QLabel(self.tr("Créez un paquet ou une arborescence de sous-paquets."))
         subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
         title_vbox.addWidget(title_lbl)
         title_vbox.addWidget(subtitle_lbl)
@@ -78,12 +79,12 @@ class CreateDeckDialog(QDialog):
         layout.addLayout(header_layout)
 
         # Champ Nom
-        lbl_name = QLabel("Nom du paquet :")
+        lbl_name = QLabel(self.tr("Nom du paquet :"))
         lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; font-weight: 600; border: none;")
         layout.addWidget(lbl_name)
 
         self.txt_name = QLineEdit()
-        self.txt_name.setPlaceholderText(f"Ex: Sciences{SEPARATOR}Physique{SEPARATOR}Thermodynamique")
+        self.txt_name.setPlaceholderText(tr("Ex: Sciences%1Physique%2Thermodynamique", SEPARATOR, SEPARATOR))
         self.txt_name.setText(initial_name)
         self.txt_name.setFixedHeight(34)
         self.txt_name.setStyleSheet(f"""
@@ -104,17 +105,17 @@ class CreateDeckDialog(QDialog):
         layout.addWidget(self.txt_name)
 
         # Indication hiérarchie
-        lbl_hint = QLabel(f"💡 Utilisez le séparateur '{SEPARATOR}' pour imbriquer des sous-paquets.")
+        lbl_hint = QLabel(tr("💡 Utilisez le séparateur '%1' pour imbriquer des sous-paquets.", SEPARATOR))
         lbl_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         layout.addWidget(lbl_hint)
 
         # Champ Description
-        lbl_desc = QLabel("Description (optionnelle) :")
+        lbl_desc = QLabel(self.tr("Description (optionnelle) :"))
         lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; font-weight: 600; border: none;")
         layout.addWidget(lbl_desc)
 
         self.txt_desc = QLineEdit()
-        self.txt_desc.setPlaceholderText("Description courte du contenu du paquet...")
+        self.txt_desc.setPlaceholderText(self.tr("Description courte du contenu du paquet..."))
         self.txt_desc.setFixedHeight(34)
         self.txt_desc.setStyleSheet(f"""
             QLineEdit {{
@@ -170,7 +171,7 @@ class CreateDeckDialog(QDialog):
     def _on_submit(self) -> None:
         deck_name = self.txt_name.text().strip()
         if not deck_name:
-            self.lbl_error.setText("Le nom du paquet ne peut pas être vide.")
+            self.lbl_error.setText(self.tr("Le nom du paquet ne peut pas être vide."))
             self.lbl_error.show()
             return
 
@@ -183,5 +184,5 @@ class CreateDeckDialog(QDialog):
             self.accept()
         except Exception as e:
             logger.error("Erreur lors de la création du paquet '%s': %s", deck_name, e)
-            self.lbl_error.setText(f"Erreur : {e}")
+            self.lbl_error.setText(tr("Erreur : %1", e))
             self.lbl_error.show()

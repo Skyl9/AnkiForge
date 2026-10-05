@@ -60,7 +60,7 @@ class ToolbarCustomizeDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Personnaliser la barre d'outils")
+        self.setWindowTitle(self.tr("Personnaliser la barre d'outils"))
         self.setFixedWidth(480)
         self.setMinimumHeight(520)
         self.setModal(True)
@@ -96,9 +96,9 @@ class ToolbarCustomizeDialog(QDialog):
 
         title_vbox = QVBoxLayout()
         title_vbox.setSpacing(2)
-        title_lbl = QLabel("Personnalisation de la barre d'outils")
+        title_lbl = QLabel(self.tr("Personnalisation de la barre d'outils"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; border: none;")
-        subtitle_lbl = QLabel("Choisissez les outils de formatage visibles dans l'éditeur de cartes.")
+        subtitle_lbl = QLabel(self.tr("Choisissez les outils de formatage visibles dans l'éditeur de cartes."))
         subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
         title_vbox.addWidget(title_lbl)
         title_vbox.addWidget(subtitle_lbl)

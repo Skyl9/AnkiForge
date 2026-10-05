@@ -25,6 +25,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -65,7 +66,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         layout.setSpacing(14)
 
         # ── SECTION 1 : RÈGLES DE FUSION & CONFLITS ──────────────────────────
-        self.lbl_sec_merge = QLabel("RÈGLES DE FUSION & CONFLITS")
+        self.lbl_sec_merge = QLabel(self.tr("RÈGLES DE FUSION & CONFLITS"))
         self.lbl_sec_merge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_merge)
 
@@ -75,7 +76,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         merge_layout.setSpacing(10)
 
         row_policy = QHBoxLayout()
-        lbl_pol = QLabel("En cas de divergence de contenu :")
+        lbl_pol = QLabel(self.tr("En cas de divergence de contenu :"))
         lbl_pol.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_policy.addWidget(lbl_pol)
         self.lbl_anki_labels.append(lbl_pol)
@@ -83,9 +84,9 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         self.cb_conflict_policy = StyledComboBox()
         self.cb_conflict_policy.setMinimumWidth(260)
         self.cb_conflict_policy.setFixedHeight(28)
-        self.cb_conflict_policy.addItem("Demander via la modale 3 panneaux (MergeView)", "ask")
-        self.cb_conflict_policy.addItem("Écraser automatiquement par la Forge Locale", "local")
-        self.cb_conflict_policy.addItem("Conserver la version distante d'Anki", "remote")
+        self.cb_conflict_policy.addItem(self.tr("Demander via la modale 3 panneaux (MergeView)"), "ask")
+        self.cb_conflict_policy.addItem(self.tr("Écraser automatiquement par la Forge Locale"), "local")
+        self.cb_conflict_policy.addItem(self.tr("Conserver la version distante d'Anki"), "remote")
         saved_pol = str(SettingsService.get("anki/conflict_policy", "ask"))
         for i in range(self.cb_conflict_policy.count()):
             if self.cb_conflict_policy.itemData(i) == saved_pol:
@@ -95,7 +96,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         row_policy.addWidget(self.cb_conflict_policy)
         merge_layout.addLayout(row_policy)
 
-        self.chk_silent_merge = QCheckBox("Fusionner silencieusement les déplacements de paquets et statistiques SRS")
+        self.chk_silent_merge = QCheckBox(self.tr("Fusionner silencieusement les déplacements de paquets et statistiques SRS"))
         self.chk_silent_merge.setChecked(bool(SettingsService.get("anki/silent_meta_merge", True)))
         self.chk_silent_merge.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_silent_merge.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px;")
@@ -104,7 +105,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_merge)
 
         # ── SECTION 2 : COMPRESSION ET FORMATS D'ARCHIVES ────────────────────
-        self.lbl_sec_fmt = QLabel("COMPRESSION & FORMATS D'ARCHIVES (.APKG / .COLPKG)")
+        self.lbl_sec_fmt = QLabel(self.tr("COMPRESSION & FORMATS D'ARCHIVES (.APKG / .COLPKG)"))
         self.lbl_sec_fmt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_fmt)
 
@@ -114,7 +115,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         fmt_layout.setSpacing(10)
 
         row_comp = QHBoxLayout()
-        lbl_comp = QLabel("Algorithme de compression des médias :")
+        lbl_comp = QLabel(self.tr("Algorithme de compression des médias :"))
         lbl_comp.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_comp.addWidget(lbl_comp)
         self.lbl_anki_labels.append(lbl_comp)
@@ -122,8 +123,8 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         self.cb_compression = StyledComboBox()
         self.cb_compression.setMinimumWidth(260)
         self.cb_compression.setFixedHeight(28)
-        self.cb_compression.addItem("Zstandard (.apkg moderne - Rapide)", "zstd")
-        self.cb_compression.addItem("ZIP Déflate standard (Compatibilité maximale)", "zip")
+        self.cb_compression.addItem(self.tr("Zstandard (.apkg moderne - Rapide)"), "zstd")
+        self.cb_compression.addItem(self.tr("ZIP Déflate standard (Compatibilité maximale)"), "zip")
         saved_comp = str(SettingsService.get("anki/compression", "zstd"))
         for i in range(self.cb_compression.count()):
             if self.cb_compression.itemData(i) == saved_comp:
@@ -134,7 +135,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         fmt_layout.addLayout(row_comp)
 
         row_deck = QHBoxLayout()
-        lbl_dk = QLabel("Paquet par défaut lors des imports rapides :")
+        lbl_dk = QLabel(self.tr("Paquet par défaut lors des imports rapides :"))
         lbl_dk.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_deck.addWidget(lbl_dk)
         self.lbl_anki_labels.append(lbl_dk)
@@ -147,7 +148,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         except Exception:
             decks = []
         if not decks:
-            self.cb_default_deck.addItem("Défaut")
+            self.cb_default_deck.addItem(self.tr("Défaut"))
         else:
             for d in decks:
                 self.cb_default_deck.addItem(d.name, d.id)
@@ -162,7 +163,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         fmt_layout.addLayout(row_deck)
 
         row_maxsize = QHBoxLayout()
-        lbl_ms = QLabel("Taille max. décompressée à l'import (anti zip-bomb) :")
+        lbl_ms = QLabel(self.tr("Taille max. décompressée à l'import (anti zip-bomb) :"))
         lbl_ms.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_maxsize.addWidget(lbl_ms)
         self.lbl_anki_labels.append(lbl_ms)
@@ -191,7 +192,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_fmt)
 
         # ── SECTION 3 : RÉPERTOIRE DES COLLECTIONS ANKI ──────────────────────
-        self.lbl_sec_dir = QLabel("RÉPERTOIRE DES COLLECTIONS ANKI")
+        self.lbl_sec_dir = QLabel(self.tr("RÉPERTOIRE DES COLLECTIONS ANKI"))
         self.lbl_sec_dir.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_dir)
 
@@ -201,7 +202,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         dir_layout.setSpacing(8)
 
         row_dir = QHBoxLayout()
-        lbl_d = QLabel("Dossier Anki2 local :")
+        lbl_d = QLabel(self.tr("Dossier Anki2 local :"))
         lbl_d.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_dir.addWidget(lbl_d)
         self.lbl_anki_labels.append(lbl_d)
@@ -221,14 +222,14 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
 
         btn_browse_anki = SecondaryButton("")
         btn_browse_anki.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_PRIMARY))
-        btn_browse_anki.setToolTip("Parcourir le dossier Anki2")
+        btn_browse_anki.setToolTip(self.tr("Parcourir le dossier Anki2"))
         btn_browse_anki.setFixedHeight(28)
         btn_browse_anki.clicked.connect(self._browse_anki_dir)
         row_dir.addWidget(btn_browse_anki)
 
         btn_open_anki = SecondaryButton("")
         btn_open_anki.setIcon(load_phosphor_icon("ph.arrow-square-out", color=DesignTokens.TEXT_PRIMARY))
-        btn_open_anki.setToolTip("Ouvrir dans l'explorateur")
+        btn_open_anki.setToolTip(self.tr("Ouvrir dans l'explorateur"))
         btn_open_anki.setFixedHeight(28)
         btn_open_anki.clicked.connect(self._open_anki_dir)
         row_dir.addWidget(btn_open_anki)
@@ -238,7 +239,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         hint_icon = QLabel()
         hint_icon.setPixmap(load_phosphor_icon("ph.lightbulb", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
         row_hint.addWidget(hint_icon)
-        lbl_hint = QLabel("Permet de repérer facilement vos profils et fichiers .anki2 / .colpkg sans dépendance réseau.")
+        lbl_hint = QLabel(self.tr("Permet de repérer facilement vos profils et fichiers .anki2 / .colpkg sans dépendance réseau."))
         lbl_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic;")
         row_hint.addWidget(lbl_hint, 1)
         dir_layout.addLayout(row_hint)
@@ -246,7 +247,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         layout.addWidget(self.card_dir)
 
         # ── SECTION 4 : DRAPEAUX ANKI (LIBELLÉS DU PROFIL) ───────────────────
-        self.lbl_sec_flags = QLabel("DRAPEAUX ANKI (LIBELLÉS DU PROFIL)")
+        self.lbl_sec_flags = QLabel(self.tr("DRAPEAUX ANKI (LIBELLÉS DU PROFIL)"))
         self.lbl_sec_flags.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_flags)
 
@@ -255,7 +256,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         flags_layout.setContentsMargins(14, 12, 14, 12)
         flags_layout.setSpacing(10)
 
-        self.lbl_flags_desc = QLabel("Personnalisez les libellés des 7 drapeaux colorés pour ce profil (laisser vide pour le nom par défaut) :")
+        self.lbl_flags_desc = QLabel(self.tr("Personnalisez les libellés des 7 drapeaux colorés pour ce profil (laisser vide pour le nom par défaut) :"))
         self.lbl_flags_desc.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px;")
         flags_layout.addWidget(self.lbl_flags_desc)
 
@@ -278,7 +279,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
             dot.setStyleSheet(f"background-color: {color_hex}; border-radius: 6px;")
             row_layout.addWidget(dot)
 
-            lbl_idx = QLabel(f"Drapeau {idx} :")
+            lbl_idx = QLabel(tr("Drapeau %1 :", idx))
             lbl_idx.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
             lbl_idx.setFixedWidth(75)
             row_layout.addWidget(lbl_idx)
@@ -315,7 +316,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
 
             webbrowser.open(p.as_uri())
         else:
-            show_toast(self, "Le dossier Anki2 spécifié n'existe pas.", is_error=True)
+            show_toast(self, self.tr("Le dossier Anki2 spécifié n'existe pas."), is_error=True)
 
     def save_tab(self) -> None:
         """Sauvegarde les paramètres de formats et de fusion Anki."""

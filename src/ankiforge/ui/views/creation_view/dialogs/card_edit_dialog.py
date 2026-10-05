@@ -25,6 +25,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.note_editor_widget import NoteKaTeXHighlighter
 from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -67,7 +68,7 @@ class CardEditDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Éditer la carte")
+        self.setWindowTitle(self.tr("Éditer la carte"))
         self.setMinimumSize(680, 520)
         self.resize(1020, 640)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
@@ -123,7 +124,7 @@ class CardEditDialog(QDialog):
         header_layout.addWidget(ico)
 
         model_name = (self.note_type.name if self.note_type else None) or self.card_data.get("model") or self.card_data.get("note_type") or "Carte"
-        title_lbl = QLabel(f"Éditer la carte — {model_name}")
+        title_lbl = QLabel(tr("Éditer la carte — %1", model_name))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: 700; border: none; background: transparent;")
         header_layout.addWidget(title_lbl)
 
@@ -168,7 +169,7 @@ class CardEditDialog(QDialog):
         fields_layout.setSpacing(12)
 
         for i, field_name in enumerate(self.ordered_fields):
-            lbl = QLabel(f"{field_name} :")
+            lbl = QLabel(tr("%1 :", field_name))
             lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
             fields_layout.addWidget(lbl)
 
@@ -211,7 +212,7 @@ class CardEditDialog(QDialog):
         right_layout.setSpacing(6)
 
         prev_header = QHBoxLayout()
-        prev_lbl = QLabel("Aperçu en direct (Recto / Verso)")
+        prev_lbl = QLabel(self.tr("Aperçu en direct (Recto / Verso)"))
         prev_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: 600; text-transform: uppercase;")
         prev_header.addWidget(prev_lbl)
         prev_header.addStretch()

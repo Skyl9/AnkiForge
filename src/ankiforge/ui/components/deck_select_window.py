@@ -53,7 +53,7 @@ class DeckSelectWindow(QWidget):
         content_layout.setSpacing(12)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher un dossier (ex: Informatique, C++)...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher un dossier (ex: Informatique, C++)..."))
         search_icon = load_phosphor_icon("magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.search_input.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
         self.search_input.setFixedHeight(32)
@@ -150,7 +150,7 @@ class DeckSelectWindow(QWidget):
 
         global_item: QTreeWidgetItem | None = None
         if self.allow_all:
-            global_item = QTreeWidgetItem(["Tous les paquets"])
+            global_item = QTreeWidgetItem([self.tr("Tous les paquets")])
             global_item.setData(0, Qt.ItemDataRole.UserRole, -1)
             global_item.setIcon(0, load_phosphor_icon("folders", color=DesignTokens.COLOR_BLUE))
             self.tree.addTopLevelItem(global_item)

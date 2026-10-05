@@ -27,6 +27,7 @@ from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.components.inputs import GlowLineEdit, StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_logo_icon, load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ class ProfileItemWidget(QFrame):
 
         # 3. Badge Actif / Verrouillé
         if is_current:
-            self.active_badge = QLabel("ACTIF")
+            self.active_badge = QLabel(self.tr("ACTIF"))
             self.active_badge.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
             self.active_badge.setStyleSheet(f"""
                 QLabel {{
@@ -169,7 +170,7 @@ class ProfileSelectorDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.is_startup = is_startup
-        self.setWindowTitle("Espaces de Travail & Profils — AnkiForge")
+        self.setWindowTitle(self.tr("Espaces de Travail & Profils — AnkiForge"))
         self.setFixedSize(560, 660)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
@@ -218,11 +219,11 @@ class ProfileSelectorDialog(QDialog):
         title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.setSpacing(2)
 
-        self.title_lbl = QLabel("Espaces de Travail & Profils")
+        self.title_lbl = QLabel(self.tr("Espaces de Travail & Profils"))
         self.title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        self.subtitle_lbl = QLabel("Chaque profil possède sa propre base SQLite et ses médias isolés.")
+        self.subtitle_lbl = QLabel(self.tr("Chaque profil possède sa propre base SQLite et ses médias isolés."))
         self.subtitle_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         self.subtitle_lbl.setWordWrap(True)
@@ -232,7 +233,7 @@ class ProfileSelectorDialog(QDialog):
         header_layout.addLayout(title_layout, 1)
 
         # Badge total de profils
-        self.count_badge = QLabel(f"{len(self.profiles)} profil{'s' if len(self.profiles) > 1 else ''}")
+        self.count_badge = QLabel(tr("%1 profil%2", len(self.profiles), "s" if len(self.profiles) > 1 else ""))
         self.count_badge.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         self.count_badge.setStyleSheet(f"""
             QLabel {{
@@ -248,7 +249,7 @@ class ProfileSelectorDialog(QDialog):
         layout.addWidget(header_card)
 
         # ── 2. Barre de recherche ──
-        self.search_input = GlowLineEdit(placeholder="Filtrer les espaces de travail...")
+        self.search_input = GlowLineEdit(placeholder=self.tr("Filtrer les espaces de travail..."))
         self.search_input.setFixedHeight(36)
         self.search_input.textChanged.connect(self._filter_profiles)
         layout.addWidget(self.search_input)
@@ -282,14 +283,14 @@ class ProfileSelectorDialog(QDialog):
         actions_bar.setContentsMargins(0, 0, 0, 0)
         actions_bar.setSpacing(8)
 
-        self.delete_btn = DangerButton("Supprimer cet espace", tooltip="Supprimer définitivement cet espace et toutes ses données associées")
+        self.delete_btn = DangerButton(tr("Supprimer cet espace"), tooltip="Supprimer définitivement cet espace et toutes ses données associées")
         apply_compact_style(self.delete_btn, height=32)
         self.delete_btn.setIcon(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED))
         self.delete_btn.clicked.connect(self._on_delete_profile)
         self.delete_btn.setEnabled(False)
         actions_bar.addWidget(self.delete_btn)
 
-        self.btn_transfer = SecondaryButton("Transférer...", tooltip="Transférer du contenu depuis un autre profil")
+        self.btn_transfer = SecondaryButton("Transférer...", tooltip=self.tr("Transférer du contenu depuis un autre profil"))
         apply_compact_style(self.btn_transfer, height=32)
         self.btn_transfer.setIcon(load_phosphor_icon("arrows-left-right", color=DesignTokens.TEXT_PRIMARY))
         self.btn_transfer.clicked.connect(self._on_open_transfer)
@@ -313,7 +314,7 @@ class ProfileSelectorDialog(QDialog):
         create_layout.setContentsMargins(12, 10, 12, 10)
         create_layout.setSpacing(8)
 
-        lbl_create_title = QLabel("CRÉER UN NOUVEL ESPACE DE TRAVAIL")
+        lbl_create_title = QLabel(self.tr("CRÉER UN NOUVEL ESPACE DE TRAVAIL"))
         lbl_create_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         lbl_create_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px; border: none; background: transparent;")
         create_layout.addWidget(lbl_create_title)
@@ -321,11 +322,11 @@ class ProfileSelectorDialog(QDialog):
         input_box = QHBoxLayout()
         input_box.setSpacing(8)
 
-        self.new_profile_input = StyledLineEdit(icon_name="folder-plus", placeholder="Nom du nouvel espace (ex: droit, medecine)...")
+        self.new_profile_input = StyledLineEdit(icon_name="folder-plus", placeholder=self.tr("Nom du nouvel espace (ex: droit, medecine)..."))
         self.new_profile_input.setFixedHeight(34)
         self.new_profile_input.returnPressed.connect(self._on_create_profile)
 
-        self.btn_create = SecondaryButton("+ Créer", tooltip="Créer un nouvel espace de profil indépendant")
+        self.btn_create = SecondaryButton("+ Créer", tooltip=self.tr("Créer un nouvel espace de profil indépendant"))
         self.btn_create.setFixedHeight(34)
         self.btn_create.clicked.connect(self._on_create_profile)
 
@@ -340,7 +341,7 @@ class ProfileSelectorDialog(QDialog):
         auto_box.setContentsMargins(4, 2, 4, 2)
         auto_box.setSpacing(8)
 
-        self.chk_auto_open = QCheckBox("Toujours ouvrir automatiquement cet espace au démarrage")
+        self.chk_auto_open = QCheckBox(self.tr("Toujours ouvrir automatiquement cet espace au démarrage"))
         self.chk_auto_open.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.chk_auto_open.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_auto_open.setStyleSheet(f"""
@@ -417,10 +418,13 @@ class ProfileSelectorDialog(QDialog):
                 pid_hint = f" (PID {lock_info.pid})" if lock_info else ""
                 QMessageBox.warning(
                     self,
-                    "Profil en cours d'utilisation",
-                    f"Le profil « {self.selected_profile} » est déjà ouvert par une autre instance{pid_hint}.\n\n"
-                    "L'accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.\n"
-                    "Veuillez fermer l'autre instance ou sélectionner un autre espace de travail.",
+                    self.tr("Profil en cours d'utilisation"),
+                    tr(
+                        "Le profil « %1 » est déjà ouvert par une autre instance%2.\n\nL'accès simultané au même profil est bloqué pour protéger vos données contre les "
+                        "corruptions.\nVeuillez fermer l'autre instance ou sélectionner un autre espace de travail.",
+                        self.selected_profile,
+                        pid_hint,
+                    ),
                 )
                 return
 
@@ -474,7 +478,7 @@ class ProfileSelectorDialog(QDialog):
             self.list_widget.setCurrentRow(target_row)
 
         if hasattr(self, "count_badge"):
-            self.count_badge.setText(f"{len(self.profiles)} profil{'s' if len(self.profiles) > 1 else ''}")
+            self.count_badge.setText(tr("%1 profil%2", len(self.profiles), "s" if len(self.profiles) > 1 else ""))
 
     def _filter_profiles(self, query: str) -> None:
         """Filtre les profils selon la requête textuelle."""
@@ -511,7 +515,7 @@ class ProfileSelectorDialog(QDialog):
         # Sanitize profile name
         clean_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", raw_name)
         if clean_name in self.profiles:
-            QMessageBox.warning(self, "Profil existant", f"L'espace de travail « {clean_name} » existe déjà.")
+            QMessageBox.warning(self, self.tr("Profil existant"), tr("L'espace de travail « %1 » existe déjà.", clean_name))
             return
 
         try:
@@ -522,7 +526,7 @@ class ProfileSelectorDialog(QDialog):
             self._populate_profiles()
         except Exception as e:
             logger.error("Erreur lors de la création du profil '%s': %s", clean_name, e, exc_info=True)
-            QMessageBox.critical(self, "Erreur", f"Impossible de créer le profil : {e}")
+            QMessageBox.critical(self, self.tr("Erreur"), tr("Impossible de créer le profil : %1", e))
 
     def _on_delete_profile(self) -> None:
         if not self.selected_profile or self.selected_profile == self.current_profile:
@@ -530,9 +534,11 @@ class ProfileSelectorDialog(QDialog):
 
         res = QMessageBox.question(
             self,
-            "Confirmation de suppression",
-            f"Êtes-vous sûr de vouloir supprimer définitivement l'espace de travail « {self.selected_profile} » ?\n\n"
-            "Toutes les cartes, documents, personas et médias associés seront définitivement effacés.",
+            self.tr("Confirmation de suppression"),
+            tr(
+                "Êtes-vous sûr de vouloir supprimer définitivement l'espace de travail « %1 » ?\n\nToutes les cartes, documents, personas et médias associés seront définitivement effacés.",
+                self.selected_profile,
+            ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -544,7 +550,7 @@ class ProfileSelectorDialog(QDialog):
                 self._populate_profiles()
             except Exception as e:
                 logger.error("Erreur lors de la suppression du profil '%s': %s", self.selected_profile, e, exc_info=True)
-                QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le profil : {e}")
+                QMessageBox.critical(self, self.tr("Erreur"), tr("Impossible de supprimer le profil : %1", e))
 
     def _on_open_transfer(self) -> None:
         """Ouvre le dialogue de transfert inter-profils."""

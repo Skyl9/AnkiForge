@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import NoteChunkLinkModel, NoteModel
 from ankiforge.ui.components.flow_layout import FlowWidget
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.tags import (
     is_provenance_tag,
@@ -70,7 +71,7 @@ class NoteTagChipWidget(QFrame):
             text_color = DesignTokens.COLOR_PURPLE_TEXT
             icon_name = "file-text"
             icon_color = DesignTokens.COLOR_PURPLE
-            self.setToolTip(f"Tag de traçabilité documentaire : {self.tag}")
+            self.setToolTip(tr("Tag de traçabilité documentaire : %1", self.tag))
         else:
             bg_color = DesignTokens.BG_INPUT
             border_color = DesignTokens.BORDER_COLOR
@@ -103,7 +104,7 @@ class NoteTagChipWidget(QFrame):
         self.btn_left = QToolButton(self)
         self.btn_left.setIcon(load_phosphor_icon("caret-left", color=DesignTokens.TEXT_MUTED))
         self.btn_left.setFixedSize(16, 16)
-        self.btn_left.setToolTip("Déplacer vers la gauche")
+        self.btn_left.setToolTip(self.tr("Déplacer vers la gauche"))
         self.btn_left.setEnabled(not is_first)
         self.btn_left.setStyleSheet(f"""
             QToolButton {{
@@ -125,7 +126,7 @@ class NoteTagChipWidget(QFrame):
         self.btn_right = QToolButton(self)
         self.btn_right.setIcon(load_phosphor_icon("caret-right", color=DesignTokens.TEXT_MUTED))
         self.btn_right.setFixedSize(16, 16)
-        self.btn_right.setToolTip("Déplacer vers la droite")
+        self.btn_right.setToolTip(self.tr("Déplacer vers la droite"))
         self.btn_right.setEnabled(not is_last)
         self.btn_right.setStyleSheet(f"""
             QToolButton {{
@@ -147,7 +148,7 @@ class NoteTagChipWidget(QFrame):
         btn_del = QToolButton(self)
         btn_del.setIcon(load_phosphor_icon("x", color=DesignTokens.TEXT_MUTED))
         btn_del.setFixedSize(16, 16)
-        btn_del.setToolTip("Supprimer ce tag")
+        btn_del.setToolTip(self.tr("Supprimer ce tag"))
         btn_del.setStyleSheet(f"""
             QToolButton {{
                 border: none;
@@ -200,7 +201,7 @@ class NoteTagsEditorWidget(QFrame):
         ico_tags.setStyleSheet("border: none; background: transparent;")
         top_layout.addWidget(ico_tags)
 
-        lbl_title = QLabel("Tags :")
+        lbl_title = QLabel(self.tr("Tags :"))
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         top_layout.addWidget(lbl_title)
@@ -213,7 +214,7 @@ class NoteTagsEditorWidget(QFrame):
 
         # Champ de saisie d'un nouveau tag
         self.input_new_tag = QLineEdit()
-        self.input_new_tag.setPlaceholderText("Ajouter un tag...")
+        self.input_new_tag.setPlaceholderText(self.tr("Ajouter un tag..."))
         self.input_new_tag.setMaximumWidth(170)
         self.input_new_tag.setFixedHeight(24)
         self.input_new_tag.setStyleSheet(f"""
@@ -233,9 +234,9 @@ class NoteTagsEditorWidget(QFrame):
         top_layout.addWidget(self.input_new_tag)
 
         # Bouton d'ajout
-        self.btn_add_tag = QPushButton("+")
+        self.btn_add_tag = QPushButton(self.tr("+"))
         self.btn_add_tag.setFixedSize(24, 24)
-        self.btn_add_tag.setToolTip("Ajouter le tag")
+        self.btn_add_tag.setToolTip(self.tr("Ajouter le tag"))
         self.btn_add_tag.setStyleSheet(f"""
             QPushButton {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -276,10 +277,10 @@ class NoteTagsEditorWidget(QFrame):
         """Reconstruit les puces visuelles de tags."""
         self.chips_flow.clear()
         count = len(self._tags)
-        self.lbl_count.setText(f"({count} tag{'s' if count > 1 else ''})")
+        self.lbl_count.setText(tr("(%1 tag%2)", count, "s" if count > 1 else ""))
 
         if not self._tags:
-            lbl_empty = QLabel("Aucun tag associé à cette carte.")
+            lbl_empty = QLabel(self.tr("Aucun tag associé à cette carte."))
             lbl_empty.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-style: italic; border: none; background: transparent;")
             self.chips_flow.add_widget(lbl_empty)
             return
@@ -365,8 +366,8 @@ class NoteTagsEditorWidget(QFrame):
 
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle("Supprimer le tag de provenance ?")
-        box.setText(f"Voulez-vous vraiment supprimer le tag de traçabilité documentaire « {tag} » ?")
+        box.setWindowTitle(self.tr("Supprimer le tag de provenance ?"))
+        box.setText(tr("Voulez-vous vraiment supprimer le tag de traçabilité documentaire « %1 » ?", tag))
         box.setInformativeText(f"Lien de couverture concerné :\n• {link_desc}\n\nCette action recalculera le rattachement de la carte au document source.")
         btn_delete = box.addButton("Supprimer le tag", QMessageBox.ButtonRole.AcceptRole)
         btn_cancel = box.addButton("Annuler", QMessageBox.ButtonRole.RejectRole)

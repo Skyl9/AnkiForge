@@ -31,6 +31,7 @@ from ankiforge.ui.components import (
     StyledLineEdit,
 )
 from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -121,7 +122,7 @@ class SessionItemWidget(QWidget):
         layout.addWidget(text_container, 1)
 
         # Bouton menu 3-points discret
-        self.btn_menu = IconButton("ph.dots-three-vertical", tooltip="Options de la discussion", size=20)
+        self.btn_menu = IconButton("ph.dots-three-vertical", tooltip=self.tr("Options de la discussion"), size=20)
         self.btn_menu.clicked.connect(self._show_menu)
         layout.addWidget(self.btn_menu)
 
@@ -142,16 +143,16 @@ class SessionItemWidget(QWidget):
         menu = StyledMenu(self)
         act_rename = menu.addAction(
             load_phosphor_icon("ph.pencil", color=DesignTokens.TEXT_PRIMARY),
-            "Renommer...",
+            self.tr("Renommer..."),
         )
         act_export = menu.addAction(
             load_phosphor_icon("ph.share-network", color=DesignTokens.TEXT_PRIMARY),
-            "Copier en Markdown",
+            self.tr("Copier en Markdown"),
         )
         menu.addSeparator()
         act_delete = menu.addAction(
             load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED),
-            "Supprimer",
+            self.tr("Supprimer"),
         )
 
         pos = self.btn_menu.mapToGlobal(self.btn_menu.rect().bottomLeft())
@@ -173,8 +174,8 @@ class SessionItemWidget(QWidget):
         elif action == act_delete:
             ret = QMessageBox.question(
                 self,
-                "Confirmer la suppression",
-                f"Voulez-vous vraiment supprimer la discussion '{self.session.title}' ?",
+                self.tr("Confirmer la suppression"),
+                tr("Voulez-vous vraiment supprimer la discussion '%1' ?", self.session.title),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if ret == QMessageBox.StandardButton.Yes:
@@ -218,7 +219,7 @@ class ConsultantSessionSidebar(QFrame):
         header_row = QHBoxLayout()
         header_row.setContentsMargins(0, 0, 0, 0)
 
-        lbl_header = QLabel("DISCUSSIONS")
+        lbl_header = QLabel(self.tr("DISCUSSIONS"))
         lbl_header.setStyleSheet(f"""
             QLabel {{
                 font-size: 11px;
@@ -230,7 +231,7 @@ class ConsultantSessionSidebar(QFrame):
         header_row.addWidget(lbl_header)
         header_row.addStretch()
 
-        self.btn_new = PrimaryButton("+ Nouveau", tooltip="Créer une nouvelle discussion avec le Consultant IA")
+        self.btn_new = PrimaryButton("+ Nouveau", tooltip=self.tr("Créer une nouvelle discussion avec le Consultant IA"))
         self.btn_new.setFixedHeight(26)
         self.btn_new.setStyleSheet("""
             QPushButton {
@@ -245,7 +246,7 @@ class ConsultantSessionSidebar(QFrame):
 
         # ── 2. Champ de recherche rapide ────────────────────────────────────
         self.search_input = StyledLineEdit()
-        self.search_input.setPlaceholderText("Filtrer l'historique...")
+        self.search_input.setPlaceholderText(self.tr("Filtrer l'historique..."))
         self.search_input.textChanged.connect(self._on_filter_changed)
         layout.addWidget(self.search_input)
 
@@ -291,12 +292,12 @@ class ConsultantSessionSidebar(QFrame):
         footer_layout.setContentsMargins(6, 4, 6, 4)
         footer_layout.setSpacing(6)
 
-        self.lbl_footer_tokens = QLabel("⚡ 0 tokens")
+        self.lbl_footer_tokens = QLabel(self.tr("⚡ 0 tokens"))
         self.lbl_footer_tokens.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
         footer_layout.addWidget(self.lbl_footer_tokens)
         footer_layout.addStretch()
 
-        self.lbl_footer_cards = QLabel("📦 0 mod.")
+        self.lbl_footer_cards = QLabel(self.tr("📦 0 mod."))
         self.lbl_footer_cards.setStyleSheet(f"font-size: 10px; color: {DesignTokens.COLOR_GREEN}; font-weight: 600;")
         footer_layout.addWidget(self.lbl_footer_cards)
 
@@ -323,7 +324,7 @@ class ConsultantSessionSidebar(QFrame):
             self.lbl_footer_tokens.setText(f"⚡ {tokens:,} tok • ${cost_usd:.4f}".replace(",", " "))
         else:
             self.lbl_footer_tokens.setText(f"⚡ {tokens:,} tok".replace(",", " "))
-        self.lbl_footer_cards.setText(f"📦 {modified_cards} mod.")
+        self.lbl_footer_cards.setText(tr("📦 %1 mod.", modified_cards))
 
     def _on_filter_changed(self, text: str) -> None:
         self._filter_query = text.strip().lower()

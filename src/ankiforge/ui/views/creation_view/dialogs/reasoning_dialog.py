@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import redact_secrets
 
@@ -30,7 +31,7 @@ class ReasoningViewerDialog(QDialog):
     def __init__(self, thoughts: dict[int, str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("ReasoningViewerDialog")
-        self.setWindowTitle("Chaînes de Pensée IA (Reasoning / CoT)")
+        self.setWindowTitle(self.tr("Chaînes de Pensée IA (Reasoning / CoT)"))
         self.resize(720, 520)
 
         self._sanitized_thoughts: dict[int, str] = {step: redact_secrets(text) for step, text in thoughts.items()}
@@ -43,10 +44,10 @@ class ReasoningViewerDialog(QDialog):
         header_text_layout = QVBoxLayout()
         header_text_layout.setSpacing(2)
 
-        title_lbl = QLabel("🧠 Réflexions et Raisonnements du Modèle")
+        title_lbl = QLabel(self.tr("🧠 Réflexions et Raisonnements du Modèle"))
         title_lbl.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; font-family: '{DesignTokens.FONT_MAIN}';")
 
-        subtitle_lbl = QLabel("Consultez la chaîne de réflexion (Chain-of-Thought) capturée pour chaque étape LLM.")
+        subtitle_lbl = QLabel(self.tr("Consultez la chaîne de réflexion (Chain-of-Thought) capturée pour chaque étape LLM."))
         subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_MAIN}';")
 
         header_text_layout.addWidget(title_lbl)
@@ -55,7 +56,7 @@ class ReasoningViewerDialog(QDialog):
 
         self.btn_copy_all = SecondaryButton("Copier tout")
         self.btn_copy_all.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_copy_all.setToolTip("Copier l'ensemble des réflexions du pipeline dans le presse-papiers")
+        self.btn_copy_all.setToolTip(self.tr("Copier l'ensemble des réflexions du pipeline dans le presse-papiers"))
         self.btn_copy_all.clicked.connect(self._on_copy_all)
         header_layout.addWidget(self.btn_copy_all)
 
@@ -76,7 +77,7 @@ class ReasoningViewerDialog(QDialog):
             tab_content.setPlainText(thought_text)
             tab_content.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; font-family: '{DesignTokens.FONT_CODE}'; border: none; padding: 10px;")
             tab_content.moveCursor(QTextCursor.MoveOperation.Start)
-            self.tab_widget.addTab(tab_content, f"Étape {step_order} ({len(thought_text)} car.)")
+            self.tab_widget.addTab(tab_content, tr("Étape %1 (%2 car.)", step_order, len(thought_text)))
 
         layout.addWidget(self.tab_widget, 1)
 
@@ -100,7 +101,7 @@ class ReasoningViewerDialog(QDialog):
             clipboard = QApplication.clipboard()
             if clipboard:
                 clipboard.setText(text)
-                show_toast(self, "Réflexion de l'étape copiée dans le presse-papiers.")
+                show_toast(self, self.tr("Réflexion de l'étape copiée dans le presse-papiers."))
 
     def _on_copy_all(self) -> None:
         combined = []
@@ -110,4 +111,4 @@ class ReasoningViewerDialog(QDialog):
         clipboard = QApplication.clipboard()
         if clipboard:
             clipboard.setText(full_text)
-            show_toast(self, "Toutes les réflexions ont été copiées dans le presse-papiers.")
+            show_toast(self, self.tr("Toutes les réflexions ont été copiées dans le presse-papiers."))

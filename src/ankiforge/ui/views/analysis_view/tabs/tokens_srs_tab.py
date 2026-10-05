@@ -14,6 +14,7 @@ from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.linter_widgets import RetentionCurveCanvas
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
@@ -45,28 +46,28 @@ class AITokensSrsTab(QWidget):
         ico_header.setPixmap(load_phosphor_icon("ph.coins", color=DesignTokens.COLOR_YELLOW, weight="fill").pixmap(18, 18))
         ico_header.setStyleSheet("border: none; background: transparent;")
 
-        lbl_title = QLabel("Finances & Rétention SRS")
+        lbl_title = QLabel(self.tr("Finances & Rétention SRS"))
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        self.btn_deck = SecondaryButton("L'ensemble des paquets", tooltip="Choisir le paquet de cartes à auditer")
+        self.btn_deck = SecondaryButton("L'ensemble des paquets", tooltip=self.tr("Choisir le paquet de cartes à auditer"))
         self.btn_deck.setIcon(load_phosphor_icon("ph.cards", color=DesignTokens.TEXT_PRIMARY))
         self.btn_deck.setFixedHeight(28)
         self.btn_deck.clicked.connect(self.open_deck_select_dialog)
 
-        self.lbl_spent = QLabel("Dépenses : 0.0000 $")
+        self.lbl_spent = QLabel(self.tr("Dépenses : 0.0000 $"))
         self.lbl_spent.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         self.lbl_spent.setStyleSheet(
             f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 3px 10px;"
         )
 
-        self.lbl_cost = QLabel("~0.00000 $ / carte")
+        self.lbl_cost = QLabel(self.tr("~0.00000 $ / carte"))
         self.lbl_cost.setFont(QFont(DesignTokens.FONT_MAIN, 9))
         self.lbl_cost.setStyleSheet(
             f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 3px 10px;"
         )
 
-        btn_analyze = PrimaryButton("Analyser ce paquet", tooltip="Rafraîchir les métriques de tokens, dépenses IA et rétention SRS")
+        btn_analyze = PrimaryButton("Analyser ce paquet", tooltip=self.tr("Rafraîchir les métriques de tokens, dépenses IA et rétention SRS"))
         btn_analyze.setIcon(load_on_accent_icon("ph.arrows-clockwise"))
         btn_analyze.setFixedHeight(28)
         btn_analyze.clicked.connect(self.refresh_stats)
@@ -107,7 +108,7 @@ class AITokensSrsTab(QWidget):
         ico_models = QLabel()
         ico_models.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_BLUE).pixmap(16, 16))
         ico_models.setStyleSheet("border: none; background: transparent;")
-        l_title = QLabel("Dépenses par Fournisseur IA & Modèle")
+        l_title = QLabel(self.tr("Dépenses par Fournisseur IA & Modèle"))
         l_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         l_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         h_ltitle.addWidget(ico_models)
@@ -161,7 +162,7 @@ class AITokensSrsTab(QWidget):
         ico_eq = QLabel()
         ico_eq.setPixmap(load_phosphor_icon("ph.chart-pie", color=DesignTokens.COLOR_PURPLE).pixmap(16, 16))
         ico_eq.setStyleSheet("border: none; background: transparent;")
-        eq_title = QLabel("Équilibre & Maturité du Paquet (FSRS-4.5)")
+        eq_title = QLabel(self.tr("Équilibre & Maturité du Paquet (FSRS-4.5)"))
         eq_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         eq_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         h_eqtitle.addWidget(ico_eq)
@@ -178,7 +179,7 @@ class AITokensSrsTab(QWidget):
         ico_curve = QLabel()
         ico_curve.setPixmap(load_phosphor_icon("ph.chart-line-up", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
         ico_curve.setStyleSheet("border: none; background: transparent;")
-        r_title = QLabel("Courbe Théorique de Rétention (Forgetting Curve FSRS-4.5)")
+        r_title = QLabel(self.tr("Courbe Théorique de Rétention (Forgetting Curve FSRS-4.5)"))
         r_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         r_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         h_rtitle.addWidget(ico_curve)
@@ -191,7 +192,7 @@ class AITokensSrsTab(QWidget):
 
         btn_opt = PrimaryButton(
             "Optimiser FSRS-4.5 (ML Local)",
-            tooltip="Calibrer les 17 paramètres FSRS-4.5 sur votre historique de révision via apprentissage automatique local",
+            tooltip=self.tr("Calibrer les 17 paramètres FSRS-4.5 sur votre historique de révision via apprentissage automatique local"),
         )
         btn_opt.setIcon(load_on_accent_icon("ph.sparkle"))
         btn_opt.setFixedHeight(30)
@@ -215,14 +216,14 @@ class AITokensSrsTab(QWidget):
                     self._clear_layout(item.layout())
 
     def _on_optimize_fsrs(self) -> None:
-        show_toast(self, "Paramètres FSRS-4.5 optimisés avec succès pour votre rythme d'apprentissage !")
+        show_toast(self, self.tr("Paramètres FSRS-4.5 optimisés avec succès pour votre rythme d'apprentissage !"))
 
     def refresh_stats(self):
         summary = TokenSrsFinancialService.get_financial_summary(self.current_deck_id)
 
-        self.lbl_spent.setText(f"Dépenses : {summary['total_spent_usd']:.4f} $")
+        self.lbl_spent.setText(tr("Dépenses : %1 $", f"{summary['total_spent_usd']:.4f}"))
         avg_cost = summary["total_spent_usd"] / max(summary["total_cards"], 1)
-        self.lbl_cost.setText(f"~{avg_cost:.5f} $ / carte")
+        self.lbl_cost.setText(tr("~%1 $ / carte", f"{avg_cost:.5f}"))
 
         self._clear_layout(self.kpi_grid)
         self._clear_layout(self.eq_grid)
@@ -394,7 +395,7 @@ class AITokensSrsTab(QWidget):
             r1.addWidget(cost)
             mb_layout.addLayout(r1)
 
-            det = QLabel(f"{p_tag} · {m['tokens']:,} jetons ({m['pct']:.1f}% des dépenses)")
+            det = QLabel(tr("%1 · %2 jetons (%3%% des dépenses)", p_tag, f"{m['tokens']:,}", f"{m['pct']:.1f}"))
             det.setFont(QFont(DesignTokens.FONT_MAIN, 8))
             det.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
             mb_layout.addWidget(det)
@@ -431,7 +432,7 @@ class AITokensSrsTab(QWidget):
         ico_task = QLabel()
         ico_task.setPixmap(load_phosphor_icon("ph.list-checks", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
         ico_task.setStyleSheet("border: none; background: transparent;")
-        tb_title = QLabel("Répartition par Type de Tâche IA")
+        tb_title = QLabel(self.tr("Répartition par Type de Tâche IA"))
         tb_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         tb_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         h_tbtitle.addWidget(ico_task)

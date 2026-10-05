@@ -2,6 +2,8 @@ import os
 import sys
 from pathlib import Path
 
+from ankiforge.utils.i18n import install_translator, tr
+
 # Empêcher l'écriture de fichiers .pyc à l'exécution pour ne pas invalider la signature de code Apple
 os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 sys.dont_write_bytecode = True
@@ -49,6 +51,8 @@ from PySide6.QtWidgets import QApplication
 from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
+_installed_translator: QTranslator | None = None
+
 
 def parse_cli_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
     """
@@ -72,6 +76,8 @@ def parse_cli_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, l
 
 
 def main(argv: list[str] | None = None) -> None:
+    global _installed_translator
+
     known_args, _ = parse_cli_args(argv)
 
     if known_args.help:
@@ -186,6 +192,12 @@ def main(argv: list[str] | None = None) -> None:
     QCoreApplication.setApplicationName(get_settings_app_name())
 
     app = QApplication(sys.argv)
+
+    # ── Traduction : avant toute fenêtre, dialogue ou message ────────────────────
+    # ``install_translator`` ne lève jamais : un catalogue absent ou illisible laisse
+    # l'application parler français, langue source, sans faire échouer le démarrage.
+    _installed_translator = install_translator(app)
+
     from ankiforge.ui.theme import DesignTokens
 
     app.setFont(QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE))
@@ -245,13 +257,16 @@ def main(argv: list[str] | None = None) -> None:
 
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Warning)
-        msg.setWindowTitle("Espace de travail en cours d'utilisation")
+        msg.setWindowTitle(tr("Espace de travail en cours d'utilisation"))
         msg.setText(
-            f"Le profil « {selected_profile} » est déjà ouvert par une autre instance d'AnkiForge{pid_hint}.\n\n"
-            "L'accès simultané au même profil est formellement bloqué pour éviter toute corruption des données."
+            tr(
+                "Le profil « %1 » est déjà ouvert par une autre instance d'AnkiForge%2.\n\nL'accès simultané au même profil est formellement bloqué pour éviter toute corruption des données.",
+                selected_profile,
+                pid_hint,
+            )
         )
-        btn_switch = msg.addButton("Choisir un autre profil", QMessageBox.ButtonRole.ActionRole)
-        msg.addButton("Quitter", QMessageBox.ButtonRole.RejectRole)
+        btn_switch = msg.addButton(tr("Choisir un autre profil"), QMessageBox.ButtonRole.ActionRole)
+        msg.addButton(tr("Quitter"), QMessageBox.ButtonRole.RejectRole)
         msg.exec()
 
         if msg.clickedButton() == btn_switch:
@@ -277,17 +292,6 @@ def main(argv: list[str] | None = None) -> None:
     run_migrations()
     seed_initial_data()
     ai_manager = AIManager()
-
-    settings = get_app_qsettings()
-    lang = settings.value("ui/language", "English")
-    if lang == "Français":
-        translator = QTranslator()
-        qm_file = get_resource_path("src", "ressources", "translations", "fr_FR.qm")
-        if not qm_file.exists():
-            qm_file = get_resource_path("ressources", "translations", "fr_FR.qm")
-
-        if qm_file.exists() and translator.load(str(qm_file)):
-            app.installTranslator(translator)
 
     setup_dynamic_theme(app)
 

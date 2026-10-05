@@ -8,6 +8,7 @@ import ankiforge.ui.components.tabs as tabs_mod
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.tabs import ScrollableTabBarWidget
 from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -118,12 +119,12 @@ class PanelPlaceholderWidget(QFrame):
         self.icon_lbl.setStyleSheet("border: none; background: transparent;")
         center_layout.addWidget(self.icon_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        self.text_lbl = QLabel("Panneau Libre")
+        self.text_lbl = QLabel(self.tr("Panneau Libre"))
         self.text_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: 600; border: none; background: transparent;")
         self.text_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         center_layout.addWidget(self.text_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        self.sub_lbl = QLabel("Glissez-déposez un onglet ou une fenêtre ici pour l'ancrer.")
+        self.sub_lbl = QLabel(self.tr("Glissez-déposez un onglet ou une fenêtre ici pour l'ancrer."))
         self.sub_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin: 4px 0; border: none; background: transparent;")
         self.sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sub_lbl.setWordWrap(True)
@@ -385,11 +386,11 @@ class IdePanel(QFrame):
 
             # Conserver le panneau en place dans le splitter avec son placeholder interactif
             if self._registered_tabs:
-                self.placeholder_widget.text_lbl.setText("Aucun onglet affiché")
-                self.placeholder_widget.sub_lbl.setText("Utilisez les boutons ci-dessous pour réafficher vos onglets.")
+                self.placeholder_widget.text_lbl.setText(self.tr("Aucun onglet affiché"))
+                self.placeholder_widget.sub_lbl.setText(self.tr("Utilisez les boutons ci-dessous pour réafficher vos onglets."))
             else:
                 self.placeholder_widget.text_lbl.setText(self._title or "Panneau Libre")
-                self.placeholder_widget.sub_lbl.setText("Glissez-déposez un onglet ou une fenêtre ici pour l'ancrer.")
+                self.placeholder_widget.sub_lbl.setText(self.tr("Glissez-déposez un onglet ou une fenêtre ici pour l'ancrer."))
 
             self.placeholder_widget.setVisible(True)
             self.content_stack.setVisible(False)
@@ -566,13 +567,13 @@ class IdePanel(QFrame):
                     closed_tabs.append((clean_title, info))
 
         if not closed_tabs and not open_elsewhere_tabs and not open_here_tabs:
-            action = QAction("Aucun onglet disponible", self)
+            action = QAction(self.tr("Aucun onglet disponible"), self)
             action.setEnabled(False)
             menu.addAction(action)
         else:
             # 1. Onglets fermés à réouvrir (Priorité)
             if closed_tabs:
-                lbl = menu.addAction("Rouvrir un onglet :")
+                lbl = menu.addAction(self.tr("Rouvrir un onglet :"))
                 lbl.setEnabled(False)
                 for clean_title, info in closed_tabs:
                     icon_name = info.get("icon_name", "")
@@ -580,14 +581,14 @@ class IdePanel(QFrame):
                     act = menu.addAction(icon, clean_title)
                     act.setCheckable(True)
                     act.setChecked(False)
-                    act.setToolTip(f"Afficher l'onglet « {clean_title} »")
+                    act.setToolTip(tr("Afficher l'onglet « %1 »", clean_title))
                     act.triggered.connect(lambda checked=False, t=clean_title: self.open_tab(t))
 
             # 2. Onglets ouverts ailleurs (déplaçables ici)
             if open_elsewhere_tabs:
                 if closed_tabs:
                     menu.addSeparator()
-                lbl_other = menu.addAction("Déplacer vers ce panneau :")
+                lbl_other = menu.addAction(self.tr("Déplacer vers ce panneau :"))
                 lbl_other.setEnabled(False)
                 for clean_title in open_elsewhere_tabs:
                     owner, idx = find_tab_owner(clean_title)
@@ -599,7 +600,7 @@ class IdePanel(QFrame):
             if open_here_tabs:
                 if closed_tabs or open_elsewhere_tabs:
                     menu.addSeparator()
-                lbl_here = menu.addAction("Onglets actifs dans ce panneau :")
+                lbl_here = menu.addAction(self.tr("Onglets actifs dans ce panneau :"))
                 lbl_here.setEnabled(False)
                 for clean_title in open_here_tabs:
                     owner_panel, info = catalog.get(clean_title, (self, self._registered_tabs.get(clean_title, {})))
@@ -609,11 +610,11 @@ class IdePanel(QFrame):
                     act.setCheckable(True)
                     act.setChecked(True)
                     if info.get("closable", True):
-                        act.setToolTip(f"Masquer l'onglet « {clean_title} »")
+                        act.setToolTip(tr("Masquer l'onglet « %1 »", clean_title))
                         act.triggered.connect(lambda checked=False, t=clean_title: self.close_tab(t))
                     else:
                         act.setEnabled(False)
-                        act.setToolTip("Cet onglet principal ne peut pas être masqué")
+                        act.setToolTip(self.tr("Cet onglet principal ne peut pas être masqué"))
 
         menu.exec(button.mapToGlobal(QPoint(0, button.height())))
 

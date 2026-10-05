@@ -23,6 +23,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.hierarchy import join_hierarchy
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class FolderCreateDialog(QDialog):
 
     def __init__(self, parent_folder_id: int | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Nouveau dossier")
+        self.setWindowTitle(self.tr("Nouveau dossier"))
         self.setMinimumWidth(440)
         self.resize(480, 320)
         self._parent_folder_id = parent_folder_id
@@ -68,9 +69,9 @@ class FolderCreateDialog(QDialog):
 
         title_vbox = QVBoxLayout()
         title_vbox.setSpacing(2)
-        title_lbl = QLabel("Créer un dossier de documents")
+        title_lbl = QLabel(self.tr("Créer un dossier de documents"))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
-        desc_lbl = QLabel("Organisez vos cours et documents en dossiers et sous-dossiers.")
+        desc_lbl = QLabel(self.tr("Organisez vos cours et documents en dossiers et sous-dossiers."))
         desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         title_vbox.addWidget(title_lbl)
         title_vbox.addWidget(desc_lbl)
@@ -93,7 +94,7 @@ class FolderCreateDialog(QDialog):
         form_layout.setSpacing(12)
 
         # Sélecteur du parent
-        lbl_parent = QLabel("Dossier parent :")
+        lbl_parent = QLabel(self.tr("Dossier parent :"))
         lbl_parent.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         form_layout.addWidget(lbl_parent)
 
@@ -102,11 +103,11 @@ class FolderCreateDialog(QDialog):
         form_layout.addWidget(self.combo_parent)
 
         # Nom du dossier / chemin
-        lbl_name = QLabel("Nom du sous-dossier :")
+        lbl_name = QLabel(self.tr("Nom du sous-dossier :"))
         lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         form_layout.addWidget(lbl_name)
 
-        self.input_name = StyledLineEdit(icon_name="ph.folder", placeholder="ex: Semestre 1 ou UE1::Biochimie")
+        self.input_name = StyledLineEdit(icon_name="ph.folder", placeholder=self.tr("ex: Semestre 1 ou UE1::Biochimie"))
         self.input_name.textChanged.connect(self._on_inputs_changed)
         self.input_name.returnPressed.connect(self._on_create)
         form_layout.addWidget(self.input_name)
@@ -120,7 +121,7 @@ class FolderCreateDialog(QDialog):
         layout.addWidget(form_card)
 
         # Astuce
-        hint_lbl = QLabel("💡 Astuce : Utilisez '::' pour créer plusieurs niveaux d'arborescence d'un coup.")
+        hint_lbl = QLabel(self.tr("💡 Astuce : Utilisez '::' pour créer plusieurs niveaux d'arborescence d'un coup."))
         hint_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic;")
         layout.addWidget(hint_lbl)
 
@@ -147,13 +148,13 @@ class FolderCreateDialog(QDialog):
         """Remplit la liste déroulante des dossiers parents."""
         self.combo_parent.blockSignals(True)
         self.combo_parent.clear()
-        self.combo_parent.addItem("📁 Racine (aucun parent)", None)
+        self.combo_parent.addItem(self.tr("📁 Racine (aucun parent)"), None)
 
         try:
             folders = list(FolderModel.select().order_by(FolderModel.name))
             selected_idx = 0
             for i, f in enumerate(folders, start=1):
-                self.combo_parent.addItem(f"📁 {f.name}", f.id)
+                self.combo_parent.addItem(tr("📁 %1", f.name), f.id)
                 if self._parent_folder_id is not None and f.id == self._parent_folder_id:
                     selected_idx = i
             self.combo_parent.setCurrentIndex(selected_idx)
@@ -186,9 +187,9 @@ class FolderCreateDialog(QDialog):
     def _update_preview(self) -> None:
         path = self.get_full_path()
         if path:
-            self.lbl_preview.setText(f"Chemin complet : <b style='color: {DesignTokens.TEXT_PRIMARY};'>{path}</b>")
+            self.lbl_preview.setText(tr("Chemin complet : <b style='color: %1;'>%2</b>", DesignTokens.TEXT_PRIMARY, path))
         else:
-            self.lbl_preview.setText("Chemin complet : <i>(Saisissez un nom)</i>")
+            self.lbl_preview.setText(self.tr("Chemin complet : <i>(Saisissez un nom)</i>"))
 
     @Slot()
     def _on_create(self) -> None:
@@ -202,7 +203,7 @@ class FolderCreateDialog(QDialog):
             self.accept()
         except Exception as e:
             logger.error("Erreur création dossier '%s': %s", path, e)
-            show_toast(self, f"Erreur lors de la création : {e}", is_error=True)
+            show_toast(self, tr("Erreur lors de la création : %1", e), is_error=True)
 
     def get_created_folder(self) -> FolderModel | None:
         return self._created_folder

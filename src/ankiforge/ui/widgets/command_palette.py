@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -66,12 +67,12 @@ class CommandPalette(QDialog):
         header_layout = QHBoxLayout()
         header_layout.setSpacing(8)
 
-        self.search_input = GlowLineEdit(placeholder="Rechercher cartes, paquets, vues ou commandes...", parent=self.container)
+        self.search_input = GlowLineEdit(placeholder=self.tr("Rechercher cartes, paquets, vues ou commandes..."), parent=self.container)
         self.search_input.textChanged.connect(self._filter_commands)
         header_layout.addWidget(self.search_input, 1)
 
         # kbd hint "Esc pour fermer"
-        shortcut_lbl = QLabel("Échap")
+        shortcut_lbl = QLabel(self.tr("Échap"))
         shortcut_lbl.setStyleSheet(f"""
             background-color: {DesignTokens.BG_HOVER};
             color: {DesignTokens.TEXT_MUTED};
@@ -190,7 +191,7 @@ class CommandPalette(QDialog):
                 layout.addWidget(title_lbl)
 
                 if cmd["category"]:
-                    cat_lbl = QLabel(f"[{cmd['category']}]")
+                    cat_lbl = QLabel(tr("[%1]", cmd["category"]))
                     cat_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
                     layout.addWidget(cat_lbl)
 

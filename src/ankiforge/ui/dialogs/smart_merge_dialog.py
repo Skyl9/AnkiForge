@@ -29,6 +29,7 @@ from ankiforge.services.cards.import_manager import ConflictItem
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -65,10 +66,10 @@ class ConflictFieldRow(QWidget):
 
         is_diff = self.local_val.strip() != self.incoming_val.strip()
         if is_diff:
-            badge_diff = Badge("Différent", variant="warning")
+            badge_diff = Badge(tr("Différent"), variant="warning")
             header_layout.addWidget(badge_diff)
         else:
-            badge_same = Badge("Identique", variant="neutral")
+            badge_same = Badge(tr("Identique"), variant="neutral")
             header_layout.addWidget(badge_same)
 
         layout.addLayout(header_layout)
@@ -96,7 +97,7 @@ class ConflictFieldRow(QWidget):
         row_splitter.addWidget(self.edit_local, 1)
 
         # Bouton transfert Local -> Centre
-        btn_use_local = IconButton("caret-right", tooltip="Utiliser le contenu Local", size=22)
+        btn_use_local = IconButton("caret-right", tooltip=self.tr("Utiliser le contenu Local"), size=22)
         btn_use_local.clicked.connect(self._copy_local_to_center)
         row_splitter.addWidget(btn_use_local)
 
@@ -120,7 +121,7 @@ class ConflictFieldRow(QWidget):
         row_splitter.addWidget(self.edit_merged, 1)
 
         # Bouton transfert Entrant -> Centre
-        btn_use_incoming = IconButton("caret-left", tooltip="Utiliser le contenu Entrant", size=22)
+        btn_use_incoming = IconButton("caret-left", tooltip=self.tr("Utiliser le contenu Entrant"), size=22)
         btn_use_incoming.clicked.connect(self._copy_incoming_to_center)
         row_splitter.addWidget(btn_use_incoming)
 
@@ -166,7 +167,7 @@ class SmartMergeDialog(QDialog):
         self.current_index = 0
         self.resolutions: dict[str, dict[str, Any]] = {}  # guid -> {"content": ..., "choice": ...}
 
-        self.setWindowTitle("Smart Merge — Résolution de Conflits")
+        self.setWindowTitle(self.tr("Smart Merge — Résolution de Conflits"))
         self.resize(1100, 700)
         self.setModal(True)
 
@@ -203,18 +204,18 @@ class SmartMergeDialog(QDialog):
         info_vbox = QVBoxLayout()
         info_vbox.setSpacing(2)
 
-        self.lbl_conflict_title = QLabel("Conflit 1 sur N")
+        self.lbl_conflict_title = QLabel(self.tr("Conflit 1 sur N"))
         self.lbl_conflict_title.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         self.lbl_conflict_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        self.lbl_conflict_meta = QLabel("Modèle : Basic | GUID : abc12345")
+        self.lbl_conflict_meta = QLabel(self.tr("Modèle : Basic | GUID : abc12345"))
         self.lbl_conflict_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
 
         info_vbox.addWidget(self.lbl_conflict_title)
         info_vbox.addWidget(self.lbl_conflict_meta)
         header_layout.addLayout(info_vbox, 1)
 
-        self.badge_similarity = Badge("Similarité : 85%", variant="success")
+        self.badge_similarity = Badge(tr("Similarité : 85%"), variant="success")
         header_layout.addWidget(self.badge_similarity)
 
         main_layout.addWidget(header_frame)
@@ -224,15 +225,15 @@ class SmartMergeDialog(QDialog):
         titles_layout.setContentsMargins(4, 0, 4, 0)
         titles_layout.setSpacing(12)
 
-        lbl_local_title = QLabel("BASE LOCALE ANKIFORGE")
+        lbl_local_title = QLabel(self.tr("BASE LOCALE ANKIFORGE"))
         lbl_local_title.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.COLOR_RED}; text-transform: uppercase;")
         titles_layout.addWidget(lbl_local_title, 1)
 
-        lbl_merged_title = QLabel("RÉSULTAT FUSIONNÉ (INTERACTIF)")
+        lbl_merged_title = QLabel(self.tr("RÉSULTAT FUSIONNÉ (INTERACTIF)"))
         lbl_merged_title.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.ACCENT_PRIMARY}; text-transform: uppercase; text-align: center;")
         titles_layout.addWidget(lbl_merged_title, 1)
 
-        lbl_incoming_title = QLabel("BASE ENTRANTE (.APKG)")
+        lbl_incoming_title = QLabel(self.tr("BASE ENTRANTE (.APKG)"))
         lbl_incoming_title.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.COLOR_GREEN}; text-transform: uppercase; text-align: right;")
         titles_layout.addWidget(lbl_incoming_title, 1)
 
@@ -276,15 +277,15 @@ class SmartMergeDialog(QDialog):
         footer_layout.addStretch()
 
         # Pagination
-        self.btn_prev = IconButton("caret-left", tooltip="Conflit précédent", size=24)
+        self.btn_prev = IconButton("caret-left", tooltip=self.tr("Conflit précédent"), size=24)
         self.btn_prev.clicked.connect(self._on_prev_conflict)
         footer_layout.addWidget(self.btn_prev)
 
-        self.lbl_page = QLabel("1 / 1")
+        self.lbl_page = QLabel(self.tr("1 / 1"))
         self.lbl_page.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 11px;")
         footer_layout.addWidget(self.lbl_page)
 
-        self.btn_next = IconButton("caret-right", tooltip="Conflit suivant", size=24)
+        self.btn_next = IconButton("caret-right", tooltip=self.tr("Conflit suivant"), size=24)
         self.btn_next.clicked.connect(self._on_next_conflict)
         footer_layout.addWidget(self.btn_next)
 
@@ -309,13 +310,13 @@ class SmartMergeDialog(QDialog):
 
         # Mise à jour en-tête
         total = len(self.conflicts)
-        self.lbl_conflict_title.setText(f"Conflit {self.current_index + 1} sur {total} (ID #{conflict.note_id})")
-        self.lbl_conflict_meta.setText(f"Modèle : {conflict.note_type_name}  |  GUID : {conflict.guid}  |  Dossier : {conflict.local_deck} ➔ {conflict.incoming_deck}")
-        self.lbl_page.setText(f"{self.current_index + 1} / {total}")
+        self.lbl_conflict_title.setText(tr("Conflit %1 sur %2 (ID #%3)", self.current_index + 1, total, conflict.note_id))
+        self.lbl_conflict_meta.setText(tr("Modèle : %1  |  GUID : %2  |  Dossier : %3 ➔ %4", conflict.note_type_name, conflict.guid, conflict.local_deck, conflict.incoming_deck))
+        self.lbl_page.setText(tr("%1 / %2", self.current_index + 1, total))
 
         sim = conflict.similarity_score
         variant = "success" if sim >= 80 else ("warning" if sim >= 50 else "danger")
-        self.badge_similarity.setText(f"Similarité : {sim}%")
+        self.badge_similarity.setText(tr("Similarité : %1%%", sim))
         self.badge_similarity.set_variant(variant)
 
         # Nettoyage des champs précédents
@@ -409,10 +410,10 @@ class SmartMergeDialog(QDialog):
 
     def _show_batch_menu(self) -> None:
         menu = StyledMenu(self)
-        action_all_local = menu.addAction("Tout conserver en Local (tous les conflits)")
+        action_all_local = menu.addAction(self.tr("Tout conserver en Local (tous les conflits)"))
         action_all_local.triggered.connect(self._apply_all_local_batch)
 
-        action_all_incoming = menu.addAction("Tout remplacer par l'Entrant (tous les conflits)")
+        action_all_incoming = menu.addAction(self.tr("Tout remplacer par l'Entrant (tous les conflits)"))
         action_all_incoming.triggered.connect(self._apply_all_incoming_batch)
 
         menu.exec(self.btn_batch_menu.mapToGlobal(self.btn_batch_menu.rect().bottomLeft()))

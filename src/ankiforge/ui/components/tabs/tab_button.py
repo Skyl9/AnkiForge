@@ -177,7 +177,7 @@ class TabButton(QPushButton):
         from ankiforge.ui.theme import StyledMenu
 
         menu = StyledMenu(self)
-        action_close = menu.addAction("Fermer l'onglet")
+        action_close = menu.addAction(self.tr("Fermer l'onglet"))
         action_close.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_PRIMARY))
 
         panel: Any = self
@@ -187,10 +187,10 @@ class TabButton(QPushButton):
         is_detached = panel and (panel.__class__.__name__ == "FloatingDockWindow")
 
         if is_detached:
-            action_dock = menu.addAction("Rattacher l'onglet")
+            action_dock = menu.addAction(self.tr("Rattacher l'onglet"))
             action_dock.setIcon(load_phosphor_icon("ph.arrow-down-left", color=DesignTokens.TEXT_PRIMARY))
         else:
-            action_detach = menu.addAction("Détacher l'onglet")
+            action_detach = menu.addAction(self.tr("Détacher l'onglet"))
             action_detach.setIcon(load_phosphor_icon("ph.arrow-up-right", color=DesignTokens.TEXT_PRIMARY))
 
         action = menu.exec(event.globalPos())

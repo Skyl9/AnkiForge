@@ -66,20 +66,20 @@ class AutoSliceWidget(QWidget):
         layout.setSpacing(10)
 
         # 1. En-tête statistiques
-        self.stats_lbl = QLabel("Taille découpable : ~0 mots • ~0 tokens")
+        self.stats_lbl = QLabel(self.tr("Taille découpable : ~0 mots • ~0 tokens"))
         self.stats_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY}; font-family: {DesignTokens.FONT_CODE};")
         layout.addWidget(self.stats_lbl)
 
         # 2. Règle de découpage (Modes)
-        strat_lbl = QLabel("RÈGLE DE DÉCOUPAGE")
+        strat_lbl = QLabel(self.tr("RÈGLE DE DÉCOUPAGE"))
         strat_lbl.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         layout.addWidget(strat_lbl)
 
         self.btn_group_modes = QButtonGroup(self)
-        self.rb_headings = QRadioButton("Par Chapitres / Titres (Structure sémantique)")
+        self.rb_headings = QRadioButton(self.tr("Par Chapitres / Titres (Structure sémantique)"))
         self.rb_headings.setChecked(True)
-        self.rb_tokens = QRadioButton("Par Blocs de Tokens (Contenu continu)")
-        self.rb_pages = QRadioButton("Par Tranches de Pages (PDF / Présentations)")
+        self.rb_tokens = QRadioButton(self.tr("Par Blocs de Tokens (Contenu continu)"))
+        self.rb_pages = QRadioButton(self.tr("Par Tranches de Pages (PDF / Présentations)"))
 
         self.btn_group_modes.addButton(self.rb_headings, 0)
         self.btn_group_modes.addButton(self.rb_tokens, 1)
@@ -94,15 +94,15 @@ class AutoSliceWidget(QWidget):
         layout.addLayout(modes_row)
 
         # 3. Paliers de granularité
-        gran_lbl = QLabel("NIVEAU DE GRANULARITÉ")
+        gran_lbl = QLabel(self.tr("NIVEAU DE GRANULARITÉ"))
         gran_lbl.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         layout.addWidget(gran_lbl)
 
         self.btn_group_granularity = QButtonGroup(self)
-        self.rb_gran_coarse = QRadioButton("Large (Macro)")
-        self.rb_gran_balanced = QRadioButton("Équilibré (Standard)")
-        self.rb_gran_fine = QRadioButton("Fin (Atomique)")
-        self.rb_gran_custom = QRadioButton("Personnalisé")
+        self.rb_gran_coarse = QRadioButton(self.tr("Large (Macro)"))
+        self.rb_gran_balanced = QRadioButton(self.tr("Équilibré (Standard)"))
+        self.rb_gran_fine = QRadioButton(self.tr("Fin (Atomique)"))
+        self.rb_gran_custom = QRadioButton(self.tr("Personnalisé"))
 
         self.btn_group_granularity.addButton(self.rb_gran_coarse, 0)
         self.btn_group_granularity.addButton(self.rb_gran_balanced, 1)
@@ -135,15 +135,15 @@ class AutoSliceWidget(QWidget):
         h_controls_row = QHBoxLayout()
         h_controls_row.setSpacing(12)
 
-        lbl_depth = QLabel("Profondeur de découpe :")
+        lbl_depth = QLabel(self.tr("Profondeur de découpe :"))
         lbl_depth.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         self.combo_depth = QComboBox()
         self.combo_depth.addItems(
             [
-                "H1 uniquement (Grands chapitres)",
-                "H1 + H2 (Chapitres et sections majeures)",
-                "H1 + H2 + H3 (Sous-sections détaillées)",
-                "Tous les niveaux (H1 à H6)",
+                self.tr("H1 uniquement (Grands chapitres)"),
+                self.tr("H1 + H2 (Chapitres et sections majeures)"),
+                self.tr("H1 + H2 + H3 (Sous-sections détaillées)"),
+                self.tr("Tous les niveaux (H1 à H6)"),
             ]
         )
         self.combo_depth.setCurrentIndex(1)
@@ -153,13 +153,13 @@ class AutoSliceWidget(QWidget):
         self.combo_depth.setStyleSheet(combo_style)
         self.combo_depth.currentIndexChanged.connect(self._on_headings_control_changed)
 
-        lbl_fusion = QLabel("Seuil de fusion micro-sections :")
+        lbl_fusion = QLabel(self.tr("Seuil de fusion micro-sections :"))
         lbl_fusion.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         self.spin_min_words = QSpinBox()
         self.spin_min_words.setRange(0, 300)
         self.spin_min_words.setValue(50)
         self.spin_min_words.setSuffix(" mots min.")
-        self.spin_min_words.setToolTip("Les sections comportant moins de mots que ce seuil sont fusionnées dans la section adjacente.")
+        self.spin_min_words.setToolTip(self.tr("Les sections comportant moins de mots que ce seuil sont fusionnées dans la section adjacente."))
         spin_style = (
             f"font-size: 11px; background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 6px;"
         )
@@ -174,7 +174,7 @@ class AutoSliceWidget(QWidget):
         h_controls_row.addStretch()
         l_headings.addLayout(h_controls_row)
 
-        lbl_headings_info = QLabel("Les sous-sections situées au-delà de la profondeur choisie sont automatiquement incluses dans la tâche parente.")
+        lbl_headings_info = QLabel(self.tr("Les sous-sections situées au-delà de la profondeur choisie sont automatiquement incluses dans la tâche parente."))
         lbl_headings_info.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         l_headings.addWidget(lbl_headings_info)
         self.settings_stack.addWidget(w_headings)
@@ -186,9 +186,9 @@ class AutoSliceWidget(QWidget):
         l_tokens.setSpacing(8)
 
         t_header = QHBoxLayout()
-        lbl_token_target = QLabel("Budget cible par tâche :")
+        lbl_token_target = QLabel(self.tr("Budget cible par tâche :"))
         lbl_token_target.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
-        self.lbl_token_val = QLabel("2 000 tokens")
+        self.lbl_token_val = QLabel(self.tr("2 000 tokens"))
         self.lbl_token_val.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-weight: bold; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
         t_header.addWidget(lbl_token_target)
         t_header.addStretch()
@@ -206,9 +206,9 @@ class AutoSliceWidget(QWidget):
         t_slider_row.addWidget(self.slider_tokens, 1)
 
         # Boutons presets rapides tokens
-        btn_t_1000 = QPushButton("1 000 tks")
-        btn_t_2000 = QPushButton("2 000 tks")
-        btn_t_3500 = QPushButton("3 500 tks")
+        btn_t_1000 = QPushButton(self.tr("1 000 tks"))
+        btn_t_2000 = QPushButton(self.tr("2 000 tks"))
+        btn_t_3500 = QPushButton(self.tr("3 500 tks"))
         for btn, val in [(btn_t_1000, 1000), (btn_t_2000, 2000), (btn_t_3500, 3500)]:
             btn.setFixedHeight(22)
             btn.setStyleSheet(f"font-size: 10px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
@@ -226,7 +226,7 @@ class AutoSliceWidget(QWidget):
 
         p_row = QHBoxLayout()
         p_row.setSpacing(10)
-        lbl_pages = QLabel("Nombre de pages par tâche :")
+        lbl_pages = QLabel(self.tr("Nombre de pages par tâche :"))
         lbl_pages.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         self.spin_pages = QSpinBox()
         self.spin_pages.setRange(1, 30)
@@ -241,10 +241,10 @@ class AutoSliceWidget(QWidget):
         p_row.addSpacing(16)
 
         # Boutons presets rapides pages
-        btn_p_1 = QPushButton("1 page")
-        btn_p_3 = QPushButton("3 pages")
-        btn_p_5 = QPushButton("5 pages")
-        btn_p_10 = QPushButton("10 pages")
+        btn_p_1 = QPushButton(self.tr("1 page"))
+        btn_p_3 = QPushButton(self.tr("3 pages"))
+        btn_p_5 = QPushButton(self.tr("5 pages"))
+        btn_p_10 = QPushButton(self.tr("10 pages"))
         for btn, val in [(btn_p_1, 1), (btn_p_3, 3), (btn_p_5, 5), (btn_p_10, 10)]:
             btn.setFixedHeight(22)
             btn.setStyleSheet(f"font-size: 10px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")

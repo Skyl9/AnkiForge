@@ -40,7 +40,7 @@ class ActivityChartWidget(QWidget):
 
         self.title_icon = QLabel()
         self.title_icon.setPixmap(load_phosphor_icon("ph.chart-bar", color=DesignTokens.TEXT_PRIMARY).pixmap(14, 14))
-        self.title_label = QLabel("Activité (7j)")
+        self.title_label = QLabel(self.tr("Activité (7j)"))
         self.title_label.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         self.title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
@@ -49,17 +49,17 @@ class ActivityChartWidget(QWidget):
         header_layout.addStretch()
 
         # Légende compacte
-        self.legend_created_dot = QLabel("■")
+        self.legend_created_dot = QLabel(self.tr("■"))
         self.legend_created_dot.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.legend_created_dot.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: none; background: transparent;")
-        self.legend_created_lbl = QLabel("Créées")
+        self.legend_created_lbl = QLabel(self.tr("Créées"))
         self.legend_created_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.legend_created_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 
-        self.legend_modified_dot = QLabel("■")
+        self.legend_modified_dot = QLabel(self.tr("■"))
         self.legend_modified_dot.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.legend_modified_dot.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; border: none; background: transparent;")
-        self.legend_modified_lbl = QLabel("Modifiées")
+        self.legend_modified_lbl = QLabel(self.tr("Modifiées"))
         self.legend_modified_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.legend_modified_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 

@@ -28,6 +28,7 @@ from ankiforge.ui.components import (
     StyledLineEdit,
 )
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -67,11 +68,11 @@ class ModelConfigDialog(QDialog):
 
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
-        lbl_title = QLabel("Configuration du Moteur IA")
+        lbl_title = QLabel(self.tr("Configuration du Moteur IA"))
         lbl_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         title_col.addWidget(lbl_title)
 
-        lbl_sub = QLabel("Paramétrez les identifiants, capacités et plafonds d'inférence du modèle.")
+        lbl_sub = QLabel(self.tr("Paramétrez les identifiants, capacités et plafonds d'inférence du modèle."))
         lbl_sub.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         title_col.addWidget(lbl_sub)
         header_row.addLayout(title_col, 1)
@@ -79,7 +80,7 @@ class ModelConfigDialog(QDialog):
         # Menu préréglages depuis catalogue
         self.btn_preset = SecondaryButton("Pré-remplir ▾")
         self.btn_preset.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_preset.setToolTip("Remplir automatiquement les champs avec un modèle du catalogue officiel")
+        self.btn_preset.setToolTip(self.tr("Remplir automatiquement les champs avec un modèle du catalogue officiel"))
         self._setup_preset_menu()
         header_row.addWidget(self.btn_preset)
 
@@ -91,7 +92,7 @@ class ModelConfigDialog(QDialog):
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         # Nom affiché
-        self.le_display_name = StyledLineEdit(placeholder="Ex: Google Gemini 2.5 Flash Lite")
+        self.le_display_name = StyledLineEdit(placeholder=self.tr("Ex: Google Gemini 2.5 Flash Lite"))
         form.addRow(self._make_label("Nom affiché :"), self.le_display_name)
 
         # Fournisseur
@@ -111,7 +112,7 @@ class ModelConfigDialog(QDialog):
         form.addRow(self._make_label("Fournisseur :"), self.cb_provider)
 
         # Identifiant Modèle
-        self.le_model_id = StyledLineEdit(placeholder="Ex: gemini-2.5-flash-lite")
+        self.le_model_id = StyledLineEdit(placeholder=self.tr("Ex: gemini-2.5-flash-lite"))
         form.addRow(self._make_label("ID Modèle (API) :"), self.le_model_id)
 
         # Grille Contexte & Tokens & Température
@@ -121,7 +122,7 @@ class ModelConfigDialog(QDialog):
         spin_style = f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 2px 6px;"
 
         # Limite Contexte
-        lbl_ctx = QLabel("Limite Contexte (tokens) :")
+        lbl_ctx = QLabel(self.tr("Limite Contexte (tokens) :"))
         lbl_ctx.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         self.spin_context = QSpinBox()
         self.spin_context.setRange(1024, 10_000_000)
@@ -133,7 +134,7 @@ class ModelConfigDialog(QDialog):
         metrics_grid.addWidget(self.spin_context, 1, 0)
 
         # Max Tokens Génération
-        lbl_max = QLabel("Plafond Génération (max tokens) :")
+        lbl_max = QLabel(self.tr("Plafond Génération (max tokens) :"))
         lbl_max.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         self.spin_max_tokens = QSpinBox()
         self.spin_max_tokens.setRange(256, 1_000_000)
@@ -145,7 +146,7 @@ class ModelConfigDialog(QDialog):
         metrics_grid.addWidget(self.spin_max_tokens, 1, 1)
 
         # Température
-        lbl_temp = QLabel("Température par défaut :")
+        lbl_temp = QLabel(self.tr("Température par défaut :"))
         lbl_temp.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         self.spin_temp = QDoubleSpinBox()
         self.spin_temp.setRange(0.0, 2.0)
@@ -164,19 +165,19 @@ class ModelConfigDialog(QDialog):
         caps_grid.setHorizontalSpacing(16)
         caps_grid.setVerticalSpacing(8)
 
-        self.chk_vision = QCheckBox("Vision multimodale (analyse d'images)")
+        self.chk_vision = QCheckBox(self.tr("Vision multimodale (analyse d'images)"))
         self.chk_vision.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11.5px;")
         caps_grid.addWidget(self.chk_vision, 0, 0)
 
-        self.chk_thinking = QCheckBox("Raisonnement approfondi (Thinking / CoT)")
+        self.chk_thinking = QCheckBox(self.tr("Raisonnement approfondi (Thinking / CoT)"))
         self.chk_thinking.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11.5px;")
         caps_grid.addWidget(self.chk_thinking, 0, 1)
 
-        self.chk_free = QCheckBox("Modèle gratuit / inclus / local")
+        self.chk_free = QCheckBox(self.tr("Modèle gratuit / inclus / local"))
         self.chk_free.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11.5px;")
         caps_grid.addWidget(self.chk_free, 1, 0)
 
-        self.chk_json = QCheckBox("Sorties structurées JSON")
+        self.chk_json = QCheckBox(self.tr("Sorties structurées JSON"))
         self.chk_json.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11.5px;")
         self.chk_json.setChecked(True)
         caps_grid.addWidget(self.chk_json, 1, 1)
@@ -184,7 +185,7 @@ class ModelConfigDialog(QDialog):
         form.addRow(self._make_label("Capacités supportées :"), caps_grid)
 
         # Description / Cas d'usage
-        self.le_description = StyledLineEdit(placeholder="Ex: Modèle rapide et économique pour l'extraction de fiches.")
+        self.le_description = StyledLineEdit(placeholder=self.tr("Ex: Modèle rapide et économique pour l'extraction de fiches."))
         form.addRow(self._make_label("Description / Notes :"), self.le_description)
 
         layout.addLayout(form)
@@ -286,13 +287,13 @@ class ModelConfigDialog(QDialog):
         provider = self.cb_provider.currentData() or self.cb_provider.currentText().strip().lower()
 
         if not display_name:
-            self.lbl_error.setText("Le nom affiché est obligatoire.")
+            self.lbl_error.setText(self.tr("Le nom affiché est obligatoire."))
             self.lbl_error.show()
             self.le_display_name.setFocus()
             return
 
         if not model_id:
-            self.lbl_error.setText("L'identifiant du modèle est obligatoire.")
+            self.lbl_error.setText(self.tr("L'identifiant du modèle est obligatoire."))
             self.lbl_error.show()
             self.le_model_id.setFocus()
             return
@@ -304,7 +305,7 @@ class ModelConfigDialog(QDialog):
             exists = LLMConfigModel.select().where((LLMConfigModel.display_name == display_name) & (LLMConfigModel.id != (self.config.id if self.config else 0))).exists()
 
         if exists:
-            self.lbl_error.setText(f"Un modèle nommé '{display_name}' existe déjà.")
+            self.lbl_error.setText(tr("Un modèle nommé '%1' existe déjà.", display_name))
             self.lbl_error.show()
             return
 
@@ -356,7 +357,7 @@ class ModelConfigDialog(QDialog):
             self.accept()
         except Exception as e:
             logger.error("Erreur lors de l'enregistrement du modèle : %s", e)
-            self.lbl_error.setText(f"Erreur d'enregistrement : {e}")
+            self.lbl_error.setText(tr("Erreur d'enregistrement : %1", e))
             self.lbl_error.show()
 
     def get_config(self) -> LLMConfigModel | None:

@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -134,7 +135,7 @@ class ThemeTransitionOverlay(QWidget):
         text_col = QVBoxLayout()
         text_col.setSpacing(2)
 
-        lbl_title = QLabel(f"Application : {title}")
+        lbl_title = QLabel(tr("Application : %1", title))
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 

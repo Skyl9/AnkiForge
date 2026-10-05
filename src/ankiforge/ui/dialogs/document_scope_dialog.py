@@ -66,6 +66,7 @@ from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
     has_substantive_content,
 )
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_resource_path
 from ankiforge.utils.region_address import RegionScope, covers_region, parse_region_addresses
@@ -210,7 +211,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
     def _setup_window(self) -> None:
         self.setObjectName("scopeRoot")
         title_prefix = "Portée de génération (Pages & Segments)" if self.is_paginated else "Portée de génération (Sections)"
-        self.setWindowTitle(f"{title_prefix} — {self.doc.title}")
+        self.setWindowTitle(tr("%1 — %2", title_prefix, self.doc.title))
         self.resize(1240, 750)
         self.setMinimumSize(940, 580)
 
@@ -385,11 +386,11 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         header_top.setSpacing(8)
         icon_lbl = QLabel()
         icon_lbl.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
-        title_lbl = QLabel(f"Portée de génération : <b>{html.escape(self.doc.title)}</b>")
+        title_lbl = QLabel(tr("Portée de génération : <b>%1</b>", html.escape(self.doc.title)))
         title_lbl.setTextFormat(Qt.TextFormat.RichText)
         title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY}; border: none;")
         title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        badge_lbl = QLabel("PORTÉE DE GÉNÉRATION (NON DESTRUCTIF)")
+        badge_lbl = QLabel(self.tr("PORTÉE DE GÉNÉRATION (NON DESTRUCTIF)"))
         badge_lbl.setStyleSheet(
             f"background: {DesignTokens.COLOR_BLUE_BG}; color: {DesignTokens.COLOR_BLUE_TEXT};"
             f" border: 1px solid {DesignTokens.COLOR_BLUE_BORDER}; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;"
@@ -459,24 +460,24 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         """
 
         useful_page_count = self._delimited_end_page - self._delimited_start_page + 1
-        self.btn_mode_all = QPushButton("Tout le document utile")
-        self.btn_mode_all.setToolTip(f"Tout le document utile ({useful_page_count} pages)")
+        self.btn_mode_all = QPushButton(self.tr("Tout le document utile"))
+        self.btn_mode_all.setToolTip(tr("Tout le document utile (%1 pages)", useful_page_count))
         self.btn_mode_all.setIcon(load_phosphor_icon("ph.files", color=DesignTokens.TEXT_PRIMARY))
         self.btn_mode_all.setCheckable(True)
         self.btn_mode_all.setChecked(True)
         self.btn_mode_all.setStyleSheet(mode_btn_style)
 
-        self.btn_mode_range = QPushButton("Plage de pages")
+        self.btn_mode_range = QPushButton(self.tr("Plage de pages"))
         self.btn_mode_range.setIcon(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_PRIMARY))
         self.btn_mode_range.setCheckable(True)
         self.btn_mode_range.setStyleSheet(mode_btn_style)
 
-        self.btn_mode_structure = QPushButton("Par Chapitres")
+        self.btn_mode_structure = QPushButton(self.tr("Par Chapitres"))
         self.btn_mode_structure.setIcon(load_phosphor_icon("ph.tree-structure", color=DesignTokens.TEXT_PRIMARY))
         self.btn_mode_structure.setCheckable(True)
         self.btn_mode_structure.setStyleSheet(mode_btn_style)
 
-        self.btn_mode_sections = QPushButton("Par Sections")
+        self.btn_mode_sections = QPushButton(self.tr("Par Sections"))
         self.btn_mode_sections.setIcon(load_phosphor_icon("ph.list-dashes", color=DesignTokens.TEXT_PRIMARY))
         self.btn_mode_sections.setCheckable(True)
         self.btn_mode_sections.setStyleSheet(mode_btn_style)
@@ -511,7 +512,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         pages_card_layout.setContentsMargins(12, 10, 12, 10)
         pages_card_layout.setSpacing(8)
 
-        lbl_sec1 = QLabel("1. PORTÉE DE PAGES DANS LE PÉRIMÈTRE UTILE")
+        lbl_sec1 = QLabel(self.tr("1. PORTÉE DE PAGES DANS LE PÉRIMÈTRE UTILE"))
         lbl_sec1.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
         pages_card_layout.addWidget(lbl_sec1)
 
@@ -543,7 +544,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         start_row = QHBoxLayout()
         start_row.setContentsMargins(0, 0, 0, 0)
         start_row.setSpacing(8)
-        lbl_p_start = QLabel("Début :")
+        lbl_p_start = QLabel(self.tr("Début :"))
         lbl_p_start.setFixedWidth(44)
         lbl_p_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
         self.spin_p_start = QSpinBox()
@@ -574,7 +575,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         end_row = QHBoxLayout()
         end_row.setContentsMargins(0, 0, 0, 0)
         end_row.setSpacing(8)
-        lbl_p_end = QLabel("Fin :")
+        lbl_p_end = QLabel(self.tr("Fin :"))
         lbl_p_end.setFixedWidth(44)
         lbl_p_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
         self.spin_p_end = QSpinBox()
@@ -605,12 +606,12 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         custom_row = QHBoxLayout()
         custom_row.setContentsMargins(0, 2, 0, 0)
         custom_row.setSpacing(8)
-        lbl_custom = QLabel("Saisie :")
+        lbl_custom = QLabel(self.tr("Saisie :"))
         lbl_custom.setFixedWidth(44)
         lbl_custom.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
         self.input_custom_pages = QLineEdit()
-        self.input_custom_pages.setPlaceholderText("ex: 1-5, 8, 11-14")
-        self.input_custom_pages.setToolTip("Saisissez des numéros ou plages de pages séparés par des virgules pour exclure des diapositives inutiles.")
+        self.input_custom_pages.setPlaceholderText(self.tr("ex: 1-5, 8, 11-14"))
+        self.input_custom_pages.setToolTip(self.tr("Saisissez des numéros ou plages de pages séparés par des virgules pour exclure des diapositives inutiles."))
         self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
         self.input_custom_pages.setStyleSheet(f"""
             QLineEdit {{
@@ -638,7 +639,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         presets_layout = QHBoxLayout(self.range_presets_container)
         presets_layout.setContentsMargins(0, 2, 0, 2)
         presets_layout.setSpacing(6)
-        lbl_presets = QLabel("Préréglages :")
+        lbl_presets = QLabel(self.tr("Préréglages :"))
         lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
         presets_layout.addWidget(lbl_presets)
 
@@ -658,17 +659,17 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
                 border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """
-        btn_preset_all = QPushButton("100% (Tout)")
+        btn_preset_all = QPushButton(self.tr("100% (Tout)"))
         btn_preset_all.setStyleSheet(preset_btn_style)
         btn_preset_all.clicked.connect(lambda: self._apply_page_preset(self._delimited_start_page, self._delimited_end_page))
         del_span = self._delimited_end_page - self._delimited_start_page + 1
-        btn_preset_h1 = QPushButton("1ère moitié")
+        btn_preset_h1 = QPushButton(self.tr("1ère moitié"))
         btn_preset_h1.setStyleSheet(preset_btn_style)
         btn_preset_h1.clicked.connect(lambda: self._apply_page_preset(self._delimited_start_page, max(self._delimited_start_page, self._delimited_start_page + del_span // 2 - 1)))
-        btn_preset_h2 = QPushButton("2ème moitié")
+        btn_preset_h2 = QPushButton(self.tr("2ème moitié"))
         btn_preset_h2.setStyleSheet(preset_btn_style)
         btn_preset_h2.clicked.connect(lambda: self._apply_page_preset(min(self._delimited_end_page, self._delimited_start_page + del_span // 2), self._delimited_end_page))
-        btn_preset_10 = QPushButton("10 premières p.")
+        btn_preset_10 = QPushButton(self.tr("10 premières p."))
         btn_preset_10.setStyleSheet(preset_btn_style)
         btn_preset_10.clicked.connect(lambda: self._apply_page_preset(self._delimited_start_page, min(self._delimited_start_page + 9, self._delimited_end_page)))
 
@@ -691,7 +692,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         ric_layout = QVBoxLayout(self.range_info_card)
         ric_layout.setContentsMargins(10, 8, 10, 8)
         ric_layout.setSpacing(4)
-        lbl_ric_title = QLabel("RÉCAPITULATIF DE LA PLAGE SÉLECTIONNÉE")
+        lbl_ric_title = QLabel(self.tr("RÉCAPITULATIF DE LA PLAGE SÉLECTIONNÉE"))
         lbl_ric_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
         ric_layout.addWidget(lbl_ric_title)
         self.lbl_range_coverage_kpi = QLabel("")
@@ -731,9 +732,9 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         hero_layout.addWidget(hero_icon)
         hero_text_col = QVBoxLayout()
         hero_text_col.setSpacing(2)
-        hero_title = QLabel("Portée intégrale du périmètre utile")
+        hero_title = QLabel(self.tr("Portée intégrale du périmètre utile"))
         hero_title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
-        hero_subtitle = QLabel("Toutes les sections utiles et pages délimitées sont incluses pour la génération.")
+        hero_subtitle = QLabel(self.tr("Toutes les sections utiles et pages délimitées sont incluses pour la génération."))
         hero_subtitle.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         hero_text_col.addWidget(hero_title)
         hero_text_col.addWidget(hero_subtitle)
@@ -776,7 +777,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         kpi_grid.addWidget(box_words)
         all_layout.addLayout(kpi_grid)
 
-        lbl_outline_title = QLabel("SOMMAIRE DU CONTENU INCLUS")
+        lbl_outline_title = QLabel(self.tr("SOMMAIRE DU CONTENU INCLUS"))
         lbl_outline_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
         all_layout.addWidget(lbl_outline_title)
 
@@ -805,7 +806,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         chapters_layout.setSpacing(10)
 
         ch_header = QHBoxLayout()
-        lbl_ch_title = QLabel("SÉLECTION PAR CHAPITRES")
+        lbl_ch_title = QLabel(self.tr("SÉLECTION PAR CHAPITRES"))
         lbl_ch_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
         ch_header.addWidget(lbl_ch_title)
         ch_header.addStretch()
@@ -842,12 +843,12 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
                 border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """
-        lbl_c_start = QLabel("De :")
+        lbl_c_start = QLabel(self.tr("De :"))
         lbl_c_start.setFixedWidth(24)
         lbl_c_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
         self.combo_c_start = QComboBox()
         self.combo_c_start.setStyleSheet(combo_style)
-        lbl_c_end = QLabel("À :")
+        lbl_c_end = QLabel(self.tr("À :"))
         lbl_c_end.setFixedWidth(16)
         lbl_c_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
         self.combo_c_end = QComboBox()
@@ -941,7 +942,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         sections_layout.addWidget(self.section_actions)
 
         self.filter_input = QLineEdit()
-        self.filter_input.setPlaceholderText("Filtrer les sections et leurs titres...")
+        self.filter_input.setPlaceholderText(self.tr("Filtrer les sections et leurs titres..."))
         self.filter_input.setClearButtonEnabled(True)
         self.filter_input.setFixedHeight(28)
         self.filter_input.setStyleSheet(
@@ -1007,13 +1008,13 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         view_switch_bar.setContentsMargins(0, 0, 0, 0)
         view_switch_bar.setSpacing(6)
 
-        self.btn_view_source = QPushButton("Document Source")
+        self.btn_view_source = QPushButton(self.tr("Document Source"))
         self.btn_view_source.setIcon(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_PRIMARY))
         self.btn_view_source.setCheckable(True)
         self.btn_view_source.setChecked(True)
         self.btn_view_source.setStyleSheet(mode_btn_style)
 
-        self.btn_view_final = QPushButton("Vue Finale Assemblée")
+        self.btn_view_final = QPushButton(self.tr("Vue Finale Assemblée"))
         self.btn_view_final.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_view_final.setCheckable(True)
         self.btn_view_final.setStyleSheet(mode_btn_style)
@@ -1200,12 +1201,12 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
             self.fallback_reason = "no_reliable_headings"
             if hasattr(self, "lbl_fallback_notice"):
                 self.lbl_fallback_notice.setText(
-                    "ℹ️ <b>Repli automatique :</b> Aucune hiérarchie de sections fiable n'a été détectée dans ce document PDF. La sélection s'effectue par page ou plage de pages."
+                    self.tr("ℹ️ <b>Repli automatique :</b> Aucune hiérarchie de sections fiable n'a été détectée dans ce document PDF. La sélection s'effectue par page ou plage de pages.")
                 )
                 self.lbl_fallback_notice.show()
             self.btn_mode_sections.setEnabled(False)
             self.btn_mode_sections.setVisible(True)
-            self.btn_mode_sections.setToolTip("Sections non disponibles : aucune structure de titres détectée dans ce PDF (repli par page actif).")
+            self.btn_mode_sections.setToolTip(self.tr("Sections non disponibles : aucune structure de titres détectée dans ce PDF (repli par page actif)."))
         else:
             self.fallback_applied = False
             self.fallback_reason = None
@@ -1358,7 +1359,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
             if len(content_preview) == 200:
                 content_preview += "..."
             p_str = f" (Pages {p_num}–{end_p})" if (self.is_paginated and p_num and end_p and end_p > p_num) else (f" (Page {p_num})" if (self.is_paginated and p_num) else "")
-            item.setToolTip(0, f'<b>{title}</b>{p_str}<br>• Volume : ~{token_count} tokens (~{word_count} mots)<hr><i>"{content_preview}"</i>')
+            item.setToolTip(0, tr('<b>%1</b>%2<br>• Volume : ~%3 tokens (~%4 mots)<hr><i>"%5"</i>', title, p_str, token_count, word_count, content_preview))
 
             self.sections_list.setItemWidget(item, 0, row_widget)
 
@@ -1441,7 +1442,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
             or_layout.setContentsMargins(8, 6, 8, 6)
             or_layout.setSpacing(8)
 
-            ch_badge = QLabel(f"Ch. {idx + 1}")
+            ch_badge = QLabel(tr("Ch. %1", idx + 1))
             ch_badge.setStyleSheet(
                 f"background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT};"
                 f" border: 1px solid {DesignTokens.ACCENT_BORDER}; border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
@@ -2155,7 +2156,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         ]
 
         if not checked_items:
-            self.lbl_final_preview_kpi.setText("Aucun fragment sélectionné pour la vue finale.")
+            self.lbl_final_preview_kpi.setText(self.tr("Aucun fragment sélectionné pour la vue finale."))
             self.final_preview_browser.setHtml(
                 f"<p style='color: {DesignTokens.TEXT_MUTED}; font-style: italic;'>Cochez au moins une section ou ajustez la plage de pages pour prévisualiser le contenu assemblé.</p>"
             )
@@ -2258,7 +2259,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         total_words = sum(len(str(chunk.get("content", "")).split()) for chunk in selected_chunks)
 
         approx_cards = max(1, total_words // 180) if total_words > 0 else 0
-        self.lbl_selection_kpi.setText(f"{checked_count}/{total} sélectionné(s)")
+        self.lbl_selection_kpi.setText(tr("%1/%2 sélectionné(s)", checked_count, total))
         capsule_base = (
             f"background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 7px; color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;"
         )
@@ -2278,9 +2279,9 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         # Mise à jour des KPIs du Mode All
         if hasattr(self, "lbl_all_kpi_pages"):
             pages_span = self._delimited_end_page - self._delimited_start_page + 1 if self.is_paginated else 1
-            self.lbl_all_kpi_pages.setText(f"{pages_span} p.")
-            self.lbl_all_kpi_chapters.setText(f"{len(self._chapter_cards)} chap.")
-            self.lbl_all_kpi_sections.setText(f"{len(self._section_meta)} sec.")
+            self.lbl_all_kpi_pages.setText(tr("%1 p.", pages_span))
+            self.lbl_all_kpi_chapters.setText(tr("%1 chap.", len(self._chapter_cards)))
+            self.lbl_all_kpi_sections.setText(tr("%1 sec.", len(self._section_meta)))
             all_words = sum(len(str(c.get("content", "")).split()) for c in self._useful_chunks)
             self.lbl_all_kpi_words.setText(f"~{all_words:,} mots".replace(",", " "))
 
@@ -2291,17 +2292,17 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
             p_cnt = ep - sp + 1
             delimited_pages = self._delimited_end_page - self._delimited_start_page + 1
             p_pct = (p_cnt / delimited_pages * 100) if delimited_pages > 0 else 100.0
-            self.lbl_range_coverage_kpi.setText(f"Pages {sp} à {ep} ({p_cnt} / {delimited_pages} pages — {p_pct:.1f}%)")
+            self.lbl_range_coverage_kpi.setText(tr("Pages %1 à %2 (%3 / %4 pages — %5%%)", sp, ep, p_cnt, delimited_pages, f"{p_pct:.1f}"))
             words_in_range = sum(m.get("word_count", 0) for m in self._section_meta.values() if m.get("page_number") and sp <= m.get("page_number") <= ep and m.get("is_leaf"))
             chs_in_range = [c.title for c in self._tree_nodes if (c.start_page is not None and c.end_page is not None and max(sp, c.start_page) <= min(ep, c.end_page))]
             self.lbl_range_words_kpi.setText(f"Volume estimé dans la plage : ~{words_in_range:,} mots".replace(",", " "))
             ch_txt = ", ".join(chs_in_range[:3]) + (f" (+{len(chs_in_range) - 3})" if len(chs_in_range) > 3 else "") if chs_in_range else "Tous"
-            self.lbl_range_chapters_kpi.setText(f"Chapitres concernés : {ch_txt}")
+            self.lbl_range_chapters_kpi.setText(tr("Chapitres concernés : %1", ch_txt))
 
         # Mise à jour des KPIs du Mode Chapitres
         if hasattr(self, "lbl_chapters_kpi") and hasattr(self, "_chapter_cards"):
             checked_chs = [c for c in self._chapter_cards if c.is_checked()]
-            self.lbl_chapters_kpi.setText(f"{len(checked_chs)} / {len(self._chapter_cards)} chapitres sélectionnés")
+            self.lbl_chapters_kpi.setText(tr("%1 / %2 chapitres sélectionnés", len(checked_chs), len(self._chapter_cards)))
             ch_plural = "s" if len(checked_chs) > 1 else ""
             self.lbl_chapters_summary.setText(f"{len(checked_chs)} chapitre{ch_plural} actif{ch_plural} • {total_words:,} mots sélectionnés".replace(",", " "))
 
@@ -2544,15 +2545,15 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
             page_end_val = self.spin_p_end.value()
             if page_start_val > page_end_val:
                 if not silent:
-                    show_toast(self, "La page de début doit être inférieure ou égale à la page de fin.", is_error=True)
+                    show_toast(self, self.tr("La page de début doit être inférieure ou égale à la page de fin."), is_error=True)
                 return None
             if page_end_val > self._delimited_end_page or any(p > self._delimited_end_page for p in self._selected_pages):
                 if not silent:
-                    show_toast(self, f"La page de fin ne peut pas dépasser la dernière page utile ({self._delimited_end_page}).", is_error=True)
+                    show_toast(self, tr("La page de fin ne peut pas dépasser la dernière page utile (%1).", self._delimited_end_page), is_error=True)
                 return None
 
         if not checked_chunks and not silent:
-            show_toast(self, "Veuillez sélectionner au moins un fragment ou une section.", is_error=True)
+            show_toast(self, self.tr("Veuillez sélectionner au moins un fragment ou une section."), is_error=True)
             return None
 
         if active_mode == "pages":

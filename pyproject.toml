@@ -45,6 +45,13 @@ ankiforge = "ankiforge.__main__:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+# Les catalogues `.qm` sont des artefacts de compilation (voir `script/extract_translations.py`),
+# donc ignorés par Git. Hatchling respecte les fichiers d'exclusion du VCS : sans `artifacts`,
+# le wheel partirait avec les `.ts` — bons pour l'extraction, inutiles à l'exécution — et sans
+# les `.qm`, c'est-à-dire sans aucune traduction. Ils sont donc réintégrés explicitement.
+artifacts = ["src/ankiforge/resources/translations/*.qm"]
+
 [dependency-groups]
 build = [
     "dmgbuild>=1.6.0",

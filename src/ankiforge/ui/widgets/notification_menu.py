@@ -138,7 +138,7 @@ class NotificationMenuPopup(QFrame):
 
         self.header_icon = QLabel()
         self.header_icon.setPixmap(load_phosphor_icon("ph.bell", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
-        self.header_title = QLabel("Diagnostics & Alertes")
+        self.header_title = QLabel(self.tr("Diagnostics & Alertes"))
         self.header_title.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         self.header_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
@@ -146,7 +146,7 @@ class NotificationMenuPopup(QFrame):
         header_layout.addWidget(self.header_title)
         header_layout.addStretch()
 
-        self.count_badge = QLabel("0")
+        self.count_badge = QLabel(self.tr("0"))
         self.count_badge.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         self.count_badge.setStyleSheet(f"""
             QLabel {{
@@ -179,7 +179,7 @@ class NotificationMenuPopup(QFrame):
         layout.addWidget(self.scroll_area, 1)
 
         # Message d'état vide
-        self.empty_label = QLabel("✨ Tout est parfait !\nAucune anomalie détectée dans votre collection.")
+        self.empty_label = QLabel(self.tr("✨ Tout est parfait !\nAucune anomalie détectée dans votre collection."))
         self.empty_label.setFont(QFont(DesignTokens.FONT_MAIN, 11))
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; padding: 24px 0; border: none; background: transparent;")
@@ -190,7 +190,7 @@ class NotificationMenuPopup(QFrame):
         footer_layout.setContentsMargins(0, 4, 0, 0)
         footer_layout.setSpacing(6)
 
-        self.btn_report_bug = QPushButton("🐛 Signaler une anomalie...")
+        self.btn_report_bug = QPushButton(self.tr("🐛 Signaler une anomalie..."))
         self.btn_report_bug.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_report_bug.setStyleSheet(f"""
             QPushButton {{

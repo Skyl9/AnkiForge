@@ -21,6 +21,7 @@ from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.pipelines_view.constants import STEP_TYPES_META
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
@@ -33,7 +34,7 @@ class StepTestDialog(QDialog):
         step_type = step_data.get("type", "LLM_PROMPT")
         meta = STEP_TYPES_META.get(step_type, STEP_TYPES_META["LLM_PROMPT"])
 
-        self.setWindowTitle(f"Test d'Étape : {step_data.get('custom_title', meta['default_title'])}")
+        self.setWindowTitle(tr("Test d'Étape : %1", step_data.get("custom_title", meta["default_title"])))
         self.resize(650, 480)
         self.setStyleSheet(f"""
             QDialog {{
@@ -49,7 +50,7 @@ class StepTestDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        lbl_desc = QLabel("Simulation de l'étape sur un état en mémoire :")
+        lbl_desc = QLabel(self.tr("Simulation de l'étape sur un état en mémoire :"))
         lbl_desc.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         layout.addWidget(lbl_desc)
 
@@ -111,7 +112,7 @@ class PipelineRunDialog(QDialog):
         super().__init__(parent)
         self.pipeline = pipeline
         self.steps = steps
-        self.setWindowTitle(f"Test en direct : {pipeline.name}")
+        self.setWindowTitle(tr("Test en direct : %1", pipeline.name))
         self.resize(750, 520)
         self.setStyleSheet(f"""
             QDialog {{
@@ -127,7 +128,7 @@ class PipelineRunDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        lbl_top = QLabel(f"Exécution du pipeline DAG ({len(steps)} étapes) :")
+        lbl_top = QLabel(tr("Exécution du pipeline DAG (%1 étapes) :", len(steps)))
         lbl_top.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         layout.addWidget(lbl_top)
 

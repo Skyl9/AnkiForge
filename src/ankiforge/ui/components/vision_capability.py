@@ -86,7 +86,7 @@ class VisionCapabilityBadge(Badge):
         if status is True:
             self.setText(VISION_SUPPORTED_LABEL)
             self.set_variant("info", self._profile)
-            self.setToolTip("Ce moteur analyse les images du document (payload multimodal).")
+            self.setToolTip(self.tr("Ce moteur analyse les images du document (payload multimodal)."))
         elif status is False:
             self.setText(VISION_UNSUPPORTED_BADGE_LABEL)
             self.set_variant("danger", self._profile)

@@ -16,6 +16,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QLabel, QPushButton, QSizePolicy, QWidget
 
+from ankiforge.utils.i18n import tr
+
 MAX_BADGE_TEXT = 99
 
 # Ancrage vertical : 1/6 de la hauteur du bouton, soit une pastille posée sur le
@@ -72,7 +74,7 @@ class NavBadgeButton(QPushButton):
             label.hide()
             return
         label.setText(f"{MAX_BADGE_TEXT}+" if normalized > MAX_BADGE_TEXT else str(normalized))
-        label.setToolTip(f"{self.title} — {normalized} élément{'s' if normalized > 1 else ''} en cours")
+        label.setToolTip(tr("%1 — %2 élément%3 en cours", self.title, normalized, "s" if normalized > 1 else ""))
         label.setAccessibleName(label.toolTip())
         self._reposition_nav_badge()
         label.show()

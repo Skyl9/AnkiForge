@@ -72,6 +72,7 @@ from ankiforge.ui.views.agents_view.widgets import (
     ToolPermissionCard,
 )
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -124,12 +125,12 @@ class AgentsView(QWidget):
         # Ligne 1 : Titre + Compteur
         h_row = QHBoxLayout()
         h_row.setContentsMargins(0, 0, 0, 0)
-        lbl_list_title = QLabel("AGENTS & DOSSIERS :")
+        lbl_list_title = QLabel(self.tr("AGENTS & DOSSIERS :"))
         lbl_list_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         h_row.addWidget(lbl_list_title)
         h_row.addStretch()
 
-        self.lbl_count_badge = Badge("0 agents", variant="neutral")
+        self.lbl_count_badge = Badge(tr("0 agents"), variant="neutral")
         self.lbl_count_badge.setFixedHeight(18)
         h_row.addWidget(self.lbl_count_badge)
         list_layout.addLayout(h_row)
@@ -139,12 +140,12 @@ class AgentsView(QWidget):
         search_row.setContentsMargins(0, 0, 0, 0)
         search_row.setSpacing(6)
 
-        self.edit_search = GlowLineEdit(placeholder="Filtrer par nom, rôle...")
+        self.edit_search = GlowLineEdit(placeholder=self.tr("Filtrer par nom, rôle..."))
         self.edit_search.setFixedHeight(30)
         self.edit_search.textChanged.connect(self._apply_filters)
         search_row.addWidget(self.edit_search, 1)
 
-        self.btn_new = PrimaryButton("Nouvel Agent", tooltip="Créer un nouveau persona d'agent IA")
+        self.btn_new = PrimaryButton("Nouvel Agent", tooltip=self.tr("Créer un nouveau persona d'agent IA"))
         self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
         self.btn_new.setIconSize(QSize(14, 14))
         self.btn_new.setFixedHeight(30)
@@ -156,14 +157,14 @@ class AgentsView(QWidget):
         filter_bar.setContentsMargins(0, 0, 0, 0)
         filter_bar.setSpacing(4)
 
-        self.btn_filter_all = FilterChipButton("Tous", icon_name="ph.sparkle")
-        self.btn_filter_all.setToolTip("Afficher tous les agents enregistrés")
-        self.btn_filter_pipe = FilterChipButton("Pipeline", icon_name="ph.lightning")
-        self.btn_filter_pipe.setToolTip("Filtrer les agents utilisables dans les étapes de pipelines DAG")
+        self.btn_filter_all = FilterChipButton(tr("Tous"), icon_name="ph.sparkle")
+        self.btn_filter_all.setToolTip(self.tr("Afficher tous les agents enregistrés"))
+        self.btn_filter_pipe = FilterChipButton(tr("Pipeline"), icon_name="ph.lightning")
+        self.btn_filter_pipe.setToolTip(self.tr("Filtrer les agents utilisables dans les étapes de pipelines DAG"))
         self.btn_filter_mcp = FilterChipButton("MCP", icon_name="ph.handshake")
-        self.btn_filter_mcp.setToolTip("Filtrer les agents connectés au protocole MCP et outils autonomes")
-        self.btn_filter_univ = FilterChipButton("Universel", icon_name="ph.globe")
-        self.btn_filter_univ.setToolTip("Filtrer les agents polyvalents universels")
+        self.btn_filter_mcp.setToolTip(self.tr("Filtrer les agents connectés au protocole MCP et outils autonomes"))
+        self.btn_filter_univ = FilterChipButton(tr("Universel"), icon_name="ph.globe")
+        self.btn_filter_univ.setToolTip(self.tr("Filtrer les agents polyvalents universels"))
 
         self._filter_buttons: list[tuple[FilterChipButton, str]] = [
             (self.btn_filter_all, "all"),
@@ -213,13 +214,13 @@ class AgentsView(QWidget):
         list_toolbar = QHBoxLayout()
         list_toolbar.setSpacing(6)
 
-        self.btn_new_folder = SecondaryButton("Nouveau Dossier", tooltip="Créer un dossier pour organiser l'arborescence d'agents")
+        self.btn_new_folder = SecondaryButton("Nouveau Dossier", tooltip=self.tr("Créer un dossier pour organiser l'arborescence d'agents"))
         self.btn_new_folder.setIcon(load_phosphor_icon("ph.folder-plus", color=DesignTokens.TEXT_PRIMARY))
         self.btn_new_folder.setIconSize(QSize(14, 14))
         self.btn_new_folder.setFixedHeight(30)
 
-        self.btn_clone = IconButton("ph.copy", tooltip="Dupliquer l'agent sélectionné", size=30)
-        self.btn_del = IconButton("ph.trash", tooltip="Supprimer l'élément sélectionné", size=30)
+        self.btn_clone = IconButton("ph.copy", tooltip=self.tr("Dupliquer l'agent sélectionné"), size=30)
+        self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer l'élément sélectionné"), size=30)
 
         list_toolbar.addWidget(self.btn_new_folder, 1)
         list_toolbar.addWidget(self.btn_clone)
@@ -259,9 +260,9 @@ class AgentsView(QWidget):
         subtabs_bar.setContentsMargins(0, 0, 0, 0)
         subtabs_bar.setSpacing(6)
 
-        self.btn_subtab_identity = SubTabButton("Identité && Moteur IA", "ph.gear")
-        self.btn_subtab_prompt = SubTabButton("Instructions && Prompt", "ph.sparkle")
-        self.btn_subtab_tools = SubTabButton("Permissions d'Outils", "ph.wrench")
+        self.btn_subtab_identity = SubTabButton(tr("Identité && Moteur IA"), "ph.gear")
+        self.btn_subtab_prompt = SubTabButton(tr("Instructions && Prompt"), "ph.sparkle")
+        self.btn_subtab_tools = SubTabButton(tr("Permissions d'Outils"), "ph.wrench")
 
         self.btn_subtab_identity.clicked.connect(lambda: self._switch_subtab(0))
         self.btn_subtab_prompt.clicked.connect(lambda: self._switch_subtab(1))
@@ -292,14 +293,14 @@ class AgentsView(QWidget):
         layout_identity.setContentsMargins(14, 14, 14, 14)
         layout_identity.setSpacing(14)
 
-        lbl_name = QLabel("NOM DU PERSONA :")
+        lbl_name = QLabel(self.tr("NOM DU PERSONA :"))
         lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         layout_identity.addWidget(lbl_name)
         self.name_edit = StyledLineEdit()
-        self.name_edit.setPlaceholderText("ex: Architecte de Cours, Linteur Wozniak, Consultant SRS...")
+        self.name_edit.setPlaceholderText(self.tr("ex: Architecte de Cours, Linteur Wozniak, Consultant SRS..."))
         layout_identity.addWidget(self.name_edit)
 
-        lbl_desc = QLabel("DESCRIPTION & RÔLE :")
+        lbl_desc = QLabel(self.tr("DESCRIPTION & RÔLE :"))
         lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         layout_identity.addWidget(lbl_desc)
         self.desc_edit = AutoExpandingTextEdit(placeholder="ex: Découpe le cours en concepts atomiques selon la règle de formulation minimale.")
@@ -310,7 +311,7 @@ class AgentsView(QWidget):
 
         col_folder = QVBoxLayout()
         col_folder.setSpacing(4)
-        lbl_folder_title = QLabel("DOSSIER D'APPARTENANCE :")
+        lbl_folder_title = QLabel(self.tr("DOSSIER D'APPARTENANCE :"))
         lbl_folder_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         col_folder.addWidget(lbl_folder_title)
         self.folder_combo = StyledComboBox()
@@ -320,7 +321,7 @@ class AgentsView(QWidget):
 
         col_scope = QVBoxLayout()
         col_scope.setSpacing(4)
-        lbl_scope_title = QLabel("PORTÉE / USAGE DE L'AGENT :")
+        lbl_scope_title = QLabel(self.tr("PORTÉE / USAGE DE L'AGENT :"))
         lbl_scope_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         col_scope.addWidget(lbl_scope_title)
         self.scope_combo = StyledComboBox()
@@ -332,11 +333,11 @@ class AgentsView(QWidget):
 
         col_fmt = QVBoxLayout()
         col_fmt.setSpacing(4)
-        lbl_format = QLabel("FORMAT DE SORTIE :")
+        lbl_format = QLabel(self.tr("FORMAT DE SORTIE :"))
         lbl_format.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         col_fmt.addWidget(lbl_format)
         self.format_combo = StyledComboBox()
-        self.format_combo.addItems(["json", "cloze", "markdown", "text"])
+        self.format_combo.addItems([self.tr("json"), self.tr("cloze"), self.tr("markdown"), self.tr("text")])
         col_fmt.addWidget(self.format_combo)
         row_props.addLayout(col_fmt, 1)
 
@@ -360,7 +361,7 @@ class AgentsView(QWidget):
         layout_scope_info.addWidget(self.lbl_scope_info)
         layout_identity.addWidget(self.scope_info_card)
 
-        lbl_engine = QLabel("MOTEUR IA DÉDIÉ (OPTIONNEL) :")
+        lbl_engine = QLabel(self.tr("MOTEUR IA DÉDIÉ (OPTIONNEL) :"))
         lbl_engine.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         layout_identity.addWidget(lbl_engine)
         self.engine_combo = ModelSelectorWidget(allow_inherit=True, parent=self)
@@ -383,7 +384,7 @@ class AgentsView(QWidget):
         self.lbl_engine_icon.setStyleSheet("background: transparent; border: none;")
         self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
         layout_engine_info.addWidget(self.lbl_engine_icon)
-        self.lbl_engine_info = QLabel("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres.")
+        self.lbl_engine_info = QLabel(self.tr("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres."))
         self.lbl_engine_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent; border: none;")
         layout_engine_info.addWidget(self.lbl_engine_info, 1)
         layout_identity.addWidget(self.engine_info_card)
@@ -404,7 +405,7 @@ class AgentsView(QWidget):
         layout_prompt.setSpacing(10)
 
         snippets_header = QHBoxLayout()
-        lbl_prompt_title = QLabel("INSTRUCTIONS SYSTÈME (JINJA2 TEMPLATE) :")
+        lbl_prompt_title = QLabel(self.tr("INSTRUCTIONS SYSTÈME (JINJA2 TEMPLATE) :"))
         lbl_prompt_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         snippets_header.addWidget(lbl_prompt_title)
         snippets_header.addStretch()
@@ -432,7 +433,7 @@ class AgentsView(QWidget):
 
         palette_box = QVBoxLayout()
         palette_box.setSpacing(4)
-        lbl_snip = QLabel("Insérer au curseur :")
+        lbl_snip = QLabel(self.tr("Insérer au curseur :"))
         lbl_snip.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         palette_box.addWidget(lbl_snip)
 
@@ -448,7 +449,7 @@ class AgentsView(QWidget):
         layout_prompt.addLayout(palette_box)
 
         self.prompt_edit = StyledTextEdit()
-        self.prompt_edit.setPlaceholderText("Tu es un agent expert en création de flashcards Anki...\nUtilisez {{ text_source }} et les variables Jinja2.")
+        self.prompt_edit.setPlaceholderText(self.tr("Tu es un agent expert en création de flashcards Anki...\nUtilisez {{ text_source }} et les variables Jinja2."))
         self.prompt_edit.setMinimumHeight(240)
         self.prompt_edit.setStyleSheet(f"""
             QPlainTextEdit {{
@@ -468,7 +469,7 @@ class AgentsView(QWidget):
         self.prompt_edit.textChanged.connect(self._update_tokens_count)
         layout_prompt.addWidget(self.prompt_edit, 1)
 
-        self.lbl_tokens = QLabel("Aa 0 caractères  |  ~0 Tokens estimés")
+        self.lbl_tokens = QLabel(self.tr("Aa 0 caractères  |  ~0 Tokens estimés"))
         self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-family: '{DesignTokens.FONT_CODE}';")
         layout_prompt.addWidget(self.lbl_tokens)
 
@@ -481,20 +482,20 @@ class AgentsView(QWidget):
         layout_tools.setSpacing(10)
 
         tools_header = QHBoxLayout()
-        lbl_tools_title = QLabel("PERMISSIONS D'OUTILS (MCP & OUTILS PYTHON DÉTERMINISTES) :")
+        lbl_tools_title = QLabel(self.tr("PERMISSIONS D'OUTILS (MCP & OUTILS PYTHON DÉTERMINISTES) :"))
         lbl_tools_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         tools_header.addWidget(lbl_tools_title)
         tools_header.addStretch()
 
         self.preset_combo = StyledComboBox()
         self.preset_combo.setFixedHeight(30)
-        self.preset_combo.addItem("Presets d'outils...", userData="")
-        self.preset_combo.addItem("🛡️ Auditeur Wozniak", userData="wozniak_auditor")
-        self.preset_combo.addItem("🎨 Architecte Modèles & CSS", userData="css_architect")
-        self.preset_combo.addItem("📊 Analyste SRS & Sangsues", userData="srs_analyst")
-        self.preset_combo.addItem("📚 Chercheur RAG & Documents", userData="rag_researcher")
-        self.preset_combo.addItem("⚡ Administrateur BDD & Scripts", userData="database_admin")
-        self.preset_combo.addItem("🌐 Consultant Universel (Tout)", userData="universal")
+        self.preset_combo.addItem(self.tr("Presets d'outils..."), userData="")
+        self.preset_combo.addItem(self.tr("🛡️ Auditeur Wozniak"), userData="wozniak_auditor")
+        self.preset_combo.addItem(self.tr("🎨 Architecte Modèles & CSS"), userData="css_architect")
+        self.preset_combo.addItem(self.tr("📊 Analyste SRS & Sangsues"), userData="srs_analyst")
+        self.preset_combo.addItem(self.tr("📚 Chercheur RAG & Documents"), userData="rag_researcher")
+        self.preset_combo.addItem(self.tr("⚡ Administrateur BDD & Scripts"), userData="database_admin")
+        self.preset_combo.addItem(self.tr("🌐 Consultant Universel (Tout)"), userData="universal")
         self.preset_combo.currentIndexChanged.connect(self._on_preset_combo_changed)
         tools_header.addWidget(self.preset_combo)
 
@@ -579,7 +580,7 @@ class AgentsView(QWidget):
 
         tools_by_cat = get_tools_by_category()
         for cat_name, cat_tools in tools_by_cat.items():
-            lbl_cat = QLabel(f"{cat_name.upper()} :")
+            lbl_cat = QLabel(tr("%1 :", cat_name.upper()))
             lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
             self.tools_layout.addWidget(lbl_cat)
 
@@ -595,7 +596,7 @@ class AgentsView(QWidget):
                 self._tool_checkboxes[t_spec.key] = card.checkbox
                 self.tools_layout.addWidget(card)
 
-        lbl_py = QLabel("OUTILS PYTHON DÉTERMINISTES (MOTEUR DAG) :")
+        lbl_py = QLabel(self.tr("OUTILS PYTHON DÉTERMINISTES (MOTEUR DAG) :"))
         lbl_py.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 10px;")
         self.tools_layout.addWidget(lbl_py)
 
@@ -692,19 +693,19 @@ class AgentsView(QWidget):
     def _populate_folder_combo(self) -> None:
         self.folder_combo.blockSignals(True)
         self.folder_combo.clear()
-        self.folder_combo.addItem("📁 Aucun dossier (Racine)", userData=None)
+        self.folder_combo.addItem(self.tr("📁 Aucun dossier (Racine)"), userData=None)
 
         def _add_folders_recursive(parent_id: int | None, prefix: str = "") -> None:
             children = [f for f in self._cached_folders if (f.parent.id if f.parent else None) == parent_id]
             for child in children:
                 icon_prefix = "📁 " if parent_id is None else "↳ 📁 "
-                self.folder_combo.addItem(f"{prefix}{icon_prefix}{child.name}", userData=child.id)
+                self.folder_combo.addItem(tr("%1%2%3", prefix, icon_prefix, child.name), userData=child.id)
                 _add_folders_recursive(child.id, prefix=prefix + "   ")
 
         _add_folders_recursive(None)
 
-        self.folder_combo.addItem("➕ Créer un nouveau dossier racine...", userData="__NEW_ROOT__")
-        self.folder_combo.addItem("➕ Créer un sous-dossier ici...", userData="__NEW_SUB__")
+        self.folder_combo.addItem(self.tr("➕ Créer un nouveau dossier racine..."), userData="__NEW_ROOT__")
+        self.folder_combo.addItem(self.tr("➕ Créer un sous-dossier ici..."), userData="__NEW_SUB__")
         self.folder_combo.blockSignals(False)
 
     @Slot(int)
@@ -723,7 +724,7 @@ class AgentsView(QWidget):
                     if idx_f != -1:
                         self.folder_combo.setCurrentIndex(idx_f)
                     self.refresh_data()
-                    show_toast(self, f"Dossier '{name.strip()}' créé !")
+                    show_toast(self, tr("Dossier '%1' créé !", name.strip()))
                 except Exception as e:
                     log_and_notify_error(e, context="Création de dossier", parent=self, title="Erreur de dossier")
                     self.folder_combo.setCurrentIndex(0)
@@ -756,7 +757,7 @@ class AgentsView(QWidget):
         self.persona_tree.blockSignals(True)
         self.persona_tree.clear()
 
-        self.lbl_count_badge.setText(f"{len(personas)} agent{'s' if len(personas) > 1 else ''}")
+        self.lbl_count_badge.setText(tr("%1 agent%2", len(personas), "s" if len(personas) > 1 else ""))
 
         personas_by_folder: dict[int | None, list[PersonaModel]] = {}
         for p in personas:
@@ -868,7 +869,7 @@ class AgentsView(QWidget):
         text = self.prompt_edit.toPlainText()
         chars = len(text)
         tokens = int(chars / 4) if chars > 0 else 0
-        self.lbl_tokens.setText(f"Aa {chars} caractères  |  ~{tokens} Tokens estimés")
+        self.lbl_tokens.setText(tr("Aa %1 caractères  |  ~%2 Tokens estimés", chars, tokens))
 
     @Slot()
     def _on_scope_changed(self) -> None:
@@ -885,11 +886,11 @@ class AgentsView(QWidget):
         if cfg:
             if hasattr(self, "lbl_engine_icon"):
                 self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
-            self.lbl_engine_info.setText(f"Moteur dédié : {cfg.provider.upper()} ({cfg.model_id}) avec configuration dédiée.")
+            self.lbl_engine_info.setText(tr("Moteur dédié : %1 (%2) avec configuration dédiée.", cfg.provider.upper(), cfg.model_id))
         else:
             if hasattr(self, "lbl_engine_icon"):
                 self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
-            self.lbl_engine_info.setText("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres.")
+            self.lbl_engine_info.setText(self.tr("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres."))
 
     @Slot()
     def _on_preview_prompt(self) -> None:
@@ -900,7 +901,7 @@ class AgentsView(QWidget):
     @Slot()
     def _on_test_agent(self) -> None:
         if not self._current_agent:
-            show_toast(self, "Aucun agent sélectionné à tester.", is_error=True)
+            show_toast(self, self.tr("Aucun agent sélectionné à tester."), is_error=True)
             return
         dlg = AgentTestDialog(self._current_agent, ai_manager=self.ai_manager, parent=self)
         dlg.exec()
@@ -996,9 +997,9 @@ class AgentsView(QWidget):
         menu = StyledMenu(self)
 
         if item_type == "folder" and obj is not None:
-            action_subfolder = menu.addAction(load_phosphor_icon("ph.folder-plus"), "Nouveau sous-dossier")
-            action_rename = menu.addAction(load_phosphor_icon("ph.pencil-simple"), "Renommer le dossier")
-            action_delete = menu.addAction(load_phosphor_icon("ph.trash"), "Supprimer le dossier")
+            action_subfolder = menu.addAction(load_phosphor_icon("ph.folder-plus"), self.tr("Nouveau sous-dossier"))
+            action_rename = menu.addAction(load_phosphor_icon("ph.pencil-simple"), self.tr("Renommer le dossier"))
+            action_delete = menu.addAction(load_phosphor_icon("ph.trash"), self.tr("Supprimer le dossier"))
 
             action = menu.exec(self.persona_tree.viewport().mapToGlobal(pos))
             if action == action_subfolder:
@@ -1015,8 +1016,8 @@ class AgentsView(QWidget):
             elif action == action_delete:
                 confirm = QMessageBox.question(
                     self,
-                    "Supprimer le dossier",
-                    f"Supprimer le dossier '{obj.name}' et ses sous-dossiers ? (Les agents seront déplacés vers 'Sans dossier')",
+                    self.tr("Supprimer le dossier"),
+                    tr("Supprimer le dossier '%1' et ses sous-dossiers ? (Les agents seront déplacés vers 'Sans dossier')", obj.name),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
                 if confirm == QMessageBox.StandardButton.Yes:
@@ -1024,8 +1025,8 @@ class AgentsView(QWidget):
                     self.refresh_data()
 
         elif item_type == "persona":
-            action_clone = menu.addAction(load_phosphor_icon("ph.copy"), "Dupliquer l'agent")
-            action_del = menu.addAction(load_phosphor_icon("ph.trash"), "Supprimer l'agent")
+            action_clone = menu.addAction(load_phosphor_icon("ph.copy"), self.tr("Dupliquer l'agent"))
+            action_del = menu.addAction(load_phosphor_icon("ph.trash"), self.tr("Supprimer l'agent"))
 
             action = menu.exec(self.persona_tree.viewport().mapToGlobal(pos))
             if action == action_clone:
@@ -1054,7 +1055,7 @@ class AgentsView(QWidget):
             try:
                 PersonaFolderModel.create(name=name.strip(), parent=parent_folder)
                 self.refresh_data()
-                show_toast(self, f"Dossier '{name.strip()}' créé !")
+                show_toast(self, tr("Dossier '%1' créé !", name.strip()))
             except Exception as e:
                 log_and_notify_error(e, context="Création de dossier", parent=self, title="Erreur")
 
@@ -1100,8 +1101,8 @@ class AgentsView(QWidget):
         if current_text and current_text != "Tu es un assistant expert pour Anki.":
             confirm = QMessageBox.question(
                 self,
-                "Remplacer le prompt",
-                f"Souhaitez-vous remplacer le prompt actuel par le canevas '{framework.label}' ?\n(Cliquez sur 'Non' pour l'ajouter à la suite de votre texte)",
+                self.tr("Remplacer le prompt"),
+                tr("Souhaitez-vous remplacer le prompt actuel par le canevas '%1' ?\n(Cliquez sur 'Non' pour l'ajouter à la suite de votre texte)", framework.label),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
             )
             if confirm == QMessageBox.StandardButton.Cancel:
@@ -1117,7 +1118,7 @@ class AgentsView(QWidget):
         if idx != -1:
             self.format_combo.setCurrentIndex(idx)
 
-        show_toast(self, f"Canevas '{framework.label}' inséré !")
+        show_toast(self, tr("Canevas '%1' inséré !", framework.label))
 
     @Slot()
     def _on_open_variable_helper(self) -> None:
@@ -1128,7 +1129,7 @@ class AgentsView(QWidget):
     @Slot()
     def _on_clone_agent(self) -> None:
         if not self._current_agent:
-            show_toast(self, "Aucun agent sélectionné à cloner.", is_error=True)
+            show_toast(self, self.tr("Aucun agent sélectionné à cloner."), is_error=True)
             return
 
         try:
@@ -1146,7 +1147,7 @@ class AgentsView(QWidget):
             self.refresh_data()
             self._current_agent = cloned
             self._load_persona_into_editor(cloned)
-            show_toast(self, f"Agent dupliqué sous le nom '{clone_name}' !")
+            show_toast(self, tr("Agent dupliqué sous le nom '%1' !", clone_name))
         except Exception as e:
             log_and_notify_error(e, context="Duplication d'agent", parent=self, title="Erreur")
 
@@ -1154,7 +1155,7 @@ class AgentsView(QWidget):
     def _on_import_agent_from_profile(self) -> None:
         profiles = [name for name in ProfileManager().list_profiles() if name != self.profile_name]
         if not profiles:
-            show_toast(self, "Aucun autre profil n'est disponible.", is_error=True)
+            show_toast(self, self.tr("Aucun autre profil n'est disponible."), is_error=True)
             return
         source_profile, accepted = QInputDialog.getItem(self, "Importer un agent", "Profil source :", profiles, 0, False)
         if not accepted:
@@ -1162,7 +1163,7 @@ class AgentsView(QWidget):
         try:
             names = ProfileContentTransfer.list_personas(source_profile)
             if not names:
-                show_toast(self, f"Le profil '{source_profile}' ne contient aucun agent.", is_error=True)
+                show_toast(self, tr("Le profil '%1' ne contient aucun agent.", source_profile), is_error=True)
                 return
             persona_name, accepted = QInputDialog.getItem(self, "Importer un agent", "Agent à importer :", names, 0, False)
             if not accepted:
@@ -1171,7 +1172,7 @@ class AgentsView(QWidget):
             self.refresh_data()
             self._current_agent = imported
             self._load_persona_into_editor(imported)
-            show_toast(self, f"Agent '{imported.name}' importé depuis '{source_profile}'.")
+            show_toast(self, tr("Agent '%1' importé depuis '%2'.", imported.name, source_profile))
         except Exception as e:
             log_and_notify_error(e, context="Import d'agent depuis un profil", parent=self, title="Erreur d'importation")
 
@@ -1179,7 +1180,7 @@ class AgentsView(QWidget):
     def _on_delete_selected(self) -> None:
         current_item = self.persona_tree.currentItem()
         if not current_item:
-            show_toast(self, "Rien n'est sélectionné.", is_error=True)
+            show_toast(self, self.tr("Rien n'est sélectionné."), is_error=True)
             return
 
         data = current_item.data(0, Qt.ItemDataRole.UserRole)
@@ -1190,8 +1191,8 @@ class AgentsView(QWidget):
         if item_type == "folder" and obj is not None:
             confirm = QMessageBox.question(
                 self,
-                "Supprimer le dossier",
-                f"Supprimer le dossier '{obj.name}' et ses sous-dossiers ? (Les agents seront déplacés vers 'Sans dossier')",
+                self.tr("Supprimer le dossier"),
+                tr("Supprimer le dossier '%1' et ses sous-dossiers ? (Les agents seront déplacés vers 'Sans dossier')", obj.name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if confirm == QMessageBox.StandardButton.Yes:
@@ -1199,15 +1200,15 @@ class AgentsView(QWidget):
                     self._delete_folder_recursive(obj)
                     self._current_folder = None
                     self.refresh_data()
-                    show_toast(self, f"Dossier '{obj.name}' supprimé.")
+                    show_toast(self, tr("Dossier '%1' supprimé.", obj.name))
                 except Exception as e:
                     log_and_notify_error(e, context="Suppression de dossier", parent=self, title="Erreur")
 
         elif item_type == "persona" and obj is not None:
             confirm = QMessageBox.question(
                 self,
-                "Supprimer l'agent",
-                f"Voulez-vous vraiment supprimer l'agent '{obj.name}' ?",
+                self.tr("Supprimer l'agent"),
+                tr("Voulez-vous vraiment supprimer l'agent '%1' ?", obj.name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if confirm == QMessageBox.StandardButton.Yes:
@@ -1215,20 +1216,20 @@ class AgentsView(QWidget):
                     obj.delete_instance()
                     self._current_agent = None
                     self.refresh_data()
-                    show_toast(self, "Agent supprimé de la base de données.")
+                    show_toast(self, self.tr("Agent supprimé de la base de données."))
                 except Exception as e:
                     log_and_notify_error(e, context="Suppression d'agent", parent=self, title="Erreur")
 
     @Slot()
     def _on_save_agent(self) -> None:
         if not self._current_agent:
-            show_toast(self, "Aucun agent sélectionné à sauvegarder.", is_error=True)
+            show_toast(self, self.tr("Aucun agent sélectionné à sauvegarder."), is_error=True)
             return
 
         try:
             name = self.name_edit.text().strip()
             if not name:
-                show_toast(self, "Le nom de l'agent ne peut pas être vide.", is_error=True)
+                show_toast(self, self.tr("Le nom de l'agent ne peut pas être vide."), is_error=True)
                 return
 
             selected_tools = [key for key, card in self._tool_cards.items() if card.isChecked()]
@@ -1254,7 +1255,7 @@ class AgentsView(QWidget):
                     commit_message=f"Mise à jour de '{name}'",
                 )
 
-            show_toast(self, f"Agent '{name}' enregistré avec succès !")
+            show_toast(self, tr("Agent '%1' enregistré avec succès !", name))
             self.refresh_data()
         except Exception as e:
             log_and_notify_error(e, context="Sauvegarde d'agent", parent=self, title="Erreur de sauvegarde")
@@ -1262,7 +1263,7 @@ class AgentsView(QWidget):
     @Slot()
     def _on_open_history(self) -> None:
         if not self._current_agent or not self._current_agent.id:
-            show_toast(self, "Sélectionnez un agent pour explorer son historique.", is_error=True)
+            show_toast(self, self.tr("Sélectionnez un agent pour explorer son historique."), is_error=True)
             return
 
         dlg = PersonaHistoryDialog(self._current_agent.id, parent=self)
@@ -1276,7 +1277,7 @@ class AgentsView(QWidget):
             self._current_agent = refreshed
             self._load_persona_into_editor(refreshed)
             self.refresh_data()
-            show_toast(self, f"Agent '{refreshed.name}' restauré avec succès !")
+            show_toast(self, tr("Agent '%1' restauré avec succès !", refreshed.name))
 
 
 AgentsTab = AgentsView

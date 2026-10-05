@@ -42,6 +42,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.settings_modal.components.storage_metric_card import StorageMetricCard
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_media_dir
 
@@ -98,16 +99,16 @@ class StorageMaintenanceTab(QWidget):
         # ── SECTION 1 : COCKPIT DU STOCKAGE RÉEL ─────────────────────────────
         from ankiforge.utils.environment import get_environment_display_name
 
-        self.lbl_sec_stat = QLabel(f"STOCKAGE & BDD — ENVIRONNEMENT : {get_environment_display_name().upper()} ({get_app_data_dir()})")
+        self.lbl_sec_stat = QLabel(tr("STOCKAGE & BDD — ENVIRONNEMENT : %1 (%2)", get_environment_display_name().upper(), get_app_data_dir()))
         self.lbl_sec_stat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_stat)
 
         metrics_grid = QGridLayout()
         metrics_grid.setSpacing(10)
 
-        self.c_db = StorageMetricCard("Base de données SQLite", "0 Ko", "ph.database", "WAL Actif • 0 notes")
-        self.c_media = StorageMetricCard("Stockage Médias", "0 Mo", "ph.images", "0 fichiers médias")
-        self.c_tm = StorageMetricCard("Time Machine", "0 versions", "ph.clock-counter-clockwise", "Historique actif")
+        self.c_db = StorageMetricCard(tr("Base de données SQLite"), "0 Ko", "ph.database", "WAL Actif • 0 notes")
+        self.c_media = StorageMetricCard(tr("Stockage Médias"), "0 Mo", "ph.images", "0 fichiers médias")
+        self.c_tm = StorageMetricCard(tr("Time Machine"), "0 versions", "ph.clock-counter-clockwise", "Historique actif")
 
         metrics_grid.addWidget(self.c_db, 0, 0)
         metrics_grid.addWidget(self.c_media, 0, 1)
@@ -115,7 +116,7 @@ class StorageMaintenanceTab(QWidget):
         layout.addLayout(metrics_grid)
 
         # ── SECTION 2 : ACTIONS D'ENTRETIEN RÉELLES ──────────────────────────
-        self.lbl_sec_act = QLabel("ACTIONS D'ENTRETIEN ET D'OPTIMISATION")
+        self.lbl_sec_act = QLabel(self.tr("ACTIONS D'ENTRETIEN ET D'OPTIMISATION"))
         self.lbl_sec_act.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_act)
 
@@ -142,7 +143,7 @@ class StorageMaintenanceTab(QWidget):
         row_actions2 = QHBoxLayout()
         row_actions2.setSpacing(10)
 
-        self.btn_purge_history = DangerButton("Purger l'historique (> 30 jours)", ghost=True)
+        self.btn_purge_history = DangerButton(tr("Purger l'historique (> 30 jours)"), ghost=True)
         self.btn_purge_history.setIcon(load_phosphor_icon("ph.clock-counter-clockwise", color=DesignTokens.COLOR_RED))
         self.btn_purge_history.clicked.connect(self._purge_history)
         row_actions2.addWidget(self.btn_purge_history, 1)
@@ -174,7 +175,7 @@ class StorageMaintenanceTab(QWidget):
         settings = get_app_qsettings()
         clean_on_exit = settings.value("storage/clean_media_on_exit", False, type=bool)
 
-        self.chk_clean_media_on_exit = QCheckBox("Nettoyer automatiquement les médias orphelins à la fermeture de l'application")
+        self.chk_clean_media_on_exit = QCheckBox(self.tr("Nettoyer automatiquement les médias orphelins à la fermeture de l'application"))
         self.chk_clean_media_on_exit.setChecked(bool(clean_on_exit))
         self.chk_clean_media_on_exit.toggled.connect(self._on_clean_media_on_exit_toggled)
         self.chk_clean_media_on_exit.setStyleSheet(f"""
@@ -204,7 +205,7 @@ class StorageMaintenanceTab(QWidget):
         layout.addWidget(self.card_act)
 
         # ── SECTION 3 : SAUVEGARDES DE SÉCURITÉ (BACKUPS) ────────────────────
-        self.lbl_sec_bku = QLabel("SAUVEGARDES DE SÉCURITÉ DU PROFIL (INSTANTANÉS)")
+        self.lbl_sec_bku = QLabel(self.tr("SAUVEGARDES DE SÉCURITÉ DU PROFIL (INSTANTANÉS)"))
         self.lbl_sec_bku.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_bku)
 
@@ -230,12 +231,12 @@ class StorageMaintenanceTab(QWidget):
 
         bku_layout.addLayout(top_bku_row)
 
-        self.lbl_recent_backups = QLabel("Historique des sauvegardes de sécurité")
+        self.lbl_recent_backups = QLabel(self.tr("Historique des sauvegardes de sécurité"))
         self.lbl_recent_backups.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
         bku_layout.addWidget(self.lbl_recent_backups)
 
         self.table_backups = QTableWidget(0, 5)
-        self.table_backups.setHorizontalHeaderLabels(["Date & Heure", "Type", "Taille", "Intégrité", "Action"])
+        self.table_backups.setHorizontalHeaderLabels([self.tr("Date & Heure"), self.tr("Type"), self.tr("Taille"), self.tr("Intégrité"), self.tr("Action")])
         self.table_backups.horizontalHeader().setStretchLastSection(False)
         self.table_backups.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_backups.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
@@ -321,9 +322,9 @@ class StorageMaintenanceTab(QWidget):
             backups = list_profile_backups(profile_name)
             self.table_backups.setRowCount(len(backups))
             if backups:
-                self.lbl_recent_backups.setText(f"Historique : {len(backups)} sauvegarde{'s' if len(backups) > 1 else ''} disponible{'s' if len(backups) > 1 else ''}.")
+                self.lbl_recent_backups.setText(tr("Historique : %1 sauvegarde%2 disponible%3.", len(backups), "s" if len(backups) > 1 else "", "s" if len(backups) > 1 else ""))
             else:
-                self.lbl_recent_backups.setText("Aucune sauvegarde enregistrée dans ce profil.")
+                self.lbl_recent_backups.setText(self.tr("Aucune sauvegarde enregistrée dans ce profil."))
 
             for row, b in enumerate(backups):
                 dt_str = b.created_at.strftime("%d/%m/%Y %H:%M:%S") if isinstance(b.created_at, datetime.datetime) else str(b.created_at)
@@ -370,12 +371,12 @@ class StorageMaintenanceTab(QWidget):
         self._maintenance_worker = None
         self.btn_vacuum.setEnabled(True)
         self.refresh_metrics()
-        show_toast(self, "Optimisation SQLite (VACUUM & PRAGMA) terminée avec succès !")
+        show_toast(self, self.tr("Optimisation SQLite (VACUUM & PRAGMA) terminée avec succès !"))
 
     def _on_vacuum_failed(self, error: str) -> None:
         self._maintenance_worker = None
         self.btn_vacuum.setEnabled(True)
-        show_toast(self, f"Erreur lors de l'optimisation : {error}", is_error=True)
+        show_toast(self, tr("Erreur lors de l'optimisation : %1", error), is_error=True)
 
     def _clean_orphan_media(self) -> None:
         try:
@@ -384,15 +385,15 @@ class StorageMaintenanceTab(QWidget):
             manager = MediaManager()
             cleaned_count = manager.clean_orphaned_media()
             self.refresh_metrics()
-            show_toast(self, f"Nettoyage terminé : {cleaned_count} médias orphelins supprimés !")
+            show_toast(self, tr("Nettoyage terminé : %1 médias orphelins supprimés !", cleaned_count))
         except Exception as e:
-            show_toast(self, f"Erreur lors du nettoyage : {e}", is_error=True)
+            show_toast(self, tr("Erreur lors du nettoyage : %1", e), is_error=True)
 
     def _purge_history(self) -> None:
         reply = QMessageBox.question(
             self,
-            "Confirmer la purge Time Machine",
-            "Voulez-vous purger l'historique des modifications antérieur à 30 jours ?\n(Les versions actives actuelles ne seront pas affectées).",
+            self.tr("Confirmer la purge Time Machine"),
+            self.tr("Voulez-vous purger l'historique des modifications antérieur à 30 jours ?\n(Les versions actives actuelles ne seront pas affectées)."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
@@ -400,9 +401,9 @@ class StorageMaintenanceTab(QWidget):
                 cutoff = datetime.datetime.now() - datetime.timedelta(days=30)
                 deleted = NoteVersionModel.delete().where((NoteVersionModel.created_at < cutoff) & (~NoteVersionModel.is_active)).execute()
                 self.refresh_metrics()
-                show_toast(self, f"Purge effectuée : {deleted} anciennes versions supprimées.")
+                show_toast(self, tr("Purge effectuée : %1 anciennes versions supprimées.", deleted))
             except Exception as e:
-                show_toast(self, f"Erreur purge : {e}", is_error=True)
+                show_toast(self, tr("Erreur purge : %1", e), is_error=True)
 
     def _clear_cache(self) -> None:
         try:
@@ -420,16 +421,16 @@ class StorageMaintenanceTab(QWidget):
             self.refresh_metrics()
             show_toast(
                 self,
-                f"Cache nettoyé ({deleted_count} fichiers temporaires et {tts_del} audios orphelins supprimés) !",
+                tr("Cache nettoyé (%1 fichiers temporaires et %2 audios orphelins supprimés) !", deleted_count, tts_del),
             )
         except Exception as e:
-            show_toast(self, f"Erreur nettoyage cache : {e}", is_error=True)
+            show_toast(self, tr("Erreur nettoyage cache : %1", e), is_error=True)
 
     def _purge_tts_cache(self) -> None:
         reply = QMessageBox.question(
             self,
-            "Confirmer la purge du cache audio",
-            "Voulez-vous supprimer tous les fichiers audio TTS générés en cache ?\n(Les audios pourront être régénérés à la demande dans l'éditeur de notes).",
+            self.tr("Confirmer la purge du cache audio"),
+            self.tr("Voulez-vous supprimer tous les fichiers audio TTS générés en cache ?\n(Les audios pourront être régénérés à la demande dans l'éditeur de notes)."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
@@ -439,9 +440,9 @@ class StorageMaintenanceTab(QWidget):
                 count, freed_bytes = get_tts_service().purge_audio_cache(only_orphans=False)
                 self.refresh_metrics()
                 freed_mb = freed_bytes / (1024 * 1024)
-                show_toast(self, f"Purge terminée : {count} fichier(s) audio supprimé(s) ({freed_mb:.1f} Mo libérés).")
+                show_toast(self, tr("Purge terminée : %1 fichier(s) audio supprimé(s) (%2 Mo libérés).", count, f"{freed_mb:.1f}"))
             except Exception as e:
-                show_toast(self, f"Erreur lors de la purge : {e}", is_error=True)
+                show_toast(self, tr("Erreur lors de la purge : %1", e), is_error=True)
 
     def _open_profile_transfer(self) -> None:
         """Ouvre la boîte de dialogue de transfert de contenu inter-profils."""
@@ -455,9 +456,9 @@ class StorageMaintenanceTab(QWidget):
         try:
             settings_pkg.backup_database(keep_last=5)
             self.refresh_metrics()
-            show_toast(self, "Instantané (Snapshot) créé avec succès !")
+            show_toast(self, self.tr("Instantané (Snapshot) créé avec succès !"))
         except Exception as e:
-            show_toast(self, f"Erreur lors de la sauvegarde : {e}", is_error=True)
+            show_toast(self, tr("Erreur lors de la sauvegarde : %1", e), is_error=True)
 
     def _open_backup_folder(self) -> None:
         pm = ProfileManager()
@@ -473,23 +474,26 @@ class StorageMaintenanceTab(QWidget):
         dt_str = backup_info.created_at.strftime("%d/%m/%Y à %H:%M:%S") if isinstance(backup_info.created_at, datetime.datetime) else str(backup_info.created_at)
         reply = QMessageBox.question(
             self,
-            "Confirmer la restauration",
-            f"Voulez-vous restaurer la sauvegarde du {dt_str} ({backup_info.filename}) ?\n\n"
-            "• Une sauvegarde de sécurité pré-restauration de votre état actuel sera créée automatiquement.\n"
-            "• L'application va redémarrer immédiatement pour finaliser la restauration.",
+            self.tr("Confirmer la restauration"),
+            tr(
+                "Voulez-vous restaurer la sauvegarde du %1 (%2) ?\n\n• Une sauvegarde de sécurité pré-restauration de votre état actuel sera créée automatiquement.\n• "
+                "L'application va redémarrer immédiatement pour finaliser la restauration.",
+                dt_str,
+                backup_info.filename,
+            ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             profile_name = get_active_profile()
             success = restore_granular_backup(profile_name, backup_info.filepath, create_safety_snapshot=True)
             if success:
-                show_toast(self, "Restauration effectuée ! Redémarrage de l'application...")
+                show_toast(self, self.tr("Restauration effectuée ! Redémarrage de l'application..."))
                 QTimer.singleShot(400, restart_application)
             else:
                 QMessageBox.critical(
                     self,
-                    "Échec de la restauration",
-                    "Impossible de restaurer cette sauvegarde. Votre base actuelle est restée intacte.",
+                    self.tr("Échec de la restauration"),
+                    self.tr("Impossible de restaurer cette sauvegarde. Votre base actuelle est restée intacte."),
                 )
 
     def save_tab(self) -> None:

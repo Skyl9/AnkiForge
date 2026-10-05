@@ -58,7 +58,7 @@ def test_layout_instantiation_and_theme_sync(qtbot):
 
         # Injection du stack et navigation
         layout.set_stacked_widget(stack)
-        layout.populate_navigation(MainWindow.VIEW_REGISTRY)
+        layout.populate_navigation(MainWindow.view_registry())
         layout.set_active_view("dashboard")
         layout.update_token_tracker("0.05", "1500")
 

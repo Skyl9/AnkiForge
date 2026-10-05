@@ -58,7 +58,7 @@ class PipelineSelectWindow(QWidget):
 
         # 1. Barre de recherche
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher un pipeline (nom, description)...")
+        self.search_input.setPlaceholderText(self.tr("Rechercher un pipeline (nom, description)..."))
         search_icon = load_phosphor_icon("magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.search_input.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
         self.search_input.setFixedHeight(32)

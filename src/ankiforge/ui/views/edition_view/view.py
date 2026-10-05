@@ -70,6 +70,7 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.event_bus import FlagLabelsUpdatedEvent, event_bus
 from ankiforge.utils.hierarchy import descendants_prefix
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -209,7 +210,7 @@ class EditionView(QWidget):
         mode_layout.setContentsMargins(2, 2, 2, 2)
         mode_layout.setSpacing(2)
 
-        self.btn_mode_notes = QPushButton("📝 Notes")
+        self.btn_mode_notes = QPushButton(self.tr("📝 Notes"))
         self.btn_mode_notes.setCheckable(True)
         self.btn_mode_notes.setChecked(True)
         self.btn_mode_notes.setFixedHeight(22)
@@ -234,7 +235,7 @@ class EditionView(QWidget):
             }}
         """)
 
-        self.btn_mode_cards = QPushButton("🗂️ Cartes")
+        self.btn_mode_cards = QPushButton(self.tr("🗂️ Cartes"))
         self.btn_mode_cards.setCheckable(True)
         self.btn_mode_cards.setFixedHeight(22)
         self.btn_mode_cards.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -267,7 +268,7 @@ class EditionView(QWidget):
         mode_layout.addWidget(self.btn_mode_cards)
         filter_layout.addWidget(self.mode_container)
 
-        self.btn_open_folder = QPushButton("Dossier : Tous ▾")
+        self.btn_open_folder = QPushButton(self.tr("Dossier : Tous ▾"))
         self.btn_open_folder.setIcon(load_phosphor_icon("folders", color=DesignTokens.TEXT_SECONDARY))
         self.btn_open_folder.setStyleSheet(f"""
             QPushButton {{
@@ -286,7 +287,7 @@ class EditionView(QWidget):
         self.btn_open_folder.clicked.connect(self._show_folder_modal)
         filter_layout.addWidget(self.btn_open_folder)
 
-        self.btn_open_model = QPushButton("Modèle : Tous ▾")
+        self.btn_open_model = QPushButton(self.tr("Modèle : Tous ▾"))
         self.btn_open_model.setIcon(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_open_model.setStyleSheet(f"""
             QPushButton {{
@@ -305,7 +306,7 @@ class EditionView(QWidget):
         self.btn_open_model.clicked.connect(self._show_model_modal)
         filter_layout.addWidget(self.btn_open_model)
 
-        self.btn_filter_flag = QPushButton("Drapeau : Tous ▾")
+        self.btn_filter_flag = QPushButton(self.tr("Drapeau : Tous ▾"))
         self.btn_filter_flag.setIcon(load_phosphor_icon("flag", color=DesignTokens.TEXT_SECONDARY))
         self.btn_filter_flag.setStyleSheet(f"""
             QPushButton {{
@@ -324,7 +325,7 @@ class EditionView(QWidget):
         self.btn_filter_flag.clicked.connect(self._show_flag_filter_menu)
         filter_layout.addWidget(self.btn_filter_flag)
 
-        self.btn_filter_status = QPushButton("Statut : Tous ▾")
+        self.btn_filter_status = QPushButton(self.tr("Statut : Tous ▾"))
         self.btn_filter_status.setIcon(load_phosphor_icon("funnel", color=DesignTokens.TEXT_SECONDARY))
         self.btn_filter_status.setStyleSheet(f"""
             QPushButton {{
@@ -348,7 +349,7 @@ class EditionView(QWidget):
         separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
         filter_layout.addWidget(separator)
 
-        tags_lbl = QLabel("TAGS :")
+        tags_lbl = QLabel(self.tr("TAGS :"))
         tags_lbl.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; text-transform: uppercase;")
         filter_layout.addWidget(tags_lbl)
 
@@ -358,7 +359,7 @@ class EditionView(QWidget):
         self.tags_layout.setSpacing(4)
         filter_layout.addWidget(self.tags_container)
 
-        self.btn_open_tag = QPushButton("+ Tag")
+        self.btn_open_tag = QPushButton(self.tr("+ Tag"))
         self.btn_open_tag.setIcon(load_phosphor_icon("plus", color=DesignTokens.TEXT_SECONDARY))
         self.btn_open_tag.setStyleSheet(f"""
             QPushButton {{
@@ -378,11 +379,11 @@ class EditionView(QWidget):
         filter_layout.addWidget(self.btn_open_tag)
         filter_layout.addStretch()
 
-        self.btn_import_apkg = IconButton("download-simple", tooltip="Importer un paquet Anki (.apkg)", size=22)
+        self.btn_import_apkg = IconButton("download-simple", tooltip=self.tr("Importer un paquet Anki (.apkg)"), size=22)
         self.btn_import_apkg.clicked.connect(self._open_import_dialog)
         filter_layout.addWidget(self.btn_import_apkg)
 
-        self.btn_export_apkg = IconButton("upload-simple", tooltip="Exporter des cartes Anki (.apkg)", size=22)
+        self.btn_export_apkg = IconButton("upload-simple", tooltip=self.tr("Exporter des cartes Anki (.apkg)"), size=22)
         self.btn_export_apkg.clicked.connect(self._open_export_dialog)
         filter_layout.addWidget(self.btn_export_apkg)
 
@@ -425,15 +426,15 @@ class EditionView(QWidget):
         ribbon_layout.setContentsMargins(8, 2, 8, 2)
         ribbon_layout.setSpacing(8)
 
-        self.btn_prev_card = IconButton("caret-left", tooltip="Carte précédente (Alt+Up)", size=22)
+        self.btn_prev_card = IconButton("caret-left", tooltip=self.tr("Carte précédente (Alt+Up)"), size=22)
         self.btn_prev_card.clicked.connect(self._select_previous_card)
         ribbon_layout.addWidget(self.btn_prev_card)
 
-        self.lbl_card_ribbon_info = QLabel("Aucune carte sélectionnée")
+        self.lbl_card_ribbon_info = QLabel(self.tr("Aucune carte sélectionnée"))
         self.lbl_card_ribbon_info.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none;")
         ribbon_layout.addWidget(self.lbl_card_ribbon_info)
 
-        self.btn_next_card = IconButton("caret-right", tooltip="Carte suivante (Alt+Down)", size=22)
+        self.btn_next_card = IconButton("caret-right", tooltip=self.tr("Carte suivante (Alt+Down)"), size=22)
         self.btn_next_card.clicked.connect(self._select_next_card)
         ribbon_layout.addWidget(self.btn_next_card)
 
@@ -471,11 +472,11 @@ class EditionView(QWidget):
         self.placeholder_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.placeholder_icon.setStyleSheet("border: none; background: transparent;")
 
-        self.placeholder_title = QLabel("Aucune note sélectionnée")
+        self.placeholder_title = QLabel(self.tr("Aucune note sélectionnée"))
         self.placeholder_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; border: none; background: transparent;")
         self.placeholder_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.placeholder_sub = QLabel("Sélectionnez une carte dans le tableau ci-dessus pour afficher l'éditeur et l'aperçu live.")
+        self.placeholder_sub = QLabel(self.tr("Sélectionnez une carte dans le tableau ci-dessus pour afficher l'éditeur et l'aperçu live."))
         self.placeholder_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
         self.placeholder_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -583,14 +584,14 @@ class EditionView(QWidget):
             self.table_box.hide()
             self.nav_ribbon.show()
             self.editor_toolbar.btn_toggle_table.setIcon(load_phosphor_icon("caret-down", color=DesignTokens.TEXT_PRIMARY))
-            self.editor_toolbar.btn_toggle_table.setToolTip("Déplier la liste des cartes (Ctrl+Shift+T)")
+            self.editor_toolbar.btn_toggle_table.setToolTip(self.tr("Déplier la liste des cartes (Ctrl+Shift+T)"))
             self.main_splitter.setSizes([32, sizes[0] + sizes[1] - 32])
         else:
             sizes = self.main_splitter.sizes()
             self.table_box.show()
             self.nav_ribbon.hide()
             self.editor_toolbar.btn_toggle_table.setIcon(load_phosphor_icon("caret-up", color=DesignTokens.TEXT_PRIMARY))
-            self.editor_toolbar.btn_toggle_table.setToolTip("Replier la liste des cartes (Ctrl+Shift+T)")
+            self.editor_toolbar.btn_toggle_table.setToolTip(self.tr("Replier la liste des cartes (Ctrl+Shift+T)"))
             self.main_splitter.setSizes([self._saved_table_height, max(300, sizes[0] + sizes[1] - self._saved_table_height)])
 
     @Slot(int)
@@ -603,7 +604,7 @@ class EditionView(QWidget):
 
     def _update_nav_ribbon_info(self) -> None:
         if not self._current_note:
-            self.lbl_card_ribbon_info.setText("Aucune carte sélectionnée")
+            self.lbl_card_ribbon_info.setText(self.tr("Aucune carte sélectionnée"))
             return
 
         selected_rows = self.card_table.get_selected_rows()
@@ -615,7 +616,7 @@ class EditionView(QWidget):
             if card_data:
                 row_info = f"({current_row + 1}/{total_rows})" if current_row >= 0 else ""
                 q_text = card_data.question[:50] + "..." if len(card_data.question) > 50 else card_data.question
-                self.lbl_card_ribbon_info.setText(f"Carte #{card_data.card_id} {row_info} [{card_data.template_name}] (Note #{card_data.note_id}) : {q_text}")
+                self.lbl_card_ribbon_info.setText(tr("Carte #%1 %2 [%3] (Note #%4) : %5", card_data.card_id, row_info, card_data.template_name, card_data.note_id, q_text))
                 return
 
         recto_text = ""
@@ -625,7 +626,7 @@ class EditionView(QWidget):
 
         row_info = f"({current_row + 1}/{total_rows})" if current_row >= 0 else ""
         preview = f"{recto_text[:60]}..." if len(recto_text) > 60 else recto_text
-        self.lbl_card_ribbon_info.setText(f"Carte #{self._current_note.id} {row_info} : {preview}")
+        self.lbl_card_ribbon_info.setText(tr("Carte #%1 %2 : %3", self._current_note.id, row_info, preview))
 
     @Slot()
     def _select_previous_card(self) -> None:
@@ -789,19 +790,19 @@ class EditionView(QWidget):
         mb_layout.addWidget(ico_model)
 
         nt_name = note.note_type.name if note.note_type else "Inconnu"
-        lbl_model_info = QLabel(f"Modèle : {nt_name}")
+        lbl_model_info = QLabel(tr("Modèle : %1", nt_name))
         lbl_model_info.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         lbl_model_info.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         mb_layout.addWidget(lbl_model_info)
 
         fields_count = len(fields)
-        lbl_fields_hint = QLabel(f"({fields_count} champ{'s' if fields_count > 1 else ''})")
+        lbl_fields_hint = QLabel(tr("(%1 champ%2)", fields_count, "s" if fields_count > 1 else ""))
         lbl_fields_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         mb_layout.addWidget(lbl_fields_hint)
 
         mb_layout.addStretch()
 
-        btn_change_model = QPushButton("Changer de modèle...")
+        btn_change_model = QPushButton(self.tr("Changer de modèle..."))
         btn_change_model.setIcon(load_phosphor_icon("arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
         btn_change_model.setStyleSheet(f"""
             QPushButton {{
@@ -884,7 +885,7 @@ class EditionView(QWidget):
 
         CoverageAlignmentService.sync_note_coverage(self._current_note, force_reevaluate=True)
         self._refresh_source_badge(self._current_note)
-        show_toast(self, f"Tag de provenance « {tag} » retiré et couverture recalculée.")
+        show_toast(self, tr("Tag de provenance « %1 » retiré et couverture recalculée.", tag))
 
     def _refresh_source_badge(self, note: NoteModel) -> None:
         """Actualise ou retire le bandeau de source documentaire selon le nouvel état de couverture."""
@@ -932,8 +933,8 @@ class EditionView(QWidget):
         if self._dirty and self._current_note and self._current_note.id != note.id:
             reply = QMessageBox.question(
                 self,
-                "Modifications non enregistrées",
-                f"La carte #{self._current_note.id} contient des modifications non sauvegardées.\nVoulez-vous la sauvegarder avant de continuer ?",
+                self.tr("Modifications non enregistrées"),
+                tr("La carte #%1 contient des modifications non sauvegardées.\nVoulez-vous la sauvegarder avant de continuer ?", self._current_note.id),
                 QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Save,
             )
@@ -1008,7 +1009,7 @@ class EditionView(QWidget):
             card_text = " ".join(str(v) for v in new_content.values() if v).strip()
             CoverageAlignmentService.sync_note_coverage(self._current_note, card_text=card_text)
 
-            show_toast(self, f"Carte #{note_id} sauvegardée avec succès.")
+            show_toast(self, tr("Carte #%1 sauvegardée avec succès.", note_id))
         except Exception as e:
             log_and_notify_error(e, context="Sauvegarde de la carte", parent=self, title="Erreur de sauvegarde")
 
@@ -1025,7 +1026,7 @@ class EditionView(QWidget):
     def _on_consult_ai_clicked(self) -> None:
         """Transmet la note courante au Consultant IA et bascule immédiatement sur son onglet."""
         if not self._current_note:
-            show_toast(self, "Sélectionnez une carte à analyser par le Consultant IA.", is_error=True)
+            show_toast(self, self.tr("Sélectionnez une carte à analyser par le Consultant IA."), is_error=True)
             return
 
         from ankiforge.utils.event_bus import OpenConsultantRequestedEvent, event_bus
@@ -1036,7 +1037,7 @@ class EditionView(QWidget):
                 initial_prompt=f"Analyse la note #{self._current_note.id} : vérifie son atomicité et propose des optimisations de formulation.",
             )
         )
-        show_toast(self, f"Note #{self._current_note.id} transmise au Consultant IA !")
+        show_toast(self, tr("Note #%1 transmise au Consultant IA !", self._current_note.id))
 
     def _on_version_restored(self, note_id: int, restored_dict: dict[str, str]) -> None:
         for field, widget in self.dynamic_field_widgets.items():
@@ -1068,7 +1069,7 @@ class EditionView(QWidget):
     @Slot(int, str)
     def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
         if deck_id == -1:
-            self.btn_open_folder.setText("Dossier : Tous ▾")
+            self.btn_open_folder.setText(self.tr("Dossier : Tous ▾"))
             self.btn_open_folder.setIcon(load_phosphor_icon("folders", color=DesignTokens.TEXT_SECONDARY))
             self.btn_open_folder.setStyleSheet(f"""
                 QPushButton {{
@@ -1086,7 +1087,7 @@ class EditionView(QWidget):
             """)
             self._active_folder_id = None
         else:
-            self.btn_open_folder.setText(f"Dossier : {deck_name} ▾")
+            self.btn_open_folder.setText(tr("Dossier : %1 ▾", deck_name))
             self.btn_open_folder.setIcon(load_phosphor_icon("folder", color=DesignTokens.ACCENT_PRIMARY))
             self.btn_open_folder.setStyleSheet(f"""
                 QPushButton {{
@@ -1136,7 +1137,7 @@ class EditionView(QWidget):
         if tag not in self._active_tags:
             self._active_tags.append(tag)
             self._rebuild_tag_chips()
-            show_toast(self, f"Tag {tag} ajouté au filtre")
+            show_toast(self, tr("Tag %1 ajouté au filtre", tag))
             self.refresh_data()
 
     def _rebuild_tag_chips(self) -> None:
@@ -1148,7 +1149,7 @@ class EditionView(QWidget):
                     widget.deleteLater()
 
         for tag in self._active_tags:
-            chip = QPushButton(f"{tag}")
+            chip = QPushButton(tr("%1", tag))
             chip.setIcon(load_phosphor_icon("x", color=DesignTokens.ACCENT_PRIMARY))
             chip.setStyleSheet(f"""
                 QPushButton {{
@@ -1274,7 +1275,7 @@ class EditionView(QWidget):
             self._update_preview()
 
         self.refresh_data()
-        show_toast(self, f"Modèle de la note #{note.id} changé pour '{new_model_name}'.")
+        show_toast(self, tr("Modèle de la note #%1 changé pour '%2'.", note.id, new_model_name))
 
     def _open_move_to_deck_modal(self, fallback_note_id: int | None = None) -> None:
         """Ouvre la modale pour déplacer les cartes ou notes sélectionnées vers un autre paquet."""
@@ -1324,7 +1325,7 @@ class EditionView(QWidget):
             self._move_deck_modal = None
 
         self._move_deck_modal = DeckSelectWindow(
-            title="Déplacer vers un paquet...",
+            title=self.tr("Déplacer vers un paquet..."),
             allow_all=False,
             parent=self,
         )
@@ -1349,7 +1350,7 @@ class EditionView(QWidget):
                 self.note_table_model.update_card_deck(cid, deck_name)
 
             count = len(self._move_target_card_ids)
-            show_toast(self, f"{count} carte{'s' if count > 1 else ''} déplacée{'s' if count > 1 else ''} vers le paquet '{deck_name}'.")
+            show_toast(self, tr("%1 carte%2 déplacée%3 vers le paquet '%4'.", count, "s" if count > 1 else "", "s" if count > 1 else "", deck_name))
 
         elif self._move_target_note_ids:
             with db.atomic():
@@ -1359,7 +1360,7 @@ class EditionView(QWidget):
                 self.note_table_model.update_note_deck(nid, deck_name)
 
             count = len(self._move_target_note_ids)
-            show_toast(self, f"{count} note{'s' if count > 1 else ''} déplacée{'s' if count > 1 else ''} vers le paquet '{deck_name}'.")
+            show_toast(self, tr("%1 note%2 déplacée%3 vers le paquet '%4'.", count, "s" if count > 1 else "", "s" if count > 1 else "", deck_name))
 
         if self._active_folder_id is not None and self._active_folder_id != deck_id:
             self.refresh_data()
@@ -1369,14 +1370,14 @@ class EditionView(QWidget):
         from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
 
         dlg = CreateDeckDialog(parent=self)
-        dlg.deck_created.connect(lambda did, dname: show_toast(self, f"Paquet '{dname}' créé avec succès."))
+        dlg.deck_created.connect(lambda did, dname: show_toast(self, tr("Paquet '%1' créé avec succès.", dname)))
         dlg.exec()
 
     @Slot()
     def _show_model_menu(self) -> None:
         menu = StyledMenu(self)
 
-        all_action = menu.addAction("Tous les modèles")
+        all_action = menu.addAction(self.tr("Tous les modèles"))
         all_action.triggered.connect(lambda: self._on_model_selected(None, "Tous les modèles"))
 
         menu.addSeparator()
@@ -1393,7 +1394,7 @@ class EditionView(QWidget):
     def _on_model_selected(self, model_id: int | None, model_name: str) -> None:
         self._active_model_id = model_id
         if model_id is None:
-            self.btn_open_model.setText("Modèle : Tous ▾")
+            self.btn_open_model.setText(self.tr("Modèle : Tous ▾"))
             self.btn_open_model.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.BG_PANEL};
@@ -1406,7 +1407,7 @@ class EditionView(QWidget):
                 }}
             """)
         else:
-            self.btn_open_model.setText(f"Modèle : {model_name} ▾")
+            self.btn_open_model.setText(tr("Modèle : %1 ▾", model_name))
             self.btn_open_model.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.ACCENT_BG};
@@ -1510,27 +1511,27 @@ class EditionView(QWidget):
 
         menu = StyledMenu(self)
 
-        action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), "Éditer cette carte")
+        action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), self.tr("Éditer cette carte"))
         action_edit.triggered.connect(lambda: self.select_note_by_id(note.id))
 
-        action_history = menu.addAction(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY), "Historique des versions")
+        action_history = menu.addAction(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY), self.tr("Historique des versions"))
         action_history.triggered.connect(lambda: self.show_version_history(note.id))
 
-        action_change_model = menu.addAction(load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY), "Changer le modèle de carte...")
+        action_change_model = menu.addAction(load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY), self.tr("Changer le modèle de carte..."))
         action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
 
-        action_move_deck = menu.addAction(load_phosphor_icon("folder-notch-plus", color=DesignTokens.TEXT_PRIMARY), "Déplacer vers un paquet...")
+        action_move_deck = menu.addAction(load_phosphor_icon("folder-notch-plus", color=DesignTokens.TEXT_PRIMARY), self.tr("Déplacer vers un paquet..."))
         action_move_deck.triggered.connect(lambda: self._open_move_to_deck_modal(fallback_note_id=note.id))
 
-        action_new_deck = menu.addAction(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY), "Nouveau paquet...")
+        action_new_deck = menu.addAction(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY), self.tr("Nouveau paquet..."))
         action_new_deck.triggered.connect(self._open_create_deck_dialog)
 
         menu.addSeparator()
 
-        action_lint = menu.addAction(load_phosphor_icon("first-aid-kit", color=DesignTokens.ACCENT_PRIMARY), "Linter IA (Wozniak)")
+        action_lint = menu.addAction(load_phosphor_icon("first-aid-kit", color=DesignTokens.ACCENT_PRIMARY), self.tr("Linter IA (Wozniak)"))
         action_lint.triggered.connect(lambda: self.open_linter_dialog([note.id]))
 
-        action_tag = menu.addAction(load_phosphor_icon("tag", color=DesignTokens.COLOR_PURPLE), "Auto-Tagging IA")
+        action_tag = menu.addAction(load_phosphor_icon("tag", color=DesignTokens.COLOR_PURPLE), self.tr("Auto-Tagging IA"))
         action_tag.triggered.connect(lambda: self.open_auto_tag_dialog([note.id]))
 
         menu.addSeparator()
@@ -1538,7 +1539,7 @@ class EditionView(QWidget):
         flag_menu = menu.addMenu("Drapeau")
         flag_menu.setIcon(load_phosphor_icon("flag", color=DesignTokens.TEXT_PRIMARY))
 
-        action_flag_0 = flag_menu.addAction("Aucun drapeau\t(Ctrl+0)")
+        action_flag_0 = flag_menu.addAction(self.tr("Aucun drapeau\t(Ctrl+0)"))
         action_flag_0.triggered.connect(lambda: self._apply_flag_to_selected_notes(0, fallback_note_id=note.id))
 
         flag_menu.addSeparator()
@@ -1546,7 +1547,7 @@ class EditionView(QWidget):
         for f_idx in range(1, 8):
             f_name = FlagService.get_flag_name(f_idx)
             f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
-            act = flag_menu.addAction(load_phosphor_icon("flag", color=f_color), f"{f_name}\t(Ctrl+{f_idx})")
+            act = flag_menu.addAction(load_phosphor_icon("flag", color=f_color), tr("%1\t(Ctrl+%2)", f_name, f_idx))
             act.triggered.connect(lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg, fallback_note_id=note.id))
         menu.addSeparator()
 
@@ -1564,7 +1565,7 @@ class EditionView(QWidget):
 
         menu.addSeparator()
 
-        action_delete = menu.addAction(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED), "Supprimer la carte")
+        action_delete = menu.addAction(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED), self.tr("Supprimer la carte"))
         action_delete.triggered.connect(lambda: self.reject_selected_notes([note.id]))
 
         menu.exec(self.card_table.mapToGlobal(pos))
@@ -1576,7 +1577,7 @@ class EditionView(QWidget):
             return
 
         menu = StyledMenu(self)
-        action_none = menu.addAction("Aucun drapeau")
+        action_none = menu.addAction(self.tr("Aucun drapeau"))
         if current_flag == 0:
             action_none.setIcon(load_phosphor_icon("check", color=DesignTokens.TEXT_MUTED))
         action_none.triggered.connect(lambda: self._apply_flag_to_selected_notes(0, fallback_note_id=note.id))
@@ -1616,9 +1617,9 @@ class EditionView(QWidget):
 
             flag_label = FlagService.get_flag_name(flag)
             if flag == 0:
-                show_toast(self, f"Drapeau retiré pour {len(target_card_ids)} carte(s).")
+                show_toast(self, tr("Drapeau retiré pour %1 carte(s).", len(target_card_ids)))
             else:
-                show_toast(self, f"Drapeau '{flag_label}' appliqué à {len(target_card_ids)} carte(s).")
+                show_toast(self, tr("Drapeau '%1' appliqué à %2 carte(s).", flag_label, len(target_card_ids)))
             return
 
         target_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
@@ -1639,19 +1640,19 @@ class EditionView(QWidget):
 
         flag_label = FlagService.get_flag_name(flag)
         if flag == 0:
-            show_toast(self, f"Drapeau retiré pour {len(target_ids)} note(s).")
+            show_toast(self, tr("Drapeau retiré pour %1 note(s).", len(target_ids)))
         else:
-            show_toast(self, f"Drapeau '{flag_label}' appliqué à {len(target_ids)} note(s).")
+            show_toast(self, tr("Drapeau '%1' appliqué à %2 note(s).", flag_label, len(target_ids)))
 
     @Slot()
     def _show_flag_filter_menu(self) -> None:
         """Affiche le menu de filtrage par drapeau."""
         menu = StyledMenu(self)
 
-        all_action = menu.addAction("Tous les drapeaux")
+        all_action = menu.addAction(self.tr("Tous les drapeaux"))
         all_action.triggered.connect(lambda: self._on_flag_filter_selected(None, "Drapeau : Tous ▾"))
 
-        none_action = menu.addAction("Sans drapeau")
+        none_action = menu.addAction(self.tr("Sans drapeau"))
         none_action.triggered.connect(lambda: self._on_flag_filter_selected(0, "Sans drapeau ▾"))
 
         menu.addSeparator()
@@ -1668,7 +1669,7 @@ class EditionView(QWidget):
         """Rafraîchit l'affichage des filtres et de la table lors d'un changement de libellés de drapeaux."""
         if self._active_flag is not None and self._active_flag > 0:
             flag_name = FlagService.get_flag_name(self._active_flag)
-            self.btn_filter_flag.setText(f"Drapeau : {flag_name} ▾")
+            self.btn_filter_flag.setText(tr("Drapeau : %1 ▾", flag_name))
         if hasattr(self, "card_table") and self.card_table.viewport():
             self.card_table.viewport().update()
 
@@ -1732,7 +1733,7 @@ class EditionView(QWidget):
                 self.note_table_model.update_card_suspended(cid, new_suspended)
 
             status_text = "suspendue(s) ⏸️" if new_suspended else "réactivée(s) ▶️"
-            show_toast(self, f"{len(target_card_ids)} carte(s) {status_text}.")
+            show_toast(self, tr("%1 carte(s) %2.", len(target_card_ids), status_text))
             return
 
         target_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
@@ -1756,22 +1757,22 @@ class EditionView(QWidget):
             self.note_table_model.update_note_suspended(nid, new_suspended)
 
         status_text = "suspendue(s) ⏸️" if new_suspended else "réactivée(s) ▶️"
-        show_toast(self, f"{len(target_ids)} note(s) {status_text}.")
+        show_toast(self, tr("%1 note(s) %2.", len(target_ids), status_text))
 
     @Slot()
     def _show_status_filter_menu(self) -> None:
         """Affiche le menu de filtrage par statut d'activation (Actif / Suspendu)."""
         menu = StyledMenu(self)
 
-        all_action = menu.addAction("Toutes les cartes (Tous)")
+        all_action = menu.addAction(self.tr("Toutes les cartes (Tous)"))
         all_action.triggered.connect(lambda: self._on_status_filter_selected(None, "Statut : Tous ▾"))
 
         menu.addSeparator()
 
-        active_action = menu.addAction(load_phosphor_icon("play", color=DesignTokens.COLOR_GREEN), "Actives uniquement")
+        active_action = menu.addAction(load_phosphor_icon("play", color=DesignTokens.COLOR_GREEN), self.tr("Actives uniquement"))
         active_action.triggered.connect(lambda: self._on_status_filter_selected(False, "Statut : Actives ▾"))
 
-        suspended_action = menu.addAction(load_phosphor_icon("pause", color=DesignTokens.COLOR_YELLOW), "Suspendues uniquement ⏸️")
+        suspended_action = menu.addAction(load_phosphor_icon("pause", color=DesignTokens.COLOR_YELLOW), self.tr("Suspendues uniquement ⏸️"))
         suspended_action.triggered.connect(lambda: self._on_status_filter_selected(True, "Statut : Suspendues ⏸️ ▾"))
 
         menu.exec(self.btn_filter_status.mapToGlobal(self.btn_filter_status.rect().bottomLeft()))
@@ -1837,7 +1838,7 @@ class EditionView(QWidget):
         if not note_ids:
             return
         if AutoTagDialog(self, note_ids).exec():
-            show_toast(self, "Auto-Tagging terminé avec succès !")
+            show_toast(self, self.tr("Auto-Tagging terminé avec succès !"))
             self.refresh_data()
 
     @Slot(list)
@@ -1854,7 +1855,7 @@ class EditionView(QWidget):
                 provider = None
 
             if not provider:
-                QMessageBox.warning(self, "Configuration IA", "Aucun provider IA disponible pour l'édition par lot.")
+                QMessageBox.warning(self, self.tr("Configuration IA"), self.tr("Aucun provider IA disponible pour l'édition par lot."))
                 return
 
             self.progress_dialog = QProgressDialog("Modification IA en cours...", "Annuler", 0, 0, self)
@@ -1869,7 +1870,7 @@ class EditionView(QWidget):
     def _on_batch_edit_success(self, count: int) -> None:
         if self.progress_dialog:
             self.progress_dialog.close()
-        show_toast(self, f"{count} notes traitées par l'IA !")
+        show_toast(self, tr("%1 notes traitées par l'IA !", count))
         self.refresh_data()
 
     def _on_batch_edit_error(self, msg: str) -> None:
@@ -1883,7 +1884,7 @@ class EditionView(QWidget):
             deck_id = self._active_folder_id or 1
             conflicts = DuplicateManager.find_duplicates(deck_id)
             if not conflicts:
-                show_toast(self, "Aucun doublon trouvé !")
+                show_toast(self, self.tr("Aucun doublon trouvé !"))
             else:
                 DuplicateResolverDialog(conflicts, self).exec()
                 self.refresh_data()
@@ -1894,7 +1895,7 @@ class EditionView(QWidget):
     def approve_selected_notes(self, note_ids: list[int]) -> None:
         try:
             self.store.approve_notes(note_ids)
-            show_toast(self, f"{len(note_ids)} note(s) approuvée(s) !")
+            show_toast(self, tr("%1 note(s) approuvée(s) !", len(note_ids)))
             self.refresh_data()
         except Exception as e:
             log_and_notify_error(e, context="Approbation des notes", parent=self, title="Erreur")
@@ -1903,14 +1904,14 @@ class EditionView(QWidget):
     def reject_selected_notes(self, note_ids: list[int]) -> None:
         reply = QMessageBox.question(
             self,
-            "Confirmation",
-            f"Supprimer définitivement {len(note_ids)} note(s) ?",
+            self.tr("Confirmation"),
+            tr("Supprimer définitivement %1 note(s) ?", len(note_ids)),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 self.store.delete_notes(note_ids)
-                show_toast(self, "Notes supprimées.")
+                show_toast(self, self.tr("Notes supprimées."))
                 self.refresh_data()
             except Exception as e:
                 log_and_notify_error(e, context="Suppression des notes", parent=self, title="Erreur")
@@ -1944,7 +1945,7 @@ class EditionView(QWidget):
         if hasattr(self, "editor_stack"):
             self.editor_stack.setCurrentIndex(0)
         if hasattr(self, "lbl_card_ribbon_info"):
-            self.lbl_card_ribbon_info.setText("Aucune carte sélectionnée")
+            self.lbl_card_ribbon_info.setText(self.tr("Aucune carte sélectionnée"))
 
         try:
             if self._display_mode == "cards":

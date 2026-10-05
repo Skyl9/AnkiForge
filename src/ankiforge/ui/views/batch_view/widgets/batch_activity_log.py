@@ -119,7 +119,7 @@ class BatchActivityLog(QWidget):
         filter_row.setContentsMargins(8, 4, 8, 4)
         filter_row.setSpacing(4)
 
-        filter_lbl = QLabel("Filtrer :")
+        filter_lbl = QLabel(self.tr("Filtrer :"))
         filter_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         filter_row.addWidget(filter_lbl)
 

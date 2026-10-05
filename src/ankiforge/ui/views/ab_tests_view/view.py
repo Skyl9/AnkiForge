@@ -61,6 +61,7 @@ from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEdi
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ class ABTestsView(QWidget):
         adv_layout.setContentsMargins(8, 4, 8, 4)
         adv_layout.setSpacing(14)
 
-        lbl_temp = QLabel("Température :")
+        lbl_temp = QLabel(self.tr("Température :"))
         lbl_temp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
 
         temp_slider = QSlider(Qt.Orientation.Horizontal)
@@ -145,7 +146,7 @@ class ABTestsView(QWidget):
         temp_slider.setValue(70)
         temp_slider.setFixedWidth(110)
 
-        lbl_temp_val = QLabel("0.70")
+        lbl_temp_val = QLabel(self.tr("0.70"))
         lbl_temp_val.setStyleSheet(f"color: {accent_color}; font-size: 11px; font-weight: bold;")
         temp_slider.valueChanged.connect(lambda v, lbl=lbl_temp_val: lbl.setText(f"{v / 100:.2f}"))
 
@@ -153,7 +154,7 @@ class ABTestsView(QWidget):
         adv_layout.addWidget(temp_slider)
         adv_layout.addWidget(lbl_temp_val)
 
-        lbl_tok = QLabel("Max Tokens :")
+        lbl_tok = QLabel(self.tr("Max Tokens :"))
         lbl_tok.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-left: 12px;")
 
         tok_slider = QSlider(Qt.Orientation.Horizontal)
@@ -161,7 +162,7 @@ class ABTestsView(QWidget):
         tok_slider.setValue(4096)
         tok_slider.setFixedWidth(110)
 
-        lbl_tok_val = QLabel("4096")
+        lbl_tok_val = QLabel(self.tr("4096"))
         lbl_tok_val.setStyleSheet(f"color: {accent_color}; font-size: 11px; font-weight: bold;")
         tok_slider.valueChanged.connect(lambda v, lbl=lbl_tok_val: lbl.setText(str(v)))
 
@@ -275,12 +276,12 @@ class ABTestsView(QWidget):
         lbl_src_icon.setPixmap(load_phosphor_icon("ph.text-align-left", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
         src_header.addWidget(lbl_src_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        lbl_src_title = QLabel("TEXTE SOURCE D'ENTRÉE :")
+        lbl_src_title = QLabel(self.tr("TEXTE SOURCE D'ENTRÉE :"))
         lbl_src_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         lbl_src_title.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         src_header.addWidget(lbl_src_title, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        lbl_presets = QLabel("Source :")
+        lbl_presets = QLabel(self.tr("Source :"))
         lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: 500;")
         lbl_presets.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         src_header.addWidget(lbl_presets, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -292,7 +293,7 @@ class ABTestsView(QWidget):
 
         src_header.addStretch(0)
 
-        btn_clear_src = IconButton("ph.trash", tooltip="Effacer le texte source", size=22)
+        btn_clear_src = IconButton("ph.trash", tooltip=self.tr("Effacer le texte source"), size=22)
         btn_clear_src.clicked.connect(self._on_clear_source)
         src_header.addWidget(btn_clear_src, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -322,14 +323,14 @@ class ABTestsView(QWidget):
         row_mode = QHBoxLayout()
         row_mode.setContentsMargins(0, 0, 0, 0)
         row_mode.setSpacing(8)
-        lbl_mode = QLabel("Mode :")
+        lbl_mode = QLabel(self.tr("Mode :"))
         lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.mode_combo = StyledComboBox()
         self.mode_combo.setMinimumWidth(190)
         self.mode_combo.setFixedHeight(30)
-        self.mode_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), "Comparer deux Moteurs IA")
-        self.mode_combo.addItem(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW), "Comparer deux Prompts / Personas")
-        self.mode_combo.addItem(load_phosphor_icon("ph.git-branch", color=DesignTokens.COLOR_GREEN), "Comparer deux Pipelines DAG")
+        self.mode_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), self.tr("Comparer deux Moteurs IA"))
+        self.mode_combo.addItem(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW), self.tr("Comparer deux Prompts / Personas"))
+        self.mode_combo.addItem(load_phosphor_icon("ph.git-branch", color=DesignTokens.COLOR_GREEN), self.tr("Comparer deux Pipelines DAG"))
         self.mode_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToContents)
         row_mode.addWidget(lbl_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
         row_mode.addWidget(self.mode_combo, 1)
@@ -338,7 +339,7 @@ class ABTestsView(QWidget):
         row_deck = QHBoxLayout()
         row_deck.setContentsMargins(0, 0, 0, 0)
         row_deck.setSpacing(8)
-        lbl_deck = QLabel("Paquet Cible :")
+        lbl_deck = QLabel(self.tr("Paquet Cible :"))
         lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.deck_field = ModalField("Sélectionner un paquet cible...")
         row_deck.addWidget(lbl_deck, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -358,7 +359,7 @@ class ABTestsView(QWidget):
         gp_layout = QHBoxLayout(self.global_persona_widget)
         gp_layout.setContentsMargins(0, 0, 0, 0)
         gp_layout.setSpacing(6)
-        lbl_gp = QLabel("Agent Commun :")
+        lbl_gp = QLabel(self.tr("Agent Commun :"))
         lbl_gp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.persona_field = ModalField("Sélectionner un agent commun...")
         gp_layout.addWidget(lbl_gp)
@@ -369,7 +370,7 @@ class ABTestsView(QWidget):
         ge_layout = QHBoxLayout(self.global_engine_widget)
         ge_layout.setContentsMargins(0, 0, 0, 0)
         ge_layout.setSpacing(6)
-        lbl_ge = QLabel("Moteur Commun :")
+        lbl_ge = QLabel(self.tr("Moteur Commun :"))
         lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.global_engine_field = ModalField("Sélectionner le moteur commun...")
         ge_layout.addWidget(lbl_ge)
@@ -380,7 +381,7 @@ class ABTestsView(QWidget):
         row_nt = QHBoxLayout()
         row_nt.setContentsMargins(0, 0, 0, 0)
         row_nt.setSpacing(8)
-        lbl_nt = QLabel("Modèle Cible :")
+        lbl_nt = QLabel(self.tr("Modèle Cible :"))
         lbl_nt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.model_field = ModalField("Sélectionner un modèle de carte...")
         row_nt.addWidget(lbl_nt, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -399,7 +400,7 @@ class ABTestsView(QWidget):
         row_branch_a = QHBoxLayout()
         row_branch_a.setContentsMargins(0, 0, 0, 0)
         row_branch_a.setSpacing(8)
-        self.lbl_a = QLabel("Moteur A :")
+        self.lbl_a = QLabel(self.tr("Moteur A :"))
         self.lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.field_a = ModalField("Sélectionner la branche A...")
         row_branch_a.addWidget(self.lbl_a, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -409,7 +410,7 @@ class ABTestsView(QWidget):
         row_branch_b = QHBoxLayout()
         row_branch_b.setContentsMargins(0, 0, 0, 0)
         row_branch_b.setSpacing(8)
-        self.lbl_b = QLabel("Moteur B :")
+        self.lbl_b = QLabel(self.tr("Moteur B :"))
         self.lbl_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.field_b = ModalField("Sélectionner la branche B...")
         row_branch_b.addWidget(self.lbl_b, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -429,7 +430,7 @@ class ABTestsView(QWidget):
         self.adv_branch_a_widget, self.temp_slider_a, self.tok_slider_a = self._build_inference_sliders(DesignTokens.BRANCH_A)
         self.adv_branch_b_widget, self.temp_slider_b, self.tok_slider_b = self._build_inference_sliders(DesignTokens.BRANCH_B)
 
-        self.chk_independent = QCheckBox("Réglages indépendants A/B")
+        self.chk_independent = QCheckBox(self.tr("Réglages indépendants A/B"))
         self.chk_independent.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_independent.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
         self.chk_independent.setChecked(bool(SettingsService.get("ab_test/independent_settings", False)))
@@ -444,7 +445,7 @@ class ABTestsView(QWidget):
 
         config_panel_layout.addStretch(1)
 
-        self.btn_run = PrimaryButton("Lancer le Test A/B", tooltip="Lancer le test comparatif A/B sur les deux configurations (Ctrl+Entrée)")
+        self.btn_run = PrimaryButton("Lancer le Test A/B", tooltip=self.tr("Lancer le test comparatif A/B sur les deux configurations (Ctrl+Entrée)"))
         self.btn_run.setIcon(load_on_accent_icon("ph.play"))
         self.btn_run.setIconSize(QSize(15, 15))
         self.btn_run.setFixedHeight(34)
@@ -481,7 +482,7 @@ class ABTestsView(QWidget):
         self.btn_back.clicked.connect(self._show_config_page)
         summary_top.addWidget(self.btn_back, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        lbl_summary_title = QLabel("RÉSUMÉ DE LA CONFIGURATION :")
+        lbl_summary_title = QLabel(self.tr("RÉSUMÉ DE LA CONFIGURATION :"))
         lbl_summary_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         summary_top.addWidget(lbl_summary_title, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -503,44 +504,44 @@ class ABTestsView(QWidget):
         switcher_bar = QHBoxLayout()
         switcher_bar.setSpacing(6)
 
-        lbl_view_mode = QLabel("VUE COMPARATIVE :")
+        lbl_view_mode = QLabel(self.tr("VUE COMPARATIVE :"))
         lbl_view_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         switcher_bar.addWidget(lbl_view_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_subtab_preview = SubTabButton("Rendu Visuel", "ph.eye", is_active=True)
+        self.btn_subtab_preview = SubTabButton(tr("Rendu Visuel"), "ph.eye", is_active=True)
         self.btn_subtab_preview.clicked.connect(lambda: self._switch_view_mode(0))
         switcher_bar.addWidget(self.btn_subtab_preview, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_subtab_table = SubTabButton("Tableau des Champs", "ph.table", is_active=False)
+        self.btn_subtab_table = SubTabButton(tr("Tableau des Champs"), "ph.table", is_active=False)
         self.btn_subtab_table.clicked.connect(lambda: self._switch_view_mode(1))
         switcher_bar.addWidget(self.btn_subtab_table, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_subtab_json = SubTabButton("JSON Brut", "ph.code", is_active=False)
+        self.btn_subtab_json = SubTabButton(tr("JSON Brut"), "ph.code", is_active=False)
         self.btn_subtab_json.clicked.connect(lambda: self._switch_view_mode(2))
         switcher_bar.addWidget(self.btn_subtab_json, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_subtab_diff = SubTabButton("Diff A↔B", "ph.git-diff", is_active=False)
+        self.btn_subtab_diff = SubTabButton(tr("Diff A↔B"), "ph.git-diff", is_active=False)
         self.btn_subtab_diff.clicked.connect(lambda: self._switch_view_mode(3))
         switcher_bar.addWidget(self.btn_subtab_diff, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         switcher_bar.addStretch()
 
-        self.chk_sync_nav = QCheckBox("Synchronisation Navigation A ↔ B")
+        self.chk_sync_nav = QCheckBox(self.tr("Synchronisation Navigation A ↔ B"))
         self.chk_sync_nav.setChecked(bool(SettingsService.get("ab_test/sync_nav", True)))
         self.chk_sync_nav.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_sync_nav.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         self.chk_sync_nav.stateChanged.connect(lambda s: SettingsService.set("ab_test/sync_nav", s == Qt.CheckState.Checked.value, category="ab_test"))
         switcher_bar.addWidget(self.chk_sync_nav, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_device_desktop = IconButton("ph.monitor", tooltip="Mode Bureau (100% largeur)", size=24)
+        self.btn_device_desktop = IconButton("ph.monitor", tooltip=self.tr("Mode Bureau (100% largeur)"), size=24)
         self.btn_device_desktop.clicked.connect(lambda: self._set_both_device_mode("desktop"))
         switcher_bar.addWidget(self.btn_device_desktop, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_device_tablet = IconButton("ph.device-tablet", tooltip="Mode Tablette (768px)", size=24)
+        self.btn_device_tablet = IconButton("ph.device-tablet", tooltip=self.tr("Mode Tablette (768px)"), size=24)
         self.btn_device_tablet.clicked.connect(lambda: self._set_both_device_mode("tablet"))
         switcher_bar.addWidget(self.btn_device_tablet, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_device_mobile = IconButton("ph.device-mobile", tooltip="Mode Mobile (375px)", size=24)
+        self.btn_device_mobile = IconButton("ph.device-mobile", tooltip=self.tr("Mode Mobile (375px)"), size=24)
         self.btn_device_mobile.clicked.connect(lambda: self._set_both_device_mode("mobile"))
         switcher_bar.addWidget(self.btn_device_mobile, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -571,14 +572,14 @@ class ABTestsView(QWidget):
         toolbar_a.setContentsMargins(0, 0, 0, 0)
         toolbar_a.setSpacing(8)
 
-        self.lbl_branch_a = QLabel("—")
+        self.lbl_branch_a = QLabel(self.tr("—"))
         self.lbl_branch_a.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600;")
         self.lbl_branch_a.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         self.btn_flip_a = SecondaryButton("Voir Verso")
         self.btn_flip_a.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_flip_a.setFixedHeight(26)
-        self.btn_flip_a.setToolTip("Basculer Recto/Verso de la Branche A")
+        self.btn_flip_a.setToolTip(self.tr("Basculer Recto/Verso de la Branche A"))
 
         toolbar_a.addWidget(self.lbl_branch_a, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.btn_flip_a, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -595,7 +596,7 @@ class ABTestsView(QWidget):
 
         self.table_a = QTableWidget()
         self.table_a.setColumnCount(2)
-        self.table_a.setHorizontalHeaderLabels(["Champ NoteType", "Valeur Générée"])
+        self.table_a.setHorizontalHeaderLabels([self.tr("Champ NoteType"), self.tr("Valeur Générée")])
         self.table_a.horizontalHeader().setStretchLastSection(True)
         self.table_a.verticalHeader().setVisible(False)
         self.table_a.setColumnWidth(0, 140)
@@ -623,14 +624,14 @@ class ABTestsView(QWidget):
         toolbar_b.setContentsMargins(0, 0, 0, 0)
         toolbar_b.setSpacing(8)
 
-        self.lbl_branch_b = QLabel("—")
+        self.lbl_branch_b = QLabel(self.tr("—"))
         self.lbl_branch_b.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600;")
         self.lbl_branch_b.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         self.btn_flip_b = SecondaryButton("Voir Verso")
         self.btn_flip_b.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_flip_b.setFixedHeight(26)
-        self.btn_flip_b.setToolTip("Basculer Recto/Verso de la Branche B")
+        self.btn_flip_b.setToolTip(self.tr("Basculer Recto/Verso de la Branche B"))
 
         toolbar_b.addWidget(self.lbl_branch_b, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.btn_flip_b, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -647,7 +648,7 @@ class ABTestsView(QWidget):
 
         self.table_b = QTableWidget()
         self.table_b.setColumnCount(2)
-        self.table_b.setHorizontalHeaderLabels(["Champ NoteType", "Valeur Générée"])
+        self.table_b.setHorizontalHeaderLabels([self.tr("Champ NoteType"), self.tr("Valeur Générée")])
         self.table_b.horizontalHeader().setStretchLastSection(True)
         self.table_b.verticalHeader().setVisible(False)
         self.table_b.setColumnWidth(0, 140)
@@ -673,12 +674,12 @@ class ABTestsView(QWidget):
 
         nav_a_box = QHBoxLayout()
         nav_a_box.setSpacing(6)
-        lbl_pag_a = QLabel("Branche A :")
+        lbl_pag_a = QLabel(self.tr("Branche A :"))
         lbl_pag_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.btn_prev_a = IconButton("ph.caret-left", tooltip="Carte précédente (Branche A)", size=22)
-        self.lbl_count_a = QLabel("0 / 0")
+        self.btn_prev_a = IconButton("ph.caret-left", tooltip=self.tr("Carte précédente (Branche A)"), size=22)
+        self.lbl_count_a = QLabel(self.tr("0 / 0"))
         self.lbl_count_a.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; font-weight: bold;")
-        self.btn_next_a = IconButton("ph.caret-right", tooltip="Carte suivante (Branche A)", size=22)
+        self.btn_next_a = IconButton("ph.caret-right", tooltip=self.tr("Carte suivante (Branche A)"), size=22)
         nav_a_box.addWidget(lbl_pag_a)
         nav_a_box.addWidget(self.btn_prev_a)
         nav_a_box.addWidget(self.lbl_count_a)
@@ -687,7 +688,7 @@ class ABTestsView(QWidget):
 
         pagination_bar.addStretch()
 
-        lbl_shortcut = QLabel("Raccourci : Ctrl+Entrée pour lancer")
+        lbl_shortcut = QLabel(self.tr("Raccourci : Ctrl+Entrée pour lancer"))
         lbl_shortcut.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-style: italic;")
         pagination_bar.addWidget(lbl_shortcut)
 
@@ -695,12 +696,12 @@ class ABTestsView(QWidget):
 
         nav_b_box = QHBoxLayout()
         nav_b_box.setSpacing(6)
-        lbl_pag_b = QLabel("Branche B :")
+        lbl_pag_b = QLabel(self.tr("Branche B :"))
         lbl_pag_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.btn_prev_b = IconButton("ph.caret-left", tooltip="Carte précédente (Branche B)", size=22)
-        self.lbl_count_b = QLabel("0 / 0")
+        self.btn_prev_b = IconButton("ph.caret-left", tooltip=self.tr("Carte précédente (Branche B)"), size=22)
+        self.lbl_count_b = QLabel(self.tr("0 / 0"))
         self.lbl_count_b.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; font-weight: bold;")
-        self.btn_next_b = IconButton("ph.caret-right", tooltip="Carte suivante (Branche B)", size=22)
+        self.btn_next_b = IconButton("ph.caret-right", tooltip=self.tr("Carte suivante (Branche B)"), size=22)
         nav_b_box.addWidget(lbl_pag_b)
         nav_b_box.addWidget(self.btn_prev_b)
         nav_b_box.addWidget(self.lbl_count_b)
@@ -914,16 +915,16 @@ class ABTestsView(QWidget):
         """Efface le texte source : désélectionne le document lié et vide l'éditeur."""
         self.doc_picker.clear_document()
         self.source_editor.set_content("")
-        show_toast(self, "Texte source effacé.")
+        show_toast(self, self.tr("Texte source effacé."))
 
     def _apply_document_to_source(self, doc: DocumentModel) -> None:
         """Envoie le contenu du document sélectionné dans le texte source (vues PDF/Stylisé/Source)."""
         content = getattr(doc, "content", "") or getattr(doc, "text_content", "") or ""
         if not content:
-            show_toast(self, f"Le document « {doc.title} » est vide.", is_error=True)
+            show_toast(self, tr("Le document « %1 » est vide.", doc.title), is_error=True)
             return
         self.source_editor.set_document(doc)
-        show_toast(self, f"Document « {doc.title} » importé (vues PDF/Stylisé/Source disponibles).")
+        show_toast(self, tr("Document « %1 » importé (vues PDF/Stylisé/Source disponibles).", doc.title))
 
     def _branch_display(self, branch: str) -> str:
         cfg = self._branch_field(branch).get_value()
@@ -998,18 +999,18 @@ class ABTestsView(QWidget):
         if idx == 0:
             self.global_persona_widget.show()
             self.global_engine_widget.hide()
-            self.lbl_a.setText("Moteur A :")
-            self.lbl_b.setText("Moteur B :")
+            self.lbl_a.setText(self.tr("Moteur A :"))
+            self.lbl_b.setText(self.tr("Moteur B :"))
         elif idx == 1:
             self.global_persona_widget.hide()
             self.global_engine_widget.show()
-            self.lbl_a.setText("Prompt A :")
-            self.lbl_b.setText("Prompt B :")
+            self.lbl_a.setText(self.tr("Prompt A :"))
+            self.lbl_b.setText(self.tr("Prompt B :"))
         else:
             self.global_persona_widget.hide()
             self.global_engine_widget.show()
-            self.lbl_a.setText("Pipeline A :")
-            self.lbl_b.setText("Pipeline B :")
+            self.lbl_a.setText(self.tr("Pipeline A :"))
+            self.lbl_b.setText(self.tr("Pipeline B :"))
 
         kind = ("engine", "persona", "pipeline")[idx]
         for branch in ("A", "B"):
@@ -1221,7 +1222,7 @@ class ABTestsView(QWidget):
             self._deck_modal = None
         current = self.deck_field.get_value()
         current_id = current.id if current else None
-        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet cible", selected_deck_id=current_id, parent=self)
+        self._deck_modal = DeckSelectWindow(title=self.tr("Sélectionner un paquet cible"), selected_deck_id=current_id, parent=self)
         self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
         self._deck_modal.show()
 
@@ -1368,7 +1369,7 @@ class ABTestsView(QWidget):
 
         # Side A
         if self.cards_a:
-            self.lbl_count_a.setText(f"{self.index_a + 1} / {len(self.cards_a)}")
+            self.lbl_count_a.setText(tr("%1 / %2", self.index_a + 1, len(self.cards_a)))
             current_card_a = self.cards_a[self.index_a]
             self.json_edit_a.setPlainText(json.dumps(current_card_a, ensure_ascii=False, indent=2))
 
@@ -1388,13 +1389,13 @@ class ABTestsView(QWidget):
                 override_templates=[tmpl_a],
             )
         else:
-            self.lbl_count_a.setText("0 / 0")
+            self.lbl_count_a.setText(self.tr("0 / 0"))
             self.table_a.setRowCount(0)
             self.json_edit_a.clear()
 
         # Side B
         if self.cards_b:
-            self.lbl_count_b.setText(f"{self.index_b + 1} / {len(self.cards_b)}")
+            self.lbl_count_b.setText(tr("%1 / %2", self.index_b + 1, len(self.cards_b)))
             current_card_b = self.cards_b[self.index_b]
             self.json_edit_b.setPlainText(json.dumps(current_card_b, ensure_ascii=False, indent=2))
 
@@ -1414,7 +1415,7 @@ class ABTestsView(QWidget):
                 override_templates=[tmpl_b],
             )
         else:
-            self.lbl_count_b.setText("0 / 0")
+            self.lbl_count_b.setText(self.tr("0 / 0"))
             self.table_b.setRowCount(0)
             self.json_edit_b.clear()
 
@@ -1464,7 +1465,7 @@ class ABTestsView(QWidget):
     def _on_run_ab_test(self) -> None:
         text_source = self.source_editor.get_text()
         if not text_source:
-            show_toast(self, "Veuillez saisir un texte source à tester.", is_error=True)
+            show_toast(self, self.tr("Veuillez saisir un texte source à tester."), is_error=True)
             return
 
         selected_nt = self.model_field.get_value()
@@ -1538,7 +1539,7 @@ class ABTestsView(QWidget):
             pipe_id_a = pipe_a.id if pipe_a else None
             pipe_id_b = pipe_b.id if pipe_b else None
 
-        show_toast(self, "Lancement du test A/B en parallèle via le Moteur DAG...")
+        show_toast(self, self.tr("Lancement du test A/B en parallèle via le Moteur DAG..."))
         self._update_config_summary()
         self._show_results_page()
         self.btn_run.setEnabled(False)
@@ -1689,7 +1690,7 @@ class ABTestsView(QWidget):
         if self._completed_b:
             self._elapsed_timer.stop()
         self.kpi_a.set_results(elapsed=elapsed, cards_count=0, tokens=0, cost_usd=0.0, is_success=False, err_msg=err)
-        show_toast(self, f"Erreur Branche A: {err}", is_error=True)
+        show_toast(self, tr("Erreur Branche A: %1", err), is_error=True)
         self._check_test_complete()
 
     def _on_error_b(self, err: str) -> None:
@@ -1698,14 +1699,14 @@ class ABTestsView(QWidget):
         if self._completed_a:
             self._elapsed_timer.stop()
         self.kpi_b.set_results(elapsed=elapsed, cards_count=0, tokens=0, cost_usd=0.0, is_success=False, err_msg=err)
-        show_toast(self, f"Erreur Branche B: {err}", is_error=True)
+        show_toast(self, tr("Erreur Branche B: %1", err), is_error=True)
         self._check_test_complete()
 
     def _check_test_complete(self) -> None:
         if self._completed_a and self._completed_b:
             self.btn_run.setEnabled(True)
             self._update_views()
-            show_toast(self, "Test A/B terminé avec succès !")
+            show_toast(self, self.tr("Test A/B terminé avec succès !"))
 
     def refresh_theme(self, profile: Any) -> None:
         self._apply_theme_to_widgets()
