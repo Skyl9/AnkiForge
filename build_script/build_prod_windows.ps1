@@ -39,11 +39,19 @@ if ($Channel) {
 }
 $buildArgs += $args
 uv run python script/build_standalone.py @buildArgs
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "La compilation Nuitka a echoue (code $LASTEXITCODE). L'installeur ne sera pas genere."
+    exit $LASTEXITCODE
+}
 
 # Creation de l'installeur Windows si Inno Setup est installe
 if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
     Write-Host "[INFO] Creation de l'installeur Inno Setup..."
     & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build_script/windows_installer.iss
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "La creation de l'installeur Inno Setup a echoue (code $LASTEXITCODE)."
+        exit $LASTEXITCODE
+    }
 }
 
 Write-Host "[SUCCESS] Compilation Windows terminee avec succes !"

@@ -114,7 +114,12 @@ def test_nuitka_config_embeds_compiled_catalogs() -> None:
 
     translations_dir = Path(*i18n.TRANSLATIONS_RELPATH[1:])
     destinations = {data_files[pattern] for pattern in qm_patterns}
-    assert any(str(destinations_entry).endswith(str(translations_dir)) for destinations_entry in destinations), f"Les `.qm` ne sont pas copiés vers {translations_dir} : {destinations}"
+    assert all(str(destination).replace("\\", "/").endswith("/") for destination in destinations), f"Les globs `.qm` doivent cibler des répertoires : {destinations}"
+    assert any(str(destinations_entry).rstrip("/").endswith(str(translations_dir)) for destinations_entry in destinations), f"Les `.qm` ne sont pas copiés vers {translations_dir} : {destinations}"
+
+    ts_patterns = {pattern for pattern in data_files if pattern.endswith(".ts")}
+    ts_destinations = {data_files[pattern] for pattern in ts_patterns}
+    assert all(str(destination).replace("\\", "/").endswith("/") for destination in ts_destinations), f"Les globs `.ts` doivent cibler des répertoires : {ts_destinations}"
 
 
 def test_wheel_reincludes_compiled_catalogs() -> None:
