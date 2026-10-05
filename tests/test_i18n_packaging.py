@@ -105,21 +105,11 @@ def test_translations_resolve_inside_a_flat_bundle(tmp_path: Path, monkeypatch: 
 # de build ne produit aucune erreur : l'application démarre en français.
 
 
-def test_nuitka_config_embeds_compiled_catalogs() -> None:
+def test_nuitka_config_leaves_app_resources_to_post_build_copy() -> None:
+    """Les ressources i18n sont copiées après Nuitka, dans le vrai dossier Resources macOS."""
     config = json.loads((PROJECT_ROOT / "build_script" / "nuitka_config.json").read_text(encoding="utf-8"))
     data_files = config["common"]["include_data_files"]
-
-    qm_patterns = {pattern for pattern in data_files if pattern.endswith(".qm")}
-    assert qm_patterns, f"Aucun catalogue compilé dans nuitka_config.json : {sorted(data_files)}"
-
-    translations_dir = Path(*i18n.TRANSLATIONS_RELPATH[1:])
-    destinations = {data_files[pattern] for pattern in qm_patterns}
-    assert all(str(destination).replace("\\", "/").endswith("/") for destination in destinations), f"Les globs `.qm` doivent cibler des répertoires : {destinations}"
-    assert any(str(destinations_entry).rstrip("/").endswith(str(translations_dir)) for destinations_entry in destinations), f"Les `.qm` ne sont pas copiés vers {translations_dir} : {destinations}"
-
-    ts_patterns = {pattern for pattern in data_files if pattern.endswith(".ts")}
-    ts_destinations = {data_files[pattern] for pattern in ts_patterns}
-    assert all(str(destination).replace("\\", "/").endswith("/") for destination in ts_destinations), f"Les globs `.ts` doivent cibler des répertoires : {ts_destinations}"
+    assert not any(pattern.endswith((".qm", ".ts")) for pattern in data_files), f"Nuitka ne doit pas copier les catalogues : {data_files}"
 
 
 def test_wheel_reincludes_compiled_catalogs() -> None:

@@ -30,7 +30,7 @@ Les catalogues vivent dans `src/ankiforge/resources/translations/` et sont réso
 
 Le `.ts` est **versionné** (source de vérité, relisible en diff), le `.qm` est un **artefact** produit par `script/extract_translations.py`. Aucun n'est compilé à l'exécution.
 
-Conséquence directe : le `.qm` est ignoré par Git, donc aussi par hatchling, qui respecte les fichiers d'exclusion du VCS. Sans déclaration explicite, le wheel comme le bundle partiraient avec les `.ts` — utiles à l'extraction, inutiles à l'exécution — et **sans aucune traduction**. Les deux coutures le disent donc : `include_data_files` dans `build_script/nuitka_config.json`, `artifacts` dans `pyproject.toml`. `tests/test_i18n_packaging.py` vérifie les deux déclarations.
+Conséquence directe : le `.qm` est ignoré par Git, donc aussi par hatchling, qui respecte les fichiers d'exclusion du VCS. Sans déclaration explicite, le wheel partirait avec les `.ts` — utiles à l'extraction, inutiles à l'exécution — et **sans aucune traduction**. Le pilote compile les `.qm` avant Nuitka, puis `copy_app_resources_to_bundle()` recopie toute la racine `src/ankiforge/resources` dans le bundle (vers `Contents/Resources` pour macOS) ; Nuitka ne reçoit pas de glob de traduction, car sa destination serait résolue sous `Contents/MacOS` et entrerait en conflit avec l'exécutable. Le wheel conserve sa déclaration `artifacts` dans `pyproject.toml`. `tests/test_i18n_packaging.py` vérifie ces coutures.
 
 ### Deux formes d'écriture, et une seule interdiction
 
