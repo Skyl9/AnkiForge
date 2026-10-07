@@ -80,7 +80,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     <message>
         <location line="+6"/>
         <location line="+64"/>
-        <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+118"/>
+        <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+193"/>
         <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+111"/>
         <location filename="../../ui/views/creation_view/view.py" line="+1640"/>
         <location line="+29"/>
@@ -4031,18 +4031,18 @@ Une nouvelle version sera automatiquement créée.</source>
 <context>
     <name>AIDuplicatesMergeTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="-38"/>
+        <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="-57"/>
         <source>Recherche...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+11"/>
-        <location line="+31"/>
+        <location line="+30"/>
+        <location line="+32"/>
         <source>Relancer l&apos;analyse</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-22"/>
+        <location line="-23"/>
         <source>Aucun doublon détecté dans ce paquet.</source>
         <translation type="unfinished"></translation>
     </message>
