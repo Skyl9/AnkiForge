@@ -1139,7 +1139,7 @@ Insère : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+580"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+588"/>
         <source>%1  ·  %2 %3 · %4 %5</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1251,7 +1251,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+278"/>
+        <location line="+296"/>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
@@ -4439,7 +4439,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AISourcesDiagnosticTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-307"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-325"/>
         <source>Rechercher un document ou cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4499,12 +4499,32 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+5"/>
+        <source>Tous</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>PDF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Markdown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Web &amp; Vidéo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
         <source>Associer via les tags de traçabilité les fiches Anki à l&apos;ensemble des cours importés</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+208"/>
+        <location line="+221"/>
         <source>Toutes les sections de ce cours sont déjà couvertes !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7944,7 +7964,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentInspectorPanel</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1515"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1533"/>
         <source>Retourner à la liste générale des documents</source>
         <translation type="unfinished"></translation>
     </message>

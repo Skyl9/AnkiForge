@@ -32,7 +32,7 @@ from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import FilterChipButton, PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.theme import DesignTokens, StyledMenu
@@ -59,6 +59,14 @@ _ROLE_TITLE = _ROLE_CHUNK_ID + 3
 _ROLE_IS_CONTAINER = _ROLE_CHUNK_ID + 4
 _ROLE_IS_VIRTUAL = _ROLE_CHUNK_ID + 5
 _ROLE_FULL_PATH = _ROLE_CHUNK_ID + 6
+
+FORMAT_FILTER_ICONS: dict[str, str] = {
+    "all": "ph.squares-four",
+    "pdf": "ph.file-pdf",
+    "md": "ph.file-text",
+    "web": "ph.globe",
+}
+"""Icônes Phosphor canoniques des filtres de format de l'onglet Sources, une par clé de `current_format_filter`."""
 
 
 class ClickableChunkWidget(QFrame):
@@ -1461,10 +1469,10 @@ class AISourcesDiagnosticTab(QWidget):
         lbl_filter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         row2.addWidget(lbl_filter)
 
-        self.btn_filter_all = SecondaryButton("Tous")
-        self.btn_filter_pdf = SecondaryButton("PDF")
-        self.btn_filter_md = SecondaryButton("Markdown")
-        self.btn_filter_web = SecondaryButton("Web & Vidéo")
+        self.btn_filter_all = FilterChipButton(self.tr("Tous"), icon_name=FORMAT_FILTER_ICONS["all"])
+        self.btn_filter_pdf = FilterChipButton(self.tr("PDF"), icon_name=FORMAT_FILTER_ICONS["pdf"])
+        self.btn_filter_md = FilterChipButton(self.tr("Markdown"), icon_name=FORMAT_FILTER_ICONS["md"])
+        self.btn_filter_web = FilterChipButton(self.tr("Web & Vidéo"), icon_name=FORMAT_FILTER_ICONS["web"])
         self.current_format_filter = "all"
 
         self.format_buttons = {
@@ -1475,9 +1483,14 @@ class AISourcesDiagnosticTab(QWidget):
         }
 
         for fmt, b in self.format_buttons.items():
-            b.setFixedHeight(26)
+            # `FilterChipButton` se construit à 26px ; l'écrasement d'origine venait du couple
+            # `SecondaryButton` + `padding: 8px 16px` du QSS global. La densité `compact` porte
+            # la hauteur à 32px (COMPACT_BUTTON_HEIGHT), sans écrire aucun style local.
+            apply_compact_style(b, height=32)
             b.clicked.connect(lambda _, f=fmt: self._set_format_filter(f))
             row2.addWidget(b)
+
+        self._sync_format_filter_state()
 
         row2.addStretch()
 
@@ -1567,7 +1580,20 @@ class AISourcesDiagnosticTab(QWidget):
 
     def _set_format_filter(self, fmt: str) -> None:
         self.current_format_filter = fmt
+        self._sync_format_filter_state()
         self.refresh_data()
+
+    def _sync_format_filter_state(self) -> None:
+        """Aligne l'état des pastilles de format sur `current_format_filter`.
+
+        Une seule pastille est cochée à la fois : c'est l'état `:checked` que documente
+        `DESIGN.md` (« Boutons Filtres & Chips » — fond `accent_bg`, texte et bordure
+        `accent_primary`) et que `FilterChipButton` traduit aussi côté icône, re-teintée à
+        chaque basculement et à chaque changement de thème via `refresh_theme`. Recliquer
+        la pastille active ne la laisse donc jamais désactivée.
+        """
+        for fmt, button in self.format_buttons.items():
+            button.setChecked(fmt == self.current_format_filter)
 
     def refresh_data(self) -> None:
         from ankiforge.ui.components.linter_widgets import SourceDiagnosticCardWidget
