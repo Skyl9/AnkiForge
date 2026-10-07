@@ -41,6 +41,7 @@ from ankiforge.database.models import (
 from ankiforge.repositories import PersonaRepository, SettingRepository
 from ankiforge.services.ai.consultant_engine import robust_json_loads
 from ankiforge.services.ai.context_compactor import ContextCompactor
+from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry, staged_patch_id, staged_payload_of
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
 from ankiforge.ui.components import (
     Badge,
@@ -567,6 +568,12 @@ class ConsultantView(QWidget):
         self.workspace_inspector.action_reverted.connect(self._on_workspace_action_reverted)
 
         self.context_panel.add_tab("Cerveau && Contexte", self.context_hub, "ph.brain", closable=False)
+        # Onglet de l'inspecteur de workspace : c'est la cible des bascules _activate_workspace_tab().
+        # Libellé traduit ici (et non figé en constante) conformément à la règle 20.
+        self._workspace_tab_title = tr("Espace de Travail")
+        self.context_panel.add_tab(self._workspace_tab_title, self.workspace_inspector, "ph.folder-open", closable=False)
+        # add_tab active l'onglet ajouté : on rend la main au Cerveau && Contexte par défaut.
+        self.context_panel.set_active_tab(0)
 
         self.splitter.addWidget(self.context_panel)
         self.splitter.setCollapsible(0, False)
@@ -692,6 +699,9 @@ class ConsultantView(QWidget):
 
         except Exception as e:
             logger.warning("Erreur refresh_data consultant_view: %s", e)
+
+        # Hors du try : une panne d'initialisation ne doit jamais masquer les patchs en attente.
+        self._reload_pending_patches()
 
     def is_dirty(self) -> bool:
         return False
@@ -826,6 +836,7 @@ class ConsultantView(QWidget):
     def _on_active_session_reloaded(self, session: ConsultantSessionModel) -> None:
         self._clear_messages_ui()
         self.session_sidebar.set_active_session_id(session.id)
+        self._reload_pending_patches()
         if not self.view_model.messages:
             self.committed_context.clear()
             self.refresh_context_list()
@@ -879,19 +890,77 @@ class ConsultantView(QWidget):
         self.refresh_context_list()
         show_toast(self, self.tr("Action annulée en BDD."))
 
+    def _activate_workspace_tab(self) -> None:
+        """Bascule sur l'onglet « Espace de Travail » qui contient l'inspecteur de workspace.
+
+        La cible est résolue par son libellé, jamais par un index : IdePanel aligne alors lui-même
+        barre d'onglets et content_stack (y compris après détachement d'un onglet), alors qu'un
+        index de pile peut dériver de l'index de barre.
+        """
+        if not hasattr(self.context_panel, "open_tab"):
+            return
+        self.context_panel.open_tab(self._workspace_tab_title)
+
+    def _queue_workspace_patch(self, payload: dict[str, Any], *, activate_tab: bool = True) -> bool:
+        """Ajoute une proposition dans la file du Workspace Inspector et, par défaut, y bascule.
+
+        Couture unique pour toutes les propositions (staged_diff rendu par un outil MCP, carte
+        extraite de la réponse IA, style CSS) : c'est elle qui alimente la file N/M navigable.
+        Retourne False si la proposition désignait un patch déjà en file (double arrivée).
+        """
+        metadata = payload.get("metadata")
+        metadata = dict(metadata) if isinstance(metadata, dict) else {}
+        if "note_id" not in metadata and payload.get("note_id") is not None:
+            metadata["note_id"] = payload.get("note_id")
+
+        patch_id = staged_patch_id(payload)
+        if patch_id:
+            metadata["patch_id"] = patch_id
+
+        modified = payload.get("modified")
+        item: dict[str, Any] = {
+            "title": payload.get("title") or tr("Proposition de modification"),
+            "type": payload.get("type", "card"),
+            "original": payload.get("original") if payload.get("original") is not None else "",
+            "modified": modified if modified is not None else "",
+            "metadata": metadata,
+        }
+        if payload.get("note_id") is not None:
+            item["note_id"] = payload.get("note_id")
+        if patch_id:
+            item["patch_id"] = patch_id
+
+        added = self.workspace_inspector.add_patch_to_queue(item)
+        if activate_tab:
+            self._activate_workspace_tab()
+        return added
+
+    def _reload_pending_patches(self) -> None:
+        """Recharge depuis la BDD les patchs en attente (ouverture d'une session ou de la vue).
+
+        Sans ce rechargement, une proposition non tranchée avant la fermeture de l'application
+        disparaît de l'IHM tout en restant « pending » en base : c'est l'orphelin du ticket.
+        """
+        try:
+            reloaded = 0
+            for staged in StagedPatchRegistry.list_pending():
+                payload = staged_payload_of(staged)
+                if not payload:
+                    continue  # payload illisible ou vide : déjà journalisé en WARNING
+                if self._queue_workspace_patch({**payload, "patch_id": staged.patch_id}, activate_tab=False):
+                    reloaded += 1
+        except Exception as err:
+            logger.warning("Rechargement des patchs en attente impossible : %s", err)
+            return
+
+        # La bascule d'onglet n'a lieu que si de nouvelles propositions ont réellement rejoint la file.
+        if reloaded:
+            self._activate_workspace_tab()
+
     @Slot(dict)
     def _on_diff_inspect_requested(self, patch_data: dict[str, Any]) -> None:
         """Bascule immédiatement sur l'Inspecteur de droite et charge la proposition."""
-        if hasattr(self.context_panel, "set_active_tab"):
-            self.context_panel.set_active_tab(1)
-
-        self.workspace_inspector.update_diff_view(
-            title=patch_data.get("title", "Proposition de modification"),
-            original_text=patch_data.get("original", ""),
-            modified_text=patch_data.get("modified", ""),
-            patch_type=patch_data.get("type", "card"),
-            metadata=patch_data.get("metadata", {"note_id": patch_data.get("note_id")}),
-        )
+        self._queue_workspace_patch(patch_data)
 
     @Slot(str)
     def _on_workspace_action_rejected(self, message: str) -> None:
@@ -1570,16 +1639,8 @@ class ConsultantView(QWidget):
                 if self._active_ai_message:
                     self._active_ai_message.add_inline_diff(parsed_res)
 
-                # 2. Ajout dans le Workspace Inspector
-                self.workspace_inspector.update_diff_view(
-                    title=parsed_res.get("title", "Proposition de modification"),
-                    original_text=parsed_res.get("original", ""),
-                    modified_text=parsed_res.get("modified", ""),
-                    patch_type=parsed_res.get("type", "card"),
-                    metadata=parsed_res.get("metadata", {"note_id": parsed_res.get("note_id")}),
-                )
-                if hasattr(self.context_panel, "set_active_tab"):
-                    self.context_panel.set_active_tab(1)
+                # 2. Ajout dans la file du Workspace Inspector (chaque staged_diff du tour y rejoint)
+                self._queue_workspace_patch(parsed_res)
         except Exception as err:
             logger.debug("Remarque mise à jour workspace inspector : %s", err)
 
@@ -1643,15 +1704,7 @@ class ConsultantView(QWidget):
             if self._active_ai_message:
                 self._active_ai_message.add_inline_diff(patch_payload)
 
-            self.workspace_inspector.update_diff_view(
-                title=patch_payload["title"],
-                original_text=patch_payload["original"],
-                modified_text=patch_payload["modified"],
-                patch_type=patch_payload["type"],
-                metadata=patch_payload["metadata"],
-            )
-            if hasattr(self.context_panel, "set_active_tab"):
-                self.context_panel.set_active_tab(1)
+            self._queue_workspace_patch(patch_payload)
 
         # 2. Détection CSS pour le workspace
         css_match = re.search(r"```(?:css)?\s*(\.[\s\S]+?)\s*```", response)
@@ -1666,14 +1719,7 @@ class ConsultantView(QWidget):
             if self._active_ai_message:
                 self._active_ai_message.add_inline_diff(css_payload)
 
-            self.workspace_inspector.update_diff_view(
-                title=css_payload["title"],
-                original_text=css_payload["original"],
-                modified_text=css_payload["modified"],
-                patch_type=css_payload["type"],
-            )
-            if hasattr(self.context_panel, "set_active_tab"):
-                self.context_panel.set_active_tab(1)
+            self._queue_workspace_patch(css_payload)
 
         diff_to_save = card_prop or self._active_staged_diff
         self.view_model.add_assistant_message(response, staged_diff=diff_to_save)

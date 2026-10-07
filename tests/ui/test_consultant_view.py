@@ -18,6 +18,7 @@ from ankiforge.database.models import (
     PersonaModel,
 )
 from ankiforge.services.ai.base import LLMProvider
+from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
 from ankiforge.ui.views.consultant_view import (
     ChatMessageWidget,
@@ -367,6 +368,143 @@ def test_consultant_view_diff_signals_and_inspector_activation(qtbot):
 
     # Le workspace inspector a bien reçu la proposition
     assert view.workspace_inspector.status_badge.text() != "En veille"
+
+
+def test_consultant_view_workspace_inspector_tab_present_and_visible(qtbot):
+    """CA1/CA5 : l'inspecteur est un onglet de context_panel, affiché et actionnable après un staged_diff."""
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.show()
+
+    # CA1 : le panneau est inséré dans context_panel et ses indices sont exploitables
+    tab_titles = [btn.text().strip() for btn in view.context_panel.tabs_bar.tabs]
+    assert "Espace de Travail" in tab_titles
+    assert view.context_panel.content_stack.indexOf(view.workspace_inspector) != -1
+
+    pid = f"patch_{uuid.uuid4().hex[:10]}"
+    staged = {
+        "status": "staged_diff",
+        "patch_id": pid,
+        "type": "card",
+        "note_id": 42,
+        "title": "Proposition — Note #42",
+        "original": {"Front": "Question"},
+        "modified": {"Front": "Question améliorée"},
+        "metadata": {"note_id": 42, "patch_id": pid},
+    }
+    view._on_tool_finished("propose_card_refactor", "{}", json.dumps(staged), False)
+
+    # Le set_active_tab cible un index valide : l'onglet actif EST l'inspecteur
+    assert view.context_panel.content_stack.currentWidget() is view.workspace_inspector
+    assert view.workspace_inspector.isVisible()
+
+    # CA2 : badge « En attente » et garde-fou opérationnel
+    assert "En attente" in view.workspace_inspector.status_badge.text()
+    assert view.workspace_inspector.btn_apply.isEnabled()
+    assert view.workspace_inspector.btn_reject.isEnabled()
+
+
+def test_consultant_view_multi_staged_diffs_fill_patch_queue(qtbot):
+    """CA4 : chaque staged_diff d'un même tour rejoint la file N/M, navigable à l'aide des flèches."""
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+    inspector = view.workspace_inspector
+
+    def _payload(note_id: int) -> dict[str, Any]:
+        pid = f"patch_{uuid.uuid4().hex[:10]}"
+        return {
+            "status": "staged_diff",
+            "patch_id": pid,
+            "type": "card",
+            "note_id": note_id,
+            "title": f"Proposition — Note #{note_id}",
+            "original": {"Front": "Question"},
+            "modified": {"Front": f"Question {note_id}"},
+            "metadata": {"note_id": note_id, "patch_id": pid},
+        }
+
+    view._on_tool_finished("propose_card_refactor", "{}", json.dumps(_payload(1)), False)
+    view._on_tool_finished("propose_card_refactor", "{}", json.dumps(_payload(2)), False)
+
+    assert len(inspector._patch_queue) == 2
+    assert inspector.lbl_queue_status.text() == "Proposition 2 / 2"
+    assert "En attente (2/2)" in inspector.status_badge.text()
+
+    inspector.btn_prev_patch.click()
+    assert inspector.lbl_queue_status.text() == "Proposition 1 / 2"
+    assert not inspector.btn_prev_patch.isEnabled()
+    assert inspector.btn_next_patch.isEnabled()
+
+
+def test_consultant_view_reloads_pending_patches_on_open(qtbot):
+    """CA3 : les patchs encore « pending » en BDD sont rechargés dans la file à l'ouverture de la vue."""
+    staged = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=42,
+        original_version_id=None,
+        diff_payload={
+            "title": "Proposition persistée",
+            "type": "card",
+            "note_id": 42,
+            "original": {"Front": "Question"},
+            "modified": {"Front": "Question améliorée"},
+            "metadata": {"note_id": 42},
+        },
+    )
+
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    queue = view.workspace_inspector._patch_queue
+    assert [item.get("patch_id") for item in queue] == [staged.patch_id]
+    assert "En attente" in view.workspace_inspector.status_badge.text()
+
+
+def test_consultant_view_apply_and_reject_update_staged_status(qtbot):
+    """CA2/CA3 : Appliquer / Rejeter depuis l'inspecteur mettent à jour le statut du patch en BDD."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_Staged_{uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    note = NoteModel.create(guid=f"g_staged_{uid}", note_type=nt)
+    v1 = NoteVersionModel.create(note=note, version_number=1, content='{"Front": "Ancienne question"}', is_active=True)
+
+    def _pending(title: str, modified: dict[str, Any]) -> Any:
+        return StagedPatchRegistry.create_patch(
+            patch_type="card",
+            target_id=note.id,
+            original_version_id=v1.id,
+            diff_payload={
+                "title": title,
+                "type": "card",
+                "note_id": note.id,
+                "original": {"Front": "Ancienne question"},
+                "modified": modified,
+                "metadata": {"note_id": note.id},
+            },
+        )
+
+    to_apply = _pending("À appliquer", {"Front": "Nouvelle question"})
+    to_reject = _pending("À rejeter", {"Front": "Question rejetée"})
+
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+    inspector = view.workspace_inspector
+
+    # Rechargés depuis la BDD : le plus récent est l'élément courant de la file
+    assert len(inspector._patch_queue) == 2
+
+    inspector.btn_reject.click()
+    assert StagedPatchRegistry.get_patch(to_reject.patch_id).status == "rejected"
+    assert len(inspector._patch_queue) == 1
+
+    with qtbot.waitSignal(inspector.action_applied, timeout=2000):
+        inspector.btn_apply.click()
+
+    assert StagedPatchRegistry.get_patch(to_apply.patch_id).status == "applied"
+    assert not inspector._patch_queue
+    assert "Appliqué en BDD" in inspector.status_badge.text()
+
+    active_v = NoteVersionModel.get(note=note, is_active=True)
+    assert json.loads(active_v.content)["Front"] == "Nouvelle question"
 
 
 def test_consultant_view_diff_applied_updates_metrics(qtbot):

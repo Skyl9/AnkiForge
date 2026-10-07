@@ -36,8 +36,10 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
+    StagedPatchModel,
     db,
 )
+from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry, staged_patch_id, staged_payload_of
 from ankiforge.ui.components import (
     Badge,
     PrimaryButton,
@@ -318,31 +320,44 @@ class WorkspaceInspectorWidget(QWidget):
             self.card_preview.set_empty_state("Aucune carte sélectionnée pour l'aperçu.")
         self.direct_edit.clear()
 
-    def add_patch_to_queue(self, patch: dict[str, Any]) -> None:
-        """Ajoute une proposition à la file d'attente."""
+    def add_patch_to_queue(self, patch: dict[str, Any]) -> bool:
+        """Ajoute une proposition à la file d'attente et l'affiche comme élément courant.
+
+        Un patch déjà en file n'est pas empilé une seconde fois (double arrivée outil MCP +
+        inspection, ou rechargement depuis la BDD) : on se contente de naviguer jusqu'à lui.
+        Retourne True si la proposition a réellement été ajoutée.
+        """
+        identity = self._patch_identity(patch)
+        for index, existing in enumerate(self._patch_queue):
+            if self._patch_identity(existing) == identity:
+                self._current_index = index
+                self._render_current_patch()
+                return False
+
         self._patch_queue.append(patch)
         self._current_index = len(self._patch_queue) - 1
         self._render_current_patch()
+        return True
 
-    def update_diff_view(
-        self,
-        title: str,
-        original_text: str | dict[str, Any],
-        modified_text: str | dict[str, Any] | list[Any],
-        patch_type: str = "card",
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
-        """Affiche une proposition et l'ajoute à la file d'attente active."""
-        patch_item = {
-            "title": title,
-            "type": patch_type,
-            "original": original_text,
-            "modified": modified_text,
-            "metadata": metadata or {},
-        }
-        self._patch_queue = [patch_item]
-        self._current_index = 0
-        self._render_current_patch()
+    @staticmethod
+    def _patch_identity(patch: dict[str, Any]) -> str:
+        """Clé d'identité d'une proposition : son patch_id, à défaut une empreinte de son contenu.
+
+        L'empreinte couvre à la fois l'état de départ (`original`) et l'état proposé (`modified`) :
+        deux propositions de même note mais de contenus distincts coexistent donc, quand bien même
+        elles partagent l'un ou l'autre.
+        """
+        patch_id = staged_patch_id(patch)
+        if patch_id:
+            return f"patch:{patch_id}"
+
+        metadata = patch.get("metadata")
+        note_id = patch.get("note_id") or (metadata.get("note_id") if isinstance(metadata, dict) else None)
+        try:
+            fingerprint = json.dumps({"original": patch.get("original"), "modified": patch.get("modified")}, ensure_ascii=False, sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            fingerprint = f"{patch.get('original')}|{patch.get('modified')}"
+        return f"content:{patch.get('type', 'card')}:{note_id}:{fingerprint}"
 
     def _render_current_patch(self) -> None:
         if not self._patch_queue or self._current_index >= len(self._patch_queue):
@@ -540,9 +555,13 @@ class WorkspaceInspectorWidget(QWidget):
         if not self._patch_queue or self._current_index >= len(self._patch_queue):
             return
 
+        if not self._persist_patch(self._patch_queue[self._current_index]):
+            # Conflit de version ou échec : la proposition reste en file pour arbitrage humain.
+            self._render_current_patch()
+            return
+
         patch = self._patch_queue.pop(self._current_index)
         self._last_applied_patch = patch
-        self._persist_patch(patch)
 
         if self._patch_queue:
             self._current_index = min(self._current_index, len(self._patch_queue) - 1)
@@ -609,18 +628,32 @@ class WorkspaceInspectorWidget(QWidget):
             return
 
         self._apply_all_armed = False
+        applied_count = 0
+        failed: list[dict[str, Any]] = []
         with db.atomic():
             for patch in list(self._patch_queue):
-                self._persist_patch(patch)
+                if self._persist_patch(patch):
+                    applied_count += 1
+                else:
+                    failed.append(patch)
+
+        if failed:
+            # Les échecs (conflit de version notamment) restent en file et reprennent la main.
+            self._patch_queue = failed
+            self._current_index = 0
+            self._render_current_patch()
+            if applied_count:
+                self.action_applied.emit(f"{applied_count} modifications appliquées par lot")
+            return
 
         self._patch_queue.clear()
-        self.status_badge.setText(tr("✅ %1 modifications appliquées", count))
+        self.status_badge.setText(tr("✅ %1 modifications appliquées", applied_count))
         self.banner_guard.hide()
         self.queue_bar.hide()
         self.btn_apply.setEnabled(False)
         self.btn_reject.setEnabled(False)
-        show_toast(self, tr("%1 modifications enregistrées avec succès en BDD !", count))
-        self.action_applied.emit(f"{count} modifications appliquées par lot")
+        show_toast(self, tr("%1 modifications enregistrées avec succès en BDD !", applied_count))
+        self.action_applied.emit(f"{applied_count} modifications appliquées par lot")
 
     @Slot()
     def _on_reject_clicked(self) -> None:
@@ -629,6 +662,7 @@ class WorkspaceInspectorWidget(QWidget):
         if not self._patch_queue or self._current_index >= len(self._patch_queue):
             return
 
+        self._mark_patch_rejected(self._patch_queue[self._current_index])
         self._patch_queue.pop(self._current_index)
         if self._patch_queue:
             self._current_index = min(self._current_index, len(self._patch_queue) - 1)
@@ -643,36 +677,106 @@ class WorkspaceInspectorWidget(QWidget):
         show_toast(self, self.tr("Proposition rejetée."))
         self.action_rejected.emit("Proposition rejetée")
 
-    def _persist_patch(self, patch: dict[str, Any]) -> None:
-        """Persiste concrètement un patch en base SQLite."""
+    def _persist_patch(self, patch: dict[str, Any]) -> bool:
+        """Persiste concrètement un patch en base SQLite. Retourne False si rien n'a été appliqué.
+
+        Un patch issu du registre Two-Phase Commit y passe impérativement : c'est ce passage qui
+        bascule son statut à « applied » et qui empêche qu'il resurgisse comme orphelin au
+        prochain rechargement des propositions en attente.
+        """
         from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 
-        p_type = patch.get("type", "card")
-        metadata = patch.get("metadata", {})
-        note_id = patch.get("note_id") or (metadata.get("note_id") if isinstance(metadata, dict) else None)
+        metadata = patch.get("metadata")
+        metadata = metadata if isinstance(metadata, dict) else {}
+        note_id = patch.get("note_id") or metadata.get("note_id")
         if "note_id" not in patch and note_id:
             patch["note_id"] = note_id
+        patch_id = staged_patch_id(patch)
+
+        staged: StagedPatchModel | None = None
+        if patch_id:
+            try:
+                staged = StagedPatchRegistry.get_patch(patch_id)
+            except PeeweeException as err:
+                logger.error("Lecture du patch %s impossible : %s", patch_id, err)
+
+        if staged is not None:
+            if staged.status != "pending":
+                # Déjà tranché ailleurs (outil MCP, autre fenêtre) : plus rien à arbitrer ici.
+                logger.info("Patch %s déjà statué (%s) : retiré de la file.", patch_id, staged.status)
+                return True
+            self._sync_direct_edit(staged, patch)
+            return self._apply_staged_patch(patch_id, patch)
 
         try:
             res_str = ConsultantToolRegistry.apply_patch(patch_json=json.dumps(patch, ensure_ascii=False))
             res = json.loads(res_str)
             if res.get("status") == "applied":
-                if p_type == "css":
-                    model_name = metadata.get("note_type_name", "")
-                    self.action_applied.emit(f"CSS validé pour {model_name or 'modèle'}")
-                elif p_type in ("model", "note_type"):
-                    model_name = patch.get("note_type_name") or metadata.get("note_type_name", "")
-                    self.action_applied.emit(f"Modèle de carte '{model_name}' mis à jour en BDD")
-                elif p_type == "card" and note_id:
-                    self.action_applied.emit(f"Note #{note_id} refactorisée")
-                elif p_type == "split" and note_id:
-                    self.action_applied.emit(f"Note #{note_id} scindée")
-                else:
-                    self.action_applied.emit(res.get("message", "Patch appliqué"))
-            else:
-                logger.error("Erreur apply_patch workspace : %s", res.get("message"))
+                self._announce_applied(patch, res)
+                return True
+            logger.error("Erreur apply_patch workspace : %s", res.get("message"))
         except Exception as e:
             logger.error("Erreur _persist_patch workspace : %s", e)
+        return False
+
+    def _apply_staged_patch(self, patch_id: str, patch: dict[str, Any]) -> bool:
+        """Applique un patch via le registre, qui marque alors sa ligne BDD comme « applied »."""
+        try:
+            result = StagedPatchRegistry.apply_staged_patch(patch_id)
+        except PeeweeException as err:
+            logger.error("Application du patch %s impossible : %s", patch_id, err)
+            return False
+
+        if result.get("status") == "applied":
+            self._announce_applied(patch, result)
+            return True
+
+        # Conflit de version ou erreur de fond : le patch reste en file pour arbitrage humain.
+        logger.warning("Application du patch %s refusée : %s", patch_id, result.get("message"))
+        message = str(result.get("message") or "")
+        if message:
+            show_toast(self, message, is_error=True)
+        return False
+
+    @staticmethod
+    def _sync_direct_edit(staged: StagedPatchModel, patch: dict[str, Any]) -> None:
+        """Réécrit dans le payload persisté les retouches saisies en direct dans l'IHM."""
+        data = staged_payload_of(staged)
+        if not data or data.get("modified") == patch.get("modified"):
+            return
+        staged.diff_payload = json.dumps({**data, "modified": patch.get("modified")}, ensure_ascii=False)
+        staged.save()
+
+    @staticmethod
+    def _mark_patch_rejected(patch: dict[str, Any]) -> None:
+        """Rejette dans le registre le patch associé, s'il y est toujours en attente."""
+        patch_id = staged_patch_id(patch)
+        if not patch_id:
+            return
+        try:
+            staged = StagedPatchRegistry.get_patch(patch_id)
+            if staged and staged.status == "pending":
+                StagedPatchRegistry.reject_staged_patch(patch_id, reason="Rejet utilisateur IHM")
+        except PeeweeException as err:
+            logger.error("Rejet du patch %s impossible : %s", patch_id, err)
+
+    def _announce_applied(self, patch: dict[str, Any], result: dict[str, Any]) -> None:
+        """Émet action_applied avec le libellé adapté au type de patch appliqué."""
+        p_type = patch.get("type", "card")
+        metadata = patch.get("metadata") if isinstance(patch.get("metadata"), dict) else {}
+        note_id = patch.get("note_id") or metadata.get("note_id")
+        if p_type == "css":
+            model_name = metadata.get("note_type_name", "")
+            self.action_applied.emit(f"CSS validé pour {model_name or 'modèle'}")
+        elif p_type in ("model", "note_type"):
+            model_name = patch.get("note_type_name") or metadata.get("note_type_name", "")
+            self.action_applied.emit(f"Modèle de carte '{model_name}' mis à jour en BDD")
+        elif p_type == "card" and note_id:
+            self.action_applied.emit(f"Note #{note_id} refactorisée")
+        elif p_type == "split" and note_id:
+            self.action_applied.emit(f"Note #{note_id} scindée")
+        else:
+            self.action_applied.emit(str(result.get("message") or "Patch appliqué"))
 
     @Slot()
     def _on_copy_patch_clicked(self) -> None:

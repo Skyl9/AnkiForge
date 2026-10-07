@@ -1650,7 +1650,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="+643"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="+573"/>
+        <source>Espace de Travail</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+77"/>
         <source>Session exportée avec succès (%1) !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1669,7 +1674,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+26"/>
         <source>💬 %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1680,7 +1685,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+141"/>
+        <location line="+99"/>
+        <source>Proposition de modification</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+101"/>
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+169"/>
         <source>&quot;%1&quot;</source>
         <translation type="unfinished"></translation>
@@ -1701,7 +1711,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+417"/>
+        <location line="+409"/>
         <source>⏳ %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1837,7 +1847,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+44"/>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+595"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+614"/>
         <source>Erreur d&apos;annulation : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1877,12 +1887,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-506"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-523"/>
         <source>En veille</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+266"/>
+        <location line="+279"/>
         <source>🛡️ En attente (%1/%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1897,12 +1907,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+246"/>
+        <location line="+250"/>
         <source>⚠️ Confirmer (%1) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+25"/>
         <source>✅ %1 modifications appliquées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6737,7 +6747,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ConsultantView</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1221"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1281"/>
         <source>Afficher/Masquer l&apos;historique des discussions</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6775,31 +6785,31 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+37"/>
         <location line="+1"/>
         <location line="+1"/>
-        <location line="+418"/>
+        <location line="+486"/>
         <location line="+357"/>
         <source>0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-730"/>
-        <location line="+190"/>
+        <location line="-792"/>
+        <location line="+193"/>
         <source>Discussion renommée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-178"/>
-        <location line="+203"/>
+        <location line="-181"/>
+        <location line="+206"/>
         <source>Discussion supprimée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-197"/>
+        <location line="-200"/>
         <source>Aucune session active à exporter.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+29"/>
-        <location line="+152"/>
+        <location line="+155"/>
         <source>Discussion copiée dans le presse-papier en Markdown !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6829,12 +6839,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+68"/>
+        <location line="+69"/>
         <source>Action annulée en BDD.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="+86"/>
         <source>Élément retiré du contexte.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6929,7 +6939,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+164"/>
+        <location line="+141"/>
         <source>Génération interrompue.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7074,7 +7084,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ContextPillBadge</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1510"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1555"/>
         <source>Cliquer pour retirer du contexte</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14276,7 +14286,7 @@ https://blog.example.com/article-1</source>
 <context>
     <name>WorkspaceInspectorWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-538"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-569"/>
         <source>WORKSPACE &amp; GARDE-FOU</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14307,12 +14317,12 @@ https://blog.example.com/article-1</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+238"/>
+        <location line="+251"/>
         <source>Appliquer toutes les modifications validées en base de données</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-212"/>
+        <location line="-225"/>
         <source>&lt;b&gt;Garde-Fou actif :&lt;/b&gt; Validez ou éditez ci-dessous avant d&apos;enregistrer en BDD.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14367,7 +14377,7 @@ https://blog.example.com/article-1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+250"/>
+        <location line="+267"/>
         <source>✅ Appliqué en BDD</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14387,7 +14397,7 @@ https://blog.example.com/article-1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+44"/>
         <source>❌ Proposition rejetée</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14397,7 +14407,7 @@ https://blog.example.com/article-1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+42"/>
+        <location line="+112"/>
         <source>Patch copié dans le presse-papiers !</source>
         <translation type="unfinished"></translation>
     </message>

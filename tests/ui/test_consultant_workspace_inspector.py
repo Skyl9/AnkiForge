@@ -44,12 +44,14 @@ def test_workspace_inspector_update_diff_and_apply_garde_fou(qtbot):
     qtbot.addWidget(widget)
 
     # 1. Mise à jour de la vue diff avec Garde-Fou
-    widget.update_diff_view(
-        title="Refactor Note",
-        original_text='{"Front": "Old text"}',
-        modified_text='{"Front": "New refactored text"}',
-        patch_type="card",
-        metadata={"note_id": note.id},
+    widget.add_patch_to_queue(
+        {
+            "title": "Refactor Note",
+            "type": "card",
+            "original": '{"Front": "Old text"}',
+            "modified": '{"Front": "New refactored text"}',
+            "metadata": {"note_id": note.id},
+        }
     )
 
     assert "En attente" in widget.status_badge.text()
@@ -78,12 +80,14 @@ def test_workspace_inspector_direct_edit(qtbot):
     widget = WorkspaceInspectorWidget()
     qtbot.addWidget(widget)
 
-    widget.update_diff_view(
-        title="Refactor Note",
-        original_text={"Front": "Old text"},
-        modified_text={"Front": "AI text"},
-        patch_type="card",
-        metadata={"note_id": note.id},
+    widget.add_patch_to_queue(
+        {
+            "title": "Refactor Note",
+            "type": "card",
+            "original": {"Front": "Old text"},
+            "modified": {"Front": "AI text"},
+            "metadata": {"note_id": note.id},
+        }
     )
 
     # Modification directe par l'utilisateur
@@ -174,12 +178,14 @@ def test_workspace_inspector_revert(qtbot):
     widget = WorkspaceInspectorWidget()
     qtbot.addWidget(widget)
 
-    widget.update_diff_view(
-        title="Refactor Note Revert",
-        original_text='{"Front": "Original Workspace"}',
-        modified_text='{"Front": "Modified Workspace"}',
-        patch_type="card",
-        metadata={"note_id": note.id},
+    widget.add_patch_to_queue(
+        {
+            "title": "Refactor Note Revert",
+            "type": "card",
+            "original": '{"Front": "Original Workspace"}',
+            "modified": '{"Front": "Modified Workspace"}',
+            "metadata": {"note_id": note.id},
+        }
     )
 
     with qtbot.waitSignal(widget.action_applied, timeout=1000):
@@ -212,12 +218,14 @@ def test_workspace_inspector_card_preview_tab(qtbot):
 
     assert hasattr(widget, "card_preview")
 
-    widget.update_diff_view(
-        title="Preview Test",
-        original_text='{"Front": "Q Old"}',
-        modified_text='{"Front": "Q New", "Back": "A New"}',
-        patch_type="card",
-        metadata={"note_id": note.id},
+    widget.add_patch_to_queue(
+        {
+            "title": "Preview Test",
+            "type": "card",
+            "original": '{"Front": "Q Old"}',
+            "modified": '{"Front": "Q New", "Back": "A New"}',
+            "metadata": {"note_id": note.id},
+        }
     )
 
     assert widget.card_preview.current_fields.get("Front") == "Q New"
