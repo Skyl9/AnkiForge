@@ -1246,12 +1246,32 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+66"/>
+        <location line="+51"/>
         <source>--</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+296"/>
+        <location line="+51"/>
+        <source>Documents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Couverture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sections orphelines</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Cartes forgées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+286"/>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
@@ -7964,7 +7984,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentInspectorPanel</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1533"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1562"/>
         <source>Retourner à la liste générale des documents</source>
         <translation type="unfinished"></translation>
     </message>

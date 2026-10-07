@@ -1311,6 +1311,60 @@ class DocumentInspectorPanel(QWidget):
         show_toast(self, tr("✅ %1 fiches Anki synchronisées via les tags ! Couverture : %2%%", matched, f"{cov_pct:.0f}"))
 
 
+def _make_kpi_stat(icon_name: str, icon_color: str, title: str) -> tuple[QFrame, QLabel]:
+    """Bloc de statistique passive de la barre KPI de l'onglet Documents.
+
+    Une métrique n'est pas une commande : contrairement aux ``FilterChipButton`` de la
+    barre de filtres voisine, elle ne pilote aucun critère. Le bloc retire donc tout ce
+    qui promet un clic — bordure et fond de capsule, état ``:hover``, curseur de main —
+    et hiérarchise plutôt la lecture : libellé discret en ``text_muted``, coiffé d'une
+    icône Phosphor teintée, valeur en gras surdimensionnée à la couleur sémantique.
+
+    Les corps sont déclarés **dans la feuille du widget** et jamais par ``setFont()`` :
+    la feuille globale de ``StyleEngine`` impose ``QWidget { font-size }`` à tout le
+    reste de l'application, et un style de feuille l'emporte sur la police posée par
+    ``setFont()`` — les points demandés là seraient donc silencieusement remplacés par
+    le corps de base, ne laissant survivre que le gras.
+
+    Args:
+        icon_name: Clé d'icône Phosphor (ex. ``ph.files``).
+        icon_color: Couleur sémantique de l'icône *et* de la valeur.
+        title: Libellé de la métrique, déjà traduit par l'appelant.
+
+    Returns:
+        tuple[QFrame, QLabel]: Le bloc, et son compteur à actualiser au rafraîchissement.
+    """
+    stat = QFrame()
+    stat.setObjectName("kpiStat")
+    stat.setCursor(Qt.CursorShape.ArrowCursor)
+    stat.setStyleSheet("""
+        QFrame#kpiStat {
+            background: transparent;
+            border: none;
+        }
+    """)
+    s_lay = QVBoxLayout(stat)
+    s_lay.setContentsMargins(4, 4, 4, 4)
+    s_lay.setSpacing(3)
+
+    head = QHBoxLayout()
+    head.setSpacing(6)
+    ico = QLabel()
+    ico.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(14, 14))
+    ico.setStyleSheet("border: none; background: transparent;")
+    lbl_t = QLabel(title)
+    lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: {DesignTokens.FONT_SIZE_SM}px; border: none; background: transparent;")
+    head.addWidget(ico)
+    head.addWidget(lbl_t)
+    head.addStretch()
+    s_lay.addLayout(head)
+
+    lbl_v = QLabel(tr("--"))
+    lbl_v.setStyleSheet(f"color: {icon_color}; font-size: {DesignTokens.FONT_SIZE_BASE + 3}px; font-weight: bold; border: none; background: transparent;")
+    s_lay.addWidget(lbl_v)
+    return stat, lbl_v
+
+
 class AISourcesDiagnosticTab(QWidget):
     """Onglet de diagnostic et santé des documents : synthèse globale et inspection détaillée."""
 
@@ -1343,7 +1397,7 @@ class AISourcesDiagnosticTab(QWidget):
         inspector_layout.setContentsMargins(0, 0, 0, 0)
         self.stack.addWidget(self.page_inspector)
 
-        # 1. Barre de KPIs globaux de la Forge
+        # 1. Barre de KPIs globaux de la Forge : des métriques passives, jamais des commandes
         kpi_header = QFrame()
         kpi_header.setStyleSheet(f"""
             QFrame {{
@@ -1356,41 +1410,16 @@ class AISourcesDiagnosticTab(QWidget):
         kpi_layout.setContentsMargins(12, 8, 12, 8)
         kpi_layout.setSpacing(12)
 
-        def _make_kpi_chip(icon_name: str, icon_color: str, title: str):
-            chip = QFrame()
-            chip.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {DesignTokens.BG_MAIN};
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                }}
-            """)
-            c_lay = QHBoxLayout(chip)
-            c_lay.setContentsMargins(10, 5, 10, 5)
-            c_lay.setSpacing(8)
-            ico = QLabel()
-            ico.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(16, 16))
-            ico.setStyleSheet("border: none; background: transparent;")
-            lbl_t = QLabel(title)
-            lbl_t.setFont(QFont(DesignTokens.FONT_MAIN, 10))
-            lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
-            lbl_v = QLabel(tr("--"))
-            lbl_v.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-            lbl_v.setStyleSheet(f"color: {icon_color}; border: none; background: transparent;")
-            c_lay.addWidget(ico)
-            c_lay.addWidget(lbl_t)
-            c_lay.addWidget(lbl_v)
-            return chip, lbl_v
+        stat_docs, self.lbl_kpi_docs_val = _make_kpi_stat("ph.files", DesignTokens.COLOR_BLUE, tr("Documents"))
+        stat_cov, self.lbl_kpi_coverage_val = _make_kpi_stat("ph.target", DesignTokens.COLOR_GREEN, tr("Couverture"))
+        stat_orphans, self.lbl_kpi_orphans_val = _make_kpi_stat("ph.warning-circle", DesignTokens.COLOR_YELLOW, tr("Sections orphelines"))
+        stat_cards, self.lbl_kpi_cards_val = _make_kpi_stat("ph.lightning", DesignTokens.COLOR_PURPLE, tr("Cartes forgées"))
+        # Les blocs restent appariés aux compteurs ci-dessus, dans le même ordre : c'est
+        # cette correspondance que reconstitue `tests/ui/test_sources_kpi_affordance.py`.
+        self.kpi_stats: list[QFrame] = [stat_docs, stat_cov, stat_orphans, stat_cards]
 
-        chip_docs, self.lbl_kpi_docs_val = _make_kpi_chip("ph.files", DesignTokens.COLOR_BLUE, "Documents")
-        chip_cov, self.lbl_kpi_coverage_val = _make_kpi_chip("ph.target", DesignTokens.COLOR_GREEN, "Couverture")
-        chip_orphans, self.lbl_kpi_orphans_val = _make_kpi_chip("ph.warning-circle", DesignTokens.COLOR_YELLOW, "Sections orphelines")
-        chip_cards, self.lbl_kpi_cards_val = _make_kpi_chip("ph.lightning", DesignTokens.COLOR_PURPLE, "Cartes forgées")
-
-        kpi_layout.addWidget(chip_docs)
-        kpi_layout.addWidget(chip_cov)
-        kpi_layout.addWidget(chip_orphans)
-        kpi_layout.addWidget(chip_cards)
+        for stat in self.kpi_stats:
+            kpi_layout.addWidget(stat)
         kpi_layout.addStretch()
 
         grid_page_layout.addWidget(kpi_header)
