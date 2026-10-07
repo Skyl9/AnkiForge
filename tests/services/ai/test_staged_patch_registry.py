@@ -162,6 +162,37 @@ def test_reject_staged_patch(sample_data):
     assert active_v.id == v1.id
 
 
+def test_list_pending_exposes_only_pending_patches(sample_data):
+    """list_pending() n'expose que les patchs encore en attente, du plus ancien au plus récent."""
+    note = sample_data["note"]
+    v1 = sample_data["v1"]
+
+    def _create(modified):
+        return StagedPatchRegistry.create_patch(
+            patch_type="card",
+            target_id=note.id,
+            original_version_id=v1.id,
+            diff_payload={
+                "original": {"Front": "Capitale de la France ?", "Back": "Lyon"},
+                "modified": modified,
+            },
+        )
+
+    first = _create({"Back": "Paris"})
+    second = _create({"Back": "Marseille"})
+    applied = _create({"Back": "Nantes"})
+    rejected = _create({"Back": "Lille"})
+
+    StagedPatchRegistry.apply_staged_patch(applied.patch_id)
+    StagedPatchRegistry.reject_staged_patch(rejected.patch_id, reason="Proposition erronée")
+
+    pending_ids = [p.patch_id for p in StagedPatchRegistry.list_pending()]
+
+    assert pending_ids == [first.patch_id, second.patch_id]
+    assert applied.patch_id not in pending_ids
+    assert rejected.patch_id not in pending_ids
+
+
 def test_mcp_preview_and_apply_patch_tool(sample_data):
     """Vérifie l'exposition et l'exécution de preview_and_apply_patch via l'interface MCP."""
     import asyncio

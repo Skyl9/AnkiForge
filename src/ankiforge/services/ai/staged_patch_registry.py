@@ -21,6 +21,35 @@ from ankiforge.database.models import (
 logger = logging.getLogger(__name__)
 
 
+def staged_patch_id(payload: dict[str, Any]) -> str | None:
+    """Identifiant Two-Phase Commit d'une proposition : champ de tête, sinon `metadata.patch_id`.
+
+    C'est la clé d'identité utilisée aussi bien pour recharger un patch depuis la BDD que pour
+    éviter de l'empiler deux fois dans la file du Workspace Inspector.
+    """
+    metadata = payload.get("metadata")
+    candidate = payload.get("patch_id") or (metadata.get("patch_id") if isinstance(metadata, dict) else None)
+    return str(candidate) if candidate else None
+
+
+def staged_payload_of(staged: StagedPatchModel) -> dict[str, Any]:
+    """Décode le `diff_payload` d'un patch (JSON ou dict déjà décodé).
+
+    Renvoie un dictionnaire vide si le payload est illisible ou inattendu : l'anomalie est
+    journalisée en WARNING et laissée au consommateur le décider (ignorer un patch inutilisable
+    vaut mieux que lui présenter — ou lui appliquer — un contenu tronqué).
+    """
+    try:
+        data = json.loads(staged.diff_payload) if isinstance(staged.diff_payload, str) else staged.diff_payload
+    except Exception as err:
+        logger.warning("Payload illisible du patch %s : %s", staged.patch_id, err)
+        return {}
+    if not isinstance(data, dict):
+        logger.warning("Payload inattendu du patch %s (type %s) : ignoré.", staged.patch_id, type(data).__name__)
+        return {}
+    return data
+
+
 class StagedPatchRegistry:
     """Gère le cycle de vie des propositions de patchs chirurgicaux avec verrouillage optimiste."""
 
@@ -63,6 +92,15 @@ class StagedPatchRegistry:
     def get_patch(cls, patch_id: str) -> StagedPatchModel | None:
         """Récupère un patch par son identifiant unique."""
         return StagedPatchModel.get_or_none(StagedPatchModel.patch_id == patch_id.strip())
+
+    @classmethod
+    def list_pending(cls) -> list[StagedPatchModel]:
+        """Liste les patchs encore en attente de validation humaine, du plus ancien au plus récent.
+
+        Sert à recharger la file du Workspace Inspector à l'ouverture d'une session ou de la vue,
+        afin qu'une proposition non tranchée ne devienne pas un orphelin après redémarrage.
+        """
+        return list(StagedPatchModel.select().where(StagedPatchModel.status == "pending").order_by(StagedPatchModel.created_at.asc(), StagedPatchModel.id.asc()))
 
     @classmethod
     def apply_staged_patch(cls, patch_id: str) -> dict[str, Any]:
