@@ -3,6 +3,7 @@ import logging
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
+from shiboken6 import isValid
 
 from ankiforge.database.models import IgnoredDuplicateModel, NoteVersionModel, db
 from ankiforge.services.workers.duplicate_worker import DuplicateWorker
@@ -13,6 +14,43 @@ from ankiforge.utils.i18n import tr
 
 logger = logging.getLogger(__name__)
 
+# Délai maximal (ms) d'attente du thread d'analyse lors du masquage ou de la destruction de l'onglet.
+_WORKER_JOIN_TIMEOUT_MS = 5000
+
+
+def _live_worker(worker_holder: list[DuplicateWorker | None]) -> DuplicateWorker | None:
+    """Écarte un pointeur fantôme et renvoie le worker encore vivant.
+
+    Après ``deleteLater()``, le conteneur peut viser un objet C++ déjà détruit :
+    appeler ``isRunning()`` dessus lève alors ``RuntimeError: libshiboken:
+    Internal C++ object already deleted``.
+    """
+    worker = worker_holder[0]
+    if worker is None:
+        return None
+    if not isValid(worker):
+        logger.debug("Worker d'analyse des doublons déjà détruit : pointeur réinitialisé.")
+        worker_holder[0] = None
+        return None
+    return worker
+
+
+def _join_worker(worker_holder: list[DuplicateWorker | None]) -> None:
+    """Attend (au plus ``_WORKER_JOIN_TIMEOUT_MS``) la fin du thread d'analyse.
+
+    Ni le masquage ni la destruction de l'onglet ne doivent détruire un
+    ``QThread`` encore actif (« QThread: Destroyed while thread is still running »).
+    """
+    worker = _live_worker(worker_holder)
+    if worker is None or not worker.isRunning():
+        return
+    if not worker.wait(_WORKER_JOIN_TIMEOUT_MS):
+        logger.warning(
+            "Le scan des doublons du paquet ID=%d n'a pas terminé dans les %d ms : il se poursuit en arrière-plan.",
+            worker.deck_id,
+            _WORKER_JOIN_TIMEOUT_MS,
+        )
+
 
 class AIDuplicatesMergeTab(QWidget):
     """Onglet de gestion des fusions et faux doublons."""
@@ -21,7 +59,12 @@ class AIDuplicatesMergeTab(QWidget):
         super().__init__(parent)
         self.selected_deck_id: int = -1
         self.conflicts: list = []
-        self.worker: DuplicateWorker | None = None
+        # Conteneur mutable partagé avec le raccourci de `destroyed` : un slot lié à
+        # `self` n'est pas appelé pendant `~QObject`, un lambda qui ne capture que ce
+        # conteneur l'est, et il peut encore joindre le thread enfant avant sa destruction.
+        worker_holder: list[DuplicateWorker | None] = [None]
+        self._worker_holder = worker_holder
+        self.destroyed.connect(self._on_destroyed)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -53,6 +96,19 @@ class AIDuplicatesMergeTab(QWidget):
         self.merge_inspector.merge_requested.connect(self.on_merge_requested)
         self.merge_inspector.ignore_requested.connect(self.on_ignore_requested)
 
+    @property
+    def worker(self) -> DuplicateWorker | None:
+        """Thread du scan en cours, ou ``None`` hors analyse."""
+        return self._worker_holder[0]
+
+    @worker.setter
+    def worker(self, worker: DuplicateWorker | None) -> None:
+        self._worker_holder[0] = worker
+
+    def _on_destroyed(self, *_args: object) -> None:
+        """Joint le thread encore actif au moment de la destruction du widget."""
+        _join_worker(self._worker_holder)
+
     def open_deck_select_dialog(self) -> None:
         self._deck_dialog = DeckSelectWindow(parent=self, selected_deck_id=self.selected_deck_id)
         self._deck_dialog.deck_selected.connect(self._on_deck_selected)
@@ -70,7 +126,7 @@ class AIDuplicatesMergeTab(QWidget):
         self.run_duplicate_scan()
 
     def run_duplicate_scan(self) -> None:
-        if self.worker is not None and self.worker.isRunning():
+        if self._scan_already_running():
             return
 
         if self.selected_deck_id is None:
@@ -80,13 +136,32 @@ class AIDuplicatesMergeTab(QWidget):
         self.matrix_table.btn_reanalyze.setText(self.tr("Recherche..."))
         self.matrix_table.table.setRowCount(0)
 
-        self.worker = DuplicateWorker(deck_id=self.selected_deck_id, parent=self)
-        self.worker.finished_processing.connect(self.on_scan_finished)
-        self.worker.error_occurred.connect(self.on_scan_error)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.worker.start()
+        worker = DuplicateWorker(deck_id=self.selected_deck_id, parent=self)
+        worker.finished_processing.connect(self.on_scan_finished)
+        worker.error_occurred.connect(self.on_scan_error)
+        worker.finished.connect(self._release_worker_reference)
+        worker.finished.connect(worker.deleteLater)
+        self.worker = worker
+        worker.start()
+
+    def _scan_already_running(self) -> bool:
+        """Vrai si un scan est déjà en cours (le pointeur fantôme d'un scan fini est écarté)."""
+        worker = _live_worker(self._worker_holder)
+        return worker is not None and worker.isRunning()
+
+    def _release_worker_reference(self) -> None:
+        """Remet ``self.worker`` à ``None`` à la fin d'un scan.
+
+        Un signal émis par un scan déjà remplacé ne doit pas invalider le
+        pointeur vers le worker en cours, d'où la garde sur l'émetteur.
+        """
+        sender = self.sender()
+        if sender is not None and sender is not self.worker:
+            return
+        self.worker = None
 
     def on_scan_finished(self, conflicts: list) -> None:
+        self._release_worker_reference()
         self.matrix_table.btn_reanalyze.setEnabled(True)
         self.matrix_table.btn_reanalyze.setText(self.tr("Relancer l'analyse"))
         self.conflicts = conflicts
@@ -118,6 +193,7 @@ class AIDuplicatesMergeTab(QWidget):
         self.matrix_table.badge_count.setText(tr("%1 %2", count, label))
 
     def on_scan_error(self, err: str) -> None:
+        self._release_worker_reference()
         self.matrix_table.btn_reanalyze.setEnabled(True)
         self.matrix_table.btn_reanalyze.setText(self.tr("Relancer l'analyse"))
         logger.error("Erreur lors du scan des doublons : %s", err)
@@ -194,7 +270,8 @@ class AIDuplicatesMergeTab(QWidget):
             self.matrix_table.empty_state.setVisible(remaining == 0)
 
     def hideEvent(self, event: object) -> None:
-        """Décharge les ressources WebEngine lorsque l'onglet est masqué."""
+        """Attend la fin du scan puis décharge les ressources WebEngine lorsque l'onglet est masqué."""
+        _join_worker(self._worker_holder)
         if hasattr(self, "merge_inspector"):
             self.merge_inspector.cleanup()
         super().hideEvent(event)
