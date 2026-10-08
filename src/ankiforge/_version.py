@@ -2,7 +2,7 @@
 Ne pas modifier manuellement.
 """
 
-VERSION: str = "1.1.5"
-COMMIT_HASH: str = "ea88109d"
-BUILD_DATE: str = "2026-09-09T14:12:51Z"
+VERSION: str = "1.3.0"
+COMMIT_HASH: str = "0c1da5e4"
+BUILD_DATE: str = "2026-10-05T13:12:00Z"
 BUILD_CHANNEL: str = "stable"
