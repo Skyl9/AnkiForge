@@ -744,3 +744,110 @@ def test_card_models_13inch_responsive_layout_and_flow_widget(qtbot, mock_db):
     # 3. Vérification des Snippet Cards sans débordement horizontal
     drawer = view.snippet_drawer
     assert drawer.category_container.flow_layout.count() > 0
+
+
+def test_card_models_role_guide_button_presence_and_properties(qtbot, mock_db):
+    """Vérifie la présence et le style du bouton 'Guide des rôles' dans CardModelsView."""
+    view = CardModelsView()
+    qtbot.addWidget(view)
+
+    assert hasattr(view, "btn_role_guide")
+    assert view.btn_role_guide.text() == "Guide des rôles"
+    assert view.btn_role_guide.height() == 26
+
+
+def test_card_models_role_guide_apply_to_description(qtbot, mock_db):
+    """Vérifie l'injection de la directive IA depuis le dialogue dans le champ description_input."""
+    uid = uuid.uuid4().hex[:6]
+    NoteTypeModel.create(
+        name=f"Modèle Test Rôle {uid}",
+        fields_schema=json.dumps(["Front", "Back"]),
+        templates=json.dumps([{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style=".card {}",
+        description="",
+    )
+
+    view = CardModelsView()
+    qtbot.addWidget(view)
+
+    test_directive = "Gabarit pour questions médicales à choix multiples (QCM)."
+
+    with patch("ankiforge.ui.views.card_models_view.view.NoteTypeRoleGuideDialog") as mock_dialog_cls:
+        mock_dlg = mock_dialog_cls.return_value
+        mock_dlg.exec.return_value = 1  # QDialog.DialogCode.Accepted
+        mock_dlg.selected_directive = test_directive
+        mock_dlg.selected_archetype_name = "QCM & Cas pratiques"
+
+        view._on_open_role_guide()
+
+    assert view.description_input.text() == test_directive
+
+
+def test_card_models_role_guide_overwrite_confirmation(qtbot, mock_db):
+    """Vérifie que le remplacement d'une directive existante demande confirmation."""
+    view = CardModelsView()
+    qtbot.addWidget(view)
+
+    view.description_input.setText("Ancienne directive personnalisée")
+    new_directive = "Nouvelle directive archétypale"
+
+    with (
+        patch("ankiforge.ui.views.card_models_view.view.NoteTypeRoleGuideDialog") as mock_dialog_cls,
+        patch("ankiforge.ui.views.card_models_view.view.QMessageBox.question", return_value=QMessageBox.StandardButton.No) as mock_msg,
+    ):
+        mock_dlg = mock_dialog_cls.return_value
+        mock_dlg.exec.return_value = 1
+        mock_dlg.selected_directive = new_directive
+        mock_dlg.selected_archetype_name = "Dev & Code"
+
+        view._on_open_role_guide()
+
+        assert mock_msg.called
+        # Refusé : texte conservé
+        assert view.description_input.text() == "Ancienne directive personnalisée"
+
+    with (
+        patch("ankiforge.ui.views.card_models_view.view.NoteTypeRoleGuideDialog") as mock_dialog_cls,
+        patch("ankiforge.ui.views.card_models_view.view.QMessageBox.question", return_value=QMessageBox.StandardButton.Yes),
+    ):
+        mock_dlg = mock_dialog_cls.return_value
+        mock_dlg.exec.return_value = 1
+        mock_dlg.selected_directive = new_directive
+        mock_dlg.selected_archetype_name = "Dev & Code"
+
+        view._on_open_role_guide()
+
+        # Accepté : texte remplacé
+        assert view.description_input.text() == new_directive
+
+
+def test_card_models_table_viewer_button_and_badge(qtbot, mock_db):
+    """Vérifie la détection dynamique de tableau Markdown et l'ouverture du visualiseur."""
+    view = CardModelsView()
+    qtbot.addWidget(view)
+
+    assert hasattr(view, "btn_view_table")
+    assert view.btn_view_table.text() == "Voir le tableau"
+    assert view.btn_view_table.height() == 26
+
+    assert hasattr(view, "badge_role_table")
+    # Texte standard : pas de badge
+    view.description_input.setText("Directive texte simple")
+    assert view.badge_role_table.isHidden() is True
+
+    # Tableau Markdown : le badge s'affiche automatiquement
+    sample_table = "| Concept | Directive | Champs |\n|---|---|---|\n| Test | Faire X | Front |"
+    view.description_input.setText(sample_table)
+    assert view.badge_role_table.isHidden() is False
+
+    # Test de l'ouverture et mise à jour via le visualiseur
+    updated_table = "| Concept | Directive | Champs |\n|---|---|---|\n| Modif | Faire Y | Front, Back |"
+    with patch("ankiforge.ui.views.card_models_view.view.MarkdownTableViewerDialog") as mock_viewer_cls:
+        mock_viewer = mock_viewer_cls.return_value
+        mock_viewer.exec.return_value = 1  # Accepted
+        mock_viewer.result_markdown = updated_table
+
+        view._on_open_table_viewer()
+
+    assert view.description_input.text() == updated_table
+    assert view.badge_role_table.isHidden() is False
