@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from mcp.server.mcpserver import MCPServer
 
-from ankiforge.database.models import LLMConfigModel, db
+from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, db
 from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
@@ -184,9 +184,253 @@ def get_deck_stats(deck_name: str) -> str:
 
 
 @mcp.tool()
-def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 20, offset: int = 0) -> str:
-    """Récupère une liste de cartes filtrée par nom de paquet ou par tag avec pagination."""
-    return ConsultantToolRegistry.get_cards_by_deck_or_tag(deck_name, tag, limit=limit, offset=offset)
+def get_cards_by_deck_or_tag(
+    deck_name: str = "",
+    tag: str = "",
+    limit: int = 20,
+    offset: int = 0,
+    note_type_name: str = "",
+    include_subdecks: bool = True,
+) -> str:
+    """Récupère une liste de cartes filtrée par nom de paquet (avec sous-paquets optionnels), tag ou type de note avec pagination."""
+    return ConsultantToolRegistry.get_cards_by_deck_or_tag(
+        deck_name=deck_name,
+        tag=tag,
+        limit=limit,
+        offset=offset,
+        note_type_name=note_type_name,
+        include_subdecks=include_subdecks,
+    )
+
+
+@mcp.tool()
+def get_notes_by_model(
+    note_type_name: str,
+    include_subdecks: bool = True,
+    deck_name: str = "",
+    limit: int = 20,
+    offset: int = 0,
+) -> str:
+    """Liste les notes rattachées à un type de note spécifique, avec descente optionnelle dans les sous-paquets et pagination."""
+    return ConsultantToolRegistry.get_cards_by_deck_or_tag(
+        deck_name=deck_name,
+        limit=limit,
+        offset=offset,
+        note_type_name=note_type_name,
+        include_subdecks=include_subdecks,
+    )
+
+
+@mcp.tool()
+def create_note_type(
+    name: str,
+    fields_json: str,
+    templates_json: str,
+    css: str = "",
+    description: str = "",
+    on_conflict: str = "error",
+) -> str:
+    """Propose la création d'un type de note complet via un StagedPatch (Two-Phase Commit). Rien n'est écrit directement en BDD."""
+    try:
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+        from ankiforge.services.cards.note_type_service import NoteTypeService
+
+        name_clean = name.strip()
+        if not name_clean:
+            return json.dumps({"status": "error", "message": "Le nom du type de note ne peut pas être vide."}, ensure_ascii=False)
+
+        try:
+            fields = json.loads(fields_json) if isinstance(fields_json, str) else fields_json
+            if not isinstance(fields, list):
+                return json.dumps({"status": "error", "message": "fields_json doit être une liste JSON de noms de champs."}, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({"status": "error", "message": f"fields_json invalide : {e}"}, ensure_ascii=False)
+
+        try:
+            templates = json.loads(templates_json) if isinstance(templates_json, str) else templates_json
+            if not isinstance(templates, list):
+                return json.dumps({"status": "error", "message": "templates_json doit être une liste JSON de gabarits."}, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({"status": "error", "message": f"templates_json invalide : {e}"}, ensure_ascii=False)
+
+        model_dict = {
+            "name": name_clean,
+            "fields_schema": fields,
+            "templates": templates,
+            "css_style": css,
+            "description": description,
+            "on_conflict": on_conflict,
+        }
+
+        is_valid, errors = NoteTypeService.validate_structure(model_dict)
+        if not is_valid:
+            return json.dumps({"status": "error", "message": f"Validation échouée : {'; '.join(errors)}", "errors": errors}, ensure_ascii=False)
+
+        if on_conflict == "error" and NoteTypeModel.get_or_none(NoteTypeModel.name == name_clean):
+            return json.dumps({"status": "error", "message": f"Un type de note portant le nom '{name_clean}' existe déjà."}, ensure_ascii=False)
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="note_type_create",
+            diff_payload={
+                "type": "note_type_create",
+                "name": name_clean,
+                "fields_schema": fields,
+                "templates": templates,
+                "css_style": css,
+                "description": description,
+                "on_conflict": on_conflict,
+                "title": f"Proposition de Création de Type de Note — '{name_clean}'",
+                "explanation": f"Création du type de note '{name_clean}' avec {len(fields)} champs et {len(templates)} gabarits.",
+            },
+        )
+
+        return json.dumps(
+            {
+                "status": "staged_diff",
+                "patch_id": patch.patch_id,
+                "type": "note_type_create",
+                "name": name_clean,
+                "fields_schema": fields,
+                "templates_count": len(templates),
+                "message": f"Proposition de création du type de note '{name_clean}' enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    except Exception as e:
+        logger.error("Erreur create_note_type : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors de la préparation de création du type de note : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def change_note_type(
+    note_ids_json: str,
+    target_model: str,
+    mapping_champs_json: str = "",
+) -> str:
+    """Propose la migration d'un lot de notes vers un autre type de note via un StagedPatch (Two-Phase Commit)."""
+    try:
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+        from ankiforge.services.cards.note_type_service import NoteTypeService
+
+        try:
+            if isinstance(note_ids_json, list):
+                note_ids = [int(x) for x in note_ids_json]
+            else:
+                raw_parsed = json.loads(note_ids_json)
+                note_ids = [int(x) for x in raw_parsed] if isinstance(raw_parsed, list) else [int(raw_parsed)]
+        except Exception:
+            try:
+                note_ids = [int(x.strip()) for x in str(note_ids_json).replace("[", "").replace("]", "").split(",") if x.strip()]
+            except Exception as e:
+                return json.dumps({"status": "error", "message": f"Format invalide pour note_ids_json : {e}"}, ensure_ascii=False)
+
+        if not note_ids:
+            return json.dumps({"status": "error", "message": "Aucun identifiant de note valide fourni."}, ensure_ascii=False)
+
+        try:
+            target_nt = NoteTypeService.resolve_target_model(target_model)
+        except Exception as e:
+            return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+        mapping_champs = None
+        if mapping_champs_json:
+            try:
+                mapping_champs = json.loads(mapping_champs_json) if isinstance(mapping_champs_json, str) else mapping_champs_json
+            except Exception as e:
+                return json.dumps({"status": "error", "message": f"mapping_champs_json invalide : {e}"}, ensure_ascii=False)
+
+        warnings = []
+        target_tmpls_count = len(json.loads(target_nt.templates)) if target_nt.templates else 0
+        warned_sources = set()
+        for nid in note_ids:
+            n = NoteModel.get_or_none(NoteModel.id == nid)
+            if not n:
+                return json.dumps({"status": "error", "message": f"Note #{nid} introuvable en base."}, ensure_ascii=False)
+            if n.note_type and n.note_type.id not in warned_sources:
+                warned_sources.add(n.note_type.id)
+                s_tmpls_count = len(json.loads(n.note_type.templates)) if n.note_type.templates else 0
+                if s_tmpls_count != target_tmpls_count:
+                    warnings.append(f"Le modèle source '{n.note_type.name}' possède {s_tmpls_count} gabarit(s) vs {target_tmpls_count} pour '{target_nt.name}'.")
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="note_type_change",
+            diff_payload={
+                "type": "note_type_change",
+                "note_ids": note_ids,
+                "target_model": target_nt.name,
+                "target_model_id": target_nt.id,
+                "mapping_champs": mapping_champs,
+                "warnings": warnings,
+                "title": f"Proposition de Migration de {len(note_ids)} note(s) vers '{target_nt.name}'",
+                "explanation": f"Migration atomique de {len(note_ids)} note(s) vers le type de note '{target_nt.name}'.",
+            },
+        )
+
+        return json.dumps(
+            {
+                "status": "staged_diff",
+                "patch_id": patch.patch_id,
+                "type": "note_type_change",
+                "count": len(note_ids),
+                "target_model": target_nt.name,
+                "warnings": warnings,
+                "message": f"Proposition de migration de {len(note_ids)} note(s) vers '{target_nt.name}' enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    except Exception as e:
+        logger.error("Erreur change_note_type : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors de la préparation de migration : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def audit_note_type_conformity(
+    note_type_name: str,
+    regles: str = "",
+    limit: int = 50,
+    offset: int = 0,
+) -> str:
+    """Audite la conformité structurelle d'un type de note (champs vides, HTML inline, son hors audio, doublons, gabarits) de manière 100% déterministe."""
+    try:
+        from ankiforge.services.cards.note_type_service import NoteTypeService
+
+        res = NoteTypeService.audit_conformity(
+            note_type_name=note_type_name,
+            regles=regles,
+            limit=limit,
+            offset=offset,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Erreur audit_note_type_conformity : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors de l'audit de conformité : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def preview_card_render(
+    note_id: int,
+    fields_json: str = "",
+    template_index: int | None = None,
+    is_dark_mode: bool = False,
+) -> str:
+    """Génère le rendu HTML officiel (recto/verso et CSS) d'une note existante avec support des surcharges pour prévisualiser un état proposé."""
+    try:
+        from ankiforge.services.cards.note_type_service import NoteTypeService
+
+        res = NoteTypeService.preview_card_render(
+            note_id=note_id,
+            fields_json=fields_json,
+            template_index=template_index,
+            is_dark_mode=is_dark_mode,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Erreur preview_card_render : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors du rendu de la carte : {e}"}, ensure_ascii=False)
 
 
 @mcp.tool()
