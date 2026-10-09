@@ -7,6 +7,7 @@ import pytest
 from PySide6.QtCore import Qt
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.batch.slicing_service import SliceUnit
 from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
 from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import (
@@ -14,7 +15,9 @@ from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import (
     BatchSliceComposerDialog,
     _RecapTaskCard,
 )
+from ankiforge.ui.views.batch_view.view import BatchView
 from ankiforge.ui.views.batch_view.widgets import AutoSliceWidget
+from ankiforge.utils.region_address import RegionAddress, RegionScope
 
 pytestmark = pytest.mark.ui
 
@@ -259,6 +262,34 @@ def test_composer_auto_mode_without_resolver_has_no_tasks(qtbot: Any) -> None:
     assert dlg.auto_widget.doc_content == ""
     assert dlg.lst_slices.count() == 0
     assert dlg._tasks == []
+
+
+def test_composer_auto_mode_never_covers_excluded_region(qtbot: Any) -> None:
+    """Régression (ADR 0010) : une région écartée ne réapparaît jamais dans le découpage Auto.
+
+    L'oracle d'exclusion est ``DocumentRepository``, interrogé par le résolveur de chunks de
+    production (``BatchView._resolve_batch_chunks``) ; le texte soumis à ``AutoSliceWidget``
+    est donc déjà hors périmètre et aucune tranche ne peut couvrir la section écartée.
+    """
+    doc = _markdown_doc()
+    DocumentRepository().set_region_excluded(doc.id, RegionAddress(RegionScope.HEADING, "Seconde partie"), True)
+    fresh = DocumentModel.get_by_id(doc.id)
+
+    dlg = BatchSliceComposerDialog(
+        doc=fresh,
+        resolve_chunks=BatchView._resolve_batch_chunks,
+        scope_memory=lambda _d: None,
+        task_from_chunk=_task_from_chunk,
+        task_from_slice=_task_from_slice,
+    )
+    qtbot.addWidget(dlg)
+    dlg.card_auto.clicked.emit()
+
+    # Le texte découpable ne porte plus la section écartée…
+    assert "Seconde partie" not in dlg.auto_widget.doc_content
+    # …et aucune tranche / tâche ne la couvre.
+    assert not any("Seconde partie" in slice_.title for slice_ in dlg.auto_widget.get_slices())
+    assert {t["chunk_label"] for t in dlg._tasks} == {"Première partie"}
 
 
 def test_composer_document_info_card_shows_stats(qtbot: Any) -> None:
