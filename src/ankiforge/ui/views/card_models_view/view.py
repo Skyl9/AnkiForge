@@ -6,6 +6,7 @@ from typing import Any
 
 from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtWidgets import (
+    QDialog,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.cards.card_model_io import CardModelIO
+from ankiforge.services.cards.note_type_roles import is_markdown_table
 from ankiforge.services.cards.snippet_library import CSSConflictResolver, SnippetItem
 from ankiforge.ui.components import (
     Badge,
@@ -38,12 +40,14 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledLineEdit,
 )
-from ankiforge.ui.components.buttons import apply_compact_style
+from ankiforge.ui.components.buttons import ActionButton, apply_compact_style
 from ankiforge.ui.components.code_editor import CodeEditorWithGutter
 from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
 from ankiforge.ui.dialogs.css_conflict_dialog import CSSConflictDialog
+from ankiforge.ui.dialogs.markdown_table_viewer_dialog import MarkdownTableViewerDialog
 from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
+from ankiforge.ui.dialogs.note_type_role_guide_dialog import NoteTypeRoleGuideDialog
 from ankiforge.ui.dialogs.starter_pack_dialog import StarterPackDialog
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.card_models_view.utils import extract_css_classes
@@ -266,7 +270,23 @@ class CardModelsView(QWidget):
         self.description_input = StyledLineEdit()
         self.description_input.setFixedHeight(26)
         self.description_input.setPlaceholderText(self.tr("Directives sémantiques pour les agents IA..."))
+        self.description_input.textChanged.connect(self._on_description_changed)
         desc_row.addWidget(self.description_input, 1)
+
+        self.badge_role_table = Badge(self.tr("Tableau"), variant="info")
+        self.badge_role_table.setFixedHeight(20)
+        self.badge_role_table.setVisible(False)
+        desc_row.addWidget(self.badge_role_table)
+
+        self.btn_view_table = ActionButton("ph.eye", self.tr("Voir le tableau"), parent=self)
+        apply_compact_style(self.btn_view_table, height=26)
+        self.btn_view_table.clicked.connect(self._on_open_table_viewer)
+        desc_row.addWidget(self.btn_view_table)
+
+        self.btn_role_guide = ActionButton("ph.table", self.tr("Guide des rôles"), parent=self)
+        apply_compact_style(self.btn_role_guide, height=26)
+        self.btn_role_guide.clicked.connect(self._on_open_role_guide)
+        desc_row.addWidget(self.btn_role_guide)
 
         top_res_layout.addLayout(desc_row)
 
@@ -1223,6 +1243,48 @@ class CardModelsView(QWidget):
             if item.data(Qt.ItemDataRole.UserRole).id == model_id:
                 self.list_widget.setCurrentItem(item)
                 break
+
+    @Slot()
+    def _on_open_role_guide(self) -> None:
+        """Ouvre le dialogue modal du guide sémantique des rôles IA pour types de note."""
+        dialog = NoteTypeRoleGuideDialog(parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.selected_directive:
+            chosen = dialog.selected_directive
+            current_text = self.description_input.text().strip()
+            if current_text and current_text != chosen:
+                reply = QMessageBox.question(
+                    self,
+                    self.tr("Remplacer le rôle IA"),
+                    tr(
+                        "Le rôle IA contient déjà des directives :\n\n« %1 »\n\nVoulez-vous les remplacer par la directive de l'archétype « %2 » ?",
+                        current_text,
+                        dialog.selected_archetype_name or "",
+                    ),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+
+            self.description_input.setText(chosen)
+            self.description_input.setCursorPosition(0)
+            show_toast(self, self.tr("Directive IA appliquée pour le type de note."))
+
+    @Slot()
+    def _on_description_changed(self) -> None:
+        """Met à jour l'indicateur de présence d'un tableau Markdown dans le rôle IA."""
+        text = self.description_input.text()
+        has_table = is_markdown_table(text)
+        self.badge_role_table.setVisible(has_table)
+
+    @Slot()
+    def _on_open_table_viewer(self) -> None:
+        """Ouvre le dialogue de visualisation et d'édition du tableau Markdown du rôle IA."""
+        dialog = MarkdownTableViewerDialog(markdown_text=self.description_input.text(), parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.description_input.setText(dialog.result_markdown)
+            self.description_input.setCursorPosition(0)
+            show_toast(self, self.tr("Tableau Markdown mis à jour."))
 
     @Slot()
     def _on_delete_model(self) -> None:

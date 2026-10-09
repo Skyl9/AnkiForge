@@ -129,6 +129,7 @@ def extract(language: str, target: Path | None = None) -> Path:
     """
     destination = target or ts_path(language)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.unlink(missing_ok=True)
     _run(_lupdate_command(destination))
     logger.info("Catalogue écrit : %s", destination)
     return destination

@@ -26,6 +26,199 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../services/cards/note_type_roles.py" line="+39"/>
+        <source>Basique (Q/R standard)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location filename="../../ui/main_window.py" line="+75"/>
+        <source>Général</source>
+        <extracomment>view_id -&gt; (catégorie, icône, titre, WidgetClass) La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés ne peuvent être résolus qu&apos;une fois le traducteur installé, donc au premier usage. Une constante de classe figerait le français à l&apos;import du module — c&apos;est-à-dire avant `install_translator()` — et la navigation resterait française dans une interface anglaise. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne casse rien, les vues d&apos;un même groupe partagent toujours la même clef.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Questions directes, définitions factuelles, relations de cause à effet simples.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Questions directes, définitions conceptuelles, relations de cause à effet simples. Format Q/R standard.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Texte à trous (Cloze)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Mémorisation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Mémorisation contextuelle, citations, listes ordonnées et dates clés.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Phrases denses, citations, listes ordonnées et dates clés. Utilise la syntaxe {{c1::mot}} pour masquer l&apos;information clé dans le champ Texte.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>QCM &amp; Cas pratiques</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Médecine &amp; Concours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Questions à choix multiples avec distracteurs, justification clinique ou méthodologique et mention de source.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Gabarit pour questions à choix multiples (QCM) avec options A/B/C/D, justification physiopathologique ou méthodologique et mention de source.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Dev &amp; Code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Informatique &amp; Dev</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Algorithmes, syntaxe, fonctions, extraits de code et complexité temporelle/spatiale.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Cartes techniques de code : présentation d&apos;un problème ou extrait de code, solution pas à pas avec syntaxe précise et indication de complexité algorithmique.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+1"/>
+        <source>Maths &amp; Sciences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Théorèmes, lemmes, formules KaTeX et démonstrations pas à pas.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Théorèmes et formules mathématiques rigoureuses en notation KaTeX ($ et $$), avec séparation stricte des hypothèses et de la démonstration étape par étape.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Vocabulaire &amp; Langues</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Langues &amp; Vocabulaire</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Acquisition lexicale avec phonétique IPA, catégorie grammaticale et phrases d&apos;exemple en contexte.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Acquisition linguistique : mot ou expression cible avec transcription phonétique IPA, catégorie grammaticale, traduction fidèle et phrase d&apos;exemple en contexte.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+37"/>
+        <source>Concept / Cas d&apos;usage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Directive sémantique pour l&apos;IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Champs cibles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+62"/>
+        <source>Définition &amp; Concept clé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Formuler une question directe sans ambiguïté. Réponse atomique mémorisable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Théorème, formule ou loi scientifique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Énoncer le résultat en notation KaTeX ($$). Séparer hypothèses et démonstration.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Algorithme, fonction ou extrait de code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Présenter un snippet concis, donner la solution pas à pas et la complexité temporelle/spatiale.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Question à choix multiples (QCM) / Diagnostic</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Créer 4 options avec distracteurs plausibles et justification physiopathologique ou méthodique.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Vocabulaire, locution ou faux-ami</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Indiquer la transcription phonétique IPA, la classe grammaticale et un exemple contextualisé.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Contre-exemple, piège ou cas d&apos;exclusion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Insister sur la distinction critique pour éviter l&apos;interférence mémorielle.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/components/code_editor/widgets/status_bar.py" line="+107"/>
         <source>Cliquez pour aller à la première anomalie :
 %1</source>
@@ -794,18 +987,12 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="+38"/>
+        <location filename="../../ui/main_window.py" line="-37"/>
         <source>[%1] View Content Placeholder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+37"/>
-        <source>Général</source>
-        <extracomment>view_id -&gt; (catégorie, icône, titre, WidgetClass) La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés ne peuvent être résolus qu&apos;une fois le traducteur installé, donc au premier usage. Une constante de classe figerait le français à l&apos;import du module — c&apos;est-à-dire avant `install_translator()` — et la navigation resterait française dans une interface anglaise. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne casse rien, les vues d&apos;un même groupe partagent toujours la même clef.</extracomment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+0"/>
         <source>Tableau de bord</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1285,7 +1472,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1050"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1070"/>
         <location filename="../../ui/views/edition_view/view.py" line="+1152"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -1711,7 +1898,16 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+30"/>
+        <source>Le rôle IA contient déjà des directives :
+
+« %1 »
+
+Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+39"/>
         <source>Voulez-vous vraiment supprimer le modèle &apos;%1&apos; ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6495,7 +6691,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1152"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1210"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6521,25 +6717,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1054"/>
+        <location line="+1112"/>
         <source>Supprimer le modèle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-990"/>
+        <location line="-1048"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+491"/>
+        <location line="+507"/>
         <location line="+2"/>
         <location line="+2"/>
         <source>Front, Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-494"/>
+        <location line="-510"/>
         <source>ex: Front, Back, Audio...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6554,7 +6750,22 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+4"/>
+        <source>Tableau</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Voir le tableau</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Guide des rôles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
         <source>Replier / Déplier le volet d&apos;aides</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6707,7 +6918,22 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+66"/>
+        <location line="+58"/>
+        <source>Remplacer le rôle IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Directive IA appliquée pour le type de note.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Tableau Markdown mis à jour.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
         <source>Modèle supprimé.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11115,6 +11341,44 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     </message>
 </context>
 <context>
+    <name>MarkdownTableViewerDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/markdown_table_viewer_dialog.py" line="+34"/>
+        <source>Visualiseur &amp; Éditeur de Tableau Markdown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Tableau Markdown du rôle IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Consultez le tableau rendu ou modifiez directement la syntaxe Markdown transmise au moteur IA.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
+        <source>Rendu du tableau</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Code Markdown brut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Appliquer les modifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ModelCapabilityBadgesWidget</name>
     <message>
         <location filename="../../ui/components/model_selector/badges.py" line="+95"/>
@@ -11641,6 +11905,154 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <message>
         <location line="+86"/>
         <source>Supprimer le tag de provenance ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>NoteTypeRoleGuideDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/note_type_role_guide_dialog.py" line="+46"/>
+        <source>Guide des rôles IA pour les types de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+42"/>
+        <source>Guide sémantique et créateur de rôles IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Le « Rôle IA » est une directive ou un tableau Markdown injecté dans la balise {{ available_card_models }} pour orienter l&apos;IA sur le gabarit de carte à privilégier.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Rechercher :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Filtrer par mot-clé, cas d&apos;usage ou nom de champ...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Archétype</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Quand le choisir ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Champs suggérés</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Directive transmise à l&apos;IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Action</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Modèles types prédéfinis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Aide à la création — Ajouter une règle type au tableau :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>Concept / Cas d&apos;usage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Directive sémantique pour l&apos;IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Champs cibles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>+ Ajouter une règle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Supprimer la règle sélectionnée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Tout effacer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Appliquer ce tableau au type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Aperçu en direct du tableau Markdown pour l&apos;IA :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Créateur de tableau sur-mesure</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Astuce : L&apos;application remplace la valeur du champ « Rôle IA » du type de note actif.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Fermer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+52"/>
+        <source>Appliquer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Personnaliser</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Charger cet archétype dans le créateur de tableau sur-mesure</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Nouveau cas d&apos;usage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Consigne spécifique pour l&apos;IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+61"/>
+        <source>Tableau Markdown personnalisé</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
