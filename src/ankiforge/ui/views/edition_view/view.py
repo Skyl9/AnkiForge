@@ -1248,21 +1248,10 @@ class EditionView(QWidget):
             except Exception:
                 new_fields = ["Front", "Back"]
 
-        # Remappage intelligent des champs
-        mapped_data: dict[str, str] = {}
-        old_keys = list(current_data.keys())
-        for i, nf in enumerate(new_fields):
-            matched_val = None
-            for ok, ov in current_data.items():
-                if ok.lower().strip() == nf.lower().strip():
-                    matched_val = ov
-                    break
-            if matched_val is not None:
-                mapped_data[nf] = matched_val
-            elif i < len(old_keys):
-                mapped_data[nf] = current_data[old_keys[i]]
-            else:
-                mapped_data[nf] = ""
+        # Remappage intelligent des champs via NoteTypeService
+        from ankiforge.services.cards.note_type_service import NoteTypeService
+
+        mapped_data = NoteTypeService.remap_fields(current_data, new_fields)
 
         with db.atomic():
             note.note_type = new_model

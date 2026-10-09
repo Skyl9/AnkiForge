@@ -267,37 +267,64 @@ class CardModelIO:
     def save_model_to_db(
         cls,
         model_data: dict[str, Any],
-        overwrite_existing: bool = False,
+        overwrite_existing: bool | None = None,
         new_name: str | None = None,
+        on_conflict: str = "error",
     ) -> tuple[NoteTypeModel, bool]:
         """
-        Enregistre les données du modèle en base SQLite Peewee.
+        Enregistre les données du modèle en base SQLite Peewee avec validation structurelle
+        et gestion explicite des collisions (error, rename, overwrite).
         """
-        name = (new_name or model_data["name"]).strip()
+        from ankiforge.services.cards.note_type_service import NoteTypeService
+
+        name = (new_name or model_data.get("name", "")).strip()
+        data_to_validate = dict(model_data)
+        data_to_validate["name"] = name
+
+        is_valid, errors = NoteTypeService.validate_structure(data_to_validate)
+        if not is_valid:
+            raise ValueError(f"Erreur de validation de la structure du type de note : {'; '.join(errors)}")
+
         fields_json = json.dumps(model_data["fields_schema"], ensure_ascii=False)
         templates_json = json.dumps(model_data["templates"], ensure_ascii=False)
         css_style = model_data.get("css_style", "")
+        description = str(model_data.get("description", "") or model_data.get("metadata", {}).get("description", "") or "").strip()
+
+        # Résolution de la politique de conflit
+        if overwrite_existing is True:
+            conflict_policy = "overwrite"
+        elif overwrite_existing is False:
+            conflict_policy = "rename"
+        else:
+            conflict_policy = on_conflict or "error"
 
         existing = NoteTypeModel.get_or_none(NoteTypeModel.name == name)
 
         if existing:
-            if overwrite_existing:
+            if conflict_policy == "error":
+                raise ValueError(f"Un type de note portant le nom '{name}' existe déjà.")
+            elif conflict_policy == "overwrite":
                 existing.fields_schema = fields_json
                 existing.templates = templates_json
                 existing.css_style = css_style
+                existing.description = description
                 existing.save()
+                logger.info("Modèle de carte '%s' écrasé en base de données avec succès.", name)
                 return existing, False
-            else:
+            elif conflict_policy == "rename":
                 idx = 2
                 while NoteTypeModel.get_or_none(NoteTypeModel.name == f"{name} ({idx})"):
                     idx += 1
                 name = f"{name} ({idx})"
+            else:
+                raise ValueError(f"Politique de conflit inconnue : '{conflict_policy}'. Doit être 'error', 'rename' ou 'overwrite'.")
 
         created = NoteTypeModel.create(
             name=name,
             fields_schema=fields_json,
             templates=templates_json,
             css_style=css_style,
+            description=description,
         )
         logger.info("Modèle de carte '%s' enregistré en base de données avec succès.", name)
         return created, True

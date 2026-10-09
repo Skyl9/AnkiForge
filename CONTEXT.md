@@ -14,6 +14,15 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Clé de rangée (uid de ligne)** : identité stable d'une tâche dans la file pendant la session. Elle ne dépend pas de la position de la rangée ; elle distingue les tâches même quand des rangées sont supprimées ou réordonnées. Distincte de l'identifiant d'exécution d'une tâche de portée (snapshot).
 - **File d'attente** : la liste des tâches batch en attente d'exécution, de revue ou déjà terminées. L'ordre y résulte de l'enchaînement des agrégations (directes ou automatiques).
 
+## Types de note, Notes & Cartes
+
+- **Type de note** : le gabarit Anki qui définit les champs d'une note, les gabarits de ses cartes (recto/verso) et son CSS. Une note lui est conforme ; ses cartes en dérivent.
+  _Avoid_ : modèle, modèle de notes, modèle de carte, card model, note model
+- **Note** : l'unité de contenu d'une collection — un jeu de valeurs conforme à un type de note. Elle ne porte aucun état de révision.
+  _Avoid_ : fiche, item
+- **Carte** : l'unité de révision dérivée d'une note à partir d'un gabarit de son type de note. Elle porte l'état de révision (SRS) et appartient à un paquet.
+  _Avoid_ : flashcard, question, verso
+
 ## Génération IA
 
 - **Génération** : l'exécution d'un pipeline sur une source, produisant des cartes brutes.
