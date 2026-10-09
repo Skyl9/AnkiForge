@@ -1358,7 +1358,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/batch_view/view.py" line="+330"/>
+        <location filename="../../ui/views/batch_view/view.py" line="+339"/>
         <source>Vision (PDF)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1379,15 +1379,15 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+95"/>
-        <location line="+318"/>
+        <location line="+347"/>
         <location line="+96"/>
         <location line="+48"/>
-        <location line="+314"/>
+        <location line="+310"/>
         <source>%1 cartes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-726"/>
+        <location line="-751"/>
         <source>Examiner</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1438,7 +1438,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+272"/>
+        <location line="+301"/>
         <source>En cours (%1/%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1453,7 +1453,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+423"/>
+        <location line="+419"/>
         <source>Batch terminé : %1 réussis, %2 erreurs (%3 cartes créées%4)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6231,7 +6231,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>BatchView</name>
     <message>
-        <location filename="../../ui/views/batch_view/view.py" line="-1729"/>
+        <location filename="../../ui/views/batch_view/view.py" line="-1754"/>
         <source>CIBLES ANKI</source>
         <extracomment>Cartes enregistrées sans lien de couverture (fragment source non résolu), remonté au récapitulatif de fin de lot.</extracomment>
         <translation type="unfinished"></translation>
@@ -6347,22 +6347,22 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+51"/>
+        <location line="+75"/>
         <source>La file d&apos;attente est vide ! Ajoutez des tâches avant de lancer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+103"/>
+        <location line="+108"/>
         <source>Toutes les tâches de la file sont déjà terminées avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+364"/>
+        <location line="+363"/>
         <source>Tentative maximale de relance atteinte pour cette tâche.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+64"/>
+        <location line="+61"/>
         <source>Aucune carte en attente de validation.</source>
         <translation type="unfinished"></translation>
     </message>
