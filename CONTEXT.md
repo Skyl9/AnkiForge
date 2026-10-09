@@ -22,6 +22,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : fiche, item
 - **Carte** : l'unité de révision dérivée d'une note à partir d'un gabarit de son type de note. Elle porte l'état de révision (SRS) et appartient à un paquet.
   _Avoid_ : flashcard, question, verso
+- **Rôle IA (d'un type de note)** : directive sémantique et heuristique attachée à un type de note (`NoteTypeModel.description`), injectée dans la balise `{{ available_card_models }}` des prompts d'extraction pour orienter le choix du type de note le plus pertinent face à chaque concept identifié.
+  _Avoid_ : rôle du modèle, description du modèle de carte
 
 ## Génération IA
 
