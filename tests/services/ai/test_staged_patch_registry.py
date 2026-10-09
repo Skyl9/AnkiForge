@@ -220,3 +220,117 @@ def test_mcp_preview_and_apply_patch_tool(sample_data):
         assert res_data["patch_id"] == patch.patch_id
 
     asyncio.run(_run())
+
+
+def test_apply_staged_patch_model(sample_data):
+    """Vérifie l'application d'un patch de type 'model' (branche réparée)."""
+    nt = sample_data["note_type"]
+
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="model",
+        target_id=nt.id,
+        diff_payload={
+            "modified": {
+                "description": "Nouvelle description pour l'IA",
+                "css_style": ".card { font-size: 20px; }",
+            },
+            "metadata": {"note_type_name": nt.name, "note_type_id": nt.id},
+        },
+    )
+
+    result = StagedPatchRegistry.apply_staged_patch(patch.patch_id)
+    assert result["status"] == "applied"
+    assert result["patch_id"] == patch.patch_id
+
+    reloaded = NoteTypeModel.get_by_id(nt.id)
+    assert reloaded.description == "Nouvelle description pour l'IA"
+    assert "20px" in reloaded.css_style
+
+
+def test_propose_note_type_refactor_returns_real_patch_id(sample_data):
+    """Vérifie que propose_note_type_refactor renvoie un vrai patch_id enregistrant un patch pending."""
+    from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
+
+    nt = sample_data["note_type"]
+    res_str = ConsultantToolRegistry.propose_note_type_refactor(
+        note_type_name=nt.name,
+        new_css=".card { color: red; }",
+        new_description="Refactorisé via consultant",
+    )
+    res_json = json.loads(res_str)
+    assert res_json["status"] == "staged_diff"
+    assert "patch_id" in res_json
+    p_id = res_json["patch_id"]
+
+    # Vérification que le patch est en attente
+    patch = StagedPatchRegistry.get_patch(p_id)
+    assert patch is not None
+    assert patch.status == "pending"
+    assert patch.patch_type == "model"
+
+    # Application
+    apply_res = StagedPatchRegistry.apply_staged_patch(p_id)
+    assert apply_res["status"] == "applied"
+    assert NoteTypeModel.get_by_id(nt.id).description == "Refactorisé via consultant"
+
+
+def test_staged_patch_note_type_create():
+    """Vérifie le cycle complet de proposition et d'application d'un patch 'note_type_create'."""
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="note_type_create",
+        diff_payload={
+            "name": "Nouveau Type Créé Par Patch",
+            "fields_schema": ["Terme", "Definition"],
+            "templates": [{"name": "Carte 1", "qfmt": "{{Terme}}", "afmt": "{{FrontSide}}<hr>{{Definition}}"}],
+            "css_style": ".card { background: white; }",
+            "description": "Type créé par agent",
+            "on_conflict": "error",
+        },
+    )
+
+    assert patch.patch_id.startswith("patch_")
+    assert patch.status == "pending"
+
+    # N'existe pas encore en base avant validation
+    assert NoteTypeModel.get_or_none(NoteTypeModel.name == "Nouveau Type Créé Par Patch") is None
+
+    result = StagedPatchRegistry.apply_staged_patch(patch.patch_id)
+    assert result["status"] == "applied"
+    assert result["note_type_name"] == "Nouveau Type Créé Par Patch"
+
+    created = NoteTypeModel.get_or_none(NoteTypeModel.name == "Nouveau Type Créé Par Patch")
+    assert created is not None
+    assert created.description == "Type créé par agent"
+
+
+def test_staged_patch_note_type_change(sample_data):
+    """Vérifie le cycle complet de proposition et d'application d'un patch 'note_type_change'."""
+    note = sample_data["note"]
+    nt_source = sample_data["note_type"]
+
+    nt_target = NoteTypeModel.create(
+        name="Cible Migration Patch",
+        fields_schema=json.dumps(["Recto", "Verso"]),
+        templates=json.dumps([{"name": "C1", "qfmt": "{{Recto}}", "afmt": "{{Verso}}"}]),
+    )
+
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="note_type_change",
+        diff_payload={
+            "note_ids": [note.id],
+            "target_model": nt_target.name,
+            "mapping_champs": {"Front": "Recto", "Back": "Verso"},
+        },
+    )
+
+    assert patch.status == "pending"
+    # Note toujours sur le modèle source
+    assert NoteModel.get_by_id(note.id).note_type.id == nt_source.id
+
+    result = StagedPatchRegistry.apply_staged_patch(patch.patch_id)
+    assert result["status"] == "applied"
+    assert result["count"] == 1
+
+    # Note migrée sur le modèle cible
+    reloaded_note = NoteModel.get_by_id(note.id)
+    assert reloaded_note.note_type.id == nt_target.id

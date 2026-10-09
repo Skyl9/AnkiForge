@@ -511,6 +511,44 @@ class WorkspaceInspectorWidget(QWidget):
                 </div>
             """
 
+        elif p_type == "note_type_create":
+            mod = modified if isinstance(modified, dict) else patch
+            name = html.escape(str(mod.get("name", "")))
+            desc = html.escape(str(mod.get("description", "")))
+            fields = mod.get("fields_schema", [])
+            tmpls = mod.get("templates", [])
+            css_code = html.escape(str(mod.get("css_style", "") or mod.get("css", "")))
+            badge_fmt = "<span style='background: {bg}; border: 1px solid {bd}; border-radius: 4px; padding: 2px 6px; margin-right: 4px; font-size: 11px;'>{f}</span>"
+            fields_badges = "".join(badge_fmt.format(bg=DesignTokens.BG_INPUT, bd=DesignTokens.BORDER_COLOR, f=html.escape(str(f))) for f in fields)
+            return f"""
+                <div style="font-family: {DesignTokens.FONT_MAIN}; padding: 6px;">
+                    <div style="font-size: 12px; font-weight: bold; color: {DesignTokens.COLOR_GREEN}; margin-bottom: 8px;">✨ Création de Type de Note — '{name}'</div>
+                    <div style="border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; background: {DesignTokens.BG_PANEL}; margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: {DesignTokens.TEXT_MUTED}; margin-bottom: 6px;">{desc or "<i>Aucune description</i>"}</div>
+                        <div style="margin-top: 8px;"><b>Champs ({len(fields)}) :</b> {fields_badges}</div>
+                        <div style="margin-top: 8px;"><b>Gabarits :</b> {len(tmpls)} gabarit(s)</div>
+                        {f'<pre style="margin-top: 8px; font-size: 10px; background: {DesignTokens.BG_MAIN}; padding: 6px; border-radius: 4px;">{css_code}</pre>' if css_code else ""}
+                    </div>
+                </div>
+            """
+
+        elif p_type == "note_type_change":
+            mod = modified if isinstance(modified, dict) else patch
+            n_ids = mod.get("note_ids", [])
+            tgt = html.escape(str(mod.get("target_model", "") or mod.get("target_model_name", "")))
+            warnings = mod.get("warnings", [])
+            warn_html = "".join(f"<div style='color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; margin-top: 4px;'>⚠️ {html.escape(str(w))}</div>" for w in warnings)
+            return f"""
+                <div style="font-family: {DesignTokens.FONT_MAIN}; padding: 6px;">
+                    <div style="font-size: 12px; font-weight: bold; color: {DesignTokens.COLOR_BLUE}; margin-bottom: 8px;">🔄 Migration de Type de Note</div>
+                    <div style="border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; background: {DesignTokens.BG_PANEL};">
+                        <div><b>Nombre de notes ciblées :</b> {len(n_ids)}</div>
+                        <div style="margin-top: 6px;"><b>Type de note cible :</b> {tgt}</div>
+                        {warn_html}
+                    </div>
+                </div>
+            """
+
         else:
             mod_str = json.dumps(modified, ensure_ascii=False, indent=2) if isinstance(modified, dict | list) else str(modified)
             escaped_body = html.escape(mod_str).replace("\n", "<br>")
@@ -771,6 +809,13 @@ class WorkspaceInspectorWidget(QWidget):
         elif p_type in ("model", "note_type"):
             model_name = patch.get("note_type_name") or metadata.get("note_type_name", "")
             self.action_applied.emit(f"Modèle de carte '{model_name}' mis à jour en BDD")
+        elif p_type == "note_type_create":
+            name = patch.get("name") or metadata.get("name", "")
+            self.action_applied.emit(f"Type de note '{name}' créé en BDD")
+        elif p_type == "note_type_change":
+            count = result.get("count", 0)
+            target = result.get("target_model_name") or metadata.get("target_model", "")
+            self.action_applied.emit(f"{count} notes migrées vers '{target}'")
         elif p_type == "card" and note_id:
             self.action_applied.emit(f"Note #{note_id} refactorisée")
         elif p_type == "split" and note_id:

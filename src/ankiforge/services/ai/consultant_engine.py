@@ -1010,8 +1010,9 @@ class ConsultantToolRegistry:
             if new_description:
                 mod_dict["description"] = new_description
 
-            staged_payload = {
-                "status": "staged_diff",
+            from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+            patch_diff = {
                 "type": "model",
                 "note_type_name": nt.name,
                 "note_type_id": nt.id,
@@ -1021,6 +1022,17 @@ class ConsultantToolRegistry:
                 "explanation": explanation or "Mise à niveau du modèle de cartes (champs / CSS / templates).",
                 "metadata": {"note_type_name": nt.name, "note_type_id": nt.id},
             }
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="model",
+                target_id=nt.id,
+                diff_payload=patch_diff,
+            )
+
+            staged_payload = dict(patch_diff)
+            staged_payload["status"] = "staged_diff"
+            staged_payload["patch_id"] = patch.patch_id
+            staged_payload["metadata"]["patch_id"] = patch.patch_id
+
             return json.dumps(staged_payload, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error("Erreur propose_note_type_refactor : %s", e)
@@ -1603,17 +1615,45 @@ class ConsultantToolRegistry:
             return f"Erreur lors de la récupération du profil de note : {e}"
 
     @staticmethod
-    def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 20, offset: int = 0) -> str:
-        """Récupère une liste de cartes selon leur paquet ou tag avec pagination (limit, offset)."""
+    def get_cards_by_deck_or_tag(
+        deck_name: str = "",
+        tag: str = "",
+        limit: int = 20,
+        offset: int = 0,
+        note_type_name: str = "",
+        include_subdecks: bool = True,
+    ) -> str:
+        """Récupère une liste de cartes selon leur paquet (avec sous-paquets optionnels), tag ou type de note avec pagination (limit, offset)."""
         try:
             eff_limit = max(1, min(limit, 50))
             eff_offset = max(0, offset)
 
             query = NoteModel.select().join(CardModel).distinct()
+
+            if note_type_name:
+                from ankiforge.services.cards.note_type_service import NoteTypeService
+
+                try:
+                    target_nt = NoteTypeService.resolve_target_model(note_type_name)
+                    query = query.where(NoteModel.note_type == target_nt)
+                except Exception:
+                    return f"Erreur : Le type de note '{note_type_name}' n'a pas été trouvé."
+
             if deck_name:
-                deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
-                if deck:
-                    query = query.where(CardModel.deck == deck)
+                cleaned_deck = deck_name.strip()
+                if include_subdecks:
+                    matching_decks = list(DeckModel.select().where((DeckModel.name == cleaned_deck) | (DeckModel.name.startswith(f"{cleaned_deck}::"))))
+                    if matching_decks:
+                        query = query.where(CardModel.deck.in_(matching_decks))
+                    else:
+                        return f"Aucune carte trouvée pour le paquet '{cleaned_deck}' (sous-paquets inclus)."
+                else:
+                    deck = DeckModel.get_or_none(DeckModel.name == cleaned_deck)
+                    if deck:
+                        query = query.where(CardModel.deck == deck)
+                    else:
+                        return f"Aucune carte trouvée pour le paquet '{cleaned_deck}'."
+
             if tag:
                 query = query.where(NoteModel.tags.contains(tag.strip()))
 
@@ -1631,9 +1671,14 @@ class ConsultantToolRegistry:
                         content = robust_json_loads(active_v.content)
                     except Exception:
                         content = {"raw": active_v.content}
+                card_rel = n.cards.first()
+                deck_str = card_rel.deck.name if card_rel and card_rel.deck else "Sans paquet"
                 res_list.append(
                     {
                         "note_id": n.id,
+                        "guid": n.guid,
+                        "status": n.status,
+                        "paquet": deck_str,
                         "modele": n.note_type.name if n.note_type else "Inconnu",
                         "tags": n.tags,
                         "champs": content,

@@ -260,6 +260,152 @@ class StagedPatchRegistry:
                 "message": f"Style CSS appliqué sur le modèle '{nt.name}'.",
             }
 
+        # 4. Type MODEL / NOTE_TYPE (Évolution structurelle de modèle)
+        if p_type in ("model", "note_type"):
+            nt = None
+            if patch.target_id and patch.target_id > 0:
+                nt = NoteTypeModel.get_or_none(NoteTypeModel.id == patch.target_id)
+            meta = diff_data.get("metadata", {}) if isinstance(diff_data.get("metadata"), dict) else {}
+            if not nt:
+                m_id = meta.get("note_type_id") or diff_data.get("note_type_id")
+                if m_id:
+                    nt = NoteTypeModel.get_or_none(NoteTypeModel.id == int(m_id))
+            if not nt:
+                m_name = meta.get("note_type_name") or diff_data.get("note_type_name")
+                if m_name:
+                    nt = NoteTypeModel.get_or_none(NoteTypeModel.name == str(m_name).strip())
+
+            if not nt:
+                return {"status": "error", "message": f"Modèle de note cible introuvable pour le patch {patch_id}."}
+
+            modified = diff_data.get("modified", {})
+            if isinstance(modified, str) and modified.strip().startswith("{"):
+                try:
+                    modified = json.loads(modified)
+                except Exception:
+                    pass
+
+            with db.atomic():
+                if isinstance(modified, dict):
+                    if "css_style" in modified:
+                        nt.css_style = str(modified["css_style"])
+                    if "fields_schema" in modified:
+                        nt.fields_schema = json.dumps(modified["fields_schema"], ensure_ascii=False) if isinstance(modified["fields_schema"], list) else str(modified["fields_schema"])
+                    if "templates" in modified:
+                        nt.templates = json.dumps(modified["templates"], ensure_ascii=False) if isinstance(modified["templates"], list) else str(modified["templates"])
+                    if "description" in modified:
+                        nt.description = str(modified["description"])
+                elif isinstance(modified, str):
+                    nt.css_style = modified
+
+                nt.save()
+
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+
+            cls._notify_mutation("note_type_update", nt.id, {"note_type_id": nt.id, "note_type_name": nt.name, "patch_id": patch_id})
+            return {
+                "status": "applied",
+                "patch_id": patch_id,
+                "note_type_id": nt.id,
+                "note_type_name": nt.name,
+                "message": f"Modèle de note '{nt.name}' mis à jour avec succès en BDD.",
+            }
+
+        # 5. Type NOTE_TYPE_CREATE (Création d'un type de note)
+        if p_type == "note_type_create":
+            from ankiforge.services.cards.card_model_io import CardModelIO
+
+            model_data = diff_data.get("model_data") or diff_data.get("modified") or diff_data
+            if not isinstance(model_data, dict):
+                return {"status": "error", "message": "Payload invalide pour la création de type de note."}
+
+            name = str(model_data.get("name", "")).strip()
+            fields_schema = model_data.get("fields_schema", [])
+            templates = model_data.get("templates", [])
+            css_style = model_data.get("css_style") or model_data.get("css", "")
+            description = model_data.get("description", "")
+            on_conflict = str(model_data.get("on_conflict", "error"))
+
+            try:
+                with db.atomic():
+                    created_nt, is_new = CardModelIO.save_model_to_db(
+                        {
+                            "name": name,
+                            "fields_schema": fields_schema,
+                            "templates": templates,
+                            "css_style": css_style,
+                            "description": description,
+                        },
+                        on_conflict=on_conflict,
+                    )
+                    patch.target_id = created_nt.id
+                    patch.status = "applied"
+                    patch.applied_at = datetime.datetime.now()
+                    patch.save()
+
+                cls._notify_mutation("note_type_create", created_nt.id, {"note_type_id": created_nt.id, "note_type_name": created_nt.name, "patch_id": patch_id})
+                return {
+                    "status": "applied",
+                    "patch_id": patch_id,
+                    "note_type_id": created_nt.id,
+                    "note_type_name": created_nt.name,
+                    "message": f"Type de note '{created_nt.name}' créé avec succès en base de données.",
+                }
+            except Exception as err:
+                logger.error("Erreur application note_type_create : %s", err)
+                return {"status": "error", "message": str(err), "patch_id": patch_id}
+
+        # 6. Type NOTE_TYPE_CHANGE (Migration de notes vers un autre type)
+        if p_type == "note_type_change":
+            from ankiforge.services.cards.note_type_service import NoteTypeService
+
+            payload = diff_data.get("modified") if isinstance(diff_data.get("modified"), dict) else diff_data
+            note_ids = payload.get("note_ids", [])
+            target_model = payload.get("target_model") or payload.get("target_model_name") or payload.get("target_model_id")
+            mapping_champs = payload.get("mapping_champs")
+
+            if not note_ids:
+                return {"status": "error", "message": "Aucune note spécifiée pour la migration.", "patch_id": patch_id}
+            if not target_model:
+                return {"status": "error", "message": "Modèle cible non spécifié pour la migration.", "patch_id": patch_id}
+
+            try:
+                res = NoteTypeService.change_note_type(
+                    note_ids=note_ids,
+                    target_model=target_model,
+                    mapping_champs=mapping_champs,
+                )
+                with db.atomic():
+                    patch.target_id = res["target_model_id"]
+                    patch.status = "applied"
+                    patch.applied_at = datetime.datetime.now()
+                    patch.save()
+
+                cls._notify_mutation(
+                    "note_type_change",
+                    res["target_model_id"],
+                    {
+                        "note_type_id": res["target_model_id"],
+                        "target_model": res["target_model_name"],
+                        "note_ids": note_ids,
+                        "patch_id": patch_id,
+                    },
+                )
+                return {
+                    "status": "applied",
+                    "patch_id": patch_id,
+                    "count": res["migrated_count"],
+                    "note_type_id": res["target_model_id"],
+                    "target_model_name": res["target_model_name"],
+                    "warnings": res.get("warnings", []),
+                    "message": f"{res['migrated_count']} note(s) migrée(s) vers '{res['target_model_name']}'.",
+                }
+            except Exception as err:
+                logger.error("Erreur application note_type_change : %s", err)
+                return {"status": "error", "message": str(err), "patch_id": patch_id}
+
         return {"status": "error", "message": f"Type de patch non supporté : '{patch.patch_type}'."}
 
     @classmethod

@@ -1928,7 +1928,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+44"/>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+614"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+652"/>
         <source>Erreur d&apos;annulation : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1968,7 +1968,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-523"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-561"/>
         <source>En veille</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1988,7 +1988,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+250"/>
+        <location line="+288"/>
         <source>⚠️ Confirmer (%1) ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2734,7 +2734,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+138"/>
+        <location line="+127"/>
         <source>Modèle de la note #%1 changé pour &apos;%2&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9265,7 +9265,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-1695"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-1684"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9282,12 +9282,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="-782"/>
-        <location line="+1107"/>
+        <location line="+1096"/>
         <source>Modèle : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1088"/>
+        <location line="-1077"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9324,12 +9324,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+4"/>
         <location line="+174"/>
-        <location line="+1341"/>
+        <location line="+1330"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1511"/>
+        <location line="-1500"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9369,7 +9369,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+299"/>
+        <location line="+288"/>
         <location line="+195"/>
         <source>Déplacer vers un paquet...</source>
         <translation type="unfinished"></translation>
@@ -14415,7 +14415,7 @@ https://blog.example.com/article-1</source>
 <context>
     <name>WorkspaceInspectorWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-569"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-607"/>
         <source>WORKSPACE &amp; GARDE-FOU</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14506,7 +14506,7 @@ https://blog.example.com/article-1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+267"/>
+        <location line="+305"/>
         <source>✅ Appliqué en BDD</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14536,7 +14536,7 @@ https://blog.example.com/article-1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+112"/>
+        <location line="+119"/>
         <source>Patch copié dans le presse-papiers !</source>
         <translation type="unfinished"></translation>
     </message>
