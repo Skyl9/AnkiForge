@@ -100,14 +100,15 @@ def test_install_purges_incompatible_venv(tmp_path: Path, monkeypatch: pytest.Mo
     """Vérifie que install() purge automatiquement un venv existant s'il n'est pas compatible."""
     tools_dir = tmp_path / "tools"
     venv_dir = tools_dir / "marker" / "venv"
-    bin_dir = venv_dir / "bin"
-    bin_dir.mkdir(parents=True)
+    # ``bin/`` sous POSIX, ``Scripts/`` (+ ``.exe``) sous Windows : on laisse le service
+    # décrire sa propre disposition pour que le test suive la plateforme.
+    python_path = MarkerService._venv_python(venv_dir)
+    marker_path = MarkerService._venv_executable(venv_dir)
+    python_path.parent.mkdir(parents=True)
 
     # Ancien marker résiduel et ancien python d'un venv 3.9
-    old_marker = bin_dir / "marker_single"
-    old_marker.write_text("old 3.9 marker")
-    old_python = bin_dir / "python"
-    old_python.write_text("old 3.9 python")
+    marker_path.write_text("old 3.9 marker")
+    python_path.write_text("old 3.9 python")
 
     monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
     monkeypatch.setattr(MarkerService, "_find_python", lambda: "/usr/local/bin/python3.12")
@@ -121,7 +122,7 @@ def test_install_purges_incompatible_venv(tmp_path: Path, monkeypatch: pytest.Mo
         if "python3.12" in candidate_str:
             return True
         # L'interpréteur du venv n'est compatible que si le nouveau venv a été créé
-        return created_new_env and candidate_str.endswith("bin/python")
+        return created_new_env and Path(candidate) == python_path
 
     monkeypatch.setattr(MarkerService, "_is_python_compatible", mock_is_compat)
 
@@ -138,17 +139,16 @@ def test_install_purges_incompatible_venv(tmp_path: Path, monkeypatch: pytest.Mo
         created_new_env = True
         commands.append(command)
         # Recréation propre par venv
-        bin_dir.mkdir(parents=True, exist_ok=True)
-        (bin_dir / "python").write_text("#!/bin/sh")
-        new_marker = bin_dir / "marker_single"
-        new_marker.write_text("new 3.12 marker")
-        new_marker.chmod(new_marker.stat().st_mode | stat.S_IXUSR)
+        python_path.parent.mkdir(parents=True, exist_ok=True)
+        python_path.write_text("#!/bin/sh")
+        marker_path.write_text("new 3.12 marker")
+        marker_path.chmod(marker_path.stat().st_mode | stat.S_IXUSR)
         return FakeProcess()
 
     monkeypatch.setattr("ankiforge.services.parsing.marker_service.subprocess.Popen", fake_popen)
 
     executable = MarkerService.install()
-    assert executable == bin_dir / "marker_single"
+    assert executable == marker_path
     assert executable.read_text() == "new 3.12 marker"
     # Vérifie que la commande venv a bien été appelée pour recréer l'environnement
     assert commands[0][:3] == ["/usr/local/bin/python3.12", "-m", "venv"]
@@ -163,15 +163,15 @@ def test_marker_service_package_pinned_below_2() -> None:
 def test_is_venv_compatible_rejects_marker_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie que _is_venv_compatible rejette un venv si marker-pdf 2.x (exigeant llama-server) y est installé."""
     venv_dir = tmp_path / "venv"
-    bin_dir = venv_dir / "bin"
-    bin_dir.mkdir(parents=True)
+    # Disposition du venv propre à chaque plateforme (``bin/`` vs ``Scripts/``).
+    python_path = MarkerService._venv_python(venv_dir)
+    marker_path = MarkerService._venv_executable(venv_dir)
+    python_path.parent.mkdir(parents=True)
 
-    marker = bin_dir / "marker_single"
-    marker.write_text("#!/bin/sh")
-    marker.chmod(marker.stat().st_mode | stat.S_IXUSR)
+    marker_path.write_text("#!/bin/sh")
+    marker_path.chmod(marker_path.stat().st_mode | stat.S_IXUSR)
 
-    python = bin_dir / "python"
-    python.write_text("#!/bin/sh")
+    python_path.write_text("#!/bin/sh")
 
     monkeypatch.setattr(MarkerService, "_is_python_compatible", lambda _: True)
 

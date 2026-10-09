@@ -60,6 +60,67 @@ def test_backup_database_creates_and_rotates(tmp_path: Path):
         assert "20200101" not in backups[0].name, "L'ancienne sauvegarde n'a pas été supprimée."
 
 
+def test_backup_database_closes_all_sqlite_connections(tmp_path: Path, monkeypatch):
+    """Régression Windows : les connexions ouvertes par la sauvegarde doivent être fermées
+    pour ne pas retenir un verrou de fichier sur la base source ou la copie."""
+    fake_db = tmp_path / "ankiforge.db"
+    seed = sqlite3.connect(str(fake_db))
+    seed.execute("CREATE TABLE t (id int);")
+    seed.commit()
+    seed.close()
+
+    fake_profile_dir = tmp_path / "profile"
+    fake_profile_dir.mkdir()
+
+    opened: list[sqlite3.Connection] = []
+    real_connect = sqlite3.connect
+
+    def tracking_connect(*args, **kwargs):
+        connection = real_connect(*args, **kwargs)
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr("ankiforge.database.backup.sqlite3.connect", tracking_connect)
+
+    with (
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=fake_db),
+        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", fake_profile_dir),
+    ):
+        backup_database()
+
+    assert opened, "La sauvegarde doit ouvrir au moins une connexion SQLite"
+    for connection in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            connection.execute("SELECT 1;")
+
+
+def test_check_db_integrity_closes_connection(tmp_path: Path, monkeypatch):
+    """Régression Windows : ``check_db_integrity`` ne doit pas laisser sa connexion ouverte."""
+    db_path = tmp_path / "healthy.db"
+    seed = sqlite3.connect(str(db_path))
+    seed.execute("CREATE TABLE t (id int);")
+    seed.commit()
+    seed.close()
+
+    opened: list[sqlite3.Connection] = []
+    real_connect = sqlite3.connect
+
+    def tracking_connect(*args, **kwargs):
+        connection = real_connect(*args, **kwargs)
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr("ankiforge.database.backup.sqlite3.connect", tracking_connect)
+
+    assert check_db_integrity(db_path) is True
+
+    assert opened, "Le contrôle d'intégrité doit ouvrir une connexion SQLite"
+    for connection in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            connection.execute("SELECT 1;")
+
+
 def test_check_db_integrity_and_restore(tmp_path: Path):
     """Vérifie le diagnostic d'intégrité et la restauration automatique depuis une sauvegarde saine."""
     # 1. Base saine

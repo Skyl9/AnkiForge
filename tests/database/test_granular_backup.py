@@ -136,6 +136,44 @@ def test_restore_granular_backup_success(fake_profile_env):
         assert len(prerestore_files) == 1
 
 
+def test_restore_granular_backup_closes_all_sqlite_connections(fake_profile_env, monkeypatch):
+    """Régression Windows : chaque connexion SQLite ouverte pendant la restauration doit
+    être fermée. Une connexion laissée ouverte en garbage cyclique retient un verrou de
+    fichier sous Windows et fait échouer le remplacement de la base restaurée."""
+    profile_name = fake_profile_env["profile_name"]
+    profiles_dir = fake_profile_env["profiles_dir"]
+    backup_dir = fake_profile_env["backup_dir"]
+    active_db = fake_profile_env["active_db"]
+
+    backup_target = backup_dir / "ankiforge_backup_20260901_000000.db"
+    conn = sqlite3.connect(str(backup_target))
+    conn.execute("CREATE TABLE users (id int, name text);")
+    conn.execute("INSERT INTO users VALUES (2, 'Bob');")
+    conn.commit()
+    conn.close()
+
+    opened: list[sqlite3.Connection] = []
+    real_connect = sqlite3.connect
+
+    def tracking_connect(*args, **kwargs):
+        connection = real_connect(*args, **kwargs)
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr("ankiforge.database.backup.sqlite3.connect", tracking_connect)
+
+    with (
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+    ):
+        assert restore_granular_backup(profile_name, backup_target.name, create_safety_snapshot=True) is True
+
+    assert opened, "La restauration doit ouvrir au moins une connexion SQLite"
+    for connection in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            connection.execute("SELECT 1;")
+
+
 def test_restore_granular_backup_fails_on_corrupted_file(fake_profile_env):
     profile_name = fake_profile_env["profile_name"]
     profiles_dir = fake_profile_env["profiles_dir"]

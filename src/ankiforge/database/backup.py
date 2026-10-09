@@ -17,7 +17,11 @@ def check_db_integrity(db_path: Path) -> bool:
     if not db_path.exists() or db_path.stat().st_size == 0:
         return False
     try:
-        with sqlite3.connect(str(db_path)) as conn:
+        # ``closing`` et non le ``with sqlite3.connect(...)`` : ce dernier ne ferme pas
+        # la connexion (il ne fait que valider la transaction). Une connexion laissée
+        # ouverte en garbage cyclique garde un verrou de fichier sous Windows et fait
+        # échouer le remplacement de la base restaurée.
+        with contextlib.closing(sqlite3.connect(str(db_path))) as conn:
             cursor = conn.cursor()
             res = cursor.execute("PRAGMA integrity_check(1);").fetchone()
             return bool(res and str(res[0]).strip().lower() == "ok")
@@ -48,10 +52,12 @@ def backup_database(keep_last: int = 5) -> None:
     try:
         # Sauvegarde atomique en ligne compatible mode WAL
         try:
-            with sqlite3.connect(str(db_path)) as src_conn:
+            # ``closing`` garantit la libération immédiate des verrous de fichier
+            # (le ``with sqlite3.connect(...)`` ne ferme pas la connexion).
+            with contextlib.closing(sqlite3.connect(str(db_path))) as src_conn:
                 with contextlib.suppress(Exception):
                     src_conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
-                with sqlite3.connect(str(backup_file)) as dst_conn:
+                with contextlib.closing(sqlite3.connect(str(backup_file))) as dst_conn:
                     src_conn.backup(dst_conn)
         except Exception:
             # Repli par copie physique si la connexion SQLite échoue
@@ -205,10 +211,12 @@ def create_prerestore_backup(profile_name: str | None = None) -> Path | None:
 
     try:
         try:
-            with sqlite3.connect(str(db_path)) as src_conn:
+            # Fermeture explicite : sinon la connexion survit en garbage cyclique et
+            # garde un verrou Windows sur la base pendant le remplacement qui suit.
+            with contextlib.closing(sqlite3.connect(str(db_path))) as src_conn:
                 with contextlib.suppress(Exception):
                     src_conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
-                with sqlite3.connect(str(backup_file)) as dst_conn:
+                with contextlib.closing(sqlite3.connect(str(backup_file))) as dst_conn:
                     src_conn.backup(dst_conn)
         except Exception:
             shutil.copy2(db_path, backup_file)

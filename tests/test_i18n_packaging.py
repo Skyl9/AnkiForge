@@ -44,7 +44,28 @@ def frozen_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return dist_dir
 
 
-def test_catalogs_are_copied_into_the_mac_bundle(frozen_bundle: Path) -> None:
+@pytest.fixture
+def minimal_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Racine projet minimale à la place du vrai dépôt.
+
+    Copier les vraies racines ``src/ressources`` (≈ 36 Mo, ≈ 9 000 fichiers) et
+    ``src/ankiforge/resources`` ne vérifie rien de plus qu'un fichier témoin, mais
+    transforme chaque test en vidage disque : c'est ce qui faisait expirer la CI
+    Windows (30 s) sans rien prouver sur la copie elle-même.
+    """
+    project_root = tmp_path / "projet"
+    translations = project_root / "src" / "ankiforge" / "resources" / "translations"
+    translations.mkdir(parents=True)
+    (translations / f"{i18n.CATALOG_STEM}_{i18n.SOURCE_LANGUAGE}.ts").write_text("<TS/>", encoding="utf-8")
+    icons = project_root / "src" / "ressources" / "icons"
+    icons.mkdir(parents=True)
+    (icons / "app.png").write_bytes(b"fake")
+
+    monkeypatch.setattr("build_standalone.PROJECT_ROOT", project_root)
+    return project_root
+
+
+def test_catalogs_are_copied_into_the_mac_bundle(frozen_bundle: Path, minimal_project: Path) -> None:
     """``copy_app_resources_to_bundle`` doit déposer les catalogues là où Qt ira les lire."""
     copy_app_resources_to_bundle(frozen_bundle, "darwin")
 
@@ -71,19 +92,17 @@ def test_catalogs_survive_a_missing_legacy_resources_folder(tmp_path: Path, monk
     assert copied.is_file(), f"Catalogues non copiés : {copied}"
 
 
-def test_translations_resolve_inside_a_frozen_mac_bundle(frozen_bundle: Path) -> None:
+def test_translations_resolve_inside_a_frozen_mac_bundle(frozen_bundle: Path, minimal_project: Path) -> None:
     """Résolution de bout en bout : chemin bundle → ``get_resource_path`` → catalogue trouvé."""
     copy_app_resources_to_bundle(frozen_bundle, "darwin")
-    source_ts = Path(i18n.translations_dir()) / f"{i18n.CATALOG_STEM}_{i18n.SOURCE_LANGUAGE}.ts"
-    if not source_ts.is_file():
-        pytest.skip("Catalogue source absent : lancer script/extract_translations.py")
 
     resolved = i18n.translations_dir()
     assert resolved == frozen_bundle / "Contents" / "Resources" / "src" / "ankiforge" / "resources" / "translations"
-    assert source_ts.name in {path.name for path in resolved.glob("*.ts")}
+    source_ts = resolved / f"{i18n.CATALOG_STEM}_{i18n.SOURCE_LANGUAGE}.ts"
+    assert source_ts.is_file(), f"Catalogue source absent du bundle : {source_ts}"
 
 
-def test_translations_resolve_inside_a_flat_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_translations_resolve_inside_a_flat_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, minimal_project: Path) -> None:
     """Hors macOS, l'exécutable est à la racine du dossier distribué : même contrat de résolution."""
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir()

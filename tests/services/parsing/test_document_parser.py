@@ -177,7 +177,10 @@ def test_marker_executable_is_found_in_bundle_resources(tmp_path, monkeypatch):
 
 def test_marker_executable_is_found_in_persistent_venv(tmp_path, monkeypatch):
     """Le Marker installé depuis une application packagée est résolu dans ~/.ankiforge/tools."""
-    marker = tmp_path / "tools" / "marker" / "venv" / "bin" / "marker_single"
+    # Le nom et le dossier du binaire dépendent de la plateforme (``bin/marker_single``
+    # sous POSIX, ``Scripts/marker_single.exe`` sous Windows) : le service fait foi.
+    venv_dir = tmp_path / "tools" / "marker" / "venv"
+    marker = MarkerService._venv_executable(venv_dir)
     marker.parent.mkdir(parents=True)
     marker.write_text("#!/bin/sh", encoding="utf-8")
     marker.chmod(marker.stat().st_mode | stat.S_IXUSR)
@@ -204,18 +207,22 @@ def test_marker_installer_uses_external_python_and_persistent_venv(tmp_path, mon
         def wait(self):
             return 0
 
+    # Disposition du venv décrite par le service : ``bin/python``/``marker_single``
+    # sous POSIX, ``Scripts/python.exe``/``marker_single.exe`` sous Windows.
+    venv_dir = tools_dir / "marker" / "venv"
+    python_path = MarkerService._venv_python(venv_dir)
+    marker_path = MarkerService._venv_executable(venv_dir)
+
     def fake_popen(command, **_):
         commands.append(command)
-        bin_dir = tools_dir / "marker" / "venv" / "bin"
-        bin_dir.mkdir(parents=True, exist_ok=True)
-        (bin_dir / "python").write_text("#!/bin/sh")
-        marker_file = bin_dir / "marker_single"
-        marker_file.write_text("#!/bin/sh")
-        marker_file.chmod(marker_file.stat().st_mode | stat.S_IXUSR)
+        python_path.parent.mkdir(parents=True, exist_ok=True)
+        python_path.write_text("#!/bin/sh")
+        marker_path.write_text("#!/bin/sh")
+        marker_path.chmod(marker_path.stat().st_mode | stat.S_IXUSR)
         return FakeProcess()
 
     monkeypatch.setattr("ankiforge.services.parsing.marker_service.subprocess.Popen", fake_popen)
-    executable = tools_dir / "marker" / "venv" / "bin" / "marker_single"
+    executable = marker_path
 
     assert MarkerService.install() == executable
     assert commands[0][:3] == ["/usr/local/bin/python3", "-m", "venv"]
