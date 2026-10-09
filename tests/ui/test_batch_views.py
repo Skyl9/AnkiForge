@@ -1,8 +1,9 @@
 import json
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QItemSelectionModel, QPoint, Qt
 from PySide6.QtWidgets import QScrollArea, QVBoxLayout, QWidget
 
 from ankiforge.database.models import (
@@ -21,6 +22,7 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.batch.models import BatchTaskSnapshot
 from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
+from ankiforge.ui.theme import StyledMenu
 from ankiforge.ui.views.batch_view import BatchTab
 
 pytestmark = pytest.mark.ui
@@ -712,6 +714,153 @@ def test_batch_view_retry_failed_task(qtbot: Any) -> None:
     view._update_queue_table()
     view._on_retry_task(0)
     assert view.queue_tasks_data[0]["status"] == "En attente"
+
+
+def _relaunch_test_task(doc: Any, deck: Any, nt: Any, content: str, status: str, auto_val: bool, uid: str) -> dict[str, Any]:
+    """Rangée de file minimale pour les tests de relance ciblée."""
+    return {
+        "doc": doc,
+        "doc_id": doc.id,
+        "doc_title": f"{doc.title} — {content}",
+        "doc_content": content,
+        "source_chunks": [],
+        "chunk_label": content,
+        "chunk_index": 0,
+        "deck": deck,
+        "deck_name": deck.name,
+        "note_type": nt,
+        "model_name": nt.name,
+        "pipeline_name": "Standard",
+        "llm_config": {"provider": "mock", "model_id": "mock-model", "api_key": ""},
+        "max_tokens": 16384,
+        "auto_val": auto_val,
+        "status": status,
+        "progress_pct": 0,
+        "cards_count": 0,
+        "pending_cards": [],
+        "_queue_uid": uid,
+    }
+
+
+def test_batch_view_retry_purges_previous_attempt_state(qtbot: Any, monkeypatch: Any) -> None:
+    """AC #2 — relancer une ligne échouée purge l'état de la tentative précédente.
+
+    Ni cartes de staging, ni résultat partiel, ni rattachement au snapshot précédent
+    ne doivent survivre ; seul le compteur de tentatives est conservé (plafond de relance).
+    """
+    deck = DeckModel.create(name="Deck Purge Retry")
+    nt = NoteTypeModel.create(name="Basic Purge Retry", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    doc = DocumentModel.create(title="Doc Purge Retry.md", content="Source", file_type="md")
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data.clear()
+
+    task = _relaunch_test_task(doc, deck, nt, "Contenu", "Erreur", False, "uid-purge")
+    task["_staging_notes"] = [{"Front": "STALE", "Back": "STALE"}]
+    task["pending_cards"] = [{"Front": "STALE-PENDING"}]
+    task["_batch_task_id"] = "stale-task-id"
+    task["_is_snapshot_task"] = True
+    task["_attempt_count"] = 2
+    view.queue_tasks_data = [task]
+    view._prepared_notes_by_uid["uid-purge"] = [{"Front": "STALE-STAGING"}]
+    view._update_queue_table()
+
+    # Isole la purge : on n'observe pas l'exécution réelle du lot.
+    monkeypatch.setattr(view, "_on_start_batch", lambda **kwargs: None)
+    view._on_retry_task(0)
+
+    assert task["status"] == "En attente"
+    assert "_staging_notes" not in task
+    assert task["pending_cards"] == []
+    assert "_batch_task_id" not in task
+    assert "_is_snapshot_task" not in task
+    assert "uid-purge" not in view._prepared_notes_by_uid
+    assert task["_attempt_count"] == 2
+
+
+def test_batch_view_retry_only_relaunches_target_line(qtbot: Any, monkeypatch: Any) -> None:
+    """AC #3 — relancer une ligne échouée ne rejoue ni une ligne en revue ni une ligne réussie."""
+    deck = DeckModel.create(name="Deck Cible Retry")
+    nt = NoteTypeModel.create(
+        name="Basic Cible Retry",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+    )
+    doc = DocumentModel.create(title="Doc Cible Retry.md", content="Source", file_type="md")
+
+    executed: list[str] = []
+
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        content = str(self_orch.state.get_variable("text_source") or "")
+        executed.append(content)
+        self_orch.state.variables["generated_cards"] = [{"Front": f"Q {content}", "Back": f"A {content}"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data.clear()
+
+    original_review_notes = [{"Front": "Ancienne", "Back": "Carte de revue"}]
+    reviewing = _relaunch_test_task(doc, deck, nt, "Chunk review", "À réviser", False, "uid-review")
+    reviewing["_staging_notes"] = original_review_notes
+    failed = _relaunch_test_task(doc, deck, nt, "Chunk failed", "Erreur", False, "uid-failed")
+    success = _relaunch_test_task(doc, deck, nt, "Chunk success", "Succès", True, "uid-success")
+    success["cards_count"] = 1
+
+    view.queue_tasks_data = [failed, reviewing, success]
+    view._update_queue_table()
+    view._prepared_notes_by_uid["uid-review"] = original_review_notes
+
+    view._on_retry_task(0)
+    qtbot.waitUntil(lambda: view.worker is not None and not view.worker.isRunning(), timeout=15000)
+
+    assert executed == ["Chunk failed"], f"relance non ciblée : {executed}"
+    assert view.queue_tasks_data[1]["status"] == "À réviser"
+    assert view._prepared_notes_by_uid["uid-review"] is original_review_notes
+    assert view.queue_tasks_data[2]["cards_count"] == 1
+
+
+def test_batch_view_resume_skips_successful_reviewing_line(qtbot: Any, monkeypatch: Any) -> None:
+    """AC #3 — « Reprendre le lot » ne rejoue pas une ligne réussie en attente de revue."""
+    deck = DeckModel.create(name="Deck Resume Cible")
+    nt = NoteTypeModel.create(
+        name="Basic Resume Cible",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+    )
+    doc = DocumentModel.create(title="Doc Resume Cible.md", content="Source", file_type="md")
+
+    executed: list[str] = []
+
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        content = str(self_orch.state.get_variable("text_source") or "")
+        executed.append(content)
+        self_orch.state.variables["generated_cards"] = [{"Front": f"Q {content}", "Back": f"A {content}"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data.clear()
+
+    reviewing = _relaunch_test_task(doc, deck, nt, "Chunk review", "À réviser", False, "uid-review-2")
+    reviewing["_staging_notes"] = [{"Front": "revue", "Back": "revue"}]
+    failed = _relaunch_test_task(doc, deck, nt, "Chunk failed", "Erreur", False, "uid-failed-2")
+
+    view.queue_tasks_data = [reviewing, failed]
+    view._update_queue_table()
+    view._update_resume_button_visibility()
+    assert not view.btn_resume_batch.isHidden()
+
+    view._on_resume_batch()
+    qtbot.waitUntil(lambda: view.worker is not None and not view.worker.isRunning(), timeout=15000)
+
+    assert executed == ["Chunk failed"], f"reprise non ciblée : {executed}"
+    assert view.queue_tasks_data[0]["status"] == "À réviser"
 
 
 # ── Protocole scopes : BatchTaskSnapshot (BatchFactory) ─────────────────────
@@ -1970,3 +2119,307 @@ def test_batch_view_terminal_toggle_exact_height_without_drift(qtbot: Any) -> No
     expanded_sizes_2 = view.main_splitter.sizes()
     assert expanded_sizes_2[idx] == initial_terminal_height
     assert sum(expanded_sizes_2) == total_height
+
+
+# ── Menu contextuel de la file d'attente (Batch Factory) ─────────────────────
+
+
+def _queue_row(doc: Any, label: str, status: str = "En attente", **extra: Any) -> dict[str, Any]:
+    """Rangée de file minimale et autonome pour les tests de menu contextuel."""
+    row: dict[str, Any] = {
+        "doc": doc,
+        "doc_title": f"{doc.title} — {label}",
+        "doc_content": "Contenu de la tranche",
+        "chunk_label": label,
+        "status": status,
+        "progress_pct": 100 if status not in ("En attente", "En cours") else 0,
+        "cards_count": 0,
+    }
+    row.update(extra)
+    return row
+
+
+def _capture_styled_menu(monkeypatch: Any) -> list[StyledMenu]:
+    """Capture chaque menu ouvert par ``StyledMenu.exec`` sans jamais l'afficher."""
+    captured: list[StyledMenu] = []
+
+    def fake_exec(self: StyledMenu, pos: Any = None) -> None:
+        captured.append(self)
+
+    monkeypatch.setattr(StyledMenu, "exec", fake_exec)
+    return captured
+
+
+def _actions_by_label(menu: StyledMenu) -> dict[str, Any]:
+    """Actions nommées d'un menu (les séparateurs, sans libellé, sont ignorés)."""
+    return {action.text(): action for action in menu.actions() if not action.isSeparator()}
+
+
+def _labels_with_separators(menu: StyledMenu) -> list[str]:
+    """Libellés du menu dans l'ordre, séparateurs inclus (chaîne vide)."""
+    return [action.text() for action in menu.actions()]
+
+
+def test_batch_queue_row_menu_has_stable_form(qtbot: Any, monkeypatch: Any) -> None:
+    """Le menu d'une rangée garde une forme stable : mêmes entrées, grisées si inapplicables."""
+    doc = DocumentModel.create(title="Doc Menu Stable.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [
+        _queue_row(doc, "S1", "Succès", _staging_notes=[{"Front": "Q", "Back": "A"}]),
+        _queue_row(doc, "S2", "Succès", _staging_notes=[{"Front": "Q", "Back": "A"}]),
+    ]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    view._on_queue_context_menu(0, QPoint(10, 10))
+
+    assert len(captured) == 1
+    assert _labels_with_separators(captured[0]) == [
+        "Examiner",
+        "Relancer",
+        "",
+        "Monter",
+        "Descendre",
+        "Dupliquer la tâche",
+        "",
+        "Retirer",
+    ]
+    actions = _actions_by_label(captured[0])
+    # Toutes les entrées existent même quand elles ne s'appliquent pas : jamais de trou.
+    assert actions["Relancer"].isEnabled() is False, "Une tâche en Succès n'est pas relançable"
+    assert actions["Monter"].isEnabled() is False, "Première rangée : on ne monte pas"
+    assert actions["Descendre"].isEnabled() is True
+    assert actions["Dupliquer la tâche"].isEnabled() is True
+    assert actions["Retirer"].isEnabled() is True
+    assert actions["Examiner"].isEnabled() is True, "La relecture reste disponible avec des cartes"
+
+
+def test_batch_queue_row_menu_examiner_disabled_without_notes(qtbot: Any, monkeypatch: Any) -> None:
+    """« Examiner » est grisé quand la rangée ne porte aucune carte ouvrable."""
+    doc = DocumentModel.create(title="Doc Menu Vide.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, "S1", "En attente")]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    view._on_queue_context_menu(0, QPoint(10, 10))
+
+    assert _actions_by_label(captured[0])["Examiner"].isEnabled() is False
+
+
+def test_batch_queue_row_menu_retry_enabled_only_on_error(qtbot: Any, monkeypatch: Any) -> None:
+    """« Relancer » n'est actif que pour une rangée en échec."""
+    doc = DocumentModel.create(title="Doc Menu Relance.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, "S1", "Erreur", error_message="boom")]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    view._on_queue_context_menu(0, QPoint(10, 10))
+
+    assert _actions_by_label(captured[0])["Relancer"].isEnabled() is True
+
+
+def test_batch_queue_row_menu_bounds_on_last_row(qtbot: Any, monkeypatch: Any) -> None:
+    """« Descendre » est grisé sur la dernière rangée, « Monter » actif."""
+    doc = DocumentModel.create(title="Doc Menu Bornes.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, "S1"), _queue_row(doc, "S2")]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    view._on_queue_context_menu(1, QPoint(10, 10))
+
+    actions = _actions_by_label(captured[0])
+    assert actions["Monter"].isEnabled() is True
+    assert actions["Descendre"].isEnabled() is False, "Dernière rangée : on ne descend pas"
+
+
+def test_batch_queue_row_menu_move_duplicate_remove(qtbot: Any, monkeypatch: Any) -> None:
+    """Les entrées Monter / Descendre / Dupliquer / Retirer agissent sur la file via le ViewModel."""
+    doc = DocumentModel.create(title="Doc Menu Actions.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, "S1"), _queue_row(doc, "S2")]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    # Monter la seconde rangée
+    view._on_queue_context_menu(1, QPoint(10, 10))
+    _actions_by_label(captured[-1])["Monter"].trigger()
+    assert [t["chunk_label"] for t in view.queue_tasks_data] == ["S2", "S1"]
+
+    # Descendre la première rangée (qui est désormais S2)
+    view._on_queue_context_menu(0, QPoint(10, 10))
+    _actions_by_label(captured[-1])["Descendre"].trigger()
+    assert [t["chunk_label"] for t in view.queue_tasks_data] == ["S1", "S2"]
+
+    # Dupliquer : la copie s'insère sous sa source, réinitialisée et avec une clé neuve
+    source_uid = view.queue_tasks_data[0]["_queue_uid"]
+    view._on_queue_context_menu(0, QPoint(10, 10))
+    _actions_by_label(captured[-1])["Dupliquer la tâche"].trigger()
+    assert [t["chunk_label"] for t in view.queue_tasks_data] == ["S1", "S1", "S2"]
+    assert view.queue_tasks_data[1]["_queue_uid"] != source_uid
+    assert view.queue_tasks_data[1]["status"] == "En attente"
+
+    # Retirer la copie
+    view._on_queue_context_menu(1, QPoint(10, 10))
+    _actions_by_label(captured[-1])["Retirer"].trigger()
+    assert [t["chunk_label"] for t in view.queue_tasks_data] == ["S1", "S2"]
+    assert view.queue_table.rowCount() == 2
+
+
+def test_batch_queue_multi_selection_menu_proposes_grouped_removal(qtbot: Any, monkeypatch: Any) -> None:
+    """Une sélection multiple n'expose que le retrait groupé, jamais les actions mono-rangée."""
+    doc = DocumentModel.create(title="Doc Menu Multi.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, f"S{i}") for i in range(4)]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    view.queue_table.selectRow(1)
+    view.queue_table.selectionModel().select(
+        view.queue_table.model().index(3, 0),
+        QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+    )
+    view._on_queue_context_menu(3, QPoint(10, 10))
+
+    assert len(captured) == 1
+    assert _labels_with_separators(captured[0]) == ["Retirer la sélection (2)"]
+
+    _actions_by_label(captured[0])["Retirer la sélection (2)"].trigger()
+    assert [t["chunk_label"] for t in view.queue_tasks_data] == ["S0", "S2"]
+    assert view.queue_table.rowCount() == 2
+
+
+def test_batch_queue_context_menu_disables_structural_actions_while_running(qtbot: Any, monkeypatch: Any) -> None:
+    """Pendant un run, les mutations structurelles sont désactivées mais Examiner/Relancer restent offerts."""
+    doc = DocumentModel.create(title="Doc Menu Run.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [
+        _queue_row(doc, "S1", "À réviser", _staging_notes=[{"Front": "Q", "Back": "A"}]),
+        _queue_row(doc, "S2", "Erreur"),
+    ]
+    view._update_queue_table()
+    worker = MagicMock()
+    worker.isRunning.return_value = True
+    view.worker = worker
+    captured = _capture_styled_menu(monkeypatch)
+
+    # Rangée « À réviser » : Examiner reste offert, les mutations structurelles sont coupées.
+    view._on_queue_context_menu(0, QPoint(10, 10))
+    actions = _actions_by_label(captured[0])
+    assert actions["Examiner"].isEnabled() is True
+    assert actions["Monter"].isEnabled() is False
+    assert actions["Descendre"].isEnabled() is False
+    assert actions["Dupliquer la tâche"].isEnabled() is False
+    assert actions["Retirer"].isEnabled() is False
+
+    # Rangée en échec : Relancer reste offert pendant le run.
+    view._on_queue_context_menu(1, QPoint(10, 10))
+    actions = _actions_by_label(captured[1])
+    assert actions["Relancer"].isEnabled() is True
+    assert actions["Dupliquer la tâche"].isEnabled() is False
+
+
+def test_batch_queue_multi_selection_disabled_while_running(qtbot: Any, monkeypatch: Any) -> None:
+    """Le retrait groupé est lui aussi bloqué pendant un run."""
+    doc = DocumentModel.create(title="Doc Menu Run Multi.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, f"S{i}") for i in range(3)]
+    view._update_queue_table()
+    worker = MagicMock()
+    worker.isRunning.return_value = True
+    view.worker = worker
+    captured = _capture_styled_menu(monkeypatch)
+
+    view.queue_table.selectRow(0)
+    view.queue_table.selectionModel().select(
+        view.queue_table.model().index(1, 0),
+        QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+    )
+    view._on_queue_context_menu(1, QPoint(10, 10))
+
+    assert _actions_by_label(captured[0])["Retirer la sélection (2)"].isEnabled() is False
+
+
+def test_batch_queue_empty_zone_menu_offers_clear_and_start(qtbot: Any, monkeypatch: Any) -> None:
+    """Clic droit dans le vide : « Vider la file » + « Démarrer » selon l'état du lot."""
+    doc = DocumentModel.create(title="Doc Menu Vide.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, "S1")]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    view._on_queue_context_menu(-1, QPoint(10, 10))
+
+    assert _labels_with_separators(captured[0]) == ["Vider la file", "", "Démarrer"]
+    actions = _actions_by_label(captured[0])
+    assert actions["Vider la file"].isEnabled() is True
+    assert actions["Démarrer"].isEnabled() is True
+
+
+def test_batch_queue_empty_zone_menu_switches_to_stop_while_running(qtbot: Any, monkeypatch: Any) -> None:
+    """En cours de run, le menu vide propose « Arrêter » ; « Vider la file » reste aligné sur le bouton d'en-tête."""
+    doc = DocumentModel.create(title="Doc Menu Vide Run.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, "S1")]
+    view._update_queue_table()
+    worker = MagicMock()
+    worker.isRunning.return_value = True
+    view.worker = worker
+    captured = _capture_styled_menu(monkeypatch)
+
+    view._on_queue_context_menu(-1, QPoint(10, 10))
+
+    assert _labels_with_separators(captured[0]) == ["Vider la file", "", "Arrêter"]
+    actions = _actions_by_label(captured[0])
+    # Le garde-fou run ne couvre que les mutations de rangée : Vider suit le bouton d'en-tête, toujours disponible.
+    assert actions["Vider la file"].isEnabled() is True
+    assert actions["Arrêter"].isEnabled() is True
+
+
+def test_batch_queue_end_to_end_context_menu_selection_follows_click(qtbot: Any, monkeypatch: Any) -> None:
+    """Le signal de la table route le clic droit vers le menu de la rangée cliquée."""
+    doc = DocumentModel.create(title="Doc Menu E2E.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [_queue_row(doc, "S1"), _queue_row(doc, "S2")]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    monkeypatch.setattr(view.queue_table, "rowAt", lambda _y: 1)
+    view.queue_widget._on_context_menu_requested(QPoint(5, 5))
+
+    assert len(captured) == 1
+    actions = _actions_by_label(captured[0])
+    # Rangée 1 (dernière) : Monter actif, Descendre grisé.
+    assert actions["Monter"].isEnabled() is True
+    assert actions["Descendre"].isEnabled() is False
+    assert view.queue_widget.selected_rows() == [1]
+
+
+def test_batch_queue_context_menu_examiner_opens_review(qtbot: Any, monkeypatch: Any) -> None:
+    """« Examiner » charge bien la revue de la rangée ciblée."""
+    doc = DocumentModel.create(title="Doc Menu Revue.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    row = _queue_row(doc, "S1", "À réviser", _staging_notes=[{"Front": "Q1", "Back": "A1"}])
+    view.queue_tasks_data = [row]
+    view._update_queue_table()
+    captured = _capture_styled_menu(monkeypatch)
+
+    view._on_queue_context_menu(0, QPoint(10, 10))
+    _actions_by_label(captured[0])["Examiner"].trigger()
+
+    assert view.staging_panel._current_task_uid == row["_queue_uid"]
+    assert view.terminal_panel.content_stack.currentIndex() == view._review_tab_idx

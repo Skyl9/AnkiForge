@@ -301,3 +301,59 @@ def test_batch_viewmodel_move_task_clamps_target_index(target_index: int, expect
 
     assert [task["title"] for task in view_model.tasks] == expected_titles
     assert sorted(str(task["_queue_uid"]) for task in view_model.tasks) == sorted(uids_before)
+
+
+def test_batch_viewmodel_duplicate_task_inserts_reset_clone_below_source() -> None:
+    view_model = BatchViewModel()
+    added = view_model.add_tasks([{"title": "A"}, {"title": "B"}])
+    source_uid = str(added[0]["_queue_uid"])
+    source = view_model.tasks[0]
+    source.update(
+        {
+            "status": "Succès",
+            "progress_pct": 100,
+            "cards_count": 4,
+            "_attempt_count": 2,
+            "_staging_notes": [{"Front": "Q"}],
+            "_is_snapshot_task": True,
+            "_batch_task_id": "snap-1",
+            "error_message": "boom",
+            "pending_cards": [{"Front": "Q"}],
+            "source_chunks": [{"content": "x"}],
+            "llm_config": {"provider": "mock"},
+        }
+    )
+    snapshots: list[list[dict[str, Any]]] = []
+    view_model.queue_changed.connect(snapshots.append)
+
+    clone = view_model.duplicate_task(0)
+
+    assert clone is not None
+    assert [task["title"] for task in view_model.tasks] == ["A", "A", "B"]
+    assert view_model.tasks[1] is clone
+    assert str(clone["_queue_uid"]) != source_uid
+    assert clone["status"] == "En attente"
+    assert clone["progress_pct"] == 0
+    assert clone["cards_count"] == 0
+    assert clone["_attempt_count"] == 0
+    assert "error_message" not in clone
+    assert "_staging_notes" not in clone
+    assert "_is_snapshot_task" not in clone
+    assert "_batch_task_id" not in clone
+    assert clone["pending_cards"] == []
+    assert clone["source_chunks"] == [{"content": "x"}]
+    assert clone["source_chunks"] is not source["source_chunks"]
+    assert clone["llm_config"] == {"provider": "mock"}
+    assert clone["llm_config"] is not source["llm_config"]
+    # La source reste intacte : dupliquer ne mute pas l'original.
+    assert source["status"] == "Succès"
+    assert source["_staging_notes"] == [{"Front": "Q"}]
+    assert len(snapshots) == 1
+
+
+def test_batch_viewmodel_duplicate_task_ignores_out_of_bound_index() -> None:
+    view_model = BatchViewModel()
+    view_model.add_tasks([{"title": "A"}])
+
+    assert view_model.duplicate_task(3) is None
+    assert [task["title"] for task in view_model.tasks] == ["A"]

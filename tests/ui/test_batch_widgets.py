@@ -6,6 +6,9 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from PySide6.QtCore import QPoint
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QAbstractItemView
 
 from ankiforge.database.models import (
     PipelineModel,
@@ -21,6 +24,7 @@ from ankiforge.services.batch.models import (
 )
 from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
 from ankiforge.ui.components import IconButton
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.batch_view.widgets import BatchQueueTable
 
 pytestmark = pytest.mark.ui
@@ -132,6 +136,117 @@ def test_batch_queue_table_refresh_theme(qtbot: Any) -> None:
     widget.set_tasks([_task("En cours")])
     widget.sync_started(0)
     widget.refresh_theme(MagicMock())
+
+
+def test_batch_queue_table_uses_extended_selection(qtbot: Any) -> None:
+    widget = BatchQueueTable()
+    qtbot.addWidget(widget)
+    assert widget.table.selectionMode() == QAbstractItemView.SelectionMode.ExtendedSelection
+
+
+def test_batch_queue_table_context_menu_selection_follows_click(qtbot: Any, monkeypatch: Any) -> None:
+    widget = BatchQueueTable()
+    qtbot.addWidget(widget)
+    widget.set_tasks([_task("En attente", "S1"), _task("Succès", "S2"), _task("Erreur", "S3")])
+
+    emitted: list[tuple[int, QPoint]] = []
+    widget.context_menu_requested.connect(lambda row, pos: emitted.append((row, pos)))
+
+    widget.table.selectRow(2)
+    monkeypatch.setattr(widget.table, "rowAt", lambda _y: 0)
+    widget._on_context_menu_requested(QPoint(10, 10))
+
+    assert emitted and emitted[0][0] == 0
+    assert isinstance(emitted[0][1], QPoint)
+    assert widget.selected_rows() == [0]
+
+
+def test_batch_queue_table_context_menu_keeps_multi_selection(qtbot: Any, monkeypatch: Any) -> None:
+    widget = BatchQueueTable()
+    qtbot.addWidget(widget)
+    widget.set_tasks([_task("En attente", "S1"), _task("En attente", "S2"), _task("En attente", "S3")])
+
+    widget.table.selectRow(0)
+    widget.table.selectionModel().select(
+        widget.table.model().index(1, 0),
+        widget.table.selectionModel().SelectionFlag.Select | widget.table.selectionModel().SelectionFlag.Rows,
+    )
+    assert widget.selected_rows() == [0, 1]
+
+    emitted: list[int] = []
+    widget.context_menu_requested.connect(lambda row, pos: emitted.append(row))
+    monkeypatch.setattr(widget.table, "rowAt", lambda _y: 0)
+    widget._on_context_menu_requested(QPoint(10, 10))
+
+    assert emitted == [0]
+    assert widget.selected_rows() == [0, 1]
+
+
+def test_batch_queue_table_context_menu_empty_zone_reports_minus_one(qtbot: Any, monkeypatch: Any) -> None:
+    widget = BatchQueueTable()
+    qtbot.addWidget(widget)
+    widget.set_tasks([_task()])
+
+    emitted: list[int] = []
+    widget.context_menu_requested.connect(lambda row, pos: emitted.append(row))
+    monkeypatch.setattr(widget.table, "rowAt", lambda _y: -1)
+    widget._on_context_menu_requested(QPoint(10, 10))
+
+    assert emitted == [-1]
+
+
+def test_batch_queue_table_row_appearance_terminal_and_rejected(qtbot: Any) -> None:
+    widget = BatchQueueTable()
+    qtbot.addWidget(widget)
+    widget.set_tasks(
+        [
+            _task("Succès", "S1"),
+            _task("Acceptée", "S2"),
+            _task("Partielle", "S3"),
+            _task("Annulé", "S4"),
+            _task("Rejetée", "S5"),
+            _task("Erreur", "S6"),
+            _task("En attente", "S7"),
+        ]
+    )
+
+    muted_hex = QColor(DesignTokens.TEXT_MUTED).name()
+    for row in range(4):
+        item = widget.table.item(row, 2)
+        assert item is not None
+        assert item.foreground().color().name() == muted_hex
+        assert item.font().strikeOut() is False
+
+    rejected = widget.table.item(4, 2)
+    assert rejected is not None
+    assert rejected.font().strikeOut() is True
+    assert rejected.foreground().color().name() != muted_hex
+
+    error_item = widget.table.item(5, 2)
+    assert error_item is not None
+    assert error_item.font().strikeOut() is False
+    assert error_item.foreground().color().name() != muted_hex
+
+    pending_item = widget.table.item(6, 2)
+    assert pending_item is not None
+    assert pending_item.font().strikeOut() is False
+    assert pending_item.foreground().color().name() != muted_hex
+
+
+def test_batch_queue_table_sync_completed_applies_row_appearance(qtbot: Any) -> None:
+    widget = BatchQueueTable()
+    qtbot.addWidget(widget)
+    widget.set_tasks([_task("En attente")])
+
+    muted_hex = QColor(DesignTokens.TEXT_MUTED).name()
+    assert widget.table.item(0, 2).foreground().color().name() != muted_hex
+
+    widget.sync_completed(0, "Succès", 3)
+    assert widget.status_badges_map[0].text() == "Succès"
+    assert widget.table.item(0, 2).foreground().color().name() == muted_hex
+
+    widget.sync_completed(0, "Rejetée", 0)
+    assert widget.table.item(0, 2).font().strikeOut() is True
 
 
 # ── BatchWorker : chemins d'auto-validation ─────────────────────────────────
