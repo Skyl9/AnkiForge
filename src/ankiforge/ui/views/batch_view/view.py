@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Any
 
-from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtCore import QPoint, Qt, QTimer, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -65,7 +65,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.vision_capability import VISION_TOOLTIP, effective_vision, sync_vision_capability
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
-from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.viewmodels.batch_viewmodel import BatchViewModel
 from ankiforge.ui.views.batch_view.dialogs import BatchSliceComposerDialog
 from ankiforge.ui.views.batch_view.widgets import (
@@ -85,6 +85,21 @@ logger = logging.getLogger(__name__)
 
 # Statuts de `queue_tasks_data` où la tâche est réglée : ni en cours, ni à revoir.
 SETTLED_TASK_STATUSES = ("Succès", "Acceptée")
+
+# Statuts d'une rangée éligible à une relance (« Reprendre le lot » / « Relancer ») :
+# non terminée ou en échec. Une génération déjà aboutie — en attente de revue
+# (« À réviser »), partiellement acceptée (« Partielle ») ou rejetée — n'est jamais
+# rejouée par une relance : elle réécrirait des cartes que l'utilisateur tient déjà.
+RELANCEABLE_TASK_STATUSES = ("Erreur", "Interrompu", "Échec", "En attente")
+
+# Nombre maximal de tentatives pour une tâche de portée relancée manuellement.
+MAX_RETRY_ATTEMPTS = 3
+
+# Statuts dont les cartes sont ouvrables en revue — mêmes seuils que l'affordance de
+# la table (simple-clic « À réviser », double-clic de relecture sur les terminaux),
+# pour que le menu contextuel ne propose « Examiner » que sur une rangée réellement
+# revisable et jamais sur une rangée relancée portant des notes d'un cycle précédent.
+REVIEWABLE_TASK_STATUSES = ("À réviser", "Succès", "Acceptée", "Partielle", "Rejetée")
 
 
 def _blocks_for_direct_part(
@@ -520,6 +535,7 @@ class BatchView(QWidget):
         self.queue_widget.review_requested.connect(self._on_open_staging_for_task)
         self.queue_widget.remove_requested.connect(self._remove_from_queue)
         self.queue_widget.retry_requested.connect(self._on_retry_task)
+        self.queue_widget.context_menu_requested.connect(self._on_queue_context_menu)
         queue_layout.addWidget(self.queue_widget, 1)
 
         self.queue_panel.add_tab("File d'attente détaillée", queue_content, "ph.list-dashes", closable=False)
@@ -990,6 +1006,139 @@ class BatchView(QWidget):
         self.card_cards.val_lbl.setText(tr("%1 cartes", self._total_cards_accumulated))
         self.card_cost.val_lbl.setText(f"${(total_tokens / 1000000 * 0.15):.2f}")
 
+    # ── Menu contextuel de la file d'attente ─────────────────────────────
+
+    def _is_batch_running(self) -> bool:
+        """Vrai si un lot s'exécute : garde-fou des mutations structurelles de la file.
+
+        Pendant un run, ``task_index`` est figé dans la payload du worker : retirer,
+        déplacer ou dupliquer une rangée désynchroniserait les badges de la file.
+        """
+        return self.worker is not None and self.worker.isRunning()
+
+    def _selected_queue_rows(self) -> list[int]:
+        """Indices des rangées sélectionnées, dans l'ordre de la file."""
+        return self.queue_widget.selected_rows()
+
+    def _review_notes_for(self, row_idx: int) -> list[dict[str, Any]]:
+        """Cartes ouvrables en revue pour une rangée (staging en mémoire ou notes de la tâche)."""
+        if not 0 <= row_idx < len(self.queue_tasks_data):
+            return []
+        task = self.queue_tasks_data[row_idx]
+        return list(self._prepared_notes_by_uid.get(self._task_uid(task)) or task.get("_staging_notes") or [])
+
+    def _has_review_notes(self, row_idx: int) -> bool:
+        """Vrai si la rangée porte des cartes ouvrables en revue."""
+        return bool(self._review_notes_for(row_idx))
+
+    @Slot(int, QPoint)
+    def _on_queue_context_menu(self, row_idx: int, global_pos: QPoint) -> None:
+        """Dispatch du clic droit : rangée unique, sélection multiple ou zone vide."""
+        selected = self._selected_queue_rows()
+        if row_idx < 0:
+            self._show_queue_empty_menu(global_pos)
+        elif len(selected) > 1:
+            self._show_queue_multi_menu(selected, global_pos)
+        else:
+            self._show_queue_row_menu(row_idx, global_pos)
+
+    def _show_queue_row_menu(self, row_idx: int, global_pos: QPoint) -> None:
+        """Menu à **forme stable** d'une rangée : les entrées inapplicables sont grisées, jamais retirées."""
+        if not 0 <= row_idx < len(self.queue_tasks_data):
+            return
+        status = str(self.queue_tasks_data[row_idx].get("status", "En attente"))
+        is_error = status in ("Erreur", "Échec", "Interrompu")
+        running = self._is_batch_running()
+        last_row = len(self.queue_tasks_data) - 1
+
+        menu = StyledMenu(self)
+
+        act_review = menu.addAction(load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.COLOR_PURPLE), tr("Examiner"))
+        act_review.setEnabled(status in REVIEWABLE_TASK_STATUSES and self._has_review_notes(row_idx))
+        act_review.triggered.connect(lambda _=False, r=row_idx: self._on_open_staging_for_task(r))
+
+        retry_color = DesignTokens.COLOR_RED if is_error else DesignTokens.TEXT_MUTED
+        act_retry = menu.addAction(load_phosphor_icon("ph.arrow-clockwise", color=retry_color), tr("Relancer"))
+        act_retry.setEnabled(is_error)
+        act_retry.triggered.connect(lambda _=False, r=row_idx: self._on_retry_task(r))
+
+        menu.addSeparator()
+
+        act_up = menu.addAction(load_phosphor_icon("ph.arrow-up", color=DesignTokens.TEXT_PRIMARY), tr("Monter"))
+        act_up.setEnabled(not running and row_idx > 0)
+        act_up.triggered.connect(lambda _=False, r=row_idx: self._move_queue_task(r, -1))
+
+        act_down = menu.addAction(load_phosphor_icon("ph.arrow-down", color=DesignTokens.TEXT_PRIMARY), tr("Descendre"))
+        act_down.setEnabled(not running and row_idx < last_row)
+        act_down.triggered.connect(lambda _=False, r=row_idx: self._move_queue_task(r, 1))
+
+        act_dup = menu.addAction(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY), tr("Dupliquer la tâche"))
+        act_dup.setEnabled(not running)
+        act_dup.triggered.connect(lambda _=False, r=row_idx: self._duplicate_queue_task(r))
+
+        menu.addSeparator()
+
+        act_remove = menu.addAction(load_phosphor_icon("ph.x", color=DesignTokens.COLOR_RED), tr("Retirer"))
+        act_remove.setEnabled(not running)
+        act_remove.triggered.connect(lambda _=False, r=row_idx: self._remove_from_queue(r))
+
+        menu.exec(global_pos)
+
+    def _show_queue_multi_menu(self, rows: list[int], global_pos: QPoint) -> None:
+        """Menu d'une sélection multiple : seule la mutation applicable est le retrait groupé."""
+        menu = StyledMenu(self)
+        act_remove = menu.addAction(load_phosphor_icon("ph.x", color=DesignTokens.COLOR_RED), tr("Retirer la sélection (%1)", len(rows)))
+        act_remove.setEnabled(not self._is_batch_running())
+        act_remove.triggered.connect(lambda: self._remove_selected_queue_rows(rows))
+        menu.exec(global_pos)
+
+    def _show_queue_empty_menu(self, global_pos: QPoint) -> None:
+        """Menu de la zone vide : vidage de la file et démarrage/arrêt selon l'état du lot."""
+        running = self._is_batch_running()
+        has_tasks = bool(self.queue_tasks_data)
+        menu = StyledMenu(self)
+
+        act_clear = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), tr("Vider la file"))
+        act_clear.setEnabled(has_tasks)
+        act_clear.triggered.connect(self._on_clear_queue)
+
+        menu.addSeparator()
+
+        toggle_icon = load_phosphor_icon("ph.stop", color=DesignTokens.COLOR_RED) if running else load_phosphor_icon("ph.play", color=DesignTokens.COLOR_GREEN)
+        act_toggle = menu.addAction(toggle_icon, tr("Arrêter") if running else tr("Démarrer"))
+        act_toggle.setEnabled(has_tasks)
+        act_toggle.triggered.connect(self._on_start_batch)
+
+        menu.exec(global_pos)
+
+    def _move_queue_task(self, row_idx: int, offset: int) -> None:
+        """Déplace une rangée d'un cran (offset -1 = monter, +1 = descendre)."""
+        target = row_idx + offset
+        if not (0 <= row_idx < len(self.queue_tasks_data)) or not (0 <= target < len(self.queue_tasks_data)):
+            return
+        self.batch_view_model.move_task(row_idx, target)
+        self._update_queue_table()
+
+    def _duplicate_queue_task(self, row_idx: int) -> None:
+        """Duplique une rangée sous sa source via le seam de duplication du ViewModel."""
+        duplicate = self.batch_view_model.duplicate_task(row_idx)
+        if duplicate is None:
+            return
+        self._update_queue_table()
+        self._update_estimates_summary()
+        show_toast(self, self.tr("Tâche dupliquée."))
+
+    def _remove_selected_queue_rows(self, rows: list[int]) -> None:
+        """Retire plusieurs rangées de la file en descendant (les index amont restent valides)."""
+        removed = False
+        for row_idx in sorted(rows, reverse=True):
+            if self.batch_view_model.remove_task(row_idx) is not None:
+                removed = True
+        if not removed:
+            return
+        self._update_queue_table()
+        self._update_estimates_summary()
+
     def _set_running_ui_state(self, is_running: bool) -> None:
         """Met à jour l'apparence du bouton de lancement et des métriques."""
         if is_running:
@@ -1056,8 +1205,32 @@ class BatchView(QWidget):
         if self._run_clock_timer is not None:
             self._run_clock_timer.stop()
 
+    def _reset_task_for_relaunch(self, idx: int) -> None:
+        """Purge l'état d'exécution d'une rangée avant une (re)lance.
+
+        Une relance ne doit **rien** réutiliser de la tentative précédente : ni les
+        cartes de staging (``_staging_notes`` / ``_prepared_notes_by_uid``), ni un
+        résultat partiel (``pending_cards``), ni le rattachement au snapshot
+        (``_batch_task_id`` / ``_is_snapshot_task``), ni l'erreur. Le compteur de
+        tentatives ``_attempt_count`` est en revanche **préservé** : il porte le
+        plafond de relance (``MAX_RETRY_ATTEMPTS``), non un artefact de tentative.
+        """
+        task = self.queue_tasks_data[idx]
+        uid = self._task_uid(task)
+        self._prepared_notes_by_uid.pop(uid, None)
+        task.pop("_staging_notes", None)
+        task.pop("error_message", None)
+        task.pop("_batch_task_id", None)
+        task.pop("_is_snapshot_task", None)
+        task["pending_cards"] = []
+        task["status"] = "En attente"
+        task["progress_pct"] = 0
+        task["cards_count"] = 0
+        if uid and self.staging_panel._current_task_uid == uid:
+            self.staging_panel.show_empty_state("Tâche relancée — la revue en cours est abandonnée.")
+
     @Slot()
-    def _on_start_batch(self, resume_incomplete: bool = False) -> None:
+    def _on_start_batch(self, resume_incomplete: bool = False, only_indices: set[int] | None = None) -> None:
         if self.worker is not None and self.worker.isRunning():
             self._on_stop_batch()
             return
@@ -1070,14 +1243,19 @@ class BatchView(QWidget):
 
         skipped_successful_count = 0
         for idx, task in enumerate(self.queue_tasks_data):
+            if only_indices is not None and idx not in only_indices:
+                continue
             prev_status = str(task.get("status", "En attente"))
-            if prev_status in ("Succès", "Acceptée"):
+            if prev_status in SETTLED_TASK_STATUSES:
+                skipped_successful_count += 1
+                continue
+            if resume_incomplete and prev_status not in RELANCEABLE_TASK_STATUSES:
+                # Relance ciblée : une génération déjà aboutie (« À réviser », « Partielle »,
+                # « Rejetée ») n'est pas rejouée — seules les lignes non terminées ou en échec le sont.
                 skipped_successful_count += 1
                 continue
 
-            task["status"] = "En attente"
-            task["progress_pct"] = 0
-            task["cards_count"] = 0
+            self._reset_task_for_relaunch(idx)
 
             doc: DocumentModel = task["doc"]
             deck = task.get("deck")
@@ -1210,7 +1388,7 @@ class BatchView(QWidget):
         """Affiche le bouton de reprise si des tâches sont restées non terminées."""
         if not hasattr(self, "btn_resume_batch"):
             return
-        has_incomplete = any(t.get("status") in ("Erreur", "Interrompu", "Échec", "En attente") for t in self.queue_tasks_data)
+        has_incomplete = any(t.get("status") in RELANCEABLE_TASK_STATUSES for t in self.queue_tasks_data)
         has_finished = any(t.get("status") in SETTLED_TASK_STATUSES for t in self.queue_tasks_data)
         has_failures = any(t.get("status") in ("Erreur", "Interrompu", "Échec") for t in self.queue_tasks_data)
         self.btn_resume_batch.setVisible(has_incomplete and (has_finished or has_failures))
@@ -1524,21 +1702,17 @@ class BatchView(QWidget):
 
     @Slot(int)
     def _on_retry_task(self, row_idx: int) -> None:
-        """Relance une tâche en échec : remise en attente puis reprise du batch (max MAX_RETRY_ATTEMPTS tentatives)."""
-        if 0 <= row_idx < len(self.queue_tasks_data):
-            task = self.queue_tasks_data[row_idx]
-            if task.get("_is_snapshot_task"):
-                prev_attempts = task.get("_attempt_count", 0)
-                if prev_attempts >= 3:
-                    show_toast(self, self.tr("Tentative maximale de relance atteinte pour cette tâche."), is_error=True)
-                    return
-            task["status"] = "En attente"
-            task["progress_pct"] = 0
-            task["cards_count"] = 0
-            task.pop("error_message", None)
-            self._update_queue_table()
-            self._log_formatted_line("INFO", f"Tâche #{row_idx + 1} relancée.")
-            self._on_resume_batch()
+        """Relance **une seule** ligne en échec, après purge de sa tentative précédente."""
+        if not 0 <= row_idx < len(self.queue_tasks_data):
+            return
+        task = self.queue_tasks_data[row_idx]
+        if task.get("_is_snapshot_task") and task.get("_attempt_count", 0) >= MAX_RETRY_ATTEMPTS:
+            show_toast(self, self.tr("Tentative maximale de relance atteinte pour cette tâche."), is_error=True)
+            return
+        self._reset_task_for_relaunch(row_idx)
+        self._update_queue_table()
+        self._log_formatted_line("INFO", f"Tâche #{row_idx + 1} relancée.")
+        self._on_start_batch(resume_incomplete=True, only_indices={row_idx})
 
     # ── Staging Panel Slots ──────────────────────────────────────────────
 
@@ -1612,7 +1786,7 @@ class BatchView(QWidget):
         """Ouvre la revue d'une tâche (via 'Examiner', clic simple ou relecture) et focus l'onglet."""
         if 0 <= task_idx < len(self.queue_tasks_data):
             task = self.queue_tasks_data[task_idx]
-            notes = self._prepared_notes_by_uid.get(self._task_uid(task)) or list(task.get("_staging_notes", []))
+            notes = self._review_notes_for(task_idx)
             if notes:
                 self.staging_panel.load_task(task_idx, task, notes, force=True)
                 self._focus_review_tab()

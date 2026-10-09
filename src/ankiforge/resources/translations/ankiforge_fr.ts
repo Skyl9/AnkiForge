@@ -1011,7 +1011,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+27"/>
-        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+89"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+93"/>
         <source>Tous</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1358,7 +1358,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/batch_view/view.py" line="+324"/>
+        <location filename="../../ui/views/batch_view/view.py" line="+330"/>
         <source>Vision (PDF)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1373,13 +1373,13 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+561"/>
+        <location line="+562"/>
         <source>Document &apos;%1&apos; chargé !</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+95"/>
-        <location line="+185"/>
+        <location line="+318"/>
         <location line="+96"/>
         <location line="+48"/>
         <location line="+314"/>
@@ -1387,7 +1387,58 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-402"/>
+        <location line="-726"/>
+        <source>Examiner</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Relancer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Monter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Descendre</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Dupliquer la tâche</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Retirer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Retirer la sélection (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Vider la file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-283"/>
+        <source>Arrêter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Démarrer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+272"/>
         <source>En cours (%1/%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1428,12 +1479,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="-27"/>
-        <location line="+319"/>
+        <location line="+358"/>
         <source>Terminé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-318"/>
+        <location line="-357"/>
         <source>En cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1489,12 +1540,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+204"/>
+        <location line="+221"/>
         <source>Type: %1 | Mots: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+142"/>
+        <location line="+165"/>
         <source>%1/%2 tâche(s)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2069,7 +2120,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-680"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-397"/>
         <source>Extrait filtré</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2094,12 +2145,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+129"/>
-        <source>Arrêter</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+217"/>
+        <location line="+346"/>
         <source>Portée : Page %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5940,7 +5986,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>BatchQueueTable</name>
     <message>
-        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="-91"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="-92"/>
         <source>Examiner &amp; valider les cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6185,7 +6231,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>BatchView</name>
     <message>
-        <location filename="../../ui/views/batch_view/view.py" line="-1595"/>
+        <location filename="../../ui/views/batch_view/view.py" line="-1729"/>
         <source>CIBLES ANKI</source>
         <extracomment>Cartes enregistrées sans lien de couverture (fragment source non résolu), remonté au récapitulatif de fin de lot.</extracomment>
         <translation type="unfinished"></translation>
@@ -6246,7 +6292,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+34"/>
         <source>Réduire / Déplier le terminal</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6281,7 +6327,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+130"/>
+        <source>Tâche dupliquée.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
         <source>Arrêter le Batch</source>
         <translation type="unfinished"></translation>
     </message>

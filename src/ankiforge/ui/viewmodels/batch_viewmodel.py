@@ -75,6 +75,33 @@ class BatchViewModel(BaseViewModel):
         self._tasks.insert(target_index, task)
         self.queue_changed.emit(list(self._tasks))
 
+    def duplicate_task(self, index: int) -> dict[str, Any] | None:
+        """Insère sous la rangée source une copie au contenu et à la configuration hérités.
+
+        L'état d'exécution est **réinitialisé** (statut, progression, compteur de cartes,
+        tentatives, notes de staging, rattachement au snapshot) et la copie reçoit un
+        ``_queue_uid`` neuf : dupliquer une tâche ne doit jamais rejouer un résultat ni
+        transporter les cartes d'une revue précédente.
+        """
+        if not 0 <= index < len(self._tasks):
+            return None
+        source = self._tasks[index]
+        clone = dict(source)
+        for stale_key in ("_staging_notes", "_is_snapshot_task", "_batch_task_id", "error_message"):
+            clone.pop(stale_key, None)
+        clone["_queue_uid"] = str(uuid.uuid4())
+        clone["status"] = "En attente"
+        clone["progress_pct"] = 0
+        clone["cards_count"] = 0
+        clone["pending_cards"] = []
+        clone["_attempt_count"] = 0
+        clone["source_chunks"] = list(source.get("source_chunks") or [])
+        if isinstance(source.get("llm_config"), dict):
+            clone["llm_config"] = dict(source["llm_config"])
+        self._tasks.insert(index + 1, clone)
+        self.queue_changed.emit(list(self._tasks))
+        return clone
+
     def update_task(self, index: int, **changes: Any) -> dict[str, Any] | None:
         """Met à jour la projection d'une tâche en préservant son identité de file."""
         if not 0 <= index < len(self._tasks):

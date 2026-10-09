@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtCore import QEvent, QPoint, Qt, Signal
+from PySide6.QtGui import QColor, QMouseEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -46,6 +46,10 @@ _STATUS_COLORS: dict[str, str] = {
     "Interrompu": DesignTokens.TEXT_MUTED,
     "Échec": DesignTokens.COLOR_RED,
 }
+
+_MUTED_ROW_STATUSES = ("Succès", "Acceptée", "Partielle", "Annulé")
+_STRIKEOUT_ROW_STATUSES = ("Rejetée",)
+_ROW_TEXT_COLUMNS = (2, 3, 4, 5, 7)
 
 
 def _status_progress_text() -> dict[str, str]:
@@ -103,6 +107,7 @@ class BatchQueueTable(QWidget):
                                     double-clic sur une tranche traitée avec notes pour relire)
       - retry_requested(row_idx)   → relancer une tâche en échec
       - remove_requested(row_idx)  → retirer une tâche de la file
+      - context_menu_requested(row_idx, global_pos) → menu contextuel (row_idx = -1 si zone vide)
 
     Qt equivalent: QWidget (QVBoxLayout)
     """
@@ -110,6 +115,7 @@ class BatchQueueTable(QWidget):
     review_requested = Signal(int)
     retry_requested = Signal(int)
     remove_requested = Signal(int)
+    context_menu_requested = Signal(int, QPoint)
     filter_changed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -170,6 +176,7 @@ class BatchQueueTable(QWidget):
         # ── Table d'attente ──────────────────────────────────────────
         self.table = StyledTableWidget(["", "STATUT", "TRANCHE / SOURCE", "PAQUET", "MODÈLE", "PIPELINE", "PROGRÈS", "CARTES", "ACTIONS"])
         self.table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(StyledTableWidget.SelectionMode.ExtendedSelection)
         self.table.verticalHeader().setDefaultSectionSize(46)
 
         header = self.table.horizontalHeader()
@@ -209,6 +216,8 @@ class BatchQueueTable(QWidget):
 
         self.table.itemClicked.connect(self._on_item_single_clicked)
         self.table.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._on_context_menu_requested)
         self.table.viewport().installEventFilter(self)
 
         self.queue_empty = EmptyStateWidget(
@@ -229,6 +238,18 @@ class BatchQueueTable(QWidget):
         """Double-clic sur une rangée traitée avec cartes : relecture."""
         if item.row() in self._reopen_rows and item.row() < len(self._tasks):
             self.review_requested.emit(item.row())
+
+    def _on_context_menu_requested(self, pos: QPoint) -> None:
+        """Clic droit : la sélection suit le clic, puis BatchView décide du menu à afficher."""
+        row_idx = self.table.rowAt(pos.y())
+        if row_idx >= 0 and row_idx not in self.selected_rows():
+            self.table.clearSelection()
+            self.table.selectRow(row_idx)
+        self.context_menu_requested.emit(row_idx, self.table.viewport().mapToGlobal(pos))
+
+    def selected_rows(self) -> list[int]:
+        """Indices des rangées sélectionnées, ordonnés dans l'ordre de la file."""
+        return sorted({index.row() for index in self.table.selectedIndexes()})
 
     def eventFilter(self, obj: Any, event: Any) -> bool:
         """Affordance visuelle : curseur « main » sur les rangées ouvrables."""
@@ -334,8 +355,30 @@ class BatchQueueTable(QWidget):
             # Col 8: Actions
             self.table.setCellWidget(i, 8, self._build_actions(i, status))
 
+            self._apply_status_appearance(i, status)
+
         self.table.blockSignals(False)
         self._apply_filter()
+
+    def _apply_status_appearance(self, row_idx: int, status: str) -> None:
+        """Éteint (grisée) ou barre la rangée selon son statut, sans jamais toucher à son badge.
+
+        Les statuts terminaux grisent les cellules texte ; ``Rejetée`` les barre. Les autres
+        statuts laissent la rangée intacte (``Erreur`` reste actionnable, donc inchangée).
+        """
+        muted = status in _MUTED_ROW_STATUSES
+        strike = status in _STRIKEOUT_ROW_STATUSES
+        for col in _ROW_TEXT_COLUMNS:
+            item = self.table.item(row_idx, col)
+            if item is None:
+                continue
+            item.setData(
+                Qt.ItemDataRole.ForegroundRole,
+                QColor(DesignTokens.TEXT_MUTED) if muted else None,
+            )
+            font = item.font()
+            font.setStrikeOut(strike)
+            item.setFont(font)
 
     def _build_actions(self, row_idx: int, status: str) -> QWidget:
         action_widget = QWidget()
@@ -380,6 +423,7 @@ class BatchQueueTable(QWidget):
         else:
             self._set_progress(row_idx, 100, _status_progress_text().get(status, tr("Terminé")), color)
             self._set_cards(row_idx, f"{cards_count} cartes" if cards_count > 0 else "-")
+        self._apply_status_appearance(row_idx, status)
 
     def sync_failed(self, row_idx: int) -> None:
         self._set_badge(row_idx, "Erreur", DesignTokens.COLOR_RED)
