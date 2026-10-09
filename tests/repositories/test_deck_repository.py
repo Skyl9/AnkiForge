@@ -47,6 +47,34 @@ def test_deck_repository_crud() -> None:
     deleted = repo.delete_deck(parent.id)
     assert deleted is True
     assert repo.get_deck_by_id(parent.id) is None
+    assert repo.get_deck_by_id(child1.id) is None
+
+
+def test_deck_repository_delete_cascades_to_subdecks_and_cards() -> None:
+    """Supprimer un paquet emporte sa sous-arborescence (préfixe hiérarchique) et leurs cartes."""
+    repo = DeckRepository()
+    from ankiforge.database.models import CardModel, NoteModel, NoteTypeModel
+
+    parent = repo.create_deck("DeleteRoot", description="À supprimer")
+    child = repo.create_deck("DeleteRoot::Child", description="Sous-paquet", parent_deck=parent)
+    grandchild = repo.create_deck("DeleteRoot::Child::Leaf", description="Feuille", parent_deck=child)
+
+    note_type = NoteTypeModel.create(name="DeckDeleteBasic", fields_schema='["Front", "Back"]', templates="[]")
+    note = NoteModel.create(note_type=note_type, tags="")
+    CardModel.create(note=note, deck=parent, template_index=0)
+    CardModel.create(note=note, deck=grandchild, template_index=0)
+
+    # Un paquet sans lien de préfixe n'est pas emporté.
+    unrelated = repo.create_deck("DeleteOtherRoot")
+
+    assert repo.delete_deck(parent.id) is True
+
+    assert repo.get_deck_by_id(parent.id) is None
+    assert repo.get_deck_by_id(child.id) is None
+    assert repo.get_deck_by_id(grandchild.id) is None
+    assert repo.get_deck_by_id(unrelated.id) is not None
+    # Les cartes des paquets supprimés sont parties ; il n'en reste aucune.
+    assert CardModel.select().count() == 0
 
 
 def test_deck_repository_get_or_create_hierarchical() -> None:

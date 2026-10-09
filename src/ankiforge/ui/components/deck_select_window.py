@@ -3,14 +3,20 @@ Composant de sélection de dossier / deck.
 Reproduit la maquette `folder_select_modal.html`.
 """
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QInputDialog, QLineEdit, QMessageBox, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from ankiforge.database.models import DeckModel
+from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.utils.hierarchy import SEPARATOR, join_hierarchy, leaf_name, split_hierarchy
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
+
+#: Identifiant du nœud racine virtuel « Tous les paquets » (aucun DeckModel réel ne porte cet id).
+ALL_DECKS_NODE_ID = -1
 
 
 class DeckSelectWindow(QWidget):
@@ -30,6 +36,7 @@ class DeckSelectWindow(QWidget):
         super().__init__(parent)
         self.allow_all = allow_all
         self.selected_deck_id = selected_deck_id
+        self._deck_repo = DeckRepository()
 
         self.setWindowTitle(title)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -82,6 +89,8 @@ class DeckSelectWindow(QWidget):
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.tree.setExpandsOnDoubleClick(True)
         self.tree.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._on_tree_context_menu)
 
         # Override native highlight palette
         palette = self.tree.palette()
@@ -123,7 +132,7 @@ class DeckSelectWindow(QWidget):
 
         btn_new_deck = SecondaryButton("Nouveau paquet")
         btn_new_deck.setIcon(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY))
-        btn_new_deck.clicked.connect(self._open_create_deck_dialog)
+        btn_new_deck.clicked.connect(lambda: self._open_create_deck_dialog())
 
         btn_cancel = SecondaryButton("Annuler")
         btn_cancel.clicked.connect(self.close)
@@ -151,10 +160,10 @@ class DeckSelectWindow(QWidget):
         global_item: QTreeWidgetItem | None = None
         if self.allow_all:
             global_item = QTreeWidgetItem([self.tr("Tous les paquets")])
-            global_item.setData(0, Qt.ItemDataRole.UserRole, -1)
+            global_item.setData(0, Qt.ItemDataRole.UserRole, ALL_DECKS_NODE_ID)
             global_item.setIcon(0, load_phosphor_icon("folders", color=DesignTokens.COLOR_BLUE))
             self.tree.addTopLevelItem(global_item)
-            self._items_by_id[-1] = global_item
+            self._items_by_id[ALL_DECKS_NODE_ID] = global_item
 
         decks = list(DeckModel.select().order_by(DeckModel.name.asc()))
 
@@ -229,7 +238,7 @@ class DeckSelectWindow(QWidget):
 
         item = selected[0]
         deck_id = item.data(0, Qt.ItemDataRole.UserRole)
-        if not self.allow_all and deck_id == -1:
+        if not self.allow_all and deck_id == ALL_DECKS_NODE_ID:
             self.btn_confirm.setEnabled(False)
         else:
             self.btn_confirm.setEnabled(True)
@@ -239,16 +248,16 @@ class DeckSelectWindow(QWidget):
         if selected:
             item = selected[0]
             deck_id = item.data(0, Qt.ItemDataRole.UserRole)
-            if not self.allow_all and deck_id == -1:
+            if not self.allow_all and deck_id == ALL_DECKS_NODE_ID:
                 return
             deck_name = item.text(0)
             self.deck_selected.emit(deck_id, deck_name)
             self.close()
 
-    def _open_create_deck_dialog(self) -> None:
+    def _open_create_deck_dialog(self, initial_name: str = "") -> None:
         from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
 
-        dlg = CreateDeckDialog(parent=self)
+        dlg = CreateDeckDialog(initial_name=initial_name, parent=self)
         dlg.deck_created.connect(self._on_deck_created)
         dlg.exec()
 
@@ -259,3 +268,98 @@ class DeckSelectWindow(QWidget):
             item = self._items_by_id[deck_id]
             self.tree.setCurrentItem(item)
             self.btn_confirm.setEnabled(True)
+
+    # ── Modification en place du paquet de destination ─────────────────────────
+    # Le modal ne se contentait que de sélectionner ou créer un paquet : renommer,
+    # supprimer et créer un sous-paquet devaient se faire ailleurs. Ces actions
+    # modifient l'arborescence sans quitter le flux de création.
+
+    def _build_context_menu(self, deck_id: object) -> StyledMenu | None:
+        """Construit le menu « Modifier » d'un paquet, ou None si le nœud n'est pas modifiable.
+
+        Le nœud racine virtuel « Tous les paquets » et les données invalides sont
+        ignorés : seul un paquet réel est modifiable.
+        """
+        if not isinstance(deck_id, int) or deck_id == ALL_DECKS_NODE_ID:
+            return None
+        menu = StyledMenu(self)
+        menu.addAction(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY), self.tr("Nouveau sous-paquet")).triggered.connect(lambda: self._create_subdeck(deck_id))
+        menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), self.tr("Renommer le paquet")).triggered.connect(lambda: self._rename_deck(deck_id))
+        menu.addAction(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED), self.tr("Supprimer le paquet")).triggered.connect(lambda: self._delete_deck(deck_id))
+        return menu
+
+    def _on_tree_context_menu(self, pos: QPoint) -> None:
+        """Ouvre le menu « Modifier » sur le paquet ciblé par le clic droit.
+
+        Le clic droit sélectionne d'abord le nœud ciblé (comportement standard des
+        menus contextuels) : les actions agissent donc toujours sur la sélection courante.
+        """
+        item = self.tree.itemAt(pos)
+        if item is None:
+            return
+        deck_id = item.data(0, Qt.ItemDataRole.UserRole)
+        if isinstance(deck_id, int) and deck_id != ALL_DECKS_NODE_ID:
+            self.tree.setCurrentItem(item)
+        menu = self._build_context_menu(deck_id)
+        if menu is not None:
+            menu.exec(self.tree.viewport().mapToGlobal(pos))
+
+    def _create_subdeck(self, deck_id: int) -> None:
+        """Ouvre la création d'un paquet en le pré-remplissant sous le paquet sélectionné."""
+        deck = self._deck_repo.get_deck_by_id(deck_id)
+        if deck is None:
+            return
+        self._open_create_deck_dialog(initial_name=f"{deck.name}{SEPARATOR}")
+
+    def _rename_deck(self, deck_id: int) -> None:
+        """Renomme la feuille du paquet (les sous-paquets suivent le préfixe)."""
+        deck = self._deck_repo.get_deck_by_id(deck_id)
+        if deck is None:
+            return
+
+        current_leaf = leaf_name(deck.name)
+        new_leaf, ok = QInputDialog.getText(self, self.tr("Renommer le paquet"), self.tr("Nouveau nom :"), text=current_leaf)
+        new_leaf = new_leaf.strip()
+        if not ok or not new_leaf or new_leaf == current_leaf:
+            return
+
+        parts = split_hierarchy(deck.name)
+        new_name = join_hierarchy([*parts[:-1], new_leaf])
+        # La collision porte sur l'identité hiérarchique entière : un paquet « B » existe déjà
+        # si un « B » exact OU un descendant « B::… » occupe sa place (le préfixe serait doublé).
+        colliding = self._deck_repo.get_descendant_decks(new_name)
+        if any(d.id != deck_id for d in colliding):
+            QMessageBox.warning(self, self.tr("Renommage impossible"), tr("Un paquet nommé « %1 » existe déjà.", new_name))
+            return
+
+        renamed = self._deck_repo.rename_deck(deck_id, new_name)
+        if renamed is None:
+            return
+        self.selected_deck_id = renamed.id
+        self._load_decks()
+
+    def _delete_deck(self, deck_id: int) -> None:
+        """Supprime le paquet, ses sous-paquets et leurs cartes, après confirmation."""
+        deck = self._deck_repo.get_deck_by_id(deck_id)
+        if deck is None:
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            self.tr("Supprimer le paquet"),
+            tr("Supprimer le paquet « %1 » ainsi que ses sous-paquets et leurs cartes ?", deck.name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+
+        # Capturer la sous-arborescence AVANT suppression : après coup, les enregistrements
+        # n'existent plus et ne pourraient plus désigner une éventuelle sélection orpheline.
+        subtree_ids = {d.id for d in self._deck_repo.get_descendant_decks(deck.name)}
+
+        if not self._deck_repo.delete_deck(deck_id):
+            return
+        if self.selected_deck_id in subtree_ids:
+            self.selected_deck_id = None
+            self.btn_confirm.setEnabled(False)
+        self._load_decks()

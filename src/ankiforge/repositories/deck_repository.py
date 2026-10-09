@@ -117,8 +117,15 @@ class DeckRepository(BaseRepository):
         if not deck:
             return False
 
+        # L'identité d'un sous-paquet est son préfixe hiérarchique (ex: "Science::"),
+        # pas la FK `parent_deck` — cf. `get_descendant_decks` (l'identité de référence).
+        # `delete_instance(recursive=True)` ne descend pas dans cette FK auto-référentielle :
+        # on supprime donc explicitement la sous-arborescence et leurs cartes, en une transaction.
+        target_ids = [d.id for d in self.get_descendant_decks(deck.name)]
+
         with self.atomic():
-            deck.delete_instance(recursive=True)
+            CardModel.delete().where(CardModel.deck.in_(target_ids)).execute()
+            DeckModel.delete().where(DeckModel.id.in_(target_ids)).execute()
             return True
 
     def get_descendant_decks(self, deck_name: str) -> list[DeckModel]:

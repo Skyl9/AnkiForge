@@ -32,6 +32,16 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/components/deck_select_window.py" line="+332"/>
+        <source>Un paquet nommé « %1 » existe déjà.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Supprimer le paquet « %1 » ainsi que ses sous-paquets et leurs cartes ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/components/document_picker_button.py" line="+91"/>
         <source>Sélectionner un cours...</source>
         <translation type="unfinished"></translation>
@@ -7730,13 +7740,41 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DeckSelectWindow</name>
     <message>
-        <location filename="../../ui/components/deck_select_window.py" line="+56"/>
+        <location filename="../../ui/components/deck_select_window.py" line="-287"/>
         <source>Rechercher un dossier (ex: Informatique, C++)...</source>
+        <extracomment>Identifiant du nœud racine virtuel « Tous les paquets » (aucun DeckModel réel ne porte cet id).</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+97"/>
+        <location line="+99"/>
         <source>Tous les paquets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+124"/>
+        <source>Nouveau sous-paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+34"/>
+        <source>Renommer le paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-33"/>
+        <location line="+61"/>
+        <source>Supprimer le paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-28"/>
+        <source>Nouveau nom :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Renommage impossible</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
