@@ -149,3 +149,74 @@ def test_ai_manager_opencode_missing_key_fallback(mock_db, monkeypatch):
     )
     provider = AIManager.create_provider_from_config(config)
     assert isinstance(provider, MockProvider)
+
+
+def test_ai_manager_init_is_lazy_and_does_not_call_keyring(mock_db):
+    """Vérifie que l'instanciation de l'AIManager ne sollicite aucunement le trousseau OS."""
+    from unittest.mock import patch
+
+    import ankiforge.utils.secret_store as ss
+
+    LLMConfigModel.create(
+        display_name="Gemini Default",
+        provider="gemini",
+        model_id="gemini-3.5-flash-lite",
+        api_key="",
+        sort_order=1,
+    )
+
+    with patch.object(ss, "load_secret") as mock_load_secret:
+        manager = AIManager()
+        # Au démarrage, le trousseau ne doit PAS être sollicité
+        mock_load_secret.assert_not_called()
+        assert manager._provider is None
+        assert manager.current_model == "gemini-3.5-flash-lite"
+
+
+def test_ai_manager_lazy_provider_resolution_on_first_access(mock_db):
+    """Vérifie que le provider est créé à la première lecture de manager.provider et mis en cache."""
+    LLMConfigModel.create(
+        display_name="Ollama Local",
+        provider="ollama",
+        model_id="llama3",
+        sort_order=1,
+    )
+    manager = AIManager()
+    assert manager._provider is None
+
+    # Première sollicitation
+    p1 = manager.provider
+    assert p1 is not None
+    assert getattr(p1, "model_name", None) == "llama3"
+
+    # Deuxième sollicitation : même instance retournée
+    p2 = manager.provider
+    assert p1 is p2
+
+
+def test_ai_manager_reload_provider_resets_lazy_cache(mock_db):
+    """Vérifie que reload_provider réinitialise le cache pour différer la recréation."""
+    LLMConfigModel.create(
+        display_name="Ollama A",
+        provider="ollama",
+        model_id="model-a",
+        sort_order=1,
+    )
+    manager = AIManager()
+    p1 = manager.provider
+    assert getattr(p1, "model_name", None) == "model-a"
+
+    # Changement du modèle prioritaire
+    LLMConfigModel.create(
+        display_name="Ollama B",
+        provider="ollama",
+        model_id="model-b",
+        sort_order=0,
+    )
+    manager.reload_provider()
+    assert manager._provider is None
+    assert manager.current_model == "model-b"
+
+    # Sollicitation ultérieure
+    p2 = manager.provider
+    assert getattr(p2, "model_name", None) == "model-b"
