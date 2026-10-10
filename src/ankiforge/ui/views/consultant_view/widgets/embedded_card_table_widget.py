@@ -108,7 +108,7 @@ class EmbeddedCardTableWidget(QFrame):
         self.table = QTableWidget()
         self.table.setObjectName("EmbeddedCardTable")
         self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels([self.tr("ID"), self.tr("Modèle"), self.tr("Recto"), self.tr("Verso"), ""])
+        self.table.setHorizontalHeaderLabels([self.tr("ID"), self.tr("Type de note"), self.tr("Recto"), self.tr("Verso"), ""])
         self.table.horizontalHeader().setSortIndicatorShown(True)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)

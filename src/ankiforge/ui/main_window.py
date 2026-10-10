@@ -79,7 +79,7 @@ class MainWindow(QMainWindow):
             "consultant": (tr("Forge & Outils"), "robot", tr("AI Consultant"), ConsultantView),
             "batch": (tr("Forge & Outils"), "factory", tr("Batch Factory"), BatchView),
             "documents": (tr("Bibliothèque"), "file-text", tr("My Documents"), DocumentsView),
-            "card-models": (tr("Bibliothèque"), "swatches", tr("Card Models"), CardModelsView),
+            "card-models": (tr("Bibliothèque"), "swatches", tr("Types de note"), CardModelsView),
             "agents": (tr("Laboratoire IA"), "cpu", tr("Éditeur d'Agents"), AgentsView),
             "pipelines": (tr("Laboratoire IA"), "git-merge", tr("Pipelines"), PipelinesView),
             "ab-tests": (tr("Laboratoire IA"), "scales", tr("Tests A/B"), ABTestsView),

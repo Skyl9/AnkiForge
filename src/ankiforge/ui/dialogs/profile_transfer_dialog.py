@@ -286,11 +286,11 @@ class ProfileTransferDialog(QDialog):
         summary_layout.setContentsMargins(14, 10, 14, 10)
         summary_layout.setSpacing(16)
 
-        # 4 métriques : Notes, Modèles, Cartes, Médias
-        self.lbl_metric_notes = self._create_metric_widget("NOTES", "0")
-        self.lbl_metric_models = self._create_metric_widget("MODÈLES", "0")
-        self.lbl_metric_cards = self._create_metric_widget("CARTES", "0")
-        self.lbl_metric_media = self._create_metric_widget("MÉDIAS", "0 (0 Ko)")
+        # 4 métriques : Notes, Types de note, Cartes, Médias
+        self.lbl_metric_notes = self._create_metric_widget(self.tr("NOTES"), "0")
+        self.lbl_metric_models = self._create_metric_widget(self.tr("TYPES DE NOTE"), "0")
+        self.lbl_metric_cards = self._create_metric_widget(self.tr("CARTES"), "0")
+        self.lbl_metric_media = self._create_metric_widget(self.tr("MÉDIAS"), "0 (0 Ko)")
 
         summary_layout.addWidget(self.lbl_metric_notes[0], 1)
         summary_layout.addWidget(self.lbl_metric_models[0], 1)

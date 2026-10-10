@@ -495,7 +495,7 @@ class ConsultantView(QWidget):
 
         tools_layout = QHBoxLayout()
         tools_layout.setSpacing(4)
-        self.btn_attach = IconButton("ph.paperclip", tooltip=self.tr("Attacher une ressource au contexte (Paquet, Document, Modèle)"), size=22)
+        self.btn_attach = IconButton("ph.paperclip", tooltip=self.tr("Attacher une ressource au contexte (Paquet, Document, Type de note)"), size=22)
         self.btn_attach.clicked.connect(self._on_add_context)
 
         self.btn_mention = IconButton("ph.at", tooltip=self.tr("Mentionner une ressource spécifique (@)"), size=22)
@@ -1106,12 +1106,12 @@ class ConsultantView(QWidget):
                         m_val = ctx_id.split("_")[1]
                         nt = NoteTypeModel.get_or_none(NoteTypeModel.id == int(m_val)) if m_val.isdigit() else NoteTypeModel.get_or_none(NoteTypeModel.name == m_val)
                         if nt:
-                            display_text = f"🎨 Modèle: {nt.name}"
+                            display_text = f"🎨 Type de note : {nt.name}"
                             badge = ContextPillBadge(f"🎨 {nt.name}{suffix}", ctx_id, on_remove=self._remove_context, is_committed=is_comm)
                             apply_pill_style(badge, DesignTokens.COLOR_PURPLE)
                             self.mentions_layout.addWidget(badge)
                     except Exception:
-                        display_text = "Modèle inconnu"
+                        display_text = self.tr("Type de note inconnu")
 
                 self.sources_list.addItem(display_text)
 
@@ -1137,8 +1137,8 @@ class ConsultantView(QWidget):
         msg_ai = (
             "Bonjour ! Je suis votre <b>Consultant IA AnkiForge</b>.<br><br>"
             "Je dispose d'outils d'audit Wozniak, de recherche de doublons Levenshtein, de RAG documentaire, "
-            "d'inspection/évolution des <b>Modèles de cartes</b> et de propositions de refactorisation sous forme de <b>Diffs avec Garde-Fou</b>.<br><br>"
-            "💡 <i>Tapez <b>@</b> pour lier un paquet, une carte, un modèle ou un document, <b>/</b> pour les raccourcis.</i>"
+            "d'inspection/évolution des <b>Types de note</b> et de propositions de refactorisation sous forme de <b>Diffs avec Garde-Fou</b>.<br><br>"
+            "💡 <i>Tapez <b>@</b> pour lier un paquet, une carte, un type de note ou un document, <b>/</b> pour les raccourcis.</i>"
         )
         w = ChatMessageWidget("AnkiForge AI", msg_ai, is_user=False)
         self.chat_messages_layout.insertWidget(self.chat_messages_layout.count() - 1, w)
@@ -1169,7 +1169,7 @@ class ConsultantView(QWidget):
             self.chat_input.insertPlainText(f" [Note #{m_id}]")
         elif m_type == "model":
             self._attach_context(f"model_{m_id}")
-            self.chat_input.insertPlainText(f" [Modèle: {m_id}]")
+            self.chat_input.insertPlainText(f" [Type de note: {m_id}]")
 
     def _handle_slash_command(self, cmd: str) -> bool:
         """Exécute une commande Slash locale si applicable. Renvoie True si traitée."""
@@ -1278,7 +1278,7 @@ class ConsultantView(QWidget):
         act_doc.triggered.connect(self._open_doc_selection_dialog)
         menu.addAction(act_doc)
 
-        act_model = QAction(self.tr("🎨 Modèle de carte..."), self)
+        act_model = QAction(self.tr("🎨 Type de note..."), self)
         act_model.triggered.connect(self._open_model_selection_dialog)
         menu.addAction(act_model)
 
@@ -1345,7 +1345,7 @@ class ConsultantView(QWidget):
         """Ouvre la boîte de dialogue modale de sélection de modèle de carte."""
         models = list(NoteTypeModel.select().order_by(NoteTypeModel.name.asc()))
         dialog = SelectionDialog(
-            title="Sélectionner un modèle de carte",
+            title=self.tr("Sélectionner un type de note"),
             items=models,
             display_func=lambda m: f"🎨 {m.name} — {getattr(m, 'description', '') or 'Gabarit de carte'}",
             parent=self,

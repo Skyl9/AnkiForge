@@ -88,7 +88,7 @@ def test_table_model_headers_and_mode_switch(dual_mode_sample_data: dict[str, An
 
     assert model.display_mode == "cards"
     assert model.columnCount() == 8
-    expected_headers = ["", "", "Question", "Réponse", "Carte (Gabarit)", "Paquet", "Modèle", "Tags"]
+    expected_headers = ["", "", "Question", "Réponse", "Carte (Gabarit)", "Paquet", "Type de note", "Tags"]
     for idx, expected in enumerate(expected_headers):
         assert model.headerData(idx, Qt.Orientation.Horizontal) == expected
 

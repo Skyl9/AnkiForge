@@ -35,7 +35,7 @@ class ResponsiveTopActionBar(QFrame):
         layout.addWidget(self.lbl_editor_icon)
 
         # Titre du Modèle
-        self.lbl_editor_title = QLabel(self.tr("Modèle sélectionné"))
+        self.lbl_editor_title = QLabel(self.tr("Type de note sélectionné"))
         self.lbl_editor_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
         self.lbl_editor_title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         layout.addWidget(self.lbl_editor_title)
@@ -51,7 +51,7 @@ class ResponsiveTopActionBar(QFrame):
         layout.addStretch(1)
 
         # Boutons d'action
-        self.btn_export_json = IconButton("ph.export", tooltip=self.tr("Exporter le modèle au format JSON standardisé AnkiForge"), size=24)
+        self.btn_export_json = IconButton("ph.export", tooltip=self.tr("Exporter le type de note au format JSON standardisé AnkiForge"), size=24)
 
         self.btn_toggle_preview = SecondaryButton("Aperçu en direct")
         self.btn_toggle_preview.setIcon(load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_PRIMARY))
@@ -64,7 +64,7 @@ class ResponsiveTopActionBar(QFrame):
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         apply_compact_style(self.btn_save, height=28)
-        self.btn_save.setToolTip(self.tr("Sauvegarder les modifications du modèle"))
+        self.btn_save.setToolTip(self.tr("Sauvegarder les modifications du type de note"))
 
         layout.addWidget(self.btn_export_json)
         layout.addWidget(self.btn_toggle_preview)

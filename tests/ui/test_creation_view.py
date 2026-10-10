@@ -712,8 +712,8 @@ def test_creation_view_dynamic_table_columns_heterogeneous_cards(qtbot: Any, moc
     ]
     view._populate_results_table()
 
-    # En-têtes attendus : Modèle + Union ordonnée [Front, Back, Texte, Remarques extra] + Statut
-    expected_headers = ["Modèle", "Front", "Back", "Texte", "Remarques extra", "Statut"]
+    # En-têtes attendus : Type de note + Union ordonnée [Front, Back, Texte, Remarques extra] + Statut
+    expected_headers = ["Type de note", "Front", "Back", "Texte", "Remarques extra", "Statut"]
     actual_headers = []
     for i in range(view.results_table.columnCount()):
         header_item = view.results_table.horizontalHeaderItem(i)

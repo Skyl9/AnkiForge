@@ -271,7 +271,7 @@ class BatchView(QWidget):
         )
         target_layout.addWidget(self.btn_select_deck)
 
-        self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
+        self.btn_select_model = SecondaryButton(self.tr("Sélectionner un type de note..."))
         self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
         self.btn_select_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_select_model.setStyleSheet(
@@ -755,7 +755,7 @@ class BatchView(QWidget):
                                 "Tu es un expert pédagogique de création de cartes Anki.\n"
                                 "Analyse le texte suivant et génère des cartes mémoire de haute qualité atomiques.\n\n"
                                 "TEXTE SOURCE :\n{{ text_source }}\n\n"
-                                "MODÈLE CIBLE : {{ note_type }}\n"
+                                "TYPE DE NOTE CIBLE : {{ note_type }}\n"
                                 "CHAMPS REQUIS : {{ fields_str }}\n\n"
                                 "Génère ta réponse au format JSON contenant un tableau de cartes sous la clé 'notes' ou directement un tableau d'objets."
                             ),
@@ -859,7 +859,7 @@ class BatchView(QWidget):
     @Slot()
     def _on_click_select_model(self) -> None:
         dialog = SelectionDialog(
-            title="Sélectionner un modèle de carte",
+            title=self.tr("Sélectionner un type de note"),
             items=self.models_cache,
             display_func=lambda m: m.name,
             parent=self,

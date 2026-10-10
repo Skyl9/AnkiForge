@@ -42,7 +42,7 @@ class ModelExportDialog(QDialog):
         self.model = model
         self.exported_file_path: Path | None = None
 
-        self.setWindowTitle(tr("Exporter le Modèle — %1", self.model.name))
+        self.setWindowTitle(tr("Exporter le type de note — %1", self.model.name))
         self.setMinimumSize(580, 520)
         self.resize(620, 560)
         self.setModal(True)
@@ -75,7 +75,7 @@ class ModelExportDialog(QDialog):
         header.addWidget(icon_lbl)
 
         title_box = QVBoxLayout()
-        title_lbl = QLabel(tr("Exporter le Modèle : %1", self.model.name))
+        title_lbl = QLabel(tr("Exporter le type de note : %1", self.model.name))
         title_lbl.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         subtitle_lbl = QLabel(self.tr("Créez un paquet autonome .afmodel partageable avec styles et cartes d'exemple."))
         subtitle_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
@@ -151,7 +151,7 @@ class ModelExportDialog(QDialog):
         lbl_d = QLabel(self.tr("Description du style / Cas d'usage :"))
         lbl_d.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
         self.input_desc = StyledLineEdit()
-        self.input_desc.setPlaceholderText(self.tr("ex: Modèle avec badges contrastés et KaTeX pour concours..."))
+        self.input_desc.setPlaceholderText(self.tr("ex: Type de note avec badges contrastés et KaTeX pour concours..."))
         meta_layout.addWidget(lbl_d)
         meta_layout.addWidget(self.input_desc)
 
@@ -188,7 +188,7 @@ class ModelExportDialog(QDialog):
         default_path = Path.home() / default_filename
         self.dest_input.setText(str(default_path))
 
-        btn_browse = SecondaryButton("Parcourir...")
+        btn_browse = SecondaryButton(self.tr("Parcourir..."))
         btn_browse.clicked.connect(self._on_browse_destination)
 
         dest_row.addWidget(self.dest_input, 1)
@@ -201,10 +201,10 @@ class ModelExportDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
-        btn_cancel = SecondaryButton("Annuler")
+        btn_cancel = SecondaryButton(self.tr("Annuler"))
         btn_cancel.clicked.connect(self.reject)
 
-        self.btn_export = PrimaryButton("Exporter le Modèle")
+        self.btn_export = PrimaryButton(self.tr("Exporter le type de note"))
         self.btn_export.setIcon(load_on_accent_icon("ph.export"))
         self.btn_export.clicked.connect(self._on_confirm_export)
 
@@ -222,13 +222,13 @@ class ModelExportDialog(QDialog):
 
     def _on_browse_destination(self) -> None:
         is_bundle = self.radio_bundle.isChecked()
-        filter_str = "Paquet Modèle AnkiForge (*.afmodel)" if is_bundle else "Fichier Modèle JSON (*.json)"
+        filter_str = self.tr("Paquet Type de note AnkiForge (*.afmodel)") if is_bundle else self.tr("Fichier Type de note JSON (*.json)")
         ext = BUNDLE_EXTENSION if is_bundle else ".json"
         default_name = f"{self.model.name.replace(' ', '_').lower()}_model{ext}"
 
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Sélectionner l'emplacement d'exportation",
+            self.tr("Sélectionner l'emplacement d'exportation"),
             str(Path.home() / default_name),
             filter_str,
         )
@@ -307,7 +307,7 @@ class ModelExportDialog(QDialog):
                 saved_path = out_path
 
             self.exported_file_path = saved_path
-            show_toast(self, tr("Modèle exporté avec succès dans '%1' !", saved_path.name))
+            show_toast(self, tr("Type de note exporté avec succès dans '%1' !", saved_path.name))
             self.accept()
         except Exception as e:
             show_toast(self, tr("Échec de l'exportation : %1", str(e)), is_error=True)

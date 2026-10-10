@@ -126,7 +126,7 @@ class CardModelsView(QWidget):
         self.model_search_input.textChanged.connect(self._filter_models_list)
         search_row.addWidget(self.model_search_input, 1)
 
-        self.btn_new = PrimaryButton("Nouveau", tooltip=self.tr("Créer un nouveau modèle de cartes Anki"))
+        self.btn_new = PrimaryButton("Nouveau", tooltip=self.tr("Créer un nouveau type de note Anki"))
         self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
         apply_compact_style(self.btn_new, height=28)
         search_row.addWidget(self.btn_new)
@@ -165,8 +165,8 @@ class CardModelsView(QWidget):
 
         self.empty_models_widget = EmptyStateWidget(
             icon_name="ph.cards",
-            title="Aucun modèle",
-            description="Cliquez sur 'Nouveau Modèle' pour créer votre premier modèle de cartes.",
+            title=self.tr("Aucun type de note"),
+            description=self.tr("Cliquez sur 'Nouveau' pour créer votre premier type de note Anki."),
         )
         self.empty_models_widget.hide()
         list_layout.addWidget(self.empty_models_widget, 1)
@@ -177,12 +177,12 @@ class CardModelsView(QWidget):
         self.btn_starter_pack = SecondaryButton("Pack IA")
         self.btn_starter_pack.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_starter_pack.setFixedHeight(28)
-        self.btn_starter_pack.setToolTip(self.tr("Explorer et installer les modèles communautaires (Starter Pack)"))
+        self.btn_starter_pack.setToolTip(self.tr("Explorer et installer les types de note communautaires (Starter Pack)"))
         list_toolbar.addWidget(self.btn_starter_pack, 1)
 
-        self.btn_duplicate = IconButton("ph.copy", tooltip=self.tr("Dupliquer le modèle sélectionné"), size=24)
-        self.btn_import_json = IconButton("ph.download-simple", tooltip=self.tr("Importer un modèle (.afmodel ou .json)"), size=24)
-        self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer le modèle"), size=24)
+        self.btn_duplicate = IconButton("ph.copy", tooltip=self.tr("Dupliquer le type de note sélectionné"), size=24)
+        self.btn_import_json = IconButton("ph.download-simple", tooltip=self.tr("Importer un type de note (.afmodel ou .json)"), size=24)
+        self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer le type de note"), size=24)
 
         list_toolbar.addWidget(self.btn_duplicate)
         list_toolbar.addWidget(self.btn_import_json)
@@ -190,7 +190,7 @@ class CardModelsView(QWidget):
 
         list_layout.addLayout(list_toolbar)
 
-        self.left_panel.add_tab("Modèles", list_content, "ph.swatches", closable=False)
+        self.left_panel.add_tab("Types de note", list_content, "ph.swatches", closable=False)
 
         # --- Tab 2 : Bibliothèque de Snippets (chargement différé / lazy loading) ---
         self._snippet_placeholder = QWidget()
@@ -673,7 +673,7 @@ class CardModelsView(QWidget):
                 type_label = "Cloze" if is_m_cloze else f"{tmpl_count} carte{'s' if tmpl_count > 1 else ''}"
                 item = QListWidgetItem(f"{m.name}  ({type_label})")
                 item.setIcon(load_phosphor_icon(icon_str, color=DesignTokens.ACCENT_PRIMARY))
-                item.setToolTip(tr("Modèle : %1\nType : %2\nGabarits : %3", m.name, "Texte à trous (Cloze)" if is_m_cloze else "Standard", tmpl_count))
+                item.setToolTip(tr("Type de note : %1\nType : %2\nGabarits : %3", m.name, "Texte à trous (Cloze)" if is_m_cloze else "Standard", tmpl_count))
                 item.setData(Qt.ItemDataRole.UserRole, m)
                 self.list_widget.addItem(item)
 
@@ -739,7 +739,7 @@ class CardModelsView(QWidget):
     def _on_item_selected(self, current: QListWidgetItem | None, previous: QListWidgetItem | None) -> None:
         if not current:
             self._current_model = None
-            self.lbl_editor_title.setText(self.tr("Aucun modèle sélectionné"))
+            self.lbl_editor_title.setText(self.tr("Aucun type de note sélectionné"))
             return
 
         model: NoteTypeModel | None = current.data(Qt.ItemDataRole.UserRole)
@@ -884,7 +884,7 @@ class CardModelsView(QWidget):
     @Slot()
     def _on_del_template(self) -> None:
         if len(self._templates_list) <= 1:
-            QMessageBox.warning(self, self.tr("Suppression impossible"), self.tr("Un modèle doit comporter au moins un gabarit de carte."))
+            QMessageBox.warning(self, self.tr("Suppression impossible"), self.tr("Un type de note doit comporter au moins un gabarit de carte."))
             return
 
         current_name = self._templates_list[self._current_template_idx].get("name", "")
@@ -1139,7 +1139,7 @@ class CardModelsView(QWidget):
 
     @Slot()
     def _on_new_model(self) -> None:
-        name, ok = QInputDialog.getText(self, "Nouveau modèle de carte", "Nom du modèle :")
+        name, ok = QInputDialog.getText(self, self.tr("Nouveau type de note"), self.tr("Nom du type de note :"))
         if ok and name.strip():
             try:
                 default_tmpl = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": '{{FrontSide}}<br><hr id="answer"><br>{{Back}}'}]
@@ -1153,16 +1153,16 @@ class CardModelsView(QWidget):
                         "  font-weight: bold;\n  color: #3b82f6;\n}"
                     ),
                 )
-                logger.info("Nouveau modèle de carte créé : '%s' (ID: %s)", new_model.name, new_model.id)
+                logger.info("Nouveau type de note créé : '%s' (ID: %s)", new_model.name, new_model.id)
                 self.refresh_data()
                 for i in range(self.list_widget.count()):
                     item = self.list_widget.item(i)
                     if item.data(Qt.ItemDataRole.UserRole).id == new_model.id:
                         self.list_widget.setCurrentItem(item)
                         break
-                show_toast(self, tr("Modèle '%1' créé avec succès.", name.strip()))
+                show_toast(self, tr("Type de note '%1' créé avec succès.", name.strip()))
             except Exception as e:
-                log_and_notify_error(e, context="Création du modèle", parent=self, title="Erreur")
+                log_and_notify_error(e, context="Création du type de note", parent=self, title="Erreur")
 
     @Slot()
     def _on_duplicate_model(self) -> None:
@@ -1182,21 +1182,21 @@ class CardModelsView(QWidget):
                 templates=self._current_model.templates,
                 css_style=self._current_model.css_style,
             )
-            logger.info("Modèle de carte '%s' dupliqué sous '%s'", self._current_model.name, dup_name)
+            logger.info("Type de note '%s' dupliqué sous '%s'", self._current_model.name, dup_name)
             self.refresh_data()
             for i in range(self.list_widget.count()):
                 item = self.list_widget.item(i)
                 if item.data(Qt.ItemDataRole.UserRole).id == created.id:
                     self.list_widget.setCurrentItem(item)
                     break
-                show_toast(self, tr("Modèle dupliqué sous '%1'.", dup_name))
+                show_toast(self, tr("Type de note dupliqué sous '%1'.", dup_name))
         except Exception as e:
-            log_and_notify_error(e, context="Duplication du modèle", parent=self, title="Erreur")
+            log_and_notify_error(e, context="Duplication du type de note", parent=self, title="Erreur")
 
     @Slot()
     def _on_export_json(self) -> None:
         if not self._current_model:
-            show_toast(self, self.tr("Aucun modèle sélectionné à exporter."), is_error=True)
+            show_toast(self, self.tr("Aucun type de note sélectionné à exporter."), is_error=True)
             return
 
         self._sync_current_template_from_editors()
@@ -1207,7 +1207,7 @@ class CardModelsView(QWidget):
     def _on_import_json(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Importer un modèle de carte",
+            self.tr("Importer un type de note"),
             "",
             "Paquets & Modèles AnkiForge (*.afmodel *.json);;Paquet .afmodel (*.afmodel);;Fichier JSON (*.json)",
         )
@@ -1215,7 +1215,7 @@ class CardModelsView(QWidget):
             try:
                 is_valid, parsed_data, err_msg = CardModelIO.read_model_file(file_path)
                 if not is_valid or not parsed_data:
-                    log_and_notify_error(err_msg, context="Fichier de modèle invalide", parent=self, title="Fichier Invalide")
+                    log_and_notify_error(err_msg, context="Fichier de type de note invalide", parent=self, title="Fichier Invalide")
                     return
 
                 dialog = ModelImportDialog(model_data=parsed_data, parent=self)
@@ -1226,9 +1226,9 @@ class CardModelsView(QWidget):
                         if item.data(Qt.ItemDataRole.UserRole).id == dialog.imported_model.id:
                             self.list_widget.setCurrentItem(item)
                             break
-                    show_toast(self, tr("Modèle '%1' importé avec succès.", dialog.imported_model.name))
+                    show_toast(self, tr("Type de note '%1' importé avec succès.", dialog.imported_model.name))
             except Exception as e:
-                log_and_notify_error(e, context="Import de modèle", parent=self, title="Erreur d'importation")
+                log_and_notify_error(e, context="Import de type de note", parent=self, title="Erreur d'importation")
 
     @Slot()
     def _on_open_starter_pack(self) -> None:
@@ -1294,24 +1294,24 @@ class CardModelsView(QWidget):
         model_name = self._current_model.name
         res = QMessageBox.question(
             self,
-            self.tr("Supprimer le modèle"),
-            tr("Voulez-vous vraiment supprimer le modèle '%1' ?", model_name),
+            self.tr("Supprimer le type de note"),
+            tr("Voulez-vous vraiment supprimer le type de note '%1' ?", model_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if res == QMessageBox.StandardButton.Yes:
             try:
                 self._current_model.delete_instance()
                 self._current_model = None
-                logger.info("Modèle de carte '%s' supprimé.", model_name)
+                logger.info("Type de note '%s' supprimé.", model_name)
                 self.refresh_data()
-                show_toast(self, self.tr("Modèle supprimé."))
+                show_toast(self, self.tr("Type de note supprimé."))
             except Exception as e:
-                log_and_notify_error(e, context="Suppression du modèle", parent=self, title="Erreur")
+                log_and_notify_error(e, context="Suppression du type de note", parent=self, title="Erreur")
 
     @Slot()
     def _on_save_model(self) -> None:
         if not self._current_model:
-            show_toast(self, self.tr("Aucun modèle sélectionné à sauvegarder."), is_error=True)
+            show_toast(self, self.tr("Aucun type de note sélectionné à sauvegarder."), is_error=True)
             return
 
         try:
@@ -1328,11 +1328,11 @@ class CardModelsView(QWidget):
             self._current_model.css_style = css
             self._current_model.save()
 
-            logger.info("Modèle de carte '%s' sauvegardé avec succès.", self._current_model.name)
-            show_toast(self, tr("Modèle '%1' sauvegardé avec succès.", self._current_model.name))
+            logger.info("Type de note '%s' sauvegardé avec succès.", self._current_model.name)
+            show_toast(self, tr("Type de note '%1' sauvegardé avec succès.", self._current_model.name))
             self._update_preview()
         except Exception as e:
-            log_and_notify_error(e, context="Sauvegarde du modèle", parent=self, title="Erreur de sauvegarde")
+            log_and_notify_error(e, context="Sauvegarde du type de note", parent=self, title="Erreur de sauvegarde")
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "card_preview_widget") and hasattr(self.card_preview_widget, "refresh_theme"):

@@ -165,7 +165,7 @@ class TimeMachineDialog(QDialog):
         header_layout.addWidget(header_title)
 
         note_type_name = getattr(getattr(self.note, "note_type", None), "name", "Standard")
-        lbl_model = QLabel(tr("Modèle : %1", note_type_name))
+        lbl_model = QLabel(tr("Type de note : %1", note_type_name))
         lbl_model.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         header_layout.addWidget(lbl_model)
         header_layout.addStretch()

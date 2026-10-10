@@ -80,7 +80,7 @@ class StarterModelCardWidget(QFrame):
         layout.addLayout(top_row)
 
         # Titre & Auteur
-        title_lbl = QLabel(pack.get("name", "Modèle"))
+        title_lbl = QLabel(pack.get("name", self.tr("Type de note")))
         title_lbl.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         layout.addWidget(title_lbl)
 
@@ -105,7 +105,7 @@ class StarterModelCardWidget(QFrame):
         layout.addStretch()
 
         # Bouton Installer
-        btn_install = PrimaryButton("Installer ce Modèle")
+        btn_install = PrimaryButton(self.tr("Installer ce type de note"))
         btn_install.setIcon(load_on_accent_icon("ph.plus-circle"))
         btn_install.clicked.connect(lambda: self.on_install_callback(self.pack))
         layout.addWidget(btn_install)
@@ -118,7 +118,7 @@ class StarterPackDialog(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Catalogue de Modèles Communautaires (Starter Pack)"))
+        self.setWindowTitle(self.tr("Catalogue de Types de Note Communautaires (Starter Pack)"))
         self.setMinimumSize(850, 600)
         self.resize(920, 650)
         self.setModal(True)
@@ -147,7 +147,7 @@ class StarterPackDialog(QDialog):
         header.addWidget(icon_lbl)
 
         title_box = QVBoxLayout()
-        title_lbl = QLabel(self.tr("Modèles Communautaires & Professionnels Prêts à l'Emploi"))
+        title_lbl = QLabel(self.tr("Types de note communautaires et professionnels prêts à l'emploi"))
         title_lbl.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         subtitle_lbl = QLabel(self.tr("Installez en un clic des gabarits conçus pour la médecine, le code, les maths et les langues."))
         subtitle_lbl.setStyleSheet(f"font-size: 12px; color: {DesignTokens.TEXT_MUTED};")
@@ -177,22 +177,22 @@ class StarterPackDialog(QDialog):
 
         # Footer
         footer = QHBoxLayout()
-        btn_close = SecondaryButton("Fermer")
+        btn_close = SecondaryButton(self.tr("Fermer"))
         btn_close.clicked.connect(self.accept)
         footer.addStretch()
         footer.addWidget(btn_close)
         layout.addLayout(footer)
 
     def _on_install_pack(self, pack: dict[str, Any]) -> None:
-        name = pack.get("name", "Modèle")
+        name = pack.get("name", self.tr("Type de note"))
         exists = NoteTypeModel.get_or_none(NoteTypeModel.name == name) is not None
 
         overwrite = False
         if exists:
             res = QMessageBox.question(
                 self,
-                self.tr("Modèle Existant"),
-                tr("Le modèle '%1' est déjà présent dans votre collection.\n\nVoulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?", name),
+                self.tr("Type de note existant"),
+                tr("Le type de note '%1' est déjà présent dans votre collection.\n\nVoulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?", name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.No,
             )
@@ -202,7 +202,7 @@ class StarterPackDialog(QDialog):
 
         try:
             model_inst, _ = CardModelIO.save_model_to_db(pack, overwrite_existing=overwrite)
-            show_toast(self, tr("Modèle '%1' installé avec succès !", model_inst.name))
+            show_toast(self, tr("Type de note '%1' installé avec succès !", model_inst.name))
             self.model_installed.emit(model_inst.id)
         except Exception as e:
             QMessageBox.critical(self, self.tr("Erreur"), tr("Échec de l'installation : %1", str(e)))

@@ -208,7 +208,7 @@ class SmartMergeDialog(QDialog):
         self.lbl_conflict_title.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         self.lbl_conflict_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        self.lbl_conflict_meta = QLabel(self.tr("Modèle : Basic | GUID : abc12345"))
+        self.lbl_conflict_meta = QLabel(self.tr("Type de note : Basic | GUID : abc12345"))
         self.lbl_conflict_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
 
         info_vbox.addWidget(self.lbl_conflict_title)
@@ -311,7 +311,7 @@ class SmartMergeDialog(QDialog):
         # Mise à jour en-tête
         total = len(self.conflicts)
         self.lbl_conflict_title.setText(tr("Conflit %1 sur %2 (ID #%3)", self.current_index + 1, total, conflict.note_id))
-        self.lbl_conflict_meta.setText(tr("Modèle : %1  |  GUID : %2  |  Dossier : %3 ➔ %4", conflict.note_type_name, conflict.guid, conflict.local_deck, conflict.incoming_deck))
+        self.lbl_conflict_meta.setText(tr("Type de note : %1  |  GUID : %2  |  Dossier : %3 ➔ %4", conflict.note_type_name, conflict.guid, conflict.local_deck, conflict.incoming_deck))
         self.lbl_page.setText(tr("%1 / %2", self.current_index + 1, total))
 
         sim = conflict.similarity_score

@@ -381,9 +381,9 @@ class ABTestsView(QWidget):
         row_nt = QHBoxLayout()
         row_nt.setContentsMargins(0, 0, 0, 0)
         row_nt.setSpacing(8)
-        lbl_nt = QLabel(self.tr("Modèle Cible :"))
+        lbl_nt = QLabel(self.tr("Type de note cible :"))
         lbl_nt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.model_field = ModalField("Sélectionner un modèle de carte...")
+        self.model_field = ModalField(self.tr("Sélectionner un type de note..."))
         row_nt.addWidget(lbl_nt, alignment=Qt.AlignmentFlag.AlignVCenter)
         row_nt.addWidget(self.model_field, 1)
         eval_rows.addLayout(row_nt)
@@ -959,7 +959,7 @@ class ABTestsView(QWidget):
         fmt_tok_b = "—" if tok_b is None else str(int(tok_b))
         self.summary_labels["mode"].setText(self._elide_badge(f"Mode : {self.mode_combo.currentText()}"))
         self.summary_labels["deck"].setText(self._elide_badge(f"Deck : {deck_name}"))
-        self.summary_labels["model"].setText(self._elide_badge(f"Modèle : {nt_name}"))
+        self.summary_labels["model"].setText(self._elide_badge(f"Type de note : {nt_name}"))
         self.summary_labels["branch_a"].setText(self._elide_badge(f"A : {self._branch_display('A')}"))
         self.summary_labels["branch_b"].setText(self._elide_badge(f"B : {self._branch_display('B')}"))
         self.summary_labels["inf_a"].setText(self._elide_badge(f"IA : {fmt_temp} / {fmt_tok}"))
@@ -1244,7 +1244,7 @@ class ABTestsView(QWidget):
             self._model_modal = None
         current = self.model_field.get_value()
         current_id = current.id if current else None
-        self._model_modal = ModelSelectWindow(title="Sélectionner un modèle de carte cible", allow_all=False, current_model_id=current_id, parent=self)
+        self._model_modal = ModelSelectWindow(title=self.tr("Sélectionner un type de note cible"), allow_all=False, current_model_id=current_id, parent=self)
         self._model_modal.model_selected.connect(self._on_model_selected_from_modal)
         self._model_modal.show()
 

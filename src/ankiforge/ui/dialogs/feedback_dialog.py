@@ -397,7 +397,7 @@ class FeedbackDialog(QDialog):
                 self.tr("Studio de Création"),
                 self.tr("RAG & Documents"),
                 self.tr("Édition & Navigateur"),
-                self.tr("Modèles de Cartes"),
+                self.tr("Types de note"),
                 self.tr("Agents & Pipelines IA"),
                 self.tr("Interface & Ergonomie"),
                 self.tr("Autre"),

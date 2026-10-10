@@ -40,7 +40,7 @@ class ModelSelectWindow(QWidget):
 
     def __init__(
         self,
-        title: str = "Sélectionner un Modèle de Carte",
+        title: str = "Sélectionner un type de note",
         allow_all: bool = True,
         current_model_id: int | None = None,
         parent: QWidget | None = None,
@@ -74,7 +74,7 @@ class ModelSelectWindow(QWidget):
 
         # 1. Barre de recherche
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText(self.tr("Rechercher un modèle de carte (ex: Basique, Cloze, Front)..."))
+        self.search_input.setPlaceholderText(self.tr("Rechercher un type de note (ex: Basique, Cloze, Front)..."))
         search_icon = load_phosphor_icon("magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.search_input.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
         self.search_input.setFixedHeight(32)
@@ -144,7 +144,7 @@ class ModelSelectWindow(QWidget):
         btn_cancel = SecondaryButton("Annuler")
         btn_cancel.clicked.connect(self.close)
 
-        self.btn_confirm = PrimaryButton("Valider ce modèle")
+        self.btn_confirm = PrimaryButton(self.tr("Valider ce type de note"))
         self.btn_confirm.clicked.connect(self._on_confirm)
         self.btn_confirm.setEnabled(False)
 
@@ -171,11 +171,11 @@ class ModelSelectWindow(QWidget):
         except Exception as ex:
             logger.warning("Impossible de charger le décompte des notes par modèle: %s", ex)
 
-        # 0. Item racine "Tous les modèles" si allow_all=True
+        # 0. Item racine "Tous les types de note" si allow_all=True
         if self.allow_all:
-            global_item = QTreeWidgetItem([self.tr("Tous les modèles")])
+            global_item = QTreeWidgetItem([self.tr("Tous les types de note")])
             global_item.setData(0, Qt.ItemDataRole.UserRole, -1)
-            global_item.setData(0, Qt.ItemDataRole.UserRole + 1, "Tous les modèles")
+            global_item.setData(0, Qt.ItemDataRole.UserRole + 1, "Tous les types de note")
             global_item.setIcon(0, load_phosphor_icon("cards", color=DesignTokens.COLOR_BLUE))
             self.tree.addTopLevelItem(global_item)
             self._items_by_id[-1] = global_item
@@ -218,7 +218,7 @@ class ModelSelectWindow(QWidget):
             child.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
             item.addChild(child)
 
-            tooltip_lines = [f"Modèle: {m.name}", fields_str, notes_str]
+            tooltip_lines = [tr("Type de note : %1", m.name), fields_str, notes_str]
             if m.description:
                 tooltip_lines.append(f"Description: {m.description}")
             item.setToolTip(0, "\n".join(tooltip_lines))

@@ -459,7 +459,7 @@ class ChatMessageWidget(QWidget):
             if model:
                 model.css_style = (model.css_style or "") + "\n\n" + css_rule
                 model.save()
-                show_toast(self, tr("Style CSS injecté avec succès dans le modèle '%1' !", model.name))
+                show_toast(self, tr("Style CSS injecté avec succès dans le type de note '%1' !", model.name))
         except Exception as e:
             logger.error("Échec de l'application CSS : %s", e)
             show_toast(self, tr("Erreur application CSS: %1", e), is_error=True)

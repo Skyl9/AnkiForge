@@ -290,7 +290,7 @@ class EditionView(QWidget):
         self.btn_open_folder.clicked.connect(self._show_folder_modal)
         filter_layout.addWidget(self.btn_open_folder)
 
-        self.btn_open_model = QPushButton(self.tr("Modèle : Tous ▾"))
+        self.btn_open_model = QPushButton(self.tr("Type de note : Tous ▾"))
         self.btn_open_model.setIcon(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_open_model.setStyleSheet(f"""
             QPushButton {{
@@ -993,7 +993,7 @@ class EditionView(QWidget):
         mb_layout.addWidget(ico_model)
 
         nt_name = note.note_type.name if note.note_type else "Inconnu"
-        lbl_model_info = QLabel(tr("Modèle : %1", nt_name))
+        lbl_model_info = QLabel(tr("Type de note : %1", nt_name))
         lbl_model_info.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         lbl_model_info.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         mb_layout.addWidget(lbl_model_info)
@@ -1005,7 +1005,7 @@ class EditionView(QWidget):
 
         mb_layout.addStretch()
 
-        btn_change_model = QPushButton(self.tr("Changer de modèle..."))
+        btn_change_model = QPushButton(self.tr("Changer le type de note..."))
         btn_change_model.setIcon(load_phosphor_icon("arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
         btn_change_model.setStyleSheet(f"""
             QPushButton {{
@@ -1389,7 +1389,7 @@ class EditionView(QWidget):
             self._model_modal = None
 
         self._model_modal = ModelSelectWindow(
-            title="Filtrer par Modèle de Carte",
+            title=self.tr("Filtrer par type de note"),
             allow_all=True,
             current_model_id=self._active_model_id,
             parent=self,
@@ -1400,7 +1400,7 @@ class EditionView(QWidget):
     @Slot(int, str)
     def _on_model_selected_from_modal(self, model_id: int, model_name: str) -> None:
         if model_id == -1:
-            self._on_model_selected(None, "Tous les modèles")
+            self._on_model_selected(None, self.tr("Tous les types de note"))
         else:
             self._on_model_selected(model_id, model_name)
 
@@ -1416,7 +1416,7 @@ class EditionView(QWidget):
 
         curr_id = getattr(note, "note_type_id", None) or (note.note_type.id if note.note_type else None)
         self._change_model_modal = ModelSelectWindow(
-            title=f"Changer le modèle de la note #{note.id}",
+            title=tr("Changer le type de note de la note #%1", note.id),
             allow_all=False,
             current_model_id=curr_id,
             parent=self,
@@ -1467,7 +1467,7 @@ class EditionView(QWidget):
             self._update_preview()
 
         self.refresh_data()
-        show_toast(self, tr("Modèle de la note #%1 changé pour '%2'.", note.id, new_model_name))
+        show_toast(self, tr("Type de note de la note #%1 changé pour '%2'.", note.id, new_model_name))
 
     def _open_move_to_deck_modal(self, fallback_note_id: int | None = None) -> None:
         """Ouvre la modale pour déplacer les cartes ou notes sélectionnées vers un autre paquet."""
@@ -1546,8 +1546,8 @@ class EditionView(QWidget):
     def _show_model_menu(self) -> None:
         menu = StyledMenu(self)
 
-        all_action = menu.addAction(self.tr("Tous les modèles"))
-        all_action.triggered.connect(lambda: self._on_model_selected(None, "Tous les modèles"))
+        all_action = menu.addAction(self.tr("Tous les types de note"))
+        all_action.triggered.connect(lambda: self._on_model_selected(None, self.tr("Tous les types de note")))
 
         menu.addSeparator()
 
@@ -1563,7 +1563,7 @@ class EditionView(QWidget):
     def _on_model_selected(self, model_id: int | None, model_name: str) -> None:
         self._active_model_id = model_id
         if model_id is None:
-            self.btn_open_model.setText(self.tr("Modèle : Tous ▾"))
+            self.btn_open_model.setText(self.tr("Type de note : Tous ▾"))
             self.btn_open_model.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.BG_PANEL};
@@ -1576,7 +1576,7 @@ class EditionView(QWidget):
                 }}
             """)
         else:
-            self.btn_open_model.setText(tr("Modèle : %1 ▾", model_name))
+            self.btn_open_model.setText(tr("Type de note : %1 ▾", model_name))
             self.btn_open_model.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.ACCENT_BG};
@@ -1705,7 +1705,7 @@ class EditionView(QWidget):
         action_history = menu.addAction(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY), self.tr("Historique des versions"))
         action_history.triggered.connect(lambda: self.show_version_history(note.id))
 
-        action_change_model = menu.addAction(load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY), self.tr("Changer le modèle de carte..."))
+        action_change_model = menu.addAction(load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY), self.tr("Changer le type de note..."))
         action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
 
         move_text = tr("Déplacer vers un paquet (%1 cartes)...", count) if count > 1 else self.tr("Déplacer vers un paquet...")

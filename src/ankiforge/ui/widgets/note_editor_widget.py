@@ -228,8 +228,8 @@ class NoteKaTeXCompleter(QCompleter):
             items = list(STANDARD_JINJA)
             # Ajout des champs du modèle actif en tête de liste
             for f in self._known_fields:
-                items.insert(0, (f"{{{{{f}}}}}", f"Champ du modèle : {f}"))
-                items.append((f"{{{{cloze:{f}}}}}", f"Filtre Cloze pour : {f}"))
+                items.insert(0, (f"{{{{{f}}}}}", tr("Champ du type de note : %1", f)))
+                items.append((f"{{{{cloze:{f}}}}}", tr("Filtre Cloze pour : %1", f)))
         else:
             items = []
 
@@ -991,7 +991,7 @@ class NoteEditorWidget(QWidget):
             active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
             content_dict = json.loads(active_version.content) if active_version else {}
 
-            lbl_title = QLabel(tr("<b>Édition (Modèle : %1)</b>", self.current_note.note_type.name))
+            lbl_title = QLabel(tr("<b>Édition (Type de note : %1)</b>", self.current_note.note_type.name))
             lbl_title.setStyleSheet("font-size: 16px;")
             self.details_layout.addWidget(lbl_title)
             self.details_layout.addSpacing(5)
@@ -1032,7 +1032,7 @@ class NoteEditorWidget(QWidget):
         self.details_layout.addSpacing(5)
 
         model_layout = QHBoxLayout()
-        model_layout.addWidget(QLabel(self.tr("Modèle :")))
+        model_layout.addWidget(QLabel(self.tr("Type de note :")))
         self.creation_model_cb = QComboBox()
         models = NoteTypeModel.select()
         for m in models:

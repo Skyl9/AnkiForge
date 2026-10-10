@@ -805,10 +805,10 @@ class WorkspaceInspectorWidget(QWidget):
         note_id = patch.get("note_id") or metadata.get("note_id")
         if p_type == "css":
             model_name = metadata.get("note_type_name", "")
-            self.action_applied.emit(f"CSS validé pour {model_name or 'modèle'}")
+            self.action_applied.emit(f"CSS validé pour {model_name or 'type de note'}")
         elif p_type in ("model", "note_type"):
             model_name = patch.get("note_type_name") or metadata.get("note_type_name", "")
-            self.action_applied.emit(f"Modèle de carte '{model_name}' mis à jour en BDD")
+            self.action_applied.emit(f"Type de note '{model_name}' mis à jour en BDD")
         elif p_type == "note_type_create":
             name = patch.get("name") or metadata.get("name", "")
             self.action_applied.emit(f"Type de note '{name}' créé en BDD")

@@ -150,7 +150,7 @@ class NoteTypeRoleGuideDialog(QDialog):
         self.table.verticalHeader().setDefaultSectionSize(72)
 
         tab_archetypes_layout.addWidget(self.table, 1)
-        self.tab_widget.addTab(tab_archetypes, self.tr("Modèles types prédéfinis"))
+        self.tab_widget.addTab(tab_archetypes, self.tr("Archétypes prédéfinis"))
 
         # Onglet 2 : Créateur de tableau sur-mesure
         tab_builder = QWidget()

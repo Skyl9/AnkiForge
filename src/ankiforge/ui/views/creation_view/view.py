@@ -332,7 +332,7 @@ class CreationView(QWidget):
         deck_row.addWidget(self.btn_new_deck)
         target_layout.addLayout(deck_row)
 
-        self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
+        self.btn_select_model = SecondaryButton(self.tr("Sélectionner un type de note..."))
         self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
         self.btn_select_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_select_model.setStyleSheet(
@@ -564,7 +564,7 @@ class CreationView(QWidget):
         table_layout.setSpacing(8)
         table_container.setStyleSheet(f"border-right: 1px solid {DesignTokens.BORDER_COLOR};")
 
-        self.results_table = StyledTableWidget(["Modèle", "Front", "Back", "Statut"])
+        self.results_table = StyledTableWidget([self.tr("Type de note"), self.tr("Front"), self.tr("Back"), self.tr("Statut")])
         self.results_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
         self.results_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -1825,7 +1825,7 @@ class CreationView(QWidget):
     def _on_click_select_model(self) -> None:
         initial = self.selected_models or ([self.current_model] if self.current_model else [])
         dialog = MultiSelectionDialog(
-            title="Sélectionner les modèles de cartes autorisés pour l'IA",
+            title=self.tr("Sélectionner les types de note autorisés pour l'IA"),
             items=self.models_cache,
             display_func=lambda m: m.name,
             initial_selected=initial,
@@ -1854,7 +1854,7 @@ class CreationView(QWidget):
             first_name = getattr(self.selected_models[0], "name", str(self.selected_models[0]))
             self.btn_select_model.setText(tr("%1 (+%2)", first_name, len(self.selected_models) - 1))
         else:
-            self.btn_select_model.setText(self.tr("Sélectionner un modèle..."))
+            self.btn_select_model.setText(self.tr("Sélectionner un type de note..."))
 
     def _set_current_model(self, model: Any) -> None:
         self.current_model = model
@@ -2356,7 +2356,7 @@ class CreationView(QWidget):
         self.results_panel.set_tab_title(self.TAB_INDEX_CARDS, f"Cartes Générées ({len(self.generated_cards)})")
 
         field_columns = self._get_table_field_columns()
-        headers = ["Modèle", *field_columns, "Statut"]
+        headers = [self.tr("Type de note"), *field_columns, self.tr("Statut")]
         self.results_table.clear()
         self.results_table.setColumnCount(len(headers))
         self.results_table.setHorizontalHeaderLabels(headers)
@@ -2435,7 +2435,7 @@ class CreationView(QWidget):
                     item.setToolTip(str(val))
                 else:
                     item = QTableWidgetItem("—")
-                    item.setToolTip(tr("Le champ '%1' ne fait pas partie du modèle '%2'", f_name, card_model_name))
+                    item.setToolTip(tr("Le champ '%1' ne fait pas partie du type de note '%2'", f_name, card_model_name))
                     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable & ~Qt.ItemFlag.ItemIsSelectable)
                     item.setForeground(QColor(DesignTokens.TEXT_MUTED))
                     item.setBackground(QColor(DesignTokens.BG_INPUT))
@@ -2822,7 +2822,7 @@ class CreationView(QWidget):
 
         selected_nt = self.current_model
         if not selected_nt:
-            show_toast(self, self.tr("Aucun modèle de carte sélectionné."), is_error=True)
+            show_toast(self, self.tr("Aucun type de note sélectionné."), is_error=True)
             return
 
         deck_data = self.current_deck

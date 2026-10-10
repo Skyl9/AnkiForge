@@ -360,6 +360,13 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+6"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+996"/>
+        <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
+        <source>Type de note : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/components/model_selector/dialog.py" line="+241"/>
         <source>Comparer</source>
         <translation type="unfinished"></translation>
@@ -766,17 +773,17 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/model_export_dialog.py" line="+45"/>
-        <source>Exporter le Modèle — %1</source>
+        <source>Exporter le type de note — %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+33"/>
-        <source>Exporter le Modèle : %1</source>
+        <source>Exporter le type de note : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+232"/>
-        <source>Modèle exporté avec succès dans &apos;%1&apos; !</source>
+        <source>Type de note exporté avec succès dans &apos;%1&apos; !</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -891,7 +898,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+1"/>
-        <source>Modèle : %1  |  GUID : %2  |  Dossier : %3 ➔ %4</source>
+        <source>Type de note : %1  |  GUID : %2  |  Dossier : %3 ➔ %4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -924,14 +931,14 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+95"/>
-        <source>Le modèle &apos;%1&apos; est déjà présent dans votre collection.
+        <source>Le type de note &apos;%1&apos; est déjà présent dans votre collection.
 
 Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+10"/>
-        <source>Modèle &apos;%1&apos; installé avec succès !</source>
+        <source>Type de note &apos;%1&apos; installé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1101,7 +1108,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
     </message>
     <message>
         <location line="+1"/>
-        <source>Card Models</source>
+        <source>Types de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1530,7 +1537,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
         <location filename="../../ui/views/card_models_view/view.py" line="+1070"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+1355"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+359"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1733,12 +1740,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="-27"/>
-        <location line="+358"/>
+        <location line="+369"/>
         <source>Terminé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-357"/>
+        <location line="-368"/>
         <source>En cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1794,7 +1801,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+221"/>
+        <location line="+232"/>
         <source>Type: %1 | Mots: %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1886,7 +1893,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+272"/>
-        <source>Modèle : %1
+        <source>Type de note : %1
 Type : %2
 Gabarits : %3</source>
         <translation type="unfinished"></translation>
@@ -1941,17 +1948,17 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+99"/>
-        <source>Modèle &apos;%1&apos; créé avec succès.</source>
+        <source>Type de note &apos;%1&apos; créé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+29"/>
-        <source>Modèle dupliqué sous &apos;%1&apos;.</source>
+        <source>Type de note dupliqué sous &apos;%1&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+37"/>
-        <source>Modèle &apos;%1&apos; importé avec succès.</source>
+        <source>Type de note &apos;%1&apos; importé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1965,12 +1972,12 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
     </message>
     <message>
         <location line="+39"/>
-        <source>Voulez-vous vraiment supprimer le modèle &apos;%1&apos; ?</source>
+        <source>Voulez-vous vraiment supprimer le type de note &apos;%1&apos; ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+34"/>
-        <source>Modèle &apos;%1&apos; sauvegardé avec succès.</source>
+        <source>Type de note &apos;%1&apos; sauvegardé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2056,7 +2063,7 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
     </message>
     <message>
         <location line="+104"/>
-        <source>Style CSS injecté avec succès dans le modèle &apos;%1&apos; !</source>
+        <source>Style CSS injecté avec succès dans le type de note &apos;%1&apos; !</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2342,7 +2349,7 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
     </message>
     <message>
         <location line="+191"/>
-        <source>Le champ &apos;%1&apos; ne fait pas partie du modèle &apos;%2&apos;</source>
+        <source>Le champ &apos;%1&apos; ne fait pas partie du type de note &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2982,13 +2989,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+164"/>
-        <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
-        <source>Modèle : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location line="+170"/>
         <source>(%1 champ%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3024,8 +3025,13 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+127"/>
-        <source>Modèle de la note #%1 changé pour &apos;%2&apos;.</source>
+        <location line="+76"/>
+        <source>Changer le type de note de la note #%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Type de note de la note #%1 changé pour &apos;%2&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3045,7 +3051,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+37"/>
-        <source>Modèle : %1 ▾</source>
+        <source>Type de note : %1 ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3477,7 +3483,17 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/note_editor_widget.py" line="-237"/>
+        <location filename="../../ui/widgets/note_editor_widget.py" line="-787"/>
+        <source>Champ du type de note : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Filtre Cloze pour : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+549"/>
         <source>Audio introuvable : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3493,7 +3509,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+171"/>
-        <source>&lt;b&gt;Édition (Modèle : %1)&lt;/b&gt;</source>
+        <source>&lt;b&gt;Édition (Type de note : %1)&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3555,7 +3571,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="+0"/>
         <location line="+36"/>
-        <source>Modèle</source>
+        <source>Type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4179,11 +4195,16 @@ Une nouvelle version sera automatiquement créée.</source>
     </message>
     <message>
         <location line="+11"/>
-        <source>Modèle Cible :</source>
+        <source>Type de note cible :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="+2"/>
+        <source>Sélectionner un type de note...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
         <location line="+599"/>
         <source>Moteur A :</source>
         <translation type="unfinished"></translation>
@@ -4336,7 +4357,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+243"/>
+        <location line="+22"/>
+        <source>Sélectionner un type de note cible</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+221"/>
         <source>Veuillez saisir un texte source à tester.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6326,7 +6352,47 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>BatchQueueTable</name>
     <message>
-        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="-92"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="-315"/>
+        <source>STATUT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>TRANCHE / SOURCE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>PAQUET</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>TYPE DE NOTE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>PIPELINE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>PROGRÈS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>CARTES</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ACTIONS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+216"/>
         <source>Examiner &amp; valider les cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6577,7 +6643,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+15"/>
+        <source>Sélectionner un type de note...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
         <source>ORCHESTRATION IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6662,7 +6733,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+157"/>
+        <location line="+20"/>
+        <source>Sélectionner un type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+137"/>
         <source>File d&apos;attente vidée.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6954,28 +7030,38 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+7"/>
-        <source>Créer un nouveau modèle de cartes Anki</source>
+        <source>Créer un nouveau type de note Anki</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+51"/>
-        <source>Explorer et installer les modèles communautaires (Starter Pack)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Dupliquer le modèle sélectionné</source>
+        <location line="+39"/>
+        <source>Aucun type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <source>Importer un modèle (.afmodel ou .json)</source>
+        <source>Cliquez sur &apos;Nouveau&apos; pour créer votre premier type de note Anki.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Explorer et installer les types de note communautaires (Starter Pack)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Dupliquer le type de note sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Importer un type de note (.afmodel ou .json)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
         <location line="+1112"/>
-        <source>Supprimer le modèle</source>
+        <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7131,7 +7217,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+9"/>
-        <source>Aucun modèle sélectionné</source>
+        <source>Aucun type de note sélectionné</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7146,7 +7232,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+0"/>
-        <source>Un modèle doit comporter au moins un gabarit de carte.</source>
+        <source>Un type de note doit comporter au moins un gabarit de carte.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7170,12 +7256,27 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+142"/>
-        <source>Aucun modèle sélectionné à exporter.</source>
+        <location line="+85"/>
+        <source>Nouveau type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+58"/>
+        <location line="+0"/>
+        <source>Nom du type de note :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+57"/>
+        <source>Aucun type de note sélectionné à exporter.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Importer un type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+47"/>
         <source>Remplacer le rôle IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7191,12 +7292,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+20"/>
-        <source>Modèle supprimé.</source>
+        <source>Type de note supprimé.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <source>Aucun modèle sélectionné à sauvegarder.</source>
+        <source>Aucun type de note sélectionné à sauvegarder.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -7347,7 +7448,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+106"/>
-        <source>Attacher une ressource au contexte (Paquet, Document, Modèle)</source>
+        <source>Attacher une ressource au contexte (Paquet, Document, Type de note)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7453,7 +7554,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+156"/>
+        <location line="+80"/>
+        <source>Type de note inconnu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+76"/>
         <source>Contexte compacté avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7479,7 +7585,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+4"/>
-        <source>🎨 Modèle de carte...</source>
+        <source>🎨 Type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7498,7 +7604,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+57"/>
+        <location line="+14"/>
+        <source>Sélectionner un type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+43"/>
         <source>Contexte attaché !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7875,7 +7986,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+50"/>
+        <location line="+22"/>
+        <location line="+1522"/>
+        <source>Sélectionner un type de note...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-1494"/>
         <source>ORCHESTRATION IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7921,7 +8038,29 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+84"/>
+        <location line="+56"/>
+        <location line="+1792"/>
+        <source>Type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-1792"/>
+        <source>Front</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Back</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <location line="+1792"/>
+        <source>Statut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-1764"/>
         <source>Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8039,12 +8178,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+50"/>
-        <source>Sélectionner un modèle...</source>
+        <location line="+21"/>
+        <source>Sélectionner les types de note autorisés pour l&apos;IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+72"/>
         <source>Aucun fragment coché pour la génération. Cochez au moins un segment.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8211,7 +8350,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+5"/>
-        <source>Aucun modèle de carte sélectionné.</source>
+        <source>Aucun type de note sélectionné.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -9874,7 +10013,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="-982"/>
         <location line="+1273"/>
-        <source>Modèle : Tous ▾</source>
+        <source>Type de note : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -9964,11 +10103,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+396"/>
-        <source>Changer de modèle...</source>
+        <location line="+700"/>
+        <source>Changer le type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+131"/>
+        <location line="-569"/>
         <source>Modifications non enregistrées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9978,18 +10118,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+265"/>
+        <location line="+160"/>
+        <source>Filtrer par type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <location line="+146"/>
+        <location line="+1"/>
+        <source>Tous les types de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-53"/>
         <location line="+214"/>
         <source>Déplacer vers un paquet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-162"/>
-        <source>Tous les modèles</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+144"/>
+        <location line="-18"/>
         <location line="+3"/>
         <source>Éditer cette carte</source>
         <translation type="unfinished"></translation>
@@ -10005,12 +10152,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
-        <source>Changer le modèle de carte...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
+        <location line="+10"/>
         <source>Nouveau paquet...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10200,7 +10342,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+0"/>
-        <source>Modèle</source>
+        <source>Type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10494,7 +10636,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
-        <source>Modèles de Cartes</source>
+        <source>Types de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12247,7 +12389,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     </message>
     <message>
         <location line="+3"/>
-        <source>ex: Modèle avec badges contrastés et KaTeX pour concours...</source>
+        <source>ex: Type de note avec badges contrastés et KaTeX pour concours...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12271,7 +12413,37 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+93"/>
+        <location line="+10"/>
+        <source>Parcourir...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Exporter le type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Paquet Type de note AnkiForge (*.afmodel)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Fichier Type de note JSON (*.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Sélectionner l&apos;emplacement d&apos;exportation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+43"/>
         <source>Veuillez choisir un chemin de destination.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12280,12 +12452,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <name>ModelImportDialog</name>
     <message>
         <location filename="../../ui/dialogs/model_import_dialog.py" line="-98"/>
-        <source>Importer un Modèle de Carte</source>
+        <source>Importer un type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+27"/>
-        <source>Prévisualisation du Modèle à Importer</source>
+        <source>Prévisualisation du type de note à importer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12295,12 +12467,17 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     </message>
     <message>
         <location line="+19"/>
-        <source>NOM DU MODÈLE :</source>
+        <source>NOM DU TYPE DE NOTE :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+70"/>
-        <source>⚠️ Un modèle porte déjà ce nom :</source>
+        <location line="+5"/>
+        <source>Type de note importé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+65"/>
+        <source>⚠️ Un type de note porte déjà ce nom :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12310,7 +12487,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     </message>
     <message>
         <location line="+4"/>
-        <source>Écraser le modèle existant</source>
+        <source>Écraser le type de note existant</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12322,13 +12499,18 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>ModelSelectWindow</name>
     <message>
-        <location filename="../../ui/components/model_select_window.py" line="-138"/>
-        <source>Rechercher un modèle de carte (ex: Basique, Cloze, Front)...</source>
+        <location filename="../../ui/components/model_select_window.py" line="-144"/>
+        <source>Rechercher un type de note (ex: Basique, Cloze, Front)...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+99"/>
-        <source>Tous les modèles</source>
+        <location line="+70"/>
+        <source>Valider ce type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+29"/>
+        <source>Tous les types de note</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -12394,7 +12576,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     </message>
     <message>
         <location line="+6"/>
-        <source>Modèle :</source>
+        <source>Type de note :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12560,7 +12742,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     </message>
     <message>
         <location line="+20"/>
-        <source>Modèles types prédéfinis</source>
+        <source>Archétypes prédéfinis</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12651,6 +12833,58 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <message>
         <location line="+61"/>
         <source>Tableau Markdown personnalisé</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>NoteVirtualTableModel</name>
+    <message>
+        <location filename="../../ui/models/note_table_model.py" line="+154"/>
+        <source>Question</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Réponse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte (Gabarit)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+11"/>
+        <source>Type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-10"/>
+        <location line="+3"/>
+        <location line="+9"/>
+        <source>Tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-9"/>
+        <location line="+8"/>
+        <source>Deck</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-3"/>
+        <source>Recto (Tri)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Autres champs</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -13340,7 +13574,27 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+60"/>
+        <location line="+41"/>
+        <source>NOTES</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>TYPES DE NOTE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>CARTES</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>MÉDIAS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
         <source>Fermer sans rien transférer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13601,12 +13855,12 @@ Utilisez {{ text_source }}.</source>
     <name>ResponsiveTopActionBar</name>
     <message>
         <location filename="../../ui/views/card_models_view/widgets/responsive_action_bar.py" line="-9"/>
-        <source>Modèle sélectionné</source>
+        <source>Type de note sélectionné</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+16"/>
-        <source>Exporter le modèle au format JSON standardisé AnkiForge</source>
+        <source>Exporter le type de note au format JSON standardisé AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13621,7 +13875,7 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+5"/>
-        <source>Sauvegarder les modifications du modèle</source>
+        <source>Sauvegarder les modifications du type de note</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -13950,7 +14204,7 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+4"/>
-        <source>Modèle : Basic | GUID : abc12345</source>
+        <source>Type de note : Basic | GUID : abc12345</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -14177,15 +14431,28 @@ Utilisez {{ text_source }}.</source>
     </message>
 </context>
 <context>
+    <name>StarterModelCardWidget</name>
+    <message>
+        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="-125"/>
+        <source>Type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Installer ce type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>StarterPackDialog</name>
     <message>
-        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="-87"/>
-        <source>Catalogue de Modèles Communautaires (Starter Pack)</source>
+        <location line="+13"/>
+        <source>Catalogue de Types de Note Communautaires (Starter Pack)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+29"/>
-        <source>Modèles Communautaires &amp; Professionnels Prêts à l&apos;Emploi</source>
+        <source>Types de note communautaires et professionnels prêts à l&apos;emploi</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -14194,8 +14461,18 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+42"/>
-        <source>Modèle Existant</source>
+        <location line="+28"/>
+        <source>Fermer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Type de note existant</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

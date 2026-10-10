@@ -722,7 +722,7 @@ class ContextHubWidget(QWidget):
                     m_val = ctx_id.split("_")[1]
                     nt = NoteTypeModel.get_or_none(NoteTypeModel.id == int(m_val)) if m_val.isdigit() else NoteTypeModel.get_or_none(NoteTypeModel.name == m_val)
                     if nt:
-                        title = f"🎨 Modèle : {nt.name}"
+                        title = f"🎨 Type de note : {nt.name}"
                         subtitle = "Gabarit de carte & CSS"
                         tok = 150
                         icon = "ph.paint-brush"

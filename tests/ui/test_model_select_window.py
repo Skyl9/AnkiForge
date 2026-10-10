@@ -25,13 +25,13 @@ def test_model_select_window_init_allow_all(qtbot: Any, mock_db: Any) -> None:
     win = ModelSelectWindow(allow_all=True, current_model_id=-1)
     qtbot.addWidget(win)
 
-    assert win.windowTitle() == "Sélectionner un Modèle de Carte"
-    assert win.tree.topLevelItemCount() >= 3  # "Tous les modèles" + nt1 + nt2
+    assert win.windowTitle() == "Sélectionner un type de note"
+    assert win.tree.topLevelItemCount() >= 3  # "Tous les types de note" + nt1 + nt2
 
-    # Vérifier l'item racine "Tous les modèles"
+    # Vérifier l'item racine "Tous les types de note"
     root_item = win.tree.topLevelItem(0)
     assert root_item is not None
-    assert "Tous les modèles" in root_item.text(0)
+    assert "Tous les types de note" in root_item.text(0)
 
     # Tester la sélection et l'émission du signal
     emitted: list[tuple[int, str]] = []

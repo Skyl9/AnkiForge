@@ -173,8 +173,19 @@ class BatchQueueTable(QWidget):
         filter_row.addWidget(self.lbl_filter_info)
         layout.addWidget(filter_bar)
 
-        # ── Table d'attente ──────────────────────────────────────────
-        self.table = StyledTableWidget(["", "STATUT", "TRANCHE / SOURCE", "PAQUET", "MODÈLE", "PIPELINE", "PROGRÈS", "CARTES", "ACTIONS"])
+        self.table = StyledTableWidget(
+            [
+                "",
+                self.tr("STATUT"),
+                self.tr("TRANCHE / SOURCE"),
+                self.tr("PAQUET"),
+                self.tr("TYPE DE NOTE"),
+                self.tr("PIPELINE"),
+                self.tr("PROGRÈS"),
+                self.tr("CARTES"),
+                self.tr("ACTIONS"),
+            ]
+        )
         self.table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(StyledTableWidget.SelectionMode.ExtendedSelection)
         self.table.verticalHeader().setDefaultSectionSize(46)

@@ -148,11 +148,28 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
 
     def _update_headers(self) -> None:
         if self._display_mode == "cards":
-            self._headers = ["", "", "Question", "Réponse", "Carte (Gabarit)", "Paquet", "Modèle", "Tags"]
+            self._headers = [
+                "",
+                "",
+                self.tr("Question"),
+                self.tr("Réponse"),
+                self.tr("Carte (Gabarit)"),
+                self.tr("Paquet"),
+                self.tr("Type de note"),
+                self.tr("Tags"),
+            ]
         elif self._active_model_fields:
-            self._headers = ["", ""] + list(self._active_model_fields) + ["Deck", "Tags"]
+            self._headers = ["", ""] + list(self._active_model_fields) + [self.tr("Deck"), self.tr("Tags")]
         else:
-            self._headers = ["", "", "Recto (Tri)", "Autres champs", "Modèle", "Deck", "Tags"]
+            self._headers = [
+                "",
+                "",
+                self.tr("Recto (Tri)"),
+                self.tr("Autres champs"),
+                self.tr("Type de note"),
+                self.tr("Deck"),
+                self.tr("Tags"),
+            ]
 
     def set_active_model_fields(self, fields: list[str] | None) -> None:
         """Change le schéma des colonnes affichées."""

@@ -258,7 +258,7 @@ class NoteTableWidget(RoundedPanel):
 
             if mode == "Vue : Cartes (Métadonnées)":
                 self.data_table.setColumnCount(4)
-                self.data_table.setHorizontalHeaderLabels([tr("ID Carte"), tr("Modèle"), tr("Paquet"), tr("Template")])
+                self.data_table.setHorizontalHeaderLabels([tr("ID Carte"), tr("Type de note"), tr("Paquet"), tr("Template")])
 
                 self.data_table.horizontalHeader().setStretchLastSection(False)
                 self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -294,7 +294,7 @@ class NoteTableWidget(RoundedPanel):
 
             else:
                 self.data_table.setColumnCount(5)
-                self.data_table.setHorizontalHeaderLabels([tr("Question (Aperçu)"), tr("Réponse (Aperçu)"), tr("Modèle"), tr("Tags"), tr("Version")])
+                self.data_table.setHorizontalHeaderLabels([tr("Question (Aperçu)"), tr("Réponse (Aperçu)"), tr("Type de note"), tr("Tags"), tr("Version")])
 
                 self.data_table.horizontalHeader().setStretchLastSection(False)
                 self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Question s'étire
