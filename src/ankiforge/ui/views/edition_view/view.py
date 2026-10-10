@@ -5,7 +5,7 @@ import logging
 from typing import Any, Literal
 
 import peewee
-from PySide6.QtCore import QModelIndex, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -55,6 +55,7 @@ from ankiforge.ui.models import (
 )
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.viewmodels import EditionViewModel
+from ankiforge.ui.views.edition_view.group_edit_dialog import GroupEditDialog
 from ankiforge.ui.views.edition_view.note_tags_editor import NoteTagsEditorWidget
 from ankiforge.ui.views.edition_view.source_badge import DocumentSourceBadge
 from ankiforge.ui.views.edition_view.utils import strip_html_tags
@@ -139,6 +140,7 @@ class EditionView(QWidget):
 
         self._all_notes: list[NoteModel] = []
         self._displayed_count: int = 0
+        self._syncing_selection_and_checks: bool = False
 
         self._preview_debounce_timer = QTimer(self)
         self._preview_debounce_timer.setSingleShot(True)
@@ -407,6 +409,9 @@ class EditionView(QWidget):
         selection_model = self.card_table.selectionModel()
         if selection_model is not None:
             selection_model.currentRowChanged.connect(self._on_table_row_changed)
+            selection_model.selectionChanged.connect(self._on_table_selection_changed)
+        self.note_table_model.dataChanged.connect(self._on_model_data_changed)
+        self.card_table.horizontalHeader().sectionClicked.connect(self._on_header_section_clicked)
         self.card_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.card_table.customContextMenuRequested.connect(self._show_card_context_menu)
 
@@ -439,6 +444,13 @@ class EditionView(QWidget):
         ribbon_layout.addWidget(self.btn_next_card)
 
         ribbon_layout.addStretch()
+
+        self.btn_group_edit = SecondaryButton(self.tr("Modifier le groupe"))
+        self.btn_group_edit.setIcon(load_phosphor_icon("pencil-simple-line", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_group_edit.setFixedHeight(24)
+        self.btn_group_edit.setToolTip(self.tr("Appliquer une modification sur les cartes sélectionnées (Ctrl+Shift+E)"))
+        self.btn_group_edit.clicked.connect(lambda: self.open_group_edit_dialog())
+        ribbon_layout.addWidget(self.btn_group_edit)
 
         self.btn_expand_table = SecondaryButton("Déplier la liste")
         self.btn_expand_table.setIcon(load_phosphor_icon("caret-down", color=DesignTokens.TEXT_PRIMARY))
@@ -564,6 +576,7 @@ class EditionView(QWidget):
         QShortcut(QKeySequence("Ctrl+B"), self, lambda: self._handle_editor_action("bold"))
         QShortcut(QKeySequence("Ctrl+I"), self, lambda: self._handle_editor_action("italic"))
         QShortcut(QKeySequence("Ctrl+Shift+C"), self, lambda: self._handle_editor_action("cloze"))
+        QShortcut(QKeySequence("Ctrl+Shift+E"), self, self.open_group_edit_dialog)
 
         # Raccourcis drapeaux Anki (Ctrl+0 à Ctrl+7)
         QShortcut(QKeySequence("Ctrl+0"), self, lambda: self._apply_flag_to_selected_notes(0))
@@ -602,14 +615,199 @@ class EditionView(QWidget):
             self._display_mode = new_mode
             self.refresh_data()
 
+    def _on_table_selection_changed(self, selected: Any = None, deselected: Any = None) -> None:
+        """Réagit au changement de sélection (clic, Shift+clic, Ctrl+clic) pour synchroniser les coches et le ruban."""
+        if self._syncing_selection_and_checks:
+            return
+
+        self._syncing_selection_and_checks = True
+        try:
+            selected_rows = self.card_table.get_selected_rows()
+            self.note_table_model.sync_checked_with_row_indices(selected_rows)
+        finally:
+            self._syncing_selection_and_checks = False
+
+        self._update_nav_ribbon_info()
+
+    def _on_model_data_changed(
+        self,
+        top_left: QModelIndex,
+        bottom_right: QModelIndex,
+        roles: list[int] | None = None,
+    ) -> None:
+        """Synchronise la sélection visuelle (surlignage) si des cases à cocher sont modifiées dans le modèle."""
+        if self._syncing_selection_and_checks:
+            return
+        if roles and Qt.ItemDataRole.CheckStateRole not in roles:
+            return
+        if top_left.column() <= 0 <= bottom_right.column():
+            self._sync_selection_from_model_checks()
+
+    def _sync_selection_from_model_checks(self) -> None:
+        """Met à jour les lignes sélectionnées (soulignées) dans card_table d'après les cases cochées du modèle."""
+        sm = self.card_table.selectionModel()
+        if sm is None:
+            return
+
+        self._syncing_selection_and_checks = True
+        try:
+            item_selection = QItemSelection()
+            col_count = self.note_table_model.columnCount()
+            max_col = max(0, col_count - 1)
+            for r in range(self.note_table_model.rowCount()):
+                chk_idx = self.note_table_model.index(r, 0)
+                if chk_idx.data(Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
+                    top_idx = self.note_table_model.index(r, 0)
+                    bot_idx = self.note_table_model.index(r, max_col)
+                    item_selection.select(top_idx, bot_idx)
+
+            sm.select(item_selection, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
+        finally:
+            self._syncing_selection_and_checks = False
+        self._update_nav_ribbon_info()
+
+    def _on_header_section_clicked(self, logical_index: int) -> None:
+        """Au clic sur l'en-tête de la colonne 0 (case à cocher), bascule tout cocher / tout décocher."""
+        if logical_index == 0:
+            if self.card_table.get_selected_rows():
+                self.deselect_all_cards()
+            else:
+                self.select_all_cards()
+
+    def select_all_cards(self) -> None:
+        """Coche et sélectionne (souligne) l'ensemble des cartes de la vue."""
+        self._syncing_selection_and_checks = True
+        try:
+            self.card_table.selectAll()
+            selected_rows = self.card_table.get_selected_rows()
+            self.note_table_model.sync_checked_with_row_indices(selected_rows)
+        finally:
+            self._syncing_selection_and_checks = False
+        self._update_nav_ribbon_info()
+
+    def deselect_all_cards(self) -> None:
+        """Décoche et désélectionne l'ensemble des cartes de la vue."""
+        self._syncing_selection_and_checks = True
+        try:
+            self.card_table.clearSelection()
+            self.note_table_model.clear_all_checks()
+        finally:
+            self._syncing_selection_and_checks = False
+        self._update_nav_ribbon_info()
+
+    def get_target_note_ids(self, fallback_note_id: int | None = None) -> list[int]:
+        """Résout les IDs de notes ciblées par une action groupée ou unitaire.
+
+        Priorité de ciblage :
+        1. Sélection multiple par plage (Shift+clic ou Ctrl+clic) : si plusieurs lignes sont
+           sélectionnées dans la table, cette sélection active prévaut.
+        2. Sélection persistante par coches : si des cartes sont cochées dans la colonne 0,
+           ce panier de cartes prévaut.
+        3. Sélection unitaire : la ligne active dans la table ou la note spécifiée en secours.
+        """
+        selected_rows = self.card_table.get_selected_rows()
+        if len(selected_rows) > 1:
+            target_ids: list[int] = []
+            for r in selected_rows:
+                if self._display_mode == "cards":
+                    c_data = self.note_table_model.get_card_data_at(r)
+                    if c_data and c_data.note_id not in target_ids:
+                        target_ids.append(c_data.note_id)
+                else:
+                    n = self.note_table_model.get_note_at(r)
+                    if n and n.id not in target_ids:
+                        target_ids.append(n.id)
+            if target_ids:
+                return target_ids
+
+        checked_ids = self.note_table_model.get_checked_note_ids()
+        if checked_ids:
+            return list(checked_ids)
+
+        if selected_rows:
+            r = selected_rows[0]
+            if self._display_mode == "cards":
+                c_data = self.note_table_model.get_card_data_at(r)
+                if c_data:
+                    return [c_data.note_id]
+            else:
+                n = self.note_table_model.get_note_at(r)
+                if n:
+                    return [n.id]
+
+        if fallback_note_id is not None:
+            return [fallback_note_id]
+
+        if self._current_note:
+            return [self._current_note.id]
+
+        return []
+
+    def get_target_card_ids(self, fallback_card_id: int | None = None) -> list[int]:
+        """Résout les IDs de cartes physiques ciblées (en mode d'affichage 'cards')."""
+        selected_rows = self.card_table.get_selected_rows()
+        if len(selected_rows) > 1:
+            target_card_ids: list[int] = []
+            for r in selected_rows:
+                c_data = self.note_table_model.get_card_data_at(r)
+                if c_data and c_data.card_id not in target_card_ids:
+                    target_card_ids.append(c_data.card_id)
+            if target_card_ids:
+                return target_card_ids
+
+        checked_card_ids = self.note_table_model.get_checked_card_ids()
+        if checked_card_ids:
+            return list(checked_card_ids)
+
+        if selected_rows:
+            r = selected_rows[0]
+            c_data = self.note_table_model.get_card_data_at(r)
+            if c_data:
+                return [c_data.card_id]
+
+        if fallback_card_id is not None:
+            return [fallback_card_id]
+
+        return []
+
     def _update_nav_ribbon_info(self) -> None:
+        selected_rows = self.card_table.get_selected_rows()
+        total_rows = self.note_table_model.rowCount()
+
+        if len(selected_rows) > 1:
+            self.lbl_card_ribbon_info.setText(tr("%1 cartes sélectionnées (sur %2)", len(selected_rows), total_rows))
+            if hasattr(self, "btn_group_edit"):
+                self.btn_group_edit.setText(tr("Modifier le groupe (%1)", len(selected_rows)))
+                self.btn_group_edit.setEnabled(True)
+            return
+
+        checked_note_ids = self.note_table_model.get_checked_note_ids()
+        if not selected_rows and checked_note_ids:
+            self.lbl_card_ribbon_info.setText(tr("%1 carte(s) cochée(s) (sur %2)", len(checked_note_ids), total_rows))
+            if hasattr(self, "btn_group_edit"):
+                self.btn_group_edit.setText(tr("Modifier le groupe (%1)", len(checked_note_ids)))
+                self.btn_group_edit.setEnabled(True)
+            return
+
+        if not selected_rows and not checked_note_ids:
+            self._current_note = None
+            self.lbl_card_ribbon_info.setText(self.tr("Aucune carte sélectionnée"))
+            if hasattr(self, "btn_group_edit"):
+                self.btn_group_edit.setText(self.tr("Modifier le groupe"))
+                self.btn_group_edit.setEnabled(False)
+            if hasattr(self, "editor_stack"):
+                self.editor_stack.setCurrentIndex(0)
+            return
+
+        if hasattr(self, "btn_group_edit"):
+            self.btn_group_edit.setText(self.tr("Modifier le groupe"))
+            self.btn_group_edit.setEnabled(bool(self._current_note or selected_rows or checked_note_ids))
+
         if not self._current_note:
             self.lbl_card_ribbon_info.setText(self.tr("Aucune carte sélectionnée"))
             return
 
-        selected_rows = self.card_table.get_selected_rows()
         current_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
-        total_rows = self.note_table_model.rowCount()
 
         if self._display_mode == "cards":
             card_data = self.note_table_model.get_card_data_at(current_row)
@@ -1272,35 +1470,12 @@ class EditionView(QWidget):
         self._move_target_note_ids = []
 
         if self._display_mode == "cards":
-            target_card_ids: list[int] = list(self.note_table_model.get_checked_card_ids())
-            if not target_card_ids:
-                selected_rows = self.card_table.get_selected_rows()
-                if selected_rows:
-                    for r in selected_rows:
-                        c_data = self.note_table_model.get_card_data_at(r)
-                        if c_data:
-                            target_card_ids.append(c_data.card_id)
-                else:
-                    c_row = self.card_table.currentIndex().row()
-                    c_data = self.note_table_model.get_card_data_at(c_row)
-                    if c_data:
-                        target_card_ids.append(c_data.card_id)
+            target_card_ids = self.get_target_card_ids()
             if not target_card_ids:
                 return
             self._move_target_card_ids = target_card_ids
         else:
-            target_note_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
-            if not target_note_ids:
-                selected_rows = self.card_table.get_selected_rows()
-                if selected_rows:
-                    for r in selected_rows:
-                        n = self.note_table_model.get_note_at(r)
-                        if n:
-                            target_note_ids.append(n.id)
-                elif fallback_note_id:
-                    target_note_ids = [fallback_note_id]
-                elif self._current_note:
-                    target_note_ids = [self._current_note.id]
+            target_note_ids = self.get_target_note_ids(fallback_note_id=fallback_note_id)
             if not target_note_ids:
                 return
             self._move_target_note_ids = target_note_ids
@@ -1498,10 +1673,29 @@ class EditionView(QWidget):
         if not note:
             return
 
+        target_note_ids = self.get_target_note_ids(fallback_note_id=note.id)
+        count = len(target_note_ids)
+
         menu = StyledMenu(self)
 
-        action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), self.tr("Éditer cette carte"))
-        action_edit.triggered.connect(lambda: self.select_note_by_id(note.id))
+        if count > 1:
+            action_group_edit = menu.addAction(
+                load_phosphor_icon("pencil-simple-line", color=DesignTokens.TEXT_PRIMARY),
+                tr("Modifier le groupe (%1 cartes)...", count),
+            )
+            action_group_edit.triggered.connect(lambda: self.open_group_edit_dialog(target_note_ids))
+
+            action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), self.tr("Éditer cette carte"))
+            action_edit.triggered.connect(lambda: self.select_note_by_id(note.id))
+        else:
+            action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), self.tr("Éditer cette carte"))
+            action_edit.triggered.connect(lambda: self.select_note_by_id(note.id))
+
+            action_group_edit = menu.addAction(
+                load_phosphor_icon("pencil-simple-line", color=DesignTokens.TEXT_PRIMARY),
+                self.tr("Modifier le groupe..."),
+            )
+            action_group_edit.triggered.connect(lambda: self.open_group_edit_dialog(target_note_ids))
 
         action_history = menu.addAction(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY), self.tr("Historique des versions"))
         action_history.triggered.connect(lambda: self.show_version_history(note.id))
@@ -1509,7 +1703,8 @@ class EditionView(QWidget):
         action_change_model = menu.addAction(load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY), self.tr("Changer le modèle de carte..."))
         action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
 
-        action_move_deck = menu.addAction(load_phosphor_icon("folder-notch-plus", color=DesignTokens.TEXT_PRIMARY), self.tr("Déplacer vers un paquet..."))
+        move_text = tr("Déplacer vers un paquet (%1 cartes)...", count) if count > 1 else self.tr("Déplacer vers un paquet...")
+        action_move_deck = menu.addAction(load_phosphor_icon("folder-notch-plus", color=DesignTokens.TEXT_PRIMARY), move_text)
         action_move_deck.triggered.connect(lambda: self._open_move_to_deck_modal(fallback_note_id=note.id))
 
         action_new_deck = menu.addAction(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY), self.tr("Nouveau paquet..."))
@@ -1517,11 +1712,13 @@ class EditionView(QWidget):
 
         menu.addSeparator()
 
-        action_lint = menu.addAction(load_phosphor_icon("first-aid-kit", color=DesignTokens.ACCENT_PRIMARY), self.tr("Linter IA (Wozniak)"))
-        action_lint.triggered.connect(lambda: self.open_linter_dialog([note.id]))
+        lint_text = tr("Linter IA (%1 cartes)", count) if count > 1 else self.tr("Linter IA (Wozniak)")
+        action_lint = menu.addAction(load_phosphor_icon("first-aid-kit", color=DesignTokens.ACCENT_PRIMARY), lint_text)
+        action_lint.triggered.connect(lambda: self.open_linter_dialog(target_note_ids))
 
-        action_tag = menu.addAction(load_phosphor_icon("tag", color=DesignTokens.COLOR_PURPLE), self.tr("Auto-Tagging IA"))
-        action_tag.triggered.connect(lambda: self.open_auto_tag_dialog([note.id]))
+        tag_text = tr("Auto-Tagging IA (%1 cartes)...", count) if count > 1 else self.tr("Auto-Tagging IA")
+        action_tag = menu.addAction(load_phosphor_icon("tag", color=DesignTokens.COLOR_PURPLE), tag_text)
+        action_tag.triggered.connect(lambda: self.open_auto_tag_dialog(target_note_ids))
 
         menu.addSeparator()
 
@@ -1554,8 +1751,13 @@ class EditionView(QWidget):
 
         menu.addSeparator()
 
-        action_delete = menu.addAction(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED), self.tr("Supprimer la carte"))
-        action_delete.triggered.connect(lambda: self.reject_selected_notes([note.id]))
+        del_text = tr("Supprimer les %1 cartes ciblées", count) if count > 1 else self.tr("Supprimer la carte")
+        action_delete = menu.addAction(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED), del_text)
+        action_delete.triggered.connect(lambda: self.reject_selected_notes(target_note_ids))
+
+        menu.addSeparator()
+        menu.addAction(load_phosphor_icon("check-square", color=DesignTokens.TEXT_SECONDARY), self.tr("Tout cocher"), self.select_all_cards)
+        menu.addAction(load_phosphor_icon("square", color=DesignTokens.TEXT_SECONDARY), self.tr("Tout décocher"), self.deselect_all_cards)
 
         menu.exec(self.card_table.mapToGlobal(pos))
 
@@ -1588,17 +1790,12 @@ class EditionView(QWidget):
     def _apply_flag_to_selected_notes(self, flag: int, fallback_note_id: int | None = None) -> None:
         """Applique un drapeau aux notes/cartes sélectionnées/cochées ou à l'élément actif."""
         if self._display_mode == "cards":
-            target_card_ids: list[int] = list(self.note_table_model.get_checked_card_ids())
-            if not target_card_ids:
-                selected_rows = self.card_table.get_selected_rows()
-                c_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
-                c_data = self.note_table_model.get_card_data_at(c_row)
-                if c_data:
-                    target_card_ids = [c_data.card_id]
+            target_card_ids = self.get_target_card_ids()
             if not target_card_ids:
                 return
 
-            with db.atomic():
+            database = CardModel._meta.database or db
+            with database.atomic():
                 CardModel.update(flags=flag).where(CardModel.id.in_(target_card_ids)).execute()
 
             for cid in target_card_ids:
@@ -1611,17 +1808,12 @@ class EditionView(QWidget):
                 show_toast(self, tr("Drapeau '%1' appliqué à %2 carte(s).", flag_label, len(target_card_ids)))
             return
 
-        target_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
-        if not target_ids:
-            if fallback_note_id:
-                target_ids = [fallback_note_id]
-            elif self._current_note:
-                target_ids = [self._current_note.id]
-
+        target_ids = self.get_target_note_ids(fallback_note_id=fallback_note_id)
         if not target_ids:
             return
 
-        with db.atomic():
+        database = CardModel._meta.database or db
+        with database.atomic():
             CardModel.update(flags=flag).where(CardModel.note.in_(target_ids)).execute()
 
         for nid in target_ids:
@@ -1701,13 +1893,7 @@ class EditionView(QWidget):
     def _toggle_suspend_selected(self, fallback_note_id: int | None = None) -> None:
         """Bascule l'état suspendu/actif des cartes ou notes sélectionnées."""
         if self._display_mode == "cards":
-            target_card_ids: list[int] = list(self.note_table_model.get_checked_card_ids())
-            if not target_card_ids:
-                selected_rows = self.card_table.get_selected_rows()
-                c_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
-                c_data = self.note_table_model.get_card_data_at(c_row)
-                if c_data:
-                    target_card_ids = [c_data.card_id]
+            target_card_ids = self.get_target_card_ids()
             if not target_card_ids:
                 return
 
@@ -1715,7 +1901,8 @@ class EditionView(QWidget):
             any_active = any(not getattr(c, "is_suspended", False) for c in cards)
             new_suspended = any_active
 
-            with db.atomic():
+            database = CardModel._meta.database or db
+            with database.atomic():
                 CardModel.update(is_suspended=new_suspended).where(CardModel.id.in_(target_card_ids)).execute()
 
             for cid in target_card_ids:
@@ -1725,13 +1912,7 @@ class EditionView(QWidget):
             show_toast(self, tr("%1 carte(s) %2.", len(target_card_ids), status_text))
             return
 
-        target_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
-        if not target_ids:
-            if fallback_note_id:
-                target_ids = [fallback_note_id]
-            elif self._current_note:
-                target_ids = [self._current_note.id]
-
+        target_ids = self.get_target_note_ids(fallback_note_id=fallback_note_id)
         if not target_ids:
             return
 
@@ -1739,7 +1920,8 @@ class EditionView(QWidget):
         any_active = any(not getattr(c, "is_suspended", False) for c in cards)
         new_suspended = any_active
 
-        with db.atomic():
+        database = CardModel._meta.database or db
+        with database.atomic():
             CardModel.update(is_suspended=new_suspended).where(CardModel.note.in_(target_ids)).execute()
 
         for nid in target_ids:
@@ -1813,6 +1995,39 @@ class EditionView(QWidget):
             dialog.exec()
         except Exception as e:
             logger.warning("Erreur ouverture TimeMachine : %s", e)
+
+    @Slot()
+    @Slot(list)
+    def open_group_edit_dialog(self, note_ids: list[int] | None = None) -> None:
+        """Ouvre le dialogue d'édition groupée pour le lot de notes ciblé."""
+        if note_ids is None:
+            note_ids = self.get_target_note_ids()
+
+        if not note_ids:
+            show_toast(self, self.tr("Aucune carte sélectionnée pour l'édition groupée."), is_error=True)
+            return
+
+        dialog = GroupEditDialog(note_ids=note_ids, parent=self)
+        if dialog.exec():
+            res = dialog.result_data
+            if res and res.success:
+                # Répercussion immédiate dans le modèle de tableau
+                for nid, tags in res.tags_by_note_id.items():
+                    self.note_table_model.update_note_tags(nid, tags)
+                for nid, content in res.content_by_note_id.items():
+                    self.note_table_model.update_note_content(nid, content)
+
+                # Si la note actuellement visualisée dans le volet d'édition a été modifiée
+                if self._current_note and self._current_note.id in res.modified_note_ids:
+                    refreshed_note = NoteModel.get_or_none(NoteModel.id == self._current_note.id)
+                    if refreshed_note:
+                        self._current_note = refreshed_note
+                        data = self._get_note_content_dynamic(refreshed_note)
+                        self._build_dynamic_editors(refreshed_note, data)
+                        self._update_preview()
+                        self._update_nav_ribbon_info()
+
+                show_toast(self, tr("%1 carte(s) modifiée(s) avec succès.", len(res.modified_note_ids)))
 
     @Slot(list)
     def open_linter_dialog(self, note_ids: list[int]) -> None:

@@ -1473,7 +1473,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
         <location filename="../../ui/views/card_models_view/view.py" line="+1070"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+1152"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+1350"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2853,6 +2853,27 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="+44"/>
+        <source>Édition groupée (%1 cartes)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+58"/>
+        <source>Édition groupée — %1 carte(s) sélectionnée(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Les modifications ci-dessous s&apos;appliqueront à toutes les cartes sélectionnées dans une seule transaction atomique.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+253"/>
+        <source>La modification a échoué et la transaction a été annulée :
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+74"/>
         <source>Tag de traçabilité documentaire : %1</source>
         <translation type="unfinished"></translation>
@@ -2878,7 +2899,23 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-533"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-572"/>
+        <source>%1 cartes sélectionnées (sur %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+8"/>
+        <source>Modifier le groupe (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-2"/>
+        <source>%1 carte(s) cochée(s) (sur %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+31"/>
         <source>Carte #%1 %2 [%3] (Note #%4) : %5</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2935,7 +2972,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+75"/>
+        <location line="+52"/>
         <source>%1 carte%2 déplacée%3 vers le paquet &apos;%4&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2955,12 +2992,37 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+140"/>
+        <location line="+110"/>
+        <source>Modifier le groupe (%1 cartes)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Déplacer vers un paquet (%1 cartes)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Linter IA (%1 cartes)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Auto-Tagging IA (%1 cartes)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
         <source>%1	(Ctrl+%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+70"/>
+        <location line="+18"/>
+        <source>Supprimer les %1 cartes ciblées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+52"/>
         <source>Drapeau retiré pour %1 carte(s).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2970,7 +3032,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+21"/>
+        <location line="+16"/>
         <source>Drapeau retiré pour %1 note(s).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2985,17 +3047,22 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+64"/>
+        <location line="+59"/>
         <source>%1 carte(s) %2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+19"/>
         <source>%1 note(s) %2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+113"/>
+        <location line="+99"/>
+        <source>%1 carte(s) modifiée(s) avec succès.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+47"/>
         <source>%1 notes traitées par l&apos;IA !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9491,7 +9558,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-1684"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-1897"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9502,18 +9569,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+33"/>
-        <location line="+801"/>
+        <location line="+997"/>
         <source>Dossier : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-782"/>
-        <location line="+1096"/>
+        <location line="-978"/>
+        <location line="+1269"/>
         <source>Modèle : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1077"/>
+        <location line="-1250"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9543,24 +9610,37 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+46"/>
         <source>Carte précédente (Alt+Up)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+174"/>
-        <location line="+1330"/>
+        <location line="+356"/>
+        <location line="+13"/>
+        <location line="+1345"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1500"/>
+        <location line="-1710"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+38"/>
+        <location line="+6"/>
+        <location line="+348"/>
+        <location line="+7"/>
+        <source>Modifier le groupe</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-352"/>
+        <source>Appliquer une modification sur les cartes sélectionnées (Ctrl+Shift+E)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+36"/>
         <source>Aucune note sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9570,7 +9650,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+108"/>
+        <location line="+109"/>
         <source>Déplier la liste des cartes (Ctrl+Shift+T)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9580,7 +9660,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+211"/>
+        <location line="+396"/>
         <source>Changer de modèle...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9595,23 +9675,29 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+288"/>
-        <location line="+195"/>
+        <location line="+265"/>
+        <location line="+214"/>
         <source>Déplacer vers un paquet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-143"/>
+        <location line="-162"/>
         <source>Tous les modèles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+134"/>
+        <location line="+144"/>
+        <location line="+3"/>
         <source>Éditer cette carte</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+5"/>
+        <source>Modifier le groupe...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>Historique des versions</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9621,7 +9707,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Nouveau paquet...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9631,12 +9717,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+4"/>
         <source>Auto-Tagging IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+9"/>
         <source>Aucun drapeau	(Ctrl+0)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9646,12 +9732,22 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+5"/>
+        <source>Tout cocher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Tout décocher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
         <source>Aucun drapeau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+72"/>
+        <location line="+62"/>
         <source>Tous les drapeaux</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9661,7 +9757,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+112"/>
+        <location line="+102"/>
         <source>Toutes les cartes (Tous)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9676,7 +9772,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+66"/>
+        <location line="+61"/>
+        <source>Aucune carte sélectionnée pour l&apos;édition groupée.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
         <source>Auto-Tagging terminé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10531,6 +10632,164 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location filename="../../ui/components/title_bar.py" line="+29"/>
         <source>AnkiForge</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>GroupEditDialog</name>
+    <message>
+        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="-242"/>
+        <source>🏷️ Étiquettes (Tags)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Ajouter des tags (séparés par virgules ou espaces) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Ex: vocabulaire, examen-2026, chap-1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Retirer des tags (séparés par virgules ou espaces) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Ex: brouillon, a_revoir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>&lt;i&gt;Remarque : les tags de provenance documentaire (doc:, source:, page:, section:) sont préservés pour garantir la traçabilité.&lt;/i&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>📝 Modification d&apos;un champ de contenu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Activer la modification d&apos;un champ pour tout le groupe</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Champ cible :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Opération :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Remplacer par</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ajouter à la fin (suffixer)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ajouter au début (préfixer)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Rechercher et remplacer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Texte à rechercher :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Sous-chaîne exacte à remplacer...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Texte de remplacement / Valeur :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Saisissez la valeur ou le complément...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Appliquer au groupe</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Remplacer par :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Texte à ajouter à la fin :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Texte à ajouter au début :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Nouvelle valeur du champ :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Champ manquant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Veuillez sélectionner un champ cible.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Texte manquant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Veuillez préciser le texte à rechercher.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Aucune modification</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Veuillez renseigner au moins une action (tags à ajouter/retirer ou modification de champ).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Échec de l&apos;édition groupée</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

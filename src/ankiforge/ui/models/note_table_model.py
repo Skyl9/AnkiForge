@@ -417,7 +417,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
             return True
 
         if index.column() == 0 and role == Qt.ItemDataRole.CheckStateRole:
-            checked = value == Qt.CheckState.Checked
+            checked = value in (Qt.CheckState.Checked, 2, getattr(Qt.CheckState.Checked, "value", 2))
             row_data.checked = checked
             item_id = getattr(row_data, "card_id", None) if self._display_mode == "cards" else row_data.note_id
             if self._all_checked_mode:
@@ -875,11 +875,44 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
         self._checked_note_ids.difference_update(ids_to_remove)
         self._unchecked_note_ids.difference_update(ids_to_remove)
 
+    def sync_checked_with_row_indices(self, selected_row_indices: set[int] | list[int]) -> None:
+        """
+        Synchronise strictement l'état coché des lignes avec les indices des lignes sélectionnées (soulignées).
+        Met à jour row_data.checked, _checked_note_ids (ou _checked_card_ids) et émet dataChanged.
+        """
+        selected_set = set(selected_row_indices)
+        self._all_checked_mode = False
+        self._unchecked_note_ids.clear()
+        new_checked_ids: set[int] = set()
+
+        changed_rows: list[int] = []
+        for idx, row_data in enumerate(self._loaded_rows):
+            item_id = getattr(row_data, "card_id", None) if self._display_mode == "cards" else row_data.note_id
+            should_be_checked = idx in selected_set
+            if should_be_checked:
+                new_checked_ids.add(item_id)
+            if getattr(row_data, "checked", False) != should_be_checked:
+                row_data.checked = should_be_checked
+                changed_rows.append(idx)
+
+        self._checked_note_ids = new_checked_ids
+
+        if changed_rows:
+            min_r = min(changed_rows)
+            max_r = max(changed_rows)
+            self.dataChanged.emit(self.index(min_r, 0), self.index(max_r, 0), [Qt.ItemDataRole.CheckStateRole])
+
+    def clear_all_checks(self) -> None:
+        """Désélectionne/décoche l'ensemble des cartes/notes."""
+        self.set_all_checked(False)
+
     def set_all_checked(self, checked: bool) -> None:
         """Sélectionne ou désélectionne l'ensemble des cartes/notes (O(1) complexité)."""
         self._all_checked_mode = checked
         self._checked_note_ids.clear()
         self._unchecked_note_ids.clear()
+        for row in self._loaded_rows:
+            row.checked = checked
         if len(self._loaded_rows) > 0:
             top_left = self.index(0, 0)
             bottom_right = self.index(len(self._loaded_rows) - 1, 0)

@@ -273,7 +273,8 @@ class AutoTagDialog(QDialog):
 
     @Slot()
     def apply_tags(self) -> None:
-        with db.atomic():
+        database = NoteModel._meta.database or db
+        with database.atomic():
             for row in range(self.table.rowCount()):
                 check_item = self.table.item(row, 2)
                 if check_item and check_item.checkState() == Qt.CheckState.Checked:
@@ -284,15 +285,19 @@ class AutoTagDialog(QDialog):
 
                     try:
                         note_id = int(id_item.text())
-                        new_tags: list[str] = tags_item.data(Qt.ItemDataRole.UserRole)
+                        new_tags: list[str] = tags_item.data(Qt.ItemDataRole.UserRole) or []
 
                         note = NoteModel.get_by_id(note_id)
                         existing_tags = parse_note_tags(note.tags)
-                        merged_tags = list(set(existing_tags + new_tags))
+                        # Préserve l'ordre canonique des tags existants et ajoute uniquement les nouveaux
+                        merged_tags = list(existing_tags)
+                        for t in new_tags:
+                            if t not in merged_tags:
+                                merged_tags.append(t)
 
                         note.tags = serialize_note_tags(merged_tags)
-                        note.save()
+                        note.save(only=[NoteModel.tags])
                     except Exception as e:
-                        logger.error(f"Erreur lors de la sauvegarde de la note {id_item.text()}: {e}")
+                        logger.error("Erreur lors de la sauvegarde de la note %s: %s", id_item.text(), e)
 
         self.accept()

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QItemSelectionModel, Qt, Signal
+from PySide6.QtCore import QItemSelectionModel, QModelIndex, Qt, Signal
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTableView, QTableWidget, QWidget
 
 from ankiforge.ui.theme import DesignTokens
@@ -25,7 +26,7 @@ class VirtualTableView(QTableView):
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setShowGrid(False)
         self.setWordWrap(False)
@@ -101,12 +102,66 @@ class VirtualTableView(QTableView):
         self.scrollTo(idx, QAbstractItemView.ScrollHint.EnsureVisible)
 
     def get_selected_rows(self) -> list[int]:
-        """Retourne la liste des indices de lignes sélectionnées."""
+        """Retourne la liste ordonnée et dédupliquée des indices de lignes sélectionnées."""
         selection_model = self.selectionModel()
         if not selection_model:
             return []
         selected_indexes = selection_model.selectedRows()
-        return [idx.row() for idx in selected_indexes]
+        return sorted({idx.row() for idx in selected_indexes})
+
+    def get_selected_row_count(self) -> int:
+        """Retourne le nombre total de lignes actuellement sélectionnées."""
+        selection_model = self.selectionModel()
+        if not selection_model:
+            return 0
+        return len(selection_model.selectedRows())
+
+    def toggle_row_selection(self, row: int) -> None:
+        """Bascule l'état de sélection d'une ligne sans désélectionner les autres lignes."""
+        sm = self.selectionModel()
+        model = self.model()
+        if sm is None or model is None or row < 0 or row >= model.rowCount():
+            return
+        idx = model.index(row, 0)
+        is_selected = sm.isRowSelected(row, QModelIndex())
+        if is_selected:
+            sm.select(idx, QItemSelectionModel.SelectionFlag.Deselect | QItemSelectionModel.SelectionFlag.Rows)
+            remaining = [r.row() for r in sm.selectedRows()]
+            if remaining:
+                sm.setCurrentIndex(model.index(remaining[0], 0), QItemSelectionModel.SelectionFlag.NoUpdate)
+            else:
+                sm.clearCurrentIndex()
+        else:
+            sm.select(idx, QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
+            sm.setCurrentIndex(idx, QItemSelectionModel.SelectionFlag.NoUpdate)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+            idx = self.indexAt(pos)
+            if idx.isValid() and idx.column() == 0:
+                self.toggle_row_selection(idx.row())
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+            idx = self.indexAt(pos)
+            if idx.isValid() and idx.column() == 0:
+                event.accept()
+                return
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+            idx = self.indexAt(pos)
+            if idx.isValid() and idx.column() == 0:
+                event.accept()
+                return
+        super().mouseDoubleClickEvent(event)
 
 
 class StyledTableWidget(QTableWidget):
