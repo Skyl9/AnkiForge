@@ -43,7 +43,9 @@ L'application est découpée en modules fonctionnels (Vues) précis. Voici leur 
 
 ### 📝 Édition & Batch Factory (`edition_view.py` & `batch_view.py`)
 * **Rôle :** Éditeur manuel façon Browser Anki pour les retouches chirurgicales ou actions en masse.
-* **Actions/Boutons :** *Barre de recherche omnibox complexe*, *Éditeur de note avec saisie KaTeX live (`katex_editor.py`)*, *Time Machine et historique de version (`time_machine_dialog.py`)*, *Édition et taggage par lot (`batch_edit_dialog.py`, `auto_tag_dialog.py`)*.
+* **Actions/Boutons :** *Barre de recherche omnibox complexe*, *Éditeur de note avec saisie KaTeX live (`katex_editor.py`)*, *Time Machine et historique de version (`time_machine_dialog.py`)*, *Édition groupée atomique manuelle (`group_edit_dialog.py`, raccourci `Ctrl+Shift+E`)*, *Édition et taggage par lot IA (`batch_edit_dialog.py`, `auto_tag_dialog.py`)*.
+* **Sélection multiple & Synchronisation bidirectionnelle des coches :** La liste `VirtualTableView` supporte la sélection étendue (`ExtendedSelection` : Shift+clic pour plage contiguë, Ctrl/Cmd+clic pour sélection multiple). La sélection visuelle (lignes soulignées) et les cases à cocher à gauche sont synchronisées de manière bidirectionnelle stricte : toute ligne sélectionnée est cochée, et toute case cochée sélectionne et souligne la ligne correspondante. Le clic sur l'en-tête de colonne 0 ou les options du menu contextuel permettent de tout cocher/sélectionner ou tout décocher.
+* **Auto-Tagging IA :** Déclenché exclusivement à la demande via action explicite (`AutoTagDialog`), opérant sur le groupe sélectionné/coché avec validation granulaire préalable, préservation de l'ordre canonique des tags et protection absolue des tags de traçabilité documentaire (`doc:`, `source:`, etc.).
 
 ### 🎨 Modèles de Cartes & A/B Tests (`card_models_view.py` & `ab_tests_view.py`)
 * **Rôle :** L'Atelier de design des templates et laboratoire comparatif de performance IA.
