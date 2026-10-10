@@ -677,6 +677,21 @@ class DocumentRepository(BaseRepository):
         )
         return {int(chunk_id): int(card_count) for chunk_id, card_count in rows}
 
+    def get_orphan_chunks(self, doc_id: int) -> list[DocumentChunkModel]:
+        """Retourne tous les fragments utiles et actifs non rattachés à une carte.
+
+        Respecte les exclusions de région (ADR 0010), les bornes de pages et élimine
+        les conteneurs structurels purs qui ne constituent pas de la matière à couvrir.
+        """
+        doc = self.get_document_by_id(doc_id)
+        if not doc:
+            return []
+        chunks = self.get_chunks_for_document(doc_id)
+        if not chunks:
+            return []
+        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == doc_id)}
+        return [c for c in chunks if not self.is_region_excluded(doc, heading_path=c.heading_path, page_number=c.page_number) and not c.is_structural_container and c.id not in linked_chunk_ids]
+
     def get_coverage_stats(self, doc_id: int) -> dict[str, Any]:
         """Calculate coarse-grained coverage and gap metrics for a document (by page or section)."""
         doc = self.get_document_by_id(doc_id)

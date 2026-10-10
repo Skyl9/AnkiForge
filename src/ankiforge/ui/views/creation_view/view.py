@@ -1054,6 +1054,9 @@ class CreationView(QWidget):
                     self._select_doc_in_tree(doc.id)
                     self._open_document_for_model(doc)
                     self._update_scope_and_vision_for_doc(doc)
+
+                    if "scope_result" in data and isinstance(data["scope_result"], dict):
+                        self._apply_scope_result(data["scope_result"])
             except Exception as e:
                 logger.warning("Impossible de charger le document id=%s: %s", data.get("doc_id"), e)
         elif "text_source" in data:
@@ -1062,7 +1065,12 @@ class CreationView(QWidget):
         elif "prompt" in data:
             self._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
 
-        if "page_number" in data and hasattr(self, "input_page_scope") and data["page_number"]:
+        if "scope_result" in data and isinstance(data["scope_result"], dict):
+            scope_res = data["scope_result"]
+            range_str = str(scope_res.get("range_str", "")).strip()
+            if range_str and hasattr(self, "input_page_scope"):
+                self.input_page_scope.setText(range_str)
+        elif "page_number" in data and hasattr(self, "input_page_scope") and data["page_number"]:
             self.input_page_scope.setText(str(data["page_number"]))
 
     def _select_doc_in_tree(self, doc_id: int) -> None:
@@ -1977,7 +1985,22 @@ class CreationView(QWidget):
         )
         if getattr(self, "_current_selected_doc", None):
             doc_title = getattr(self._current_selected_doc, "title", "Document")
-            self._append_generation_log(f"Source active : {doc_title} (ID: {initial_state.document_id})", level="INFO")
+            self._append_generation_log(tr("Source active : %1 (ID: %2)", doc_title, str(initial_state.document_id)), level="INFO")
+            if hasattr(self, "segment_inspector") and hasattr(self.segment_inspector, "lbl_active_scope_title"):
+                scope_label = self.segment_inspector.lbl_active_scope_title.text()
+                scope_stats = getattr(self.segment_inspector, "lbl_scope_stats", None)
+                stats_text = f" ({scope_stats.text()})" if scope_stats and scope_stats.text() else ""
+                if scope_label:
+                    self._append_generation_log(tr("Portée : %1%2", scope_label, stats_text), level="INFO")
+            if hasattr(self, "segment_inspector"):
+                active_segs = self.segment_inspector.get_active_segments()
+                if active_segs:
+                    titles = [s.get("title") for s in active_segs if s.get("title")]
+                    if titles:
+                        sample_titles = ", ".join(f"« {t} »" for t in titles[:3])
+                        if len(titles) > 3:
+                            sample_titles += f" (+{len(titles) - 3})"
+                        self._append_generation_log(tr("Sections ciblées : %1", sample_titles), level="INFO")
         elif text_source:
             preview = text_source[:60].replace("\n", " ") + ("..." if len(text_source) > 60 else "")
             self._append_generation_log(f'Source active : Saisie libre ({len(text_source)} car. : "{preview}")', level="INFO")

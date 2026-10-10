@@ -2657,6 +2657,55 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
                 return computed
         return self._result
 
+    @classmethod
+    def build_orphan_scope(
+        cls,
+        doc: DocumentModel,
+        orphan_chunks: list[DocumentChunkModel] | None = None,
+    ) -> dict[str, Any] | None:
+        """Construit le résultat de portée ciblant exclusivement les fragments orphelins du document."""
+        if doc is None or not getattr(doc, "id", None):
+            return None
+        repo = DocumentRepository()
+        if orphan_chunks is None:
+            orphan_chunks = repo.get_orphan_chunks(doc.id)
+        if not orphan_chunks:
+            return None
+
+        orphan_headings = [c.heading_path for c in orphan_chunks if c.heading_path]
+        fine_headings = [h for h in orphan_headings if not repo._PAGE_LABEL_RE.match(h)]
+        orphan_pages = sorted(list({c.page_number for c in orphan_chunks if c.page_number is not None}))
+        file_type = (doc.file_type or "").lower()
+        is_paginated = file_type in ("pdf", "album", "pptx", "epub") or bool(orphan_pages)
+
+        use_section_mode = bool(fine_headings) or (bool(orphan_headings) and not is_paginated)
+
+        init_scope: dict[str, Any]
+        if use_section_mode:
+            init_scope = {
+                "selection_mode": "sections",
+                "selected_headings": list(dict.fromkeys(orphan_headings)),
+                "selected_chunk_indices": [c.chunk_index for c in orphan_chunks],
+            }
+        elif is_paginated and orphan_pages:
+            init_scope = {
+                "selection_mode": "pages",
+                "selected_pages": orphan_pages,
+                "start_page": min(orphan_pages),
+                "end_page": max(orphan_pages),
+            }
+        else:
+            init_scope = {
+                "selection_mode": "sections",
+                "selected_headings": list(dict.fromkeys(orphan_headings)),
+                "selected_chunk_indices": [c.chunk_index for c in orphan_chunks],
+            }
+
+        widget = cls(doc, initial_scope_result=init_scope)
+        res = widget.get_result()
+        widget.deleteLater()
+        return res
+
 
 class DocumentScopeDialog(QDialog):
     """

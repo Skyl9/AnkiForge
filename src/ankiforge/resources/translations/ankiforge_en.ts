@@ -285,7 +285,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location line="+64"/>
         <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+193"/>
         <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+111"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+1640"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+1648"/>
         <location line="+29"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="+512"/>
         <location line="+75"/>
@@ -624,7 +624,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location line="+79"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+582"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+597"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="-53"/>
         <source>Erreur : %1</source>
         <translation type="unfinished"></translation>
@@ -1400,7 +1400,32 @@ Insère : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+588"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+167"/>
+        <source>Document introuvable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Ce document ne contient aucun fragment indexé à couvrir.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Toutes les sections de ce document sont exclues de l&apos;analyse.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Toutes les sections de ce cours sont déjà couvertes !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Impossible de déterminer la portée des sections orphelines.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+450"/>
         <source>%1  ·  %2 %3 · %4 %5</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1502,7 +1527,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+116"/>
+        <location line="+115"/>
         <source>✅ %1 fiches Anki synchronisées via les tags ! Couverture : %2%%</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1542,7 +1567,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+63"/>
+        <location line="+43"/>
         <source>✅ %1 fiches Anki synchronisées via les tags sur l&apos;ensemble des cours !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1812,7 +1837,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+47"/>
-        <location filename="../../ui/views/creation_view/view.py" line="-1870"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-1893"/>
         <location filename="../../ui/widgets/note_table_widget.py" line="+101"/>
         <source>Rejeter</source>
         <translation type="unfinished"></translation>
@@ -1829,7 +1854,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+132"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+1969"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+1992"/>
         <source>Enregistrer dans la Forge (%1/%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2273,8 +2298,8 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/creation_view/view.py" line="-1790"/>
-        <location line="+623"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-1813"/>
+        <location line="+631"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="-87"/>
         <location line="+29"/>
         <location line="+17"/>
@@ -2282,13 +2307,13 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-594"/>
+        <location line="-602"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="-39"/>
         <source>1-%1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+389"/>
+        <location line="+397"/>
         <source>%1 (%2 planches)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2328,7 +2353,22 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+217"/>
+        <location line="+125"/>
+        <source>Source active : %1 (ID: %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Portée : %1%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Sections ciblées : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+92"/>
         <source>Étape %1: %2...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4871,7 +4911,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AISourcesDiagnosticTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-325"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-305"/>
         <source>Rechercher un document ou cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4956,12 +4996,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+221"/>
-        <source>Toutes les sections de ce cours sont déjà couvertes !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
+        <location line="+206"/>
         <source>Indexation FAISS en cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7971,7 +8006,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CreationView</name>
     <message>
-        <location filename="../../ui/views/creation_view/view.py" line="-2789"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-2812"/>
         <source>Créer une saisie libre sans document source</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7987,23 +8022,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+22"/>
-        <location line="+1522"/>
+        <location line="+1530"/>
         <source>Sélectionner un type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1494"/>
+        <location line="-1502"/>
         <source>ORCHESTRATION IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+53"/>
-        <location line="+767"/>
+        <location line="+775"/>
         <source>Vision Multimodale</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-753"/>
+        <location line="-761"/>
         <source>Extraction multimodale des figures, schémas &amp; planches.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8039,12 +8074,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+56"/>
-        <location line="+1792"/>
+        <location line="+1815"/>
         <source>Type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1792"/>
+        <location line="-1815"/>
         <source>Front</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8055,12 +8090,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+0"/>
-        <location line="+1792"/>
+        <location line="+1815"/>
         <source>Statut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1764"/>
+        <location line="-1787"/>
         <source>Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8071,23 +8106,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+8"/>
-        <location line="+1902"/>
+        <location line="+1925"/>
         <source>Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1898"/>
+        <location line="-1921"/>
         <source>Modifier le texte de la carte (Raccourci: E)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+1892"/>
+        <location line="+1915"/>
         <source>Valider la carte active et passer à la suivante (Raccourci: Espace ou V)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1874"/>
+        <location line="-1897"/>
         <source>Journal d&apos;exécution en direct</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8108,12 +8143,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+12"/>
-        <location line="+1289"/>
+        <location line="+1312"/>
         <source>Aucune erreur lors du processus de génération.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1002"/>
+        <location line="-1025"/>
         <source>Veuillez sélectionner un document à délimiter.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8123,7 +8158,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+184"/>
+        <location line="+192"/>
         <source>Sélectionnez ou double-cliquez sur un document à gauche.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8198,7 +8233,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+102"/>
+        <location line="+117"/>
         <source>Journal copié dans le presse-papiers.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8803,7 +8838,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentInspectorPanel</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1562"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1541"/>
         <source>Retourner à la liste générale des documents</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8903,12 +8938,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+153"/>
-        <source>Toutes les sections de ce cours sont déjà couvertes !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
+        <location line="+157"/>
         <source>Indexation FAISS et structuration en cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11722,7 +11752,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>LinkedNoteCard</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1165"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1216"/>
         <source>Ouvrir cette note dans l&apos;éditeur de cartes</source>
         <translation type="unfinished"></translation>
     </message>

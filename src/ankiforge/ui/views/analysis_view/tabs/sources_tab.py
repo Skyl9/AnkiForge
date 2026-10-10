@@ -156,6 +156,58 @@ class LinkedNoteCard(QFrame):
         super().keyPressEvent(event)
 
 
+def dispatch_forge_orphans(parent_widget: QWidget, doc: DocumentModel | None, request_navigation: Any) -> bool:
+    """Valide et expédie la portée des sections orphelines vers CreationView.
+
+    Garantit qu'aucune génération sans document n'est possible, que les sections
+    lacunaires sont rigoureusement ciblées, et remonte une explication explicite
+    si le cours est introuvable, non indexé, ou déjà intégralement couvert.
+    """
+    if doc is None or not getattr(doc, "id", None):
+        show_toast(parent_widget, tr("Document introuvable."), is_error=True)
+        return False
+
+    repo = DocumentRepository()
+    fresh_doc = repo.get_document_by_id(doc.id) or doc
+    all_chunks = repo.get_chunks_for_document(fresh_doc.id)
+    if not all_chunks:
+        show_toast(parent_widget, tr("Ce document ne contient aucun fragment indexé à couvrir."), is_error=True)
+        return False
+
+    orphan_chunks = repo.get_orphan_chunks(fresh_doc.id)
+    if not orphan_chunks:
+        in_scope = [c for c in all_chunks if not repo.is_region_excluded(fresh_doc, heading_path=c.heading_path, page_number=c.page_number)]
+        if not in_scope and all_chunks:
+            show_toast(parent_widget, tr("Toutes les sections de ce document sont exclues de l'analyse."), is_error=True)
+        else:
+            show_toast(parent_widget, tr("Toutes les sections de ce cours sont déjà couvertes !"))
+        return False
+
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
+
+    scope_result = DocumentScopeWidget.build_orphan_scope(fresh_doc, orphan_chunks)
+    if not scope_result:
+        show_toast(parent_widget, tr("Impossible de déterminer la portée des sections orphelines."), is_error=True)
+        return False
+
+    first_orphan = orphan_chunks[0]
+    section_name = first_orphan.heading_path or (f"Page {first_orphan.page_number}" if first_orphan.page_number else f"Section #{first_orphan.chunk_index + 1}")
+    doc_title = fresh_doc.title or "Document"
+
+    request_navigation.emit(
+        "creation",
+        {
+            "doc_id": fresh_doc.id,
+            "scope_result": scope_result,
+            "chunk_id": first_orphan.id,
+            "page_number": first_orphan.page_number,
+            "source_title": f"{doc_title} - {section_name}",
+            "text_source": "\n\n---\n\n".join(c.content for c in orphan_chunks if c.content),
+        },
+    )
+    return True
+
+
 class DocumentInspectorPanel(QWidget):
     """Panneau pour inspecter l'audit et la couverture détaillée d'un document."""
 
@@ -1266,24 +1318,23 @@ class DocumentInspectorPanel(QWidget):
             return
         doc_title = self.doc.title if self.doc else "Document"
         section_name = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+        from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
+
+        scope_res = DocumentScopeWidget.build_orphan_scope(self.doc, [chunk]) if self.doc else None
         self.request_navigation.emit(
             "creation",
             {
+                "doc_id": self.doc_id if self.doc else None,
+                "chunk_id": chunk.id,
+                "scope_result": scope_res,
+                "page_number": chunk.page_number,
                 "text_source": chunk.content,
                 "source_title": f"{doc_title} - {section_name}",
-                "chunk_id": chunk.id,
             },
         )
 
     def _on_fill_all_orphans(self) -> None:
-        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
-        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document == self.doc)}
-
-        orphan = next((c for c in chunks if c.id not in linked_chunk_ids), None)
-        if orphan:
-            self._on_forge_chunk(orphan.id)
-        else:
-            show_toast(self, self.tr("Toutes les sections de ce cours sont déjà couvertes !"))
+        dispatch_forge_orphans(self, self.doc, self.request_navigation)
 
     def _on_reindex_faiss(self) -> None:
         from ankiforge.services.workers.coverage_worker import CoverageWorker
@@ -1728,27 +1779,7 @@ class AISourcesDiagnosticTab(QWidget):
 
     def _on_card_forge_orphan_requested(self, doc_id: int) -> None:
         doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
-        if not doc:
-            return
-
-        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index))
-        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document == doc)}
-
-        orphan = next((c for c in chunks if c.id not in linked_chunk_ids), None)
-        if orphan:
-            section_name = orphan.heading_path or (f"Page {orphan.page_number}" if orphan.page_number else f"Section #{orphan.chunk_index + 1}")
-            self.request_navigation.emit(
-                "creation",
-                {
-                    "doc_id": doc.id,
-                    "text_source": orphan.content,
-                    "source_title": f"{doc.title} - {section_name}",
-                    "chunk_id": orphan.id,
-                    "page_number": orphan.page_number,
-                },
-            )
-        else:
-            show_toast(self, self.tr("Toutes les sections de ce cours sont déjà couvertes !"))
+        dispatch_forge_orphans(self, doc, self.request_navigation)
 
     def _on_card_reindex_requested(self, doc_id: int) -> None:
         from ankiforge.services.workers.coverage_worker import CoverageWorker
