@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 TRUSTED_PUBLIC_KEYS: tuple[str, ...] = (
     # Clé officielle primaire AnkiForge Release
     "2b9c99be006295b2b9ac8349dfb7fb66d01063b918335d1b9d0981bf800dd081",
+    # Clé officielle active de signature AnkiForge Release & Nightly (2026+)
+    "04e2b926e7bb5069118799aa85744ad4c6c5c691e018d6feee984d4d8aa2057a",
 )
 
 CHUNK_SIZE = 65536  # 64 Ko par lecture pour le calcul de hash en streaming
