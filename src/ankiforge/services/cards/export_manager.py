@@ -10,7 +10,7 @@ import hashlib
 import json
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -436,4 +436,38 @@ class ExportManager:
             deck_id=deck_id,
             status_filter=status,
             include_media=True,
+        )
+
+    def export_cards_quick(
+        self,
+        notes: Sequence[NoteModel | int],
+        output_path: str | Path,
+        format_type: str = "json",
+        include_ids: bool = True,
+    ) -> int:
+        """Exporte des notes sous forme de fichier JSON, JSONL, Texte ou Markdown pour analyse rapide."""
+        from ankiforge.services.cards.card_export_service import CardExportService
+
+        return CardExportService().export_to_file(
+            notes=notes,
+            output_path=output_path,
+            format_type=format_type,
+            include_ids=include_ids,
+        )
+
+    def export_cards_to_directory(
+        self,
+        notes: Sequence[NoteModel | int],
+        output_dir: str | Path,
+        format_type: str = "json",
+        include_ids: bool = True,
+    ) -> int:
+        """Exporte des notes sous forme d'un dossier avec un fichier par carte."""
+        from ankiforge.services.cards.card_export_service import CardExportService
+
+        return CardExportService().export_to_directory(
+            notes=notes,
+            output_dir=output_dir,
+            format_type=format_type,
+            include_ids=include_ids,
         )

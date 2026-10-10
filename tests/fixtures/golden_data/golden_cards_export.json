@@ -1,0 +1,54 @@
+[
+  {
+    "deck": "Sciences::Biologie",
+    "model": "Basique",
+    "fields": {
+      "Recto": "Rôle de la mitochondrie ?",
+      "Verso": "Production d'ATP."
+    },
+    "tags": [
+      "bio",
+      "cellule",
+      "doc:1",
+      "page:12",
+      "section:mitochondrie"
+    ],
+    "provenance": {
+      "tags": [
+        "doc:1",
+        "page:12",
+        "section:mitochondrie"
+      ],
+      "sources": [
+        {
+          "document_title": "Biologie Cellulaire",
+          "heading_path": "Chapitre 1 > Mitochondrie",
+          "page_number": 12,
+          "resolution": "exact"
+        }
+      ]
+    },
+    "status": "new",
+    "flags": 2,
+    "is_suspended": false
+  },
+  {
+    "deck": "Sciences::Mathématiques",
+    "model": "Texte à trous",
+    "fields": {
+      "Texte": "Le théorème de {{c1::Pythagore}} : a² + b² = c²",
+      "Remarque": "Triangle rectangle"
+    },
+    "tags": [
+      "maths",
+      "algebre"
+    ],
+    "provenance": {
+      "tags": [],
+      "sources": []
+    },
+    "status": "modified",
+    "flags": 0,
+    "is_suspended": true
+  }
+]

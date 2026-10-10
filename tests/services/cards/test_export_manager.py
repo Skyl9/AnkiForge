@@ -183,3 +183,32 @@ def test_export_audio_files_resolution_and_cache(tmp_path, monkeypatch):
         media_mapping_raw = zf.read("media").decode("utf-8")
         media_mapping = json.loads(media_mapping_raw)
         assert "tts_hello.mp3" in media_mapping.values()
+
+
+@pytest.mark.integration
+def test_export_manager_quick_export(tmp_path):
+    """Vérifie l'intégration des méthodes d'export rapide sur ExportManager."""
+    deck = DeckModel.create(name="QuickDeck")
+    nt = NoteTypeModel.create(
+        name="QuickModel",
+        fields_schema='["Q", "A"]',
+        templates='[{"name": "C1", "qfmt": "{{Q}}", "afmt": "{{A}}"}]',
+    )
+    note = NoteModel.create(guid="quick_guid_1", note_type=nt)
+    NoteVersionModel.create(note=note, content=json.dumps({"Q": "Question 1", "A": "Réponse 1"}), is_active=True)
+    CardModel.create(note=note, deck=deck)
+
+    manager = ExportManager()
+
+    # Test export_cards_quick
+    out_file = tmp_path / "quick_cards.json"
+    count = manager.export_cards_quick([note], out_file, format_type="json")
+    assert count == 1
+    assert out_file.exists()
+
+    # Test export_cards_to_directory
+    out_dir = tmp_path / "quick_dir"
+    count_dir = manager.export_cards_to_directory([note], out_dir, format_type="json")
+    assert count_dir == 1
+    assert out_dir.is_dir()
+    assert (out_dir / f"card_{note.id}.json").exists()
