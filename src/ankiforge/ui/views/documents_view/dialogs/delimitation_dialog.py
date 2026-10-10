@@ -53,7 +53,7 @@ from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmen
 from ankiforge.services.markdown.structurer import MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService, HeadingTreeNode
 from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.components import PrimaryButton, SecondaryButton
+from ankiforge.ui.components import FlowLayout, PrimaryButton, SecondaryButton
 from ankiforge.ui.dialogs.scope_mode_exclusivity import (
     CheckableButton,
     PageSubMode,
@@ -1059,14 +1059,19 @@ class DocumentPreviewWidget(QWidget):
                 border-top-right-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
-        header_layout = QHBoxLayout(self.header_frame)
-        header_layout.setContentsMargins(10, 6, 10, 6)
-        header_layout.setSpacing(8)
+        self.header_flow = FlowLayout(self.header_frame, margin=8, h_spacing=10, v_spacing=6)
+
+        # 1. Cluster Identité & Mode
+        self.title_cluster = QWidget()
+        self.title_cluster.setStyleSheet("background: transparent; border: none;")
+        t_layout = QHBoxLayout(self.title_cluster)
+        t_layout.setContentsMargins(0, 0, 0, 0)
+        t_layout.setSpacing(6)
 
         # Titre et badge type
         self.lbl_title = QLabel(self.tr("Aperçu"))
         self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 12px; border: none; background: transparent;")
-        header_layout.addWidget(self.lbl_title)
+        t_layout.addWidget(self.lbl_title)
 
         self.badge_type = QLabel(self.tr("PDF"))
         self.badge_type.setStyleSheet(
@@ -1074,7 +1079,7 @@ class DocumentPreviewWidget(QWidget):
             f"border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px; padding: 2px 6px; "
             "font-weight: bold; font-size: 10px;"
         )
-        header_layout.addWidget(self.badge_type)
+        t_layout.addWidget(self.badge_type)
 
         # Toggle Vue (si PDF et Markdown tous deux disponibles)
         self.toggle_group = QButtonGroup(self)
@@ -1123,16 +1128,21 @@ class DocumentPreviewWidget(QWidget):
         self.btn_toggle_pdf.clicked.connect(lambda: self._set_mode("pdf"))
         self.btn_toggle_md.clicked.connect(lambda: self._set_mode("markdown"))
 
-        header_layout.addSpacing(6)
-        header_layout.addWidget(self.btn_toggle_pdf)
-        header_layout.addWidget(self.btn_toggle_md)
-        header_layout.addStretch()
+        t_layout.addWidget(self.btn_toggle_pdf)
+        t_layout.addWidget(self.btn_toggle_md)
+        self.header_flow.addWidget(self.title_cluster)
+
+        # 2. Cluster Portée de page (statut + bouton d'exclusion/inclusion)
+        self.scope_cluster = QWidget()
+        self.scope_cluster.setStyleSheet("background: transparent; border: none;")
+        s_layout = QHBoxLayout(self.scope_cluster)
+        s_layout.setContentsMargins(0, 0, 0, 0)
+        s_layout.setSpacing(6)
 
         # Indicateur visuel d'inclusion dans la portée
         self.lbl_scope_status = QLabel("")
         self.lbl_scope_status.hide()
-        header_layout.addWidget(self.lbl_scope_status)
-        header_layout.addSpacing(6)
+        s_layout.addWidget(self.lbl_scope_status)
 
         # Bouton 1-clic pour exclure/inclure la diapositive ou page courante
         self.btn_toggle_page_scope = QPushButton(self.tr("Exclure cette page"))
@@ -1141,10 +1151,24 @@ class DocumentPreviewWidget(QWidget):
         self.btn_toggle_page_scope.setAccessibleName("Inclure ou exclure la page courante de la sélection")
         self.btn_toggle_page_scope.clicked.connect(self._on_toggle_page_scope_clicked)
         self.btn_toggle_page_scope.hide()
-        header_layout.addWidget(self.btn_toggle_page_scope)
-        header_layout.addSpacing(8)
+        s_layout.addWidget(self.btn_toggle_page_scope)
+        self.scope_cluster.hide()
+        self.header_flow.addWidget(self.scope_cluster)
 
-        # Contrôles de navigation de page
+        # 3. Cluster Contrôles (Navigation + Zoom)
+        self.controls_cluster = QWidget()
+        self.controls_cluster.setStyleSheet("background: transparent; border: none;")
+        c_layout = QHBoxLayout(self.controls_cluster)
+        c_layout.setContentsMargins(0, 0, 0, 0)
+        c_layout.setSpacing(6)
+
+        # Sous-groupe Navigation
+        self.nav_box = QWidget()
+        self.nav_box.setStyleSheet("background: transparent; border: none;")
+        nav_layout = QHBoxLayout(self.nav_box)
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(4)
+
         self.btn_prev_page = QPushButton()
         self.btn_prev_page.setIcon(load_phosphor_icon("ph.caret-left", color=DesignTokens.TEXT_PRIMARY))
         self.btn_prev_page.setFixedSize(26, 26)
@@ -1189,14 +1213,19 @@ class DocumentPreviewWidget(QWidget):
         self.btn_next_page.clicked.connect(self._on_next_page)
         self.btn_next_page.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
 
-        header_layout.addWidget(self.btn_prev_page)
-        header_layout.addWidget(self.spin_page)
-        header_layout.addWidget(self.lbl_page)
-        header_layout.addWidget(self.btn_next_page)
+        nav_layout.addWidget(self.btn_prev_page)
+        nav_layout.addWidget(self.spin_page)
+        nav_layout.addWidget(self.lbl_page)
+        nav_layout.addWidget(self.btn_next_page)
+        c_layout.addWidget(self.nav_box)
 
-        header_layout.addSpacing(10)
+        # Sous-groupe Zoom
+        self.zoom_box = QWidget()
+        self.zoom_box.setStyleSheet("background: transparent; border: none;")
+        zoom_layout = QHBoxLayout(self.zoom_box)
+        zoom_layout.setContentsMargins(0, 0, 0, 0)
+        zoom_layout.setSpacing(4)
 
-        # Contrôles de Zoom (pour PDF / Image)
         self.btn_zoom_out = QPushButton()
         self.btn_zoom_out.setIcon(load_phosphor_icon("ph.magnifying-glass-minus", color=DesignTokens.TEXT_PRIMARY))
         self.btn_zoom_out.setFixedSize(26, 26)
@@ -1222,9 +1251,12 @@ class DocumentPreviewWidget(QWidget):
         self.btn_zoom_in.clicked.connect(self._zoom_in)
         self.btn_zoom_in.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
 
-        header_layout.addWidget(self.btn_zoom_out)
-        header_layout.addWidget(self.btn_zoom_fit)
-        header_layout.addWidget(self.btn_zoom_in)
+        zoom_layout.addWidget(self.btn_zoom_out)
+        zoom_layout.addWidget(self.btn_zoom_fit)
+        zoom_layout.addWidget(self.btn_zoom_in)
+        c_layout.addWidget(self.zoom_box)
+
+        self.header_flow.addWidget(self.controls_cluster)
 
         inner_layout.addWidget(self.header_frame)
 
@@ -1446,17 +1478,23 @@ class DocumentPreviewWidget(QWidget):
             self.btn_zoom_out.show()
             self.btn_zoom_fit.show()
             self.btn_zoom_in.show()
+            if hasattr(self, "zoom_box"):
+                self.zoom_box.show()
         elif mode == "album":
             self.view_stack.setCurrentIndex(2)
             self.btn_zoom_out.show()
             self.btn_zoom_fit.show()
             self.btn_zoom_in.show()
+            if hasattr(self, "zoom_box"):
+                self.zoom_box.show()
             self._load_album_page(self._current_page)
         else:
             self.view_stack.setCurrentIndex(1)
             self.btn_zoom_out.show()
             self.btn_zoom_fit.show()
             self.btn_zoom_in.show()
+            if hasattr(self, "zoom_box"):
+                self.zoom_box.show()
         self._update_page_label()
 
     @property
@@ -1509,6 +1547,8 @@ class DocumentPreviewWidget(QWidget):
             f" border-radius: {DesignTokens.RADIUS_SM}px; padding: 2px 6px; font-size: {DesignTokens.FONT_SIZE_XS}px; font-weight: {weight};"
         )
         self.lbl_scope_status.show()
+        if hasattr(self, "scope_cluster"):
+            self.scope_cluster.show()
 
     def jump_to_heading(self, heading_text: str, page_number: int | None = None, heading_path: str = "") -> None:
         """Navigue vers un titre ou sa page associée."""
@@ -1665,6 +1705,8 @@ class DocumentPreviewWidget(QWidget):
             self.lbl_scope_status.hide()
             if hasattr(self, "btn_toggle_page_scope"):
                 self.btn_toggle_page_scope.hide()
+            if hasattr(self, "scope_cluster"):
+                self.scope_cluster.hide()
             return
         scope_str = format_page_ranges(self._included_pages) if self._included_pages else f"{self._scope_start}–{self._scope_end}"
         is_included = (self._current_page in self._included_pages) if self._included_pages else (self._scope_start <= self._current_page <= self._scope_end)
@@ -1715,6 +1757,8 @@ class DocumentPreviewWidget(QWidget):
                 """)
                 self.btn_toggle_page_scope.show()
         self.lbl_scope_status.show()
+        if hasattr(self, "scope_cluster"):
+            self.scope_cluster.show()
 
     def _update_page_label(self) -> None:
         if self._is_paginated:
@@ -1727,6 +1771,10 @@ class DocumentPreviewWidget(QWidget):
                 self.spin_page.blockSignals(False)
             self.btn_prev_page.show()
             self.btn_next_page.show()
+            if hasattr(self, "nav_box"):
+                self.nav_box.show()
+            if hasattr(self, "controls_cluster"):
+                self.controls_cluster.show()
             self.lbl_page.setText(tr("/ %1", self._total_pages))
             self.btn_prev_page.setEnabled(self._current_page > 1)
             self.btn_next_page.setEnabled(self._current_page < self._total_pages)
@@ -1737,10 +1785,17 @@ class DocumentPreviewWidget(QWidget):
                 self.spin_page.hide()
             self.btn_prev_page.hide()
             self.btn_next_page.hide()
+            if hasattr(self, "nav_box"):
+                self.nav_box.hide()
             if hasattr(self, "lbl_scope_status"):
                 self.lbl_scope_status.hide()
             if hasattr(self, "btn_toggle_page_scope"):
                 self.btn_toggle_page_scope.hide()
+            if hasattr(self, "scope_cluster"):
+                self.scope_cluster.hide()
+            if hasattr(self, "controls_cluster"):
+                has_zoom = hasattr(self, "zoom_box") and self.zoom_box.isVisible()
+                self.controls_cluster.setVisible(has_zoom)
 
     def _load_album_page(self, page_num: int) -> None:
         page_rec = (
@@ -1939,9 +1994,11 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         icon_lbl = QLabel()
         icon_lbl.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_YELLOW).pixmap(20, 20))
         title_lbl = QLabel(tr("Délimitation globale : <b>%1</b>", doc.title))
+        title_lbl.setTextFormat(Qt.TextFormat.RichText)
+        title_lbl.setWordWrap(True)
         title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY}; border: none;")
         header_top.addWidget(icon_lbl)
-        header_top.addWidget(title_lbl)
+        header_top.addWidget(title_lbl, 1)
 
         badge_global = QLabel(self.tr("DÉLIMITATION GLOBALE (STRUCTURE DU DOCUMENT)"))
         badge_global.setStyleSheet(
@@ -2595,6 +2652,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
         final_layout.setContentsMargins(12, 10, 12, 10)
         final_layout.setSpacing(8)
         self.lbl_final_preview_kpi = QLabel("")
+        self.lbl_final_preview_kpi.setWordWrap(True)
         self.lbl_final_preview_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         final_layout.addWidget(self.lbl_final_preview_kpi)
         self.final_preview_browser = QTextBrowser()

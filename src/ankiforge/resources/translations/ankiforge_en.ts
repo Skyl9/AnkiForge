@@ -645,19 +645,19 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+75"/>
+        <location line="+76"/>
         <source>Tout le document utile (%1 pages)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+898"/>
+        <location line="+899"/>
         <source>&lt;b&gt;%1&lt;/b&gt;%2&lt;br&gt;• Volume : ~%3 tokens (~%4 mots)&lt;hr&gt;&lt;i&gt;&quot;%5&quot;&lt;/i&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+83"/>
         <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="+482"/>
-        <location line="+3210"/>
+        <location line="+3268"/>
         <source>Ch. %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1220,7 +1220,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     <message>
         <location line="+1"/>
         <location filename="../../ui/views/consultant_view/widgets/embedded_card_table_widget.py" line="+133"/>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-3445"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-3503"/>
         <source>%1 carte%2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2584,13 +2584,13 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+207"/>
-        <location line="+549"/>
+        <location line="+231"/>
+        <location line="+573"/>
         <source>/ %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-58"/>
+        <location line="-64"/>
         <source>Page %1 INCLUSE (portée %2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2600,17 +2600,17 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+246"/>
+        <location line="+259"/>
         <source>Délimitation globale : &lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+87"/>
+        <location line="+89"/>
         <source>(Total : %1 pages)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1605"/>
+        <location line="+1606"/>
         <source>&lt;b&gt;%1&lt;/b&gt;%2&lt;br&gt;• Volume : %3 mots&lt;br&gt;• Cartes créées : %4 carte(s)&lt;br&gt;• Diagnostic : &lt;b&gt;%5&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8546,7 +8546,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentDelimitationDialog</name>
     <message>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-1922"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-1923"/>
         <source>DÉLIMITATION GLOBALE (STRUCTURE DU DOCUMENT)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8681,7 +8681,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+56"/>
+        <location line="+57"/>
         <source>Réindexer automatiquement dans FAISS (RAG) après délimitation</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9049,19 +9049,19 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentPreviewWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-2884"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-2937"/>
         <source>Aperçu</source>
         <extracomment>Plafond de décodage de l&apos;aperçu. Un album de 200 planches en pleine résolution coûterait des secondes de gel pour un cadre de 700 px : le rendu est borné.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+265"/>
+        <location line="+292"/>
         <source>PDF</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-255"/>
+        <location line="-282"/>
         <source>Vue PDF</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9071,12 +9071,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+42"/>
         <source>Exclure cette page</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+27"/>
         <source>Page précédente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9091,7 +9091,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+21"/>
         <source>Zoom arrière</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9111,7 +9111,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+30"/>
         <source>Module PDF non disponible.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9121,12 +9121,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+272"/>
+        <location line="+280"/>
         <source>Texte (repli)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+75"/>
+        <location line="+77"/>
         <source>🚫 Exclure cette page</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9139,7 +9139,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentScopeWidget</name>
     <message>
-        <location filename="../../ui/dialogs/document_scope_dialog.py" line="-2159"/>
+        <location filename="../../ui/dialogs/document_scope_dialog.py" line="-2160"/>
         <source>PORTÉE DE GÉNÉRATION (NON DESTRUCTIF)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9269,7 +9269,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+187"/>
+        <location line="+188"/>
         <source>ℹ️ &lt;b&gt;Repli automatique :&lt;/b&gt; Aucune hiérarchie de sections fiable n&apos;a été détectée dans ce document PDF. La sélection s&apos;effectue par page ou plage de pages.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13733,7 +13733,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>RangeSegmentsWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-928"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-970"/>
         <source>Plages :</source>
         <translation type="unfinished"></translation>
     </message>

@@ -388,6 +388,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         icon_lbl.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
         title_lbl = QLabel(tr("Portée de génération : <b>%1</b>", html.escape(self.doc.title)))
         title_lbl.setTextFormat(Qt.TextFormat.RichText)
+        title_lbl.setWordWrap(True)
         title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY}; border: none;")
         title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         badge_lbl = QLabel(self.tr("PORTÉE DE GÉNÉRATION (NON DESTRUCTIF)"))
@@ -1054,6 +1055,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         final_layout.setSpacing(8)
 
         self.lbl_final_preview_kpi = QLabel("")
+        self.lbl_final_preview_kpi.setWordWrap(True)
         self.lbl_final_preview_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         final_layout.addWidget(self.lbl_final_preview_kpi)
 
