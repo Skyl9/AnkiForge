@@ -235,9 +235,33 @@ def test_general_tab_mode_change_preserves_the_selected_family(qtbot):
     monokai_index = next(i for i in range(tab.cb_theme.count()) if tab.cb_theme.itemData(i) == "monokai")
     tab.cb_theme.setCurrentIndex(monokai_index)
 
-    tab.cb_mode.setCurrentIndex(1)
-
     assert tab.cb_theme.currentData() == "monokai"
+
+
+def test_general_tab_prompt_crash_report_preference(qtbot):
+    """Vérifie la persistance de la préférence de prompt de crash report dans GeneralTab."""
+    from ankiforge.services.crash_reporter_service import CrashReporterService
+    from ankiforge.utils.environment import get_app_qsettings
+
+    settings = get_app_qsettings()
+    settings.setValue("feedback/prompt_on_crash", True)
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    assert hasattr(tab, "chk_prompt_crash_report")
+    assert tab.chk_prompt_crash_report.isChecked() is True
+
+    # Décocher la case
+    tab.chk_prompt_crash_report.setChecked(False)
+    assert tab.has_pending_changes() is True
+
+    has_change, _, _ = tab.save_tab()
+    assert has_change is True
+    assert CrashReporterService.is_prompt_enabled() is False
+
+    # Restaurer
+    CrashReporterService.set_prompt_enabled(True)
 
 
 def test_general_tab_keeps_an_absent_family_absent_across_a_mode_change(qtbot):

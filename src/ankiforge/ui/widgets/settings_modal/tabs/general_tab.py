@@ -2,7 +2,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
@@ -450,6 +451,35 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         feedback_row.addWidget(self.btn_open_feedback)
 
         card_about_layout.addLayout(feedback_row)
+
+        # 5. Rapports de crash & Diagnostic
+        from ankiforge.services.crash_reporter_service import CrashReporterService
+
+        crash_prompt_enabled = CrashReporterService.is_prompt_enabled()
+        self.chk_prompt_crash_report = QCheckBox(self.tr("Proposer de transmettre les rapports de crash au démarrage"))
+        self.chk_prompt_crash_report.setChecked(crash_prompt_enabled)
+        self.chk_prompt_crash_report.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.chk_prompt_crash_report.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        card_about_layout.addWidget(self.chk_prompt_crash_report)
+
+        crash_log_path = CrashReporterService.get_crash_log_path()
+        if crash_log_path.exists():
+            crash_action_row = QHBoxLayout()
+            lbl_crash_log = QLabel(self.tr("Journal des incidents :"))
+            lbl_crash_log.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11.5px;")
+            crash_action_row.addWidget(lbl_crash_log)
+            crash_action_row.addStretch()
+
+            self.btn_view_crash_log = SecondaryButton("Voir crash.log")
+            self.btn_view_crash_log.setIcon(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_PRIMARY))
+            self.btn_view_crash_log.setFixedHeight(28)
+            self.btn_view_crash_log.setToolTip(self.tr("Ouvrir le fichier des rapports d'incident"))
+            self.btn_view_crash_log.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(crash_log_path))))
+            crash_action_row.addWidget(self.btn_view_crash_log)
+            card_about_layout.addLayout(crash_action_row)
+        else:
+            self.btn_view_crash_log = None
+
         layout.addWidget(self.card_about)
 
         layout.addStretch()
@@ -651,6 +681,9 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         ):
             q_settings.setValue(SETTINGS_KEY_CHECK_INTERVAL, int(self.cb_check_interval.currentData()))
             has_change = True
+        if hasattr(self, "chk_prompt_crash_report") and not values_equal(q_settings.value("feedback/prompt_on_crash", True, type=bool), self.chk_prompt_crash_report.isChecked()):
+            q_settings.setValue("feedback/prompt_on_crash", self.chk_prompt_crash_report.isChecked())
+            has_change = True
 
         if self._layout_field_changed():
             LayoutManager.save_layout_id(profile_name, selected_layout_id)
@@ -675,6 +708,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "default_profile": (self.cb_default_profile.currentData() or default_profile) if hasattr(self, "cb_default_profile") else default_profile,
             "update_channel": (self.cb_update_channel.currentData() or "stable") if hasattr(self, "cb_update_channel") else "stable",
             "check_interval": (self.cb_check_interval.currentData() if hasattr(self, "cb_check_interval") else 14400),
+            "prompt_crash": (self.chk_prompt_crash_report.isChecked() if hasattr(self, "chk_prompt_crash_report") else True),
         }
 
     def _layout_field_changed(self) -> bool:
@@ -707,6 +741,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "auto_startup": self.chk_auto_startup.isChecked() if hasattr(self, "chk_auto_startup") else False,
             "default_profile": (self.cb_default_profile.currentData() or default_profile) if hasattr(self, "cb_default_profile") else default_profile,
             "update_channel": (self.cb_update_channel.currentData() or "stable") if hasattr(self, "cb_update_channel") else "stable",
+            "prompt_crash": (self.chk_prompt_crash_report.isChecked() if hasattr(self, "chk_prompt_crash_report") else True),
         }
         return any(not values_equal(current[k], self._initial.get(k)) for k in current)
 

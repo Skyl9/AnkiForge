@@ -133,6 +133,7 @@ class MainWindow(QMainWindow):
         self._update_worker: Any | None = None
         self._latest_update_info: Any | None = None
         self._fallback_mcp_status_widget: Any | None = None
+        self._crash_dialog: QWidget | None = None
         self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
@@ -171,6 +172,8 @@ class MainWindow(QMainWindow):
 
         # Restauration instantanée du badge depuis le cache QSettings (sans HTTP, dès que la topbar est rendue)
         QTimer.singleShot(300, self._restore_cached_update_badge)
+        # Vérification d'un éventuel crash report antérieur (invite non-bloquante)
+        QTimer.singleShot(1200, self._check_pending_crash_report)
         # Vérification des runs de pipelines interrompus pour reprise
         QTimer.singleShot(1500, self._check_uncompleted_pipeline_runs)
         # Vérification HTTP forcée à chaque lancement pour actualiser le cache et les assets
@@ -848,6 +851,8 @@ class MainWindow(QMainWindow):
             self.start_tour_guide()
         elif command_id == "action.feedback":
             self._open_feedback_dialog()
+        elif command_id == "action.crash_report":
+            self._open_crash_report_dialog()
 
     def _open_feedback_dialog(self, tab: str = "bug", initial_title: str = "", context_error: str = "") -> None:
         """Ouvre la boîte de dialogue de retours utilisateurs et boîte à idées."""
@@ -862,6 +867,39 @@ class MainWindow(QMainWindow):
         initial_title = getattr(event, "initial_title", "")
         context_error = getattr(event, "context_error", "")
         self._open_feedback_dialog(tab=tab, initial_title=initial_title, context_error=context_error)
+
+    def _check_pending_crash_report(self) -> None:
+        """Vérifie si un rapport de crash antérieur doit être proposé à l'utilisateur."""
+        try:
+            from ankiforge.services.crash_reporter_service import CrashReporterService
+            from ankiforge.ui.dialogs.crash_report_dialog import CrashReportDialog
+
+            if not CrashReporterService.has_pending_crash():
+                return
+
+            crash_info = CrashReporterService.get_latest_crash()
+            if crash_info is None:
+                return
+
+            self._crash_dialog = CrashReportDialog(crash_info=crash_info, parent=self)
+            self._crash_dialog.show()
+        except Exception as e:
+            logger.debug("Vérification du crash report ignorée : %s", e)
+
+    def _open_crash_report_dialog(self) -> None:
+        """Ouvre la boîte de dialogue de rapport du dernier crash."""
+        from ankiforge.services.crash_reporter_service import CrashReporterService
+        from ankiforge.ui.dialogs.crash_report_dialog import CrashReportDialog
+
+        crash_info = CrashReporterService.get_latest_crash()
+        if crash_info is None:
+            from ankiforge.ui.widgets.toast import ToastLevel, show_toast
+
+            show_toast(parent=self, message=self.tr("Aucun incident n'est enregistré dans crash.log."), level=ToastLevel.INFO)
+            return
+
+        self._crash_dialog = CrashReportDialog(crash_info=crash_info, parent=self)
+        self._crash_dialog.show()
 
     def start_tour_guide(self) -> None:
         """Lance la visite guidée interactive d'AnkiForge."""

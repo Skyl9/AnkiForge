@@ -57,6 +57,7 @@ class FeedbackDialog(QDialog):
         tab: str = "bug",
         initial_title: str = "",
         context_error: str = "",
+        initial_severity: str = "",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -70,8 +71,10 @@ class FeedbackDialog(QDialog):
         self._initial_tab = tab
         self._initial_title = initial_title
         self._context_error = context_error
+        self._initial_severity = initial_severity
         self.error_banner: QFrame | None = None
         self.lbl_observed: QLabel | None = None
+        self.btn_open_crash_log: QPushButton | None = None
 
         self._setup_ui()
         self._apply_styles()
@@ -243,8 +246,14 @@ class FeedbackDialog(QDialog):
                 self.tr("Crash complet"),
             ]
         )
-        if self._context_error:
-            self.bug_severity_combo.setCurrentText("Élevé / Bloquant")
+        if self._initial_severity:
+            idx = self.bug_severity_combo.findText(self._initial_severity)
+            if idx >= 0:
+                self.bug_severity_combo.setCurrentIndex(idx)
+            else:
+                self.bug_severity_combo.setCurrentText(self._initial_severity)
+        elif self._context_error:
+            self.bug_severity_combo.setCurrentText(self.tr("Élevé / Bloquant"))
         col_sev.addWidget(self.bug_severity_combo)
         row_params.addLayout(col_sev, stretch=1)
 
@@ -320,12 +329,31 @@ class FeedbackDialog(QDialog):
         self.bug_include_diag_cb.toggled.connect(self._on_diag_checkbox_toggled)
         layout.addWidget(self.bug_include_diag_cb)
 
-        # Tiroir repliable d'inspection des diagnostics
+        # Tiroir repliable d'inspection des diagnostics et accès au crash.log
+        drawer_row = QHBoxLayout()
+        drawer_row.setContentsMargins(0, 0, 0, 0)
+
         self.btn_toggle_drawer = QPushButton(self.tr("▶ Afficher les informations de diagnostic système collectées"))
         self.btn_toggle_drawer.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle_drawer.setStyleSheet(f"text-align: left; background: transparent; border: none; color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; padding: 2px 0;")
         self.btn_toggle_drawer.clicked.connect(self._toggle_diagnostics_drawer)
-        layout.addWidget(self.btn_toggle_drawer)
+        drawer_row.addWidget(self.btn_toggle_drawer)
+        drawer_row.addStretch(1)
+
+        from ankiforge.services.crash_reporter_service import CrashReporterService
+
+        crash_log_path = CrashReporterService.get_crash_log_path()
+        if crash_log_path.exists():
+            self.btn_open_crash_log = QPushButton(self.tr("📂 Voir crash.log"))
+            self.btn_open_crash_log.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.btn_open_crash_log.setStyleSheet(f"text-align: right; background: transparent; border: none; color: {DesignTokens.TEXT_MUTED}; font-size: 11px; padding: 2px 0;")
+            self.btn_open_crash_log.setToolTip(self.tr("Ouvrir le fichier crash.log avec votre éditeur par défaut"))
+            self.btn_open_crash_log.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(crash_log_path))))
+            drawer_row.addWidget(self.btn_open_crash_log)
+        else:
+            self.btn_open_crash_log = None
+
+        layout.addLayout(drawer_row)
 
         self.diag_preview_edit = QTextEdit()
         self.diag_preview_edit.setObjectName("DiagPreviewEdit")

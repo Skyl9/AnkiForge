@@ -172,3 +172,26 @@ class TestFeedbackDialog:
             assert "GitHub+Test" in url_str or "GitHub%20Test" in url_str
             assert "labels=bug" in url_str
             assert "✓ Page GitHub ouverte" in dialog.lbl_status.text()
+
+    def test_dialog_with_crash_severity(self, qtbot: QtBot) -> None:
+        """Vérifie l'initialisation explicite avec la sévérité 'Crash complet'."""
+        dialog = FeedbackDialog(tab="bug", initial_severity="Crash complet")
+        qtbot.addWidget(dialog)
+
+        assert dialog.bug_severity_combo.currentText() == "Crash complet"
+
+    def test_dialog_open_crash_log_button(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """Vérifie la présence et le clic sur btn_open_crash_log quand crash.log existe."""
+        mock_log = tmp_path / "crash.log"
+        mock_log.write_text("crash content", encoding="utf-8")
+
+        with (
+            patch("ankiforge.services.crash_reporter_service.CrashReporterService.get_crash_log_path", return_value=mock_log),
+            patch("PySide6.QtGui.QDesktopServices.openUrl") as mock_open_url,
+        ):
+            dialog = FeedbackDialog(tab="bug")
+            qtbot.addWidget(dialog)
+
+            assert dialog.btn_open_crash_log is not None
+            dialog.btn_open_crash_log.click()
+            assert mock_open_url.called

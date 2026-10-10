@@ -586,6 +586,26 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/dialogs/crash_report_dialog.py" line="+123"/>
+        <source>📅 %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>⚙️ Profil : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>📦 Version : v%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>💻 OS : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/dialogs/create_deck_dialog.py" line="+87"/>
         <source>Ex: Sciences%1Physique%2Thermodynamique</source>
         <translation type="unfinished"></translation>
@@ -707,7 +727,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="+257"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="+266"/>
         <source>Profil : %1 · %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -718,7 +738,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+228"/>
+        <location line="+247"/>
         <source>%1 les informations de diagnostic système collectées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1107,7 +1127,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+306"/>
+        <location line="+309"/>
         <source>Un pipeline DAG « %1 » n&apos;a pas été terminé lors de la session précédente (interrompu à l&apos;étape %2).
 
 Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
@@ -1127,7 +1147,7 @@ Voulez-vous vraiment %2 ? Ce travail sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+156"/>
+        <location line="+191"/>
         <source>Impossible de basculer vers l&apos;espace « %1 » : il est actuellement ouvert par une autre instance%2.
 
 L&apos;accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.</source>
@@ -3820,7 +3840,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="+178"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="+179"/>
         <source>Famille par défaut du layout (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3835,7 +3855,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+98"/>
+        <location line="+127"/>
         <source>Version v%1 disponible !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3873,7 +3893,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+180"/>
+        <location line="+185"/>
         <source>Thème &apos;%1&apos; importé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7654,6 +7674,114 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>CrashReportDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/crash_report_dialog.py" line="-68"/>
+        <source>Rapport d&apos;arrêt inattendu d&apos;AnkiForge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>AnkiForge s&apos;est arrêté de manière inattendue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Un incident est survenu lors de la session précédente. Vous pouvez nous aider à le corriger en transmettant ce rapport anonymisé.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Fermer (Échap)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Date inconnue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Aperçu des données transmises (clés d&apos;API et secrets automatiquement masqués) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>🔒 Données anonymisées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Ne plus me proposer de transmettre les rapports de crash au démarrage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Ouvrir le fichier crash.log avec votre éditeur par défaut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Fermer cette invite sans transmettre le rapport</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Copier le rapport complet au format Markdown dans le presse-papier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Enregistrer le rapport dans un fichier Markdown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Ouvrir le formulaire de signalement complet pour ajouter vos remarques</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Ouvrir GitHub Issues dans le navigateur avec le rapport pré-rempli</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+37"/>
+        <source>✓ Rapport copié dans le presse-papier !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Exporter le rapport de crash</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Fichiers Markdown (*.md)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>✓ Rapport enregistré avec succès !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Fichier crash.log introuvable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Arrêt inattendu de l&apos;application</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>✓ Page GitHub ouverte dans le navigateur !</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>CreateDeckDialog</name>
     <message>
         <location filename="../../ui/dialogs/create_deck_dialog.py" line="-150"/>
@@ -10177,12 +10305,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FeedbackDialog</name>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="-537"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="-564"/>
         <source>Retours &amp; Suggestions AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+42"/>
         <source>Retours &amp; Suggestions</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10258,16 +10386,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
+        <location line="+11"/>
         <source>Élevé / Bloquant</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-10"/>
         <source>Crash complet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+16"/>
         <source>Profil &amp; Version :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10314,12 +10443,22 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+10"/>
         <source>▶ Afficher les informations de diagnostic système collectées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+11"/>
+        <source>📂 Voir crash.log</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Ouvrir le fichier crash.log avec votre éditeur par défaut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
         <source>Titre de la fonctionnalité :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10594,7 +10733,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>GeneralTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-741"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-775"/>
         <source>APPARENCE &amp; INTERFACE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10764,12 +10903,27 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+18"/>
+        <source>Proposer de transmettre les rapports de crash au démarrage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Journal des incidents :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Ouvrir le fichier des rapports d&apos;incident</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
         <source>Recherche en cours...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+321"/>
+        <location line="+326"/>
         <source>Aucune famille de thème disponible pour l&apos;export.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11754,7 +11908,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-616"/>
+        <location filename="../../ui/main_window.py" line="-651"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11769,7 +11923,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+155"/>
+        <location line="+111"/>
+        <source>Aucun incident n&apos;est enregistré dans crash.log.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+79"/>
         <source>Profil en cours d&apos;utilisation</source>
         <translation type="unfinished"></translation>
     </message>
