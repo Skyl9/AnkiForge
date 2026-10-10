@@ -137,6 +137,7 @@ class EditionView(QWidget):
         self._change_model_modal: ModelSelectWindow | None = None
         self._import_dialog: QWidget | None = None
         self._export_dialog: QWidget | None = None
+        self._quick_export_dialog: QWidget | None = None
 
         self._all_notes: list[NoteModel] = []
         self._displayed_count: int = 0
@@ -388,6 +389,10 @@ class EditionView(QWidget):
         self.btn_export_apkg = IconButton("upload-simple", tooltip=self.tr("Exporter des cartes Anki (.apkg)"), size=22)
         self.btn_export_apkg.clicked.connect(self._open_export_dialog)
         filter_layout.addWidget(self.btn_export_apkg)
+
+        self.btn_export_quick = IconButton("file-text", tooltip=self.tr("Exporter en texte ou JSON (analyse rapide)"), size=22)
+        self.btn_export_quick.clicked.connect(self._open_quick_export_dialog)
+        filter_layout.addWidget(self.btn_export_quick)
 
         table_box_layout.addWidget(filter_bar)
 
@@ -1720,6 +1725,10 @@ class EditionView(QWidget):
         action_tag = menu.addAction(load_phosphor_icon("tag", color=DesignTokens.COLOR_PURPLE), tag_text)
         action_tag.triggered.connect(lambda: self.open_auto_tag_dialog(target_note_ids))
 
+        export_text = tr("Exporter en texte ou JSON (%1 cartes)...", count) if count > 1 else self.tr("Exporter en texte ou JSON...")
+        action_quick_export = menu.addAction(load_phosphor_icon("file-text", color=DesignTokens.TEXT_PRIMARY), export_text)
+        action_quick_export.triggered.connect(lambda: self.open_quick_export_dialog(target_note_ids))
+
         menu.addSeparator()
 
         flag_menu = menu.addMenu("Drapeau")
@@ -2382,6 +2391,22 @@ class EditionView(QWidget):
         dialog = ExportDialog(default_deck_id=self.current_folder_id, parent=self)
         self._export_dialog = dialog
         dialog.exec()
+
+    def open_quick_export_dialog(self, target_note_ids: list[int] | None = None) -> None:
+        from ankiforge.ui.dialogs.card_export_dialog import CardExportDialog
+
+        note_ids = target_note_ids if target_note_ids is not None else self.get_target_note_ids()
+        filtered_query = getattr(self.note_table_model, "_base_query", None)
+        dialog = CardExportDialog(
+            selected_note_ids=note_ids,
+            filtered_query=filtered_query,
+            parent=self,
+        )
+        self._quick_export_dialog = dialog
+        dialog.exec()
+
+    def _open_quick_export_dialog(self) -> None:
+        self.open_quick_export_dialog()
 
 
 EditionTab = EditionView

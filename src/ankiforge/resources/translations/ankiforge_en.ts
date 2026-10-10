@@ -549,6 +549,43 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/dialogs/card_export_dialog.py" line="+115"/>
+        <source>Sélection active (%1 cartes)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Filtre actif dans l&apos;Éditeur (%1 cartes)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Toute la collection (%1 cartes)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+271"/>
+        <location filename="../../ui/dialogs/export_dialog.py" line="+329"/>
+        <source>✅ %1 cartes exportées avec succès !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Les cartes ont été exportées avec succès :
+
+%1
+
+• %2 carte(s) exportée(s)
+• Format : %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Impossible d&apos;exporter les cartes :
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/dialogs/create_deck_dialog.py" line="+87"/>
         <source>Ex: Sciences%1Physique%2Thermodynamique</source>
         <translation type="unfinished"></translation>
@@ -643,7 +680,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/export_dialog.py" line="+258"/>
+        <location filename="../../ui/dialogs/export_dialog.py" line="-71"/>
         <source>📁 %1 (%2 cartes) ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -654,12 +691,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+69"/>
-        <source>✅ %1 cartes exportées avec succès !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
+        <location line="+73"/>
         <source>Le fichier a été exporté avec succès :
 
 %1
@@ -1473,7 +1505,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
         <location filename="../../ui/views/card_models_view/view.py" line="+1070"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+1350"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+1355"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3009,6 +3041,11 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="+4"/>
         <source>Auto-Tagging IA (%1 cartes)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Exporter en texte ou JSON (%1 cartes)...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6756,6 +6793,129 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>CardExportDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/card_export_dialog.py" line="-367"/>
+        <source>Exporter en Texte ou JSON (Analyse rapide)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Exportation Rapide des Cartes (Texte / JSON)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Export léger pour audit qualité, détection de doublons, comptage ou scripts externes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>PORTÉE DE L&apos;EXPORT :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+63"/>
+        <source>FORMAT DE SORTIE :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>JSON structuré (*.json — tableau d&apos;objets, indenté et lisible)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>JSON Lines (*.jsonl — une ligne JSON par carte, idéal scripts/stream)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Texte lisible (*.txt — une carte par bloc avec en-têtes et délimiteurs)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Markdown (*.md — titres, citations et blocs de champs)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Inclure les identifiants techniques (id, guid, chunk_id)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Exporter dans un fichier unique (décocher pour un dossier avec 1 fichier par carte)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Choisir...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Exporter les cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+61"/>
+        <source>Sélectionner le dossier de destination</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Enregistrer l&apos;export des cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+36"/>
+        <source>Destination manquante</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Veuillez choisir un chemin de destination pour l&apos;exportation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Aucune carte à exporter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Aucune carte ne correspond à la sélection actuelle.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Exportation en cours...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Exportation Réussie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Erreur d&apos;exportation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Erreur d&apos;Exportation</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>CardModelsView</name>
     <message>
         <location filename="../../ui/views/card_models_view/view.py" line="-1210"/>
@@ -9558,7 +9718,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-1897"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-1905"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9569,18 +9729,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+33"/>
-        <location line="+997"/>
+        <location line="+1001"/>
         <source>Dossier : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-978"/>
-        <location line="+1269"/>
+        <location line="-982"/>
+        <location line="+1273"/>
         <source>Modèle : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1250"/>
+        <location line="-1254"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9610,6 +9770,11 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+4"/>
+        <source>Exporter en texte ou JSON (analyse rapide)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location line="+46"/>
         <source>Carte précédente (Alt+Up)</source>
         <translation type="unfinished"></translation>
@@ -9618,12 +9783,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+4"/>
         <location line="+356"/>
         <location line="+13"/>
-        <location line="+1345"/>
+        <location line="+1349"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1710"/>
+        <location line="-1714"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9719,6 +9884,11 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+4"/>
         <source>Auto-Tagging IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Exporter en texte ou JSON...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
