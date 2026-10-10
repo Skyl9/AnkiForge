@@ -66,7 +66,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
   * `rag_test_dialog.py` : Banc de test sémantique vectoriel FAISS/ChromaDB avec scores de similarité.
 * **Résolution & Conflits :**
   * `duplicate_resolver_dialog.py` : Modale de comparaison et arbitrage fin des doublons détectés.
-  * `css_conflict_dialog.py` : Boîte de résolution des collisions CSS entre modèles de cartes.
+  * `css_conflict_dialog.py` : Boîte de résolution des collisions CSS entre types de note.
 * **Imports & Extensions :**
   * `url_import_dialog.py` : Ingestion de pages Web et de vidéos YouTube avec parsing JS et sous-titres.
   * `addon_manager_dialog.py` : Gestionnaire des addons et extensions modulaires.

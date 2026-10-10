@@ -16,11 +16,11 @@ Le serveur MCP (`ankiforge.services.ai.mcp_server`) expose **29 outils**, **4 re
 
 ---
 
-## 🎨 2. Modèles de Cartes & CSS
+## 🎨 2. Types de Note & CSS
 
 | Outil | Signature | Description |
 | :--- | :--- | :--- |
-| `list_note_types` | `() → str` | Liste tous les modèles de cartes (Note Types) enregistrés. |
+| `list_note_types` | `() → str` | Liste tous les types de note (Note Types) enregistrés. |
 | `get_note_type_details` | `(note_type_name: str) → str` | Structure complète : champs requis, templates HTML recto/verso, feuille CSS. |
 | `propose_note_type_refactor` | `(note_type_name: str, new_fields_schema_json: str = "", new_css: str = "", new_templates_json: str = "", new_description: str = "", explanation: str = "") → str` | Modification structurelle avec Garde-Fou Diff. |
 | `propose_css_tune` | `(note_type_name: str, css_snippet: str, selector: str = "") → str` | Injection CSS avec aperçu live avant enregistrement. |

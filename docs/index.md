@@ -21,7 +21,7 @@ graph TD
 
     P1["1. Création & Ingestion Multimodale"]:::pillar
     P2["2. Analyse, Audit & Linter Wozniak"]:::pillar
-    P3["3. Modèles de Cartes & Atelier"]:::pillar
+    P3["3. Types de Note & Atelier"]:::pillar
 
     P1 --> S1["PDF Deep Learning (Marker)<br/>Transcription YouTube<br/>Pipelines DAG & RAG Hybride"]:::sub
     P2 --> S2["20 Règles de Piotr Wozniak<br/>Déduplication Levenshtein C<br/>Fusion 3 Voies (Smart Merge)"]:::sub

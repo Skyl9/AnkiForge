@@ -40,11 +40,11 @@
           • Validation ou bouton [ Ouvrir dans l'Éditeur ↗ ] pour basculer directement sur la note dans l'onglet Édition.
 
   ──────
-  ### 📐 Parcours 3 : Rénovation de Modèle de Carte & Retouche CSS (KaTeX / Dark Mode)
+  ### 📐 Parcours 3 : Rénovation de Type de Note & Retouche CSS (KaTeX / Dark Mode)
 
   • Objectif : Tester les outils list_note_types, get_note_type_details et propose_css_tune pour moderniser l'apparence des cartes avec KaTeX et respect de DESIGN.md.
   • Données de test :
-      • Modèle de note : Modèle Physique-Maths
+      • Type de note : Modèle Physique-Maths
       • Carte exemple :
           • Front : Donner l'équation de Schrödinger dépendante du temps.
           • Back : i \hbar \frac{\partial \Psi}{\partial t} = \hat{H} \Psi

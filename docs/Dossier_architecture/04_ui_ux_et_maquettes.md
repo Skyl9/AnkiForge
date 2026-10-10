@@ -31,7 +31,7 @@ L'application est découpée en modules fonctionnels (Vues) précis. Voici leur 
 * **Rôle :** Orchestration de la génération de masse de cartes à partir des sources via le moteur DAG.
 * **Actions/Boutons :**
   * Dans Pipelines : *Créer/Éditer un Pipeline DAG*, *Ajouter une étape (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`)*, *Inspecteur d'étape JetBrains (`StepInspectorPanel`)*, *Éditeur d'outils Python déterministes (`ToolEditorDialog`)*.
-  * Dans Création : *Lancer le workflow DAG dans QThreadPool*, *Modale de validation humaine interactive (`HumanValidationDialog`)*, *Mappage automatique des champs selon le modèle de note*, *Générer les cartes*.
+  * Dans Création : *Lancer le workflow DAG dans QThreadPool*, *Modale de validation humaine interactive (`HumanValidationDialog`)*, *Mappage automatique des champs selon le type de note*, *Générer les cartes*.
 
 ### 🏥 Analyse & Audit IA (`analysis_view.py`)
 * **Rôle :** Maintenance, audit cognitif et réparation des paquets (Divisée en 4 onglets interactifs).
@@ -47,10 +47,10 @@ L'application est découpée en modules fonctionnels (Vues) précis. Voici leur 
 * **Sélection multiple & Synchronisation bidirectionnelle des coches :** La liste `VirtualTableView` supporte la sélection étendue (`ExtendedSelection` : Shift+clic pour plage contiguë, Ctrl/Cmd+clic pour sélection multiple). La sélection visuelle (lignes soulignées) et les cases à cocher à gauche sont synchronisées de manière bidirectionnelle stricte : toute ligne sélectionnée est cochée, et toute case cochée sélectionne et souligne la ligne correspondante. Le clic sur l'en-tête de colonne 0 ou les options du menu contextuel permettent de tout cocher/sélectionner ou tout décocher.
 * **Auto-Tagging IA :** Déclenché exclusivement à la demande via action explicite (`AutoTagDialog`), opérant sur le groupe sélectionné/coché avec validation granulaire préalable, préservation de l'ordre canonique des tags et protection absolue des tags de traçabilité documentaire (`doc:`, `source:`, etc.).
 
-### 🎨 Modèles de Cartes & A/B Tests (`card_models_view.py` & `ab_tests_view.py`)
+### 🎨 Types de Note & A/B Tests (`card_models_view.py` & `ab_tests_view.py`)
 * **Rôle :** L'Atelier de design des templates et laboratoire comparatif de performance IA.
 * **Actions/Boutons :**
-  * Dans Modèles : *Éditeur HTML/CSS/Jinja2*, *Aperçu fidèle WebEngine (`safe_web_preview.py`)*, *Inventaire de styles et composants réutilisables*.
+  * Dans Types de Note : *Éditeur HTML/CSS/Jinja2*, *Aperçu fidèle WebEngine (`safe_web_preview.py`)*, *Inventaire de styles et composants réutilisables*.
   * Dans Tests A/B : *3 modes de comparaison (Modèle vs Modèle, Prompt vs Prompt, Pipeline vs Pipeline)*, *Exécution concurrente dans `QThreadPool`*, *Bannière KPIs en direct (durée, cartes, tokens, coût)*, *Affichage symétrique (Rendu, Champs, JSON)*, *Bouton "Importer dans la Forge" en 1-clic*.
 
 ### 🤖 Personas & Consultant IA (`agents_view.py` & `consultant_view.py`)

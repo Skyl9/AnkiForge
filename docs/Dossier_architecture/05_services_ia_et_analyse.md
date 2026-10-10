@@ -39,5 +39,5 @@ L'application adopte une stratégie **Agnostique et Local-First** pour protéger
 * **Smart Coverage & Traçabilité :** Liaison déterministe Note ↔ Fragment (`NoteChunkLinkModel`) par tags de traçabilité (`doc:ID`, `source:SLUG`, `page:NUM`, `section:SLUG`) via `CoverageAlignmentService.sync_coverage_from_tags` (aucun matching lexical), calcul du taux de couverture documentaire (moyenne pondérée par unités au niveau du KPI Global) et détection des zones non couvertes (Gap Analysis déterministe).
 * **Audit FSRS & Leeches :** Identification des cartes difficiles/sangsues et analyse de rétention selon les algorithmes FSRS-4.5.
 
-### Dans Modèles de Cartes (Stylisation)
-* **Assistance Design CSS :** Génération et injection dynamique de styles HTML/CSS/Jinja2 dans les modèles de notes avec prévisualisation immédiate WebEngine.
+### Dans Types de Note (Stylisation)
+* **Assistance Design CSS :** Génération et injection dynamique de styles HTML/CSS/Jinja2 dans les types de note avec prévisualisation immédiate WebEngine.

@@ -112,7 +112,7 @@ classDiagram
 * **Serveur MCP In-Process :** Registre d'outils sécurisés (`query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `propose_css_tune`, `execute_python_tool`).
 * **Widgets Riches :** `ThoughtStepWidget`, `ToolCallWidget`, `ChatMessageWidget` avec prévisualisation et application directe.
 
-### 🎨 E. Module Modèles de Cartes (Atelier & Tests A/B)
+### 🎨 E. Module Types de Note (Atelier & Tests A/B)
 * **Atelier de Modèles :** Édition HTML/CSS/Jinja2 avec aperçu temps réel WebEngine.
 * **Laboratoire A/B :** 3 modes de comparaison simultanés (Modèle vs Modèle, Prompt vs Prompt, Pipeline vs Pipeline), exécution concurrente multithread, bannière de KPIs en direct et import 1-clic dans la Forge.
 
@@ -136,7 +136,7 @@ classDiagram
 1. **Moteur ReAct Autonome :** Boucle de raisonnement continue avec auto-correction.
 2. **Serveur MCP Interne :** Exposition standardisée d'outils backend sécurisés.
 3. **Composants d'IHM Riches :** Affichage interactif des résultats SQL, statistiques de rétention et boutons d'action rapide.
-4. **Injection Directe de Styles :** Modification instantanée du CSS des modèles de notes et rechargement de l'aperçu WebEngine.
+4. **Injection Directe de Styles :** Modification instantanée du CSS des types de note et rechargement de l'aperçu WebEngine.
 
 ### 🧪 4. Vue Laboratoire de Tests A/B (`ab_tests_view.py`)
 1. **Comparaison Tri-Mode :** Modèle vs Modèle, Prompt vs Prompt, Pipeline vs Pipeline.
@@ -147,4 +147,4 @@ classDiagram
 ### 🏭 5. Vue Studio de Création (`creation_view.py`)
 1. **Pilotage Asynchrone :** Connexion complète aux signaux de `PipelineOrchestrator`.
 2. **Modale Interactive de Copilote :** Affichage de `HumanValidationDialog` lors d'une étape `HUMAN_VALIDATION` pour ajustement et reprise fluide (`resume()`).
-3. **Mappage Automatique des Champs :** Détection et structuration des champs selon le modèle de note sélectionné.
+3. **Mappage Automatique des Champs :** Détection et structuration des champs selon le type de note sélectionné.

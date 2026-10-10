@@ -6,7 +6,7 @@ Afin de doter le Consultant IA d'une capacité d'intervention chirurgicale sur l
 Accepté
 
 ## Options considérées
-1. **Mutations directes en base par les outils MCP** : Rejeté car dangereux. Tout appel d'outil modifiant des notes ou des modèles de cartes doit impérativement faire l'objet d'une revue humaine préalable avec différentiel visuel (Diff).
+1. **Mutations directes en base par les outils MCP** : Rejeté car dangereux. Tout appel d'outil modifiant des notes ou des types de note doit impérativement faire l'objet d'une revue humaine préalable avec différentiel visuel (Diff).
 2. **Modales bloquantes synchrones (`QDialog.exec()`) dans la boucle ReAct** : Rejeté car incompatible avec le serveur persistant externe (daemon SSE) et risque de figer le thread de travail lors des appels à distance.
 3. **Validation en deux phases via `StagedPatch` persistant avec verrouillage optimiste** : Retenu. L'outil génère un patch structuré (`patch_id`, diff avant/après, empreinte de révision de la note cible). L'application n'a lieu qu'après validation explicite par l'utilisateur (clic IHM dans le chat ou appel MCP dédié `apply_patch(patch_id)`).
 4. **Streaming post-génération ou balises `<think>` brutes** : Rejeté car les temps de réflexion des grands modèles (Claude 3.7 Thinking, Gemini 2.5, DeepSeek R1) créent un gel apparent de l'IHM. Un streaming temps réel unifié des `thought_delta` vers `ThoughtStepWidget` avec repli automatique au premier mot de texte est retenu.

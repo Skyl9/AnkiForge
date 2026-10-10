@@ -26,7 +26,7 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
   - Exécution multi-étapes asynchrone pilotée par `PipelineOrchestrator` dans `QThreadPool`.
   - Prise en charge des étapes `HUMAN_VALIDATION` via la modale interactive `HumanValidationDialog` (ajustement du plan, injection de `map_items`, reprise `resume()` ou arrêt `cancel()`).
   - Transmission transparente des titres et instructions configurés dans les étapes (`human_validation_config`).
-  - Nettoyage et mappage automatique des champs selon le modèle de note sélectionné (`fields_schema`).
+  - Nettoyage et mappage automatique des champs selon le type de note sélectionné (`fields_schema`).
 
 ## 4. Vue Éditeur d'Agents (`agents_view.py`)
 * **État Actuel :** ✅ **Dossiers & Sous-Dossiers Récursifs, Portée Pipeline vs MCP & Onglets JetBrains.**
@@ -67,7 +67,7 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
   - **Simulateur Économique & FSRS-4.5 :** Dépenses cumulées en jetons IA par fournisseur/modèle (`TokenUsageModel`), détection des cartes sangsues et canvas QPainter de courbe de rétention.
   - **Matrice de Doublons & Fusion 3 Panneaux :** Détection hybride (Levenshtein natif C + Vectoriel FAISS), boîte de dialogue de fusion (Merge Dialog) à 3 colonnes avec permutation A ↔ B et injection sélective de champs.
 
-## 9. Atelier Modèles de Cartes (`card_models_view.py`) & Édition (`edition_view.py`, `batch_view.py`)
+## 9. Atelier Types de Note (`card_models_view.py`) & Édition (`edition_view.py`, `batch_view.py`)
 * **État Actuel :** ✅ **Édition HTML/CSS/Jinja2, Rendu KaTeX & Time Machine.**
   - Éditeur de modèles avec prévisualisation fidèle WebEngine (`safe_web_preview.py`).
   - Édition des notes avec saisie mathématique KaTeX en direct (`katex_editor.py`) et gestionnaire d'occlusions (`cloze_manager.py`).
