@@ -245,7 +245,11 @@ class UpdateDialog(QDialog):
         """Gestionnaire de fin de téléchargement avec vérification d'intégrité."""
         self._downloaded_file = cast(Path, dest_path)
         self.progress_bar.setValue(100)
-        self.progress_status_lbl.setText(tr("🔒 Signature Ed25519 & SHA-256 validés (%1...)", sha256_hash[:12]))
+        has_sig = bool(self._downloader_worker and self._downloader_worker.has_signature_verified)
+        if has_sig:
+            self.progress_status_lbl.setText(tr("🔒 Signature Ed25519 & SHA-256 validés (%1...)", sha256_hash[:12]))
+        else:
+            self.progress_status_lbl.setText(tr("🔒 Intégrité SHA-256 validée (%1...)", sha256_hash[:12]))
         self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_GREEN};")
 
         self.action_btn.setEnabled(True)
@@ -258,9 +262,14 @@ class UpdateDialog(QDialog):
         else:
             self.action_btn.setText(self.tr("Prêt (Mode Dev)"))
             self.action_btn.setEnabled(False)
-            self.progress_status_lbl.setText(
-                self.tr("✅ Téléchargé avec succès (Signature Ed25519 & SHA-256 validés).\nℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source.")
-            )
+            if has_sig:
+                self.progress_status_lbl.setText(
+                    self.tr("✅ Téléchargé avec succès (Signature Ed25519 & SHA-256 validés).\nℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source.")
+                )
+            else:
+                self.progress_status_lbl.setText(
+                    self.tr("✅ Téléchargé avec succès (Intégrité SHA-256 validée).\nℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source.")
+                )
 
     def _on_download_failed(self, error_msg: str) -> None:
         """Gestionnaire d'erreur de téléchargement."""

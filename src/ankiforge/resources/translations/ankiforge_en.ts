@@ -976,12 +976,17 @@ Cliquez sur &apos;Lien web GitHub&apos; pour télécharger manuellement.</source
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+8"/>
         <source>🔒 Signature Ed25519 &amp; SHA-256 validés (%1...)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="+2"/>
+        <source>🔒 Intégrité SHA-256 validée (%1...)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
         <source>❌ Échec du téléchargement : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15089,7 +15094,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>UpdateDialog</name>
     <message>
-        <location filename="../../ui/dialogs/update_dialog.py" line="-185"/>
+        <location filename="../../ui/dialogs/update_dialog.py" line="-194"/>
         <source>Une nouvelle version optimisée d&apos;AnkiForge est disponible au téléchargement.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15119,13 +15124,13 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+32"/>
-        <location line="+19"/>
+        <location line="+36"/>
+        <location line="+24"/>
         <source>Fermer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-16"/>
+        <location line="-21"/>
         <source>🔄 Redémarrer et Installer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15135,8 +15140,14 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+4"/>
         <source>✅ Téléchargé avec succès (Signature Ed25519 &amp; SHA-256 validés).
+ℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>✅ Téléchargé avec succès (Intégrité SHA-256 validée).
 ℹ️ Mode Développement détecté : Le remplacement automatique est désactivé pour protéger le code source.</source>
         <translation type="unfinished"></translation>
     </message>

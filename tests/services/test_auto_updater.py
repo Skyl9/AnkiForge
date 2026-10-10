@@ -316,6 +316,108 @@ def test_downloader_worker_fail_closed_on_missing_signature_files(tmp_path: Path
     assert "manquant pour cette release" in errors[0]
 
 
+def test_legitimate_official_release_update_succeeds(tmp_path: Path) -> None:
+    """Vérifie qu'une release officielle légitime (avec checksums.txt conforme) passe la validation."""
+    binary_content = b"Legitimate Official Release Binary v1.3.0"
+    binary_sha256 = hashlib.sha256(binary_content).hexdigest()
+    binary_name = "AnkiForge-macos-arm64.dmg"
+
+    manifest_text = f"{binary_sha256}  {binary_name}\n"
+    manifest_bytes = manifest_text.encode("utf-8")
+
+    # Assets réels tels que servis par l'API GitHub pour les releases officielles
+    release_assets = [
+        {"name": binary_name, "browser_download_url": f"https://objects.githubusercontent.com/{binary_name}"},
+        {"name": "checksums.txt", "browser_download_url": "https://objects.githubusercontent.com/checksums.txt"},
+    ]
+
+    chk_asset, sig_asset = find_manifest_assets(release_assets)
+    chk_url = str(chk_asset["browser_download_url"]) if chk_asset else None
+    sig_url = str(sig_asset["browser_download_url"]) if sig_asset else None
+
+    worker = UpdateDownloaderWorker(
+        download_url=f"https://objects.githubusercontent.com/{binary_name}",
+        filename=binary_name,
+        checksums_url=chk_url,
+        signature_url=sig_url,
+    )
+
+    def fake_requests_get(url: str, **kwargs: Any) -> Any:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.__enter__.return_value = resp
+        resp.__exit__.return_value = None
+        if "checksums.txt" in url:
+            resp.content = manifest_bytes
+        else:
+            resp.headers = {"content-length": str(len(binary_content))}
+            resp.iter_content.return_value = [binary_content]
+        return resp
+
+    completed: list[tuple[Any, str]] = []
+    errors: list[str] = []
+    worker.signals.download_complete.connect(lambda path, sha: completed.append((path, sha)))
+    worker.signals.download_error.connect(lambda err: errors.append(err))
+
+    with (
+        patch("requests.get", side_effect=fake_requests_get),
+        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+    ):
+        worker.run()
+
+    assert not errors, f"Le téléchargement légitime a échoué avec erreur : {errors}"
+    assert len(completed) == 1
+    dest, sha = completed[0]
+    assert sha == binary_sha256
+    assert dest.exists()
+    assert worker.has_signature_verified is False
+
+
+def test_release_without_signature_rejected_on_sha256_mismatch_and_purges(tmp_path: Path) -> None:
+    """Vérifie que pour une release sans signature, si le SHA-256 ne concorde pas, le binaire est rejeté et purgé."""
+    binary_name = "AnkiForge-macos-arm64.dmg"
+    expected_sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    corrupted_content = b"Corrupted or Tampered Payload without signature"
+
+    manifest_text = f"{expected_sha256}  {binary_name}\n"
+    manifest_bytes = manifest_text.encode("utf-8")
+
+    worker = UpdateDownloaderWorker(
+        download_url=f"https://objects.githubusercontent.com/{binary_name}",
+        filename=binary_name,
+        checksums_url="https://objects.githubusercontent.com/checksums.txt",
+        signature_url=None,  # Pas de signature
+        require_signature=True,
+    )
+
+    def fake_requests_get(url: str, **kwargs: Any) -> Any:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.__enter__.return_value = resp
+        resp.__exit__.return_value = None
+        if "checksums.txt" in url:
+            resp.content = manifest_bytes
+        else:
+            resp.headers = {"content-length": str(len(corrupted_content))}
+            resp.iter_content.return_value = [corrupted_content]
+        return resp
+
+    errors: list[str] = []
+    worker.signals.download_error.connect(lambda err: errors.append(err))
+
+    with (
+        patch("requests.get", side_effect=fake_requests_get),
+        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+    ):
+        worker.run()
+
+    assert len(errors) == 1
+    assert "Intégrité compromise" in errors[0]
+    # Vérification Fail-Closed : le fichier a été purgé du disque
+    downloaded_target = tmp_path / binary_name
+    assert not downloaded_target.exists()
+
+
 def test_downloader_worker_fail_closed_on_sha256_mismatch_and_purges_file(tmp_path: Path) -> None:
     """Vérifie que si l'empreinte SHA-256 du binaire ne correspond pas au manifeste, le fichier téléchargé est purgé."""
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey

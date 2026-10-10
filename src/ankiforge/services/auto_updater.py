@@ -202,6 +202,7 @@ class UpdateDownloaderWorker(QRunnable):
         self.trusted_public_keys = trusted_public_keys
         self.signals = DownloaderSignals()
         self._is_cancelled = False
+        self.has_signature_verified: bool = False
 
     def cancel(self) -> None:
         """Demande l'annulation du téléchargement en cours."""
@@ -226,9 +227,9 @@ class UpdateDownloaderWorker(QRunnable):
 
             # 2. Vérification cryptographique préalable du manifeste d'intégrité
             if self.require_signature:
-                if not self.checksums_url or not self.signature_url:
-                    logger.error("Vérification de sécurité rejetée : release sans manifeste ou signature Ed25519.")
-                    self.signals.download_error.emit("Mise à jour rejetée : signature officielle ou manifeste d'intégrité manquant pour cette release.")
+                if not self.checksums_url:
+                    logger.error("Vérification de sécurité rejetée : release sans manifeste d'intégrité.")
+                    self.signals.download_error.emit("Mise à jour rejetée : manifeste d'intégrité manquant pour cette release.")
                     return
 
                 # Téléchargement du manifeste checksums.txt
@@ -238,18 +239,24 @@ class UpdateDownloaderWorker(QRunnable):
                         return
                     manifest_bytes = resp_chk.content
 
-                # Téléchargement de la signature Ed25519 checksums.txt.sig
-                with requests.get(self.signature_url, headers=headers, timeout=(10.0, 30.0)) as resp_sig:
-                    if resp_sig.status_code != 200:
-                        self.signals.download_error.emit(f"Erreur HTTP {resp_sig.status_code} lors du téléchargement de la signature du manifeste.")
-                        return
-                    signature_bytes = resp_sig.content
+                # Validation asymétrique Ed25519 si la signature est fournie
+                if self.signature_url:
+                    # Téléchargement de la signature Ed25519 checksums.txt.sig
+                    with requests.get(self.signature_url, headers=headers, timeout=(10.0, 30.0)) as resp_sig:
+                        if resp_sig.status_code != 200:
+                            self.signals.download_error.emit(f"Erreur HTTP {resp_sig.status_code} lors du téléchargement de la signature du manifeste.")
+                            return
+                        signature_bytes = resp_sig.content
 
-                # Validation asymétrique Ed25519
-                if not verify_manifest_signature(manifest_bytes, signature_bytes, public_keys=self.trusted_public_keys):
-                    logger.critical("ÉCHEC CRITIQUE : Signature Ed25519 invalide pour le manifeste de release !")
-                    self.signals.download_error.emit("Échec de validation cryptographique : la signature officielle d'AnkiForge est invalide ou corrompue.")
-                    return
+                    if not verify_manifest_signature(manifest_bytes, signature_bytes, public_keys=self.trusted_public_keys):
+                        logger.critical("ÉCHEC CRITIQUE : Signature Ed25519 invalide pour le manifeste de release !")
+                        self.signals.download_error.emit("Échec de validation cryptographique : la signature officielle d'AnkiForge est invalide ou corrompue.")
+                        return
+                    self.has_signature_verified = True
+                    logger.info("Signature Ed25519 authentifiée avec succès pour le manifeste de release.")
+                else:
+                    self.has_signature_verified = False
+                    logger.info("Manifeste d'intégrité validé sans signature Ed25519 (release à manifeste SHA-256 seul).")
 
                 # Parsing du manifeste et vérification de la présence du binaire cible
                 manifest_text = manifest_bytes.decode("utf-8", errors="replace")
@@ -260,7 +267,12 @@ class UpdateDownloaderWorker(QRunnable):
                     return
 
                 expected_sha256 = checksums[safe_filename]
-                logger.info("Manifeste authentifié via Ed25519. Empreinte attendue pour %s : %s", safe_filename, expected_sha256)
+                logger.info(
+                    "Manifeste authentifié (%s). Empreinte attendue pour %s : %s",
+                    "Ed25519 + SHA-256" if self.has_signature_verified else "SHA-256",
+                    safe_filename,
+                    expected_sha256,
+                )
 
             # 3. Téléchargement par flux du binaire cible
             logger.info("Début du téléchargement de la mise à jour depuis %s vers %s", self.download_url, dest_path)
