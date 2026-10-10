@@ -1114,16 +1114,32 @@ class AIManager:
     """
     Orchestrateur central gérant le chargement et la configuration de l'IA active.
     Récupère les paramètres depuis la base de données SQLite.
+    L'instanciation physique du fournisseur est paresseuse (lazy) pour éviter toute
+    sollicitation intempestive du trousseau OS au démarrage de l'application.
     """
 
     def __init__(self) -> None:
         """
-        Initialise le gestionnaire.
+        Initialise le gestionnaire sans interroger prématurément le trousseau de clés.
         """
-        self.provider: LLMProvider = MockProvider()  # Fallback de sécurité
+        self._provider: LLMProvider | None = None
         self.current_config: LLMConfigModel | None = None
         self.current_model: str = ""
         self.reload_provider()
+
+    @property
+    def provider(self) -> LLMProvider:
+        """Fournisseur d'IA actif, instancié à la demande pour éviter toute sollicitation du trousseau OS au démarrage."""
+        if self._provider is None:
+            if self.current_config is not None:
+                self._provider = self.create_provider_from_config(self.current_config)
+            else:
+                self._provider = MockProvider()
+        return self._provider
+
+    @provider.setter
+    def provider(self, val: LLMProvider) -> None:
+        self._provider = val
 
     @staticmethod
     def create_provider_from_config(config: LLMConfigModel) -> LLMProvider:
@@ -1241,18 +1257,22 @@ class AIManager:
             if not config:
                 config = LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()).first()
 
+            self._provider = None
             if config:
                 self.current_config = config
                 self.current_model = str(config.model_id)
-                self.provider = self.create_provider_from_config(config)
-                logger.info("Fournisseur d'IA rechargé : %s (%s, max_tokens=%d)", config.provider, config.model_id, getattr(config, "max_tokens", 16384))
+                logger.info(
+                    "Configuration d'IA active sélectionnée : %s (%s, max_tokens=%d, chargement différé)",
+                    config.provider,
+                    config.model_id,
+                    getattr(config, "max_tokens", 16384),
+                )
             else:
                 self.current_config = None
                 self.current_model = ""
-                self.provider = MockProvider()
-                logger.warning("Aucune configuration d'IA trouvée, utilisation du MockProvider.")
+                logger.warning("Aucune configuration d'IA trouvée, repli futur sur MockProvider.")
         except Exception as e:
+            self._provider = None
             self.current_config = None
             self.current_model = ""
-            self.provider = MockProvider()
-            logger.error("Erreur lors du rechargement de l'IA, utilisation du MockProvider: %s", e)
+            logger.error("Erreur lors de la configuration de l'IA : %s", e)
