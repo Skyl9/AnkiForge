@@ -193,6 +193,13 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.lbl_sec_keys.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_keys)
 
+        self.lbl_sec_keys_desc = QLabel(
+            self.tr("Les clés API sont chiffrées et conservées dans le trousseau sécurisé de votre système (service : AnkiForge). Elles ne sont jamais stockées en clair sur le disque.")
+        )
+        self.lbl_sec_keys_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11.5px;")
+        self.lbl_sec_keys_desc.setWordWrap(True)
+        layout.addWidget(self.lbl_sec_keys_desc)
+
         self.card_keys = SettingsCard()
         keys_layout = QVBoxLayout(self.card_keys)
         keys_layout.setContentsMargins(14, 10, 14, 10)

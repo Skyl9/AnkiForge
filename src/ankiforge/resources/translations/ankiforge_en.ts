@@ -262,7 +262,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+762"/>
         <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+742"/>
         <location line="+10"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+690"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+697"/>
         <location line="+430"/>
         <source>%1%%</source>
         <translation type="unfinished"></translation>
@@ -4426,12 +4426,17 @@ Une nouvelle version sera automatiquement créée.</source>
 <context>
     <name>AIEnginesTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1160"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1167"/>
         <source>CLÉS API DES FOURNISSEURS CLOUD</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+5"/>
+        <source>Les clés API sont chiffrées et conservées dans le trousseau sécurisé de votre système (service : AnkiForge). Elles ne sont jamais stockées en clair sur le disque.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+55"/>
         <location line="+627"/>
         <source>Format valide</source>
         <translation type="unfinished"></translation>
