@@ -4,9 +4,13 @@ from PySide6.QtCore import QRect, Qt, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSplitter, QStackedWidget, QVBoxLayout, QWidget
 
-import ankiforge.ui.components.tabs as tabs_mod
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
-from ankiforge.ui.components.tabs import ScrollableTabBarWidget
+from ankiforge.ui.components.tabs import (
+    ScrollableTabBarWidget,
+    _floating_windows,
+    get_dragged_tab_info,
+    set_dragged_tab_info,
+)
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -185,18 +189,19 @@ class PanelPlaceholderWidget(QFrame):
 
     def dropEvent(self, event):
         if event.mimeData().hasFormat("application/x-ankiforge-tab"):
-            if tabs_mod._dragged_tab_info:
-                src_panel = tabs_mod._dragged_tab_info["source_panel"]
-                idx = tabs_mod._dragged_tab_info["index"]
-                widget = tabs_mod._dragged_tab_info["widget"]
-                title = tabs_mod._dragged_tab_info["title"]
-                icon_name = tabs_mod._dragged_tab_info["icon_name"]
+            dragged_info = get_dragged_tab_info()
+            if dragged_info:
+                src_panel = dragged_info["source_panel"]
+                idx = dragged_info["index"]
+                widget = dragged_info["widget"]
+                title = dragged_info["title"]
+                icon_name = dragged_info["icon_name"]
 
                 if src_panel != self.parent_panel:
                     widget, title, closable = src_panel.remove_tab_widget(idx)
                     self.parent_panel.insert_tab_widget(0, title, widget, icon_name, closable)
 
-                tabs_mod._dragged_tab_info = None
+                set_dragged_tab_info(None)
             event.acceptProposedAction()
             self.dragLeaveEvent(event)
 
@@ -649,7 +654,7 @@ class IdePanel(QFrame):
                 fw = FloatingDockWindow()
                 fw.insert_tab_widget(0, title, widget, icon_name, closable, icon_color=icon_color)
                 fw.move(QCursor.pos())
-                tabs_mod._floating_windows.append(fw)
+                _floating_windows.append(fw)
                 fw.show()
                 return fw
             return None
@@ -676,7 +681,7 @@ class IdePanel(QFrame):
             fw.insert_tab_widget(0, title, widget, icon_name, closable, icon_color=icon_color)
 
         fw.move(QCursor.pos())
-        tabs_mod._floating_windows.append(fw)
+        _floating_windows.append(fw)
         fw.show()
         return fw
 
@@ -796,8 +801,9 @@ class IdePanel(QFrame):
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat("application/x-ankiforge-tab"):
-            if tabs_mod._dragged_tab_info:
-                src_panel = tabs_mod._dragged_tab_info["source_panel"]
+            dragged_info = get_dragged_tab_info()
+            if dragged_info:
+                src_panel = dragged_info["source_panel"]
                 if src_panel == self and len(self.tabs_bar.tabs) <= 1:
                     event.ignore()
                     return
@@ -807,8 +813,9 @@ class IdePanel(QFrame):
 
     def dragMoveEvent(self, event):
         if event.mimeData().hasFormat("application/x-ankiforge-tab"):
-            if tabs_mod._dragged_tab_info:
-                src_panel = tabs_mod._dragged_tab_info["source_panel"]
+            dragged_info = get_dragged_tab_info()
+            if dragged_info:
+                src_panel = dragged_info["source_panel"]
                 if src_panel == self and len(self.tabs_bar.tabs) <= 1:
                     self._split_direction = None
                     self.drag_overlay.setVisible(False)
@@ -871,33 +878,34 @@ class IdePanel(QFrame):
             self._split_direction = None
             self.drag_overlay.setVisible(False)
 
+            dragged_info = get_dragged_tab_info()
             if direction:
-                if tabs_mod._dragged_tab_info:
-                    src_panel = tabs_mod._dragged_tab_info["source_panel"]
-                    idx = tabs_mod._dragged_tab_info["index"]
-                    widget = tabs_mod._dragged_tab_info["widget"]
-                    title = tabs_mod._dragged_tab_info["title"]
-                    icon_name = tabs_mod._dragged_tab_info["icon_name"]
+                if dragged_info:
+                    src_panel = dragged_info["source_panel"]
+                    idx = dragged_info["index"]
+                    widget = dragged_info["widget"]
+                    title = dragged_info["title"]
+                    icon_name = dragged_info["icon_name"]
 
                     widget, title, closable = src_panel.remove_tab_widget(idx)
                     self.split_panel(direction, title, widget, icon_name, closable)
 
-                    tabs_mod._dragged_tab_info = None
+                    set_dragged_tab_info(None)
                 event.acceptProposedAction()
             else:
                 # Center drop: dock the tab to this panel!
-                if tabs_mod._dragged_tab_info:
-                    src_panel = tabs_mod._dragged_tab_info["source_panel"]
-                    idx = tabs_mod._dragged_tab_info["index"]
-                    widget = tabs_mod._dragged_tab_info["widget"]
-                    title = tabs_mod._dragged_tab_info["title"]
-                    icon_name = tabs_mod._dragged_tab_info["icon_name"]
+                if dragged_info:
+                    src_panel = dragged_info["source_panel"]
+                    idx = dragged_info["index"]
+                    widget = dragged_info["widget"]
+                    title = dragged_info["title"]
+                    icon_name = dragged_info["icon_name"]
 
                     if src_panel != self:
                         widget, title, closable = src_panel.remove_tab_widget(idx)
                         self.insert_tab_widget(len(self.tabs_bar.tabs), title, widget, icon_name, closable)
 
-                    tabs_mod._dragged_tab_info = None
+                    set_dragged_tab_info(None)
                 event.acceptProposedAction()
             self.update()
 

@@ -15,7 +15,11 @@ from ankiforge.ui.components.tabs.segmented_tab_bar import (
     SegmentedTabButton,
     SubTabButton,
 )
-from ankiforge.ui.components.tabs.tab_button import TabButton
+from ankiforge.ui.components.tabs.tab_button import (
+    TabButton,
+    get_dragged_tab_info,
+    set_dragged_tab_info,
+)
 from ankiforge.ui.components.tabs.tab_container import TabContainer
 
 __all__ = [
@@ -30,4 +34,6 @@ __all__ = [
     "SegmentedTabButton",
     "SubTabButton",
     "_floating_windows",
+    "get_dragged_tab_info",
+    "set_dragged_tab_info",
 ]

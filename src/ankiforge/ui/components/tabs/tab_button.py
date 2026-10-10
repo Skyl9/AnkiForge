@@ -252,30 +252,30 @@ class TabButton(QPushButton):
             while scroll_bar and not hasattr(scroll_bar, "tabs"):
                 scroll_bar = scroll_bar.parentWidget()
 
-            global _dragged_tab_info
             if panel and scroll_bar:
                 try:
                     index = scroll_bar.tabs.index(self)
                     widget = panel.content_stack.widget(index)
                     title = self.text().strip()
                     icon_name = self.property("icon_name") or ""
-                    _dragged_tab_info = {"source_panel": panel, "index": index, "widget": widget, "title": title, "icon_name": icon_name}
+                    set_dragged_tab_info({"source_panel": panel, "index": index, "widget": widget, "title": title, "icon_name": icon_name})
                 except ValueError:
                     pass
 
             action = drag.exec(Qt.DropAction.MoveAction)
 
-            if action in (Qt.DropAction.IgnoreAction, None) and _dragged_tab_info:
-                src_panel = _dragged_tab_info["source_panel"]
+            dragged_info = get_dragged_tab_info()
+            if action in (Qt.DropAction.IgnoreAction, None) and dragged_info:
+                src_panel = dragged_info["source_panel"]
 
                 if src_panel.__class__.__name__ == "FloatingDockWindow" and len(src_panel.tabs_bar.tabs) <= 1:
-                    _dragged_tab_info = None
+                    set_dragged_tab_info(None)
                     return
 
-                idx = _dragged_tab_info["index"]
-                widget = _dragged_tab_info["widget"]
-                title = _dragged_tab_info["title"]
-                icon_name = _dragged_tab_info["icon_name"]
+                idx = dragged_info["index"]
+                widget = dragged_info["widget"]
+                title = dragged_info["title"]
+                icon_name = dragged_info["icon_name"]
 
                 src_panel.remove_tab_widget(idx)
 
@@ -298,7 +298,7 @@ class TabButton(QPushButton):
                 _floating_windows.append(fw)
                 fw.show()
 
-            _dragged_tab_info = None
+            set_dragged_tab_info(None)
             return
 
         super().mouseMoveEvent(event)

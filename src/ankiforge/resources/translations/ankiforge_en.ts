@@ -414,7 +414,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/panels.py" line="+584"/>
+        <location filename="../../ui/components/panels.py" line="+589"/>
         <source>Afficher l&apos;onglet « %1 »</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12793,7 +12793,7 @@ Aucune anomalie détectée dans votre collection.</source>
 <context>
     <name>PanelPlaceholderWidget</name>
     <message>
-        <location filename="../../ui/components/panels.py" line="-495"/>
+        <location filename="../../ui/components/panels.py" line="-496"/>
         <source>Panneau Libre</source>
         <translation type="unfinished"></translation>
     </message>

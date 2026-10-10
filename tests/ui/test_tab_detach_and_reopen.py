@@ -9,8 +9,8 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QCloseEvent, QKeyEvent
+from PySide6.QtCore import QMimeData, QPoint, QPointF, Qt
+from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QKeyEvent
 from PySide6.QtWidgets import QLabel, QSplitter, QWidget
 
 from ankiforge.ui.components.panels import IdePanel, PanelPlaceholderWidget
@@ -464,3 +464,152 @@ class TestTabMaskingAndReopening:
         assert panel.tabs_bar.count() == 1
         assert panel.placeholder_widget.isHidden()
         assert panel.header.isVisible()
+
+
+class TestTabDragAndDropPanels:
+    """Vérifie la robustesse du glisser-déposer d'onglets au sein et entre panneaux IdePanel."""
+
+    def test_tabs_package_exports_drag_accessors(self) -> None:
+        """Vérifie que get_dragged_tab_info et set_dragged_tab_info sont bien ré-exportés par tabs."""
+        from ankiforge.ui.components.tabs import get_dragged_tab_info, set_dragged_tab_info
+
+        dummy_payload = {"title": "Test Tab", "index": 0}
+        set_dragged_tab_info(dummy_payload)
+        assert get_dragged_tab_info() == dummy_payload
+
+        set_dragged_tab_info(None)
+        assert get_dragged_tab_info() is None
+
+    def test_ide_panel_drag_events_without_attribute_error(self, qtbot: Any) -> None:
+        """Vérifie que dragEnter, dragMove et drop sur IdePanel ne lèvent pas AttributeError."""
+        from ankiforge.ui.components.tabs.tab_button import set_dragged_tab_info
+
+        panel1 = IdePanel(detachable=True)
+        panel2 = IdePanel(detachable=True)
+        qtbot.addWidget(panel1)
+        qtbot.addWidget(panel2)
+        panel1.resize(400, 300)
+        panel2.resize(400, 300)
+        panel1.show()
+        panel2.show()
+
+        w1 = QLabel("Tab 1 Content")
+        w2 = QLabel("Tab 2 Content")
+        panel1.add_tab("Tab 1", w1, "ph.star", closable=True)
+        panel1.add_tab("Tab 2", w2, "ph.heart", closable=True)
+
+        w3 = QLabel("Tab 3 Content")
+        panel2.add_tab("Tab 3", w3, "ph.note", closable=True)
+
+        mime = QMimeData()
+        mime.setData("application/x-ankiforge-tab", b"")
+
+        # 1. dragEnterEvent avec info de drag nulle
+        set_dragged_tab_info(None)
+        enter_event_empty = QDragEnterEvent(
+            QPoint(50, 50),
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        panel1.dragEnterEvent(enter_event_empty)
+
+        # 2. dragEnterEvent & dragMoveEvent avec info de drag active
+        set_dragged_tab_info(
+            {
+                "source_panel": panel1,
+                "index": 0,
+                "widget": w1,
+                "title": "Tab 1",
+                "icon_name": "ph.star",
+            }
+        )
+        enter_event = QDragEnterEvent(
+            QPoint(50, 50),
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        panel2.dragEnterEvent(enter_event)
+
+        move_event = QDragMoveEvent(
+            QPoint(200, 150),
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        panel2.dragMoveEvent(move_event)
+
+        # 3. dropEvent sur panel2 (centre)
+        drop_event = QDropEvent(
+            QPointF(200.0, 150.0),
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        panel2.dropEvent(drop_event)
+
+        # L'onglet a été transféré de panel1 à panel2 et l'info de drag est nettoyée
+        from ankiforge.ui.components.tabs.tab_button import get_dragged_tab_info
+
+        assert get_dragged_tab_info() is None
+        assert panel1.tabs_bar.count() == 1
+        assert panel2.tabs_bar.count() == 2
+
+    def test_placeholder_drop_event_without_attribute_error(self, qtbot: Any) -> None:
+        """Vérifie que dropEvent sur PanelPlaceholderWidget ne lève pas AttributeError."""
+        from ankiforge.ui.components.tabs.tab_button import get_dragged_tab_info, set_dragged_tab_info
+
+        src_panel = IdePanel(detachable=True)
+        target_panel = IdePanel(detachable=True, permanent=True)
+        qtbot.addWidget(src_panel)
+        qtbot.addWidget(target_panel)
+
+        w1 = QLabel("Tab Source")
+        src_panel.add_tab("Tab Source", w1, "ph.star", closable=True)
+
+        placeholder = target_panel.placeholder_widget
+
+        mime = QMimeData()
+        mime.setData("application/x-ankiforge-tab", b"")
+
+        set_dragged_tab_info(
+            {
+                "source_panel": src_panel,
+                "index": 0,
+                "widget": w1,
+                "title": "Tab Source",
+                "icon_name": "ph.star",
+            }
+        )
+
+        drop_event = QDropEvent(
+            QPointF(50.0, 50.0),
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        placeholder.dropEvent(drop_event)
+
+        assert get_dragged_tab_info() is None
+        assert src_panel.tabs_bar.count() == 0
+        assert target_panel.tabs_bar.count() == 1
+
+    def test_no_direct_dragged_tab_info_usage_in_panels(self) -> None:
+        """Garantit qu'aucune référence directe à _dragged_tab_info ou tabs_mod n'existe dans panels.py."""
+        import ast
+        from pathlib import Path
+
+        panels_path = Path(__file__).resolve().parent.parent.parent / "src" / "ankiforge" / "ui" / "components" / "panels.py"
+        tree = ast.parse(panels_path.read_text(encoding="utf-8"))
+        attrs = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+        names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+
+        assert "_dragged_tab_info" not in attrs
+        assert "_dragged_tab_info" not in names
+        assert "tabs_mod" not in names
