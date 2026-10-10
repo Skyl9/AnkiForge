@@ -238,10 +238,14 @@ def test_install_crash_handlers(tmp_path: Path):
         exc_type, exc_val, exc_tb = sys.exc_info()
         sys.excepthook(exc_type, exc_val, exc_tb)
 
+    from ankiforge.utils.logger import get_crash_log_path
+
     crash_file = log_dir / "crash.log"
+    assert get_crash_log_path(log_dir) == crash_file
     assert crash_file.exists()
     content = crash_file.read_text(encoding="utf-8")
     assert "CRASH REPORT" in content
+    assert "UTC" in content
     assert "Erreur critique simulée" in content
     assert "abcdef12345" not in content
     assert "[REDACTED_TOKEN]" in content

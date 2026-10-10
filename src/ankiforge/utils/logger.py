@@ -356,10 +356,16 @@ def install_crash_handlers(log_dir: Path | None = None) -> None:
 
         logging.critical("FATAL: Exception non gérée interceptée !\n%s", sanitized_tb)
 
+        from datetime import UTC, datetime
+
+        timestamp_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
         # Écriture de secours immédiate et synchrone dans crash.log
         try:
             with open(crash_file, "a", encoding="utf-8") as f:
-                f.write(f"\n{'=' * 70}\nCRASH REPORT - {platform.platform()} | Python {platform.python_version()}\nProfil actif : {get_active_profile()}\n{'=' * 70}\n{sanitized_tb}\n")
+                f.write(
+                    f"\n{'=' * 70}\nCRASH REPORT [{timestamp_str}] - {platform.platform()} | Python {platform.python_version()}\nProfil actif : {get_active_profile()}\n{'=' * 70}\n{sanitized_tb}\n"
+                )
         except OSError as err:
             if sys.__stderr__:
                 sys.__stderr__.write(f"Impossible d'enregistrer le crash report dans {crash_file}: {err}\n")
@@ -369,6 +375,12 @@ def install_crash_handlers(log_dir: Path | None = None) -> None:
 
     sys.excepthook = handle_exception
     threading.excepthook = handle_thread_exception
+
+
+def get_crash_log_path(log_dir: Path | None = None) -> Path:
+    """Retourne le chemin canonique vers le fichier crash.log."""
+    target_dir = log_dir if log_dir is not None else get_app_data_dir() / "logs"
+    return target_dir / "crash.log"
 
 
 def log_and_notify_error(
