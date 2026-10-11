@@ -3,6 +3,7 @@ import contextvars
 import inspect
 import json
 import logging
+import re
 import threading
 import time
 from collections.abc import Callable
@@ -809,8 +810,8 @@ class PipelineOrchestrator(QRunnable):
 
     def _execute_map_reduce(self, step: PipelineStepModel) -> None:
         """
-        Découpe une liste d'éléments (chunks de documents, liste de cartes)
-        et applique la Persona sur chaque élément en parallèle (Map) puis fusionne (Reduce).
+        Découpe une liste d'éléments (chunks de documents, liste de cartes ou texte brut découpé selon split_mode)
+        et applique la Persona sur chaque lot (batch_size) en parallèle (Map) puis fusionne (Reduce).
         """
         step_cfg: dict[str, Any] = {}
         if step.config_data:
@@ -819,27 +820,72 @@ class PipelineOrchestrator(QRunnable):
             except Exception:
                 step_cfg = {}
 
-        # Trouver la liste d'éléments à mapper
-        items_var = step_cfg.get("items_variable")
-        items = (
-            (self.state.get_variable(str(items_var)) if items_var else None)
+        # 1. Trouver la source d'éléments à mapper
+        input_var = step_cfg.get("input_variable") or step_cfg.get("items_variable")
+        raw_items = (
+            (self.state.get_variable(str(input_var)) if input_var else None)
             or self.state.get_variable("map_items")
             or self.state.get_variable("chunks")
             or self.state.get_variable("cards")
             or self.state.retrieved_chunks
+            or (self.state.get_variable("text_source") if not input_var else None)
+            or (self.state.initial_prompt if not input_var else None)
         )
 
-        if isinstance(items, str):
-            items = [p.strip() for p in items.split("\n\n") if p.strip()]
-
-        if not items or not isinstance(items, list):
-            logger.info("Aucun élément trouvé pour l'étape MAP_REDUCE. Étape ignorée.")
+        if not raw_items:
+            logger.info("Aucun élément trouvé pour l'étape MAP_REDUCE (%s). Étape ignorée.", input_var or "défaut")
             return
 
-        total_items = len(items)
-        # Même couture que LLM_PROMPT : l'inspecteur affiche le champ de surcharge pour les
-        # deux types d'étapes, le vérificateur de DAG l'accepte pour MAP_REDUCE et l'aperçu
-        # le prévisualise. Un exécuteur qui l'ignore rendrait ces trois écrans faux.
+        # 2. Découpage du texte selon split_mode si la source est une chaîne brute
+        split_mode = str(step_cfg.get("split_mode") or "paragraphs").lower().strip()
+        items: list[Any]
+        if isinstance(raw_items, str):
+            if split_mode == "page":
+                # Découpage par marqueurs de page (Marker, PDF, PPTX)
+                page_pattern = re.compile(r"(?:<!--\s*PAGE:\s*\d+\s*-->|\{\d+\}-{5,}|\x0c|\[SPLIT\])", re.IGNORECASE)
+                parts = [p.strip() for p in page_pattern.split(raw_items) if p and p.strip()]
+                items = parts if len(parts) >= 2 else [p.strip() for p in re.split(r"\n\s*\n", raw_items) if p and p.strip()]
+            elif split_mode == "chapter":
+                # Découpage par titres Markdown (H1 à H3)
+                chapter_parts = [p.strip() for p in re.split(r"(?=(?:\r?\n|^)#{1,3}\s+)", raw_items) if p and p.strip()]
+                items = chapter_parts if len(chapter_parts) >= 2 else [p.strip() for p in re.split(r"\n\s*\n", raw_items) if p and p.strip()]
+            else:
+                # Mode "paragraphs" par défaut
+                items = [p.strip() for p in re.split(r"\n\s*\n", raw_items) if p and p.strip()]
+        elif isinstance(raw_items, list):
+            items = list(raw_items)
+        else:
+            items = [raw_items]
+
+        if not items:
+            logger.info("Aucun élément exploitable pour l'étape MAP_REDUCE. Étape ignorée.")
+            return
+
+        # 3. Regroupement par lots (batch_size)
+        batch_size = max(1, int(step_cfg.get("batch_size") or 1))
+        batches: list[Any] = []
+        if batch_size > 1 and len(items) > 1:
+            for i in range(0, len(items), batch_size):
+                chunk_slice = items[i : i + batch_size]
+                if all(isinstance(x, str) for x in chunk_slice):
+                    batches.append("\n\n---\n\n".join(chunk_slice))
+                else:
+                    batches.append(chunk_slice)
+        else:
+            batches = items
+
+        total_batches = len(batches)
+
+        # 4. Résolution du provider (support du llm_config_id dédié)
+        effective_provider = self.ai_provider
+        if step_cfg.get("llm_config_id"):
+            override_cfg = LLMConfigModel.get_or_none(LLMConfigModel.id == step_cfg["llm_config_id"])
+            if override_cfg:
+                try:
+                    effective_provider = AIManager.create_provider_from_config(override_cfg)
+                except Exception as e:
+                    logger.warning("[MAP_REDUCE] Impossible d'instancier le provider dédié : %s", e)
+
         raw_system_prompt = resolve_system_prompt(step_cfg, step.persona, fallback=MAP_REDUCE_FALLBACK_PROMPT)
         output_format = getattr(step.persona, "output_format", "json") if step.persona else "json"
 
@@ -858,7 +904,15 @@ class PipelineOrchestrator(QRunnable):
 
             item_str = json.dumps(item_content, ensure_ascii=False) if isinstance(item_content, dict | list) else str(item_content)
 
-            rendered_sys = self._render_prompt_template(raw_system_prompt, extra_context={"item": item_content, "index": index})
+            rendered_sys = self._render_prompt_template(
+                raw_system_prompt,
+                extra_context={
+                    "item": item_content,
+                    "index": index,
+                    "batch_size": batch_size,
+                    "total_items": total_batches,
+                },
+            )
             if self.state.get_variable("strict_source_grounding", False):
                 rendered_sys = "RÈGLE DE GROUNDING STRICTE : utilise exclusivement cet élément source. N'ajoute aucune information externe et omets toute carte non démontrable.\n\n" + rendered_sys
 
@@ -872,7 +926,7 @@ class PipelineOrchestrator(QRunnable):
             step_temperature = float(temperature_val) if temperature_val else None
 
             llm_res = self._call_provider_generate_response(
-                provider=self.ai_provider,
+                provider=effective_provider,
                 system_prompt=rendered_sys,
                 user_prompt=item_str,
                 response_format=output_format,
@@ -901,15 +955,15 @@ class PipelineOrchestrator(QRunnable):
                 completed_count += 1
                 self.signals.step_progress.emit(
                     completed_count,
-                    total_items,
-                    f"Génération Parallèle : {completed_count}/{total_items}",
+                    total_batches,
+                    f"Génération Parallèle : {completed_count}/{total_batches}",
                 )
             return parsed
 
         # Exécution parallèle avec ThreadPoolExecutor
-        workers = min(self.max_map_workers, max(1, total_items))
+        workers = min(self.max_map_workers, max(1, total_batches))
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-            future_to_index = {executor.submit(contextvars.copy_context().run, _process_item, i, item): i for i, item in enumerate(items)}
+            future_to_index = {executor.submit(contextvars.copy_context().run, _process_item, i, batch): i for i, batch in enumerate(batches)}
             ordered_results: dict[int, Any] = {}
             for future in concurrent.futures.as_completed(future_to_index):
                 if self._is_cancelled:
@@ -920,19 +974,20 @@ class PipelineOrchestrator(QRunnable):
                     if res is not None:
                         ordered_results[idx] = res
                 except Exception as e:
-                    logger.error("Erreur sur l'élément %d en Map-Reduce: %s", idx, e)
+                    logger.error("Erreur sur le lot %d en Map-Reduce: %s", idx, e)
 
         if self._is_cancelled:
             logger.info("[Orchestrateur DAG] Map-Reduce annulé par l'utilisateur, état partiel non consolidé.")
             return
 
         # Recomposer les résultats dans l'ordre
-        for i in range(total_items):
+        for i in range(total_batches):
             if i in ordered_results:
                 results.append(ordered_results[i])
 
         if item_thoughts:
-            combined_map_thought = "\n\n---\n\n".join(f"[Élément {idx + 1}/{total_items}] {item_thoughts[idx]}" for idx in sorted(item_thoughts.keys()))
+            unit_label = "Lot" if (batch_size > 1 and len(items) > total_batches) else "Élément"
+            combined_map_thought = "\n\n---\n\n".join(f"[{unit_label} {idx + 1}/{total_batches}] {item_thoughts[idx]}" for idx in sorted(item_thoughts.keys()))
             self.state.set_variable(f"thought_step_{step.step_order}", combined_map_thought)
             self.state.set_variable("last_thought", combined_map_thought)
             preview = combined_map_thought.strip().replace("\n", " ")
@@ -946,11 +1001,12 @@ class PipelineOrchestrator(QRunnable):
                 preview,
             )
 
-        # Phase de Réduction : fusionner les listes ou dictionnaires
-        aggregated_cards: list[dict] = []
+        # 5. Phase de Réduction : fusionner les listes ou dictionnaires
+        aggregated_cards: list[dict[str, Any]] = []
         for r in results:
-            if isinstance(r, dict) and "cards" in r and isinstance(r["cards"], list):
-                aggregated_cards.extend(r["cards"])
+            extracted = extract_cards_from_data(r)
+            if extracted:
+                aggregated_cards.extend(extracted)
             elif isinstance(r, list):
                 for sub in r:
                     if isinstance(sub, dict):
@@ -962,7 +1018,14 @@ class PipelineOrchestrator(QRunnable):
         if aggregated_cards:
             _stamp_card_source_metadata(aggregated_cards, source_ctx, documentation_enabled)
             self.state.set_variable("generated_cards", aggregated_cards)
-        self.state.set_variable("last_output", aggregated_cards if aggregated_cards else results)
+
+        final_output: Any = aggregated_cards if aggregated_cards else results
+        self.state.set_variable("last_output", final_output)
+
+        out_var = step_cfg.get("output_variable")
+        if out_var:
+            self.state.set_variable(out_var, final_output)
+        self.state.set_variable(f"result_step_{step.step_order}", final_output)
 
     def _execute_human_validation(self, step: PipelineStepModel) -> None:
         """Met le DAG en pause et attend l'interaction de l'utilisateur sur l'UI."""

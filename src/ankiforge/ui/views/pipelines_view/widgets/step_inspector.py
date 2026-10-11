@@ -703,6 +703,11 @@ class StepInspectorPanel(QFrame):
                 combo_mode.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_PRIMARY), self.tr("Par Page (PDF)"), userData="page")
                 combo_mode.addItem(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_PRIMARY), self.tr("Par Section / Chapitre"), userData="chapter")
                 combo_mode.addItem(load_phosphor_icon("ph.package", color=DesignTokens.TEXT_PRIMARY), self.tr("Par Lots de Paragraphes"), userData="paragraphs")
+                cur_mode = cfg.get("split_mode", "paragraphs")
+                for idx in range(combo_mode.count()):
+                    if combo_mode.itemData(idx) == cur_mode:
+                        combo_mode.setCurrentIndex(idx)
+                        break
                 combo_mode.currentIndexChanged.connect(lambda: self._on_config_changed("split_mode", combo_mode.currentData()))
                 row_mr.addWidget(lbl_mode)
                 row_mr.addWidget(combo_mode, 1)

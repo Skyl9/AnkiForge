@@ -2054,7 +2054,7 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
         <location line="+37"/>
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="-138"/>
         <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-19"/>
-        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+935"/>
+        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+940"/>
         <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+373"/>
         <source>%1%2</source>
         <translation type="unfinished"></translation>
@@ -3308,7 +3308,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="-840"/>
+        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="-845"/>
         <source>Agent IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3363,7 +3363,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+366"/>
+        <location line="+371"/>
         <source>Tagguer les cartes avec leur section source</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13429,7 +13429,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>PersonaIdentityCard</name>
     <message>
-        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="-666"/>
+        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="-671"/>
         <source>&lt;b&gt;Agent : Non défini&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14785,7 +14785,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+16"/>
         <source>Variable d&apos;entrée :</source>
         <translation type="unfinished"></translation>
     </message>
