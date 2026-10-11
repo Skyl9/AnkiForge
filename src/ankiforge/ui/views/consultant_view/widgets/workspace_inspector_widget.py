@@ -93,13 +93,20 @@ class WorkspaceInspectorWidget(QWidget):
         main_layout.addLayout(header_layout)
 
         # ── 2. Navigation de la File d'Attente de Propositions (Batch Queue) ──
+        # ── 2. Navigation de la File d'Attente de Propositions (Batch Queue) ──
         self.queue_bar = QFrame()
+        self.queue_bar.setObjectName("workspace_queue_bar")
+        self.queue_bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.queue_bar.setStyleSheet(f"""
-            QFrame {{
+            QFrame#workspace_queue_bar {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 4px;
+            }}
+            QFrame#workspace_queue_bar QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         queue_layout = QHBoxLayout(self.queue_bar)
@@ -114,7 +121,7 @@ class WorkspaceInspectorWidget(QWidget):
 
         self.lbl_queue_status = QLabel(self.tr("Proposition 0 / 0"))
         self.lbl_queue_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_queue_status.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        self.lbl_queue_status.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         queue_layout.addWidget(self.lbl_queue_status, 1)
 
         self.btn_next_patch = QPushButton(self.tr("▶"))
@@ -133,12 +140,18 @@ class WorkspaceInspectorWidget(QWidget):
 
         # Bannière Garde-Fou
         self.banner_guard = QFrame()
+        self.banner_guard.setObjectName("workspace_banner_guard")
+        self.banner_guard.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.banner_guard.setStyleSheet(f"""
-            QFrame {{
+            QFrame#workspace_banner_guard {{
                 background-color: {DesignTokens.COLOR_YELLOW_BG};
                 border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};
                 border-radius: 6px;
                 padding: 6px;
+            }}
+            QFrame#workspace_banner_guard QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         banner_layout = QHBoxLayout(self.banner_guard)
@@ -146,11 +159,12 @@ class WorkspaceInspectorWidget(QWidget):
         banner_layout.setSpacing(6)
 
         icon_guard = QLabel()
+        icon_guard.setStyleSheet("border: none; background: transparent;")
         icon_guard.setPixmap(load_phosphor_icon("ph.shield-check", color=DesignTokens.COLOR_YELLOW).pixmap(16, 16))
         banner_layout.addWidget(icon_guard)
 
         self.lbl_guard_msg = QLabel(self.tr("<b>Garde-Fou actif :</b> Validez ou éditez ci-dessous avant d'enregistrer en BDD."))
-        self.lbl_guard_msg.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px;")
+        self.lbl_guard_msg.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; border: none; background: transparent;")
         banner_layout.addWidget(self.lbl_guard_msg, 1)
         main_layout.addWidget(self.banner_guard)
 
@@ -249,12 +263,18 @@ class WorkspaceInspectorWidget(QWidget):
 
         # ── 4. Barre d'Actions Garde-Fou ─────────────────────────────────────
         self.actions_frame = QFrame()
+        self.actions_frame.setObjectName("workspace_actions_frame")
+        self.actions_frame.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.actions_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#workspace_actions_frame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 6px;
+            }}
+            QFrame#workspace_actions_frame QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         actions_layout = QHBoxLayout(self.actions_frame)

@@ -292,12 +292,18 @@ class FieldDiffWidget(QFrame):
 
         # Colonne Gauche : Actuel (Original)
         col_orig = QFrame()
+        col_orig.setObjectName("col_orig")
+        col_orig.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         col_orig.setMinimumWidth(0)
         col_orig.setStyleSheet(f"""
-            QFrame {{
+            QFrame#col_orig {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
+            }}
+            QFrame#col_orig QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         col_orig_layout = QVBoxLayout(col_orig)
@@ -316,12 +322,18 @@ class FieldDiffWidget(QFrame):
 
         # Colonne Droite : Proposition IA (Éditable)
         col_mod = QFrame()
+        col_mod.setObjectName("col_mod")
+        col_mod.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         col_mod.setMinimumWidth(0)
         col_mod.setStyleSheet(f"""
-            QFrame {{
+            QFrame#col_mod {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.ACCENT_PRIMARY};
                 border-radius: 4px;
+            }}
+            QFrame#col_mod QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         col_mod_layout = QVBoxLayout(col_mod)
@@ -799,12 +811,27 @@ class InlineDiffCardWidget(QFrame):
 
     def set_view_mode(self, mode: str, propagate: bool = True) -> None:
         """Bascule tous les champs entre la Vue Unifiée et la Vue Côte à côte et mémorise le choix."""
+        from shiboken6 import isValid
+
+        if not isValid(self):
+            return
+
         self.current_view_mode = mode
         if propagate:
             save_saved_diff_view_mode(mode)
             for card in list(InlineDiffCardWidget._active_instances):
+                if not isValid(card):
+                    continue
                 if card is not self and card.current_view_mode != mode:
-                    card.set_view_mode(mode, propagate=False)
+                    try:
+                        card.set_view_mode(mode, propagate=False)
+                    except RuntimeError:
+                        pass
+
+        if not hasattr(self, "btn_view_unified") or not isValid(self.btn_view_unified):
+            return
+        if not hasattr(self, "btn_view_split") or not isValid(self.btn_view_split):
+            return
 
         is_unified = mode == "unified"
         self.btn_view_unified.setProperty("active", is_unified)
@@ -815,7 +842,11 @@ class InlineDiffCardWidget(QFrame):
         self.btn_view_split.style().polish(self.btn_view_split)
 
         for fw in self.field_widgets:
-            fw.set_view_mode(mode)
+            if isValid(fw):
+                try:
+                    fw.set_view_mode(mode)
+                except RuntimeError:
+                    pass
 
     @Slot()
     def _on_apply_clicked(self) -> None:

@@ -279,29 +279,35 @@ class ConsultantSessionSidebar(QFrame):
         layout.addWidget(self.list_widget, 1)
 
         # ── 4. Footer avec métriques de session ─────────────────────────────
-        footer = QFrame()
-        footer.setStyleSheet(f"""
-            QFrame {{
+        self.footer = QFrame()
+        self.footer.setObjectName("session_sidebar_footer")
+        self.footer.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.footer.setStyleSheet(f"""
+            QFrame#session_sidebar_footer {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 6px;
             }}
+            QFrame#session_sidebar_footer QLabel {{
+                border: none;
+                background: transparent;
+            }}
         """)
-        footer_layout = QHBoxLayout(footer)
+        footer_layout = QHBoxLayout(self.footer)
         footer_layout.setContentsMargins(6, 4, 6, 4)
         footer_layout.setSpacing(6)
 
         self.lbl_footer_tokens = QLabel(self.tr("⚡ 0 tokens"))
-        self.lbl_footer_tokens.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
+        self.lbl_footer_tokens.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; border: none; background: transparent;")
         footer_layout.addWidget(self.lbl_footer_tokens)
         footer_layout.addStretch()
 
         self.lbl_footer_cards = QLabel(self.tr("📦 0 mod."))
-        self.lbl_footer_cards.setStyleSheet(f"font-size: 10px; color: {DesignTokens.COLOR_GREEN}; font-weight: 600;")
+        self.lbl_footer_cards.setStyleSheet(f"font-size: 10px; color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border: none; background: transparent;")
         footer_layout.addWidget(self.lbl_footer_cards)
 
-        layout.addWidget(footer)
+        layout.addWidget(self.footer)
 
     def set_sessions(self, sessions: list[ConsultantSessionModel], active_id: int | None = None) -> None:
         """Met à jour la liste des sessions affichées."""
@@ -366,4 +372,17 @@ class ConsultantSessionSidebar(QFrame):
                 background-color: {profile.bg_sidebar};
             }}
         """)
+        if hasattr(self, "footer"):
+            self.footer.setStyleSheet(f"""
+                QFrame#session_sidebar_footer {{
+                    background-color: {profile.bg_input};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_sm}px;
+                    padding: 6px;
+                }}
+                QFrame#session_sidebar_footer QLabel {{
+                    border: none;
+                    background: transparent;
+                }}
+            """)
         self._render_list()

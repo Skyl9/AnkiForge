@@ -148,6 +148,10 @@ class ContextAssetCard(QFrame):
             ContextAssetCard:hover {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
+            ContextAssetCard QLabel {{
+                border: none;
+                background: transparent;
+            }}
         """)
 
         layout = QHBoxLayout(self)
@@ -156,17 +160,24 @@ class ContextAssetCard(QFrame):
 
         # Conteneur d'icône teinté
         icon_box = QFrame()
+        icon_box.setObjectName("context_asset_icon_box")
+        icon_box.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         icon_box.setFixedSize(28, 28)
         icon_box.setStyleSheet(f"""
-            QFrame {{
+            QFrame#context_asset_icon_box {{
                 background-color: {bg_tint};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QFrame#context_asset_icon_box QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         ib_layout = QHBoxLayout(icon_box)
         ib_layout.setContentsMargins(0, 0, 0, 0)
         lbl_icon = QLabel()
+        lbl_icon.setStyleSheet("border: none; background: transparent;")
         lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_icon.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(16, 16))
         ib_layout.addWidget(lbl_icon)
@@ -274,11 +285,17 @@ class ContextHubWidget(QWidget):
         container_layout.addLayout(sec_persona_header)
 
         persona_card = QFrame()
+        persona_card.setObjectName("context_hub_persona_card")
+        persona_card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         persona_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#context_hub_persona_card {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#context_hub_persona_card QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         persona_layout = QVBoxLayout(persona_card)
@@ -318,12 +335,18 @@ class ContextHubWidget(QWidget):
 
         # Encadré de citation pour la directive
         self.directive_frame = QFrame()
+        self.directive_frame.setObjectName("context_hub_directive_frame")
+        self.directive_frame.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.directive_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#context_hub_directive_frame {{
                 background-color: {DesignTokens.BG_MAIN};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-left: 3px solid {DesignTokens.ACCENT_PRIMARY};
                 border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QFrame#context_hub_directive_frame QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         dir_layout = QVBoxLayout(self.directive_frame)
@@ -378,14 +401,20 @@ class ContextHubWidget(QWidget):
 
         # État vide moderne et interactif (attribut conservé pour compatibilité des tests)
         self.empty_state_lbl = QFrame()
+        self.empty_state_lbl.setObjectName("context_hub_empty_state_lbl")
+        self.empty_state_lbl.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.empty_state_lbl.setStyleSheet(f"""
-            QFrame {{
+            QFrame#context_hub_empty_state_lbl {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px dashed {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
-            QFrame:hover {{
+            QFrame#context_hub_empty_state_lbl:hover {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QFrame#context_hub_empty_state_lbl QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         empty_layout = QVBoxLayout(self.empty_state_lbl)
@@ -483,11 +512,17 @@ class ContextHubWidget(QWidget):
         container_layout.addLayout(sec_mem_header)
 
         memory_card = QFrame()
+        memory_card.setObjectName("context_hub_memory_card")
+        memory_card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         memory_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#context_hub_memory_card {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#context_hub_memory_card QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         memory_layout = QVBoxLayout(memory_card)
@@ -498,7 +533,9 @@ class ContextHubWidget(QWidget):
         bar_header = QHBoxLayout()
         bar_header.setContentsMargins(0, 0, 0, 0)
         self.lbl_token_usage_total = QLabel(self.tr("0 / 128k tokens (0%)"))
-        self.lbl_token_usage_total.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
+        self.lbl_token_usage_total.setStyleSheet(
+            f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;"
+        )
         bar_header.addWidget(self.lbl_token_usage_total)
         bar_header.addStretch()
 
@@ -518,11 +555,17 @@ class ContextHubWidget(QWidget):
 
         # Tableau structuré de ventilation (Breakdown)
         breakdown_box = QFrame()
+        breakdown_box.setObjectName("context_hub_breakdown_box")
+        breakdown_box.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         breakdown_box.setStyleSheet(f"""
-            QFrame {{
+            QFrame#context_hub_breakdown_box {{
                 background-color: {DesignTokens.BG_MAIN};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QFrame#context_hub_breakdown_box QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         bd_layout = QVBoxLayout(breakdown_box)
