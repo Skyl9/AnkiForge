@@ -16,6 +16,7 @@ from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — r
 from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view import AgentsView
+from ankiforge.utils.environment import is_development
 from ankiforge.utils.event_bus import (
     OpenConsultantRequestedEvent,
     OpenFeedbackRequestedEvent,
@@ -94,7 +95,6 @@ class MainWindow(QMainWindow):
         self.mcp_daemon: Any | None = None
 
         from ankiforge import __version__
-        from ankiforge.utils.environment import is_development
 
         title_suffix = f" [DEV] - profil: {profile_name} (v{__version__})" if is_development() else f" - {profile_name}"
         self.setWindowTitle(tr("AnkiForge%1", title_suffix))
@@ -536,9 +536,13 @@ class MainWindow(QMainWindow):
         self._refresh_nav_badges()
 
     def _setup_debug_shortcuts(self) -> None:
-        """Configure les raccourcis de debug (ex: Capture d'écran)."""
+        """Configure les raccourcis de debug (ex: Capture d'écran, Galerie des dialogues)."""
         screenshot_shortcut = QShortcut(QKeySequence("Ctrl+F12"), self)
         screenshot_shortcut.activated.connect(self._take_debug_screenshot)
+
+        if is_development():
+            gallery_shortcut = QShortcut(QKeySequence("Ctrl+Alt+D"), self)
+            gallery_shortcut.activated.connect(self._open_dialog_gallery)
 
     def _setup_global_shortcuts(self) -> None:
         """Configure les raccourcis clavier universels (Sauvegarde, Exécution, Recherche, Import, Export)."""
@@ -871,6 +875,17 @@ class MainWindow(QMainWindow):
             self._open_feedback_dialog()
         elif command_id == "action.crash_report":
             self._open_crash_report_dialog()
+        elif command_id == "action.dialog_gallery":
+            self._open_dialog_gallery()
+
+    def _open_dialog_gallery(self) -> None:
+        """Ouvre la galerie des boîtes de dialogue en mode développement."""
+        if not is_development():
+            return
+        from ankiforge.ui.dialogs.dialog_gallery_dialog import DialogGalleryDialog
+
+        gallery = DialogGalleryDialog(parent=self)
+        gallery.exec()
 
     def _open_feedback_dialog(self, tab: str = "bug", initial_title: str = "", context_error: str = "") -> None:
         """Ouvre la boîte de dialogue de retours utilisateurs et boîte à idées."""

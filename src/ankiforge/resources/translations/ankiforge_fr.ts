@@ -32,7 +32,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/main_window.py" line="+75"/>
+        <location filename="../../ui/main_window.py" line="+76"/>
         <source>Général</source>
         <extracomment>view_id -&gt; (catégorie, icône, titre, WidgetClass) La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés ne peuvent être résolus qu&apos;une fois le traducteur installé, donc au premier usage. Une constante de classe figerait le français à l&apos;import du module — c&apos;est-à-dire avant `install_translator()` — et la navigation resterait française dans une interface anglaise. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne casse rien, les vues d&apos;un même groupe partagent toujours la même clef.</extracomment>
         <translation type="unfinished"></translation>
@@ -595,7 +595,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/crash_report_dialog.py" line="+145"/>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+265"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+293"/>
         <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -624,6 +624,64 @@ Cliquer pour voir les détails</source>
     <message>
         <location filename="../../ui/dialogs/css_conflict_dialog.py" line="+60"/>
         <source>Le snippet « %1 » utilise des classes déjà présentes dans votre modèle.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/dialogs/dialog_gallery_dialog.py" line="+103"/>
+        <source>[Galerie Dev] %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+65"/>
+        <location filename="../../ui/widgets/time_machine_dialog.py" line="+129"/>
+        <source>v%1%2  —  %3
+📅 %4</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>[Mode Galerie] Simuler la restauration de la version v%1 ?
+Aucune modification ne sera écrite en base de données.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>[Galerie Dev] Simulation : version v%1 restaurée avec succès (aucune écriture BDD).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+64"/>
+        <source>[Galerie Dev] Simulation réussie : %1 cartes modifiées avec succès (aucune écriture BDD).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+289"/>
+        <source>Dernière action : CrashReportDialog fermé (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Dernière action : FeedbackDialog fermé (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Dernière action : NoteTypeRoleGuideDialog fermé (directive sélectionnée : %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Dernière action : TimeMachineDialog fermé (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Dernière action : GroupEditDialog fermé (succès simulé : %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Dernière action : BatchSliceComposerDialog fermé (code %1).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1331,7 +1389,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+14"/>
         <source>AnkiForge%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1348,7 +1406,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+359"/>
+        <location line="+363"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -1356,7 +1414,7 @@ Voulez-vous vraiment %2 ? Ce travail sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+191"/>
+        <location line="+202"/>
         <source>Impossible de basculer vers l&apos;espace « %1 » : il est actuellement ouvert par une autre instance%2.
 
 L&apos;accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.</source>
@@ -3618,7 +3676,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/command_palette.py" line="+194"/>
+        <location filename="../../ui/widgets/command_palette.py" line="+203"/>
         <source>[%1]</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4025,7 +4083,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+179"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+184"/>
         <source>✓ Paramètres sauvegardés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4154,6 +4212,36 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
     <message>
         <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="+282"/>
         <source>Drapeau %1 :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widgets/settings_modal/tabs/developer_tab.py" line="+315"/>
+        <source>Dernier test : CrashReportDialog exécuté (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Dernier test : FeedbackDialog exécuté (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Dernier test : NoteTypeRoleGuideDialog exécuté (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Dernier test : TimeMachineDialog exécuté (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Dernier test : GroupEditDialog exécuté (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Dernier test : BatchSliceComposerDialog exécuté (code %1).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4365,7 +4453,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/time_machine_dialog.py" line="-19"/>
+        <location filename="../../ui/widgets/time_machine_dialog.py" line="-148"/>
         <source>🕒 Machine à Remonter le Temps — Carte #%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4375,13 +4463,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+134"/>
-        <source>v%1%2  —  %3
-📅 %4</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+50"/>
+        <location line="+184"/>
         <source>Voulez-vous restaurer la version v%1 ?
 Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
@@ -7681,7 +7763,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CommandPalette</name>
     <message>
-        <location filename="../../ui/widgets/command_palette.py" line="-124"/>
+        <location filename="../../ui/widgets/command_palette.py" line="-132"/>
         <source>Rechercher cartes, paquets, vues ou commandes...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8861,6 +8943,267 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+11"/>
         <source>Renommage impossible</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>DeveloperTab</name>
+    <message>
+        <location filename="../../ui/widgets/settings_modal/tabs/developer_tab.py" line="-259"/>
+        <source>Cockpit Runtime &amp; Environnement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Métadonnées d&apos;exécution et localisation des données du profil développeur.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>MODE DÉVELOPPEMENT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Environnement :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Profil actif :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Version AnkiForge :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Interpréteur Python :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Base de données :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>Galerie de Test des Boîtes de Dialogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Instanciez les dialogues majeurs de l&apos;application avec des données mockées sans impacter la base réelle.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Ouvrir la Galerie Plein Écran</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Rapport de Crash</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Traceback simulé, logs masqués et dialogue non-bloquant.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Retours &amp; Suggestions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Formulaire de signalement de bug et boîte à idées.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Guide des Rôles IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Catalogue des archétypes sémantiques et prompt éditeur.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Machine à Remonter le Temps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Historique multi-versions d&apos;une note et diff coloré.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Édition Groupée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Modification de tags et remplacement de champs en masse.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Découpeur de Lot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Assistant multi-étapes document → découpage → récapitulatif.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+45"/>
+        <source>Lancer le test</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Prêt : aucun dialogue ouvert pour le moment.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>[Galerie Dev] Test visuel Feedback</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>DialogGalleryDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/dialog_gallery_dialog.py" line="-213"/>
+        <source>Galerie des Boîtes de Dialogue [Mode Dev]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+41"/>
+        <source>Galerie des Boîtes de Dialogue &amp; Modales</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Instanciez à la demande n&apos;importe quelle modale avec données mockées. Les modifications sont simulées sans altérer SQLite.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Filtrer les dialogues (nom, rôle, mot-clé)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Sélectionnez un dialogue pour l&apos;ouvrir.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Fermer la galerie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Rapport de Crash</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Affiche la modale d&apos;incident avec un CrashReport réaliste (traceback ZeroDivisionError masqué et métadonnées système).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Incident &amp; Traceback</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Retours &amp; Signalements</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Modale bivalente pour signaler une anomalie (avec logs et diagnostic pré-remplis) ou soumettre une idée de fonctionnalité.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Formulaire Utilisateur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Guide des Rôles IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Catalogue des archétypes de modèles de cartes et éditeur visuel de tableau Markdown avec prévisualisation en temps réel.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sémantique IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Machine à Remonter le Temps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Exploration de l&apos;historique complet d&apos;une carte (3 versions mockées), visualiseur de diff syntaxique et simulation de restauration.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Historique &amp; Diff</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Édition Groupée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Modification de masse sur 3 cartes factices : ajout/suppression de tags et recherche/remplacement de contenu sans écriture.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Multi-Cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Découpeur de Lot (Batch)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Parcours en 3 étapes : choix du document, mode de découpage (Direct ou Auto) et récapitulatif des tâches générées.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Orchestration Lot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+32"/>
+        <source>[Galerie Dev] Signalement d&apos;anomalie UI test</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -11264,6 +11607,14 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>GalleryCardWidget</name>
+    <message>
+        <location filename="../../ui/dialogs/dialog_gallery_dialog.py" line="-197"/>
+        <source>Tester le dialogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>GeneralTab</name>
     <message>
         <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-811"/>
@@ -12097,6 +12448,83 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>IsolatedBatchSliceComposerDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/dialog_gallery_dialog.py" line="-86"/>
+        <source>[Galerie Dev] Composer le lot (Mode simulation)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>[Galerie Dev] Composition terminée : tâches prêtes en mémoire (aucune écriture en file de lot).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>IsolatedCrashReportDialog</name>
+    <message>
+        <location line="-166"/>
+        <source>[Mode Galerie] Préférence simulée (aucun impact QSettings)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>✓ Rapport copié (mode galerie, aucun acquittement)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>IsolatedGroupEditDialog</name>
+    <message>
+        <location line="+90"/>
+        <source>[Galerie Dev] Édition groupée (3 cartes mockées)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Champ manquant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Veuillez sélectionner un champ cible.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Texte manquant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Veuillez préciser le texte à rechercher.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Aucune modification</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Veuillez renseigner au moins une action (tags à ajouter/retirer ou modification de champ).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>IsolatedTimeMachineDialog</name>
+    <message>
+        <location line="-114"/>
+        <source>[Galerie Dev] Machine à Remonter le Temps — Carte #9999</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+56"/>
+        <source>Confirmer la restauration (Mode Galerie)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>KaTeXEditor</name>
     <message>
         <location filename="../../ui/widgets/katex_editor.py" line="+270"/>
@@ -12632,7 +13060,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-661"/>
+        <location filename="../../ui/main_window.py" line="-676"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12642,12 +13070,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+390"/>
+        <location line="+394"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+111"/>
+        <location line="+122"/>
         <source>Aucun incident n&apos;est enregistré dans crash.log.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14736,8 +15164,8 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SettingsModal</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="-381"/>
-        <location line="+195"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="-411"/>
+        <location line="+220"/>
         <source>Paramètres AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14747,7 +15175,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+64"/>
+        <location line="+67"/>
         <source>⌨️ Échap pour fermer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14757,7 +15185,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+55"/>
         <source>Application des tokens et du design system...</source>
         <translation type="unfinished"></translation>
     </message>

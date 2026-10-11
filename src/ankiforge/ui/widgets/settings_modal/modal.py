@@ -24,6 +24,7 @@ from ankiforge.ui.widgets.settings_modal.components import (
 )
 from ankiforge.ui.widgets.settings_modal.tabs.general_tab import GeneralTab
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.environment import is_development
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_active_profile
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from ankiforge.ui.widgets.settings_modal.tabs import (
         AIEnginesTab,
         AnkiSyncTab,
+        DeveloperTab,
         StorageMaintenanceTab,
         TTSSettingsTab,
     )
@@ -60,6 +62,7 @@ class SettingsModal(QDialog):
         self._tts_tab: TTSSettingsTab | None = None
         self._maint_tab: StorageMaintenanceTab | None = None
         self._addons_tab: AddonManagerWidget | None = None
+        self._dev_tab: DeveloperTab | None = None
         self._tabs: list[QWidget | None] = []
 
         self.setWindowTitle(self.tr("Paramètres AnkiForge"))
@@ -126,6 +129,11 @@ class SettingsModal(QDialog):
 
             self._addons_tab = AddonManagerWidget()
             tab = self._addons_tab
+        elif index == 6 and is_development():
+            from ankiforge.ui.widgets.settings_modal.tabs.developer_tab import DeveloperTab
+
+            self._dev_tab = DeveloperTab(parent=self)
+            tab = self._dev_tab
         else:
             return self.general_tab
 
@@ -228,6 +236,26 @@ class SettingsModal(QDialog):
         self.stacked_widget.insertWidget(5, value)
         self.stacked_widget.blockSignals(False)
 
+    @property
+    def dev_tab(self) -> Any:
+        if is_development():
+            return self._ensure_tab_loaded(6)
+        return None
+
+    @dev_tab.setter
+    def dev_tab(self, value: Any) -> None:
+        if not is_development():
+            return
+        self._dev_tab = value
+        self._tabs[6] = value
+        old = self.stacked_widget.widget(6)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old)
+        if old is not None:
+            old.deleteLater()
+        self.stacked_widget.insertWidget(6, value)
+        self.stacked_widget.blockSignals(False)
+
     def _update_save_enabled(self) -> None:
         if hasattr(self, "btn_save_all"):
             self.btn_save_all.setEnabled(self._tabs_have_changes())
@@ -301,6 +329,8 @@ class SettingsModal(QDialog):
             ("Maintenance", "ph.wrench", 4),
             ("Extensions", "ph.puzzle-piece", 5),
         ]
+        if is_development():
+            tabs_info.append(("Développeur", "ph.code", 6))
 
         for title, icon_name, idx in tabs_info:
             btn = SettingsNavButton(title, icon_name, idx)
@@ -316,10 +346,11 @@ class SettingsModal(QDialog):
 
         # Stacked Widget avec chargement différé (lazy-loading) des onglets
         self.general_tab = GeneralTab()
-        self._tabs = [self.general_tab, None, None, None, None, None]
+        num_additional = 6 if is_development() else 5
+        self._tabs = [self.general_tab] + [None] * num_additional
 
         self.stacked_widget.addWidget(self.general_tab)
-        for _ in range(5):
+        for _ in range(num_additional):
             self.stacked_widget.addWidget(QWidget())
 
         body_layout.addWidget(self.stacked_widget, 1)
@@ -416,6 +447,8 @@ class SettingsModal(QDialog):
             self._tts_tab.save_tab()
         if self._maint_tab is not None:
             self._maint_tab.save_tab()
+        if self._dev_tab is not None:
+            self._dev_tab.save_tab()
 
         theme_title = self.general_tab.cb_theme.currentText() or "Nouveau Thème"
         apply_layout = bool(layout_changed and selected_layout_id)

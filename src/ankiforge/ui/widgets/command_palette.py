@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.utils.environment import is_development
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -138,6 +139,14 @@ class CommandPalette(QDialog):
         self.register_command("action.tour", "Lancer la visite guidée d'AnkiForge", "compass", "F1", "Aide")
         self.register_command("action.feedback", "Signaler un bug ou proposer une idée", "chat-circle-dots", "", "Aide")
         self.register_command("action.settings", "Ouvrir les Paramètres", "gear", "Ctrl+,", "Système")
+        if is_development():
+            self.register_command(
+                "action.dialog_gallery",
+                "Galerie des Boîtes de Dialogue (Dev)",
+                "app-window",
+                "Ctrl+Alt+D",
+                "Développement",
+            )
 
         self.refresh_data()
 
