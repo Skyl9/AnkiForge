@@ -1,6 +1,16 @@
-# Consultant IA Autonome & Serveur MCP 🤝
+# Hub MCP & Agents : Consultant IA Autonome & Serveur MCP 🤝
 
-Le **Consultant IA** d'AnkiForge est bien plus qu'un simple chatbot textuel : c'est un agent d'ingénierie autonome capable d'interagir directement avec votre base de données locale, d'auditer vos modèles et d'effectuer des opérations complexes sur votre collection grâce au protocole **MCP** (*Model Context Protocol*).
+AnkiForge articule son outillage d'assistance autour d'un **Hub « MCP & Agents »** unifié privilégiant la délégation à vos agents externes sans surcoût d'API, tout en maintenant un studio de consultation intégré.
+
+---
+
+## 🌐 1. Hub MCP & Agents : La Voie Reine (Serveur MCP d'Abord)
+
+Le Consultant IA in-app est une fonctionnalité avancée où chaque appel d'inférence consomme des tokens. Le **serveur MCP**, quant à lui, permet à vos agents autonomes déjà installés (Claude Code, Antigravity CLI, Cursor, OpenCode) de piloter AnkiForge directement :
+- **Zéro surcoût d'API** : Le raisonnement s'exécute dans l'environnement de votre agent sans facturation supplémentaire côté AnkiForge.
+- **Deux onglets distincts** : L'interface IDE expose désormais en premier lieu l'onglet **« Serveur MCP »** (pleine largeur, monitoring, pilotage du démon et snippets clients) et en second lieu l'onglet **« Consultant IA »** (studio de chat avec historique de sessions et inspecteur de diffs).
+- **Snippets 1-clic** : Configuration immédiate pour Claude Desktop/Code, Antigravity CLI (`agy`), Cursor et commandes cURL.
+- **Demandes contextuelles externes** : Lorsqu'une action IDE déclenche une assistance contextuelle (« Demander au consultant » depuis une note ou une source), un bandeau prêt à copier pour votre agent externe s'affiche au sommet du tableau de bord MCP (comportement personnalisable dans les Préférences via `consultant/external_prompt_target`).
 
 ---
 

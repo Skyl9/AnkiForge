@@ -130,6 +130,7 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Validation en deux phases (Two-Phase Commit)** : principe de sécurité selon lequel aucune opération chirurgicale ou destructive initiée par un agent n'altère directement la collection, chaque mutation devant obligatoirement être soumise sous forme de patch intermédiaire puis validée par l'utilisateur.
 - **Bloc de réflexion étendu (Extended Thinking / Thought Block)** : flux de raisonnement intermédiaire émis par un modèle d'IA avant de formuler sa réponse finale, streamé en temps réel dans l'interface avec des métriques de temps et de tokens, et distinct du contenu final des cartes.
 - **Composant de discussion riche (Rich Chat Widget)** : élément d'interface interactif (tableau de cartes, prévisualisation avec formules KaTeX, sélecteur de modèle) inséré directement dans le fil de conversation du Consultant IA pour manipuler la collection au-delà du simple texte.
+- **Hub MCP & Agents** : interface centrale de supervision et d'accueil orientant en premier lieu vers le serveur MCP local pour outiller les agents externes sans surcoût d'API, tout en maintenant l'accès au Consultant IA in-app en second plan.
 
 ## Profils, Sauvegardes & Durcissement
 
