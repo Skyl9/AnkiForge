@@ -760,7 +760,7 @@ class StepInspectorPanel(QFrame):
 
             row_doc = OptionToggleRow(
                 tr("Tagguer les cartes avec leur section source"),
-                icon_name="ph.tags",
+                icon_name="ph.tag",
                 checked=bool(cfg.get("declasser_sections_dans_tags", True)),
             )
             row_doc.setToolTip(self.tr("Active la documentation de couverture : l'IA localise et renseigne la section (H1→H6) d'origine de chaque carte ; désactiver coupe le suivi documentaire."))

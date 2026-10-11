@@ -205,7 +205,7 @@ class ContextItem(QWidget):
 
         layout.addStretch()
 
-        self.del_btn = IconButton("✕", "Remove", 24)
+        self.del_btn = IconButton("ph.x", self.tr("Supprimer"), 24)
         self.del_btn.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         self.del_btn.clicked.connect(self.removed.emit)
         layout.addWidget(self.del_btn)

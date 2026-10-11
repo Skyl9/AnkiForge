@@ -1714,7 +1714,7 @@ class EditionView(QWidget):
         action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
 
         move_text = tr("Déplacer vers un paquet (%1 cartes)...", count) if count > 1 else self.tr("Déplacer vers un paquet...")
-        action_move_deck = menu.addAction(load_phosphor_icon("folder-notch-plus", color=DesignTokens.TEXT_PRIMARY), move_text)
+        action_move_deck = menu.addAction(load_phosphor_icon("folder-simple-plus", color=DesignTokens.TEXT_PRIMARY), move_text)
         action_move_deck.triggered.connect(lambda: self._open_move_to_deck_modal(fallback_note_id=note.id))
 
         action_new_deck = menu.addAction(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY), self.tr("Nouveau paquet..."))

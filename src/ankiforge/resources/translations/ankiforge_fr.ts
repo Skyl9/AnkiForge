@@ -8098,6 +8098,14 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>ContextItem</name>
+    <message>
+        <location filename="../../ui/components/lists.py" line="+208"/>
+        <source>Supprimer</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ContextPillBadge</name>
     <message>
         <location filename="../../ui/views/consultant_view/view.py" line="-1644"/>
