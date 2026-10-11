@@ -632,12 +632,25 @@ class DocumentInspectorPanel(QWidget):
         while it.value():
             item = it.value()
             if item is not None and item.data(0, _ROLE_IS_CONTAINER):
+                heading = str(item.data(0, _ROLE_HEADING) or "")
+                exclusion_scope = DocumentRepository.get_section_exclusion_scope(self.doc, heading)
                 child_count = item.childCount()
                 total_cards = int(item.data(0, _ROLE_CARDS) or 0) + self._aggregate_descendant_cards(item)
                 title = str(item.data(0, _ROLE_TITLE) or "")
                 carte_label = "carte" if total_cards <= 1 else "cartes"
                 section_label = "sous-section" if child_count <= 1 else "sous-sections"
-                item.setText(0, tr("%1  ·  %2 %3 · %4 %5", title, child_count, section_label, total_cards, carte_label))
+                full_path = str(item.data(0, _ROLE_FULL_PATH) or title)
+
+                if exclusion_scope is RegionScope.HEADING:
+                    item.setText(0, tr("⊘ %1  ·  Exclue de l'analyse", title))
+                    item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
+                    item.setToolTip(0, tr("%1\nHors périmètre : cette section ne compte plus dans la couverture du document.", full_path))
+                elif exclusion_scope is RegionScope.NODE:
+                    item.setText(0, tr("⊖ %1  ·  Titre seul exclu · %2 %3 · %4 %5", title, child_count, section_label, total_cards, carte_label))
+                    item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
+                    item.setToolTip(0, tr("%1\nHors périmètre (titre seul) : le conteneur est exclu, ses sous-sections restent actives dans la couverture.", full_path))
+                else:
+                    item.setText(0, tr("%1  ·  %2 %3 · %4 %5", title, child_count, section_label, total_cards, carte_label))
             it += 1
 
     def _aggregate_descendant_cards(self, item: QTreeWidgetItem) -> int:
@@ -698,8 +711,15 @@ class DocumentInspectorPanel(QWidget):
         """
         title_str = str(item.data(0, _ROLE_TITLE) or "")
         full_path = str(item.data(0, _ROLE_FULL_PATH) or title_str)
+        heading = str(item.data(0, _ROLE_HEADING) or "")
 
         if is_excluded:
+            exclusion_scope = DocumentRepository.get_section_exclusion_scope(self.doc, heading)
+            if exclusion_scope is RegionScope.NODE:
+                item.setText(0, tr("⊖ %1  ·  Titre seul exclu (sous-sections actives)", title_str))
+                item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
+                item.setToolTip(0, tr("%1\nHors périmètre (titre seul) : le conteneur est exclu, ses sous-sections restent actives dans la couverture.", full_path))
+                return
             item.setText(0, tr("⊘ %1  ·  Exclue de l'analyse", title_str))
             item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
             item.setToolTip(0, tr("%1\nHors périmètre : cette section ne compte plus dans la couverture du document.", full_path))
@@ -820,6 +840,9 @@ class DocumentInspectorPanel(QWidget):
         if not DocumentRepository.is_excludable_heading(heading):
             return "Exclure cette section", "ph.prohibit", False, False
         if DocumentRepository.is_section_excluded(self.doc, heading):
+            scope = DocumentRepository.get_section_exclusion_scope(self.doc, heading)
+            if scope is RegionScope.NODE:
+                return "Ré-inclure le titre seul", "ph.arrow-counter-clockwise", True, True
             return "Ré-inclure la section", "ph.arrow-counter-clockwise", True, True
         return "Exclure cette section", "ph.prohibit", False, True
 
@@ -827,6 +850,7 @@ class DocumentInspectorPanel(QWidget):
         """Aligne le libellé de l'action d'exclusion sur la section sélectionnée."""
         item = self.chapters_tree.currentItem()
         title = str(item.data(0, _ROLE_TITLE) or "") if item is not None else ""
+        heading = str(item.data(0, _ROLE_HEADING) or "") if item is not None else ""
         label, icon_name, is_excluded, applicable = self._exclusion_spec(item)
 
         self.btn_exclude_section.setText(label)
@@ -835,7 +859,11 @@ class DocumentInspectorPanel(QWidget):
         if not applicable:
             self.btn_exclude_section.setToolTip(self.tr("Sélectionnez une section titrée : un fragment au libellé de page n'a pas de titre de section à exclure."))
         elif is_excluded:
-            self.btn_exclude_section.setToolTip(tr("Réintégrer « %1 » au périmètre du document et à sa couverture.", title))
+            scope = DocumentRepository.get_section_exclusion_scope(self.doc, heading)
+            if scope is RegionScope.NODE:
+                self.btn_exclude_section.setToolTip(tr("Réintégrer le titre seul de « %1 » au périmètre.", title))
+            else:
+                self.btn_exclude_section.setToolTip(tr("Réintégrer « %1 » au périmètre du document et à sa couverture.", title))
         else:
             self.btn_exclude_section.setToolTip(tr("Retirer « %1 » du périmètre : la section ne comptera plus comme une lacune de couverture.", title))
 
@@ -939,7 +967,7 @@ class DocumentInspectorPanel(QWidget):
         grain = " et ses sous-sections" if scope is RegionScope.HEADING else " seul"
         show_toast(self, tr("Section « %1 » %2%3.", item.data(0, _ROLE_TITLE) or heading, "réactivée" if was_neutralized else "neutralisée", grain))
 
-    def toggle_section_exclusion(self, *, scope: RegionScope = RegionScope.HEADING) -> None:
+    def toggle_section_exclusion(self, *, scope: RegionScope | None = None) -> None:
         """Exclut ou réintègre la région sélectionnée du périmètre d'analyse du document.
 
         L'exclusion est persistée sur ``DocumentModel.excluded_headings`` puis répercutée
@@ -956,7 +984,9 @@ class DocumentInspectorPanel(QWidget):
             show_toast(self, self.tr("Cette section n'a pas de titre exploitable : elle ne peut pas être exclue de l'analyse."))
             return
 
-        target = RegionAddress(scope, heading)
+        active_scope = DocumentRepository.get_section_exclusion_scope(self.doc, heading)
+        resolved_scope = scope if scope is not None else (active_scope or RegionScope.HEADING)
+        target = RegionAddress(resolved_scope, heading)
         was_excluded = any(entry.key == target.key for entry in DocumentRepository.get_excluded_regions(self.doc))
         repo = DocumentRepository()
         if not repo.set_region_excluded(self.doc_id, target, not was_excluded):
@@ -968,7 +998,8 @@ class DocumentInspectorPanel(QWidget):
         self._refresh_coverage_summary()
         self._sync_exclusion_action()
         self._sync_neutralization_action()
-        show_toast(self, tr("Section « %1 » %2 de l'analyse.", item.data(0, _ROLE_TITLE) or heading, "réintégrée" if was_excluded else "exclue"))
+        grain = " (titre seul)" if resolved_scope is RegionScope.NODE else ""
+        show_toast(self, tr("Section « %1 » %2 de l'analyse%3.", item.data(0, _ROLE_TITLE) or heading, "réintégrée" if was_excluded else "exclue", grain))
 
         self._applying_local_coverage_change = True
         try:
@@ -1079,24 +1110,33 @@ class DocumentInspectorPanel(QWidget):
         if item is None:
             return None
 
-        label, icon_name, _is_excluded, applicable = self._exclusion_spec(item)
+        label, icon_name, is_excluded, applicable = self._exclusion_spec(item)
         menu = StyledMenu(self)
         toggle_action = menu.addAction(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY), label)
         toggle_action.setEnabled(applicable)
-        toggle_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item, RegionScope.HEADING, neutralize=False))
+        toggle_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item, None if is_excluded else RegionScope.HEADING, neutralize=False))
 
         if applicable and item.childCount() > 0:
+            heading = str(item.data(0, _ROLE_HEADING) or "")
+            current_scope = DocumentRepository.get_section_exclusion_scope(self.doc, heading)
+            if current_scope is None:
+                node_action = menu.addAction(load_phosphor_icon("ph.minus-circle", color=DesignTokens.TEXT_SECONDARY), self.tr("Exclure le titre seul"))
+                node_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item, RegionScope.NODE, neutralize=False))
+            elif current_scope is RegionScope.NODE:
+                full_action = menu.addAction(load_phosphor_icon("ph.prohibit", color=DesignTokens.TEXT_SECONDARY), self.tr("Exclure toute la section"))
+                full_action.triggered.connect(lambda _checked=False: self._toggle_chapter_from_menu(item, RegionScope.HEADING, neutralize=False))
+
             menu.addSeparator()
             for scope, verb in ((RegionScope.HEADING, "Neutraliser"), (RegionScope.NODE, "Neutraliser le contenu seul de ce titre")):
                 entry = menu.addAction(load_phosphor_icon("ph.minus-circle", color=DesignTokens.TEXT_SECONDARY), verb)
                 entry.triggered.connect(lambda _checked=False, sc=scope: self._toggle_chapter_from_menu(item, sc, neutralize=True))
         return menu
 
-    def _toggle_chapter_from_menu(self, item: QTreeWidgetItem, scope: RegionScope, *, neutralize: bool) -> None:
+    def _toggle_chapter_from_menu(self, item: QTreeWidgetItem, scope: RegionScope | None, *, neutralize: bool) -> None:
         """Bascule le verbe demandé sur la région visée par le menu contextuel, en la sélectionnant."""
         self.chapters_tree.setCurrentItem(item)
         if neutralize:
-            self.toggle_section_neutralization(scope=scope)
+            self.toggle_section_neutralization(scope=scope or RegionScope.HEADING)
         else:
             self.toggle_section_exclusion(scope=scope)
 

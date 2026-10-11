@@ -85,6 +85,7 @@ from ankiforge.utils.hierarchy import descendants_prefix, descends_from, join_hi
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
+from ankiforge.utils.region_address import RegionScope
 
 logger = logging.getLogger(__name__)
 
@@ -2292,18 +2293,41 @@ class DocumentsView(FileDropMixin, QWidget):
 
         coverage_by_heading: dict[str, int] = {}
         restore_item: QListWidgetItem | None = None
+        doc = self.doc_repo.get_document_by_id(self._current_doc_id)
+        chunks_map = {c.id: c for c in chunks}
         for label, chunk_ids in groups:
             card_count = sum(chunk_card_counts.get(cid, 0) for cid in chunk_ids)
             covered = card_count > 0
-            if covered:
+
+            excl_scope: RegionScope | None = None
+            if unit_type == "sections":
+                excl_scope = DocumentRepository.get_section_exclusion_scope(doc, label)
+            elif unit_type == "pages":
+                p_num = chunks_map[chunk_ids[0]].page_number if chunk_ids and chunk_ids[0] in chunks_map else None
+                if p_num is not None and (DocumentRepository.is_page_outside_span(doc, p_num) or p_num in DocumentRepository.get_excluded_pages(doc)):
+                    excl_scope = RegionScope.PAGE
+
+            if excl_scope is RegionScope.HEADING or excl_scope is RegionScope.PAGE:
+                icon = load_phosphor_icon("ph.prohibit", color=DesignTokens.TEXT_MUTED)
+                status_text = self.tr("Exclue (hors périmètre)")
+                tooltip_text = tr("%1\nHors périmètre : cette section ne compte plus dans la couverture du document.", label)
+            elif excl_scope is RegionScope.NODE:
+                icon = load_phosphor_icon("ph.minus-circle", color=DesignTokens.TEXT_MUTED)
+                status_text = self.tr("Titre seul exclu")
+                tooltip_text = tr("%1\nHors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections restent actives.", label)
+            elif covered:
                 icon = load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN)
                 status_text = f"Couvert ({card_count} carte{'s' if card_count > 1 else ''})"
+                tooltip_text = f"{label} — {status_text}"
             else:
                 icon = load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_YELLOW)
-                status_text = "Non couvert (0 carte)"
+                status_text = self.tr("Non couvert (0 carte)")
+                tooltip_text = f"{label} — {status_text}"
+
             frag_text = f", {len(chunk_ids)} fragment{'s' if len(chunk_ids) > 1 else ''}" if len(chunk_ids) > 1 else ""
             item_text = f"{label} — {status_text}{frag_text}"
             item = QListWidgetItem(icon, item_text)
+            item.setToolTip(tooltip_text)
             item.setData(Qt.ItemDataRole.UserRole, chunk_ids)
             item.setData(Qt.ItemDataRole.UserRole + 1, covered)
             self.chapters_list.addItem(item)

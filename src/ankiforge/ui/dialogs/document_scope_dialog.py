@@ -281,6 +281,21 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         clean_heading = MarkdownStructurer.clean_heading_title(heading_path) if heading_path else None
         return covers_region(self._excluded_headings, heading_path=clean_heading or heading_path, page_number=p_num)
 
+    def _section_exclusion_scope(self, heading_path: str | None) -> RegionScope | None:
+        """Détermine la portée d'exclusion d'un titre dans les exclusions mémorisées : NODE, HEADING ou None."""
+        if not heading_path or not heading_path.strip() or not self._excluded_headings:
+            return None
+        clean_heading = MarkdownStructurer.clean_heading_title(heading_path) or heading_path
+        parsed = parse_region_addresses(self._excluded_headings)
+        covering = [addr for addr in parsed if addr.covers(heading_path=clean_heading, page_number=None)]
+        if not covering:
+            return None
+        if any(addr.scope is RegionScope.HEADING for addr in covering):
+            return RegionScope.HEADING
+        if any(addr.scope is RegionScope.NODE for addr in covering):
+            return RegionScope.NODE
+        return None
+
     def _load_filtered_chunks(self) -> list[dict[str, Any]]:
         """Charge et filtre les fragments du document en respectant strictement les bornes et exclusions."""
         useful: list[dict[str, Any]] = []
@@ -1353,6 +1368,7 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
                 is_noise=False,
                 is_leaf=not node.children,
                 show_page=self.is_paginated,
+                exclusion_scope=self._section_exclusion_scope(node.heading_path),
             )
             row_widget.state_changed.connect(lambda st, it=item: self._on_tree_item_state_changed(it, st))
             item.setSizeHint(0, QSize(0, 36))

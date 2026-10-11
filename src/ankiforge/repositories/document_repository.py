@@ -460,6 +460,25 @@ class DocumentRepository(BaseRepository):
         return cls.is_region_excluded(doc, heading_path=heading_path)
 
     @classmethod
+    def get_section_exclusion_scope(cls, doc: DocumentModel | None, heading_path: str) -> RegionScope | None:
+        """Détermine la portée d'exclusion d'une section : HEADING (branche entière), NODE (titre seul), ou None.
+
+        Permet à l'interface de distinguer visuellement si seul le conteneur a été écarté
+        (les sous-sections restant actives) ou si toute la lignée est hors périmètre.
+        """
+        if not heading_path or not heading_path.strip() or doc is None:
+            return None
+        excluded = cls.get_excluded_regions(doc)
+        covering = [address for address in excluded if address.covers(heading_path=heading_path, page_number=None)]
+        if not covering:
+            return None
+        if any(address.scope is RegionScope.HEADING for address in covering):
+            return RegionScope.HEADING
+        if any(address.scope is RegionScope.NODE for address in covering):
+            return RegionScope.NODE
+        return None
+
+    @classmethod
     def is_region_neutralized(cls, doc: DocumentModel | None, *, heading_path: str | None = None, page_number: int | None = None) -> bool:
         """Prédicat d'appartenance d'une région neutralisée par l'utilisateur."""
         return any(address.covers(heading_path=heading_path, page_number=page_number) for address in cls.get_neutralized_regions(doc))

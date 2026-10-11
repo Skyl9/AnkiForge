@@ -249,6 +249,7 @@ class SectionRowWidget(QWidget):
         is_noise: bool = False,
         is_leaf: bool = True,
         show_page: bool = True,
+        exclusion_scope: RegionScope | None = None,
         list_widget: Any = None,
         parent: QWidget | None = None,
     ) -> None:
@@ -356,17 +357,26 @@ class SectionRowWidget(QWidget):
             layout.addWidget(card_badge)
 
         # Badge Diagnostic / Recommandation — UNIQUEMENT pour les alertes réelles (Quasi vide, Exclu, Utile)
-        if cards_count > 0:
-            diag_badge = QLabel(self.tr("Utile (Cartes)"))
+        if exclusion_scope is RegionScope.NODE:
+            diag_badge = QLabel(self.tr("Titre seul exclu"))
             diag_badge.setStyleSheet(
-                f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};"
+                f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW_TEXT}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};"
                 f" border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
             )
+            diag_badge.setToolTip(self.tr("Hors périmètre (titre seul) : le conteneur est écarté, mais ses sous-sections restent actives."))
             layout.addWidget(diag_badge)
-        elif is_noise:
+        elif exclusion_scope is RegionScope.HEADING or (not is_checked and is_noise):
             diag_badge = QLabel(self.tr("Exclu"))
             diag_badge.setStyleSheet(
                 f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
+            )
+            diag_badge.setToolTip(self.tr("Hors périmètre : cette section et ses sous-sections sont écartées de la couverture."))
+            layout.addWidget(diag_badge)
+        elif cards_count > 0:
+            diag_badge = QLabel(self.tr("Utile (Cartes)"))
+            diag_badge.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};"
                 f" border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
             )
             layout.addWidget(diag_badge)
@@ -3195,6 +3205,20 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
                 non_page.add(entry)
         return non_page
 
+    def _section_exclusion_scope(self, heading_path: str | None) -> RegionScope | None:
+        """Détermine la portée d'exclusion d'un titre dans les exclusions manuelles : NODE, HEADING ou None."""
+        if not heading_path or not heading_path.strip():
+            return None
+        parsed = [parse_region_address(entry) for entry in self._manual_exclusions]
+        covering = [addr for addr in parsed if addr is not None and addr.covers(heading_path=heading_path, page_number=None)]
+        if not covering:
+            return None
+        if any(addr.scope is RegionScope.HEADING for addr in covering):
+            return RegionScope.HEADING
+        if any(addr.scope is RegionScope.NODE for addr in covering):
+            return RegionScope.NODE
+        return None
+
     def _apply_mode_view(self, mode: ScopeMode, sub_mode: PageSubMode) -> None:
         """Applique la visibilité exclusive des volets et l'état visuel du mode actif."""
         is_pages = mode == "pages"
@@ -3666,6 +3690,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             item.setCheckState(0, Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
             item.setData(0, Qt.ItemDataRole.UserRole, title_str)
 
+            excl_scope = self._section_exclusion_scope(node.heading_path)
             row_widget = SectionRowWidget(
                 item=item,
                 tree_widget=self.sections_list,
@@ -3679,6 +3704,7 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
                 is_noise=is_noise,
                 is_leaf=not node.children,
                 show_page=self.is_paginated,
+                exclusion_scope=excl_scope,
             )
             row_widget.state_changed.connect(lambda st, it=item: self._on_tree_item_state_changed(it, st))
             item.setSizeHint(0, QSize(0, 36))
@@ -3686,7 +3712,16 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
             self.sections_list.setItemWidget(item, 0, row_widget)
 
             # Tooltip
-            rec_text = "À conserver impérativement (Cartes déjà créées)" if cards_count > 0 else ("Section courte / à vérifier" if word_count < 25 else "Contenu de cours standard")
+            if excl_scope is RegionScope.NODE:
+                rec_text = "Hors périmètre (titre seul) : conteneur écarté, sous-sections actives"
+            elif excl_scope is RegionScope.HEADING:
+                rec_text = "Hors périmètre : section écartée de la couverture"
+            elif cards_count > 0:
+                rec_text = "À conserver impérativement (Cartes déjà créées)"
+            elif word_count < 25:
+                rec_text = "Section courte / à vérifier"
+            else:
+                rec_text = "Contenu de cours standard"
             p_str = f" (Pages {page_num}–{end_p})" if (self.is_paginated and page_num and end_p and end_p > page_num) else (f" (Page {page_num})" if (self.is_paginated and page_num) else "")
             item.setToolTip(0, tr("<b>%1</b>%2<br>• Volume : %3 mots<br>• Cartes créées : %4 carte(s)<br>• Diagnostic : <b>%5</b>", node.title, p_str, word_count, cards_count, rec_text))
 

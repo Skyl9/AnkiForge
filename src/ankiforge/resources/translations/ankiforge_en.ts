@@ -641,7 +641,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+175"/>
+        <location line="+190"/>
         <source>Portée de génération : &lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -651,14 +651,14 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+899"/>
+        <location line="+900"/>
         <source>&lt;b&gt;%1&lt;/b&gt;%2&lt;br&gt;• Volume : ~%3 tokens (~%4 mots)&lt;hr&gt;&lt;i&gt;&quot;%5&quot;&lt;/i&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+83"/>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="+482"/>
-        <location line="+3268"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="+492"/>
+        <location line="+3293"/>
         <source>Ch. %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -928,7 +928,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location line="+26"/>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+474"/>
         <location filename="../../ui/views/creation_view/view.py" line="+226"/>
-        <location filename="../../ui/views/documents_view/view.py" line="+1592"/>
+        <location filename="../../ui/views/documents_view/view.py" line="+1593"/>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
@@ -1013,7 +1013,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
     <message>
         <location line="+5"/>
         <location line="+261"/>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1235"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1275"/>
         <source>Paquet : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1409,7 +1409,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     <message>
         <location line="+1"/>
         <location filename="../../ui/views/consultant_view/widgets/embedded_card_table_widget.py" line="+133"/>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-3503"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-3537"/>
         <source>%1 carte%2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1589,7 +1589,7 @@ Insère : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1068"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1108"/>
         <source>Document introuvable.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1614,23 +1614,43 @@ Insère : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+450"/>
-        <source>%1  ·  %2 %3 · %4 %5</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+63"/>
+        <location line="+455"/>
+        <location line="+78"/>
         <source>⊘ %1  ·  Exclue de l&apos;analyse</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="-76"/>
+        <location line="+78"/>
+        <location filename="../../ui/views/documents_view/view.py" line="+720"/>
         <source>%1
 Hors périmètre : cette section ne compte plus dans la couverture du document.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="-76"/>
+        <source>⊖ %1  ·  Titre seul exclu · %2 %3 · %4 %5</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+70"/>
+        <source>%1
+Hors périmètre (titre seul) : le conteneur est exclu, ses sous-sections restent actives dans la couverture.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-68"/>
+        <source>%1  ·  %2 %3 · %4 %5</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+66"/>
+        <source>⊖ %1  ·  Titre seul exclu (sous-sections actives)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
         <source>%1
 Conteneur structural : neutre dans le calcul de couverture.</source>
         <translation type="unfinished"></translation>
@@ -1661,7 +1681,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         </translation>
     </message>
     <message>
-        <location line="+64"/>
+        <location line="+70"/>
+        <source>Réintégrer le titre seul de « %1 » au périmètre.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>Réintégrer « %1 » au périmètre du document et à sa couverture.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1686,12 +1711,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+31"/>
-        <source>Section « %1 » %2 de l&apos;analyse.</source>
+        <location line="+34"/>
+        <source>Section « %1 » %2 de l&apos;analyse%3.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+194"/>
+        <location line="+203"/>
         <source>%1 carte(s) Anki forgée(s) depuis cette section :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2519,7 +2544,7 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/documents_view/view.py" line="-523"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-1243"/>
         <source>%1 (Non extrait)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2775,7 +2800,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+361"/>
+        <location line="+370"/>
         <source>Slide %1 : Cliquer pour basculer la sélection</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2821,7 +2846,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1606"/>
+        <location line="+1631"/>
         <source>&lt;b&gt;%1&lt;/b&gt;%2&lt;br&gt;• Volume : %3 mots&lt;br&gt;• Cartes créées : %4 carte(s)&lt;br&gt;• Diagnostic : &lt;b&gt;%5&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3026,7 +3051,13 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+77"/>
+        <location line="+66"/>
+        <source>%1
+Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections restent actives.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
         <source>Couverture : %1%% (%2/%3 %4%5)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8834,7 +8865,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentDelimitationDialog</name>
     <message>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-1923"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-1948"/>
         <source>DÉLIMITATION GLOBALE (STRUCTURE DU DOCUMENT)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8994,7 +9025,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1016"/>
+        <location line="+1041"/>
         <source>Aucune carte n&apos;est impactée par les bornes de pagination choisies.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9126,7 +9157,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentInspectorPanel</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1541"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1581"/>
         <source>Retourner à la liste générale des documents</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9186,17 +9217,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+309"/>
+        <location line="+329"/>
         <source>Périmètre vide (0 section active)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+67"/>
+        <location line="+71"/>
         <source>Sélectionnez une section titrée : un fragment au libellé de page n&apos;a pas de titre de section à exclure.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+44"/>
         <source>Sélectionnez une section titrée : un fragment au libellé de page n&apos;a pas de titre de section à neutraliser.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9211,7 +9242,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+191"/>
+        <location line="+139"/>
+        <source>Exclure le titre seul</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Exclure toute la section</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+61"/>
         <source>Trou de cours détecté : Aucune flashcard n&apos;a encore été générée pour cette section.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9337,7 +9378,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentPreviewWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-2937"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-2962"/>
         <source>Aperçu</source>
         <extracomment>Plafond de décodage de l&apos;aperçu. Un album de 200 planches en pleine résolution coûterait des secondes de gel pour un cadre de 700 px : le rendu est borné.</extracomment>
         <translation type="unfinished"></translation>
@@ -9427,7 +9468,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentScopeWidget</name>
     <message>
-        <location filename="../../ui/dialogs/document_scope_dialog.py" line="-2160"/>
+        <location filename="../../ui/dialogs/document_scope_dialog.py" line="-2161"/>
         <source>PORTÉE DE GÉNÉRATION (NON DESTRUCTIF)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9567,7 +9608,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+950"/>
+        <location line="+951"/>
         <source>Aucun fragment sélectionné pour la vue finale.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9601,7 +9642,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2482"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2505"/>
         <source>Importer un fichier local (PDF, Markdown, Texte, .apkg)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10031,12 +10072,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+17"/>
-        <location line="+553"/>
+        <location line="+576"/>
         <source>Veuillez d&apos;abord sélectionner un document.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-548"/>
+        <location line="-571"/>
         <source>L&apos;analyse Marker OCR est disponible uniquement pour les fichiers PDF.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10076,7 +10117,22 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+317"/>
+        <location line="+96"/>
+        <source>Exclue (hors périmètre)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Titre seul exclu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Non couvert (0 carte)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+232"/>
         <source>Veuillez sélectionner un chapitre dans le sommaire.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12075,7 +12131,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>LinkedNoteCard</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1216"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1256"/>
         <source>Ouvrir cette note dans l&apos;éditeur de cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14532,7 +14588,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SectionRowWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-671"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-680"/>
         <source>H1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14543,12 +14599,27 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+52"/>
-        <source>Utile (Cartes)</source>
+        <source>Titre seul exclu</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+5"/>
+        <source>Hors périmètre (titre seul) : le conteneur est écarté, mais ses sous-sections restent actives.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>Exclu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Hors périmètre : cette section et ses sous-sections sont écartées de la couverture.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Utile (Cartes)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
