@@ -354,7 +354,36 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         layout.addWidget(self.card_startup)
 
-        # ── SECTION 4 : À PROPOS & MISES À JOUR ─────────────────────────────
+        # ── SECTION 4 : NOTIFICATIONS & ALERTES ─────────────────────────────
+        self.lbl_sec_notif = QLabel(self.tr("NOTIFICATIONS & ALERTES"))
+        self.lbl_sec_notif.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        layout.addWidget(self.lbl_sec_notif)
+
+        self.card_notif = SettingsCard()
+        card_notif_layout = QVBoxLayout(self.card_notif)
+        card_notif_layout.setContentsMargins(14, 12, 14, 12)
+        card_notif_layout.setSpacing(12)
+
+        from ankiforge.services.system.notification_service import NotificationMode, SystemNotificationService
+
+        saved_notif_mode = str(SettingsService.get(SystemNotificationService.SETTINGS_KEY, NotificationMode.SYSTEM.value))
+
+        self.cb_notif_mode = StyledComboBox()
+        self.cb_notif_mode.setMinimumWidth(260)
+        self.cb_notif_mode.setFixedHeight(30)
+        self.cb_notif_mode.addItem(load_phosphor_icon("bell", color=DesignTokens.ACCENT_PRIMARY), self.tr("Notifications système complètes"), NotificationMode.SYSTEM.value)
+        self.cb_notif_mode.addItem(load_phosphor_icon("app-window", color=DesignTokens.ACCENT_PRIMARY), self.tr("Alerte barre des tâches / Dock uniquement"), NotificationMode.DOCK_ONLY.value)
+        self.cb_notif_mode.addItem(load_phosphor_icon("bell-slash", color=DesignTokens.ACCENT_PRIMARY), self.tr("Désactivées"), NotificationMode.DISABLED.value)
+
+        idx_notif = self.cb_notif_mode.findData(saved_notif_mode)
+        if idx_notif >= 0:
+            self.cb_notif_mode.setCurrentIndex(idx_notif)
+
+        self.rows_labels.append(add_setting_row(card_notif_layout, self.tr("Notifications en arrière-plan :"), self.cb_notif_mode))
+
+        layout.addWidget(self.card_notif)
+
+        # ── SECTION 5 : À PROPOS & MISES À JOUR ─────────────────────────────
         self.lbl_sec_about = QLabel(self.tr("À PROPOS & MISES À JOUR"))
         self.lbl_sec_about.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         layout.addWidget(self.lbl_sec_about)
@@ -652,6 +681,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             ("ui/language", str(self.cb_lang.currentData() or FALLBACK_LANGUAGE), "lang"),
             ("app/batch_factory_style", self.cb_batch_style.currentText(), "batch_style"),
             ("app/export_path", self.le_export.text().strip(), "export_path"),
+            ("notifications/system_mode", str(self.cb_notif_mode.currentData() or "system"), "notif_mode"),
         ):
             if not hasattr(self, "_initial") or not values_equal(self._initial.get(initial_key), current_val):
                 SettingsService.set(key, current_val, category="general")
@@ -704,6 +734,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "lang": str(self.cb_lang.currentData() or FALLBACK_LANGUAGE),
             "batch_style": self.cb_batch_style.currentText(),
             "export_path": self.le_export.text().strip(),
+            "notif_mode": (self.cb_notif_mode.currentData() or "system") if hasattr(self, "cb_notif_mode") else "system",
             "auto_startup": self.chk_auto_startup.isChecked() if hasattr(self, "chk_auto_startup") else False,
             "default_profile": (self.cb_default_profile.currentData() or default_profile) if hasattr(self, "cb_default_profile") else default_profile,
             "update_channel": (self.cb_update_channel.currentData() or "stable") if hasattr(self, "cb_update_channel") else "stable",
@@ -738,6 +769,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "lang": str(self.cb_lang.currentData() or FALLBACK_LANGUAGE),
             "batch_style": self.cb_batch_style.currentText(),
             "export_path": self.le_export.text().strip(),
+            "notif_mode": (self.cb_notif_mode.currentData() or "system") if hasattr(self, "cb_notif_mode") else "system",
             "auto_startup": self.chk_auto_startup.isChecked() if hasattr(self, "chk_auto_startup") else False,
             "default_profile": (self.cb_default_profile.currentData() or default_profile) if hasattr(self, "cb_default_profile") else default_profile,
             "update_channel": (self.cb_update_channel.currentData() or "stable") if hasattr(self, "cb_update_channel") else "stable",
@@ -751,12 +783,16 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.lbl_sec_exp.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         if hasattr(self, "lbl_sec_startup"):
             self.lbl_sec_startup.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        if hasattr(self, "lbl_sec_notif"):
+            self.lbl_sec_notif.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         if hasattr(self, "lbl_sec_about"):
             self.lbl_sec_about.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         self.card_app.refresh_theme(profile)
         self.card_exp.refresh_theme(profile)
         if hasattr(self, "card_startup"):
             self.card_startup.refresh_theme(profile)
+        if hasattr(self, "card_notif"):
+            self.card_notif.refresh_theme(profile)
         if hasattr(self, "card_about"):
             self.card_about.refresh_theme(profile)
         for lbl in self.rows_labels:

@@ -365,6 +365,20 @@ class ToastManager:
         self._active_toasts.append(toast)
         self._reposition_toasts(host_window)
         toast.show_toast()
+
+        # Émission d'une notification système / alerte OS si la fenêtre est en arrière-plan
+        try:
+            from ankiforge.services.system.notification_service import SystemNotificationService
+
+            effective_title = title or str(Toast.LEVEL_CONFIG.get(level_enum, {}).get("title", "AnkiForge"))
+            SystemNotificationService.get_instance().notify_if_background(
+                host_window=host_window,
+                title=effective_title,
+                message=message,
+            )
+        except Exception as err:
+            logger.debug("Notification d'arrière-plan ignorée : %s", err)
+
         return toast
 
     def _on_toast_dismissed(self, toast: Toast) -> None:

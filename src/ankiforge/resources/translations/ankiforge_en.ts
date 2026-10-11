@@ -4121,7 +4121,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+186"/>
+        <location line="+215"/>
         <source>(%1) · %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4164,7 +4164,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+185"/>
+        <location line="+192"/>
         <source>Thème &apos;%1&apos; importé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4351,7 +4351,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/toast.py" line="+481"/>
+        <location filename="../../ui/widgets/toast.py" line="+495"/>
         <source>Aucune nouvelle carte ni modification détectée dans le paquet.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11147,7 +11147,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>GeneralTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-775"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-811"/>
         <source>APPARENCE &amp; INTERFACE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11258,6 +11258,31 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+5"/>
+        <source>NOTIFICATIONS &amp; ALERTES</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Notifications système complètes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Alerte barre des tâches / Dock uniquement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Désactivées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Notifications en arrière-plan :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>À PROPOS &amp; MISES À JOUR</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11337,7 +11362,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+326"/>
+        <location line="+333"/>
         <source>Aucune famille de thème disponible pour l&apos;export.</source>
         <translation type="unfinished"></translation>
     </message>
