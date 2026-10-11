@@ -2423,3 +2423,48 @@ def test_batch_queue_context_menu_examiner_opens_review(qtbot: Any, monkeypatch:
 
     assert view.staging_panel._current_task_uid == row["_queue_uid"]
     assert view.terminal_panel.content_stack.currentIndex() == view._review_tab_idx
+
+
+def test_batch_worker_payload_injects_advanced_parameters(qtbot: Any, monkeypatch: Any) -> None:
+    """Vérifie que BatchWorker transmet temperature, max_tokens et strict_source_grounding à l'orchestrateur."""
+    deck = DeckModel.create(name="Deck Param Test")
+    nt = NoteTypeModel.create(name="Model Param Test", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    doc = DocumentModel.create(title="Doc Param.md", content_markdown="Contenu", file_type="md")
+
+    task = BatchTaskPayload(
+        task_index=0,
+        doc_id=doc.id,
+        doc_title=doc.title,
+        doc_content="Contenu",
+        deck_id=deck.id,
+        deck_name=deck.name,
+        model_id=nt.id,
+        model_name=nt.name,
+        note_type_fields=["Front", "Back"],
+        note_type_templates=[],
+        pipeline_id=1,
+        pipeline_name="Standard",
+        llm_id=1,
+        llm_config={"provider": "mock", "model_id": "mock-model", "api_key": ""},
+        temperature=0.88,
+        max_tokens=4096,
+        strict_source_grounding=False,
+    )
+
+    worker = BatchWorker(tasks=[task])
+    captured_states = []
+
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        captured_states.append(self_orch.state)
+        self_orch.state.variables["generated_cards"] = [{"Front": "Q", "Back": "A"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+
+    with qtbot.waitSignal(worker.batch_finished, timeout=5000):
+        worker.start()
+
+    assert len(captured_states) == 1
+    state = captured_states[0]
+    assert state.get_variable("temperature") == 0.88
+    assert state.get_variable("max_tokens") == 4096
+    assert state.get_variable("strict_source_grounding") is False

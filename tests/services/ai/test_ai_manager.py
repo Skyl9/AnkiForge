@@ -220,3 +220,20 @@ def test_ai_manager_reload_provider_resets_lazy_cache(mock_db):
     # Sollicitation ultérieure
     p2 = manager.provider
     assert getattr(p2, "model_name", None) == "model-b"
+
+
+def test_ai_manager_passes_temperature_and_supports_json_from_config(mock_db):
+    """Vérifie que l'AIManager transmet la température et le support JSON configurés en base."""
+    config = LLMConfigModel.create(
+        display_name="OpenAI Configuré",
+        provider="openai",
+        model_id="gpt-4o",
+        api_key="sk-test-key",
+        context_limit=128000,
+        temperature=0.85,
+        supports_json=False,
+    )
+    provider = AIManager.create_provider_from_config(config)
+    assert isinstance(provider, OpenAICompatibleProvider)
+    assert getattr(provider, "default_temperature", None) == 0.85
+    assert getattr(provider, "supports_json", None) is False

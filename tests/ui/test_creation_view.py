@@ -1195,3 +1195,58 @@ def test_creation_view_long_document_title_does_not_overflow_config_panel(qtbot:
     # L'utilisateur peut toujours redimensionner le panneau gauche via le splitter
     view.main_splitter.setSizes([320, 960])
     assert view.config_panel.width() <= 330
+
+
+def test_creation_view_temperature_slider_sync_and_start_generation(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
+    """Vérifie que la sélection d'un moteur synchronise le slider de température et que start_generation l'injecte dans le state."""
+    from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+
+    uid = uuid.uuid4().hex[:6]
+    deck = DeckModel.create(name=f"Deck Temp {uid}")
+    nt = NoteTypeModel.create(
+        name=f"Model Temp {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style="",
+    )
+    pipe = PipelineModel.create(name=f"Pipeline Temp {uid}")
+    persona = PersonaModel.create(name=f"Persona Temp {uid}", system_prompt="Test", output_format="json")
+    PipelineStepModel.create(pipeline=pipe, persona=persona, step_type="LLM_PROMPT", step_order=1)
+
+    LLMConfigModel.create(provider="mock", model_id=f"model_{uid}", display_name=f"Model {uid}", temperature=0.8)
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.current_deck = deck
+    view.current_model = nt
+    view.refresh_data()
+
+    # Sélectionner le moteur
+    for i in range(view.engine_combo.count()):
+        data = view.engine_combo.itemData(i)
+        if data and getattr(data, "model_id", "") == f"model_{uid}":
+            view.engine_combo.setCurrentIndex(i)
+            break
+
+    # Le slider de température doit être synchronisé à 8 (0.8 * 10)
+    assert view.slider_temp.value() == 8
+
+    # L'utilisateur ajuste la température à 0.4 (slider = 4)
+    view.slider_temp.setValue(4)
+
+    captured_states = []
+
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        captured_states.append(self_orch.state)
+        self_orch.state.variables["generated_cards"] = [{"Front": "Q", "Back": "A"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+
+    view._on_generate("Texte de test", source_title="Source Temp")
+
+    # Attendre la fin du worker
+    view.thread_pool.waitForDone(3000)
+
+    assert len(captured_states) == 1
+    assert captured_states[0].get_variable("temperature") == 0.4

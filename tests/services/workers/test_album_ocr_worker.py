@@ -85,3 +85,30 @@ def test_album_ocr_worker_collects_failed_page_ids(qtbot, mock_db, mock_pages):
 
     assert finished_records == [(2, 1)]  # 2 succès, 1 échec
     assert worker.failed_page_ids == [pages[1].id]
+
+
+def test_album_ocr_worker_passes_temperature_override(qtbot, mock_db, mock_pages):
+    """Vérifie que AlbumOCRWorker transmet temperature_override à OCRService.transcribe_page."""
+    doc, pages = mock_pages
+    mock_ocr = MagicMock()
+    mock_ocr.transcribe_page.side_effect = lambda pid, **kw: pages[pid - 1]
+
+    opts = AlbumTranscriptionOptions(
+        scope_mode="custom",
+        custom_range="1",
+        target_page_ids=[pages[0].id],
+        category_id="structured",
+        temperature_override=0.45,
+    )
+
+    worker = AlbumOCRWorker(document_id=doc.id, options=opts, ocr_service=mock_ocr)
+    finished_records = []
+    worker.finished_signal.connect(lambda s, e: finished_records.append((s, e)))
+
+    with qtbot.waitSignal(worker.finished_signal, timeout=5000):
+        worker.start()
+
+    assert finished_records == [(1, 0)]
+    assert mock_ocr.transcribe_page.call_count == 1
+    _, kwargs = mock_ocr.transcribe_page.call_args
+    assert kwargs.get("temperature") == 0.45

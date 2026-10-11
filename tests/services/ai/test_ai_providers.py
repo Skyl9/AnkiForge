@@ -781,3 +781,37 @@ def test_gemini_service_extracts_thought_parts():
         assert result.content == '{"cards": []}'
         assert result.thought == "Pensée Gemini 2.0 Thinking"
         assert provider.generate("System", "User") == '{"cards": []}'
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_default_temperature_and_supports_json(mock_openai_class):
+    """Vérifie le respect de default_temperature et supports_json dans OpenAICompatibleProvider."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"cards": []}'
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+
+    # 1. Avec default_temperature=0.85 et supports_json=False
+    provider = OpenAICompatibleProvider(
+        base_url="https://api.openai.com/v1",
+        model_name="gpt-4o",
+        default_temperature=0.85,
+        supports_json=False,
+    )
+    provider.generate_response("System", "User", response_format="json")
+    _, kwargs1 = mock_client.chat.completions.create.call_args
+    assert kwargs1["temperature"] == 0.85
+    assert "response_format" not in kwargs1
+
+    # 2. Avec temperature explicite et supports_json=True
+    provider2 = OpenAICompatibleProvider(
+        base_url="https://api.openai.com/v1",
+        model_name="gpt-4o",
+        default_temperature=0.85,
+        supports_json=True,
+    )
+    provider2.generate_response("System", "User", response_format="json", temperature=0.1)
+    _, kwargs2 = mock_client.chat.completions.create.call_args
+    assert kwargs2["temperature"] == 0.1
+    assert kwargs2["response_format"] == {"type": "json_object"}
