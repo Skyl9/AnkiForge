@@ -2,8 +2,9 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from PySide6.QtWidgets import QFrame, QLabel, QScrollArea
+from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QSpinBox
 
+from ankiforge.ui.components import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.pipelines_view.widgets.step_inspector import StepInspectorPanel
 
@@ -142,3 +143,51 @@ def test_step_inspector_dag_branching_interactions(qtbot: Any) -> None:
     assert idx_succ >= 0
     inspector.combo_succ.setCurrentIndex(idx_succ)
     assert step_data["on_success_order"] == 2
+
+
+def test_step_inspector_map_reduce_config_controls(qtbot: Any) -> None:
+    """Vérifie l'affichage et l'édition des réglages MAP_REDUCE (batch_size, split_mode, variables)."""
+    inspector = StepInspectorPanel()
+    qtbot.addWidget(inspector)
+
+    step_data: dict[str, Any] = {
+        "type": "MAP_REDUCE",
+        "custom_title": "Étape Parallèle",
+        "config": {
+            "batch_size": 5,
+            "split_mode": "chapter",
+            "input_variable": "mes_morceaux",
+            "output_variable": "mes_cartes",
+        },
+    }
+
+    inspector.inspect_step(
+        step_data=step_data,
+        step_order=1,
+        total_steps=1,
+        personas=[],
+        llms=[],
+        all_steps=[step_data],
+    )
+
+    # Récupérer les contrôles dans le formulaire de paramètres
+    spin_batch = inspector.params_scroll.findChild(QSpinBox)
+    assert spin_batch is not None
+    assert spin_batch.value() == 5
+
+    combos = inspector.params_scroll.findChildren(StyledComboBox)
+    # Parmi les combos, trouver celui du découpage (contenant les options de split_mode)
+    combo_mode = next((c for c in combos if c.count() == 3 and c.itemData(0) == "page"), None)
+    assert combo_mode is not None
+    assert combo_mode.currentData() == "chapter"
+
+    # Vérifier que modifier le contrôle met à jour step_data["config"]
+    spin_batch.setValue(8)
+    assert step_data["config"]["batch_size"] == 8
+
+    combo_mode.setCurrentIndex(combo_mode.findData("page"))
+    assert step_data["config"]["split_mode"] == "page"
+
+    # Vérifier les variables
+    assert step_data["config"]["input_variable"] == "mes_morceaux"
+    assert step_data["config"]["output_variable"] == "mes_cartes"

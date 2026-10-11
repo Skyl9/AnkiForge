@@ -1215,3 +1215,138 @@ def test_map_reduce_sans_agent_ni_surcharge_garde_son_defaut_historique():
 
     assert provider.calls
     assert provider.calls[0]["system"] == "Analyser et traiter le contenu."
+
+
+def test_map_reduce_respects_batch_size():
+    """Vérifie que MAP_REDUCE regroupe les éléments par lots de batch_size."""
+    pipeline = PipelineModel.create(name="Pipeline MapReduce Batch Size")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="MAP_REDUCE",
+        config_data=json.dumps({"input_variable": "source_items", "batch_size": 3}),
+    )
+
+    provider = DummyProvider()
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=provider)
+    orch.state.set_variable("source_items", [f"Item {i}" for i in range(7)])
+    orch.run()
+
+    # 7 éléments avec batch_size=3 => 3 lots (3, 3, 1)
+    assert len(provider.calls) == 3
+    assert "Item 0\n\n---\n\nItem 1\n\n---\n\nItem 2" in str(provider.calls[0]["user"])
+    assert "Item 3\n\n---\n\nItem 4\n\n---\n\nItem 5" in str(provider.calls[1]["user"])
+    assert "Item 6" in str(provider.calls[2]["user"])
+
+
+def test_map_reduce_splits_by_page() -> None:
+    """Vérifie que split_mode='page' découpe une chaîne selon les marqueurs de page."""
+    pipeline = PipelineModel.create(name="Pipeline MapReduce Page Split")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="MAP_REDUCE",
+        config_data=json.dumps({"input_variable": "text_source", "split_mode": "page", "batch_size": 1}),
+    )
+
+    doc_text = "<!-- PAGE: 1 -->\nContenu première page\n<!-- PAGE: 2 -->\nContenu deuxième page\n<!-- PAGE: 3 -->\nContenu troisième page"
+
+    provider = DummyProvider()
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=provider)
+    orch.state.set_variable("text_source", doc_text)
+    orch.run()
+
+    assert len(provider.calls) == 3
+    called_users = [str(c["user"]) for c in provider.calls]
+    assert any("première page" in u for u in called_users)
+    assert any("deuxième page" in u for u in called_users)
+    assert any("troisième page" in u for u in called_users)
+
+
+def test_map_reduce_splits_by_chapter() -> None:
+    """Vérifie que split_mode='chapter' découpe une chaîne selon les titres Markdown H1..H3."""
+    pipeline = PipelineModel.create(name="Pipeline MapReduce Chapter Split")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="MAP_REDUCE",
+        config_data=json.dumps({"input_variable": "text_source", "split_mode": "chapter", "batch_size": 1}),
+    )
+
+    doc_text = "# Chapitre 1 : Introduction\nTexte d'introduction général.\n\n# Chapitre 2 : Mécanismes\nDétails des mécanismes biochimiques.\n\n## Section 2.1 : Enzymes\nRôle des enzymes."
+
+    provider = DummyProvider()
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=provider)
+    orch.state.set_variable("text_source", doc_text)
+    orch.run()
+
+    assert len(provider.calls) == 3
+    called_users = [str(c["user"]) for c in provider.calls]
+    assert any("Chapitre 1" in u for u in called_users)
+    assert any("Chapitre 2" in u for u in called_users)
+    assert any("Section 2.1" in u for u in called_users)
+
+
+def test_map_reduce_input_and_output_variables() -> None:
+    """Vérifie la liaison fidèle de input_variable et output_variable dans MAP_REDUCE."""
+    pipeline = PipelineModel.create(name="Pipeline MapReduce Custom Vars")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="MAP_REDUCE",
+        config_data=json.dumps(
+            {
+                "input_variable": "mon_entree_specifique",
+                "output_variable": "ma_sortie_specifique",
+                "batch_size": 2,
+            }
+        ),
+    )
+
+    provider = DummyProvider()
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=provider)
+    orch.state.set_variable("mon_entree_specifique", ["A", "B", "C", "D"])
+    orch.run()
+
+    assert len(provider.calls) == 2
+    assert "ma_sortie_specifique" in orch.state.variables
+    assert len(orch.state.get_variable("ma_sortie_specifique")) == 2
+
+
+def test_map_reduce_dedicated_llm_config_override() -> None:
+    """Vérifie que MAP_REDUCE instancie le provider dédié configuré par llm_config_id."""
+    from ankiforge.database.models import LLMConfigModel
+    from ankiforge.services.ai.flexible_service import AIManager
+
+    cfg = LLMConfigModel.create(
+        display_name="Modèle Dédié MapReduce",
+        provider="openai",
+        model_id="gpt-4o-dedicated",
+        api_key="sk-test",
+    )
+
+    pipeline = PipelineModel.create(name="Pipeline MapReduce LLM Override")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="MAP_REDUCE",
+        config_data=json.dumps({"input_variable": "items", "llm_config_id": cfg.id}),
+    )
+
+    created_providers = []
+
+    def spy_create(c: Any) -> DummyProvider:
+        p = DummyProvider()
+        created_providers.append((c.id, p))
+        return p
+
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=DummyProvider())
+    orch.state.set_variable("items", ["Item Unique"])
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(AIManager, "create_provider_from_config", spy_create)
+        orch.run()
+
+    assert len(created_providers) == 1
+    assert created_providers[0][0] == cfg.id
+    assert len(created_providers[0][1].calls) == 1
