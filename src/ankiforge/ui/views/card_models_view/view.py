@@ -66,6 +66,37 @@ from ankiforge.utils.logger import log_and_notify_error
 logger = logging.getLogger(__name__)
 
 
+def generate_preview_mock_fields(raw_fields: list[str]) -> dict[str, str]:
+    """
+    Génère un dictionnaire de valeurs factices représentatives pour prévisualiser un modèle de cartes.
+
+    Détecte heuristiquement le type probable du champ (cloze, question, réponse, audio, image, nombre, indice)
+    afin de fournir un rendu fidèle sans obliger l'utilisateur à créer une note témoin au préalable.
+    """
+    mock_fields: dict[str, str] = {}
+    for f in raw_fields:
+        f_lower = f.lower()
+        if "cloze" in f_lower or "texte" in f_lower:
+            mock_fields[f] = "La capitale de la France est {{c1::Paris::Ville}}."
+        elif any(k in f_lower for k in ("audio", "son", "sound", "prononciation", "pronunciation", "ecoute", "listening")):
+            mock_fields[f] = "[sound:preview_sample.mp3]"
+        elif any(k in f_lower for k in ("image", "photo", "illustration", "visuel", "img", "picture", "schema")):
+            mock_fields[f] = (
+                f'<span class="anki-img-container" style="display:inline-block; padding:4px 8px; border:1px dashed #38bdf8; border-radius:4px; font-size:12px; color:#0284c7;">🖼️ {f}</span>'
+            )
+        elif any(k in f_lower for k in ("hint", "indice")):
+            mock_fields[f] = "Indice utile pour trouver la réponse."
+        elif any(k in f_lower for k in ("nombre", "number", "score", "quantite", "chiffre", "annee", "year")):
+            mock_fields[f] = "42"
+        elif "front" in f_lower or "recto" in f_lower:
+            mock_fields[f] = "Quelle est la capitale de la France ?"
+        elif "back" in f_lower or "verso" in f_lower or "extra" in f_lower or "explication" in f_lower:
+            mock_fields[f] = "Paris est la capitale et la plus grande ville de France."
+        else:
+            mock_fields[f] = f"Valeur de test pour {f}"
+    return mock_fields
+
+
 class CardModelsView(QWidget):
     """
     Vue Card Models (Atelier de Modèles de Cartes) — Conforme Pilier 3 d'AnkiForge.
@@ -1116,16 +1147,7 @@ class CardModelsView(QWidget):
                     mock_fields = {}
 
         if not mock_fields:
-            for f in raw_fields:
-                f_lower = f.lower()
-                if "cloze" in f_lower or "texte" in f_lower:
-                    mock_fields[f] = "La capitale de la France est {{c1::Paris::Ville}}."
-                elif "front" in f_lower or "recto" in f_lower:
-                    mock_fields[f] = "Quelle est la capitale de la France ?"
-                elif "back" in f_lower or "verso" in f_lower or "extra" in f_lower:
-                    mock_fields[f] = "Paris est la capitale et la plus grande ville de France."
-                else:
-                    mock_fields[f] = f"Valeur de test pour {f}"
+            mock_fields = generate_preview_mock_fields(raw_fields)
 
         self._sync_current_template_from_editors()
         css = self.css_editor_wrapper.toPlainText()

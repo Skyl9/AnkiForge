@@ -1581,7 +1581,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1070"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1101"/>
         <location filename="../../ui/views/edition_view/view.py" line="+359"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -1992,7 +1992,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+99"/>
+        <location line="+90"/>
         <source>Type de note &apos;%1&apos; créé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7100,7 +7100,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1210"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1201"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7136,12 +7136,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1112"/>
+        <location line="+1103"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1048"/>
+        <location line="-1039"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7332,7 +7332,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+85"/>
+        <location line="+76"/>
         <source>Nouveau type de note</source>
         <translation type="unfinished"></translation>
     </message>
