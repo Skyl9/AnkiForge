@@ -201,3 +201,53 @@ def test_show_toast_direct_message_with_is_error(parent_widget: QWidget, qtbot) 
 
     assert toast.level == ToastLevel.ERROR
     manager.clear()
+
+
+def test_toast_manager_triggers_background_notification(parent_widget: QWidget, qtbot) -> None:
+    """Vérifie que ToastManager sollicite SystemNotificationService quand la fenêtre hôte est en arrière-plan."""
+    from unittest.mock import patch
+
+    from ankiforge.services.system.notification_service import SystemNotificationService
+
+    manager = ToastManager.get_instance()
+    manager.clear()
+
+    notif_service = SystemNotificationService.get_instance()
+    notif_service.reset_state_for_testing()
+
+    with patch.object(notif_service, "is_window_active", return_value=False), patch.object(notif_service, "notify_if_background", wraps=notif_service.notify_if_background) as mock_notify:
+        toast = manager.show(parent_widget, "Tâche achevée", level=ToastLevel.SUCCESS, title="Succès du lot")
+        assert toast is not None
+        qtbot.addWidget(toast)
+
+        mock_notify.assert_called_once()
+        args, kwargs = mock_notify.call_args
+        # Vérifier que le titre et le message sont correctement transmis
+        assert kwargs.get("title") == "Succès du lot" or args[1] == "Succès du lot"
+        assert kwargs.get("message") == "Tâche achevée" or args[2] == "Tâche achevée"
+
+    manager.clear()
+
+
+def test_toast_manager_default_title_fallback_in_notification(parent_widget: QWidget, qtbot) -> None:
+    """Vérifie que le titre par défaut du niveau sémantique est utilisé si le titre du toast est vide."""
+    from unittest.mock import patch
+
+    from ankiforge.services.system.notification_service import SystemNotificationService
+
+    manager = ToastManager.get_instance()
+    manager.clear()
+
+    notif_service = SystemNotificationService.get_instance()
+    notif_service.reset_state_for_testing()
+
+    with patch.object(notif_service, "is_window_active", return_value=False), patch.object(notif_service, "notify_if_background", wraps=notif_service.notify_if_background) as mock_notify:
+        toast = manager.show(parent_widget, "Document importé", level=ToastLevel.INFO, title="")
+        assert toast is not None
+        qtbot.addWidget(toast)
+
+        mock_notify.assert_called_once()
+        call_title = mock_notify.call_args[1].get("title") if "title" in mock_notify.call_args[1] else mock_notify.call_args[0][1]
+        assert call_title == "Information"
+
+    manager.clear()

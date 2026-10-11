@@ -158,6 +158,39 @@ def test_general_tab_save_and_mode_change(qtbot):
     assert SettingsService.get("app/export_path") == "/custom/export/path"
 
 
+def test_general_tab_notifications_mode_persistence(qtbot):
+    """Teste la configuration et la persistance du mode de notification en arrière-plan."""
+    SettingsService.set("notifications/system_mode", "system", category="general")
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    assert hasattr(tab, "cb_notif_mode")
+    assert tab.cb_notif_mode.count() == 3
+    modes = [tab.cb_notif_mode.itemData(i) for i in range(tab.cb_notif_mode.count())]
+    assert "system" in modes
+    assert "dock_only" in modes
+    assert "disabled" in modes
+
+    # Initialement "system"
+    assert tab.cb_notif_mode.currentData() == "system"
+
+    # Basculer vers "dock_only"
+    idx_dock = tab.cb_notif_mode.findData("dock_only")
+    assert idx_dock >= 0
+    tab.cb_notif_mode.setCurrentIndex(idx_dock)
+    assert tab.has_pending_changes() is True
+
+    has_change, _, _ = tab.save_tab()
+    assert has_change is True
+    assert SettingsService.get("notifications/system_mode") == "dock_only"
+
+    # Vérifier la restauration à la réouverture de l'onglet
+    tab2 = GeneralTab()
+    qtbot.addWidget(tab2)
+    assert tab2.cb_notif_mode.currentData() == "dock_only"
+
+
 def test_general_tab_language_combo_lists_endonyms_and_stores_codes(qtbot):
     """Le sélecteur de langue expose des endonymes et conserve les codes en ``userData``."""
 
