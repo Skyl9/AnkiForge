@@ -493,6 +493,83 @@ def search_document(query: str, document_id: int) -> str:
 
 
 # =====================================================================
+# OUTILS D'HYGIÈNE EN MASSE DES NOTES ET CARTES
+# =====================================================================
+
+
+@mcp.tool()
+def sanitize_fields_html(
+    note_ids: list[int] | str,
+    strip_tags: list[str] | str = "",
+    strip_all_html: bool = False,
+    force_apply: bool = False,
+    stage_threshold: int = 5,
+) -> str:
+    """Nettoie le HTML inline des champs d'un lot de notes. Si le volume dépasse stage_threshold, génère un StagedPatch (Two-Phase Commit)."""
+    return ConsultantToolRegistry.sanitize_fields_html(
+        note_ids=note_ids,
+        strip_tags=strip_tags,
+        strip_all_html=strip_all_html,
+        force_apply=force_apply,
+        stage_threshold=stage_threshold,
+    )
+
+
+@mcp.tool()
+def set_tags_bulk(
+    note_ids: list[int] | str,
+    tags: list[str] | str,
+    mode: str = "add",
+    allow_remove_provenance_tags: bool = False,
+) -> str:
+    """Pose, retire ou remplace des tags sur un lot de notes via l'écrivain canonique JSON."""
+    return ConsultantToolRegistry.set_tags_bulk(
+        note_ids=note_ids,
+        tags=tags,
+        mode=mode,
+        allow_remove_provenance_tags=allow_remove_provenance_tags,
+    )
+
+
+@mcp.tool()
+def delete_unused_note_type(
+    name: str,
+    confirm: bool = False,
+) -> str:
+    """Supprime un type de note uniquement si 0 note y sont rattachées (garde-fou référentiel). Si name='all_unused', supprime tous les modèles orphelins."""
+    return ConsultantToolRegistry.delete_unused_note_type(name=name, confirm=confirm)
+
+
+@mcp.tool()
+def move_cards_to_deck(
+    card_ids: list[int] | str,
+    deck: str,
+) -> str:
+    """Déplace un lot de cartes physiques vers un paquet ou sous-paquet hiérarchique ('Parent::Enfant')."""
+    return ConsultantToolRegistry.move_cards_to_deck(card_ids=card_ids, deck=deck)
+
+
+@mcp.tool()
+def list_empty_cards(
+    deck_name: str = "",
+    limit: int = 100,
+    offset: int = 0,
+) -> str:
+    """Détecte les cartes physiques dont le recto (question) est vide après substitution du gabarit."""
+    return ConsultantToolRegistry.list_empty_cards(deck_name=deck_name, limit=limit, offset=offset)
+
+
+@mcp.tool()
+def delete_empty_cards(
+    card_ids: list[int] | str = "",
+    deck_name: str = "",
+    confirm: bool = False,
+) -> str:
+    """Supprime définitivement les cartes à front vide (détection auto ou par identifiants). Action destructive nécessitant confirm=True."""
+    return ConsultantToolRegistry.delete_empty_cards(card_ids=card_ids, deck_name=deck_name, confirm=confirm)
+
+
+# =====================================================================
 # OUTILS DE FORMATAGE ET STRUCTURATION MARKDOWN
 # =====================================================================
 

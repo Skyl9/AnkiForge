@@ -406,6 +406,37 @@ class StagedPatchRegistry:
                 logger.error("Erreur application note_type_change : %s", err)
                 return {"status": "error", "message": str(err), "patch_id": patch_id}
 
+        # 7. Type BULK_HTML_SANITIZE / HTML_SANITIZE
+        if p_type in ("bulk_html_sanitize", "html_sanitize"):
+            diffs = diff_data.get("diffs", [])
+            if not isinstance(diffs, list):
+                return {"status": "error", "message": "Diffs invalides pour le nettoyage HTML.", "patch_id": patch_id}
+
+            applied_notes = []
+            with db.atomic():
+                for d in diffs:
+                    nid = d.get("note_id")
+                    after_content = d.get("after")
+                    if not nid or not after_content:
+                        continue
+                    note = NoteModel.get_or_none(NoteModel.id == nid)
+                    if note:
+                        note.add_version(after_content, source="staged_patch_html_sanitize")
+                        applied_notes.append(note.id)
+
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+
+            cls._notify_mutation("bulk_html_sanitize", 0, {"note_ids": applied_notes, "patch_id": patch_id})
+            return {
+                "status": "applied",
+                "patch_id": patch_id,
+                "count": len(applied_notes),
+                "note_ids": applied_notes,
+                "message": f"Nettoyage HTML appliqué avec succès sur {len(applied_notes)} note(s).",
+            }
+
         return {"status": "error", "message": f"Type de patch non supporté : '{patch.patch_type}'."}
 
     @classmethod

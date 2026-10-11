@@ -2199,6 +2199,95 @@ class ConsultantToolRegistry:
             logger.error("Erreur structure_transcript_for_ai : %s", e)
             return f"Erreur lors de la restructuration IA du document : {e}"
 
+    @staticmethod
+    def sanitize_fields_html(
+        note_ids: list[int] | str,
+        strip_tags: list[str] | str = "",
+        strip_all_html: bool = False,
+        force_apply: bool = False,
+        stage_threshold: int = 5,
+    ) -> str:
+        """Nettoie le HTML inline des champs d'un lot de notes. Si le volume dépasse stage_threshold, génère un StagedPatch."""
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, parse_id_list, parse_str_list
+
+        n_ids = parse_id_list(note_ids)
+        s_tags = parse_str_list(strip_tags) if strip_tags else None
+        res = BulkHygieneService.sanitize_notes_html(
+            note_ids=n_ids,
+            strip_tags=s_tags,
+            strip_all_html=strip_all_html,
+            force_apply=force_apply,
+            stage_threshold=stage_threshold,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def set_tags_bulk(
+        note_ids: list[int] | str,
+        tags: list[str] | str,
+        mode: str = "add",
+        allow_remove_provenance_tags: bool = False,
+    ) -> str:
+        """Pose, retire ou remplace des tags sur un lot de notes via l'écrivain canonique JSON."""
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, parse_id_list
+
+        n_ids = parse_id_list(note_ids)
+        res = BulkHygieneService.set_tags_bulk(
+            note_ids=n_ids,
+            tags=tags,
+            mode=mode,
+            allow_remove_provenance_tags=allow_remove_provenance_tags,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def delete_unused_note_type(
+        name: str,
+        confirm: bool = False,
+    ) -> str:
+        """Supprime un type de note uniquement si 0 note y sont rattachées (garde-fou référentiel). Si name='all_unused', supprime tous les modèles orphelins."""
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService
+
+        res = BulkHygieneService.delete_unused_note_type(name=name, confirm=confirm)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def move_cards_to_deck(
+        card_ids: list[int] | str,
+        deck: str,
+    ) -> str:
+        """Déplace un lot de cartes physiques vers un paquet ou sous-paquet hiérarchique ('Parent::Enfant')."""
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, parse_id_list
+
+        c_ids = parse_id_list(card_ids)
+        res = BulkHygieneService.move_cards_to_deck(card_ids=c_ids, deck=deck)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def list_empty_cards(
+        deck_name: str = "",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> str:
+        """Détecte les cartes physiques dont le recto (question) est vide après substitution du gabarit."""
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService
+
+        res = BulkHygieneService.list_empty_cards(deck_name=deck_name, limit=limit, offset=offset)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def delete_empty_cards(
+        card_ids: list[int] | str = "",
+        deck_name: str = "",
+        confirm: bool = False,
+    ) -> str:
+        """Supprime définitivement les cartes à front vide (détection auto ou par identifiants). Action destructive nécessitant confirm=True."""
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, parse_id_list
+
+        c_ids = parse_id_list(card_ids) if card_ids else None
+        res = BulkHygieneService.delete_empty_cards(card_ids=c_ids, deck_name=deck_name, confirm=confirm)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -2682,6 +2771,101 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "sanitize_fields_html",
+            "description": "Nettoie le HTML inline des champs d'un lot de notes. Si le volume dépasse stage_threshold, génère un StagedPatch (Two-Phase Commit).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note_ids": {"type": "array", "items": {"type": "integer"}, "description": "Liste des identifiants des notes à nettoyer"},
+                    "strip_tags": {"type": "array", "items": {"type": "string"}, "description": "Balises spécifiques à supprimer (optionnel)"},
+                    "strip_all_html": {"type": "boolean", "description": "Si true, supprime toutes les balises HTML sauf clozes et math (défaut: false)"},
+                    "force_apply": {"type": "boolean", "description": "Forcer l'application directe sans StagedPatch (défaut: false)"},
+                    "stage_threshold": {"type": "integer", "description": "Seuil de mise en attente (défaut: 5)"},
+                },
+                "required": ["note_ids"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_tags_bulk",
+            "description": "Pose, retire ou remplace des tags sur un lot de notes via l'écrivain canonique JSON.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note_ids": {"type": "array", "items": {"type": "integer"}, "description": "Liste des identifiants des notes cibles"},
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags à appliquer"},
+                    "mode": {"type": "string", "enum": ["add", "remove", "replace"], "description": "Mode d'application ('add', 'remove', 'replace', défaut: 'add')"},
+                    "allow_remove_provenance_tags": {"type": "boolean", "description": "Autoriser la suppression des tags de traçabilité documentaire (défaut: false)"},
+                },
+                "required": ["note_ids", "tags"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_unused_note_type",
+            "description": "Supprime un modèle de note uniquement si 0 note y sont rattachées (garde-fou référentiel). Si name='all_unused', supprime tous les modèles orphelins.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Nom exact du modèle à supprimer ou 'all_unused'"},
+                    "confirm": {"type": "boolean", "description": "Confirmation explicite de l'action destructive (défaut: false)"},
+                },
+                "required": ["name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "move_cards_to_deck",
+            "description": "Déplace un lot de cartes physiques vers un paquet ou sous-paquet hiérarchique ('Parent::Enfant').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "card_ids": {"type": "array", "items": {"type": "integer"}, "description": "Liste des identifiants des cartes à déplacer"},
+                    "deck": {"type": "string", "description": "Nom exact ou hiérarchique du paquet cible"},
+                },
+                "required": ["card_ids", "deck"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_empty_cards",
+            "description": "Détecte les cartes physiques dont le recto (question) est vide après substitution du gabarit.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "deck_name": {"type": "string", "description": "Nom du paquet à filtrer (optionnel)"},
+                    "limit": {"type": "integer", "description": "Nombre maximum de cartes à retourner (défaut: 100)"},
+                    "offset": {"type": "integer", "description": "Décalage pour pagination (défaut: 0)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_empty_cards",
+            "description": "Supprime définitivement les cartes à front vide (détection auto ou par identifiants). Action destructive nécessitant confirm=True.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "card_ids": {"type": "array", "items": {"type": "integer"}, "description": "Liste explicite des IDs de cartes vides à supprimer (optionnel)"},
+                    "deck_name": {"type": "string", "description": "Nom du paquet à filtrer si détection auto (optionnel)"},
+                    "confirm": {"type": "boolean", "description": "Confirmation explicite de l'action destructive (défaut: false)"},
+                },
+            },
+        },
+    },
 ]
 
 
@@ -2964,6 +3148,48 @@ class ConsultantEngine:
                 q = tool_args.get("query", "")
                 m_chunks = int(tool_args.get("max_chunks", 5))
                 return ConsultantToolRegistry.search_knowledge_context(q, max_chunks=m_chunks), False
+            elif tool_name == "sanitize_fields_html":
+                n_ids = tool_args.get("note_ids", [])
+                s_tags = tool_args.get("strip_tags", "")
+                s_all = bool(tool_args.get("strip_all_html", False))
+                f_apply = bool(tool_args.get("force_apply", False))
+                s_thresh = int(tool_args.get("stage_threshold", 5))
+                return ConsultantToolRegistry.sanitize_fields_html(
+                    note_ids=n_ids,
+                    strip_tags=s_tags,
+                    strip_all_html=s_all,
+                    force_apply=f_apply,
+                    stage_threshold=s_thresh,
+                ), False
+            elif tool_name == "set_tags_bulk":
+                n_ids = tool_args.get("note_ids", [])
+                tags_arg = tool_args.get("tags", [])
+                m = str(tool_args.get("mode", "add"))
+                allow_prov = bool(tool_args.get("allow_remove_provenance_tags", False))
+                return ConsultantToolRegistry.set_tags_bulk(
+                    note_ids=n_ids,
+                    tags=tags_arg,
+                    mode=m,
+                    allow_remove_provenance_tags=allow_prov,
+                ), False
+            elif tool_name == "delete_unused_note_type":
+                m_name = str(tool_args.get("name", ""))
+                conf = bool(tool_args.get("confirm", False))
+                return ConsultantToolRegistry.delete_unused_note_type(name=m_name, confirm=conf), False
+            elif tool_name == "move_cards_to_deck":
+                c_ids = tool_args.get("card_ids", [])
+                d_target = str(tool_args.get("deck", ""))
+                return ConsultantToolRegistry.move_cards_to_deck(card_ids=c_ids, deck=d_target), False
+            elif tool_name == "list_empty_cards":
+                d_name = str(tool_args.get("deck_name", ""))
+                lim = int(tool_args.get("limit", 100))
+                off = int(tool_args.get("offset", 0))
+                return ConsultantToolRegistry.list_empty_cards(deck_name=d_name, limit=lim, offset=off), False
+            elif tool_name == "delete_empty_cards":
+                c_ids = tool_args.get("card_ids", "")
+                d_name = str(tool_args.get("deck_name", ""))
+                conf = bool(tool_args.get("confirm", False))
+                return ConsultantToolRegistry.delete_empty_cards(card_ids=c_ids, deck_name=d_name, confirm=conf), False
             elif tool_name in MCPHooksAPI.get_registered_tools():
                 plugin_tool = MCPHooksAPI.get_registered_tools()[tool_name]
                 handler = plugin_tool["handler"]
