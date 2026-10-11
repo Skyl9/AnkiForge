@@ -201,8 +201,8 @@ def test_model_discovery_dialog_dimensions_and_compare_hidden_in_picker_mode(qtb
     dlg_picker = ModelDiscoveryDialog(picker_mode=True)
     qtbot.addWidget(dlg_picker)
 
-    assert dlg_picker.width() == 840
-    assert dlg_picker.height() == 540
+    assert dlg_picker.width() <= 840
+    assert dlg_picker.height() <= 540
 
     # Volet de comparaison masqué
     assert dlg_picker.compare_pane.isHidden()
@@ -233,3 +233,104 @@ def test_model_discovery_dialog_dimensions_and_compare_hidden_in_picker_mode(qtb
     assert len(catalog_cards) >= 2
     for card in catalog_cards:
         assert not card.cb_compare.isHidden()
+
+
+def test_vision_model_discovery_dialog_bounded_and_responsive(qtbot, sample_llm_configs):
+    """Vérifie que la modale de sélection de moteur de vision ne dépasse pas en largeur et reste responsive."""
+    from PySide6.QtCore import Qt
+
+    dlg = ModelDiscoveryDialog(picker_mode=True, require_vision=True)
+    qtbot.addWidget(dlg)
+
+    # Titre contextuel vision
+    assert "Moteur de Vision" in dlg.windowTitle()
+    assert dlg.btn_cap_vision.isChecked()
+    assert not dlg.btn_cap_vision.isEnabled()
+
+    # Contraintes de dimensionnement : ne doit JAMAIS avoir une taille minimale excessive (> 700px)
+    assert dlg.minimumSizeHint().width() <= 680
+
+    dlg.show()
+    qtbot.waitExposed(dlg)
+
+    # Après affichage, la largeur ne doit pas exploser à 2000px+
+    assert dlg.width() <= 840
+    assert dlg.height() <= 540
+
+    # Aucun ascenseur horizontal requis
+    assert dlg.scroll_area.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff or not dlg.scroll_area.horizontalScrollBar().isVisible()
+
+    # Seuls des modèles supportant la vision sont listés
+    cards = [c for c in dlg.cards_container.findChildren(ModelCardWidget) if not c.isHidden()]
+    assert len(cards) >= 1
+    for c in cards:
+        assert getattr(c.model, "supports_vision", False) is True
+
+
+def test_vision_model_discovery_dialog_simulated_screen_sizes(qtbot, monkeypatch, sample_llm_configs):
+    """Vérifie le respect des bornes de résolution à 1920x1080, 1280x800, 1024x768 et 800x600."""
+    from PySide6.QtCore import QRect
+    from PySide6.QtWidgets import QApplication
+
+    screen = QApplication.primaryScreen()
+    assert screen is not None
+
+    # 1. Grand écran (1920x1080)
+    monkeypatch.setattr(screen, "availableGeometry", lambda: QRect(0, 0, 1920, 1080))
+    dlg_fhd = ModelDiscoveryDialog(picker_mode=True, require_vision=True)
+    qtbot.addWidget(dlg_fhd)
+    assert dlg_fhd.width() == 840
+    assert dlg_fhd.height() == 540
+
+    # 2. Écran MacBook 13" / portable standard (1280x800)
+    monkeypatch.setattr(screen, "availableGeometry", lambda: QRect(0, 0, 1280, 800))
+    dlg_1280 = ModelDiscoveryDialog(picker_mode=True, require_vision=True)
+    qtbot.addWidget(dlg_1280)
+    assert dlg_1280.width() == 840
+    assert dlg_1280.height() == 540
+    assert dlg_1280.width() <= 1280
+
+    # 3. Petit écran (1024x768)
+    monkeypatch.setattr(screen, "availableGeometry", lambda: QRect(0, 0, 1024, 768))
+    dlg_1024 = ModelDiscoveryDialog(picker_mode=True, require_vision=True)
+    qtbot.addWidget(dlg_1024)
+    assert dlg_1024.width() <= 1024 * 0.85
+    assert dlg_1024.height() <= 768 * 0.85
+    assert dlg_1024.width() <= 840
+
+    # Mode catalogue complet sur petit écran (1024x768)
+    dlg_cat_1024 = ModelDiscoveryDialog(picker_mode=False, require_vision=True)
+    qtbot.addWidget(dlg_cat_1024)
+    assert dlg_cat_1024.width() <= 1024 * 0.85
+    assert dlg_cat_1024.height() <= 768 * 0.85
+
+    # 4. Écran très compact (800x600)
+    monkeypatch.setattr(screen, "availableGeometry", lambda: QRect(0, 0, 800, 600))
+    dlg_800 = ModelDiscoveryDialog(picker_mode=True, require_vision=True)
+    qtbot.addWidget(dlg_800)
+    assert dlg_800.width() <= int(800 * 0.85)
+    assert dlg_800.height() <= int(600 * 0.85)
+
+
+def test_album_transcription_dialog_dimensions_bounded_on_small_screens(qtbot, monkeypatch):
+    """Vérifie que AlbumTranscriptionDialog est plafonnée à 90% de la géométrie disponible."""
+    from PySide6.QtCore import QRect
+    from PySide6.QtWidgets import QApplication
+
+    from ankiforge.database.models import DocumentModel
+    from ankiforge.ui.dialogs.album_transcription_dialog import AlbumTranscriptionDialog
+
+    screen = QApplication.primaryScreen()
+    assert screen is not None
+
+    doc = DocumentModel.create(title="Test Album", source_type="album")
+
+    # Petit écran (1024x768)
+    monkeypatch.setattr(screen, "availableGeometry", lambda: QRect(0, 0, 1024, 768))
+    dlg = AlbumTranscriptionDialog(doc=doc)
+    qtbot.addWidget(dlg)
+
+    assert dlg.width() <= int(1024 * 0.9)
+    assert dlg.height() <= int(768 * 0.9)
+    assert dlg.minimumWidth() <= dlg.width()
+    assert dlg.minimumHeight() <= dlg.height()
