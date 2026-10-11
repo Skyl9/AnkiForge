@@ -594,23 +594,14 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/crash_report_dialog.py" line="+123"/>
-        <source>📅 %1</source>
+        <location filename="../../ui/dialogs/crash_report_dialog.py" line="+145"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+265"/>
+        <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>⚙️ Profil : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>📦 Version : v%1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>💻 OS : %1</source>
+        <location line="+2"/>
+        <source>OS : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4026,12 +4017,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+265"/>
-        <source>Profil : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+179"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+179"/>
         <source>✓ Paramètres sauvegardés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8129,12 +8115,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CrashReportDialog</name>
     <message>
-        <location filename="../../ui/dialogs/crash_report_dialog.py" line="-68"/>
+        <location filename="../../ui/dialogs/crash_report_dialog.py" line="-84"/>
         <source>Rapport d&apos;arrêt inattendu d&apos;AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+53"/>
         <source>AnkiForge s&apos;est arrêté de manière inattendue</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8149,57 +8135,67 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+17"/>
+        <location line="+15"/>
         <source>Date inconnue</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+12"/>
-        <source>Aperçu des données transmises (clés d&apos;API et secrets automatiquement masqués) :</source>
+        <source>Aperçu des données transmises (clés d&apos;API et secrets masqués) :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
-        <source>🔒 Données anonymisées</source>
+        <location line="+16"/>
+        <source>Données anonymisées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+17"/>
         <source>Ne plus me proposer de transmettre les rapports de crash au démarrage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+14"/>
         <source>Ouvrir le fichier crash.log avec votre éditeur par défaut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
-        <source>Fermer cette invite sans transmettre le rapport</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location line="+8"/>
         <source>Copier le rapport complet au format Markdown dans le presse-papier</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+8"/>
         <source>Enregistrer le rapport dans un fichier Markdown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+8"/>
         <source>Ouvrir le formulaire de signalement complet pour ajouter vos remarques</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+12"/>
+        <source>Ignorer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Fermer cette invite sans transmettre le rapport</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Transmettre sur GitHub ↗</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
         <source>Ouvrir GitHub Issues dans le navigateur avec le rapport pré-rempli</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+42"/>
         <source>✓ Rapport copié dans le presse-papier !</source>
         <translation type="unfinished"></translation>
     </message>

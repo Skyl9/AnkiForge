@@ -29,10 +29,15 @@ from ankiforge.services.crash_reporter_service import (
     CrashReporterService,
 )
 from ankiforge.services.feedback_service import FeedbackService, SystemDiagnosticInfo
-from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import (
+    IconButton,
+    PrimaryButton,
+    SecondaryButton,
+    apply_compact_style,
+)
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.i18n import tr
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.version import get_version_info
 
 logger = logging.getLogger(__name__)
@@ -56,8 +61,8 @@ class CrashReportDialog(QDialog):
         # Invite explicitement non-bloquante pour laisser l'utilisateur interagir avec l'application
         self.setModal(False)
         self.setWindowTitle(self.tr("Rapport d'arrêt inattendu d'AnkiForge"))
-        self.setMinimumSize(720, 560)
-        self.resize(780, 640)
+        self.setMinimumSize(620, 460)
+        self.resize(680, 520)
 
         self.crash_info = crash_info
         self._diagnostics: SystemDiagnosticInfo = FeedbackService.collect_diagnostics()
@@ -70,33 +75,51 @@ class CrashReportDialog(QDialog):
         shortcut_esc = QShortcut(QKeySequence("Escape"), self)
         shortcut_esc.activated.connect(self._on_ignore_clicked)
 
+    def _create_meta_badge(self, icon_name: str, label_text: str) -> QWidget:
+        """Crée un item d'information compact avec icône Phosphor et label stylisé."""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+
+        icon_lbl = QLabel()
+        icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED)
+        if not icon.isNull():
+            icon_lbl.setPixmap(icon.pixmap(14, 14))
+        layout.addWidget(icon_lbl)
+
+        txt_lbl = QLabel(label_text)
+        txt_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        layout.addWidget(txt_lbl)
+        return container
+
     def _setup_ui(self) -> None:
         root_layout = QVBoxLayout(self)
-        root_layout.setContentsMargins(22, 20, 22, 18)
-        root_layout.setSpacing(14)
+        root_layout.setContentsMargins(20, 18, 20, 16)
+        root_layout.setSpacing(12)
 
         # ── 1. En-tête avec Icône d'alerte et bouton fermer ──
         header_widget = QWidget()
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(14)
+        header_layout.setSpacing(12)
 
         icon_lbl = QLabel()
         icon = load_phosphor_icon("warning-octagon", color=DesignTokens.COLOR_RED)
         if not icon.isNull():
-            icon_lbl.setPixmap(icon.pixmap(30, 30))
+            icon_lbl.setPixmap(icon.pixmap(28, 28))
         header_layout.addWidget(icon_lbl)
 
         title_col = QVBoxLayout()
-        title_col.setSpacing(3)
+        title_col.setSpacing(2)
 
         main_title = QLabel(self.tr("AnkiForge s'est arrêté de manière inattendue"))
-        main_title.setStyleSheet(f"font-size: 16px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
+        main_title.setStyleSheet(f"font-size: 15px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
         title_col.addWidget(main_title)
 
         sub_title = QLabel(self.tr("Un incident est survenu lors de la session précédente. Vous pouvez nous aider à le corriger en transmettant ce rapport anonymisé."))
         sub_title.setWordWrap(True)
-        sub_title.setStyleSheet(f"font-size: 12px; color: {DesignTokens.TEXT_MUTED};")
+        sub_title.setStyleSheet(f"font-size: 11.5px; color: {DesignTokens.TEXT_MUTED};")
         title_col.addWidget(sub_title)
 
         header_layout.addLayout(title_col, stretch=1)
@@ -110,40 +133,52 @@ class CrashReportDialog(QDialog):
         # ── 2. Bandeau de métadonnées de l'incident ──
         meta_frame = QFrame()
         meta_frame.setObjectName("MetaFrame")
-        meta_frame.setStyleSheet(
-            f"QFrame#MetaFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 6px 12px; }}"
-        )
+        meta_frame.setStyleSheet(f"QFrame#MetaFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         meta_layout = QHBoxLayout(meta_frame)
-        meta_layout.setContentsMargins(8, 6, 8, 6)
-        meta_layout.setSpacing(16)
+        meta_layout.setContentsMargins(8, 4, 8, 4)
+        meta_layout.setSpacing(10)
 
         v_info = get_version_info()
         ts_text = self.crash_info.timestamp or self.tr("Date inconnue")
 
-        meta_layout.addWidget(QLabel(tr("📅 %1", ts_text)))
-        meta_layout.addWidget(QLabel(tr("⚙️ Profil : %1", self.crash_info.active_profile)))
-        meta_layout.addWidget(QLabel(tr("📦 Version : v%1", v_info.short_display_version)))
-        meta_layout.addWidget(QLabel(tr("💻 OS : %1", self.crash_info.os_platform)))
+        meta_layout.addWidget(self._create_meta_badge("calendar", ts_text))
+        meta_layout.addWidget(self._create_meta_badge("user-circle", tr("Profil : %1", self.crash_info.active_profile)))
+        meta_layout.addWidget(self._create_meta_badge("package", v_info.short_display_version))
+        meta_layout.addWidget(self._create_meta_badge("desktop", tr("OS : %1", self.crash_info.os_platform)))
         meta_layout.addStretch(1)
 
         root_layout.addWidget(meta_frame)
 
         # ── 3. Label de transparence et zone d'aperçu ──
         preview_header_layout = QHBoxLayout()
-        lbl_preview_title = QLabel(self.tr("Aperçu des données transmises (clés d'API et secrets automatiquement masqués) :"))
-        lbl_preview_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
+        lbl_preview_title = QLabel(self.tr("Aperçu des données transmises (clés d'API et secrets masqués) :"))
+        lbl_preview_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 11.5px;")
         preview_header_layout.addWidget(lbl_preview_title)
         preview_header_layout.addStretch(1)
 
-        lbl_shield = QLabel(self.tr("🔒 Données anonymisées"))
-        lbl_shield.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: 600;")
-        preview_header_layout.addWidget(lbl_shield)
+        shield_widget = QWidget()
+        shield_layout = QHBoxLayout(shield_widget)
+        shield_layout.setContentsMargins(0, 0, 0, 0)
+        shield_layout.setSpacing(5)
 
+        shield_icon_lbl = QLabel()
+        shield_icon = load_phosphor_icon("shield-check", color=DesignTokens.COLOR_GREEN)
+        if not shield_icon.isNull():
+            shield_icon_lbl.setPixmap(shield_icon.pixmap(14, 14))
+        shield_layout.addWidget(shield_icon_lbl)
+
+        lbl_shield = QLabel(self.tr("Données anonymisées"))
+        lbl_shield.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: 600;")
+        shield_layout.addWidget(lbl_shield)
+
+        preview_header_layout.addWidget(shield_widget)
         root_layout.addLayout(preview_header_layout)
 
         self.preview_edit = QTextEdit()
         self.preview_edit.setObjectName("CrashPreviewEdit")
         self.preview_edit.setReadOnly(True)
+        self.preview_edit.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.preview_edit.verticalScrollBar().setSingleStep(20)
         self.preview_edit.setFont(QFont(DesignTokens.FONT_CODE, 10))
         self.preview_edit.setText(self._markdown_payload)
         root_layout.addWidget(self.preview_edit, stretch=1)
@@ -158,49 +193,60 @@ class CrashReportDialog(QDialog):
         # ── 5. Pied de page d'actions (Footer) ──
         footer_layout = QHBoxLayout()
         footer_layout.setContentsMargins(0, 4, 0, 0)
-        footer_layout.setSpacing(10)
+        footer_layout.setSpacing(8)
 
-        # Côté Gauche : Consultation du fichier de log
-        self.btn_view_log = SecondaryButton("📂 Voir le log")
-        self.btn_view_log.setToolTip(self.tr("Ouvrir le fichier crash.log avec votre éditeur par défaut"))
-        self.btn_view_log.setFixedHeight(32)
+        # Côté Gauche : Actions secondaires compactes avec infobulles
+        self.btn_view_log = IconButton(
+            "file-text",
+            tooltip=self.tr("Ouvrir le fichier crash.log avec votre éditeur par défaut"),
+            size=32,
+        )
         self.btn_view_log.clicked.connect(self._on_view_log_clicked)
         footer_layout.addWidget(self.btn_view_log)
 
-        self.lbl_status = QLabel("")
-        self.lbl_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 12px; font-weight: 600;")
-        footer_layout.addWidget(self.lbl_status)
-        footer_layout.addStretch(1)
-
-        # Côté Droit : Copier, Exporter, Personnaliser, Transmettre, Ignorer
-        self.btn_ignore = SecondaryButton("Ignorer")
-        self.btn_ignore.setToolTip(self.tr("Fermer cette invite sans transmettre le rapport"))
-        self.btn_ignore.setFixedHeight(32)
-        self.btn_ignore.clicked.connect(self._on_ignore_clicked)
-        footer_layout.addWidget(self.btn_ignore)
-
-        self.btn_copy = SecondaryButton("📋 Copier le rapport")
-        self.btn_copy.setToolTip(self.tr("Copier le rapport complet au format Markdown dans le presse-papier"))
-        self.btn_copy.setFixedHeight(32)
+        self.btn_copy = IconButton(
+            "copy",
+            tooltip=self.tr("Copier le rapport complet au format Markdown dans le presse-papier"),
+            size=32,
+        )
         self.btn_copy.clicked.connect(self._on_copy_clicked)
         footer_layout.addWidget(self.btn_copy)
 
-        self.btn_export = SecondaryButton("💾 Exporter (.md)...")
-        self.btn_export.setToolTip(self.tr("Enregistrer le rapport dans un fichier Markdown"))
-        self.btn_export.setFixedHeight(32)
+        self.btn_export = IconButton(
+            "floppy-disk",
+            tooltip=self.tr("Enregistrer le rapport dans un fichier Markdown"),
+            size=32,
+        )
         self.btn_export.clicked.connect(self._on_export_clicked)
         footer_layout.addWidget(self.btn_export)
 
-        self.btn_customize = SecondaryButton("✏️ Personnaliser...")
-        self.btn_customize.setToolTip(self.tr("Ouvrir le formulaire de signalement complet pour ajouter vos remarques"))
-        self.btn_customize.setFixedHeight(32)
+        self.btn_customize = IconButton(
+            "pencil-simple",
+            tooltip=self.tr("Ouvrir le formulaire de signalement complet pour ajouter vos remarques"),
+            size=32,
+        )
         self.btn_customize.clicked.connect(self._on_customize_clicked)
         footer_layout.addWidget(self.btn_customize)
 
-        self.btn_send = PrimaryButton("🚀 Transmettre sur GitHub ↗")
+        self.lbl_status = QLabel("")
+        self.lbl_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px; font-weight: 600;")
+        footer_layout.addWidget(self.lbl_status)
+        footer_layout.addStretch(1)
+
+        # Côté Droit : Ignorer et Transmettre
+        self.btn_ignore = SecondaryButton(self.tr("Ignorer"))
+        self.btn_ignore.setToolTip(self.tr("Fermer cette invite sans transmettre le rapport"))
+        apply_compact_style(self.btn_ignore, height=32)
+        self.btn_ignore.clicked.connect(self._on_ignore_clicked)
+        footer_layout.addWidget(self.btn_ignore)
+
+        self.btn_send = PrimaryButton(self.tr("Transmettre sur GitHub ↗"))
         self.btn_send.setToolTip(self.tr("Ouvrir GitHub Issues dans le navigateur avec le rapport pré-rempli"))
-        self.btn_send.setFixedHeight(32)
-        apply_shadow(self.btn_send, blur=10, offset_y=0, color=DesignTokens.ACCENT_GLOW)
+        icon_send = load_on_accent_icon("arrow-square-out")
+        if not icon_send.isNull():
+            self.btn_send.setIcon(icon_send)
+        apply_compact_style(self.btn_send, height=32)
+        apply_shadow(self.btn_send, blur=8, offset_y=0, color=DesignTokens.ACCENT_GLOW)
         self.btn_send.clicked.connect(self._on_send_clicked)
         footer_layout.addWidget(self.btn_send)
 
@@ -217,8 +263,10 @@ class CrashReportDialog(QDialog):
                 color: {DesignTokens.TEXT_PRIMARY};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 10px;
-                line-height: 1.4;
+                padding: 12px;
+                line-height: 1.45;
+                selection-background-color: {DesignTokens.ACCENT_PRIMARY};
+                selection-color: {DesignTokens.TEXT_ON_ACCENT};
             }}
             QTextEdit#CrashPreviewEdit:focus {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};

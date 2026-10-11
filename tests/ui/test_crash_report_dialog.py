@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from ankiforge.services.crash_reporter_service import CrashReport
+from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.dialogs.crash_report_dialog import CrashReportDialog
 from ankiforge.ui.theme import DesignTokens
 
@@ -44,11 +45,55 @@ class TestCrashReportDialog:
         dialog = CrashReportDialog(crash_info=sample_crash_report)
         qtbot.addWidget(dialog)
 
-        # L'invite doit être non bloquante
         assert not dialog.isModal()
         assert dialog.objectName() == "CrashReportDialog"
-        assert dialog.minimumWidth() >= 640
-        assert dialog.minimumHeight() >= 500
+        assert dialog.minimumWidth() == 620
+        assert dialog.minimumHeight() == 460
+
+    def test_buttons_modernized_without_raw_emojis(self, qtbot: QtBot, sample_crash_report: CrashReport) -> None:
+        """Vérifie la modernisation des boutons du footer : aucun emoji en dur, icônes Phosphor et tooltips."""
+        dialog = CrashReportDialog(crash_info=sample_crash_report)
+        qtbot.addWidget(dialog)
+
+        # Actions secondaires sous forme d'IconButton compacts
+        assert isinstance(dialog.btn_copy, IconButton)
+        assert isinstance(dialog.btn_export, IconButton)
+        assert isinstance(dialog.btn_view_log, IconButton)
+        assert isinstance(dialog.btn_customize, IconButton)
+
+        # Vérifier l'absence d'émojis littéraux dans les textes de boutons
+        forbidden_emojis = ["📂", "📋", "💾", "✏️", "🚀"]
+        all_buttons = [
+            dialog.btn_copy,
+            dialog.btn_export,
+            dialog.btn_view_log,
+            dialog.btn_customize,
+            dialog.btn_ignore,
+            dialog.btn_send,
+        ]
+        for btn in all_buttons:
+            btn_text = btn.text()
+            for emoji_char in forbidden_emojis:
+                assert emoji_char not in btn_text
+
+            # Chaque bouton doit disposer d'une infobulle descriptive
+            assert bool(btn.toolTip().strip())
+
+    def test_dialog_layout_no_overflow_on_compact_screens(self, qtbot: QtBot, sample_crash_report: CrashReport) -> None:
+        """Vérifie que le dialogue s'adapte sans dépassement de layout aux résolutions compactes."""
+        dialog = CrashReportDialog(crash_info=sample_crash_report)
+        qtbot.addWidget(dialog)
+        dialog.show()
+
+        # Tester le dimensionnement par défaut (680x520)
+        assert dialog.width() <= 680
+        assert dialog.height() <= 520
+
+        # Tester la réduction à la taille minimale
+        dialog.resize(dialog.minimumSize())
+        qtbot.waitExposed(dialog)
+        assert dialog.width() == 620
+        assert dialog.height() == 460
 
     def test_preview_contains_traceback_and_metadata(self, qtbot: QtBot, sample_crash_report: CrashReport) -> None:
         """Vérifie que l'aperçu contient la trace d'erreur et les métadonnées système."""
