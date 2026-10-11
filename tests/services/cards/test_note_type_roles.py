@@ -99,3 +99,54 @@ def test_get_table_creation_templates() -> None:
         assert "directive" in tmpl
         assert "fields" in tmpl
         assert bool(tmpl["concept"])
+
+
+@pytest.mark.unit
+def test_map_archetype_fields_to_note_model() -> None:
+    from ankiforge.services.cards.note_type_roles import map_archetype_fields_to_note_model
+
+    # 1. Matching exact et insensible à la casse
+    mapped = map_archetype_fields_to_note_model(["Front", "Back"], ["front", "back", "notes"])
+    assert mapped == ["front", "back"]
+
+    # 2. Matching par synonymes canoniques (Recto/Verso -> Front/Back)
+    mapped = map_archetype_fields_to_note_model(["Front", "Back"], ["Recto", "Verso"])
+    assert mapped == ["Recto", "Verso"]
+
+    # 3. Matching synonymes question/réponse/explication
+    suggested = ["Question", "Reponse_Correcte", "Explication"]
+    model_fields = ["Question", "Réponse", "Explications Cliniques"]
+    mapped = map_archetype_fields_to_note_model(suggested, model_fields)
+    assert mapped[0] == "Question"
+    assert mapped[1] == "Réponse"
+
+    # 4. Repli positionnel si noms de champs atypiques
+    mapped = map_archetype_fields_to_note_model(["Front", "Back"], ["Donnee_1", "Donnee_2"])
+    assert mapped == ["Donnee_1", "Donnee_2"]
+
+    # 5. Modèle sans champs : conservation des champs suggérés
+    mapped = map_archetype_fields_to_note_model(["Front", "Back"], [])
+    assert mapped == ["Front", "Back"]
+
+
+@pytest.mark.unit
+def test_create_table_rows_for_archetype() -> None:
+    from ankiforge.services.cards.note_type_roles import (
+        create_table_rows_for_archetype,
+        find_role_archetype_by_id,
+    )
+
+    basic = find_role_archetype_by_id("basic")
+    assert basic is not None
+
+    # Sans model_fields -> champs suggérés de l'archétype
+    rows = create_table_rows_for_archetype(basic)
+    assert len(rows) == 1
+    assert rows[0]["concept"] == basic.name
+    assert rows[0]["directive"] == basic.ai_heuristic_directive
+    assert rows[0]["fields"] == "Front, Back"
+
+    # Avec model_fields = ["Recto", "Verso"]
+    rows = create_table_rows_for_archetype(basic, model_fields=["Recto", "Verso"])
+    assert len(rows) == 1
+    assert rows[0]["fields"] == "Recto, Verso"

@@ -9,6 +9,7 @@ dans la balise {{ available_card_models }} et par les agents MCP.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from ankiforge.utils.i18n import tr
@@ -211,4 +212,92 @@ def get_table_creation_templates() -> list[dict[str, str]]:
             "directive": tr("Insister sur la distinction critique pour éviter l'interférence mémorielle."),
             "fields": "Piege, Contexte, Regle, Solution",
         },
+    ]
+
+
+def map_archetype_fields_to_note_model(
+    suggested_fields: list[str],
+    model_fields: list[str],
+) -> list[str]:
+    """
+    Associe les champs suggérés d'un archétype aux champs réels du type de note.
+
+    Priorité :
+    1. Correspondance exacte insensible à la casse
+    2. Correspondance par groupe de synonymes canoniques
+    3. Repli positionnel ordonné si non apparié
+    """
+    if not model_fields:
+        return list(suggested_fields)
+
+    synonym_groups: list[set[str]] = [
+        {"front", "recto", "question", "concept", "terme", "mot", "text", "texte", "titre", "theoreme", "expression", "mot_etranger"},
+        {"back", "verso", "reponse", "answer", "solution", "definition", "traduction", "demonstration", "code_snippet"},
+        {"notes", "extra", "remarques", "explication", "explanation", "details", "options", "complexite", "hypotheses"},
+        {"context", "contexte", "source", "hint", "indice", "reference", "phonetique", "classe_grammaticale", "pathologie"},
+    ]
+
+    def normalize(s: str) -> str:
+        nfkd = unicodedata.normalize("NFKD", s.lower())
+        return "".join(c for c in nfkd if not unicodedata.combining(c)).replace("_", " ").strip()
+
+    available_model_fields = list(model_fields)
+    mapped: list[str] = []
+
+    for idx, suggested in enumerate(suggested_fields):
+        s_norm = normalize(suggested)
+
+        # 1. Matching exact ou sous-chaîne dans model_fields
+        match: str | None = None
+        for mf in available_model_fields:
+            if normalize(mf) == s_norm:
+                match = mf
+                break
+
+        # 2. Matching par groupe de synonymes
+        if not match:
+            s_group: set[str] | None = None
+            for group in synonym_groups:
+                if any(syn in s_norm or s_norm in syn for syn in group):
+                    s_group = group
+                    break
+            if s_group:
+                for mf in available_model_fields:
+                    mf_norm = normalize(mf)
+                    if any(syn in mf_norm or mf_norm in syn for syn in s_group):
+                        match = mf
+                        break
+
+        # 3. Repli positionnel
+        if not match:
+            if idx < len(model_fields):
+                match = model_fields[idx]
+            elif available_model_fields:
+                match = available_model_fields[0]
+            else:
+                match = suggested
+
+        if match in available_model_fields:
+            available_model_fields.remove(match)
+        mapped.append(match)
+
+    return mapped
+
+
+def create_table_rows_for_archetype(
+    archetype: NoteTypeRoleArchetype,
+    model_fields: list[str] | None = None,
+) -> list[dict[str, str]]:
+    """
+    Construit les lignes de données d'un tableau sémantique pour un archétype donné,
+    en appliquant l'appariement sur les champs réels du modèle s'ils sont fournis.
+    """
+    fields = map_archetype_fields_to_note_model(archetype.suggested_fields, model_fields) if model_fields else list(archetype.suggested_fields)
+
+    return [
+        {
+            "concept": archetype.name,
+            "directive": archetype.ai_heuristic_directive,
+            "fields": ", ".join(fields),
+        }
     ]
