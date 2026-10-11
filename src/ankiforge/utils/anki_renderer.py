@@ -105,23 +105,66 @@ def _process_cloze_fields(html: str, safe_fields: dict[str, str], template_index
     return html
 
 
-def _process_standard_fields(html: str, safe_fields: dict[str, str]) -> str:
-    for field, val in safe_fields.items():
+def _process_standard_fields(html: str, safe_fields: dict[str, str], is_recto: bool = True) -> str:
+    for field in sorted(safe_fields.keys(), key=len, reverse=True):
+        val = safe_fields[field]
+
+        # 1. Filtre Anki standard {{text:Champ}} : dépouille toutes les balises HTML
+        text_val = re.sub(r"<[^>]+>", "", val).strip()
+        html = html.replace(f"{{{{text:{field}}}}}", text_val)
+
+        # 2. Filtre Anki standard {{hint:Champ}} : indice dépliable <details>
+        if val.strip():
+            hint_html = (
+                f"<details class='hint' style='margin: 4px 0;'>"
+                f"<summary style='cursor: pointer; font-weight: 500;'>{field}</summary>"
+                f"<div class='hint-content' style='margin-top: 4px; padding: 4px 8px; border-radius: 4px;'>{val}</div>"
+                f"</details>"
+            )
+            html = html.replace(f"{{{{hint:{field}}}}}", hint_html)
+        else:
+            html = html.replace(f"{{{{hint:{field}}}}}", "")
+
+        # 3. Filtre Anki {{type:Champ}} : zone de saisie au recto, validation avec classe typeAns au verso
+        if is_recto:
+            type_html = (
+                f"<br><input type='text' class='type-input' placeholder='{field}' disabled "
+                f"style='width:100%; max-width: 320px; padding: 6px 10px; margin: 4px 0; border: 1px solid #94a3b8; border-radius: 4px; font-family: monospace;'><br>"
+            )
+        else:
+            type_html = f"<code class='typeAns'><span class='typeGood'>{val}</span></code>" if val.strip() else f"<code class='typeAns'><span class='typeMissed'>({field} vide)</span></code>"
+        html = html.replace(f"{{{{type:{field}}}}}", type_html)
+
+        # 4. Substitution standard du champ {{Champ}}
         html = html.replace(f"{{{{{field}}}}}", val)
-        html = html.replace(
-            f"{{{{type:{field}}}}}",
-            f"<br><input type='text' placeholder='{field}' disabled style='width:100%; padding:5px;'><br>",
-        )
+
     return html
 
 
 def _process_front_side(html: str, front_html: str, safe_fields: dict[str, str]) -> str:
-    if "{{FrontSide}}" not in html:
+    if "{{FrontSide}}" not in html or not front_html:
         return html
+
     front_rendered = front_html
-    for field, val in safe_fields.items():
-        front_rendered = front_rendered.replace(f"{{{{{field}}}}}", val)
+    # Si un document HTML complet a été transmis (ex: par preview_card_render), extraire le corps de la carte
+    card_match = re.search(r'<div class="card">(.*?)</div>', front_rendered, flags=re.DOTALL)
+    if card_match:
+        front_rendered = card_match.group(1)
+
+    # Selon la spécification Anki, {{FrontSide}} au verso doit masquer les champs de saisie {{type:...}}
+    for field in sorted(safe_fields.keys(), key=len, reverse=True):
+        front_rendered = re.sub(r"\{\{type:" + re.escape(field) + r"\}\}", "", front_rendered)
+
+    # Si front_html était déjà pré-rendu en HTML, retirer les balises <input> générées pour type:
+    front_rendered = re.sub(r"<br>\s*<input\b[^>]*class=['\"]type-input['\"][^>]*>\s*<br>", "", front_rendered, flags=re.IGNORECASE)
+    front_rendered = re.sub(r"<input\b[^>]*class=['\"]type-input['\"][^>]*>", "", front_rendered, flags=re.IGNORECASE)
+    front_rendered = re.sub(r"<input\b[^>]*placeholder=['\"][^'\"]*['\"][^>]*>", "", front_rendered, flags=re.IGNORECASE)
+
+    # Substitution des champs, filtres text/hint et conditionnels restants si front_html était un template brut
+    front_rendered = _process_conditionals(front_rendered, safe_fields)
+    front_rendered = _process_standard_fields(front_rendered, safe_fields, is_recto=True)
     front_rendered = re.sub(r"\{\{[#^/][^}]+\}\}", "", front_rendered)
+
     return html.replace("{{FrontSide}}", front_rendered)
 
 
@@ -255,6 +298,12 @@ def _process_media_references(html: str) -> str:
                 f'<audio controls preload="none" src="{audio_url}" style="height: 30px; vertical-align: middle; max-width: 280px;"></audio>'
                 f"</span>"
             )
+        if audio_name.lower().startswith(("preview", "sample", "test")):
+            return (
+                '<span class="anki-audio-container" style="display: inline-block; margin: 4px 0;">'
+                '<audio controls preload="none" style="height: 30px; vertical-align: middle; max-width: 280px;"></audio>'
+                "</span>"
+            )
         return f'<span class="anki-audio-missing" style="opacity: 0.7; font-size: 11px;">🔊 {audio_name}</span>'
 
     html = re.sub(r"\[sound:([^\]]+)\]", _replace_sound, html, flags=re.IGNORECASE)
@@ -301,7 +350,7 @@ def render_anki_card(
     html = raw_html
     html = _process_conditionals(html, safe_fields)
     html = _process_cloze_fields(html, safe_fields, template_index, is_recto)
-    html = _process_standard_fields(html, safe_fields)
+    html = _process_standard_fields(html, safe_fields, is_recto=is_recto)
 
     if not is_recto:
         html = _process_front_side(html, front_html, safe_fields)
@@ -338,6 +387,15 @@ def render_anki_card(
                     ::-webkit-scrollbar-thumb:hover {{ background: #777; }}
                     .cloze {{ color: #38bdf8; font-weight: bold; }}
                     .katex .cloze {{ color: #38bdf8 !important; font-weight: bold; background: rgba(56, 189, 248, 0.15); border-radius: 3px; padding: 0 3px; }}
+                    .typeAns {{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; padding: 2px 6px; border-radius: 4px; background: rgba(16, 185, 129, 0.12); }}
+                    .typeGood {{ color: #16a34a; font-weight: bold; }}
+                    .nightMode .typeGood {{ color: #4ade80; }}
+                    .typeBad {{ color: #dc2626; text-decoration: line-through; }}
+                    .nightMode .typeBad {{ color: #f87171; }}
+                    .typeMissed {{ color: #9333ea; font-style: italic; }}
+                    .nightMode .typeMissed {{ color: #c084fc; }}
+                    details.hint summary {{ color: #0284c7; font-weight: 500; cursor: pointer; user-select: none; }}
+                    .nightMode details.hint summary {{ color: #38bdf8; }}
                     img {{ max-width: 100%; height: auto; }}
                     {cleaned_css}
                 </style>
