@@ -285,3 +285,33 @@ def test_ai_engines_tab_gateway_urls_and_keys_persistence(qtbot, monkeypatch):
 
     assert tab2.le_opencode_url.text() == "https://custom.opencode.internal/v1"
     assert tab2.le_openrouter_url.text() == "https://custom.openrouter.internal/v1"
+
+
+def test_ai_engines_tab_mcp_consultant_preferences_persistence(qtbot):
+    """Vérifie la persistance des préférences d'onglet par défaut et de cible des requêtes contextuelles MCP."""
+    tab1 = AIEnginesTab()
+    qtbot.addWidget(tab1)
+    tab1.refresh_data()
+
+    assert tab1.cb_consultant_default_tab.currentData() == "mcp"
+    assert tab1.cb_consultant_prompt_target.currentData() == "mcp"
+
+    # Modification des sélecteurs vers in_app
+    tab1.cb_consultant_default_tab.setCurrentIndex(1)
+    tab1.cb_consultant_prompt_target.setCurrentIndex(1)
+    assert tab1.cb_consultant_default_tab.currentData() == "in_app"
+    assert tab1.cb_consultant_prompt_target.currentData() == "in_app"
+
+    tab1.save_tab()
+
+    q_settings = get_app_qsettings()
+    assert q_settings.value("consultant/default_tab") == "in_app"
+    assert q_settings.value("consultant/external_prompt_target") == "in_app"
+
+    # Restauration dans un nouvel onglet
+    tab2 = AIEnginesTab()
+    qtbot.addWidget(tab2)
+    tab2.refresh_data()
+
+    assert tab2.cb_consultant_default_tab.currentData() == "in_app"
+    assert tab2.cb_consultant_prompt_target.currentData() == "in_app"

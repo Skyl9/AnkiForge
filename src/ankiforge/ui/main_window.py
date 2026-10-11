@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
             "creation": (tr("Forge & Outils"), "magic-wand", tr("Studio de Création"), CreationView),
             "edition": (tr("Forge & Outils"), "cards", tr("Édition & Navigateur"), EditionView),
             "analysis": (tr("Forge & Outils"), "chart-line-up", tr("Analyse & Audit IA"), AnalysisView),
-            "consultant": (tr("Forge & Outils"), "robot", tr("AI Consultant"), ConsultantView),
+            "consultant": (tr("Forge & Outils"), "robot", tr("MCP & Agents"), ConsultantView),
             "batch": (tr("Forge & Outils"), "factory", tr("Batch Factory"), BatchView),
             "documents": (tr("Bibliothèque"), "file-text", tr("My Documents"), DocumentsView),
             "card-models": (tr("Bibliothèque"), "swatches", tr("Types de note"), CardModelsView),
@@ -293,10 +293,18 @@ class MainWindow(QMainWindow):
         mcp_enabled = q_settings.value("mcp/enabled", True, type=bool)
         mcp_port = q_settings.value("mcp/port", 8765, type=int)
 
-        self.mcp_status_widget.set_status("stopped", port=mcp_port)
+        self._sync_mcp_ui("stopped", port=mcp_port)
 
         if not is_testing() and mcp_enabled:
             QTimer.singleShot(500, lambda: self.start_mcp_server(port=mcp_port))
+
+    def _sync_mcp_ui(self, status: str, port: int | None = None, token: str | None = None, message: str = "") -> None:
+        """Synchronise l'état du serveur MCP sur le bouton de la sidebar et le tableau de bord de la vue MCP & Agents."""
+        if hasattr(self, "mcp_status_widget") and self.mcp_status_widget is not None:
+            self.mcp_status_widget.set_status(status, port=port, token=token, message=message)
+        consultant_view = self._view_widgets.get("consultant")
+        if consultant_view and hasattr(consultant_view, "mcp_dashboard"):
+            consultant_view.mcp_dashboard.set_status(status, port=port, token=token, message=message)
 
     def start_mcp_server(self, port: int | None = None) -> bool:
         """Démarre le serveur MCP d'arrière-plan."""
@@ -317,7 +325,7 @@ class MainWindow(QMainWindow):
         ok = self.mcp_daemon.start()
         if ok and self.mcp_daemon.port:
             logger.info("Serveur MCP démarré sur le port %d.", self.mcp_daemon.port)
-            self.mcp_status_widget.set_status(
+            self._sync_mcp_ui(
                 "running",
                 port=self.mcp_daemon.port,
                 token=self.mcp_daemon.token,
@@ -325,16 +333,16 @@ class MainWindow(QMainWindow):
             return True
         else:
             logger.error("Échec du démarrage du serveur MCP.")
-            self.mcp_status_widget.set_status("error", port=port, message="Échec démarrage")
+            self._sync_mcp_ui("error", port=port, message="Échec démarrage")
             return False
 
     def stop_mcp_server(self) -> bool:
         """Arrête proprement le serveur MCP d'arrière-plan."""
         if self.mcp_daemon is not None:
             stopped = self.mcp_daemon.stop()
-            self.mcp_status_widget.set_status("stopped", port=self.mcp_daemon.port or 8765)
+            self._sync_mcp_ui("stopped", port=self.mcp_daemon.port or 8765)
             return stopped
-        self.mcp_status_widget.set_status("stopped")
+        self._sync_mcp_ui("stopped")
         return True
 
     def restart_mcp_server(self) -> bool:
@@ -348,7 +356,7 @@ class MainWindow(QMainWindow):
 
         if self.mcp_daemon is not None:
             new_token = self.mcp_daemon.rotate_token()
-            self.mcp_status_widget.set_status(
+            self._sync_mcp_ui(
                 self.mcp_status_widget.current_status,
                 port=self.mcp_daemon.port,
                 token=new_token,
@@ -361,7 +369,7 @@ class MainWindow(QMainWindow):
             token_file = data_dir / "mcp_auth_token"
             state_file = data_dir / "mcp_server.json"
             new_token = rotate_auth_token(token_file=token_file, state_file=state_file)
-            self.mcp_status_widget.set_status(
+            self._sync_mcp_ui(
                 self.mcp_status_widget.current_status,
                 token=new_token,
             )
@@ -694,6 +702,16 @@ class MainWindow(QMainWindow):
 
                 if hasattr(real_widget, "dashboard_data_updated"):
                     real_widget.dashboard_data_updated.connect(self._on_dashboard_data_updated)
+
+                if view_id == "consultant":
+                    if hasattr(real_widget, "mcp_start_requested"):
+                        real_widget.mcp_start_requested.connect(self.start_mcp_server)
+                    if hasattr(real_widget, "mcp_stop_requested"):
+                        real_widget.mcp_stop_requested.connect(self.stop_mcp_server)
+                    if hasattr(real_widget, "mcp_restart_requested"):
+                        real_widget.mcp_restart_requested.connect(self.restart_mcp_server)
+                    if hasattr(real_widget, "mcp_rotate_token_requested"):
+                        real_widget.mcp_rotate_token_requested.connect(self.rotate_mcp_token)
 
                 # Remplacer le placeholder par la vraie vue dans QStackedWidget
                 idx = self.stacked_widget.indexOf(current_widget)

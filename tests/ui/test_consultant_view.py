@@ -548,8 +548,31 @@ def test_consultant_view_revert_updates_metrics(qtbot):
     assert view.lbl_cards_modified.text() == "0"
 
 
-def test_consultant_view_attach_and_prompt(qtbot):
-    """Vérifie que attach_and_prompt pré-remplit le contexte et le champ texte."""
+def test_consultant_view_attach_and_prompt_default_mcp(qtbot):
+    """Vérifie que par défaut (cible MCP), attach_and_prompt affiche le bandeau sur l'onglet Serveur MCP."""
+    from ankiforge.utils.environment import get_app_qsettings
+
+    q_settings = get_app_qsettings()
+    q_settings.setValue("consultant/external_prompt_target", "mcp")
+
+    deck = DeckModel.create(name=f"Deck Prompt {uuid.uuid4().hex[:4]}")
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.attach_and_prompt(f"deck_{deck.id}", "Optimise ce deck")
+    assert view.chat_panel.content_stack.currentWidget() is view.mcp_dashboard
+    assert view.mcp_dashboard.pending_request is not None
+    assert view.mcp_dashboard.pending_request["prompt"] == "Optimise ce deck"
+    assert view.mcp_dashboard.pending_request["context_item"] == f"deck_{deck.id}"
+
+
+def test_consultant_view_attach_and_prompt_in_app(qtbot):
+    """Vérifie que si la cible configurée est in_app, attach_and_prompt remplit le chat in-app."""
+    from ankiforge.utils.environment import get_app_qsettings
+
+    q_settings = get_app_qsettings()
+    q_settings.setValue("consultant/external_prompt_target", "in_app")
+
     deck = DeckModel.create(name=f"Deck Prompt {uuid.uuid4().hex[:4]}")
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)
@@ -557,6 +580,32 @@ def test_consultant_view_attach_and_prompt(qtbot):
     view.attach_and_prompt(f"deck_{deck.id}", "Optimise ce deck")
     assert f"deck_{deck.id}" in view.active_context
     assert view.chat_input.toPlainText() == "Optimise ce deck"
+
+
+def test_consultant_view_tabs_and_mcp_priority(qtbot):
+    """Vérifie que le Serveur MCP est l'onglet par défaut et que l'isolation d'affichage est appliquée."""
+    from ankiforge.utils.environment import get_app_qsettings
+
+    q_settings = get_app_qsettings()
+    q_settings.setValue("consultant/default_tab", "mcp")
+
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.show()
+
+    assert len(view.chat_panel.tabs_bar.tabs) == 2
+    assert view.chat_panel.tabs_bar.tabs[0].text().strip() == "Serveur MCP"
+    assert view.chat_panel.tabs_bar.tabs[1].text().strip() == "Consultant IA"
+
+    # Par défaut sur l'onglet 0 (Serveur MCP)
+    assert view.chat_panel.content_stack.currentWidget() is view.mcp_dashboard
+    assert view.chat_panel._extra_widgets_zone.isHidden()
+    assert view.context_panel.isHidden()
+
+    # Basculement vers l'onglet 1 (Consultant IA)
+    view.chat_panel.set_active_tab(1)
+    assert not view.chat_panel._extra_widgets_zone.isHidden()
+    assert not view.context_panel.isHidden()
 
 
 def test_consultant_session_persistence_and_restart(qtbot):

@@ -6,6 +6,7 @@ from ankiforge.ui.views.consultant_view.widgets.context_hub_widget import Contex
 from ankiforge.ui.views.consultant_view.widgets.embedded_card_preview_widget import EmbeddedCardPreviewWidget
 from ankiforge.ui.views.consultant_view.widgets.embedded_card_table_widget import EmbeddedCardTableWidget
 from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import InlineDiffCardWidget
+from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import MCPServerDashboardWidget
 from ankiforge.ui.views.consultant_view.widgets.mention_completer import MentionCompleter
 from ankiforge.ui.views.consultant_view.widgets.session_sidebar import ConsultantSessionSidebar
 from ankiforge.ui.views.consultant_view.widgets.thought_step_widget import ThoughtStepWidget
@@ -20,6 +21,7 @@ __all__ = [
     "EmbeddedCardPreviewWidget",
     "EmbeddedCardTableWidget",
     "InlineDiffCardWidget",
+    "MCPServerDashboardWidget",
     "MentionCompleter",
     "ThoughtStepWidget",
     "ToolCallWidget",

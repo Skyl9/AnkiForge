@@ -377,6 +377,43 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         row_mcp.addWidget(self.btn_rotate_mcp_token)
 
         mcp_layout.addLayout(row_mcp)
+
+        # Ligne Préférences de navigation et demandes contextuelles MCP & Agents
+        row_prefs = QHBoxLayout()
+        row_prefs.setSpacing(12)
+
+        consultant_default_tab_val = q_settings.value("consultant/default_tab", "mcp", type=str)
+        consultant_target_val = q_settings.value("consultant/external_prompt_target", "mcp", type=str)
+
+        self.lbl_consultant_default_tab = QLabel(self.tr("Onglet par défaut :"))
+        self.lbl_consultant_default_tab.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        row_prefs.addWidget(self.lbl_consultant_default_tab)
+
+        self.cb_consultant_default_tab = StyledComboBox()
+        self.cb_consultant_default_tab.addItem(self.tr("Serveur MCP (recommandé)"), "mcp")
+        self.cb_consultant_default_tab.addItem(self.tr("Consultant IA"), "in_app")
+        idx_tab = 0 if consultant_default_tab_val == "mcp" else 1
+        self.cb_consultant_default_tab.setCurrentIndex(idx_tab)
+        self.cb_consultant_default_tab.setFixedHeight(28)
+        row_prefs.addWidget(self.cb_consultant_default_tab)
+
+        row_prefs.addSpacing(16)
+
+        self.lbl_consultant_prompt_target = QLabel(self.tr("Demandes contextuelles :"))
+        self.lbl_consultant_prompt_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        row_prefs.addWidget(self.lbl_consultant_prompt_target)
+
+        self.cb_consultant_prompt_target = StyledComboBox()
+        self.cb_consultant_prompt_target.addItem(self.tr("Serveur MCP (bandeau prêt à copier)"), "mcp")
+        self.cb_consultant_prompt_target.addItem(self.tr("Consultant IA (chat direct)"), "in_app")
+        idx_target = 0 if consultant_target_val == "mcp" else 1
+        self.cb_consultant_prompt_target.setCurrentIndex(idx_target)
+        self.cb_consultant_prompt_target.setFixedHeight(28)
+        row_prefs.addWidget(self.cb_consultant_prompt_target)
+
+        row_prefs.addStretch()
+        mcp_layout.addLayout(row_prefs)
+
         layout.addWidget(self.card_mcp)
 
         # ── SECTION 3 : CATALOGUE DES MOTEURS IA ─────────────────────────────
@@ -1439,6 +1476,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             q_settings = get_app_qsettings()
             q_settings.setValue("mcp/enabled", self.chk_mcp_enabled.isChecked())
             q_settings.setValue("mcp/port", self.spin_mcp_port.value())
+            if hasattr(self, "cb_consultant_default_tab"):
+                q_settings.setValue("consultant/default_tab", str(self.cb_consultant_default_tab.currentData() or "mcp"))
+            if hasattr(self, "cb_consultant_prompt_target"):
+                q_settings.setValue("consultant/external_prompt_target", str(self.cb_consultant_prompt_target.currentData() or "mcp"))
 
         if had_ai_changes and self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
             try:
@@ -1467,6 +1508,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             "rag_sim": round(self.slider_rag_sim.value() / 100.0, 2),
             "mcp_enabled": self.chk_mcp_enabled.isChecked() if hasattr(self, "chk_mcp_enabled") else True,
             "mcp_port": self.spin_mcp_port.value() if hasattr(self, "spin_mcp_port") else 8765,
+            "consultant_default_tab": str(self.cb_consultant_default_tab.currentData() or "mcp") if hasattr(self, "cb_consultant_default_tab") else "mcp",
+            "consultant_prompt_target": str(self.cb_consultant_prompt_target.currentData() or "mcp") if hasattr(self, "cb_consultant_prompt_target") else "mcp",
         }
 
     def _record_initial_state(self) -> None:
@@ -1503,6 +1546,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             self.chk_mcp_enabled.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_mcp_port"):
             self.lbl_mcp_port.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_consultant_default_tab"):
+            self.lbl_consultant_default_tab.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_consultant_prompt_target"):
+            self.lbl_consultant_prompt_target.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
         if hasattr(self, "card_global_prefs"):
             self.card_global_prefs.refresh_theme(profile)
         if hasattr(self, "sec_advanced_gen"):

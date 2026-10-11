@@ -62,9 +62,11 @@ from ankiforge.ui.views.consultant_view.widgets import (
     ConsultantChatInput,
     ConsultantSessionSidebar,
     ContextHubWidget,
+    MCPServerDashboardWidget,
     WorkspaceInspectorWidget,
 )
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.environment import get_app_qsettings
 from ankiforge.utils.event_bus import event_bus
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -301,6 +303,10 @@ class ConsultantView(QWidget):
     """
 
     request_navigation = Signal(str, object)
+    mcp_start_requested = Signal()
+    mcp_stop_requested = Signal()
+    mcp_restart_requested = Signal()
+    mcp_rotate_token_requested = Signal()
 
     def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -331,6 +337,8 @@ class ConsultantView(QWidget):
         self.refresh_data()
 
     def refresh_theme(self, profile: Any) -> None:
+        if hasattr(self, "mcp_dashboard") and hasattr(self.mcp_dashboard, "refresh_theme"):
+            self.mcp_dashboard.refresh_theme(profile)
         if hasattr(self, "session_sidebar") and hasattr(self.session_sidebar, "refresh_theme"):
             self.session_sidebar.refresh_theme(profile)
         if hasattr(self, "chat_panel") and hasattr(self.chat_panel, "refresh_theme"):
@@ -355,6 +363,25 @@ class ConsultantView(QWidget):
                 QSplitter::handle {{
                     background-color: {profile.border_color};
                     width: 1px;
+                }}
+            """)
+        if hasattr(self, "chat_box_frame"):
+            bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+            border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+            accent_primary = getattr(profile, "accent_primary", DesignTokens.ACCENT_PRIMARY)
+            self.chat_box_frame.setStyleSheet(f"""
+                QFrame#chat_box_frame {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-radius: {DesignTokens.RADIUS_LG}px;
+                    background-clip: padding-box;
+                }}
+                QFrame#chat_box_frame:focus-within {{
+                    border: 1px solid {accent_primary};
+                }}
+                QFrame#chat_box_frame QLabel {{
+                    border: none;
+                    background: transparent;
                 }}
             """)
 
@@ -462,15 +489,21 @@ class ConsultantView(QWidget):
         input_area_layout.setSpacing(8)
 
         self.chat_box_frame = QFrame()
+        self.chat_box_frame.setObjectName("chat_box_frame")
+        self.chat_box_frame.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.chat_box_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#chat_box_frame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_LG}px;
                 background-clip: padding-box;
             }}
-            QFrame:focus-within {{
+            QFrame#chat_box_frame:focus-within {{
                 border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QFrame#chat_box_frame QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
         apply_shadow(self.chat_box_frame, blur=14, offset_y=2)
@@ -509,7 +542,7 @@ class ConsultantView(QWidget):
         box_footer.addStretch()
 
         self.tokens_badge = QLabel(self.tr("0 tokens"))
-        self.tokens_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; margin-right: 10px;")
+        self.tokens_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; margin-right: 10px; border: none; background: transparent;")
         box_footer.addWidget(self.tokens_badge)
 
         self.btn_send = PrimaryButton("")
@@ -535,7 +568,19 @@ class ConsultantView(QWidget):
         self.chat_inner_splitter.setCollapsible(1, False)
         self.chat_inner_splitter.setSizes([220, 780])
 
-        self.chat_panel.add_tab("Consultant IA", tab_container, "ph.chat-centered-text", closable=False)
+        self.mcp_dashboard = MCPServerDashboardWidget(
+            initial_status="stopped",
+            parent=self,
+        )
+        self.mcp_dashboard.start_requested.connect(self.mcp_start_requested.emit)
+        self.mcp_dashboard.stop_requested.connect(self.mcp_stop_requested.emit)
+        self.mcp_dashboard.restart_requested.connect(self.mcp_restart_requested.emit)
+        self.mcp_dashboard.rotate_token_requested.connect(self.mcp_rotate_token_requested.emit)
+        self.mcp_dashboard.open_preferences_requested.connect(self._on_open_preferences_requested)
+
+        self.chat_panel.add_tab(self.tr("Serveur MCP"), self.mcp_dashboard, "ph.plugs-connected", closable=False)
+        self.chat_panel.add_tab(self.tr("Consultant IA"), tab_container, "ph.chat-centered-text", closable=False)
+        self.chat_panel.tab_changed.connect(self._on_main_tab_changed)
         self.splitter.addWidget(self.chat_panel)
 
         # ── 2. Panneau de Contexte & Cerveau de l'Agent IA (Droite) ─────────
@@ -582,6 +627,13 @@ class ConsultantView(QWidget):
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 0)
 
+        # Sélection et affichage de l'onglet par défaut (MCP par défaut)
+        q_settings = get_app_qsettings()
+        default_tab = q_settings.value("consultant/default_tab", "mcp", type=str)
+        init_tab_idx = 0 if default_tab == "mcp" else 1
+        self.chat_panel.set_active_tab(init_tab_idx)
+        self._on_main_tab_changed(init_tab_idx)
+
     def _connect_signals(self) -> None:
         self.chat_input.textChanged.connect(self._on_input_text_changed)
         self.session_sidebar.session_selected.connect(self._on_sidebar_session_selected)
@@ -600,6 +652,17 @@ class ConsultantView(QWidget):
     def _toggle_inspector(self) -> None:
         """Bascule l'affichage du panneau d'inspection et diff."""
         self.context_panel.setHidden(not self.context_panel.isHidden())
+
+    def _on_main_tab_changed(self, index: int) -> None:
+        """Adapte l'espace d'affichage et les contrôles selon l'onglet actif (Serveur MCP vs Consultant IA)."""
+        is_mcp = index == 0
+        if hasattr(self.chat_panel, "_extra_widgets_zone"):
+            self.chat_panel._extra_widgets_zone.setVisible(not is_mcp)
+        if hasattr(self, "context_panel"):
+            self.context_panel.setVisible(not is_mcp)
+
+    def _on_open_preferences_requested(self) -> None:
+        self.request_navigation.emit("settings", {"tab": "ai_engines"})
 
     @Slot(int)
     def _on_sidebar_session_selected(self, session_id: int) -> None:
@@ -696,6 +759,22 @@ class ConsultantView(QWidget):
 
             self.view_model.load_sessions()
             self.refresh_context_list()
+
+            if hasattr(self, "mcp_dashboard"):
+                try:
+                    from ankiforge.services.ai.mcp_daemon import read_daemon_state
+                    from ankiforge.utils.paths import get_app_data_dir
+
+                    state_file = get_app_data_dir() / "mcp_server.json"
+                    state = read_daemon_state(state_file)
+                    if state:
+                        self.mcp_dashboard.set_status(
+                            status=state.get("status", "stopped"),
+                            port=state.get("port"),
+                            token=state.get("token"),
+                        )
+                except Exception as err:
+                    logger.debug("Échec lecture état MCP dans refresh_data: %s", err)
 
         except Exception as e:
             logger.warning("Erreur refresh_data consultant_view: %s", e)
@@ -897,6 +976,9 @@ class ConsultantView(QWidget):
         barre d'onglets et content_stack (y compris après détachement d'un onglet), alors qu'un
         index de pile peut dériver de l'index de barre.
         """
+        if hasattr(self, "chat_panel"):
+            self.chat_panel.set_active_tab(1)
+            self._on_main_tab_changed(1)
         if not hasattr(self.context_panel, "open_tab"):
             return
         self.context_panel.open_tab(self._workspace_tab_title)
@@ -1390,13 +1472,22 @@ class ConsultantView(QWidget):
             self.refresh_context_list()
             show_toast(self, self.tr("Contexte attaché !"))
 
-    def attach_and_prompt(self, context_item: str, prompt: str = "") -> None:
-        """Attache un élément de contexte et pré-remplit le champ de saisie du chat."""
-        if context_item:
-            self._attach_context(context_item)
-        if prompt:
-            self.chat_input.setPlainText(prompt)
-            self.chat_input.setFocus()
+    def attach_and_prompt(self, context_item: Any, prompt: str = "") -> None:
+        """Attache un élément de contexte et oriente vers le serveur MCP ou le Consultant IA selon les préférences."""
+        q_settings = get_app_qsettings()
+        target = q_settings.value("consultant/external_prompt_target", "mcp", type=str)
+        if target == "mcp" and hasattr(self, "mcp_dashboard"):
+            self.chat_panel.set_active_tab(0)
+            self._on_main_tab_changed(0)
+            self.mcp_dashboard.set_pending_request(context_item, prompt)
+        else:
+            self.chat_panel.set_active_tab(1)
+            self._on_main_tab_changed(1)
+            if context_item:
+                self._attach_context(str(context_item))
+            if prompt:
+                self.chat_input.setPlainText(prompt)
+                self.chat_input.setFocus()
 
     @Slot()
     def _on_clear_memory(self) -> None:

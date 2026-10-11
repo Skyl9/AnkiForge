@@ -244,3 +244,23 @@ def test_main_window_navigates_to_analysis_with_doc_id(qtbot, mock_db):
         assert window._current_view_id == "analysis"
         analysis_widget = window._view_widgets["analysis"]
         assert hasattr(analysis_widget, "open_document_inspector")
+
+
+def test_main_window_consultant_mcp_wiring_and_title(qtbot, mock_db):
+    """Vérifie que la vue consultant est intitulée MCP & Agents et que la synchronisation d'état fonctionne."""
+    registry = MainWindow.view_registry()
+    assert registry["consultant"][2] == "MCP & Agents"
+
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+        window = MainWindow(ai_manager=None)
+        qtbot.addWidget(window)
+
+        window._on_view_selected("consultant")
+        consultant_view = window._view_widgets["consultant"]
+        assert hasattr(consultant_view, "mcp_dashboard")
+
+        # Synchronisation du statut
+        window._sync_mcp_ui("running", port=8999, token="tok123")
+        assert consultant_view.mcp_dashboard.current_status == "running"
+        assert consultant_view.mcp_dashboard.port == 8999
+        assert consultant_view.mcp_dashboard.token == "tok123"
