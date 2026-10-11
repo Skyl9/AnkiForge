@@ -367,13 +367,13 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/model_selector/dialog.py" line="+241"/>
+        <location filename="../../ui/components/model_selector/dialog.py" line="+243"/>
         <source>Comparer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+191"/>
-        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="+313"/>
+        <location line="+204"/>
+        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="+321"/>
         <source>Vision multimodale</source>
         <translation type="unfinished"></translation>
     </message>
@@ -393,12 +393,12 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+13"/>
         <source>Tous les cas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+293"/>
+        <location line="+305"/>
         <source>Affichage de %1 modèle(s) sur %2 au catalogue · %3 configuré(s)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5723,8 +5723,8 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumTranscriptionDialog</name>
     <message>
-        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="-587"/>
-        <location line="+76"/>
+        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="-594"/>
+        <location line="+83"/>
         <source>Transcription de l&apos;album</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12212,7 +12212,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>ModelCardWidget</name>
     <message>
-        <location filename="../../ui/components/model_selector/dialog.py" line="-810"/>
+        <location filename="../../ui/components/model_selector/dialog.py" line="-834"/>
         <source>✓ Actuel</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12338,12 +12338,52 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>ModelDiscoveryDialog</name>
     <message>
-        <location filename="../../ui/components/model_selector/dialog.py" line="+98"/>
+        <location filename="../../ui/components/model_selector/dialog.py" line="+86"/>
+        <source>Sélectionner un Moteur de Vision</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Catalogue des Moteurs de Vision</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Choisissez le moteur de vision adapté à l&apos;analyse de vos images et planches.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Explorez les spécifications réelles des moteurs de vision multimodaux.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Sélectionner un Modèle IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Catalogue &amp; Découverte des Modèles IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Choisissez le modèle adapté à votre tâche parmi vos moteurs configurés et le catalogue officiel.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Explorez les spécifications réelles (Vision, Thinking, Contexte, Tarifs) adaptées aux pipelines AnkiForge.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
         <source>Rechercher modèle, fournisseur, tag...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+10"/>
         <source>Ajouter manuellement un modèle d&apos;IA personnalisé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12353,7 +12393,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+28"/>
         <source>Capacités :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12363,17 +12403,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+17"/>
-        <source>|</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
+        <location line="+21"/>
         <source>Cas d&apos;usage :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+54"/>
+        <location line="+55"/>
         <source>Comparateur de Modèles Côte-à-Côte (2 à 3 modèles)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12383,7 +12418,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+192"/>
+        <location line="+203"/>
         <source>Aucun modèle ne correspond à vos critères</source>
         <translation type="unfinished"></translation>
     </message>

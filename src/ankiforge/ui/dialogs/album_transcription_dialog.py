@@ -8,6 +8,7 @@ import logging
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QComboBox,
@@ -68,8 +69,15 @@ class AlbumTranscriptionDialog(QDialog):
 
         self.setObjectName("albumTranscriptionDialog")
         self.setWindowTitle(self.tr("Transcription de l'album"))
-        self.resize(700, 760)
-        self.setMinimumSize(600, 620)
+        target_w, target_h = 700, 760
+        screen = self.screen() or (QApplication.primaryScreen() if QApplication.instance() else None)
+        if screen:
+            avail = screen.availableGeometry()
+            if avail.width() > 0 and avail.height() > 0:
+                target_w = min(target_w, int(avail.width() * 0.9))
+                target_h = min(target_h, int(avail.height() * 0.9))
+        self.resize(target_w, target_h)
+        self.setMinimumSize(min(600, target_w), min(550, target_h))
         self.setStyleSheet(f"""
             QDialog#albumTranscriptionDialog {{
                 background-color: {DesignTokens.BG_MAIN};

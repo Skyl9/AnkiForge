@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -28,6 +29,7 @@ from ankiforge.services.ai.model_catalog import ANKIFORGE_TASKS, ModelCatalog, M
 from ankiforge.ui.components import (
     DangerButton,
     FilterChipButton,
+    FlowWidget,
     GlowLineEdit,
     IconButton,
     PrimaryButton,
@@ -322,16 +324,20 @@ class ModelDiscoveryDialog(QDialog):
         self.setWindowTitle(title_text)
 
         if self.picker_mode:
-            self.resize(840, 540)
+            base_w, base_h = 840, 540
         else:
-            target_w, target_h = 960, 600
-            screen = self.screen() or (QApplication.primaryScreen() if QApplication.instance() else None)
-            if screen:
-                avail = screen.availableGeometry()
-                if avail.width() > 0 and avail.height() > 0:
-                    target_w = min(target_w, int(avail.width() * 0.85))
-                    target_h = min(target_h, int(avail.height() * 0.85))
-            self.resize(target_w, target_h)
+            base_w, base_h = 960, 600
+
+        target_w, target_h = base_w, base_h
+        screen = self.screen() or (QApplication.primaryScreen() if QApplication.instance() else None)
+        if screen:
+            avail = screen.availableGeometry()
+            if avail.width() > 0 and avail.height() > 0:
+                target_w = min(base_w, int(avail.width() * 0.85))
+                target_h = min(base_h, int(avail.height() * 0.85))
+
+        self.resize(target_w, target_h)
+        self.setMinimumSize(min(600, target_w), min(450, target_h))
 
         self._setup_ui()
         self._load_and_filter_models()
@@ -353,16 +359,26 @@ class ModelDiscoveryDialog(QDialog):
         col_title = QVBoxLayout()
         col_title.setSpacing(2)
 
-        main_title = "Sélectionner un Modèle IA" if self.picker_mode else "Catalogue & Découverte des Modèles IA"
+        if self.require_vision:
+            main_title = self.tr("Sélectionner un Moteur de Vision") if self.picker_mode else self.tr("Catalogue des Moteurs de Vision")
+            sub_title = (
+                self.tr("Choisissez le moteur de vision adapté à l'analyse de vos images et planches.")
+                if self.picker_mode
+                else self.tr("Explorez les spécifications réelles des moteurs de vision multimodaux.")
+            )
+        else:
+            main_title = self.tr("Sélectionner un Modèle IA") if self.picker_mode else self.tr("Catalogue & Découverte des Modèles IA")
+            sub_title = (
+                self.tr("Choisissez le modèle adapté à votre tâche parmi vos moteurs configurés et le catalogue officiel.")
+                if self.picker_mode
+                else self.tr("Explorez les spécifications réelles (Vision, Thinking, Contexte, Tarifs) adaptées aux pipelines AnkiForge.")
+            )
+
         lbl_h = QLabel(main_title)
         lbl_h.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
 
-        sub_title = (
-            "Choisissez le modèle adapté à votre tâche parmi vos moteurs configurés et le catalogue officiel."
-            if self.picker_mode
-            else "Explorez les spécifications réelles (Vision, Thinking, Contexte, Tarifs) adaptées aux pipelines AnkiForge."
-        )
         lbl_sub = QLabel(sub_title)
+        lbl_sub.setWordWrap(True)
         lbl_sub.setStyleSheet(f"font-size: 11.5px; color: {DesignTokens.TEXT_MUTED};")
         col_title.addWidget(lbl_h)
         col_title.addWidget(lbl_sub)
@@ -371,7 +387,8 @@ class ModelDiscoveryDialog(QDialog):
         # Barre de recherche avec action d'effacement
         self.search_edit = GlowLineEdit()
         self.search_edit.setPlaceholderText(self.tr("Rechercher modèle, fournisseur, tag..."))
-        self.search_edit.setFixedWidth(260)
+        self.search_edit.setMaximumWidth(260)
+        self.search_edit.setMinimumWidth(160)
         self.search_edit.textChanged.connect(self._load_and_filter_models)
         self.search_edit.setClearButtonEnabled(True)
         top_row.addWidget(self.search_edit)
@@ -392,12 +409,12 @@ class ModelDiscoveryDialog(QDialog):
         filter_layout.setContentsMargins(12, 10, 12, 10)
         filter_layout.setSpacing(8)
 
-        # Rangée 1 : Filtre Fournisseurs
-        row_prov = QHBoxLayout()
-        row_prov.setSpacing(6)
+        # Rangée 1 : Filtre Fournisseurs (Flow responsive)
+        fw_prov = FlowWidget(margin=0, h_spacing=6, v_spacing=4, parent=filter_card)
+        fw_prov.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         lbl_p = QLabel(self.tr("Fournisseur :"))
         lbl_p.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        row_prov.addWidget(lbl_p)
+        fw_prov.addWidget(lbl_p)
 
         self.prov_buttons: dict[str, FilterChipButton] = {}
         providers_meta = [
@@ -416,18 +433,16 @@ class ModelDiscoveryDialog(QDialog):
             btn.setChecked(p_key == "all")
             btn.clicked.connect(lambda _, k=p_key: self._select_provider_filter(k))
             self.prov_buttons[p_key] = btn
-            row_prov.addWidget(btn)
+            fw_prov.addWidget(btn)
 
-        row_prov.addStretch()
-        filter_layout.addLayout(row_prov)
+        filter_layout.addWidget(fw_prov)
 
-        # Rangée 2 : Filtres Capacités requises & Cas d'usage
-        row_caps_tasks = QHBoxLayout()
-        row_caps_tasks.setSpacing(8)
-
+        # Rangée 2 : Filtres Capacités requises (Flow responsive)
+        fw_caps = FlowWidget(margin=0, h_spacing=6, v_spacing=4, parent=filter_card)
+        fw_caps.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         lbl_c = QLabel(self.tr("Capacités :"))
         lbl_c.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        row_caps_tasks.addWidget(lbl_c)
+        fw_caps.addWidget(lbl_c)
 
         self.btn_cap_vision = FilterChipButton(tr("Vision multimodale"), icon_name="ph.eye", parent=filter_card)
         if self.require_vision:
@@ -435,44 +450,42 @@ class ModelDiscoveryDialog(QDialog):
             self.btn_cap_vision.setEnabled(False)
             self.btn_cap_vision.setToolTip(self.tr("Filtre verrouillé : seuls les modèles multimodaux de vision sont affichés."))
         self.btn_cap_vision.toggled.connect(self._load_and_filter_models)
-        row_caps_tasks.addWidget(self.btn_cap_vision)
+        fw_caps.addWidget(self.btn_cap_vision)
 
         self.btn_cap_thinking = FilterChipButton(tr("Thinking / CoT"), icon_name="ph.brain", parent=filter_card)
         self.btn_cap_thinking.toggled.connect(self._load_and_filter_models)
-        row_caps_tasks.addWidget(self.btn_cap_thinking)
+        fw_caps.addWidget(self.btn_cap_thinking)
 
         self.btn_cap_local = FilterChipButton(tr("100% Local (Ollama)"), icon_name="ph.shield-check", parent=filter_card)
         self.btn_cap_local.toggled.connect(self._load_and_filter_models)
-        row_caps_tasks.addWidget(self.btn_cap_local)
+        fw_caps.addWidget(self.btn_cap_local)
 
         self.btn_cap_free = FilterChipButton(tr("Gratuit / Inclus"), icon_name="ph.coins", parent=filter_card)
         self.btn_cap_free.toggled.connect(self._load_and_filter_models)
-        row_caps_tasks.addWidget(self.btn_cap_free)
+        fw_caps.addWidget(self.btn_cap_free)
 
-        # Séparateur vertical subtil
-        sep = QLabel(self.tr("|"))
-        sep.setStyleSheet(f"color: {DesignTokens.BORDER_COLOR}; font-weight: bold;")
-        row_caps_tasks.addWidget(sep)
+        filter_layout.addWidget(fw_caps)
 
-        # Menu déroulant compact pour les cas d'usage AnkiForge
+        # Rangée 3 : Cas d'usage AnkiForge (Flow responsive)
+        fw_tasks = FlowWidget(margin=0, h_spacing=6, v_spacing=4, parent=filter_card)
+        fw_tasks.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         lbl_t = QLabel(self.tr("Cas d'usage :"))
         lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        row_caps_tasks.addWidget(lbl_t)
+        fw_tasks.addWidget(lbl_t)
 
         self.btn_task_all = FilterChipButton(tr("Tous les cas"), parent=filter_card)
         self.btn_task_all.setChecked(True)
         self.btn_task_all.clicked.connect(lambda: self._select_task_filter("all"))
-        row_caps_tasks.addWidget(self.btn_task_all)
+        fw_tasks.addWidget(self.btn_task_all)
 
         self.task_buttons: dict[str, FilterChipButton] = {}
         for t_key, t_info in ANKIFORGE_TASKS.items():
             btn_t = FilterChipButton(t_info["label"], icon_name=t_info.get("icon", "ph.sparkle"), parent=filter_card)
             btn_t.clicked.connect(lambda _, k=t_key: self._select_task_filter(k))
             self.task_buttons[t_key] = btn_t
-            row_caps_tasks.addWidget(btn_t)
+            fw_tasks.addWidget(btn_t)
 
-        row_caps_tasks.addStretch()
-        filter_layout.addLayout(row_caps_tasks)
+        filter_layout.addWidget(fw_tasks)
 
         root_layout.addWidget(filter_card)
 
@@ -484,6 +497,8 @@ class ModelDiscoveryDialog(QDialog):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollArea > QWidget > QWidget { background: transparent; }")
 
         self.cards_container = QWidget()
@@ -551,6 +566,13 @@ class ModelDiscoveryDialog(QDialog):
         bottom_row.addWidget(btn_cancel)
 
         root_layout.addLayout(bottom_row)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        old_w = event.oldSize().width()
+        new_w = event.size().width()
+        if old_w > 0 and (old_w < 680) != (new_w < 680) and self.cards_grid.count() > 0:
+            self._load_and_filter_models()
 
     def _select_provider_filter(self, selected_key: str) -> None:
         """Gère l'exclusivité visuelle des filtres de fournisseurs."""
@@ -650,7 +672,11 @@ class ModelDiscoveryDialog(QDialog):
 
             filtered.append((model, is_inst))
 
-        # Disposition en 2 colonnes
+        # Disposition en colonnes (1 colonne si écran réduit < 680px, 2 colonnes sinon)
+        cols = 1 if self.width() < 680 else 2
+        self.cards_grid.setColumnStretch(0, 1)
+        self.cards_grid.setColumnStretch(1, 1 if cols == 2 else 0)
+
         curr_str = str(self.current_model_id or "").strip()
         curr_prov = str(self.current_provider or "").strip().lower()
 
@@ -713,8 +739,8 @@ class ModelDiscoveryDialog(QDialog):
             if any(getattr(m, "model_id", None) == m_id for m in self._compared_models):
                 card.cb_compare.setChecked(True)
 
-            row = idx // 2
-            col = idx % 2
+            row = idx // cols
+            col = idx % cols
             self.cards_grid.addWidget(card, row, col)
             card.show()
 
