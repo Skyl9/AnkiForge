@@ -74,6 +74,7 @@ from ankiforge.utils.hierarchy import descendants_prefix
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
+from ankiforge.utils.tags import parse_note_tags
 
 logger = logging.getLogger(__name__)
 
@@ -380,6 +381,10 @@ class EditionView(QWidget):
         """)
         self.btn_open_tag.clicked.connect(self._show_tag_modal)
         filter_layout.addWidget(self.btn_open_tag)
+
+        self.btn_tag_hygiene = IconButton("broom", tooltip=self.tr("Hygiène et fusion des tags..."), size=22)
+        self.btn_tag_hygiene.clicked.connect(self.open_tag_hygiene_dialog)
+        filter_layout.addWidget(self.btn_tag_hygiene)
         filter_layout.addStretch()
 
         self.btn_import_apkg = IconButton("download-simple", tooltip=self.tr("Importer un paquet Anki (.apkg)"), size=22)
@@ -1725,6 +1730,10 @@ class EditionView(QWidget):
         action_tag = menu.addAction(load_phosphor_icon("tag", color=DesignTokens.COLOR_PURPLE), tag_text)
         action_tag.triggered.connect(lambda: self.open_auto_tag_dialog(target_note_ids))
 
+        hygiene_text = tr("Hygiène & fusion des tags (%1 cartes)...", count) if count > 1 else self.tr("Hygiène & fusion des tags...")
+        action_hygiene = menu.addAction(load_phosphor_icon("broom", color=DesignTokens.TEXT_PRIMARY), hygiene_text)
+        action_hygiene.triggered.connect(lambda: self.open_tag_hygiene_dialog(target_note_ids))
+
         export_text = tr("Exporter en texte ou JSON (%1 cartes)...", count) if count > 1 else self.tr("Exporter en texte ou JSON...")
         action_quick_export = menu.addAction(load_phosphor_icon("file-text", color=DesignTokens.TEXT_PRIMARY), export_text)
         action_quick_export.triggered.connect(lambda: self.open_quick_export_dialog(target_note_ids))
@@ -2038,8 +2047,46 @@ class EditionView(QWidget):
 
                 show_toast(self, tr("%1 carte(s) modifiée(s) avec succès.", len(res.modified_note_ids)))
 
+    @Slot()
+    @Slot(list)
+    def open_tag_hygiene_dialog(self, note_ids: list[int] | None = None) -> None:
+        """Ouvre le dialogue d'hygiène et de fusion des tags pour la collection ou la sélection active."""
+        from ankiforge.ui.dialogs.tag_hygiene_dialog import TagHygieneDialog
+
+        if note_ids is None:
+            targets = self.get_target_note_ids()
+            note_ids = targets if targets else None
+
+        dialog = TagHygieneDialog(selected_note_ids=note_ids, parent=self)
+        if dialog.exec():
+            res = dialog.applied_result
+            if res and res.success and res.modified_note_ids:
+                for nid in res.modified_note_ids:
+                    refreshed = NoteModel.get_or_none(NoteModel.id == nid)
+                    if refreshed:
+                        self.note_table_model.update_note_tags(nid, parse_note_tags(refreshed.tags))
+
+                if self._current_note and self._current_note.id in res.modified_note_ids:
+                    refreshed_current = NoteModel.get_or_none(NoteModel.id == self._current_note.id)
+                    if refreshed_current:
+                        self._current_note = refreshed_current
+                        if self.tags_editor:
+                            self.tags_editor.set_note(refreshed_current)
+                        self._update_preview()
+                        self._update_nav_ribbon_info()
+
+                show_toast(
+                    self,
+                    tr(
+                        "%1 grappe(s) fusionnée(s), %2 carte(s) modifiée(s) avec succès.",
+                        res.merged_clusters_count,
+                        res.modified_notes_count,
+                    ),
+                )
+
     @Slot(list)
     def open_linter_dialog(self, note_ids: list[int]) -> None:
+
         if not note_ids:
             return
         dialog = LinterDialog(note_ids, self)

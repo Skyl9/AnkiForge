@@ -361,7 +361,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+996"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+1001"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -557,6 +557,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/card_export_dialog.py" line="+115"/>
+        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="+361"/>
         <source>Sélection active (%1 cartes)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -967,6 +968,146 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="-268"/>
+        <location line="+286"/>
+        <source>Casse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-284"/>
+        <location line="+289"/>
+        <source>Similarité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-286"/>
+        <source>%1 note(s) impactée(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Ignorer cette grappe pour cette session</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Tag cible :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+170"/>
+        <location line="+38"/>
+        <source>Hygiène et fusion des tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Détection automatique des doublons de casse et variantes proches. Vous pouvez fusionner une sélection partielle : les grappes non sélectionnées restent intactes pour plus tard.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Toute la collection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Toutes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Filtrer par tag...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <location line="+155"/>
+        <source>Tout décocher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-120"/>
+        <source>Chargement de l&apos;analyse...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Appliquer la fusion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Applique la fusion uniquement sur les grappes cochées. Les autres grappes restent intactes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Analyse taxonomique des tags en cours...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+32"/>
+        <source>Aucun doublon ni variante proche détectée.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>0 grappe détectée sur %1 notes analysées.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Erreur d&apos;analyse : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+68"/>
+        <source>Erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Impossible d&apos;analyser les tags : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+47"/>
+        <source>Tout cocher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>%1 grappe(s) sélectionnée(s) sur %2 · ~%3 notes concernées (les non sélectionnées restent intactes pour plus tard)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>%1 grappe(s) sélectionnée(s) sur %2 · ~%3 notes concernées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Erreur de fusion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>La fusion a échoué : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Erreur inconnue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/dialogs/tool_editor_dialog.py" line="+228"/>
         <source>Impossible d&apos;enregistrer : %1</source>
         <translation type="unfinished"></translation>
@@ -1292,7 +1433,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+27"/>
-        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+93"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+25"/>
         <source>Tous</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1795,12 +1936,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Erreur</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
+        <location line="+2"/>
         <source>Annulé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3152,6 +3288,11 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+4"/>
+        <source>Hygiène &amp; fusion des tags (%1 cartes)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>Exporter en texte ou JSON (%1 cartes)...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3206,7 +3347,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+47"/>
+        <location line="+33"/>
+        <source>%1 grappe(s) fusionnée(s), %2 carte(s) modifiée(s) avec succès.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+52"/>
         <source>%1 notes traitées par l&apos;IA !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10083,7 +10229,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-1905"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-1951"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10094,18 +10240,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+33"/>
-        <location line="+1001"/>
+        <location line="+1005"/>
         <source>Dossier : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-982"/>
-        <location line="+1273"/>
+        <location line="-986"/>
+        <location line="+1277"/>
         <source>Type de note : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1254"/>
+        <location line="-1258"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10125,7 +10271,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+19"/>
+        <source>Hygiène et fusion des tags...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>Importer un paquet Anki (.apkg)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10148,12 +10299,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+4"/>
         <location line="+356"/>
         <location line="+13"/>
-        <location line="+1349"/>
+        <location line="+1391"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1714"/>
+        <location line="-1756"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10256,6 +10407,11 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+4"/>
+        <source>Hygiène &amp; fusion des tags...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>Exporter en texte ou JSON...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10315,7 +10471,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+38"/>
+        <location line="+76"/>
         <source>Auto-Tagging terminé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>

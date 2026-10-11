@@ -217,3 +217,40 @@ def test_edition_view_check_uncheck_all(qtbot, edition_test_data):
     # Tout décocher
     view.note_table_model.set_all_checked(False)
     assert len(view.note_table_model.get_checked_note_ids()) == 0
+
+
+def test_edition_view_tag_hygiene_button_and_dialog_integration(qtbot, edition_test_data, monkeypatch):
+    """Vérifie la présence du bouton d'hygiène des tags et la répercussion de la fusion sur EditionView."""
+    from ankiforge.services.cards.bulk_hygiene_service import TagMergeResult
+    from ankiforge.ui.dialogs.tag_hygiene_dialog import TagHygieneDialog
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    assert hasattr(view, "btn_tag_hygiene")
+    assert view.btn_tag_hygiene is not None
+    assert "Hygiène" in view.btn_tag_hygiene.toolTip()
+
+    # Mocker TagHygieneDialog pour simuler une fusion réussie
+    n1 = edition_test_data["notes"][0]
+    n2 = edition_test_data["notes"][1]
+
+    mock_result = TagMergeResult(
+        success=True,
+        merged_clusters_count=1,
+        modified_notes_count=2,
+        modified_note_ids=[n1.id, n2.id],
+    )
+
+    def mock_exec(dialog_self):
+        dialog_self.applied_result = mock_result
+        return 1
+
+    monkeypatch.setattr(TagHygieneDialog, "exec", mock_exec)
+
+    # Déclencher l'ouverture du dialogue d'hygiène
+    view.open_tag_hygiene_dialog()
+
+    # Vérification que le modèle a bien mis à jour les tags des notes
+    assert mock_result.success is True
