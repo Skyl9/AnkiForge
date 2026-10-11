@@ -8,6 +8,7 @@ from ankiforge.database.models import (
     DeckModel,
     DocumentChunkModel,
     DocumentModel,
+    MediaModel,
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
@@ -448,6 +449,114 @@ def test_documents_view_marker_installation_switches_to_console(qtbot, monkeypat
     # Simuler des logs reçus en temps réel
     view._on_worker_log("Downloading torch-2.1.0-cp312-none-any.whl (750 MB)")
     assert "Downloading torch" in view.terminal_view.toPlainText()
+
+
+def test_documents_view_marker_analysis_consent_install(qtbot, monkeypatch, tmp_path):
+    """Vérifie que l'acceptation du dialogue d'installation lance _install_marker_and_start."""
+    from ankiforge.ui.dialogs.marker_install_dialog import MarkerInstallAction
+
+    installed_called = []
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    uid = uuid.uuid4().hex[:8]
+    dummy_pdf = tmp_path / f"sample_{uid}.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 dummy")
+    media = MediaModel.create(filename=dummy_pdf.name, original_name="sample.pdf", checksum=f"chk_{uid}", mime_type="application/pdf")
+    doc = DocumentModel.create(title="Sample PDF", file_type="pdf", content="", original_media=media)
+    view._current_doc_id = doc.id
+
+    monkeypatch.setattr("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
+    monkeypatch.setattr("ankiforge.utils.paths.resolve_media_path", lambda _: dummy_pdf)
+
+    class DummyDialog:
+        selected_action = MarkerInstallAction.INSTALL
+
+        def __init__(self, parent=None):
+            pass
+
+        def exec(self):
+            return 1
+
+    monkeypatch.setattr("ankiforge.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
+    monkeypatch.setattr(view, "_install_marker_and_start", lambda path: installed_called.append(path))
+
+    view._on_run_marker_analysis()
+    assert len(installed_called) == 1
+    assert installed_called[0] == str(dummy_pdf)
+
+
+def test_documents_view_marker_analysis_consent_standard_fallback(qtbot, monkeypatch, tmp_path):
+    """Vérifie que le choix de repli standard lance le worker sans installer Marker."""
+    from ankiforge.ui.dialogs.marker_install_dialog import MarkerInstallAction
+
+    worker_started = []
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    uid = uuid.uuid4().hex[:8]
+    dummy_pdf = tmp_path / f"sample_{uid}.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 dummy")
+    media = MediaModel.create(filename=dummy_pdf.name, original_name="sample.pdf", checksum=f"chk_{uid}", mime_type="application/pdf")
+    doc = DocumentModel.create(title="Sample PDF", file_type="pdf", content="", original_media=media)
+    view._current_doc_id = doc.id
+
+    monkeypatch.setattr("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
+    monkeypatch.setattr("ankiforge.utils.paths.resolve_media_path", lambda _: dummy_pdf)
+
+    class DummyDialog:
+        selected_action = MarkerInstallAction.STANDARD_FALLBACK
+
+        def __init__(self, parent=None):
+            pass
+
+        def exec(self):
+            return 1
+
+    monkeypatch.setattr("ankiforge.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
+    monkeypatch.setattr(view, "_start_document_worker", lambda path, doc_id=None: worker_started.append((path, doc_id)))
+
+    view._on_run_marker_analysis()
+    assert len(worker_started) == 1
+    assert worker_started[0] == (str(dummy_pdf), doc.id)
+
+
+def test_documents_view_marker_analysis_consent_cancel(qtbot, monkeypatch, tmp_path):
+    """Vérifie que l'annulation ne lance aucun worker ni installation et laisse le bouton Marker actif."""
+    from ankiforge.ui.dialogs.marker_install_dialog import MarkerInstallAction
+
+    installed_called = []
+    worker_started = []
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    uid = uuid.uuid4().hex[:8]
+    dummy_pdf = tmp_path / f"sample_{uid}.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 dummy")
+    media = MediaModel.create(filename=dummy_pdf.name, original_name="sample.pdf", checksum=f"chk_{uid}", mime_type="application/pdf")
+    doc = DocumentModel.create(title="Sample PDF", file_type="pdf", content="", original_media=media)
+    view._current_doc_id = doc.id
+
+    monkeypatch.setattr("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
+    monkeypatch.setattr("ankiforge.utils.paths.resolve_media_path", lambda _: dummy_pdf)
+
+    class DummyDialog:
+        selected_action = MarkerInstallAction.CANCEL
+
+        def __init__(self, parent=None):
+            pass
+
+        def exec(self):
+            return 0
+
+    monkeypatch.setattr("ankiforge.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
+    monkeypatch.setattr(view, "_install_marker_and_start", lambda path: installed_called.append(path))
+    monkeypatch.setattr(view, "_start_document_worker", lambda path, doc_id=None: worker_started.append((path, doc_id)))
+
+    view._on_run_marker_analysis()
+    assert len(installed_called) == 0
+    assert len(worker_started) == 0
+    assert view.btn_marker.isEnabled() is True
 
 
 def test_documents_view_coverage_aggregates_duplicate_headings(qtbot):

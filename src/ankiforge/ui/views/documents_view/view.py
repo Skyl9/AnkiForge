@@ -1798,7 +1798,10 @@ class DocumentsView(FileDropMixin, QWidget):
             self.view_toggle_frame.hide()
             self._on_view_toggled("md")
 
-        show_toast(self, tr("PDF '%1' importé. Démarrage de l'analyse Marker OCR...", title_to_display))
+        if DocumentParser.is_marker_available():
+            show_toast(self, tr("PDF '%1' importé. Démarrage de l'analyse Marker OCR...", title_to_display))
+        else:
+            show_toast(self, tr("PDF '%1' importé. Démarrage de l'extraction standard...", title_to_display))
         if pdf_path.exists():
             self._start_document_worker(str(pdf_path), doc_id=doc.id)
 
@@ -2141,19 +2144,25 @@ class DocumentsView(FileDropMixin, QWidget):
 
         marker_exec = DocumentParser.get_marker_executable()
         if not marker_exec:
-            dialog = QMessageBox(self)
-            dialog.setWindowTitle(self.tr("Installer Marker OCR"))
-            dialog.setText(self.tr("Marker OCR n'est pas installé dans cette application packagée."))
-            dialog.setInformativeText("AnkiForge va créer un environnement Python séparé dans ~/.ankiforge/tools/marker et y installer marker-pdf.")
-            install_button = dialog.addButton("Installer Marker OCR", QMessageBox.ButtonRole.AcceptRole)
-            fallback_button = dialog.addButton("Extraction standard", QMessageBox.ButtonRole.DestructiveRole)
-            dialog.addButton(QMessageBox.StandardButton.Cancel)
+            from ankiforge.ui.dialogs.marker_install_dialog import MarkerInstallAction, MarkerInstallDialog
+
+            dialog = MarkerInstallDialog(self)
             dialog.exec()
-            clicked = dialog.clickedButton()
-            if clicked is install_button:
+            action = dialog.selected_action
+
+            if action == MarkerInstallAction.INSTALL:
                 self._install_marker_and_start(str(pdf_path) if pdf_path else "")
                 return
-            if clicked is not fallback_button:
+            elif action == MarkerInstallAction.STANDARD_FALLBACK:
+                if pdf_path:
+                    show_toast(self, self.tr("Extraction PDF standard en cours (sans OCR)..."))
+                    self._start_document_worker(str(pdf_path), doc_id=doc.id)
+                return
+            else:
+                show_toast(
+                    self,
+                    self.tr("Installation de Marker OCR annulée. Vous pourrez relancer l'installation à tout moment via le bouton 'Marker OCR'."),
+                )
                 return
 
         if pdf_path:

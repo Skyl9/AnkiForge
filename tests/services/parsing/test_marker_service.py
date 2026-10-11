@@ -183,3 +183,65 @@ def test_is_venv_compatible_rejects_marker_2(tmp_path: Path, monkeypatch: pytest
         # Code 0 : la version de marker est < 2 (autonome)
         mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0)
         assert MarkerService._is_venv_compatible(venv_dir) is True
+
+
+def test_marker_service_disk_space_helpers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie le calcul d'espace disque disponible et le formatage des tailles."""
+    tools_dir = tmp_path / "tools"
+    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+
+    assert MarkerService.get_installation_target_dir() == tools_dir / "marker"
+
+    # Simuler shutil.disk_usage avec 10 Go libres
+    with patch("shutil.disk_usage") as mock_usage:
+        mock_usage.return_value = (20 * 1024**3, 10 * 1024**3, 10 * 1024**3)
+        available = MarkerService.get_available_disk_space()
+        assert available == 10 * 1024**3
+        assert MarkerService.has_sufficient_disk_space(required_bytes=5 * 1024**3) is True
+
+        # Avec un seuil plus élevé (15 Go requis)
+        assert MarkerService.has_sufficient_disk_space(required_bytes=15 * 1024**3) is False
+
+    # Formatage lisible
+    assert MarkerService.format_bytes(5 * 1024**3) == "5.0 Go"
+    assert MarkerService.format_bytes(500 * 1024**2) == "500 Mo"
+
+
+def test_marker_service_purge_installation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que purge_installation supprime complètement le répertoire marker."""
+    tools_dir = tmp_path / "tools"
+    marker_dir = tools_dir / "marker"
+    marker_dir.mkdir(parents=True)
+    (marker_dir / "some_file.txt").write_text("residue")
+
+    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    assert marker_dir.exists()
+
+    MarkerService.purge_installation()
+    assert not marker_dir.exists()
+
+
+def test_marker_service_install_cleans_up_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que install() nettoie le venv s'il échoue au milieu du processus."""
+    tools_dir = tmp_path / "tools"
+    venv_dir = tools_dir / "marker" / "venv"
+
+    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    monkeypatch.setattr(MarkerService, "_find_python", lambda: "/usr/local/bin/python3.12")
+    monkeypatch.setattr(MarkerService, "_find_uv", lambda: None)
+    monkeypatch.setattr(MarkerService, "_is_python_compatible", lambda _: True)
+
+    def failing_run(*args: object, **kwargs: object) -> None:
+        # Créer le venv partiel puis planter
+        venv_dir.mkdir(parents=True, exist_ok=True)
+        (venv_dir / "partial.bin").write_text("broken")
+        raise RuntimeError("Network timeout during pip install")
+
+    monkeypatch.setattr(MarkerService, "_run", failing_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        MarkerService.install()
+
+    assert "Network timeout" in str(exc_info.value)
+    # Le répertoire venv corrompu a été purgé
+    assert not venv_dir.exists()

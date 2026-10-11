@@ -772,6 +772,26 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/dialogs/marker_install_dialog.py" line="+129"/>
+        <source>~%1 (dépendances Python, PyTorch et modèles d&apos;IA)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>%1 disponibles sur ce volume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>~%1 (connexion Internet active nécessaire)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+63"/>
+        <source>Attention : Votre espace disque libre (%1) est inférieur au seuil recommandé (%2). L&apos;installation risque d&apos;échouer ou de saturer votre disque.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/dialogs/model_export_dialog.py" line="+45"/>
         <source>Exporter le type de note — %1</source>
         <translation type="unfinished"></translation>
@@ -2781,8 +2801,13 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+210"/>
+        <location line="+211"/>
         <source>PDF &apos;%1&apos; importé. Démarrage de l&apos;analyse Marker OCR...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>PDF &apos;%1&apos; importé. Démarrage de l&apos;extraction standard...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2811,7 +2836,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+114"/>
+        <location line="+120"/>
         <source>Installation de Marker OCR échouée : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9346,7 +9371,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2473"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2482"/>
         <source>Importer un fichier local (PDF, Markdown, Texte, .apkg)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9367,12 +9392,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+1838"/>
+        <location line="+1841"/>
         <source>Supprimer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1834"/>
+        <location line="-1837"/>
         <source>Importer des documents depuis un autre profil</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9503,25 +9528,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+37"/>
-        <location line="+1628"/>
+        <location line="+1637"/>
         <location line="+21"/>
         <source>Couverture : 0%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1645"/>
+        <location line="-1654"/>
         <source>Ouvrir le diagnostic complet du document dans Analyse &amp; Audit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+25"/>
-        <location line="+1602"/>
+        <location line="+1611"/>
         <location line="+21"/>
         <source>0 sections analysées • 0 cartes liées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1617"/>
+        <location line="-1626"/>
         <source>Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9717,7 +9742,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+33"/>
         <source>Extraction et analyse du document en cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9776,27 +9801,27 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+17"/>
-        <location line="+547"/>
+        <location line="+553"/>
         <source>Veuillez d&apos;abord sélectionner un document.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-542"/>
+        <location line="-548"/>
         <source>L&apos;analyse Marker OCR est disponible uniquement pour les fichiers PDF.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+15"/>
-        <source>Installer Marker OCR</source>
+        <location line="+25"/>
+        <source>Extraction PDF standard en cours (sans OCR)...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Marker OCR n&apos;est pas installé dans cette application packagée.</source>
+        <location line="+6"/>
+        <source>Installation de Marker OCR annulée. Vous pourrez relancer l&apos;installation à tout moment via le bouton &apos;Marker OCR&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+17"/>
+        <location line="+8"/>
         <source>Analyse Marker : Document déjà textuel.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12178,6 +12203,89 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <message>
         <location line="+5"/>
         <source>Appliquer les modifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>MarkerInstallDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/marker_install_dialog.py" line="-178"/>
+        <source>Installation de Marker OCR</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>Installer le moteur Marker OCR</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Moteur d&apos;extraction haute précision pour formules mathématiques (KaTeX) et tableaux PDF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Marker OCR utilise des modèles de Deep Learning locaux pour extraire fidèlement le texte, les équations LaTeX et la structure des PDF complexes. Son installation est totalement isolée dans un environnement dédié et ne modifie pas les logiciels de votre ordinateur.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
+        <source>Espace disque requis :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>Espace disque disponible :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Téléchargement initial :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Durée estimée :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>3 à 8 minutes (selon votre débit réseau et votre processeur)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Emplacement :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Extraction standard (sans OCR)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Extraire le texte natif immédiatement avec pypdf sans rien installer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Confirmer et installer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Créer l&apos;environnement virtuel et télécharger Marker OCR (~5 Go)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Espace disque insuffisant sur ce volume (&lt; 1 Go libre).</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -22,14 +22,61 @@ class MarkerService:
     PACKAGE_NAME = "marker-pdf>=1.8.0,<2.0.0"
     MIN_PYTHON_VERSION = (3, 10)
     MAX_PYTHON_VERSION = (3, 14)  # Exclusif : 3.10, 3.11, 3.12, 3.13 supportés
+    ESTIMATED_DISK_SPACE_BYTES = 5 * 1024 * 1024 * 1024  # ~5.0 Go (dépendances PyTorch + modèles de vision)
+    ESTIMATED_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024  # ~2.0 Go
+    MIN_FREE_SPACE_BYTES = 4 * 1024 * 1024 * 1024  # ~4.0 Go d'espace minimum recommandé
+    ESTIMATED_DURATION_MINUTES = (3, 8)
+
+    @classmethod
+    def get_installation_target_dir(cls) -> Path:
+        """Retourne le répertoire cible pour l'installation de Marker."""
+        return get_tools_search_dirs()[0] / "marker"
+
+    @classmethod
+    def get_available_disk_space(cls, target_dir: Path | None = None) -> int:
+        """Retourne l'espace disque disponible (en octets) sur le volume contenant le dossier cible."""
+        path = (target_dir or cls.get_installation_target_dir()).resolve()
+        while not path.exists() and path.parent != path:
+            path = path.parent
+        try:
+            usage = shutil.disk_usage(path)
+            return int(getattr(usage, "free", usage[2]))
+        except (OSError, IndexError, AttributeError) as err:
+            logger.warning("Impossible de mesurer l'espace disque disponible sur %s : %s", path, err)
+            return 0
+
+    @classmethod
+    def has_sufficient_disk_space(cls, required_bytes: int | None = None, target_dir: Path | None = None) -> bool:
+        """Indique si le volume cible dispose d'un espace libre suffisant pour installer Marker."""
+        threshold = required_bytes if required_bytes is not None else cls.MIN_FREE_SPACE_BYTES
+        return cls.get_available_disk_space(target_dir) >= threshold
+
+    @classmethod
+    def format_bytes(cls, size_bytes: int | float) -> str:
+        """Formate une taille en octets en chaîne lisible (Go / Mo)."""
+        gb = size_bytes / (1024 * 1024 * 1024)
+        if gb >= 1.0:
+            return f"{gb:.1f} Go"
+        mb = size_bytes / (1024 * 1024)
+        return f"{mb:.0f} Mo"
+
+    @classmethod
+    def purge_installation(cls) -> None:
+        """Supprime complètement l'environnement Marker existant."""
+        for tools_dir in get_tools_search_dirs():
+            marker_dir = tools_dir / "marker"
+            if marker_dir.exists():
+                logger.info("Purge de l'environnement Marker : %s", marker_dir)
+                shutil.rmtree(marker_dir, ignore_errors=True)
 
     @classmethod
     def install(cls, progress_callback: Callable[[str], None] | None = None) -> Path:
         """Crée un venv persistant et installe marker-pdf avec pip ou uv."""
         python = cls._find_python()
-        install_dir = get_tools_search_dirs()[0] / "marker"
+        install_dir = cls.get_installation_target_dir()
         venv_dir = install_dir / "venv"
         install_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Démarrage de l'installation de Marker OCR dans %s via Python %s", venv_dir, python)
 
         # Si le venv existe déjà mais n'est pas basé sur une version de Python compatible, on le purge
         if venv_dir.exists() and not cls._is_venv_compatible(venv_dir):
@@ -38,37 +85,46 @@ class MarkerService:
             logger.info("Purge de l'environnement Marker obsolète : %s", venv_dir)
             shutil.rmtree(venv_dir, ignore_errors=True)
 
-        if not cls._is_venv_compatible(venv_dir):
+        try:
+            if not cls._is_venv_compatible(venv_dir):
+                if progress_callback:
+                    progress_callback("Création de l'environnement Marker OCR (Python compatible)...")
+                logger.info("Création de l'environnement virtuel pour Marker OCR : %s", venv_dir)
+                uv_exe = cls._find_uv()
+                if uv_exe:
+                    cls._run([uv_exe, "venv", str(venv_dir), "--python", python], progress_callback)
+                else:
+                    cls._run([python, "-m", "venv", str(venv_dir)], progress_callback)
+
+            venv_python = cls._venv_python(venv_dir)
+            if not cls._is_python_compatible(venv_python):
+                raise RuntimeError(f"L'environnement virtuel créé à {venv_dir} n'est pas valide ou utilise un Python incompatible.")
+
             if progress_callback:
-                progress_callback("Création de l'environnement Marker OCR (Python compatible)...")
+                progress_callback("Installation de marker-pdf et de ses dépendances...")
+            logger.info("Installation du paquet %s dans %s", cls.PACKAGE_NAME, venv_dir)
+
             uv_exe = cls._find_uv()
             if uv_exe:
-                cls._run([uv_exe, "venv", str(venv_dir), "--python", python], progress_callback)
+                cls._run(
+                    [uv_exe, "pip", "install", "--upgrade", cls.PACKAGE_NAME, "--python", str(venv_python)],
+                    progress_callback,
+                )
             else:
-                cls._run([python, "-m", "venv", str(venv_dir)], progress_callback)
+                cls._run([str(venv_python), "-m", "pip", "install", "--upgrade", cls.PACKAGE_NAME], progress_callback)
 
-        venv_python = cls._venv_python(venv_dir)
-        if not cls._is_python_compatible(venv_python):
-            raise RuntimeError(f"L'environnement virtuel créé à {venv_dir} n'est pas valide ou utilise un Python incompatible.")
-
-        if progress_callback:
-            progress_callback("Installation de marker-pdf et de ses dépendances...")
-
-        uv_exe = cls._find_uv()
-        if uv_exe:
-            cls._run(
-                [uv_exe, "pip", "install", "--upgrade", cls.PACKAGE_NAME, "--python", str(venv_python)],
-                progress_callback,
-            )
-        else:
-            cls._run([str(venv_python), "-m", "pip", "install", "--upgrade", cls.PACKAGE_NAME], progress_callback)
-
-        executable = cls._venv_executable(venv_dir)
-        if not executable.exists():
-            raise RuntimeError("L'installation est terminée mais marker_single est introuvable.")
-        if platform.system() != "Windows":
-            executable.chmod(executable.stat().st_mode | 0o111)
-        return executable
+            executable = cls._venv_executable(venv_dir)
+            if not executable.exists():
+                raise RuntimeError("L'installation est terminée mais marker_single est introuvable.")
+            if platform.system() != "Windows":
+                executable.chmod(executable.stat().st_mode | 0o111)
+            logger.info("Installation de Marker OCR réussie avec succès : %s", executable)
+            return executable
+        except Exception:
+            logger.exception("Échec de l'installation de Marker OCR. Nettoyage de l'environnement incomplet...")
+            if venv_dir.exists():
+                shutil.rmtree(venv_dir, ignore_errors=True)
+            raise
 
     @classmethod
     def get_executable(cls) -> Path | None:
