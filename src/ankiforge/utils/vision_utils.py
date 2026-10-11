@@ -2,6 +2,7 @@ import base64
 import logging
 import mimetypes
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -45,16 +46,22 @@ def _encode_image_base64(image_path: Path) -> str | None:
         return None
 
 
-def prepare_multimodal_payload(text: str, media_dir: Path) -> list[dict[str, Any]]:
+def prepare_multimodal_payload(
+    text: str,
+    media_dir: Path,
+    extra_images: Sequence[dict[str, Any] | Path | str] | None = None,
+) -> list[dict[str, Any]]:
     """
     Prépare un payload compatible avec les APIs de vision (OpenAI, Gemini).
 
-    Extrait les images citées dans le texte, les convertit en base64 depuis le dossier
-    média local et construit une structure de message multimodal.
+    Extrait les images citées dans le texte et intègre les images additionnelles
+    fournies (ex: planches d'album sélectionnées), les convertit en base64
+    et construit une structure de message multimodal.
 
     Args:
         text (str): Texte source contenant des balises images.
         media_dir (Path): Dossier racine où sont stockés les fichiers physiques.
+        extra_images: Images explicites additionnelles (dict image_url ou chemins).
 
     Returns:
         list[dict[str, Any]]: Une liste d'objets (texte + images base64) pour le fournisseur IA.
@@ -107,6 +114,21 @@ def prepare_multimodal_payload(text: str, media_dir: Path) -> list[dict[str, Any
 
             payload.append({"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{base64_str}"}})
             processed_images.add(file_name)
+
+    # 6. Ajout des images transmises explicitement (ex: planches d'album sélectionnées)
+    if extra_images:
+        for item in extra_images:
+            if isinstance(item, dict) and item.get("type") == "image_url":
+                payload.append(item)
+            elif isinstance(item, (str, Path)):
+                p = Path(item)
+                target_path = p if p.is_absolute() and p.exists() else (media_dir / p.name)
+                b64 = _encode_image_base64(target_path)
+                if b64:
+                    mtype, _ = mimetypes.guess_type(str(target_path))
+                    if not mtype:
+                        mtype = "image/png" if target_path.suffix.lower() == ".png" else "image/jpeg"
+                    payload.append({"type": "image_url", "image_url": {"url": f"data:{mtype};base64,{b64}"}})
 
     # Si aucune image n'a été trouvée/chargée, on renvoie simplement une liste avec un bloc texte
     return payload

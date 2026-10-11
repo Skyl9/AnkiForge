@@ -285,7 +285,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location line="+64"/>
         <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+193"/>
         <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+111"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+1648"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+1653"/>
         <location line="+29"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="+512"/>
         <location line="+75"/>
@@ -624,7 +624,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location line="+79"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+597"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+670"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="-53"/>
         <source>Erreur : %1</source>
         <translation type="unfinished"></translation>
@@ -1837,7 +1837,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+47"/>
-        <location filename="../../ui/views/creation_view/view.py" line="-1893"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-1971"/>
         <location filename="../../ui/widgets/note_table_widget.py" line="+101"/>
         <source>Rejeter</source>
         <translation type="unfinished"></translation>
@@ -1854,7 +1854,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+132"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+1992"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+2070"/>
         <source>Enregistrer dans la Forge (%1/%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2298,8 +2298,8 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/creation_view/view.py" line="-1813"/>
-        <location line="+631"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-1891"/>
+        <location line="+636"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="-87"/>
         <location line="+29"/>
         <location line="+17"/>
@@ -2307,7 +2307,7 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-602"/>
+        <location line="-607"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="-39"/>
         <source>1-%1</source>
         <translation type="unfinished"></translation>
@@ -2329,7 +2329,7 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+194"/>
+        <location line="+199"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="+53"/>
         <source>0 %1</source>
         <translation type="unfinished"></translation>
@@ -2348,12 +2348,22 @@ Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+189"/>
+        <location line="+193"/>
         <source>%1 (+%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+125"/>
+        <location line="+65"/>
+        <source>des planches %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Analyse visuelle multimodale %1 de l&apos;album « %2 ». Générez des flashcards à partir des images jointes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+126"/>
         <source>Source active : %1 (ID: %2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2441,6 +2451,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     </message>
     <message>
         <location line="+40"/>
+        <location filename="../../ui/widgets/segment_inspector_widget.py" line="+126"/>
         <source>Planche %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3398,7 +3409,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/widgets/segment_inspector_widget.py" line="-469"/>
+        <location filename="../../ui/widgets/segment_inspector_widget.py" line="-595"/>
         <source>#%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3743,13 +3754,18 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+44"/>
         <source>%1 tok.</source>
         <comment>{value:,}</comment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+248"/>
+        <location line="+36"/>
+        <source>Planches %1 (%2 planches)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+282"/>
         <source>%1/%2 segment(s) (~%3 tok.)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8006,7 +8022,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CreationView</name>
     <message>
-        <location filename="../../ui/views/creation_view/view.py" line="-2812"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-2890"/>
         <source>Créer une saisie libre sans document source</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8022,12 +8038,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+22"/>
-        <location line="+1530"/>
+        <location line="+1539"/>
         <source>Sélectionner un type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1502"/>
+        <location line="-1511"/>
         <source>ORCHESTRATION IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8074,12 +8090,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+56"/>
-        <location line="+1815"/>
+        <location line="+1893"/>
         <source>Type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1815"/>
+        <location line="-1893"/>
         <source>Front</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8090,12 +8106,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+0"/>
-        <location line="+1815"/>
+        <location line="+1893"/>
         <source>Statut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1787"/>
+        <location line="-1865"/>
         <source>Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8106,23 +8122,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+8"/>
-        <location line="+1925"/>
+        <location line="+2003"/>
         <source>Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1921"/>
+        <location line="-1999"/>
         <source>Modifier le texte de la carte (Raccourci: E)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+1915"/>
+        <location line="+1993"/>
         <source>Valider la carte active et passer à la suivante (Raccourci: Espace ou V)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1897"/>
+        <location line="-1975"/>
         <source>Journal d&apos;exécution en direct</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8143,12 +8159,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+12"/>
-        <location line="+1312"/>
+        <location line="+1390"/>
         <source>Aucune erreur lors du processus de génération.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1025"/>
+        <location line="-1103"/>
         <source>Veuillez sélectionner un document à délimiter.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8183,7 +8199,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+192"/>
+        <location line="+197"/>
         <source>Veuillez sélectionner un document dans l&apos;arborescence.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8193,7 +8209,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+31"/>
+        <location line="+35"/>
         <source>Cet album n&apos;a pas encore été analysé par RAG Visuel ou Vision IA.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8218,12 +8234,29 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+72"/>
+        <location line="+85"/>
+        <source>Aucune planche sélectionnée pour la génération.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>de toutes les planches</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <location line="+38"/>
         <source>Aucun fragment coché pour la génération. Cochez au moins un segment.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="-27"/>
+        <location line="+15"/>
+        <source>Cet album n&apos;a pas encore été transcrit. Veuillez lancer la transcription OCR dans l&apos;onglet Documents ou activer le Mode Vision pour analyser directement les planches.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
         <source>Veuillez saisir un texte source ou sélectionner un document.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8233,7 +8266,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+117"/>
+        <location line="+119"/>
         <source>Journal copié dans le presse-papiers.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13953,7 +13986,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SegmentInspectorWidget</name>
     <message>
-        <location filename="../../ui/widgets/segment_inspector_widget.py" line="-672"/>
+        <location filename="../../ui/widgets/segment_inspector_widget.py" line="-746"/>
         <source>PORTÉE DU DOCUMENT</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14019,26 +14052,33 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+135"/>
-        <source>Par Page (1 page = 1 segment)</source>
+        <source>Par Planche (1 planche = 1 segment)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
+        <location line="+4"/>
         <source>Plage complète en 1 bloc</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Par Chapitre (Titres / TOC)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
+        <location line="-3"/>
+        <location line="+5"/>
         <source>Fenêtre de tokens fixe</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="-3"/>
+        <source>Par Page (1 page = 1 segment)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location line="+2"/>
+        <source>Par Chapitre (Titres / TOC)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>Par Intervalle (3 minutes)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14091,8 +14131,13 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SegmentItemWidget</name>
     <message>
-        <location line="-541"/>
+        <location line="-545"/>
         <source>Inclure ou exclure ce fragment de la génération</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+47"/>
+        <source>Planche non transcrite</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

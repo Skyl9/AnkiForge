@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel
+from ankiforge.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel
 from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.ui.components.badges import Badge
@@ -133,7 +133,7 @@ class SegmentItemWidget(QWidget):
         if len(preview_text) > 110:
             preview_text = preview_text[:107] + "..."
 
-        self.preview_lbl = QLabel(preview_text or "Fragment sans texte visible")
+        self.preview_lbl = QLabel(preview_text or self.tr("Planche non transcrite"))
         self.preview_lbl.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED};")
         self.preview_lbl.setWordWrap(True)
         layout.addWidget(self.preview_lbl)
@@ -610,7 +610,11 @@ class SegmentInspectorWidget(QFrame):
 
         ft = (getattr(self._doc, "file_type", "") or "md").lower() if self._doc else "md"
 
-        if ft in ("pdf", "album", "pptx", "epub"):
+        if ft == "album":
+            self.combo_strategy.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Planche (1 planche = 1 segment)"), "page")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_SECONDARY), self.tr("Plage complète en 1 bloc"), "range")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.ruler", color=DesignTokens.TEXT_SECONDARY), self.tr("Fenêtre de tokens fixe"), "tokens")
+        elif ft in ("pdf", "pptx", "epub"):
             self.combo_strategy.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Page (1 page = 1 segment)"), "page")
             self.combo_strategy.addItem(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_SECONDARY), self.tr("Plage complète en 1 bloc"), "range")
             self.combo_strategy.addItem(load_phosphor_icon("ph.bookmarks", color=DesignTokens.TEXT_SECONDARY), self.tr("Par Chapitre (Titres / TOC)"), "toc")
@@ -645,6 +649,76 @@ class SegmentInspectorWidget(QFrame):
 
     def recompute_segments(self) -> None:
         """Exécute le découpage selon la portée et la stratégie sélectionnée et recharge la liste."""
+        ft = (getattr(self._doc, "file_type", "") or "md").lower() if self._doc else "md"
+        is_album = bool(self._doc and ft == "album")
+
+        if is_album:
+            pages_list = list(DocumentPageModel.select().where(DocumentPageModel.document == self._doc).order_by(DocumentPageModel.page_number))
+            if not pages_list:
+                self._chunks = []
+                self._refresh_list_ui()
+                return
+
+            v_chunks_map = {c.page_number: c.content for c in DocumentChunkModel.select().where((DocumentChunkModel.document == self._doc) & DocumentChunkModel.page_number.is_null(False))}
+            strat_key = self.combo_strategy.currentData() or "page"
+            max_p = getattr(self, "_current_doc_total_units", len(pages_list)) or len(pages_list)
+            allowed_pages = self._parse_page_range(self.input_page_scope.text().strip(), max_p)
+            album_chunks: list[dict[str, Any]] = []
+
+            if strat_key == "range":
+                scoped_pages = [p for p in pages_list if p.page_number in allowed_pages]
+                if scoped_pages:
+                    merged_parts = []
+                    for p in scoped_pages:
+                        ocr = (p.ocr_text or "").strip()
+                        vis = (v_chunks_map.get(p.page_number, "") or "").strip()
+                        txt = ocr or vis or ""
+                        if txt:
+                            merged_parts.append(f"### Planche {p.page_number}\n\n{txt}")
+                    merged_content = "\n\n---\n\n".join(merged_parts)
+                    sorted_p = sorted([p.page_number for p in scoped_pages])
+                    range_str = f"{sorted_p[0]}-{sorted_p[-1]}" if len(sorted_p) > 1 else str(sorted_p[0])
+                    album_chunks.append(
+                        {
+                            "index": 0,
+                            "title": tr("Planches %1 (%2 planches)", range_str, len(scoped_pages)),
+                            "content": merged_content,
+                            "page_number": sorted_p[0],
+                            "heading_path": f"Planches {range_str}",
+                            "tokens": ContextCompactor.estimate_tokens(merged_content),
+                        }
+                    )
+            else:
+                for p in pages_list:
+                    if p.page_number in allowed_pages:
+                        ocr = (p.ocr_text or "").strip()
+                        vis = (v_chunks_map.get(p.page_number, "") or "").strip()
+                        content = ""
+                        if ocr and vis:
+                            content = f"**Transcription OCR :**\n{ocr}\n\n**Analyse visuelle (VLM) :**\n{vis}"
+                        elif ocr:
+                            content = ocr
+                        elif vis:
+                            content = f"**Analyse visuelle (VLM) :**\n{vis}"
+                        else:
+                            content = ""
+
+                        tokens = ContextCompactor.estimate_tokens(content) if content else 0
+                        album_chunks.append(
+                            {
+                                "index": len(album_chunks),
+                                "title": tr("Planche %1", p.page_number),
+                                "content": content,
+                                "page_number": p.page_number,
+                                "heading_path": f"Planche {p.page_number}",
+                                "tokens": tokens,
+                            }
+                        )
+
+            self._chunks = album_chunks
+            self._refresh_list_ui()
+            return
+
         raw_text = (getattr(self._doc, "content", "") or "") if self._doc else self._fallback_text
         if not raw_text or not raw_text.strip():
             self._chunks = []

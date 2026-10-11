@@ -1591,9 +1591,14 @@ class CreationView(QWidget):
 
         if title in self.open_editors:
             try:
-                _ = self.open_editors[title].parent()
+                editor = self.open_editors[title]
+                _ = editor.parent()
                 self.source_panel.open_tab(title)
                 self.config_panel.set_active_tab(1)
+                if is_album:
+                    editor.set_content(doc_content)
+                if hasattr(self, "segment_inspector"):
+                    self.segment_inspector.set_document(doc)
             except RuntimeError:
                 self.open_editors.pop(title, None)
                 self._open_document_tab(title, doc_content, doc)
@@ -1763,6 +1768,10 @@ class CreationView(QWidget):
             show_toast(self, self.tr("Veuillez sélectionner un document valide."), is_error=True)
             return
 
+        self._current_selected_doc = doc
+        self.current_source_doc_id = doc.id
+        self.current_source_title = doc.title
+
         is_album = getattr(doc, "file_type", "") == "album"
         editor = self.open_editors.get(doc.title)
         content_to_use = editor.get_text() if editor else doc.content
@@ -1899,15 +1908,82 @@ class CreationView(QWidget):
     @Slot(str, str)
     def _on_generate(self, text_source: str = "", source_title: str = "Saisie Libre") -> None:
         self.current_source_title = source_title
+        use_vision = self._effective_vision()
 
-        # Prise en compte du filtrage par segments de l'inspecteur
-        has_doc = (hasattr(self, "doc_picker_btn") and self.doc_picker_btn.get_document() is not None) or getattr(self, "_current_selected_doc", None) is not None
-        if hasattr(self, "segment_inspector") and has_doc and self.segment_inspector.segments_list.count() > 0:
-            active_segs = self.segment_inspector.get_active_segments()
-            if not active_segs:
-                show_toast(self, self.tr("Aucun fragment coché pour la génération. Cochez au moins un segment."), is_error=True)
-                return
-            text_source = "\n\n---\n\n".join(seg["content"] for seg in active_segs)
+        active_doc = self.doc_picker_btn.get_document() if (hasattr(self, "doc_picker_btn") and self.doc_picker_btn.get_document() is not None) else getattr(self, "_current_selected_doc", None)
+        is_album = getattr(active_doc, "file_type", "") == "album" if active_doc else False
+        album_selected_pages: list[int] = []
+
+        if is_album and active_doc:
+            if use_vision:
+                # Mode Vision : ignorer l'extraction de texte OCR et cibler uniquement les images des planches
+                if hasattr(self, "segment_inspector") and self.segment_inspector.segments_list.count() > 0:
+                    active_segs = self.segment_inspector.get_active_segments()
+                    album_selected_pages = [int(s["page_number"]) for s in active_segs if s.get("page_number") is not None]
+                elif hasattr(self, "input_page_scope") and self.input_page_scope.text().strip():
+                    album_selected_pages = parse_page_ranges(self.input_page_scope.text().strip())
+                else:
+                    pages_models = list(DocumentPageModel.select().where(DocumentPageModel.document == active_doc).order_by(DocumentPageModel.page_number))
+                    album_selected_pages = [p.page_number for p in pages_models]
+
+                if not album_selected_pages:
+                    show_toast(self, self.tr("Aucune planche sélectionnée pour la génération."), is_error=True)
+                    return
+
+                doc_title = getattr(active_doc, "title", "Album")
+                tot_p = getattr(active_doc, "total_pages", len(album_selected_pages)) or len(album_selected_pages)
+                if len(album_selected_pages) < tot_p:
+                    pages_str = ", ".join(str(p) for p in album_selected_pages)
+                    desc_target = tr("des planches %1", pages_str)
+                else:
+                    desc_target = self.tr("de toutes les planches")
+                text_source = tr("Analyse visuelle multimodale %1 de l'album « %2 ». Générez des flashcards à partir des images jointes.", desc_target, doc_title)
+            else:
+                # Mode Texte / OCR : vérifier la présence d'une transcription réelle
+                if hasattr(self, "segment_inspector") and self.segment_inspector.segments_list.count() > 0:
+                    active_segs = self.segment_inspector.get_active_segments()
+                    if not active_segs:
+                        show_toast(self, self.tr("Aucun fragment coché pour la génération. Cochez au moins un segment."), is_error=True)
+                        return
+                    valid_parts = []
+                    for seg in active_segs:
+                        cnt = str(seg.get("content", "")).strip()
+                        if cnt and not cnt.startswith("_Planche non transcrite") and "non transcrite" not in cnt.lower():
+                            valid_parts.append(f"### {seg.get('title', 'Planche')}\n\n{cnt}")
+                    if not valid_parts:
+                        show_toast(
+                            self,
+                            self.tr(
+                                "Cet album n'a pas encore été transcrit. Veuillez lancer la transcription OCR dans l'onglet Documents ou activer le Mode Vision pour analyser directement les planches."
+                            ),
+                            is_error=True,
+                        )
+                        return
+                    text_source = "\n\n---\n\n".join(valid_parts)
+                else:
+                    clean_src = text_source.strip()
+                    is_placeholder = not clean_src or ("_Planche non transcrite" in clean_src)
+                    if is_placeholder:
+                        has_ocr = DocumentPageModel.select().where((DocumentPageModel.document == active_doc) & (DocumentPageModel.ocr_text != "")).exists()
+                        if not has_ocr:
+                            show_toast(
+                                self,
+                                self.tr(
+                                    "Cet album n'a pas encore été transcrit. Veuillez lancer la transcription OCR "
+                                    "dans l'onglet Documents ou activer le Mode Vision pour analyser directement les planches."
+                                ),
+                                is_error=True,
+                            )
+                            return
+        else:
+            # Autres types de documents (PDF, Markdown, etc.)
+            has_doc = (hasattr(self, "doc_picker_btn") and self.doc_picker_btn.get_document() is not None) or getattr(self, "_current_selected_doc", None) is not None
+            if hasattr(self, "segment_inspector") and has_doc and self.segment_inspector.segments_list.count() > 0:
+                active_segs = self.segment_inspector.get_active_segments()
+                if not active_segs:
+                    show_toast(self, self.tr("Aucun fragment coché pour la génération. Cochez au moins un segment."), is_error=True)
+                    return
+                text_source = "\n\n---\n\n".join(seg["content"] for seg in active_segs)
 
         if not text_source:
             show_toast(self, self.tr("Veuillez saisir un texte source ou sélectionner un document."), is_error=True)
@@ -1952,14 +2028,16 @@ class CreationView(QWidget):
             initial_state.set_variable("document_title", getattr(self._current_selected_doc, "title", ""))
             initial_state.set_variable("file_type", getattr(self._current_selected_doc, "file_type", "text"))
 
-        use_vision = self._effective_vision()
         initial_state.set_variable("use_vision", use_vision)
-        gen_tokens = self.slider_tokens.value() * 1024 if hasattr(self, "slider_tokens") else 16384
-        initial_state.set_variable("max_tokens", gen_tokens)
-
-        if hasattr(self, "input_page_scope"):
+        if is_album and album_selected_pages:
+            initial_state.set_variable("album_selected_pages", album_selected_pages)
+            initial_state.set_variable("scope_pages", album_selected_pages)
+        elif hasattr(self, "input_page_scope"):
             scope_pages = parse_page_ranges(self.input_page_scope.text())
             initial_state.set_variable("scope_pages", scope_pages)
+
+        gen_tokens = self.slider_tokens.value() * 1024 if hasattr(self, "slider_tokens") else 16384
+        initial_state.set_variable("max_tokens", gen_tokens)
 
         self._set_all_generation_states(True)
         self.view_model.begin_generation()
