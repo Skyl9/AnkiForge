@@ -44,7 +44,6 @@ from ankiforge.ui.components.buttons import ActionButton, apply_compact_style
 from ankiforge.ui.components.code_editor import CodeEditorWithGutter
 from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
 from ankiforge.ui.dialogs.css_conflict_dialog import CSSConflictDialog
-from ankiforge.ui.dialogs.markdown_table_viewer_dialog import MarkdownTableViewerDialog
 from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
 from ankiforge.ui.dialogs.note_type_role_guide_dialog import NoteTypeRoleGuideDialog
@@ -309,13 +308,9 @@ class CardModelsView(QWidget):
         self.badge_role_table.setVisible(False)
         desc_row.addWidget(self.badge_role_table)
 
-        self.btn_view_table = ActionButton("ph.eye", self.tr("Voir le tableau"), parent=self)
-        apply_compact_style(self.btn_view_table, height=26)
-        self.btn_view_table.clicked.connect(self._on_open_table_viewer)
-        desc_row.addWidget(self.btn_view_table)
-
-        self.btn_role_guide = ActionButton("ph.table", self.tr("Guide des rôles"), parent=self)
+        self.btn_role_guide = ActionButton("ph.table", self.tr("Prompt pour l'IA"), parent=self)
         apply_compact_style(self.btn_role_guide, height=26)
+        self.btn_role_guide.setToolTip(self.tr("Configurer les directives et le tableau sémantique pour l'IA"))
         self.btn_role_guide.clicked.connect(self._on_open_role_guide)
         desc_row.addWidget(self.btn_role_guide)
 
@@ -1268,27 +1263,23 @@ class CardModelsView(QWidget):
 
     @Slot()
     def _on_open_role_guide(self) -> None:
-        """Ouvre le dialogue modal du guide sémantique des rôles IA pour types de note."""
-        dialog = NoteTypeRoleGuideDialog(parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.selected_directive:
-            chosen = dialog.selected_directive
-            current_text = self.description_input.text().strip()
-            if current_text and current_text != chosen:
-                reply = QMessageBox.question(
-                    self,
-                    self.tr("Remplacer le rôle IA"),
-                    tr(
-                        "Le rôle IA contient déjà des directives :\n\n« %1 »\n\nVoulez-vous les remplacer par la directive de l'archétype « %2 » ?",
-                        current_text,
-                        dialog.selected_archetype_name or "",
-                    ),
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
-                )
-                if reply != QMessageBox.StandardButton.Yes:
-                    return
+        """Ouvre le dialogue modal unifié du guide sémantique et prompt IA pour types de note."""
+        model_fields: list[str] = []
+        if self._current_model and getattr(self._current_model, "fields_schema", None):
+            try:
+                parsed = json.loads(self._current_model.fields_schema)
+                if isinstance(parsed, list):
+                    model_fields = [str(f.get("name", "") if isinstance(f, dict) else f) for f in parsed if f]
+            except Exception:
+                pass
 
-            self.description_input.setText(chosen)
+        dialog = NoteTypeRoleGuideDialog(
+            current_text=self.description_input.text().strip(),
+            model_fields=model_fields,
+            parent=self,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.selected_directive is not None:
+            self.description_input.setText(dialog.selected_directive)
             self.description_input.setCursorPosition(0)
             show_toast(self, self.tr("Directive IA appliquée pour le type de note."))
 
@@ -1298,15 +1289,6 @@ class CardModelsView(QWidget):
         text = self.description_input.text()
         has_table = is_markdown_table(text)
         self.badge_role_table.setVisible(has_table)
-
-    @Slot()
-    def _on_open_table_viewer(self) -> None:
-        """Ouvre le dialogue de visualisation et d'édition du tableau Markdown du rôle IA."""
-        dialog = MarkdownTableViewerDialog(markdown_text=self.description_input.text(), parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.description_input.setText(dialog.result_markdown)
-            self.description_input.setCursorPosition(0)
-            show_toast(self, self.tr("Tableau Markdown mis à jour."))
 
     @Slot()
     def _on_delete_model(self) -> None:

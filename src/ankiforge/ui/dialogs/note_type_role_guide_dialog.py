@@ -1,21 +1,24 @@
 """
-Dialogue modal présentant le guide sémantique et le créateur de tableaux des rôles IA pour les types de note.
+Dialogue modal unifié présentant le guide sémantique et le générateur de tableaux des rôles IA pour les types de note.
 """
 
 from __future__ import annotations
 
 import markdown
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt
 from PySide6.QtWidgets import (
+    QCompleter,
     QDialog,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableWidgetItem,
-    QTabWidget,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
@@ -23,75 +26,105 @@ from PySide6.QtWidgets import (
 
 from ankiforge.services.cards.note_type_roles import (
     NoteTypeRoleArchetype,
+    create_table_rows_for_archetype,
     generate_markdown_table,
     get_standard_role_archetypes,
-    get_table_creation_templates,
+    is_markdown_table,
+    parse_markdown_table,
 )
-from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, apply_compact_style
-from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.components.tables import StyledTableWidget
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
+
+
+class TargetFieldsItemDelegate(QStyledItemDelegate):
+    """Délégué d'édition pour la colonne Champs cibles offrant l'autocomplétion sur les champs réels."""
+
+    def __init__(self, model_fields: list[str], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._model_fields = model_fields
+
+    def createEditor(
+        self,
+        parent: QWidget,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> QWidget:
+        editor = QLineEdit(parent)
+        if self._model_fields:
+            completer = QCompleter(self._model_fields, editor)
+            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            editor.setCompleter(completer)
+        return editor
 
 
 class NoteTypeRoleGuideDialog(QDialog):
     """
-    Dialogue modal permettant de consulter le catalogue sémantique des rôles IA,
-    de choisir un archétype prédéfini, ou de concevoir son propre tableau Markdown sur-mesure.
+    Dialogue modal unifié permettant de consulter le catalogue des rôles IA,
+    de choisir un archétype pré-mappé sur les champs réels du modèle,
+    ou de personnaliser son tableau Markdown avec prévisualisation en temps réel.
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        current_text: str = "",
+        model_fields: list[str] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Guide des rôles IA pour les types de note"))
-        self.resize(1000, 640)
-        self.setMinimumSize(860, 520)
+        self.setWindowTitle(self.tr("Guide sémantique et prompt IA pour types de note"))
+        self.resize(820, 520)
+        self.setMinimumSize(720, 440)
         self.setModal(True)
 
+        self._current_text = current_text.strip() if current_text else ""
+        self._model_fields: list[str] = list(model_fields) if model_fields else []
         self._archetypes: list[NoteTypeRoleArchetype] = get_standard_role_archetypes()
-        self._builder_templates: list[dict[str, str]] = get_table_creation_templates()
+
         self.selected_directive: str | None = None
         self.selected_archetype: NoteTypeRoleArchetype | None = None
         self.selected_archetype_name: str | None = None
+        self.archetype_chips: list[QPushButton] = []
+
+        self._is_updating: bool = False
 
         self._setup_ui()
-        self._populate_archetypes_table()
-        self._init_builder_with_default()
+        self._init_data()
 
     def _setup_ui(self) -> None:
         root_layout = QVBoxLayout(self)
-        root_layout.setContentsMargins(18, 18, 18, 18)
-        root_layout.setSpacing(12)
+        root_layout.setContentsMargins(16, 14, 16, 14)
+        root_layout.setSpacing(10)
 
-        # 1. En-tête descriptif
+        # 1. En-tête descriptif compact
         header_frame = QFrame()
         header_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 10px;
+                padding: 6px;
             }}
         """)
         header_layout = QHBoxLayout(header_frame)
-        header_layout.setContentsMargins(12, 8, 12, 8)
-        header_layout.setSpacing(14)
+        header_layout.setContentsMargins(10, 6, 10, 6)
+        header_layout.setSpacing(12)
 
         icon_label = QLabel()
-        icon_label.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(28, 28))
+        icon_label.setPixmap(load_phosphor_icon("ph.table", color=DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
         icon_label.setStyleSheet("border: none; background: transparent;")
         header_layout.addWidget(icon_label)
 
         title_vbox = QVBoxLayout()
-        title_vbox.setSpacing(3)
+        title_vbox.setSpacing(2)
 
-        title_lbl = QLabel(self.tr("Guide sémantique et créateur de rôles IA"))
-        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold; border: none; background: transparent;")
+        title_lbl = QLabel(self.tr("Guide sémantique et prompt IA pour types de note"))
+        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; border: none; background: transparent;")
         title_vbox.addWidget(title_lbl)
 
-        subtitle_lbl = QLabel(
-            self.tr("Le « Rôle IA » est une directive ou un tableau Markdown injecté dans la balise {{ available_card_models }} pour orienter l'IA sur le gabarit de carte à privilégier.")
-        )
+        subtitle_lbl = QLabel(self.tr("Définissez les directives et le tableau de rôles injectés dans la balise {{ available_card_models }} pour orienter l'IA."))
         subtitle_lbl.setWordWrap(True)
         subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         title_vbox.addWidget(subtitle_lbl)
@@ -99,159 +132,131 @@ class NoteTypeRoleGuideDialog(QDialog):
         header_layout.addLayout(title_vbox, 1)
         root_layout.addWidget(header_frame)
 
-        # 2. Système d'onglets : Modèles types vs Créateur sur-mesure
-        self.tab_widget = QTabWidget()
-
-        # Onglet 1 : Modèles types prédéfinis
-        tab_archetypes = QWidget()
-        tab_archetypes_layout = QVBoxLayout(tab_archetypes)
-        tab_archetypes_layout.setContentsMargins(6, 10, 6, 6)
-        tab_archetypes_layout.setSpacing(10)
-
-        # Barre d'outils / filtre
-        tools_layout = QHBoxLayout()
-        tools_layout.setSpacing(10)
-
-        lbl_search = QLabel(self.tr("Rechercher :"))
-        lbl_search.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; font-weight: bold;")
-        tools_layout.addWidget(lbl_search)
-
-        self.search_input = StyledLineEdit()
-        self.search_input.setFixedHeight(28)
-        self.search_input.setPlaceholderText(self.tr("Filtrer par mot-clé, cas d'usage ou nom de champ..."))
-        self.search_input.textChanged.connect(self._on_search_changed)
-        tools_layout.addWidget(self.search_input, 1)
-
-        tab_archetypes_layout.addLayout(tools_layout)
-
-        # Tableau des archétypes
-        columns = [
-            self.tr("Archétype"),
-            self.tr("Quand le choisir ?"),
-            self.tr("Champs suggérés"),
-            self.tr("Directive transmise à l'IA"),
-            self.tr("Action"),
-        ]
-        self.table = StyledTableWidget(columns=columns, parent=self)
-        self.table.setWordWrap(True)
-
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-
-        self.table.setColumnWidth(0, 170)
-        self.table.setColumnWidth(1, 190)
-        self.table.setColumnWidth(2, 160)
-        self.table.setColumnWidth(4, 210)
-        self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(72)
-
-        tab_archetypes_layout.addWidget(self.table, 1)
-        self.tab_widget.addTab(tab_archetypes, self.tr("Archétypes prédéfinis"))
-
-        # Onglet 2 : Créateur de tableau sur-mesure
-        tab_builder = QWidget()
-        tab_builder_layout = QVBoxLayout(tab_builder)
-        tab_builder_layout.setContentsMargins(6, 10, 6, 6)
-        tab_builder_layout.setSpacing(10)
-
-        # Barre d'aide à la création (briques rapides)
-        assistant_frame = QFrame()
-        assistant_frame.setStyleSheet(f"""
+        # 2. Bandeau conditionnel si directive textuelle libre existante
+        self.plain_text_banner = QFrame()
+        self.plain_text_banner.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_MAIN};
-                border: 1px dashed {DesignTokens.BORDER_COLOR};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 6px;
             }}
         """)
-        asst_layout = QVBoxLayout(assistant_frame)
-        asst_layout.setContentsMargins(8, 6, 8, 6)
-        asst_layout.setSpacing(6)
+        banner_layout = QHBoxLayout(self.plain_text_banner)
+        banner_layout.setContentsMargins(8, 4, 8, 4)
+        banner_layout.setSpacing(8)
 
-        asst_title_row = QHBoxLayout()
-        asst_title_row.setSpacing(6)
-        lbl_asst = QLabel(self.tr("Aide à la création — Ajouter une règle type au tableau :"))
-        lbl_asst.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
-        asst_title_row.addWidget(lbl_asst)
-        asst_title_row.addStretch()
-        asst_layout.addLayout(asst_title_row)
+        self.lbl_plain_text = QLabel()
+        self.lbl_plain_text.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        banner_layout.addWidget(self.lbl_plain_text, 1)
+
+        self.btn_convert_plain_text = SecondaryButton(self.tr("Convertir en règle"))
+        apply_compact_style(self.btn_convert_plain_text, height=24)
+        self.btn_convert_plain_text.clicked.connect(self._on_convert_plain_text)
+        banner_layout.addWidget(self.btn_convert_plain_text)
+
+        self.btn_replace_plain_text = SecondaryButton(self.tr("Remplacer par un archétype"))
+        apply_compact_style(self.btn_replace_plain_text, height=24)
+        self.btn_replace_plain_text.clicked.connect(self._on_replace_plain_text)
+        banner_layout.addWidget(self.btn_replace_plain_text)
+
+        root_layout.addWidget(self.plain_text_banner)
+
+        # 3. Ruban supérieur des archétypes prédéfinis
+        archetypes_row = QHBoxLayout()
+        archetypes_row.setSpacing(6)
+
+        lbl_arch = QLabel(self.tr("Archétypes :"))
+        lbl_arch.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        archetypes_row.addWidget(lbl_arch)
 
         chips_scroll = QScrollArea()
         chips_scroll.setWidgetResizable(True)
-        chips_scroll.setFixedHeight(38)
+        chips_scroll.setFixedHeight(34)
         chips_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         chips_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         chips_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
-        chips_widget = QWidget()
-        chips_layout = QHBoxLayout(chips_widget)
+        chips_container = QWidget()
+        chips_layout = QHBoxLayout(chips_container)
         chips_layout.setContentsMargins(0, 0, 0, 0)
         chips_layout.setSpacing(6)
 
-        for tmpl in self._builder_templates:
-            chip_btn = SecondaryButton(f"+ {tmpl['concept'].split('&')[0].strip()}")
+        self.archetype_chips = []
+        for arch in self._archetypes:
+            chip_btn = SecondaryButton(arch.name)
             apply_compact_style(chip_btn, height=26)
-            chip_btn.setToolTip(f"{tmpl['concept']} : {tmpl['directive']}")
-            chip_btn.clicked.connect(lambda _checked=False, t=tmpl: self._add_builder_row_from_template(t))
+            chip_btn.setToolTip(tr("%1\n\nChamps suggérés : %2", arch.use_case, ", ".join(arch.suggested_fields)))
+            chip_btn.clicked.connect(lambda _checked=False, a=arch: self.load_archetype(a))
             chips_layout.addWidget(chip_btn)
+            self.archetype_chips.append(chip_btn)
 
         chips_layout.addStretch()
-        chips_scroll.setWidget(chips_widget)
-        asst_layout.addWidget(chips_scroll)
+        chips_scroll.setWidget(chips_container)
+        archetypes_row.addWidget(chips_scroll, 1)
+        root_layout.addLayout(archetypes_row)
 
-        tab_builder_layout.addWidget(assistant_frame)
+        # 4. Pastilles des champs réels du modèle (si disponibles)
+        if self._model_fields:
+            fields_row = QHBoxLayout()
+            fields_row.setSpacing(6)
 
-        # Grille interactive du tableau personnalisé
-        builder_cols = [
+            lbl_model_fields = QLabel(self.tr("Champs du type de note :"))
+            lbl_model_fields.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+            fields_row.addWidget(lbl_model_fields)
+
+            for f_name in self._model_fields:
+                field_btn = SecondaryButton(f_name)
+                apply_compact_style(field_btn, height=22)
+                field_btn.setToolTip(tr("Insérer « %1 » dans la règle sélectionnée", f_name))
+                field_btn.clicked.connect(lambda _checked=False, fn=f_name: self._insert_field_into_selected_row(fn))
+                fields_row.addWidget(field_btn)
+
+            fields_row.addStretch()
+            root_layout.addLayout(fields_row)
+
+        # 5. Grille interactive (3 colonnes)
+        columns = [
             self.tr("Concept / Cas d'usage"),
             self.tr("Directive sémantique pour l'IA"),
             self.tr("Champs cibles"),
         ]
-        self.builder_table = StyledTableWidget(columns=builder_cols, parent=self)
-        self.builder_table.setWordWrap(True)
-        self.builder_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
-        self.builder_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.builder_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-        self.builder_table.setColumnWidth(0, 220)
-        self.builder_table.setColumnWidth(2, 200)
-        self.builder_table.itemChanged.connect(self._on_builder_item_changed)
-        tab_builder_layout.addWidget(self.builder_table, 1)
+        self.grid_table = StyledTableWidget(columns=columns, parent=self)
+        self.grid_table.setWordWrap(True)
+        self.grid_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.grid_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.grid_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+        self.grid_table.setColumnWidth(0, 190)
+        self.grid_table.setColumnWidth(2, 180)
+        self.grid_table.setItemDelegateForColumn(2, TargetFieldsItemDelegate(self._model_fields, self.grid_table))
+        self.grid_table.itemChanged.connect(self._on_grid_item_changed)
+        root_layout.addWidget(self.grid_table, 1)
 
-        # Barre d'actions de la grille
+        # Barre d'actions sous la grille
         grid_actions_row = QHBoxLayout()
-        grid_actions_row.setSpacing(8)
+        grid_actions_row.setSpacing(6)
 
-        btn_add_blank = SecondaryButton(self.tr("+ Ajouter une règle"))
-        apply_compact_style(btn_add_blank, height=28)
-        btn_add_blank.clicked.connect(self._add_blank_builder_row)
-        grid_actions_row.addWidget(btn_add_blank)
+        btn_add = SecondaryButton(self.tr("+ Ajouter une règle"))
+        apply_compact_style(btn_add, height=26)
+        btn_add.clicked.connect(self._add_blank_row)
+        grid_actions_row.addWidget(btn_add)
 
-        btn_remove_row = SecondaryButton(self.tr("Supprimer la règle sélectionnée"))
-        apply_compact_style(btn_remove_row, height=28)
-        btn_remove_row.clicked.connect(self._remove_selected_builder_row)
-        grid_actions_row.addWidget(btn_remove_row)
+        btn_remove = SecondaryButton(self.tr("Supprimer la règle"))
+        apply_compact_style(btn_remove, height=26)
+        btn_remove.clicked.connect(self._remove_selected_row)
+        grid_actions_row.addWidget(btn_remove)
 
-        btn_clear_rows = SecondaryButton(self.tr("Tout effacer"))
-        apply_compact_style(btn_clear_rows, height=28)
-        btn_clear_rows.clicked.connect(self._clear_builder_rows)
-        grid_actions_row.addWidget(btn_clear_rows)
+        btn_clear = SecondaryButton(self.tr("Tout effacer"))
+        apply_compact_style(btn_clear, height=26)
+        btn_clear.clicked.connect(self._clear_rows)
+        grid_actions_row.addWidget(btn_clear)
 
         grid_actions_row.addStretch()
+        root_layout.addLayout(grid_actions_row)
 
-        self.btn_apply_builder = PrimaryButton(self.tr("Appliquer ce tableau au type de note"))
-        apply_compact_style(self.btn_apply_builder, height=30)
-        self.btn_apply_builder.clicked.connect(self._apply_builder_table)
-        grid_actions_row.addWidget(self.btn_apply_builder)
-
-        tab_builder_layout.addLayout(grid_actions_row)
-
-        # Aperçu rendu en direct
+        # 6. Aperçu Markdown en direct
         preview_frame = QFrame()
-        preview_frame.setFixedHeight(120)
+        preview_frame.setFixedHeight(95)
         preview_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_MAIN};
@@ -263,20 +268,17 @@ class NoteTypeRoleGuideDialog(QDialog):
         preview_vbox.setContentsMargins(6, 4, 6, 4)
         preview_vbox.setSpacing(2)
 
-        lbl_prev_title = QLabel(self.tr("Aperçu en direct du tableau Markdown pour l'IA :"))
+        lbl_prev_title = QLabel(self.tr("Aperçu en direct du tableau Markdown généré :"))
         lbl_prev_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
         preview_vbox.addWidget(lbl_prev_title)
 
-        self.builder_preview = QTextBrowser()
-        self.builder_preview.setStyleSheet("border: none; background: transparent;")
-        preview_vbox.addWidget(self.builder_preview, 1)
+        self.preview_browser = QTextBrowser()
+        self.preview_browser.setStyleSheet("border: none; background: transparent;")
+        preview_vbox.addWidget(self.preview_browser, 1)
 
-        tab_builder_layout.addWidget(preview_frame)
-        self.tab_widget.addTab(tab_builder, self.tr("Créateur de tableau sur-mesure"))
+        root_layout.addWidget(preview_frame)
 
-        root_layout.addWidget(self.tab_widget, 1)
-
-        # 3. Pied de dialogue avec bouton Fermer
+        # 7. Pied de dialogue
         bottom_layout = QHBoxLayout()
         bottom_layout.setSpacing(10)
 
@@ -284,196 +286,194 @@ class NoteTypeRoleGuideDialog(QDialog):
         caption_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         bottom_layout.addWidget(caption_lbl, 1)
 
-        btn_close = SecondaryButton(self.tr("Fermer"))
-        apply_compact_style(btn_close, height=32)
-        btn_close.clicked.connect(self.reject)
-        bottom_layout.addWidget(btn_close)
+        btn_cancel = SecondaryButton(self.tr("Annuler"))
+        apply_compact_style(btn_cancel, height=30)
+        btn_cancel.clicked.connect(self.reject)
+        bottom_layout.addWidget(btn_cancel)
+
+        self.btn_apply = PrimaryButton(self.tr("Appliquer au type de note"))
+        apply_compact_style(self.btn_apply, height=30)
+        self.btn_apply.clicked.connect(self._on_apply)
+        bottom_layout.addWidget(self.btn_apply)
 
         root_layout.addLayout(bottom_layout)
 
-    def _populate_archetypes_table(self) -> None:
-        """Remplit les lignes de l'onglet 1 avec les archétypes canoniques."""
-        self.table.setRowCount(len(self._archetypes))
+    def _get_default_fields(self) -> str:
+        """Retourne la liste par défaut des champs pour une nouvelle règle."""
+        return ", ".join(self._model_fields[:2]) if self._model_fields else "Front, Back"
 
-        for row, arch in enumerate(self._archetypes):
-            # Colonne 0 : Nom + Badge catégorie
-            name_cell = QWidget()
-            name_layout = QVBoxLayout(name_cell)
-            name_layout.setContentsMargins(8, 6, 8, 6)
-            name_layout.setSpacing(4)
+    def _init_data(self) -> None:
+        """Initialise la table selon le texte courant ou charge l'archétype par défaut."""
+        if self._current_text:
+            if is_markdown_table(self._current_text):
+                self.plain_text_banner.setVisible(False)
+                self._load_markdown_into_grid(self._current_text)
+                return
+            else:
+                self.plain_text_banner.setVisible(True)
+                self.lbl_plain_text.setText(tr("Directive textuelle actuelle : « %1 »", self._current_text))
+                self._populate_grid_from_rows([])
+                return
+        else:
+            self.plain_text_banner.setVisible(False)
 
-            name_lbl = QLabel(arch.name)
-            name_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 12px; background: transparent;")
-            name_layout.addWidget(name_lbl)
+        # Par défaut (texte vide), charger l'archétype Basique
+        if self._archetypes:
+            self.load_archetype(self._archetypes[0])
 
-            badge = Badge(arch.category, variant="neutral")
-            badge.setFixedHeight(18)
-            name_layout.addWidget(badge)
-            name_layout.addStretch()
-
-            self.table.setCellWidget(row, 0, name_cell)
-
-            # Colonne 1 : Cas d'usage
-            use_case_item = QTableWidgetItem(arch.use_case)
-            use_case_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 1, use_case_item)
-
-            # Colonne 2 : Champs suggérés
-            fields_str = ", ".join(arch.suggested_fields)
-            fields_item = QTableWidgetItem(fields_str)
-            fields_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 2, fields_item)
-
-            # Colonne 3 : Directive IA
-            directive_item = QTableWidgetItem(arch.ai_heuristic_directive)
-            directive_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 3, directive_item)
-
-            # Colonne 4 : Boutons Appliquer + Personnaliser
-            actions_cell = QWidget()
-            actions_layout = QHBoxLayout(actions_cell)
-            actions_layout.setContentsMargins(6, 6, 6, 6)
-            actions_layout.setSpacing(6)
-            actions_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            apply_btn = PrimaryButton(self.tr("Appliquer"))
-            apply_compact_style(apply_btn, height=28)
-            apply_btn.clicked.connect(lambda _checked=False, a=arch: self._apply_archetype(a))
-            actions_layout.addWidget(apply_btn)
-
-            custom_btn = SecondaryButton(self.tr("Personnaliser"))
-            apply_compact_style(custom_btn, height=28)
-            custom_btn.setToolTip(self.tr("Charger cet archétype dans le créateur de tableau sur-mesure"))
-            custom_btn.clicked.connect(lambda _checked=False, a=arch: self.load_archetype_into_builder(a))
-            actions_layout.addWidget(custom_btn)
-
-            self.table.setCellWidget(row, 4, actions_cell)
-
-    def _init_builder_with_default(self) -> None:
-        """Initialise le créateur avec la première suggestion type."""
-        if self._builder_templates:
-            self._add_builder_row_from_template(self._builder_templates[0])
-
-    def _add_builder_row_from_template(self, tmpl: dict[str, str]) -> None:
-        """Ajoute une ligne dans le créateur à partir d'un template."""
-        row = self.builder_table.rowCount()
-        self.builder_table.insertRow(row)
-        self.builder_table.setItem(row, 0, QTableWidgetItem(tmpl.get("concept", "")))
-        self.builder_table.setItem(row, 1, QTableWidgetItem(tmpl.get("directive", "")))
-        self.builder_table.setItem(row, 2, QTableWidgetItem(tmpl.get("fields", "")))
-        self._update_builder_preview()
-
-    def _add_blank_builder_row(self) -> None:
-        """Ajoute une ligne vierge dans le créateur de tableau."""
-        row = self.builder_table.rowCount()
-        self.builder_table.insertRow(row)
-        self.builder_table.setItem(row, 0, QTableWidgetItem(self.tr("Nouveau cas d'usage")))
-        self.builder_table.setItem(row, 1, QTableWidgetItem(self.tr("Consigne spécifique pour l'IA")))
-        self.builder_table.setItem(row, 2, QTableWidgetItem("Front, Back"))
-        self._update_builder_preview()
-
-    def _remove_selected_builder_row(self) -> None:
-        """Supprime la ligne actuellement sélectionnée dans le créateur."""
-        current_row = self.builder_table.currentRow()
-        if current_row >= 0:
-            self.builder_table.removeRow(current_row)
-            self._update_builder_preview()
-
-    def _clear_builder_rows(self) -> None:
-        """Vide l'ensemble des lignes du créateur."""
-        self.builder_table.setRowCount(0)
-        self._update_builder_preview()
-
-    def _on_builder_item_changed(self) -> None:
-        """Régénère l'aperçu en direct au fur et à mesure des modifications de cellules."""
-        self._update_builder_preview()
-
-    def _collect_builder_rows(self) -> list[dict[str, str]]:
-        """Collecte les données saisies dans les cellules du créateur."""
-        rows: list[dict[str, str]] = []
-        for r in range(self.builder_table.rowCount()):
-            c_item = self.builder_table.item(r, 0)
-            d_item = self.builder_table.item(r, 1)
-            f_item = self.builder_table.item(r, 2)
-            concept = c_item.text().strip() if c_item else ""
-            directive = d_item.text().strip() if d_item else ""
-            fields = f_item.text().strip() if f_item else ""
-            if concept or directive:
-                rows.append({"concept": concept, "directive": directive, "fields": fields})
-        return rows
-
-    def _update_builder_preview(self) -> None:
-        """Met à jour le rendu HTML du tableau Markdown généré dans le volet d'aperçu."""
-        rows = self._collect_builder_rows()
-        if not rows:
-            self.builder_preview.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED}; font-style: italic; font-size: 11px;'>{self.tr('Le tableau est vide. Ajoutez une règle type ci-dessus.')}</p>")
-            return
-
-        md_table = generate_markdown_table(rows)
-        rendered_html = markdown.markdown(md_table, extensions=["tables"])
-        css = f"""
-        <style>
-            table {{ width: 100%; border-collapse: collapse; font-size: 11px; color: {DesignTokens.TEXT_PRIMARY}; }}
-            th {{ background-color: {DesignTokens.BG_PANEL}; padding: 4px 8px; border: 1px solid {DesignTokens.BORDER_COLOR}; text-align: left; font-weight: bold; }}
-            td {{ padding: 4px 8px; border: 1px solid {DesignTokens.BORDER_COLOR}; vertical-align: top; }}
-        </style>
-        """
-        self.builder_preview.setHtml(f"{css}<div>{rendered_html}</div>")
-
-    def _apply_builder_table(self) -> None:
-        """Compile le tableau en Markdown et valide la modale."""
-        rows = self._collect_builder_rows()
-        if not rows:
-            return
-
-        md_table = generate_markdown_table(rows)
-        self.selected_directive = md_table
-        self.selected_archetype = None
-        self.selected_archetype_name = self.tr("Tableau Markdown personnalisé")
-        self.accept()
-
-    def load_archetype_into_builder(self, archetype: NoteTypeRoleArchetype) -> None:
-        """Charge un archétype existant dans le créateur sur-mesure et bascule sur l'onglet Créateur."""
-        self.builder_table.setRowCount(0)
-        row = self.builder_table.rowCount()
-        self.builder_table.insertRow(row)
-        self.builder_table.setItem(row, 0, QTableWidgetItem(archetype.name))
-        self.builder_table.setItem(row, 1, QTableWidgetItem(archetype.ai_heuristic_directive))
-        self.builder_table.setItem(row, 2, QTableWidgetItem(", ".join(archetype.suggested_fields)))
-        self._update_builder_preview()
-        self.tab_widget.setCurrentIndex(1)
-
-    def _apply_archetype(self, archetype: NoteTypeRoleArchetype) -> None:
-        """Sélectionne l'archétype prédéfini et valide la modale."""
-        self.selected_directive = archetype.ai_heuristic_directive
+    def load_archetype(self, archetype: NoteTypeRoleArchetype) -> None:
+        """Charge un archétype dans la grille interactive avec mapping sur les champs réels."""
+        self.plain_text_banner.setVisible(False)
         self.selected_archetype = archetype
         self.selected_archetype_name = archetype.name
+
+        rows = create_table_rows_for_archetype(archetype, self._model_fields)
+        self._populate_grid_from_rows(rows)
+
+    def _populate_grid_from_rows(self, rows: list[dict[str, str]]) -> None:
+        """Remplit la grille avec la liste de dictionnaires fournie."""
+        self._is_updating = True
+        self.grid_table.setRowCount(len(rows))
+
+        for row_idx, row in enumerate(rows):
+            item_concept = QTableWidgetItem(row.get("concept", ""))
+            item_directive = QTableWidgetItem(row.get("directive", ""))
+            item_fields = QTableWidgetItem(row.get("fields", ""))
+
+            self.grid_table.setItem(row_idx, 0, item_concept)
+            self.grid_table.setItem(row_idx, 1, item_directive)
+            self.grid_table.setItem(row_idx, 2, item_fields)
+
+        self._is_updating = False
+        self._update_preview()
+
+    def _load_markdown_into_grid(self, md_text: str) -> None:
+        """Parse un tableau Markdown existant et le charge dans la grille."""
+        _, rows = parse_markdown_table(md_text)
+        if rows:
+            self._populate_grid_from_rows(rows)
+        else:
+            self._populate_grid_from_rows([])
+
+    def _add_blank_row(self) -> None:
+        """Ajoute une ligne vierge à la grille."""
+        self._is_updating = True
+        row = self.grid_table.rowCount()
+        self.grid_table.insertRow(row)
+
+        self.grid_table.setItem(row, 0, QTableWidgetItem(self.tr("Nouveau concept")))
+        self.grid_table.setItem(row, 1, QTableWidgetItem(self.tr("Directive sémantique pour l'IA")))
+        self.grid_table.setItem(row, 2, QTableWidgetItem(self._get_default_fields()))
+
+        self._is_updating = False
+        self._update_preview()
+
+    def _remove_selected_row(self) -> None:
+        """Supprime la ligne actuellement sélectionnée."""
+        row = self.grid_table.currentRow()
+        if row >= 0:
+            self.grid_table.removeRow(row)
+            self._update_preview()
+
+    def _clear_rows(self) -> None:
+        """Vide l'ensemble des règles de la grille."""
+        self.grid_table.setRowCount(0)
+        self._update_preview()
+
+    def _insert_field_into_selected_row(self, field_name: str) -> None:
+        """Insère ou ajoute le champ spécifié dans la cellule Champs cibles de la ligne active."""
+        row = self.grid_table.currentRow()
+        if row < 0:
+            if self.grid_table.rowCount() > 0:
+                row = self.grid_table.rowCount() - 1
+            else:
+                self._add_blank_row()
+                row = 0
+
+        item = self.grid_table.item(row, 2)
+        if not item:
+            item = QTableWidgetItem()
+            self.grid_table.setItem(row, 2, item)
+
+        current_val = item.text().strip()
+        if not current_val:
+            item.setText(field_name)
+        else:
+            existing = [f.strip() for f in current_val.split(",") if f.strip()]
+            if field_name not in existing:
+                existing.append(field_name)
+                item.setText(", ".join(existing))
+
+        self._update_preview()
+
+    def _on_convert_plain_text(self) -> None:
+        """Convertit la directive textuelle libre existante en première règle de la grille."""
+        if not self._current_text:
+            return
+
+        rows = [
+            {
+                "concept": self.tr("Directive personnalisée"),
+                "directive": self._current_text,
+                "fields": self._get_default_fields(),
+            }
+        ]
+        self._populate_grid_from_rows(rows)
+        self.plain_text_banner.setVisible(False)
+
+    def _on_replace_plain_text(self) -> None:
+        """Masque le bandeau de texte libre et charge l'archétype par défaut."""
+        if self._archetypes:
+            self.load_archetype(self._archetypes[0])
+
+    def _on_grid_item_changed(self, _item: QTableWidgetItem) -> None:
+        """Régénère l'aperçu à chaque modification d'une cellule."""
+        if not self._is_updating:
+            self._update_preview()
+
+    def _get_current_rows_data(self) -> list[dict[str, str]]:
+        """Extrait les données de la grille sous forme de liste de dictionnaires."""
+        rows: list[dict[str, str]] = []
+        for r in range(self.grid_table.rowCount()):
+            c_item = self.grid_table.item(r, 0)
+            d_item = self.grid_table.item(r, 1)
+            f_item = self.grid_table.item(r, 2)
+
+            rows.append(
+                {
+                    "concept": c_item.text().strip() if c_item else "",
+                    "directive": d_item.text().strip() if d_item else "",
+                    "fields": f_item.text().strip() if f_item else "",
+                }
+            )
+        return rows
+
+    def _update_preview(self) -> None:
+        """Actualise l'aperçu Markdown / HTML du tableau généré."""
+        rows = self._get_current_rows_data()
+        if not rows:
+            self.preview_browser.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px;'><i>{self.tr('Aucune règle définie.')}</i></p>")
+            return
+
+        md_text = generate_markdown_table(rows)
+        html_rendered = markdown.markdown(md_text, extensions=["tables"])
+        styled_html = f"""
+        <style>
+            table {{ border-collapse: collapse; width: 100%; font-size: 11px; }}
+            th, td {{ border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 3px 6px; text-align: left; }}
+            th {{ background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; }}
+            td {{ color: {DesignTokens.TEXT_SECONDARY}; }}
+        </style>
+        {html_rendered}
+        """
+        self.preview_browser.setHtml(styled_html)
+
+    def _on_apply(self) -> None:
+        """Valide et enregistre le tableau Markdown généré."""
+        rows = self._get_current_rows_data()
+        if not rows:
+            self.selected_directive = ""
+        else:
+            self.selected_directive = generate_markdown_table(rows)
+
         self.accept()
-
-    def get_apply_button_at_row(self, row: int) -> QPushButton | None:
-        """Retourne le bouton Appliquer pour une ligne donnée de l'onglet 1."""
-        widget = self.table.cellWidget(row, 4)
-        if isinstance(widget, QPushButton):
-            return widget
-        if widget is not None:
-            return widget.findChild(QPushButton)
-        return None
-
-    def _on_search_changed(self, text: str) -> None:
-        """Filtre les lignes du tableau selon le terme recherché."""
-        filter_term = text.strip().lower()
-
-        for row, arch in enumerate(self._archetypes):
-            if not filter_term:
-                self.table.setRowHidden(row, False)
-                continue
-
-            searchable_text = f"{arch.name} {arch.category} {arch.use_case} {' '.join(arch.suggested_fields)} {arch.ai_heuristic_directive}".lower()
-            matches = filter_term in searchable_text
-            self.table.setRowHidden(row, not matches)
-
-    def get_archetype_at_row(self, row: int) -> NoteTypeRoleArchetype | None:
-        """Retourne l'archétype situé à l'indice de ligne donné."""
-        if 0 <= row < len(self._archetypes):
-            return self._archetypes[row]
-        return None

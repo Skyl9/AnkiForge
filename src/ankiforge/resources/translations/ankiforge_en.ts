@@ -26,7 +26,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../services/cards/note_type_roles.py" line="+39"/>
+        <location filename="../../services/cards/note_type_roles.py" line="+40"/>
         <source>Basique (Q/R standard)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -827,6 +827,23 @@ Cliquer pour voir les détails</source>
         <location line="+5"/>
         <source>&lt;b&gt;Tags :&lt;/b&gt; %1</source>
         <comment>, </comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/dialogs/note_type_role_guide_dialog.py" line="+189"/>
+        <source>%1
+
+Champs suggérés : %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Insérer « %1 » dans la règle sélectionnée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+103"/>
+        <source>Directive textuelle actuelle : « %1 »</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1761,7 +1778,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1101"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1096"/>
         <location filename="../../ui/views/edition_view/view.py" line="+359"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -2182,16 +2199,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
-        <source>Le rôle IA contient déjà des directives :
-
-« %1 »
-
-Voulez-vous les remplacer par la directive de l&apos;archétype « %2 » ?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+39"/>
+        <location line="+56"/>
         <source>Voulez-vous vraiment supprimer le type de note &apos;%1&apos; ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7337,7 +7345,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1201"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1184"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7373,25 +7381,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1103"/>
+        <location line="+1086"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1039"/>
+        <location line="-1022"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+507"/>
+        <location line="+503"/>
         <location line="+2"/>
         <location line="+2"/>
         <source>Front, Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-510"/>
+        <location line="-506"/>
         <source>ex: Front, Back, Audio...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7412,16 +7420,16 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+5"/>
-        <source>Voir le tableau</source>
+        <source>Prompt pour l&apos;IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
-        <source>Guide des rôles</source>
+        <location line="+2"/>
+        <source>Configurer les directives et le tableau sémantique pour l&apos;IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+23"/>
         <source>Replier / Déplier le volet d&apos;aides</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7589,22 +7597,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+47"/>
-        <source>Remplacer le rôle IA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
+        <location line="+57"/>
         <source>Directive IA appliquée pour le type de note.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
-        <source>Tableau Markdown mis à jour.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+20"/>
+        <location line="+27"/>
         <source>Type de note supprimé.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12652,44 +12650,6 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     </message>
 </context>
 <context>
-    <name>MarkdownTableViewerDialog</name>
-    <message>
-        <location filename="../../ui/dialogs/markdown_table_viewer_dialog.py" line="+34"/>
-        <source>Visualiseur &amp; Éditeur de Tableau Markdown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+38"/>
-        <source>Tableau Markdown du rôle IA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Consultez le tableau rendu ou modifiez directement la syntaxe Markdown transmise au moteur IA.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+26"/>
-        <source>Rendu du tableau</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+24"/>
-        <source>Code Markdown brut</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Annuler</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Appliquer les modifications</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>MarkerInstallDialog</name>
     <message>
         <location filename="../../ui/dialogs/marker_install_dialog.py" line="-178"/>
@@ -13380,88 +13340,60 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NoteTypeRoleGuideDialog</name>
     <message>
-        <location filename="../../ui/dialogs/note_type_role_guide_dialog.py" line="+46"/>
-        <source>Guide des rôles IA pour les types de note</source>
+        <location filename="../../ui/dialogs/note_type_role_guide_dialog.py" line="-237"/>
+        <location line="+46"/>
+        <source>Guide sémantique et prompt IA pour types de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+42"/>
-        <source>Guide sémantique et créateur de rôles IA</source>
+        <location line="+4"/>
+        <source>Définissez les directives et le tableau de rôles injectés dans la balise {{ available_card_models }} pour orienter l&apos;IA.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
+        <source>Convertir en règle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+5"/>
-        <source>Le « Rôle IA » est une directive ou un tableau Markdown injecté dans la balise {{ available_card_models }} pour orienter l&apos;IA sur le gabarit de carte à privilégier.</source>
+        <source>Remplacer par un archétype</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
-        <source>Rechercher :</source>
+        <location line="+11"/>
+        <source>Archétypes :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
-        <source>Filtrer par mot-clé, cas d&apos;usage ou nom de champ...</source>
+        <location line="+35"/>
+        <source>Champs du type de note :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>Archétype</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Quand le choisir ?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Champs suggérés</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Directive transmise à l&apos;IA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Action</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+20"/>
-        <source>Archétypes prédéfinis</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+24"/>
-        <source>Aide à la création — Ajouter une règle type au tableau :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+33"/>
+        <location line="+16"/>
         <source>Concept / Cas d&apos;usage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
+        <location line="+144"/>
         <source>Directive sémantique pour l&apos;IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-143"/>
         <source>Champs cibles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+17"/>
         <source>+ Ajouter une règle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+5"/>
-        <source>Supprimer la règle sélectionnée</source>
+        <source>Supprimer la règle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13470,58 +13402,33 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>Appliquer ce tableau au type de note</source>
+        <location line="+22"/>
+        <source>Aperçu en direct du tableau Markdown généré :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+21"/>
-        <source>Aperçu en direct du tableau Markdown pour l&apos;IA :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>Créateur de tableau sur-mesure</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
+        <location line="+14"/>
         <source>Astuce : L&apos;application remplace la valeur du champ « Rôle IA » du type de note actif.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <source>Fermer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+52"/>
-        <source>Appliquer</source>
+        <source>Annuler</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+5"/>
-        <source>Personnaliser</source>
+        <source>Appliquer au type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+2"/>
-        <source>Charger cet archétype dans le créateur de tableau sur-mesure</source>
+        <location line="+70"/>
+        <source>Nouveau concept</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
-        <source>Nouveau cas d&apos;usage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Consigne spécifique pour l&apos;IA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+61"/>
-        <source>Tableau Markdown personnalisé</source>
+        <location line="+52"/>
+        <source>Directive personnalisée</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
