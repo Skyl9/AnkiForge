@@ -2248,13 +2248,25 @@ class ConsultantToolRegistry:
     @staticmethod
     def audit_tag_hygiene(
         note_ids: list[int] | str | None = None,
+        deck_id: int | str | None = None,
         include_levenshtein: bool = True,
     ) -> str:
         """Analyse la collection pour détecter les grappes de tags proches ou sensibles à la casse."""
         from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, parse_id_list
 
+        d_id: int | None = None
+        if deck_id is not None and str(deck_id).strip():
+            try:
+                d_id = int(str(deck_id).strip())
+            except ValueError:
+                d_id = None
+
         n_ids = parse_id_list(note_ids) if note_ids else None
-        report = BulkHygieneService.analyze_tag_clusters(note_ids=n_ids, include_levenshtein=include_levenshtein)
+        report = BulkHygieneService.analyze_tag_clusters(
+            note_ids=n_ids,
+            deck_id=d_id,
+            include_levenshtein=include_levenshtein,
+        )
         data = {
             "status": "success",
             "total_clusters": report.total_clusters_count,
@@ -2285,9 +2297,11 @@ class ConsultantToolRegistry:
     @staticmethod
     def merge_tag_clusters(
         merges: list[dict[str, Any]] | str,
+        note_ids: list[int] | str | None = None,
+        deck_id: int | str | None = None,
     ) -> str:
         """Applique des fusions de tags planifiées sur la collection."""
-        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, TagMergePlan
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, TagMergePlan, parse_id_list
 
         plan_list: list[TagMergePlan] = []
         raw_merges = merges
@@ -2308,7 +2322,19 @@ class ConsultantToolRegistry:
         if not plan_list:
             return json.dumps({"status": "error", "message": "Aucun plan de fusion valide fourni"}, ensure_ascii=False)
 
-        res = BulkHygieneService.apply_tag_merges(plan_list)
+        d_id: int | None = None
+        if deck_id is not None and str(deck_id).strip():
+            try:
+                d_id = int(str(deck_id).strip())
+            except ValueError:
+                d_id = None
+
+        n_ids = parse_id_list(note_ids) if note_ids else None
+        res = BulkHygieneService.apply_tag_merges(
+            merges=plan_list,
+            note_ids=n_ids,
+            deck_id=d_id,
+        )
         return json.dumps(
             {
                 "status": "success" if res.success else "error",
@@ -3181,6 +3207,7 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "note_ids": {"type": "array", "items": {"type": "integer"}, "description": "Périmètre restreint d'identifiants de notes (optionnel, toute la collection si omis)"},
+                    "deck_id": {"type": "integer", "description": "Périmètre restreint à un paquet racine et ses sous-paquets (optionnel)"},
                     "include_levenshtein": {"type": "boolean", "description": "Inclure la similarité de Levenshtein (défaut: true)"},
                 },
             },
@@ -3206,6 +3233,8 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                         },
                         "description": "Liste des plans de fusion à appliquer",
                     },
+                    "note_ids": {"type": "array", "items": {"type": "integer"}, "description": "Périmètre restreint d'identifiants de notes (optionnel)"},
+                    "deck_id": {"type": "integer", "description": "Périmètre restreint à un paquet racine et ses sous-paquets (optionnel)"},
                 },
                 "required": ["merges"],
             },
@@ -3639,11 +3668,14 @@ class ConsultantEngine:
                 ), False
             elif tool_name == "audit_tag_hygiene":
                 n_ids = tool_args.get("note_ids")
+                target_deck_id = tool_args.get("deck_id")
                 inc_lev = bool(tool_args.get("include_levenshtein", True))
-                return ConsultantToolRegistry.audit_tag_hygiene(note_ids=n_ids, include_levenshtein=inc_lev), False
+                return ConsultantToolRegistry.audit_tag_hygiene(note_ids=n_ids, deck_id=target_deck_id, include_levenshtein=inc_lev), False
             elif tool_name == "merge_tag_clusters":
                 merges_arg = tool_args.get("merges", [])
-                return ConsultantToolRegistry.merge_tag_clusters(merges=merges_arg), False
+                n_ids = tool_args.get("note_ids")
+                target_deck_id = tool_args.get("deck_id")
+                return ConsultantToolRegistry.merge_tag_clusters(merges=merges_arg, note_ids=n_ids, deck_id=target_deck_id), False
             elif tool_name == "delete_unused_note_type":
                 m_name = str(tool_args.get("name", ""))
                 conf = bool(tool_args.get("confirm", False))

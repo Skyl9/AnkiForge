@@ -342,4 +342,10 @@ def test_mcp_audit_tag_hygiene_and_merge(mcp_hygiene_setup):
         assert "Cardiologie" not in tags_a
         assert "doc:99" in tags_a
 
+        # Test audit avec deck_id inexistant
+        res_audit_deck = await mcp.call_tool("audit_tag_hygiene", {"deck_id": 999999})
+        audit_deck_data = json.loads(_extract_text(res_audit_deck))
+        assert audit_deck_data["status"] == "success"
+        assert audit_deck_data["total_clusters"] == 0
+
     asyncio.run(_run())

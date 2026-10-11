@@ -30,6 +30,7 @@ from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 from ankiforge.utils.anki_renderer import _is_empty, render_card_text
 from ankiforge.utils.c_bridge import levenshtein_distance
+from ankiforge.utils.hierarchy import descendants_prefix
 from ankiforge.utils.tags import (
     is_provenance_tag,
     parse_note_tags,
@@ -708,6 +709,7 @@ class BulkHygieneService:
     def analyze_tag_clusters(
         cls,
         note_ids: Sequence[int] | None = None,
+        deck_id: int | None = None,
         include_levenshtein: bool = True,
     ) -> TagClustersReport:
         """Analyse la collection pour détecter les grappes de tags sensibles à la casse ou proches selon Levenshtein.
@@ -717,12 +719,39 @@ class BulkHygieneService:
 
         Args:
             note_ids: Périmètre restreint d'identifiants de notes (None pour toute la collection).
+            deck_id: Identifiant d'un paquet racine (inclut automatiquement ses sous-paquets).
             include_levenshtein: Indique si la détection par distance de Levenshtein doit être exécutée.
 
         Returns:
             TagClustersReport: Rapport détaillé des grappes trouvées.
         """
-        notes = list(NoteModel.select(NoteModel.id, NoteModel.tags).where(NoteModel.id.in_(list(note_ids)))) if note_ids is not None else list(NoteModel.select(NoteModel.id, NoteModel.tags))
+        target_note_ids: set[int] | None = None
+
+        if deck_id is not None and deck_id != -1:
+            selected_deck = DeckModel.get_or_none(DeckModel.id == deck_id)
+            if selected_deck:
+                matching_decks = list(DeckModel.select().where((DeckModel.id == selected_deck.id) | DeckModel.name.startswith(descendants_prefix(selected_deck.name))))
+                deck_notes = {c.note_id for c in CardModel.select(CardModel.note_id).where(CardModel.deck.in_(matching_decks))}
+                target_note_ids = deck_notes
+            else:
+                target_note_ids = set()
+
+        if note_ids is not None:
+            target_note_ids = target_note_ids.intersection(set(note_ids)) if target_note_ids is not None else set(note_ids)
+
+        if target_note_ids is not None:
+            if not target_note_ids:
+                return TagClustersReport(
+                    case_clusters=[],
+                    levenshtein_clusters=[],
+                    total_clusters_count=0,
+                    total_notes_impacted=0,
+                    inspected_tags_count=0,
+                    inspected_notes_count=0,
+                )
+            notes = list(NoteModel.select(NoteModel.id, NoteModel.tags).where(NoteModel.id.in_(list(target_note_ids))))
+        else:
+            notes = list(NoteModel.select(NoteModel.id, NoteModel.tags))
 
         tag_notes_map: dict[str, set[int]] = {}
 
@@ -829,6 +858,8 @@ class BulkHygieneService:
     def apply_tag_merges(
         cls,
         merges: Sequence[TagMergePlan],
+        note_ids: Sequence[int] | None = None,
+        deck_id: int | None = None,
     ) -> TagMergeResult:
         """Applique les fusions de tags planifiées sous une transaction atomique.
 
@@ -837,6 +868,8 @@ class BulkHygieneService:
 
         Args:
             merges: Liste des plans de fusion.
+            note_ids: Périmètre optionnel d'identifiants de notes à modifier.
+            deck_id: Identifiant optionnel d'un paquet à restreindre.
 
         Returns:
             TagMergeResult: Rapport d'exécution.
@@ -857,10 +890,28 @@ class BulkHygieneService:
         if not replacement_map:
             return TagMergeResult(success=True)
 
+        target_note_ids: set[int] | None = None
+
+        if deck_id is not None and deck_id != -1:
+            selected_deck = DeckModel.get_or_none(DeckModel.id == deck_id)
+            if selected_deck:
+                matching_decks = list(DeckModel.select().where((DeckModel.id == selected_deck.id) | DeckModel.name.startswith(descendants_prefix(selected_deck.name))))
+                deck_notes = {c.note_id for c in CardModel.select(CardModel.note_id).where(CardModel.deck.in_(matching_decks))}
+                target_note_ids = deck_notes
+            else:
+                target_note_ids = set()
+
+        if note_ids is not None:
+            target_note_ids = target_note_ids.intersection(set(note_ids)) if target_note_ids is not None else set(note_ids)
+
+        if target_note_ids is not None and not target_note_ids:
+            return TagMergeResult(success=True)
+
         modified_ids: list[int] = []
         try:
             with db.atomic():
-                all_notes = list(NoteModel.select())
+                all_notes = list(NoteModel.select().where(NoteModel.id.in_(list(target_note_ids)))) if target_note_ids is not None else list(NoteModel.select())
+
                 for note in all_notes:
                     current_tags = parse_note_tags(note.tags)
                     new_tags: list[str] = []

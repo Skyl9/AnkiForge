@@ -5,7 +5,7 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel
 from ankiforge.services.cards.bulk_hygiene_service import (
     BulkHygieneService,
     TagClustersReport,
@@ -176,3 +176,50 @@ def test_apply_tag_merges_atomic(tag_hygiene_setup):
     # Note 3 : inchangée
     tags_3 = parse_note_tags(n3_refreshed.tags)
     assert tags_3 == ["anatomie"]
+
+
+def test_analyze_and_apply_tag_merges_with_deck_filter(mock_db):
+    """Vérifie le filtrage par paquet racine et l'inclusion des sous-paquets hiérarchiques."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(
+        name=f"Model_Deck_{uid}",
+        fields_schema=json.dumps(["Front", "Back"]),
+        templates=json.dumps([{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+    )
+
+    deck_parent = DeckModel.create(name=f"Medecine_{uid}")
+    deck_child = DeckModel.create(name=f"Medecine_{uid}::Cardio")
+    deck_other = DeckModel.create(name=f"Histoire_{uid}")
+
+    n1 = NoteModel.create(note_type=nt, tags='["cardiologie"]')
+    CardModel.create(note=n1, deck=deck_parent, ord=0)
+
+    n2 = NoteModel.create(note_type=nt, tags='["Cardiologie"]')
+    CardModel.create(note=n2, deck=deck_child, ord=0)
+
+    n3 = NoteModel.create(note_type=nt, tags='["Cardiologie", "histoire"]')
+    CardModel.create(note=n3, deck=deck_other, ord=0)
+
+    # 1. Analyse restreinte au paquet parent (doit inclure deck_parent et deck_child)
+    report_med = BulkHygieneService.analyze_tag_clusters(deck_id=deck_parent.id, include_levenshtein=False)
+    assert len(report_med.case_clusters) == 1
+    cluster_med = report_med.case_clusters[0]
+    assert cluster_med.canonical_tag == "cardiologie"
+    assert cluster_med.total_notes_count == 2  # n1 et n2, n3 exclu !
+
+    # 2. Analyse restreinte au paquet autre
+    report_other = BulkHygieneService.analyze_tag_clusters(deck_id=deck_other.id, include_levenshtein=False)
+    assert len(report_other.case_clusters) == 0  # Seulement 1 note avec ce tag dans ce paquet
+
+    # 3. Application de la fusion restreinte au paquet parent
+    plan = TagMergePlan(tags_to_merge=["Cardiologie"], target_tag="cardiologie")
+    res = BulkHygieneService.apply_tag_merges([plan], deck_id=deck_parent.id)
+    assert res.success is True
+    assert res.modified_notes_count == 1
+    assert res.modified_note_ids == [n2.id]
+
+    # Vérification : n2 a été fusionné, n3 dans deck_other n'a pas été touché
+    n2_ref = NoteModel.get_by_id(n2.id)
+    n3_ref = NoteModel.get_by_id(n3.id)
+    assert parse_note_tags(n2_ref.tags) == ["cardiologie"]
+    assert "Cardiologie" in parse_note_tags(n3_ref.tags)

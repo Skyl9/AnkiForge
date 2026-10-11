@@ -534,18 +534,29 @@ def set_tags_bulk(
 @mcp.tool()
 def audit_tag_hygiene(
     note_ids: list[int] | str = "",
+    deck_id: int | str = "",
     include_levenshtein: bool = True,
 ) -> str:
     """Analyse la collection pour détecter les grappes de tags sensibles à la casse ou proches selon Levenshtein."""
-    return ConsultantToolRegistry.audit_tag_hygiene(note_ids=note_ids or None, include_levenshtein=include_levenshtein)
+    return ConsultantToolRegistry.audit_tag_hygiene(
+        note_ids=note_ids or None,
+        deck_id=deck_id or None,
+        include_levenshtein=include_levenshtein,
+    )
 
 
 @mcp.tool()
 def merge_tag_clusters(
     merges: list[dict[str, Any]] | str,
+    note_ids: list[int] | str = "",
+    deck_id: int | str = "",
 ) -> str:
     """Applique des fusions de tags planifiées ({tags_to_merge: [...], target_tag: '...'}) sous transaction atomique."""
-    return ConsultantToolRegistry.merge_tag_clusters(merges=merges)
+    return ConsultantToolRegistry.merge_tag_clusters(
+        merges=merges,
+        note_ids=note_ids or None,
+        deck_id=deck_id or None,
+    )
 
 
 @mcp.tool()
