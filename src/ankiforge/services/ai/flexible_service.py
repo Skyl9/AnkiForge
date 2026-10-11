@@ -294,6 +294,8 @@ class OpenAICompatibleProvider(LLMProvider):
         *,
         provider_name_override: str | None = None,
         default_headers: dict[str, str] | None = None,
+        default_temperature: float = 0.2,
+        supports_json: bool = True,
     ):
         """
         Initialise le client OpenAI avec l'URL de base et le modèle cible.
@@ -307,6 +309,8 @@ class OpenAICompatibleProvider(LLMProvider):
             max_retries (int): Nombre de tentatives automatiques du SDK OpenAI.
             provider_name_override (str | None): Nom du fournisseur explicite (indépendant de l'URL).
             default_headers (dict[str, str] | None): En-têtes HTTP globaux du client (ex: HTTP-Referer OpenRouter).
+            default_temperature (float): Température de créativité par défaut du modèle.
+            supports_json (bool): Indique si le modèle supporte le mode objet JSON natif.
         """
         self.base_url = base_url
         self.provider_name_override = provider_name_override
@@ -319,6 +323,8 @@ class OpenAICompatibleProvider(LLMProvider):
         )
         self.model_name = model_name
         self.max_tokens = max_tokens
+        self.default_temperature = default_temperature
+        self.supports_json = supports_json
         self.is_ollama = "localhost" in base_url or "127.0.0.1" in base_url
 
     @property
@@ -450,18 +456,19 @@ class OpenAICompatibleProvider(LLMProvider):
         ]
         try:
             effective_max = self.clamp_max_tokens(max_tokens or self.max_tokens)
+            effective_temp = temperature if temperature is not None else getattr(self, "default_temperature", 0.2)
             kwargs: dict[str, Any] = {
                 "model": self.model_name,
                 "messages": messages,
-                "temperature": temperature if temperature is not None else 0.2,
+                "temperature": effective_temp,
             }
 
             kwargs.update(self.max_tokens_kwargs(effective_max))
 
             # 👇 C'est ici que l'on connecte votre interface au backend !
             # Le mode json_object n'est pas supporté par tous les modèles/passeries :
-            # ne l'envoyer que lorsque la passerelle le garantit.
-            if response_format == "json" and not self.is_ollama and _supports_response_format(self.provider_name, self.model_name, self.base_url):
+            # ne l'envoyer que lorsque la passerelle et la configuration du modèle le garantissent.
+            if response_format == "json" and not self.is_ollama and getattr(self, "supports_json", True) and _supports_response_format(self.provider_name, self.model_name, self.base_url):
                 kwargs["response_format"] = {"type": "json_object"}
 
             def _run_once() -> LLMResult:
@@ -646,7 +653,7 @@ class OpenAICompatibleProvider(LLMProvider):
         }
         kwargs.update(self.max_tokens_kwargs(effective_max))
         if not _uses_reasoning_params(self.model_name):
-            kwargs["temperature"] = temperature if temperature is not None else 0.2
+            kwargs["temperature"] = temperature if temperature is not None else getattr(self, "default_temperature", 0.2)
 
         try:
             stream = self.client.chat.completions.create(**kwargs)
@@ -694,7 +701,14 @@ class OllamaProvider(OpenAICompatibleProvider):
     Fournisseur d'IA locale 100% gratuit utilisant Ollama.
     """
 
-    def __init__(self, model_name: str = "llama3", max_tokens: int = 16384, timeout: float = _DEFAULT_TIMEOUT_SECONDS):
+    def __init__(
+        self,
+        model_name: str = "llama3",
+        max_tokens: int = 16384,
+        timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+        default_temperature: float = 0.2,
+        supports_json: bool = True,
+    ):
         """
         Initialise le service Ollama sur l'URL locale configurée (repli localhost).
 
@@ -702,6 +716,8 @@ class OllamaProvider(OpenAICompatibleProvider):
             model_name (str): Nom du modèle local à utiliser.
             max_tokens (int): Nombre maximal de tokens de réponse.
             timeout (float): Délai maximal (secondes) par requête réseau.
+            default_temperature (float): Température par défaut du modèle.
+            supports_json (bool): Support du mode json_object.
         """
         super().__init__(
             base_url=f"{_ollama_base_url()}/v1",
@@ -710,6 +726,8 @@ class OllamaProvider(OpenAICompatibleProvider):
             max_tokens=max_tokens,
             timeout=timeout,
             provider_name_override="ollama",
+            default_temperature=default_temperature,
+            supports_json=supports_json,
         )
 
     @property
@@ -740,7 +758,15 @@ class GroqProvider(OpenAICompatibleProvider):
     Fournisseur Cloud haute performance utilisant l'infrastructure Groq.
     """
 
-    def __init__(self, api_key: str | None = None, model_name: str = "llama3-8b-8192", max_tokens: int = 16384, timeout: float = _DEFAULT_TIMEOUT_SECONDS):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model_name: str = "llama3-8b-8192",
+        max_tokens: int = 16384,
+        timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+        default_temperature: float = 0.2,
+        supports_json: bool = True,
+    ):
         """
         Initialise le client Groq.
 
@@ -749,6 +775,8 @@ class GroqProvider(OpenAICompatibleProvider):
             model_name (str): Modèle à utiliser sur Groq.
             max_tokens (int): Nombre maximal de tokens de réponse.
             timeout (float): Délai maximal (secondes) par requête réseau.
+            default_temperature (float): Température par défaut du modèle.
+            supports_json (bool): Support du mode json_object.
 
         Raises:
             ValueError: Si aucune clé API n'est fournie ou trouvée.
@@ -763,6 +791,8 @@ class GroqProvider(OpenAICompatibleProvider):
             max_tokens=max_tokens,
             timeout=timeout,
             provider_name_override="groq",
+            default_temperature=default_temperature,
+            supports_json=supports_json,
         )
 
     @property
@@ -782,6 +812,8 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         base_url: str | None = None,
         max_tokens: int = 16384,
         timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+        default_temperature: float = 0.2,
+        supports_json: bool = True,
     ):
         """
         Initialise le client OpenRouter.
@@ -792,6 +824,8 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             base_url (str | None): URL de la passerelle (défaut : openrouter/base_url ou https://openrouter.ai/api/v1).
             max_tokens (int): Nombre maximal de tokens de réponse.
             timeout (float): Délai maximal (secondes) par requête réseau.
+            default_temperature (float): Température par défaut du modèle.
+            supports_json (bool): Support du mode json_object.
 
         Raises:
             ValueError: Si la clé API est absente.
@@ -816,6 +850,8 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             timeout=timeout,
             provider_name_override="openrouter",
             default_headers=_OPENROUTER_DEFAULT_HEADERS,
+            default_temperature=default_temperature,
+            supports_json=supports_json,
         )
 
     @property
@@ -835,6 +871,8 @@ class OpenCodeProvider(OpenAICompatibleProvider):
         base_url: str | None = None,
         max_tokens: int = 16384,
         timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+        default_temperature: float = 0.2,
+        supports_json: bool = True,
     ):
         """
         Initialise le client OpenCode.
@@ -845,6 +883,8 @@ class OpenCodeProvider(OpenAICompatibleProvider):
             base_url (str | None): URL de la passerelle (défaut : opencode/base_url ou https://opencode.ai/zen/v1).
             max_tokens (int): Plafond maximal de tokens.
             timeout (float): Délai maximal par requête réseau.
+            default_temperature (float): Température par défaut du modèle.
+            supports_json (bool): Support du mode json_object.
 
         Raises:
             ValueError: Si la clé API est absente.
@@ -868,6 +908,8 @@ class OpenCodeProvider(OpenAICompatibleProvider):
             max_tokens=max_tokens,
             timeout=timeout,
             provider_name_override="opencode",
+            default_temperature=default_temperature,
+            supports_json=supports_json,
         )
 
     @property
@@ -887,12 +929,14 @@ class AnthropicProvider(LLMProvider):
         thinking_budget: int = 0,
         max_tokens: int = 16384,
         timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+        default_temperature: float = 0.2,
     ):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.model_name = model_name
         self.thinking_budget = thinking_budget
         self.max_tokens = max_tokens
         self.timeout = timeout
+        self.default_temperature = default_temperature
 
     def generate_response(
         self,
@@ -938,11 +982,12 @@ class AnthropicProvider(LLMProvider):
                     )
 
         effective_max = max_tokens or self.max_tokens
+        effective_temp = temperature if temperature is not None else getattr(self, "default_temperature", 0.2)
         payload: dict[str, Any] = {
             "model": self.model_name,
             "system": system_prompt,
             "messages": [{"role": "user", "content": anthropic_content}],
-            "temperature": temperature if temperature is not None else 0.2,
+            "temperature": effective_temp,
         }
 
         # Support du Thinking Mode pour Claude 3.7
@@ -1049,7 +1094,7 @@ class AnthropicProvider(LLMProvider):
             "model": self.model_name,
             "system": system_prompt,
             "messages": [{"role": "user", "content": anthropic_content}],
-            "temperature": temperature if temperature is not None else 0.2,
+            "temperature": temperature if temperature is not None else getattr(self, "default_temperature", 0.2),
             "stream": True,
         }
         if self.thinking_budget > 0:
@@ -1145,19 +1190,25 @@ class AIManager:
     def create_provider_from_config(config: LLMConfigModel) -> LLMProvider:
         """
         Crée un fournisseur d'IA à partir d'un objet de configuration en base de données.
-        Injecte l'api_key et max_tokens. La clé est chargée depuis le trousseau OS
-        (keyring) en priorité, puis depuis la BDD (stockage historique).
+        Injecte l'api_key, max_tokens, default_temperature et supports_json.
+        La clé est chargée depuis le trousseau OS (keyring) en priorité, puis depuis la BDD (stockage historique).
         """
         from ankiforge.utils.secret_store import load_llm_key
 
         key = str(config.api_key) if config.api_key else None
         if not key:
             key = load_llm_key(str(config.model_id), str(config.provider))
+
+        temp = float(getattr(config, "temperature", 0.7) if getattr(config, "temperature", None) is not None else 0.7)
+        sup_json = bool(getattr(config, "supports_json", True))
+
         return AIManager.create_provider(
             provider_name=str(config.provider),
             model_id=str(config.model_id),
             api_key=key,
             max_tokens=int(getattr(config, "max_tokens", 16384) or 16384),
+            default_temperature=temp,
+            supports_json=sup_json,
         )
 
     @staticmethod
@@ -1167,6 +1218,8 @@ class AIManager:
         api_key: str | None = None,
         thinking_budget: int = 0,
         max_tokens: int = 16384,
+        default_temperature: float = 0.2,
+        supports_json: bool = True,
     ) -> LLMProvider:
         """
         Instancie un fournisseur d'IA à partir de données brutes (Thread-safe).
@@ -1192,19 +1245,38 @@ class AIManager:
         timeout = _resolve_generation_timeout_seconds()
         try:
             if p_name == "ollama":
-                return OllamaProvider(model_name=model_id, max_tokens=max_tokens, timeout=timeout)
+                return OllamaProvider(
+                    model_name=model_id,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    default_temperature=default_temperature,
+                    supports_json=supports_json,
+                )
             elif p_name == "gemini":
                 if not key:
                     logger.warning("Clé API Gemini absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
                 from ankiforge.services.ai.gemini_service import GeminiService
 
-                return GeminiService(api_key=key, model_name=model_id, max_tokens=max_tokens, timeout=timeout)
+                return GeminiService(
+                    api_key=key,
+                    model_name=model_id,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    default_temperature=default_temperature,
+                )
             elif p_name == "groq":
                 if not key and not os.environ.get("GROQ_API_KEY"):
                     logger.warning("Clé API Groq absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
-                return GroqProvider(api_key=key, model_name=model_id, max_tokens=max_tokens, timeout=timeout)
+                return GroqProvider(
+                    api_key=key,
+                    model_name=model_id,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    default_temperature=default_temperature,
+                    supports_json=supports_json,
+                )
             elif p_name == "openai":
                 if not key and not os.environ.get("OPENAI_API_KEY"):
                     logger.warning("Clé API OpenAI absente pour le modèle %s, repli sur MockProvider.", model_id)
@@ -1216,22 +1288,45 @@ class AIManager:
                     max_tokens=max_tokens,
                     timeout=timeout,
                     provider_name_override="openai",
+                    default_temperature=default_temperature,
+                    supports_json=supports_json,
                 )
             elif p_name == "openrouter":
                 if not key and not os.environ.get("OPENROUTER_API_KEY"):
                     logger.warning("Clé API OpenRouter absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
-                return OpenRouterProvider(api_key=key, model_name=model_id, max_tokens=max_tokens, timeout=timeout)
+                return OpenRouterProvider(
+                    api_key=key,
+                    model_name=model_id,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    default_temperature=default_temperature,
+                    supports_json=supports_json,
+                )
             elif p_name == "opencode":
                 if not key and not os.environ.get("OPENCODE_API_KEY"):
                     logger.warning("Clé API OpenCode absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
-                return OpenCodeProvider(api_key=key, model_name=model_id, max_tokens=max_tokens, timeout=timeout)
+                return OpenCodeProvider(
+                    api_key=key,
+                    model_name=model_id,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    default_temperature=default_temperature,
+                    supports_json=supports_json,
+                )
             elif p_name == "anthropic":
                 if not key and not os.environ.get("ANTHROPIC_API_KEY"):
                     logger.warning("Clé API Anthropic absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
-                return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget, max_tokens=max_tokens, timeout=timeout)
+                return AnthropicProvider(
+                    api_key=key,
+                    model_name=model_id,
+                    thinking_budget=thinking_budget,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    default_temperature=default_temperature,
+                )
         except Exception as err:
             logger.warning("Échec de création du provider %s (%s) : %s. Utilisation de MockProvider.", p_name, model_id, err)
             return MockProvider()

@@ -75,6 +75,9 @@ class AlbumOCRWorker(QThread):
         self.failed_page_ids = []
 
         prompt_instructions: str | None = None
+        effective_provider = self.provider_override
+        temp_override: float | None = None
+
         if self.options is not None:
             from ankiforge.services.ai.album_transcription_types import build_album_transcription_prompt
             from ankiforge.services.ai.vision_category_service import VisionCategoryService
@@ -82,6 +85,30 @@ class AlbumOCRWorker(QThread):
             cat = VisionCategoryService.get_category_by_id(self.category_id)
             base_inst = cat.custom_instructions if cat else ""
             prompt_instructions = build_album_transcription_prompt(self.options, base_instructions=base_inst)
+            temp_override = getattr(self.options, "temperature_override", None)
+
+            if effective_provider is None and cat and cat.provider != "native":
+                m_override = getattr(self.options, "model_override", None)
+                tb_override = getattr(self.options, "thinking_budget_override", None)
+                if m_override or (tb_override is not None):
+                    try:
+                        from ankiforge.services.ai.flexible_service import AIManager
+                        from ankiforge.services.settings_service import SettingsService
+                        from ankiforge.utils.secret_store import load_llm_key
+
+                        target_model = m_override or cat.model_id
+                        target_tb = tb_override if tb_override is not None else cat.thinking_budget
+                        key = str(SettingsService.get(f"keys/{cat.provider.lower()}", ""))
+                        if not key:
+                            key = load_llm_key(str(target_model), str(cat.provider)) or ""
+                        effective_provider = AIManager.create_provider(
+                            provider_name=cat.provider,
+                            model_id=target_model,
+                            api_key=key if key else None,
+                            thinking_budget=target_tb,
+                        )
+                    except Exception as prov_err:
+                        logger.warning("Impossible d'appliquer la surcharge du provider de vision : %s", prov_err)
 
         try:
             query = DocumentPageModel.select().where(DocumentPageModel.document == self.document_id)
@@ -107,10 +134,12 @@ class AlbumOCRWorker(QThread):
                 try:
                     transcribe_kwargs: dict[str, Any] = {
                         "category_id": self.category_id,
-                        "provider_override": self.provider_override,
+                        "provider_override": effective_provider,
                     }
                     if prompt_instructions is not None:
                         transcribe_kwargs["custom_instructions"] = prompt_instructions
+                    if temp_override is not None:
+                        transcribe_kwargs["temperature"] = temp_override
 
                     updated_page = self.ocr_service.transcribe_page(
                         page.id,

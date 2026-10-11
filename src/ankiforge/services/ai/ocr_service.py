@@ -304,6 +304,7 @@ class OCRService:
         provider: LLMProvider,
         system_prompt: str = "Tu es un transcripteur expert de documents académiques.",
         custom_instructions: str = "",
+        temperature: float | None = None,
     ) -> str:
         """Transcrit une image via un modèle de langage visuel (VLM)."""
         prompt = custom_instructions or (
@@ -313,7 +314,20 @@ class OCRService:
             "Ne produis aucune explication préalable, uniquement le contenu extrait."
         )
         payload = build_multimodal_payload(prompt, [image_path])
-        return provider.generate(system_prompt=system_prompt, user_prompt=payload, response_format="text").strip()
+        gen_kwargs: dict[str, Any] = {
+            "system_prompt": system_prompt,
+            "user_prompt": payload,
+            "response_format": "text",
+        }
+        if temperature is not None:
+            gen_kwargs["temperature"] = temperature
+        try:
+            return provider.generate(**gen_kwargs).strip()
+        except TypeError as err:
+            if "temperature" in gen_kwargs and "temperature" in str(err):
+                gen_kwargs.pop("temperature", None)
+                return provider.generate(**gen_kwargs).strip()
+            raise
 
     def transcribe_image(
         self,
@@ -321,6 +335,7 @@ class OCRService:
         category_id: str,
         provider_override: LLMProvider | None = None,
         custom_instructions: str | None = None,
+        temperature: float | None = None,
     ) -> str:
         """
         Transcrit une image en appliquant la catégorie d'IA sélectionnée par l'utilisateur.
@@ -341,6 +356,7 @@ class OCRService:
                 image_path,
                 provider_override,
                 custom_instructions=effective_instructions,
+                temperature=temperature,
             )
 
         # 2. Résolution du provider configuré pour la catégorie
@@ -363,6 +379,7 @@ class OCRService:
                 image_path,
                 resolved,
                 custom_instructions=effective_instructions,
+                temperature=temperature,
             )
 
         return MockProvider().generate("", "", response_format="text")
@@ -373,6 +390,7 @@ class OCRService:
         category_id: str,
         provider_override: LLMProvider | None = None,
         custom_instructions: str | None = None,
+        temperature: float | None = None,
     ) -> DocumentPageModel:
         """
         Transcrit une DocumentPageModel, met à jour son champ ocr_text et son statut en base SQLite.
@@ -419,6 +437,7 @@ class OCRService:
                         category_id=category_id,
                         provider_override=provider_override,
                         custom_instructions=custom_instructions,
+                        temperature=temperature,
                     )
                 except Exception:
                     page.status = original_status

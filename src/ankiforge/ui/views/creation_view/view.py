@@ -1892,6 +1892,13 @@ class CreationView(QWidget):
             self.slider_tokens.setValue(step_val)
             self.slider_tokens.blockSignals(False)
             self.val_tokens_lbl.setText(f"{step_val * 1024:,} tks".replace(",", " "))
+        if eg and hasattr(self, "slider_temp") and hasattr(eg, "temperature") and eg.temperature is not None:
+            temp_val = float(eg.temperature)
+            step_temp = max(0, min(10, int(round(temp_val * 10))))
+            self.slider_temp.blockSignals(True)
+            self.slider_temp.setValue(step_temp)
+            self.slider_temp.blockSignals(False)
+            self.val_temp_lbl.setText(f"{step_temp / 10:.1f}")
         if hasattr(self, "vision_cap_badge"):
             self._sync_vision_capability()
 
@@ -2038,6 +2045,8 @@ class CreationView(QWidget):
 
         gen_tokens = self.slider_tokens.value() * 1024 if hasattr(self, "slider_tokens") else 16384
         initial_state.set_variable("max_tokens", gen_tokens)
+        gen_temp = (self.slider_temp.value() / 10.0) if hasattr(self, "slider_temp") else 0.7
+        initial_state.set_variable("temperature", gen_temp)
 
         self._set_all_generation_states(True)
         self.view_model.begin_generation()
@@ -2058,7 +2067,7 @@ class CreationView(QWidget):
         pipe_name = selected_pipeline.name if selected_pipeline else "Standard"
         engine_name = selected_engine.display_name if selected_engine else "Défaut"
         self._append_generation_log(
-            f"Démarrage du pipeline '{pipe_name}' (Moteur: {engine_name}, Tokens max: {gen_tokens})...",
+            f"Démarrage du pipeline '{pipe_name}' (Moteur: {engine_name}, Tokens max: {gen_tokens}, Température: {gen_temp:.1f})...",
             level="START",
         )
         if getattr(self, "_current_selected_doc", None):

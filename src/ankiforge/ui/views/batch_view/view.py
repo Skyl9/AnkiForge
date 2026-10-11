@@ -1338,6 +1338,7 @@ class BatchView(QWidget):
                     temperature=float(task.get("temperature", 0.7)),
                     max_tokens=int(task.get("max_tokens", 16384)),
                     process_full_document=False,
+                    strict_source_grounding=bool(task.get("strict_source_grounding", True)),
                     source_chunks=list(task.get("source_chunks", [])),
                     extra_metadata={"status": prev_status, "cards_count": task.get("cards_count", 0)},
                 )

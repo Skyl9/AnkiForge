@@ -60,6 +60,7 @@ class BatchTaskPayload:
     temperature: float = 0.7
     max_tokens: int = 16384
     process_full_document: bool = False
+    strict_source_grounding: bool = True
     source_chunks: list[dict[str, Any]] = field(default_factory=list)
     extra_metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -266,7 +267,9 @@ class BatchWorker(QThread):
                                 "deck_id": task.deck_id,
                                 "model_id": task.model_id,
                                 "auto_validation": task.auto_validation,
-                                "strict_source_grounding": task.process_full_document,
+                                "strict_source_grounding": task.strict_source_grounding,
+                                "temperature": task.temperature,
+                                "max_tokens": task.max_tokens,
                             },
                         )
                         initial_state.set_variable("fields", task.note_type_fields)
@@ -276,6 +279,8 @@ class BatchWorker(QThread):
                         initial_state.set_variable("target_deck", task.deck_name)
                         initial_state.set_variable("note_type", task.model_name)
                         initial_state.set_variable("use_vision", task.use_vision)
+                        initial_state.set_variable("temperature", task.temperature)
+                        initial_state.set_variable("max_tokens", task.max_tokens)
 
                         orchestrator = PipelineOrchestrator(
                             pipeline_id=task.pipeline_id,

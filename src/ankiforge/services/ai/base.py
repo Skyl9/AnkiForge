@@ -21,6 +21,8 @@ class LLMProvider:
     de la chaîne de pensée / CoT), soit ``generate`` (texte brut rétrocompatible).
     """
 
+    default_temperature: float = 0.2
+
     def generate_response(
         self,
         system_prompt: str,
@@ -42,8 +44,9 @@ class LLMProvider:
         }
         if max_tokens is not None:
             kwargs["max_tokens"] = max_tokens
-        if temperature is not None:
-            kwargs["temperature"] = temperature
+        effective_temp = temperature if temperature is not None else getattr(self, "default_temperature", 0.2)
+        if effective_temp is not None:
+            kwargs["temperature"] = effective_temp
         try:
             sig = inspect.signature(self.generate)
             params = sig.parameters

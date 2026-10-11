@@ -36,7 +36,14 @@ class GeminiService(LLMProvider):
     de Google. Supporte les fonctionnalités multimodales (vision).
     """
 
-    def __init__(self, api_key: str, model_name: str = "gemini-3.5-flash-lite", max_tokens: int = 65536, timeout: float = 600.0):
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "gemini-3.5-flash-lite",
+        max_tokens: int = 65536,
+        timeout: float = 600.0,
+        default_temperature: float = 0.2,
+    ):
         """
         Initialise le client Gemini.
 
@@ -45,6 +52,7 @@ class GeminiService(LLMProvider):
             model_name (str): Nom du modèle Gemini à utiliser.
             max_tokens (int): Nombre maximal de tokens de sortie.
             timeout (float): Délai maximal (secondes) par requête réseau.
+            default_temperature (float): Température par défaut du modèle.
 
         Raises:
             ValueError: Si aucune clé API n'est disponible.
@@ -53,6 +61,7 @@ class GeminiService(LLMProvider):
         self.model_name = model_name
         self.max_tokens = max_tokens
         self.timeout = timeout
+        self.default_temperature = default_temperature
 
         if not self.api_key:
             raise ValueError("Clé API Gemini manquante. Veuillez la configurer dans les paramètres.")
@@ -78,9 +87,10 @@ class GeminiService(LLMProvider):
         Génère une réponse structurée avec LLMResult incluant la chaîne de pensée de Gemini.
         """
         effective_max = max_tokens or self.max_tokens
+        effective_temp = temperature if temperature is not None else getattr(self, "default_temperature", 0.2)
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
-            temperature=temperature if temperature is not None else 0.2,
+            temperature=effective_temp,
             max_output_tokens=effective_max,
         )
 
@@ -185,7 +195,7 @@ class GeminiService(LLMProvider):
         effective_max = max_tokens or self.max_tokens
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
-            temperature=temperature if temperature is not None else 0.2,
+            temperature=temperature if temperature is not None else getattr(self, "default_temperature", 0.2),
             max_output_tokens=effective_max,
         )
         if response_format == "json":
