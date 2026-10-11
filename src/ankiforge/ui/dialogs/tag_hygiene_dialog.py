@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ankiforge.database.models import DeckModel
 from ankiforge.services.cards.bulk_hygiene_service import (
     BulkHygieneService,
     TagCluster,
@@ -37,6 +38,7 @@ from ankiforge.services.cards.bulk_hygiene_service import (
 )
 from ankiforge.ui.components import ActionButton, PrimaryButton
 from ankiforge.ui.components.badges import Badge
+from ankiforge.ui.components.deck_select_window import ALL_DECKS_NODE_ID, DeckSelectWindow
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -261,17 +263,20 @@ class TagHygieneWorker(QThread):
     def __init__(
         self,
         note_ids: list[int] | None = None,
+        deck_id: int | None = None,
         include_levenshtein: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.note_ids = note_ids
+        self.deck_id = deck_id
         self.include_levenshtein = include_levenshtein
 
     def run(self) -> None:
         try:
             report = BulkHygieneService.analyze_tag_clusters(
                 note_ids=self.note_ids,
+                deck_id=self.deck_id,
                 include_levenshtein=self.include_levenshtein,
             )
             self.analysis_finished.emit(report)
@@ -286,18 +291,27 @@ class TagHygieneDialog(QDialog):
     def __init__(
         self,
         selected_note_ids: list[int] | None = None,
+        initial_deck_id: int | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.selected_note_ids = list(selected_note_ids) if selected_note_ids else None
+        self.selected_deck_id: int | None = initial_deck_id if (initial_deck_id is not None and initial_deck_id != -1) else None
+        self.selected_deck_name: str | None = None
+        if self.selected_deck_id is not None:
+            deck = DeckModel.get_or_none(DeckModel.id == self.selected_deck_id)
+            if deck:
+                self.selected_deck_name = deck.name
+
         self.report: TagClustersReport | None = None
         self.cards: list[TagClusterCard] = []
         self.applied_result: TagMergeResult | None = None
         self._current_filter_type: str = "all"  # "all", "case", "levenshtein"
+        self._deck_modal: DeckSelectWindow | None = None
 
         self.setWindowTitle(tr("Hygiène et fusion des tags"))
-        self.resize(760, 620)
-        self.setMinimumSize(640, 480)
+        self.resize(780, 620)
+        self.setMinimumSize(660, 480)
         self.setStyleSheet(f"QDialog {{ background-color: {DesignTokens.BG_PANEL}; }}")
 
         self._init_ui()
@@ -359,9 +373,45 @@ class TagHygieneDialog(QDialog):
         self.scope_combo.addItem(tr("Toute la collection"), "all")
         if self.selected_note_ids:
             self.scope_combo.addItem(tr("Sélection active (%1 cartes)", len(self.selected_note_ids)), "selection")
+
+        if self.selected_deck_name:
+            self.scope_combo.addItem(tr("Paquet : %1", self.selected_deck_name), "deck")
+        else:
+            self.scope_combo.addItem(tr("Par paquet..."), "deck")
+
+        if self.selected_note_ids:
             self.scope_combo.setCurrentIndex(1)
+        elif self.selected_deck_id:
+            deck_idx = self.scope_combo.findData("deck")
+            if deck_idx >= 0:
+                self.scope_combo.setCurrentIndex(deck_idx)
+        else:
+            self.scope_combo.setCurrentIndex(0)
+
         self.scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         toolbar.addWidget(self.scope_combo)
+
+        # Bouton d'accès rapide au sélecteur de paquet
+        self.btn_select_deck = QPushButton(tr("Changer..."), self)
+        self.btn_select_deck.setIcon(load_phosphor_icon("folder", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_select_deck.setToolTip(tr("Choisir un paquet via l'arborescence"))
+        self.btn_select_deck.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 3px 8px;
+                font-size: 11px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.btn_select_deck.clicked.connect(self._open_deck_select_modal)
+        self.btn_select_deck.setVisible(self.scope_combo.currentData() == "deck")
+        toolbar.addWidget(self.btn_select_deck)
 
         # Séparateur vertical
         sep = QFrame(self)
@@ -489,10 +539,21 @@ class TagHygieneDialog(QDialog):
         self.cards.clear()
 
         # Détermination du périmètre
-        is_selection = self.scope_combo.currentData() == "selection"
-        target_ids = self.selected_note_ids if is_selection else None
+        scope_data = self.scope_combo.currentData()
+        target_ids: list[int] | None = None
+        target_deck_id: int | None = None
 
-        self.worker = TagHygieneWorker(note_ids=target_ids, include_levenshtein=True, parent=self)
+        if scope_data == "selection":
+            target_ids = self.selected_note_ids
+        elif scope_data == "deck":
+            target_deck_id = self.selected_deck_id
+
+        self.worker = TagHygieneWorker(
+            note_ids=target_ids,
+            deck_id=target_deck_id,
+            include_levenshtein=True,
+            parent=self,
+        )
         self.worker.analysis_finished.connect(self._on_analysis_finished)
         self.worker.analysis_error.connect(self._on_analysis_error)
         self.worker.start()
@@ -536,7 +597,64 @@ class TagHygieneDialog(QDialog):
         QMessageBox.warning(self, tr("Erreur"), tr("Impossible d'analyser les tags : %1", err_msg))
 
     @Slot()
+    def _open_deck_select_modal(self) -> None:
+        """Ouvre le dialogue modal de sélection de paquet (DeckSelectWindow)."""
+        try:
+            if self._deck_modal and self._deck_modal.isVisible():
+                self._deck_modal.raise_()
+                self._deck_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._deck_modal = None
+
+        self._deck_modal = DeckSelectWindow(
+            title=tr("Sélectionner un paquet pour l'hygiène des tags"),
+            allow_all=True,
+            selected_deck_id=self.selected_deck_id,
+            parent=self,
+        )
+        self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
+        self._deck_modal.destroyed.connect(self._on_deck_modal_closed)
+        self._deck_modal.show()
+        self._deck_modal.raise_()
+        self._deck_modal.activateWindow()
+
+    @Slot(int, str)
+    def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
+        """Traite la sélection d'un paquet depuis DeckSelectWindow."""
+        if deck_id == ALL_DECKS_NODE_ID or deck_id == -1:
+            self.selected_deck_id = None
+            self.selected_deck_name = None
+            deck_idx = self.scope_combo.findData("deck")
+            if deck_idx >= 0:
+                self.scope_combo.setItemText(deck_idx, tr("Par paquet..."))
+            all_idx = self.scope_combo.findData("all")
+            if all_idx >= 0:
+                self.scope_combo.setCurrentIndex(all_idx)
+        else:
+            self.selected_deck_id = deck_id
+            self.selected_deck_name = deck_name
+            deck_idx = self.scope_combo.findData("deck")
+            if deck_idx >= 0:
+                self.scope_combo.setItemText(deck_idx, tr("Paquet : %1", deck_name))
+                self.scope_combo.setCurrentIndex(deck_idx)
+            self.btn_select_deck.setVisible(True)
+            self._start_analysis()
+
+    def _on_deck_modal_closed(self) -> None:
+        """Si la modale a été fermée sans valider et qu'aucun paquet n'était actif, repli sur toute la collection."""
+        if self.selected_deck_id is None and self.scope_combo.currentData() == "deck":
+            all_idx = self.scope_combo.findData("all")
+            if all_idx >= 0:
+                self.scope_combo.setCurrentIndex(all_idx)
+
+    @Slot()
     def _on_scope_changed(self) -> None:
+        is_deck = self.scope_combo.currentData() == "deck"
+        self.btn_select_deck.setVisible(is_deck)
+        if is_deck and self.selected_deck_id is None:
+            self._open_deck_select_modal()
+            return
         self._start_analysis()
 
     def _set_filter_type(self, filter_type: str) -> None:
@@ -624,7 +742,15 @@ class TagHygieneDialog(QDialog):
         if not plans:
             return
 
-        res = BulkHygieneService.apply_tag_merges(plans)
+        scope_data = self.scope_combo.currentData()
+        target_ids = self.selected_note_ids if scope_data == "selection" else None
+        target_deck_id = self.selected_deck_id if scope_data == "deck" else None
+
+        res = BulkHygieneService.apply_tag_merges(
+            merges=plans,
+            note_ids=target_ids,
+            deck_id=target_deck_id,
+        )
         if res.success:
             self.applied_result = res
             self.accept()

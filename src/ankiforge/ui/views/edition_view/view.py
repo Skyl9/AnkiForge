@@ -2056,8 +2056,12 @@ class EditionView(QWidget):
         if note_ids is None:
             targets = self.get_target_note_ids()
             note_ids = targets if targets else None
-
-        dialog = TagHygieneDialog(selected_note_ids=note_ids, parent=self)
+        initial_deck_id = getattr(self, "_active_folder_id", None)
+        dialog = TagHygieneDialog(
+            selected_note_ids=note_ids,
+            initial_deck_id=initial_deck_id,
+            parent=self,
+        )
         if dialog.exec():
             res = dialog.applied_result
             if res and res.success and res.modified_note_ids:

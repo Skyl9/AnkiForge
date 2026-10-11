@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel
 from ankiforge.services.cards.bulk_hygiene_service import TagCluster, TagFrequency
 from ankiforge.ui.dialogs.tag_hygiene_dialog import TagClusterCard, TagHygieneDialog
 
@@ -27,6 +27,8 @@ def tag_dialog_setup(mock_db):
     n2 = NoteModel.create(note_type=nt, tags='["anatomie"]')
     n3 = NoteModel.create(note_type=nt, tags='["pharmacologie"]')
     n4 = NoteModel.create(note_type=nt, tags='["pharmacologies"]')
+    for n in (n1, n2, n3, n4):
+        CardModel.create(note=n, deck=deck, ord=0)
     return {"deck": deck, "nt": nt, "notes": [n1, n2, n3, n4]}
 
 
@@ -123,3 +125,31 @@ def test_tag_hygiene_dialog_lifecycle(qtbot, tag_dialog_setup):
     assert dialog.applied_result is not None
     assert dialog.applied_result.success is True
     assert dialog.applied_result.merged_clusters_count == 2
+
+
+def test_tag_hygiene_dialog_with_deck_selection(qtbot, tag_dialog_setup):
+    """Vérifie l'initialisation et la sélection de paquet via DeckSelectWindow."""
+    deck = tag_dialog_setup["deck"]
+    dialog = TagHygieneDialog(initial_deck_id=deck.id)
+    qtbot.addWidget(dialog)
+    dialog.show()
+
+    assert dialog.scope_combo.currentData() == "deck"
+    assert dialog.btn_select_deck.isVisible() is True
+    assert dialog.selected_deck_id == deck.id
+
+    # Attendre que le worker termine
+    qtbot.waitUntil(lambda: len(dialog.cards) >= 2, timeout=5000)
+    assert len(dialog.cards) == 2
+
+    # Simulation sélection "Tous les paquets" depuis la modale
+    dialog._on_deck_selected_from_modal(-1, "Tous les paquets")
+    assert dialog.scope_combo.currentData() == "all"
+    assert dialog.btn_select_deck.isVisible() is False
+    assert dialog.selected_deck_id is None
+
+    # Simulation sélection du paquet spécifique depuis la modale
+    dialog._on_deck_selected_from_modal(deck.id, deck.name)
+    assert dialog.scope_combo.currentData() == "deck"
+    assert dialog.btn_select_deck.isVisible() is True
+    assert dialog.selected_deck_id == deck.id

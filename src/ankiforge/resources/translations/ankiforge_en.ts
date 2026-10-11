@@ -557,7 +557,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/card_export_dialog.py" line="+115"/>
-        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="+361"/>
+        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="+375"/>
         <source>Sélection active (%1 cartes)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -968,19 +968,19 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="-268"/>
-        <location line="+286"/>
+        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="-280"/>
+        <location line="+334"/>
         <source>Casse</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-284"/>
-        <location line="+289"/>
+        <location line="-332"/>
+        <location line="+337"/>
         <source>Similarité</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-286"/>
+        <location line="-334"/>
         <source>%1 note(s) impactée(s)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -995,7 +995,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+170"/>
+        <location line="+182"/>
         <location line="+38"/>
         <source>Hygiène et fusion des tags</source>
         <translation type="unfinished"></translation>
@@ -1011,7 +1011,30 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+5"/>
+        <location line="+261"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1235"/>
+        <source>Paquet : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-259"/>
+        <location line="+250"/>
+        <source>Par paquet...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-235"/>
+        <source>Changer...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Choisir un paquet via l&apos;arborescence</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
         <source>Toutes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1022,12 +1045,12 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
     </message>
     <message>
         <location line="+17"/>
-        <location line="+155"/>
+        <location line="+223"/>
         <source>Tout décocher</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-120"/>
+        <location line="-188"/>
         <source>Chargement de l&apos;analyse...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1052,7 +1075,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+32"/>
+        <location line="+43"/>
         <source>Aucun doublon ni variante proche détectée.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1078,7 +1101,12 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+47"/>
+        <location line="+14"/>
+        <source>Sélectionner un paquet pour l&apos;hygiène des tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+90"/>
         <source>Tout cocher</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1093,7 +1121,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+35"/>
         <source>Erreur de fusion</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1561,7 +1589,7 @@ Insère : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+167"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1068"/>
         <source>Document introuvable.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1673,12 +1701,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+44"/>
-        <source>Paquet : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location line="+50"/>
         <source>Q : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3347,7 +3370,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+37"/>
         <source>%1 grappe(s) fusionnée(s), %2 carte(s) modifiée(s) avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10229,7 +10252,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-1951"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-1955"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10299,12 +10322,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+4"/>
         <location line="+356"/>
         <location line="+13"/>
-        <location line="+1391"/>
+        <location line="+1395"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1756"/>
+        <location line="-1760"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10471,7 +10494,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+76"/>
+        <location line="+80"/>
         <source>Auto-Tagging terminé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
