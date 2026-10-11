@@ -13,8 +13,10 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from collections.abc import Sequence
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 from ankiforge.database.models import (
     CardModel,
@@ -27,6 +29,7 @@ from ankiforge.database.models import (
 from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 from ankiforge.utils.anki_renderer import _is_empty, render_card_text
+from ankiforge.utils.c_bridge import levenshtein_distance
 from ankiforge.utils.tags import (
     is_provenance_tag,
     parse_note_tags,
@@ -36,8 +39,59 @@ from ankiforge.utils.tags import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class TagFrequency:
+    """Occurrences d'un tag au sein de la collection."""
+
+    tag: str
+    count: int
+
+
+@dataclass
+class TagCluster:
+    """Grappe de tags similaires (différences de casse ou proximité Levenshtein)."""
+
+    cluster_id: str
+    cluster_type: Literal["case", "levenshtein"]
+    canonical_tag: str
+    tags: list[TagFrequency]
+    total_notes_count: int
+
+
+@dataclass
+class TagClustersReport:
+    """Rapport d'analyse taxonomique des grappes de tags détectées."""
+
+    case_clusters: list[TagCluster] = field(default_factory=list)
+    levenshtein_clusters: list[TagCluster] = field(default_factory=list)
+    total_clusters_count: int = 0
+    total_notes_impacted: int = 0
+    inspected_tags_count: int = 0
+    inspected_notes_count: int = 0
+
+
+@dataclass
+class TagMergePlan:
+    """Plan de fusion pour une grappe : tags sources et tag cible canonique."""
+
+    tags_to_merge: list[str]
+    target_tag: str
+
+
+@dataclass
+class TagMergeResult:
+    """Résultat de l'exécution de la fusion en masse de tags."""
+
+    success: bool
+    merged_clusters_count: int = 0
+    modified_notes_count: int = 0
+    modified_note_ids: list[int] = field(default_factory=list)
+    error_message: str | None = None
+
+
 def parse_id_list(val: Any) -> list[int]:
     """Parse une collection d'identifiants (liste Python, entier unique, chaîne JSON ou liste séparée par virgules)."""
+
     if val is None:
         return []
     if isinstance(val, list):
@@ -649,6 +703,211 @@ class BulkHygieneService:
             "card_ids": target_ids,
             "message": f"{deleted_count} carte(s) vide(s) supprimée(s) avec succès.",
         }
+
+    @classmethod
+    def analyze_tag_clusters(
+        cls,
+        note_ids: Sequence[int] | None = None,
+        include_levenshtein: bool = True,
+    ) -> TagClustersReport:
+        """Analyse la collection pour détecter les grappes de tags sensibles à la casse ou proches selon Levenshtein.
+
+        Exclut rigoureusement les tags de traçabilité documentaire (is_provenance_tag)
+        et le tag système ankiforge_generated.
+
+        Args:
+            note_ids: Périmètre restreint d'identifiants de notes (None pour toute la collection).
+            include_levenshtein: Indique si la détection par distance de Levenshtein doit être exécutée.
+
+        Returns:
+            TagClustersReport: Rapport détaillé des grappes trouvées.
+        """
+        notes = list(NoteModel.select(NoteModel.id, NoteModel.tags).where(NoteModel.id.in_(list(note_ids)))) if note_ids is not None else list(NoteModel.select(NoteModel.id, NoteModel.tags))
+
+        tag_notes_map: dict[str, set[int]] = {}
+
+        tag_counts: dict[str, int] = {}
+
+        for note in notes:
+            for t in parse_note_tags(note.tags):
+                if is_provenance_tag(t) or t.strip().lower() == "ankiforge_generated":
+                    continue
+                tag_notes_map.setdefault(t, set()).add(note.id)
+                tag_counts[t] = tag_counts.get(t, 0) + 1
+
+        # 1. Regroupement insensible à la casse
+        case_groups: dict[str, list[str]] = {}
+        for tag in tag_counts:
+            norm_key = unicodedata.normalize("NFC", tag).casefold()
+            case_groups.setdefault(norm_key, []).append(tag)
+
+        assigned_tags: set[str] = set()
+        case_clusters: list[TagCluster] = []
+        cluster_counter = 0
+
+        for _norm_key, variants in sorted(case_groups.items()):
+            if len(variants) > 1:
+                # Élection canonique : fréquence max descendante, repli minuscules, ordre alphabétique
+                variants_sorted = sorted(variants, key=lambda t: (-tag_counts[t], t.casefold() != t, t))
+                canonical = variants_sorted[0]
+                cluster_notes: set[int] = set()
+                for v in variants_sorted:
+                    cluster_notes.update(tag_notes_map[v])
+                    assigned_tags.add(v)
+                cluster_counter += 1
+                case_clusters.append(
+                    TagCluster(
+                        cluster_id=f"case_{cluster_counter}",
+                        cluster_type="case",
+                        canonical_tag=canonical,
+                        tags=[TagFrequency(tag=v, count=tag_counts[v]) for v in variants_sorted],
+                        total_notes_count=len(cluster_notes),
+                    )
+                )
+
+        # 2. Regroupement par distance de Levenshtein (graphe en étoile centré sur le plus fréquent)
+        levenshtein_clusters: list[TagCluster] = []
+        if include_levenshtein:
+            cand_tags = [t for t in tag_counts if t not in assigned_tags and len(unicodedata.normalize("NFC", t)) >= 4]
+            # Tri par fréquence décroissante pour faire du mot le plus représenté le centre de l'étoile
+            cand_tags.sort(key=lambda t: (-tag_counts[t], t))
+
+            used_in_levenshtein: set[str] = set()
+
+            for pivot in cand_tags:
+                if pivot in used_in_levenshtein:
+                    continue
+                pivot_norm = unicodedata.normalize("NFC", pivot)
+                pivot_len = len(pivot_norm)
+                max_dist = 1 if pivot_len <= 7 else 2
+
+                matches: list[str] = []
+                for other in cand_tags:
+                    if other == pivot or other in used_in_levenshtein:
+                        continue
+                    other_norm = unicodedata.normalize("NFC", other)
+                    other_len = len(other_norm)
+                    if abs(pivot_len - other_len) > max_dist:
+                        continue
+                    d = levenshtein_distance(pivot_norm, other_norm)
+                    if d <= max_dist:
+                        matches.append(other)
+
+                if matches:
+                    cluster_members = [pivot] + matches
+                    for m in cluster_members:
+                        used_in_levenshtein.add(m)
+                    cluster_counter += 1
+                    cluster_notes = set()
+                    for m in cluster_members:
+                        cluster_notes.update(tag_notes_map[m])
+                    levenshtein_clusters.append(
+                        TagCluster(
+                            cluster_id=f"lev_{cluster_counter}",
+                            cluster_type="levenshtein",
+                            canonical_tag=pivot,
+                            tags=[TagFrequency(tag=m, count=tag_counts[m]) for m in cluster_members],
+                            total_notes_count=len(cluster_notes),
+                        )
+                    )
+
+        all_impacted_notes: set[int] = set()
+        for c in case_clusters + levenshtein_clusters:
+            for tf in c.tags:
+                all_impacted_notes.update(tag_notes_map.get(tf.tag, set()))
+
+        return TagClustersReport(
+            case_clusters=case_clusters,
+            levenshtein_clusters=levenshtein_clusters,
+            total_clusters_count=len(case_clusters) + len(levenshtein_clusters),
+            total_notes_impacted=len(all_impacted_notes),
+            inspected_tags_count=len(tag_counts),
+            inspected_notes_count=len(notes),
+        )
+
+    @classmethod
+    def apply_tag_merges(
+        cls,
+        merges: Sequence[TagMergePlan],
+    ) -> TagMergeResult:
+        """Applique les fusions de tags planifiées sous une transaction atomique.
+
+        Garantit la déduplication des tags sur chaque note et la préservation stricte
+        des tags de traçabilité documentaire.
+
+        Args:
+            merges: Liste des plans de fusion.
+
+        Returns:
+            TagMergeResult: Rapport d'exécution.
+        """
+        if not merges:
+            return TagMergeResult(success=True)
+
+        replacement_map: dict[str, str] = {}
+        for plan in merges:
+            target = plan.target_tag.strip()
+            if not target:
+                continue
+            for src in plan.tags_to_merge:
+                src_clean = src.strip()
+                if src_clean and src_clean != target:
+                    replacement_map[src_clean] = target
+
+        if not replacement_map:
+            return TagMergeResult(success=True)
+
+        modified_ids: list[int] = []
+        try:
+            with db.atomic():
+                all_notes = list(NoteModel.select())
+                for note in all_notes:
+                    current_tags = parse_note_tags(note.tags)
+                    new_tags: list[str] = []
+                    has_mutation = False
+                    for t in current_tags:
+                        if is_provenance_tag(t) or t.strip().lower() == "ankiforge_generated":
+                            if t not in new_tags:
+                                new_tags.append(t)
+                        elif t in replacement_map:
+                            target_t = replacement_map[t]
+                            if target_t not in new_tags:
+                                new_tags.append(target_t)
+                            has_mutation = True
+                        else:
+                            if t not in new_tags:
+                                new_tags.append(t)
+
+                    if has_mutation and new_tags != current_tags:
+                        note.tags = serialize_note_tags(new_tags)
+                        note.save(only=[NoteModel.tags])
+                        modified_ids.append(note.id)
+
+                for nid in modified_ids:
+                    target_note = next((n for n in all_notes if n.id == nid), None)
+                    if target_note:
+                        try:
+                            from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                            CoverageAlignmentService.sync_note_coverage(target_note)
+                        except Exception as err:
+                            logger.debug("Coverage sync skipped for note %d: %s", nid, err)
+
+            logger.info("BulkHygieneService.apply_tag_merges: %d note(s) modifiée(s) pour %d fusion(s).", len(modified_ids), len(merges))
+            cls._notify_mutation("merge_tags", 0, {"modified_count": len(modified_ids), "merges_count": len(merges)})
+
+            return TagMergeResult(
+                success=True,
+                merged_clusters_count=len(merges),
+                modified_notes_count=len(modified_ids),
+                modified_note_ids=modified_ids,
+            )
+        except Exception as e:
+            logger.error("BulkHygieneService.apply_tag_merges erreur : %s", e)
+            return TagMergeResult(
+                success=False,
+                error_message=str(e),
+            )
 
     @classmethod
     def _notify_mutation(cls, mutation_type: str, target_id: int, details: dict[str, Any]) -> None:

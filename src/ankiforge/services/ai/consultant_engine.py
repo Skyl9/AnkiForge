@@ -2246,6 +2246,82 @@ class ConsultantToolRegistry:
         return json.dumps(res, ensure_ascii=False, indent=2)
 
     @staticmethod
+    def audit_tag_hygiene(
+        note_ids: list[int] | str | None = None,
+        include_levenshtein: bool = True,
+    ) -> str:
+        """Analyse la collection pour détecter les grappes de tags proches ou sensibles à la casse."""
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, parse_id_list
+
+        n_ids = parse_id_list(note_ids) if note_ids else None
+        report = BulkHygieneService.analyze_tag_clusters(note_ids=n_ids, include_levenshtein=include_levenshtein)
+        data = {
+            "status": "success",
+            "total_clusters": report.total_clusters_count,
+            "total_notes_impacted": report.total_notes_impacted,
+            "inspected_tags_count": report.inspected_tags_count,
+            "inspected_notes_count": report.inspected_notes_count,
+            "case_clusters": [
+                {
+                    "cluster_id": c.cluster_id,
+                    "canonical_tag": c.canonical_tag,
+                    "total_notes": c.total_notes_count,
+                    "tags": [{"tag": t.tag, "count": t.count} for t in c.tags],
+                }
+                for c in report.case_clusters
+            ],
+            "levenshtein_clusters": [
+                {
+                    "cluster_id": c.cluster_id,
+                    "canonical_tag": c.canonical_tag,
+                    "total_notes": c.total_notes_count,
+                    "tags": [{"tag": t.tag, "count": t.count} for t in c.tags],
+                }
+                for c in report.levenshtein_clusters
+            ],
+        }
+        return json.dumps(data, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def merge_tag_clusters(
+        merges: list[dict[str, Any]] | str,
+    ) -> str:
+        """Applique des fusions de tags planifiées sur la collection."""
+        from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, TagMergePlan
+
+        plan_list: list[TagMergePlan] = []
+        raw_merges = merges
+        if isinstance(merges, str):
+            try:
+                raw_merges = json.loads(merges)
+            except Exception:
+                return json.dumps({"status": "error", "message": "Format JSON invalide pour merges"}, ensure_ascii=False)
+
+        if isinstance(raw_merges, list):
+            for item in raw_merges:
+                if isinstance(item, dict):
+                    tags = item.get("tags_to_merge", [])
+                    target = item.get("target_tag", "")
+                    if tags and target:
+                        plan_list.append(TagMergePlan(tags_to_merge=tags, target_tag=target))
+
+        if not plan_list:
+            return json.dumps({"status": "error", "message": "Aucun plan de fusion valide fourni"}, ensure_ascii=False)
+
+        res = BulkHygieneService.apply_tag_merges(plan_list)
+        return json.dumps(
+            {
+                "status": "success" if res.success else "error",
+                "merged_clusters_count": res.merged_clusters_count,
+                "modified_notes_count": res.modified_notes_count,
+                "modified_note_ids": res.modified_note_ids,
+                "error_message": res.error_message,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    @staticmethod
     def delete_unused_note_type(
         name: str,
         confirm: bool = False,
@@ -3099,6 +3175,45 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "audit_tag_hygiene",
+            "description": "Analyse la collection pour détecter les grappes de tags sensibles à la casse ou proches selon Levenshtein.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note_ids": {"type": "array", "items": {"type": "integer"}, "description": "Périmètre restreint d'identifiants de notes (optionnel, toute la collection si omis)"},
+                    "include_levenshtein": {"type": "boolean", "description": "Inclure la similarité de Levenshtein (défaut: true)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "merge_tag_clusters",
+            "description": "Applique des fusions de tags planifiées sur la collection sous transaction atomique.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "merges": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "tags_to_merge": {"type": "array", "items": {"type": "string"}, "description": "Tags sources à fusionner"},
+                                "target_tag": {"type": "string", "description": "Tag canonique cible"},
+                            },
+                            "required": ["tags_to_merge", "target_tag"],
+                        },
+                        "description": "Liste des plans de fusion à appliquer",
+                    },
+                },
+                "required": ["merges"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "delete_unused_note_type",
             "description": "Supprime un modèle de note uniquement si 0 note y sont rattachées (garde-fou référentiel). Si name='all_unused', supprime tous les modèles orphelins.",
             "parameters": {
@@ -3522,6 +3637,13 @@ class ConsultantEngine:
                     mode=m,
                     allow_remove_provenance_tags=allow_prov,
                 ), False
+            elif tool_name == "audit_tag_hygiene":
+                n_ids = tool_args.get("note_ids")
+                inc_lev = bool(tool_args.get("include_levenshtein", True))
+                return ConsultantToolRegistry.audit_tag_hygiene(note_ids=n_ids, include_levenshtein=inc_lev), False
+            elif tool_name == "merge_tag_clusters":
+                merges_arg = tool_args.get("merges", [])
+                return ConsultantToolRegistry.merge_tag_clusters(merges=merges_arg), False
             elif tool_name == "delete_unused_note_type":
                 m_name = str(tool_args.get("name", ""))
                 conf = bool(tool_args.get("confirm", False))

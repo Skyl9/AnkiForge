@@ -66,3 +66,34 @@ def test_init_c_matcher_load_error_logs_warning(caplog, tmp_path):
         loaded = c_bridge.init_c_matcher(corrupt_lib)
         assert loaded is False
         assert any(record.levelno == logging.WARNING and "Erreur lors du chargement de l'extension C" in record.message for record in caplog.records)
+
+
+def test_levenshtein_distance_basic():
+    """Vérifie le calcul unitaire de distance de Levenshtein."""
+    assert c_bridge.levenshtein_distance("arbre", "arbre") == 0
+    assert c_bridge.levenshtein_distance("pomme", "pommes") == 1
+    assert c_bridge.levenshtein_distance("nerf", "nerfs") == 1
+    assert c_bridge.levenshtein_distance("nerf", "cerf") == 1
+    assert c_bridge.levenshtein_distance("", "test") == 4
+    assert c_bridge.levenshtein_distance("abc", "") == 3
+    assert c_bridge.levenshtein_distance("", "") == 0
+
+
+def test_levenshtein_distance_unicode_accents():
+    """Vérifie que les accents Unicode sont comptabilisés comme de simples points de code."""
+    # Une seule substitution de caractère
+    assert c_bridge.levenshtein_distance("cardiologie", "cardiologié") == 1
+    assert c_bridge.levenshtein_distance("médecine", "medecine") == 1
+    assert c_bridge.levenshtein_distance("bénévole", "benevole") == 2
+    assert c_bridge.levenshtein_distance("anémie", "anémie") == 0
+
+
+def test_levenshtein_distance_c_mock():
+    """Vérifie l'appel à la fonction C native si disponible."""
+    mock_lib = MagicMock()
+    mock_lib.calculate_levenshtein_distance.return_value = 2
+
+    with patch.object(c_bridge, "C_MATCHER_LOADED", True), patch.object(c_bridge, "_matcher_lib", mock_lib):
+        dist = c_bridge.levenshtein_distance("kitten", "sitting")
+        assert dist == 2
+        mock_lib.calculate_levenshtein_distance.assert_called_once_with(b"kitten", b"sitting")

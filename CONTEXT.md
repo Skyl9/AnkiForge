@@ -154,3 +154,12 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : intervalle réseau, timeout, délai
 - **Notarisation système** : certification externe délivrée par le système hôte (Apple Notary Service) garantissant l'absence de logiciels malveillants identifiés avant l'exécution du binaire.
   _Avoid_ : signature Ed25519, code signing interne
+
+## Tags & Hygiène taxonomique
+
+- **Grappe de tags (cluster)** : un ensemble de variantes d'un tag (différences de casse ou proximité typographique Levenshtein) identifiées comme se rapportant au même concept.
+  _Avoid_ : groupe de tags, famille de tags, doublons de tags
+- **Tag canonique (forme cible)** : le libellé unique retenu pour remplacer l'ensemble des variantes d'une grappe lors d'une fusion.
+  _Avoid_ : tag pivot, tag maître, tag de remplacement
+- **Fusion de tags** : l'opération atomique remplaçant sur toutes les notes concernées les variantes d'une grappe par leur tag canonique unique, sans duplication ni altération des tags de provenance.
+  _Avoid_ : renommage de tags, écrasement de tags

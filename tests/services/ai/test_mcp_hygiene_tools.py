@@ -301,3 +301,45 @@ def test_mcp_mutation_notification_listener(mcp_hygiene_setup):
             unregister_mutation_listener(_on_mutation)
 
     asyncio.run(_run())
+
+
+def test_mcp_audit_tag_hygiene_and_merge(mcp_hygiene_setup):
+    """Vérifie l'audit et la fusion de tags via les outils MCP audit_tag_hygiene et merge_tag_clusters."""
+
+    async def _run():
+        nt = mcp_hygiene_setup["nt_main"]
+        n_a = NoteModel.create(note_type=nt, tags='["Cardiologie", "doc:99"]')
+        _ = NoteModel.create(note_type=nt, tags='["cardiologie", "source:cours"]')
+
+        res_audit = await mcp.call_tool("audit_tag_hygiene", {"include_levenshtein": True})
+        audit_data = json.loads(_extract_text(res_audit))
+        assert audit_data["status"] == "success"
+        assert audit_data["total_clusters"] >= 1
+
+        case_clusters = audit_data["case_clusters"]
+        cardio_cluster = next((c for c in case_clusters if c["canonical_tag"].lower() == "cardiologie"), None)
+        assert cardio_cluster is not None
+
+        # Exécuter la fusion via MCP
+        res_merge = await mcp.call_tool(
+            "merge_tag_clusters",
+            {
+                "merges": [
+                    {
+                        "tags_to_merge": ["Cardiologie"],
+                        "target_tag": "cardiologie",
+                    }
+                ]
+            },
+        )
+        merge_data = json.loads(_extract_text(res_merge))
+        assert merge_data["status"] == "success"
+        assert merge_data["modified_notes_count"] >= 1
+
+        # Vérifier en BDD
+        tags_a = parse_note_tags(NoteModel.get_by_id(n_a.id).tags)
+        assert "cardiologie" in tags_a
+        assert "Cardiologie" not in tags_a
+        assert "doc:99" in tags_a
+
+    asyncio.run(_run())

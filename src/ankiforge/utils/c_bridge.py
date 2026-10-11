@@ -35,6 +35,9 @@ def init_c_matcher(custom_path: Path | None = None) -> bool:
             _matcher_lib = ctypes.CDLL(str(target))
             _matcher_lib.calculate_similarity.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
             _matcher_lib.calculate_similarity.restype = ctypes.c_double
+            if hasattr(_matcher_lib, "calculate_levenshtein_distance"):
+                _matcher_lib.calculate_levenshtein_distance.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+                _matcher_lib.calculate_levenshtein_distance.restype = ctypes.c_int
             C_MATCHER_LOADED = True
             logger.info("Extension C Levenshtein chargée avec succès depuis %s", target)
             return True
@@ -80,3 +83,58 @@ def get_similarity(text1: str, text2: str) -> float:
     import difflib
 
     return float(difflib.SequenceMatcher(None, text1, text2).ratio())
+
+
+def levenshtein_distance(text1: str, text2: str) -> int:
+    """Calcule la distance d'édition de Levenshtein entre deux chaînes de caractères.
+
+    Prend en compte fidèlement les caractères Unicode (points de code).
+    Utilise l'extension C si disponible et que les deux chaînes sont en pur ASCII,
+    sinon utilise l'algorithme dynamique optimisé en Python pur.
+
+    Args:
+        text1: Première chaîne.
+        text2: Seconde chaîne.
+
+    Returns:
+        int: Nombre minimal d'insertions, suppressions ou substitutions.
+    """
+    if text1 == text2:
+        return 0
+    len1 = len(text1)
+    len2 = len(text2)
+    if len1 == 0:
+        return len2
+    if len2 == 0:
+        return len1
+
+    # Tenter l'extension C rapide si pur ASCII
+    if C_MATCHER_LOADED and _matcher_lib is not None and hasattr(_matcher_lib, "calculate_levenshtein_distance"):
+        try:
+            b1 = text1.encode("ascii")
+            b2 = text2.encode("ascii")
+            dist = int(_matcher_lib.calculate_levenshtein_distance(b1, b2))
+            if dist >= 0:
+                return dist
+        except (UnicodeEncodeError, Exception):
+            pass
+
+    # Algorithme dynamique à 2 lignes en Python pur (Unicode codepoints)
+    s1, s2 = text1, text2
+    if len1 > len2:
+        s1, s2 = s2, s1
+        len1, len2 = len2, len1
+
+    current_row = list(range(len1 + 1))
+    for i, c2 in enumerate(s2):
+        next_row = [i + 1] * (len1 + 1)
+        for j, c1 in enumerate(s1):
+            cost = 0 if c1 == c2 else 1
+            next_row[j + 1] = min(
+                next_row[j] + 1,
+                current_row[j + 1] + 1,
+                current_row[j] + cost,
+            )
+        current_row = next_row
+
+    return current_row[len1]

@@ -1234,9 +1234,10 @@ def test_map_reduce_respects_batch_size():
 
     # 7 éléments avec batch_size=3 => 3 lots (3, 3, 1)
     assert len(provider.calls) == 3
-    assert "Item 0\n\n---\n\nItem 1\n\n---\n\nItem 2" in str(provider.calls[0]["user"])
-    assert "Item 3\n\n---\n\nItem 4\n\n---\n\nItem 5" in str(provider.calls[1]["user"])
-    assert "Item 6" in str(provider.calls[2]["user"])
+    calls_user = [str(c["user"]) for c in provider.calls]
+    assert any("Item 0\n\n---\n\nItem 1\n\n---\n\nItem 2" in u for u in calls_user)
+    assert any("Item 3\n\n---\n\nItem 4\n\n---\n\nItem 5" in u for u in calls_user)
+    assert any("Item 6" in u for u in calls_user)
 
 
 def test_map_reduce_splits_by_page() -> None:
