@@ -28,11 +28,16 @@ from ankiforge.database.models import (
     CardModel,
     DeckModel,
     DocumentModel,
+    DocumentPageModel,
+    FolderModel,
     LLMConfigModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
     PersonaModel,
+    PipelineModel,
+    PipelineRunModel,
+    PipelineStepModel,
 )
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.ai.base import LLMProvider
@@ -2288,6 +2293,291 @@ class ConsultantToolRegistry:
         res = BulkHygieneService.delete_empty_cards(card_ids=c_ids, deck_name=deck_name, confirm=confirm)
         return json.dumps(res, ensure_ascii=False, indent=2)
 
+    @staticmethod
+    def list_albums(limit: int = 50, offset: int = 0, folder_name: str = "") -> str:
+        """
+        Liste les albums d'images et livres scannés enregistrés dans la collection
+        (titre, nombre de planches, dossier, répartition des statuts d'analyse).
+        """
+        try:
+            eff_limit = max(1, min(int(limit), 200))
+            eff_offset = max(0, int(offset))
+
+            query = DocumentModel.select().where(DocumentModel.file_type == "album")
+            if folder_name and folder_name.strip():
+                clean_folder = folder_name.strip()
+                query = query.join(FolderModel, on=(DocumentModel.folder == FolderModel.id)).where(FolderModel.name == clean_folder)
+
+            total_count = query.count()
+            if total_count == 0:
+                msg = f"Aucun album trouvé dans le dossier '{folder_name}'." if folder_name else "Aucun album d'images trouvé dans la collection."
+                return msg
+
+            albums = list(query.order_by(DocumentModel.id.desc()).offset(eff_offset).limit(eff_limit))
+
+            res_list: list[dict[str, Any]] = []
+            for doc in albums:
+                status_query = (
+                    DocumentPageModel.select(DocumentPageModel.status, fn.COUNT(DocumentPageModel.id).alias("cnt")).where(DocumentPageModel.document == doc).group_by(DocumentPageModel.status)
+                )
+                status_counts = {str(row.status): int(getattr(row, "cnt", 0)) for row in status_query}
+                plates_count = sum(status_counts.values())
+
+                folder_title = doc.folder.name if doc.folder else None
+                created_str = doc.created_at.isoformat() if doc.created_at else None
+
+                res_list.append(
+                    {
+                        "id": doc.id,
+                        "title": doc.title,
+                        "total_pages": doc.total_pages or plates_count,
+                        "folder": folder_title,
+                        "created_at": created_str,
+                        "plates_count": plates_count,
+                        "status_counts": status_counts,
+                    }
+                )
+
+            start_num = eff_offset + 1 if res_list else 0
+            end_num = min(eff_offset + len(res_list), total_count)
+            header = f"📚 {total_count} album(s) trouvé(s) (Affichage {start_num}-{end_num}, limit={eff_limit}, offset={eff_offset}) :"
+            output = header + "\n" + json.dumps(res_list, ensure_ascii=False, indent=2)
+            if end_num < total_count:
+                output += f"\n... ({total_count - end_num} autres albums disponibles. Spécifie offset={end_num} pour la suite)"
+            return output
+        except Exception as e:
+            logger.error("Erreur list_albums : %s", e)
+            return f"Erreur lors du listage des albums : {e}"
+
+    @staticmethod
+    def get_album_plates(
+        album_id: int = 0,
+        album_title: str = "",
+        limit: int = 50,
+        offset: int = 0,
+        include_ocr_text: bool = True,
+    ) -> str:
+        """
+        Consulte la liste ordonnée des planches / pages d'un album avec leurs métadonnées
+        (numéro, rotation, recadrage, statut, texte OCR ou extrait, fichier média).
+        """
+        try:
+            eff_limit = max(1, min(int(limit), 200))
+            eff_offset = max(0, int(offset))
+
+            doc: DocumentModel | None = None
+            if album_id and int(album_id) > 0:
+                doc = DocumentModel.get_or_none(DocumentModel.id == int(album_id))
+            elif album_title and album_title.strip():
+                doc = DocumentModel.get_or_none(DocumentModel.title == album_title.strip())
+
+            if not doc:
+                id_or_title = f"l'id {album_id}" if album_id else f"le titre '{album_title}'"
+                return f"Erreur : Aucun album trouvé avec {id_or_title}."
+
+            page_query = DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number.asc())
+            total_plates = page_query.count()
+
+            plates = list(page_query.offset(eff_offset).limit(eff_limit))
+            if not plates:
+                if total_plates == 0:
+                    return f"L'album #{doc.id} '{doc.title}' ne contient aucune planche."
+                return f"Aucune planche trouvée pour cet intervalle (offset={eff_offset}, total={total_plates})."
+
+            plates_data: list[dict[str, Any]] = []
+            for p in plates:
+                crop_box_val = None
+                if p.crop_data:
+                    try:
+                        crop_box_val = json.loads(p.crop_data)
+                    except Exception:
+                        crop_box_val = p.crop_data
+
+                boxes_val: list[Any] = []
+                if p.bounding_boxes:
+                    try:
+                        parsed_b = json.loads(p.bounding_boxes)
+                        boxes_val = parsed_b if isinstance(parsed_b, list) else []
+                    except Exception:
+                        boxes_val = []
+
+                has_ocr = bool(p.ocr_text and p.ocr_text.strip())
+
+                plate_media = p.media
+                plate_dict: dict[str, Any] = {
+                    "page_id": p.id,
+                    "page_number": p.page_number,
+                    "rotation": p.rotation,
+                    "status": p.status,
+                    "crop_box": crop_box_val,
+                    "media_filename": plate_media.filename if plate_media else None,
+                    "media_id": plate_media.id if plate_media else None,
+                    "bounding_boxes_count": len(boxes_val),
+                    "has_ocr": has_ocr,
+                }
+                if include_ocr_text:
+                    plate_dict["ocr_text"] = p.ocr_text or ""
+
+                plates_data.append(plate_dict)
+
+            start_num = eff_offset + 1 if plates_data else 0
+            end_num = min(eff_offset + len(plates_data), total_plates)
+            header = f"🖼️ Album #{doc.id} '{doc.title}' — {total_plates} planche(s) au total (Affichage {start_num}-{end_num}, limit={eff_limit}, offset={eff_offset}) :"
+            output = header + "\n" + json.dumps(plates_data, ensure_ascii=False, indent=2)
+            if end_num < total_plates:
+                output += f"\n... ({total_plates - end_num} autres planches disponibles. Spécifie offset={end_num} pour la suite)"
+            return output
+        except Exception as e:
+            logger.error("Erreur get_album_plates : %s", e)
+            return f"Erreur lors de la récupération des planches de l'album : {e}"
+
+    @staticmethod
+    def list_pipelines(limit: int = 50, offset: int = 0) -> str:
+        """
+        Liste les pipelines DAG configurés dans AnkiForge avec leurs étapes ordonnées,
+        leurs comportements de branchement et le statut de leur dernière exécution.
+        """
+        try:
+            eff_limit = max(1, min(int(limit), 200))
+            eff_offset = max(0, int(offset))
+
+            query = PipelineModel.select().order_by(PipelineModel.id.asc())
+            total_count = query.count()
+            if total_count == 0:
+                return "Aucun pipeline DAG configuré dans la collection."
+
+            pipelines = list(query.offset(eff_offset).limit(eff_limit))
+
+            res_list: list[dict[str, Any]] = []
+            for pipe in pipelines:
+                steps_query = PipelineStepModel.select().where(PipelineStepModel.pipeline == pipe).order_by(PipelineStepModel.step_order.asc())
+                steps_data: list[dict[str, Any]] = []
+                for s in steps_query:
+                    persona_name = s.persona.name if s.persona else None
+                    on_success_order = s.on_success_step.step_order if s.on_success_step else None
+                    on_failure_order = s.on_failure_step.step_order if s.on_failure_step else None
+
+                    cfg_summary: dict[str, Any] = {}
+                    if s.config_data:
+                        try:
+                            parsed_cfg = json.loads(s.config_data)
+                            if isinstance(parsed_cfg, dict):
+                                for k, v in parsed_cfg.items():
+                                    if k in ("token_budget", "max_tokens_budget", "max_step_executions", "script_name", "model_id", "top_k") or isinstance(v, (str | int | float | bool)):
+                                        cfg_summary[k] = v
+                        except Exception:
+                            pass
+
+                    steps_data.append(
+                        {
+                            "step_order": s.step_order,
+                            "step_type": s.step_type,
+                            "persona_name": persona_name,
+                            "failure_behavior": s.failure_behavior,
+                            "on_success_step_order": on_success_order,
+                            "on_failure_step_order": on_failure_order,
+                            "config": cfg_summary,
+                        }
+                    )
+
+                latest_run = PipelineRunModel.select().where(PipelineRunModel.pipeline == pipe).order_by(PipelineRunModel.id.desc()).first()
+                run_summary = None
+                if latest_run:
+                    run_summary = {
+                        "run_id": latest_run.id,
+                        "status": latest_run.status,
+                        "current_step_order": latest_run.current_step_order,
+                        "updated_at": latest_run.updated_at.isoformat() if latest_run.updated_at else None,
+                        "error_message": latest_run.error_message,
+                    }
+
+                res_list.append(
+                    {
+                        "id": pipe.id,
+                        "name": pipe.name,
+                        "description": pipe.description or "",
+                        "steps_count": len(steps_data),
+                        "steps": steps_data,
+                        "latest_run": run_summary,
+                    }
+                )
+
+            start_num = eff_offset + 1 if res_list else 0
+            end_num = min(eff_offset + len(res_list), total_count)
+            header = f"⚡ {total_count} pipeline(s) DAG configuré(s) (Affichage {start_num}-{end_num}, limit={eff_limit}, offset={eff_offset}) :"
+            output = header + "\n" + json.dumps(res_list, ensure_ascii=False, indent=2)
+            if end_num < total_count:
+                output += f"\n... ({total_count - end_num} autres pipelines disponibles. Spécifie offset={end_num} pour la suite)"
+            return output
+        except Exception as e:
+            logger.error("Erreur list_pipelines : %s", e)
+            return f"Erreur lors du listage des pipelines DAG : {e}"
+
+    @staticmethod
+    def get_pipeline_run(run_id: int = 0, pipeline_id: int = 0) -> str:
+        """
+        Consulte l'état détaillé d'une exécution de pipeline DAG
+        (statut, étape courante, tokens consommés, étapes achevées, erreurs, variables clés).
+        """
+        try:
+            run: PipelineRunModel | None = None
+            if run_id and int(run_id) > 0:
+                run = PipelineRunModel.get_or_none(PipelineRunModel.id == int(run_id))
+                if not run:
+                    return f"Erreur : Aucun run de pipeline trouvé avec l'id {run_id}."
+            elif pipeline_id and int(pipeline_id) > 0:
+                run = PipelineRunModel.select().where(PipelineRunModel.pipeline == int(pipeline_id)).order_by(PipelineRunModel.id.desc()).first()
+                if not run:
+                    return f"Erreur : Aucun run trouvé pour le pipeline #{pipeline_id}."
+            else:
+                run = PipelineRunModel.select().order_by(PipelineRunModel.id.desc()).first()
+                if not run:
+                    return "Erreur : Aucun run de pipeline enregistré dans la collection."
+
+            state_dict: dict[str, Any] = {}
+            if run.state_data:
+                try:
+                    state_dict = json.loads(run.state_data)
+                except Exception:
+                    state_dict = {}
+
+            variables = state_dict.get("variables", {})
+            var_summary: dict[str, Any] = {}
+            if isinstance(variables, dict):
+                for k, v in variables.items():
+                    if isinstance(v, list):
+                        var_summary[k] = f"liste de {len(v)} éléments"
+                    elif isinstance(v, dict):
+                        var_summary[k] = f"dictionnaire de {len(v)} clés"
+                    elif isinstance(v, (str | int | float | bool)):
+                        var_summary[k] = (str(v)[:100] + "...") if len(str(v)) > 100 else v
+
+            pipe_id = int(run.pipeline.id) if hasattr(run.pipeline, "id") else int(getattr(run, "pipeline_id", 0))
+            run_dict = {
+                "run_id": run.id,
+                "pipeline_id": pipe_id,
+                "pipeline_name": run.pipeline.name if hasattr(run, "pipeline") and run.pipeline else "",
+                "status": run.status,
+                "current_step_order": run.current_step_order,
+                "error_message": run.error_message,
+                "created_at": run.created_at.isoformat() if run.created_at else None,
+                "updated_at": run.updated_at.isoformat() if run.updated_at else None,
+                "state_summary": {
+                    "total_tokens": state_dict.get("total_tokens", 0),
+                    "completed_steps": state_dict.get("completed_steps", []),
+                    "step_execution_counts": state_dict.get("step_execution_counts", {}),
+                    "step_tokens": state_dict.get("step_tokens", {}),
+                    "errors": state_dict.get("errors", []),
+                    "variables": var_summary,
+                },
+            }
+
+            header = f"📊 Détails du Run DAG #{run.id} — Pipeline '{run_dict['pipeline_name']}' [{run.status.upper()}] :"
+            return header + "\n" + json.dumps(run_dict, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error("Erreur get_pipeline_run : %s", e)
+            return f"Erreur lors de la récupération du run de pipeline : {e}"
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -2866,6 +3156,66 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_albums",
+            "description": "Liste les albums d'images et livres scannés enregistrés dans la collection (titre, planches, dossier, statuts).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Nombre maximum d'albums à retourner (défaut: 50)"},
+                    "offset": {"type": "integer", "description": "Décalage pour pagination (défaut: 0)"},
+                    "folder_name": {"type": "string", "description": "Filtrer les albums par nom de dossier (optionnel)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_album_plates",
+            "description": "Consulte la liste ordonnée des planches / pages d'un album avec leurs métadonnées (rotation, recadrage, statut, texte OCR).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "album_id": {"type": "integer", "description": "Identifiant de l'album"},
+                    "album_title": {"type": "string", "description": "Titre exact de l'album (optionnel si album_id est fourni)"},
+                    "limit": {"type": "integer", "description": "Nombre maximum de planches à retourner (défaut: 50)"},
+                    "offset": {"type": "integer", "description": "Décalage pour pagination (défaut: 0)"},
+                    "include_ocr_text": {"type": "boolean", "description": "Inclure le texte OCR complet des planches (défaut: true)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_pipelines",
+            "description": "Liste les pipelines DAG configurés dans AnkiForge avec leurs étapes ordonnées et le statut de leur dernière exécution.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Nombre maximum de pipelines à retourner (défaut: 50)"},
+                    "offset": {"type": "integer", "description": "Décalage pour pagination (défaut: 0)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_pipeline_run",
+            "description": "Consulte l'état détaillé d'une exécution de pipeline DAG (statut, étape courante, tokens, erreurs, variables).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "integer", "description": "Identifiant du run à consulter"},
+                    "pipeline_id": {"type": "integer", "description": "Identifiant du pipeline pour obtenir son dernier run (optionnel si run_id fourni)"},
+                },
+            },
+        },
+    },
 ]
 
 
@@ -3190,6 +3540,26 @@ class ConsultantEngine:
                 d_name = str(tool_args.get("deck_name", ""))
                 conf = bool(tool_args.get("confirm", False))
                 return ConsultantToolRegistry.delete_empty_cards(card_ids=c_ids, deck_name=d_name, confirm=conf), False
+            elif tool_name == "list_albums":
+                limit = int(tool_args.get("limit", 50))
+                offset = int(tool_args.get("offset", 0))
+                folder_name = str(tool_args.get("folder_name", ""))
+                return ConsultantToolRegistry.list_albums(limit=limit, offset=offset, folder_name=folder_name), False
+            elif tool_name == "get_album_plates":
+                album_id = int(tool_args.get("album_id", 0))
+                album_title = str(tool_args.get("album_title", ""))
+                limit = int(tool_args.get("limit", 50))
+                offset = int(tool_args.get("offset", 0))
+                include_ocr = bool(tool_args.get("include_ocr_text", True))
+                return ConsultantToolRegistry.get_album_plates(album_id=album_id, album_title=album_title, limit=limit, offset=offset, include_ocr_text=include_ocr), False
+            elif tool_name == "list_pipelines":
+                limit = int(tool_args.get("limit", 50))
+                offset = int(tool_args.get("offset", 0))
+                return ConsultantToolRegistry.list_pipelines(limit=limit, offset=offset), False
+            elif tool_name == "get_pipeline_run":
+                run_id = int(tool_args.get("run_id", 0))
+                pipeline_id = int(tool_args.get("pipeline_id", 0))
+                return ConsultantToolRegistry.get_pipeline_run(run_id=run_id, pipeline_id=pipeline_id), False
             elif tool_name in MCPHooksAPI.get_registered_tools():
                 plugin_tool = MCPHooksAPI.get_registered_tools()[tool_name]
                 handler = plugin_tool["handler"]

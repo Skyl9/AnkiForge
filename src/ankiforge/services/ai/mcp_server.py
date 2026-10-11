@@ -712,6 +712,52 @@ def prompt_audit_architecture(target_code_or_rule: str) -> str:
 
 
 # =====================================================================
+# OUTILS D'ACCÈS AUX ALBUMS D'IMAGES ET PLANCHES
+# =====================================================================
+
+
+@mcp.tool()
+def list_albums(limit: int = 50, offset: int = 0, folder_name: str = "") -> str:
+    """Liste les albums d'images et livres scannés enregistrés dans la collection (titre, nombre de planches, dossier, statut d'analyse)."""
+    return ConsultantToolRegistry.list_albums(limit=limit, offset=offset, folder_name=folder_name)
+
+
+@mcp.tool()
+def get_album_plates(
+    album_id: int = 0,
+    album_title: str = "",
+    limit: int = 50,
+    offset: int = 0,
+    include_ocr_text: bool = True,
+) -> str:
+    """Consulte la liste ordonnée des planches / pages d'un album avec leurs métadonnées (numéro, rotation, recadrage, statut, texte OCR, fichier média)."""
+    return ConsultantToolRegistry.get_album_plates(
+        album_id=album_id,
+        album_title=album_title,
+        limit=limit,
+        offset=offset,
+        include_ocr_text=include_ocr_text,
+    )
+
+
+# =====================================================================
+# OUTILS DE GESTION DES PIPELINES DAG
+# =====================================================================
+
+
+@mcp.tool()
+def list_pipelines(limit: int = 50, offset: int = 0) -> str:
+    """Liste les pipelines DAG configurés dans AnkiForge (id, nom, description, étapes ordonnées, branchements, statut du dernier run)."""
+    return ConsultantToolRegistry.list_pipelines(limit=limit, offset=offset)
+
+
+@mcp.tool()
+def get_pipeline_run(run_id: int = 0, pipeline_id: int = 0) -> str:
+    """Consulte l'état détaillé d'une exécution de pipeline DAG (statut, étape courante, tokens consommés, erreurs, variables de sortie)."""
+    return ConsultantToolRegistry.get_pipeline_run(run_id=run_id, pipeline_id=pipeline_id)
+
+
+# =====================================================================
 # GESTION DES AGENTS DÉDIÉS AU SERVEUR MCP
 # =====================================================================
 
