@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel
 from ankiforge.repositories.document_repository import DocumentRepository
@@ -435,3 +436,25 @@ def test_reincluding_a_legacy_unprefixed_exclusion_clears_it(qtbot):
     assert not _persisted_exclusions(doc)
     assert DocumentRepository.is_section_excluded(DocumentModel.get_by_id(doc.id), ALL_CHAPTERS[0]) is False
     assert [str(chunk.get("heading_path") or "") for chunk in dialog._selected_chunks_for_mode()] == ALL_CHAPTERS
+
+
+def test_delimitation_dialog_displays_node_and_heading_exclusion_badges(qtbot: Any, mock_db: Any) -> None:
+    """DocumentDelimitationDialog affiche distinctement les badges Titre seul exclu vs Exclu."""
+    doc = _make_paginated_doc("BadgesExclusion")
+    # Chapitre 1 : titre seul (node:)
+    # Chapitre 2 : section complète (heading:)
+    exclusions = ["node:Chapitre 1", "heading:Chapitre 2"]
+    DocumentModel.update(excluded_headings=json.dumps(exclusions)).where(DocumentModel.id == doc.id).execute()
+
+    dialog = DocumentDelimitationDialog(DocumentModel.get_by_id(doc.id))
+    qtbot.addWidget(dialog)
+    dialog.btn_scope_mode_sections.click()
+
+    row0 = _row_for(dialog, 0)
+    row1 = _row_for(dialog, 1)
+
+    labels0 = [lbl.text() for lbl in row0.findChildren(QLabel)]
+    labels1 = [lbl.text() for lbl in row1.findChildren(QLabel)]
+
+    assert "Titre seul exclu" in labels0
+    assert "Exclu" in labels1

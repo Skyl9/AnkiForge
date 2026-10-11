@@ -1443,3 +1443,34 @@ def test_documents_view_doc_type_badge_and_kebab_menu(qtbot, mock_db, monkeypatc
     reloaded_doc = DocumentModel.get_by_id(doc_md.id)
     assert reloaded_doc.title == f"Doc Renommé {uid}"
     assert view.doc_title_lbl.text() == f"Doc Renommé {uid}"
+
+
+def test_documents_view_chapters_list_displays_exclusions(qtbot):
+    """Vérifie que DocumentsView affiche clairement les exclusions (titre seul vs section complète) dans la liste des chapitres."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Doc Exclusions {uid}", content="Test", file_type="md")
+    DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Intro", content="Intro text", content_hash=f"h1_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Conclusion", content="Conclusion text", content_hash=f"h2_{uid}")
+
+    repo = DocumentRepository()
+    repo.set_region_excluded(doc.id, RegionAddress(RegionScope.NODE, "Intro"), True)
+    repo.set_region_excluded(doc.id, RegionAddress(RegionScope.HEADING, "Conclusion"), True)
+
+    view = DocumentsView()
+    qtbot.addWidget(view)
+    view._select_doc_id_in_tree(doc.id)
+
+    items_text = [view.chapters_list.item(i).text() for i in range(view.chapters_list.count())]
+    items_tooltip = [view.chapters_list.item(i).toolTip() for i in range(view.chapters_list.count())]
+
+    # Intro : Titre seul exclu
+    intro_item = next(txt for txt in items_text if "Intro" in txt)
+    assert "Titre seul exclu" in intro_item
+    intro_tip = next(tip for tip in items_tooltip if "Intro" in tip)
+    assert "titre seul" in intro_tip.lower()
+
+    # Conclusion : Exclue (hors périmètre)
+    ccl_item = next(txt for txt in items_text if "Conclusion" in txt)
+    assert "Exclue (hors périmètre)" in ccl_item
+    ccl_tip = next(tip for tip in items_tooltip if "Conclusion" in tip)
+    assert "Hors périmètre" in ccl_tip

@@ -645,3 +645,25 @@ def test_a_fully_holed_page_span_has_no_coverage_denominator(mock_db) -> None:
     assert stats["total_units"] == 0
     assert stats["orphan_units"] == []
     assert stats["excluded_pages"] == [1, 2]
+
+
+def test_get_section_exclusion_scope(mock_db) -> None:
+    """Distingue la portée d'exclusion d'une section : HEADING (branche) vs NODE (titre seul) vs None."""
+    repo = DocumentRepository()
+    doc = DocumentModel.create(title="Cours Exclusions", content="# Chapitre\n## Section", file_type="md")
+
+    # Rien d'exclu au départ
+    assert repo.get_section_exclusion_scope(doc, "Chapitre") is None
+    assert repo.get_section_exclusion_scope(doc, "Chapitre > Section") is None
+
+    # Exclusion de titre seul (NODE)
+    repo.set_region_excluded(doc.id, RegionAddress(RegionScope.NODE, "Chapitre"), True)
+    doc_fresh = repo.get_document_by_id(doc.id)
+    assert repo.get_section_exclusion_scope(doc_fresh, "Chapitre") is RegionScope.NODE
+    assert repo.get_section_exclusion_scope(doc_fresh, "Chapitre > Section") is None
+
+    # Exclusion de section complète (HEADING)
+    repo.set_region_excluded(doc.id, RegionAddress(RegionScope.HEADING, "Chapitre"), True)
+    doc_fresh = repo.get_document_by_id(doc.id)
+    assert repo.get_section_exclusion_scope(doc_fresh, "Chapitre") is RegionScope.HEADING
+    assert repo.get_section_exclusion_scope(doc_fresh, "Chapitre > Section") is RegionScope.HEADING

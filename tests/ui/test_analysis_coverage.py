@@ -1184,3 +1184,58 @@ def test_reactivating_a_lineage_keeps_an_independently_declared_descendant(qtbot
     assert DocumentRepository.is_region_neutralized(DocumentModel.get_by_id(doc.id), heading_path="Chapitre > Detail") is True
     # La sous-section neutralisée sort du dénominateur : il n'y reste que le chapitre.
     assert "0/1 sections" in panel.lbl_doc_summary.text()
+
+
+def test_inspector_displays_node_exclusion_distinctly_from_heading_exclusion(qtbot):
+    """L'inspecteur distingue visuellement l'exclusion d'un titre seul (node:) de l'exclusion complète (heading:)."""
+    uid = uuid.uuid4().hex[:6]
+    doc, chunks = _make_granularity_document(uid)
+    _cover_chunk_with_card(doc, chunks[1], uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    parent_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre")
+    child_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre > Detail")
+
+    # 1. Écarter le titre seul (node:)
+    panel.chapters_tree.setCurrentItem(parent_row)
+    qtbot.wait(10)
+    panel.toggle_section_exclusion(scope=RegionScope.NODE)
+
+    # Le parent affiche qu'il a son titre seul exclu tout en conservant le décompte de ses sous-sections actives
+    assert "Titre seul exclu" in parent_row.text(0)
+    assert parent_row.text(0).startswith("⊖")
+    assert "titre seul" in parent_row.toolTip(0).lower()
+    assert panel.btn_exclude_section.text() == "Ré-inclure le titre seul"
+
+    # La sous-section reste active et couverte
+    assert "1 carte" in child_row.text(0)
+    assert not child_row.text(0).startswith("⊘")
+
+    # 2. Écarter la section complète (heading:)
+    panel.toggle_section_exclusion(scope=RegionScope.NODE)  # ré-inclure
+    panel.toggle_section_exclusion(scope=RegionScope.HEADING)  # exclure branche
+
+    assert "Exclue de l'analyse" in parent_row.text(0)
+    assert parent_row.text(0).startswith("⊘")
+    assert "Hors périmètre" in parent_row.toolTip(0)
+    assert panel.btn_exclude_section.text() == "Ré-inclure la section"
+
+
+def test_inspector_context_menu_offers_exclusion_granularities(qtbot):
+    """Le menu contextuel propose d'écarter la section ou le titre seul sur un titre à enfants."""
+    uid = uuid.uuid4().hex[:6]
+    doc, _chunks = _make_granularity_document(uid)
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    parent_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre")
+    labels = [action.text() for action in panel.chapter_context_menu(parent_row).actions()]
+
+    assert "Exclure cette section" in labels
+    assert "Exclure le titre seul" in labels
+
+    # Une feuille ne propose pas "Exclure le titre seul"
+    child_row = next(item for item in _all_tree_items(panel) if item.data(0, _ROLE_HEADING) == "Chapitre > Detail")
+    leaf_labels = [action.text() for action in panel.chapter_context_menu(child_row).actions()]
+    assert "Exclure le titre seul" not in leaf_labels
