@@ -17,6 +17,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     TokenUsageModel,
 )
+from ankiforge.services.audit.fsrs_projection_service import FsrsProjectionService
 
 logger = logging.getLogger(__name__)
 
@@ -417,6 +418,7 @@ class MetricsService:
                 "cards_count": cards_count,
                 "decks_count": decks_count,
             },
+            "fsrs_projection": FsrsProjectionService.project(),
             "activity_7_days": cls.get_7_days_activity(),
             "diagnostics": cls.get_proactive_diagnostics(),
             "recent_feed": cls.get_recent_feed(10),

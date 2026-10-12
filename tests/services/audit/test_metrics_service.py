@@ -166,6 +166,23 @@ def test_proactive_diagnostics_and_full_data():
     assert "macro_activities" in full_data
 
 
+def test_full_dashboard_data_relays_fsrs_projection():
+    """Le Cockpit relaie la projection FSRS calculée par FsrsProjectionService."""
+    deck = DeckModel.create(name="Relais")
+    nt = NoteTypeModel.create(name="Basic", fields_schema=["Front", "Back"])
+    note = NoteModel.create(note_type=nt)
+    CardModel.create(note=note, deck=deck, ivl=10)
+
+    full_data = MetricsService.get_full_dashboard_data()
+
+    assert "fsrs_projection" in full_data
+    projection = full_data["fsrs_projection"]
+    assert projection["available"] is True
+    assert projection["studied_cards"] == 1
+    assert projection["equilibrium_load_per_day"] == pytest.approx(0.1, abs=1e-6)
+    assert [c["day"] for c in projection["checkpoints"]] == [1, 3, 7, 14]
+
+
 def test_recent_macro_actions():
     deck = DeckModel.create(name="Médecine")
     nt = NoteTypeModel.create(name="Basic", fields_schema=["Front", "Back"])
