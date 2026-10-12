@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from ankiforge.database.models import (
     DocumentChunkModel,
@@ -1928,7 +1929,7 @@ class DocumentsView(FileDropMixin, QWidget):
         if batch_worker is not None and batch_worker.isRunning():
             batch_worker.cancel()
         coverage_worker = self._coverage_worker
-        if coverage_worker is not None and coverage_worker.isRunning() and hasattr(coverage_worker, "cancel"):
+        if coverage_worker is not None and isValid(coverage_worker) and coverage_worker.isRunning() and hasattr(coverage_worker, "cancel"):
             coverage_worker.cancel()
         self.view_model.cancel_operation()
         self.view_model.dispose()
@@ -2684,8 +2685,22 @@ class DocumentsView(FileDropMixin, QWidget):
         self._coverage_worker = CoverageWorker(document_id=self._current_doc_id, activity=activity, parent=self)
         self._coverage_worker.finished_processing.connect(self._on_vectorization_success)
         self._coverage_worker.error_occurred.connect(self._on_vectorization_error)
+        self._coverage_worker.finished.connect(self._release_coverage_worker)
         self._coverage_worker.finished.connect(self._coverage_worker.deleteLater)
         self._coverage_worker.start()
+
+    def _release_coverage_worker(self) -> None:
+        """Remet ``self._coverage_worker`` à ``None`` à la fin de l'indexation RAG.
+
+        Le thread est détruit par ``deleteLater()`` : conserver la référence au-delà
+        ferait lever ``RuntimeError: libshiboken: Internal C++ object already deleted``
+        au prochain accès, notamment dans ``shutdown()``. Un signal émis par un worker
+        déjà remplacé ne doit pas invalider la référence en cours (garde sur l'émetteur).
+        """
+        sender = self.sender()
+        if sender is not None and sender is not self._coverage_worker:
+            return
+        self._coverage_worker = None
 
     @Slot()
     def _on_vectorization_success(self) -> None:

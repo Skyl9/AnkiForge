@@ -62,9 +62,12 @@ class AIDuplicatesMergeTab(QWidget):
         # Conteneur mutable partagé avec le raccourci de `destroyed` : un slot lié à
         # `self` n'est pas appelé pendant `~QObject`, un lambda qui ne capture que ce
         # conteneur l'est, et il peut encore joindre le thread enfant avant sa destruction.
+        # La liaison DOIT donc être un lambda (jamais `self._on_destroyed`), sans quoi le
+        # filet de sécurité resterait inerte et un QThread actif serait détruit en cours
+        # d'exécution (« QThread: Destroyed while thread is still running »).
         worker_holder: list[DuplicateWorker | None] = [None]
         self._worker_holder = worker_holder
-        self.destroyed.connect(self._on_destroyed)
+        self.destroyed.connect(lambda *_args: _join_worker(worker_holder))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -104,10 +107,6 @@ class AIDuplicatesMergeTab(QWidget):
     @worker.setter
     def worker(self, worker: DuplicateWorker | None) -> None:
         self._worker_holder[0] = worker
-
-    def _on_destroyed(self, *_args: object) -> None:
-        """Joint le thread encore actif au moment de la destruction du widget."""
-        _join_worker(self._worker_holder)
 
     def open_deck_select_dialog(self) -> None:
         self._deck_dialog = DeckSelectWindow(parent=self, selected_deck_id=self.selected_deck_id)

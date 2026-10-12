@@ -313,3 +313,23 @@ def test_hide_event_waits_for_running_scan(qtbot) -> None:
 
         assert not _is_running_safe(worker)
         qtbot.waitUntil(lambda: tab.worker is None, timeout=5000)
+
+
+def test_destroyed_signal_joins_worker_through_lambda(qtbot, monkeypatch) -> None:
+    """Le filet ``destroyed`` doit être un lambda, jamais une méthode liée à ``self``.
+
+    Un slot lié à ``self`` n'est pas appelé pendant ``~QObject`` : le join du thread
+    resterait inerte et un ``QThread`` encore actif serait détruit en cours d'exécution
+    (« QThread: Destroyed while thread is still running »).
+    """
+    joined: list[int] = []
+    monkeypatch.setattr(
+        "ankiforge.ui.views.analysis_view.tabs.duplicates_merge_tab._join_worker",
+        lambda holder: joined.append(id(holder)),
+    )
+
+    tab = AIDuplicatesMergeTab()
+    holder_id = id(tab._worker_holder)
+    tab.deleteLater()
+
+    qtbot.waitUntil(lambda: joined == [holder_id], timeout=5000)

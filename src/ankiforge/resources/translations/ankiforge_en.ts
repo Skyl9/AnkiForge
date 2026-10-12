@@ -283,7 +283,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     <message>
         <location line="+6"/>
         <location line="+64"/>
-        <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+193"/>
+        <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+192"/>
         <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+111"/>
         <location filename="../../ui/views/creation_view/view.py" line="+1653"/>
         <location line="+29"/>
@@ -1066,7 +1066,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location line="+26"/>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+474"/>
         <location filename="../../ui/views/creation_view/view.py" line="+226"/>
-        <location filename="../../ui/views/documents_view/view.py" line="+1593"/>
+        <location filename="../../ui/views/documents_view/view.py" line="+1594"/>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
@@ -3317,7 +3317,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+53"/>
         <source>Échec de l&apos;indexation RAG : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10412,7 +10412,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2510"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2524"/>
         <source>Importer un fichier local (PDF, Markdown, Texte, .apkg)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10842,12 +10842,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+17"/>
-        <location line="+581"/>
+        <location line="+595"/>
         <source>Veuillez d&apos;abord sélectionner un document.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-576"/>
+        <location line="-590"/>
         <source>L&apos;analyse Marker OCR est disponible uniquement pour les fichiers PDF.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10932,7 +10932,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+26"/>
         <location line="+10"/>
         <source>Indexer (RAG)</source>
         <translation type="unfinished"></translation>

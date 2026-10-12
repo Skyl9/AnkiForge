@@ -12,8 +12,10 @@ import pytest
 from PySide6.QtCore import QMimeData, QPoint, QPointF, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QTreeWidgetItem
+from shiboken6 import isValid
 
 from ankiforge.database.models import DocumentModel
+from ankiforge.services.workers.coverage_worker import CoverageWorker
 from ankiforge.services.workers.document_batch_worker import (
     DocumentBatchTask,
     DocumentBatchWorker,
@@ -696,3 +698,37 @@ def test_single_pdf_import_uses_persist_imported_document_and_preserves_flow(qtb
     assert doc.content == ""
     assert start_worker.called
     assert start_worker.call_args.kwargs.get("doc_id") == doc.id
+
+
+# ── Cycle de vie du CoverageWorker (crash libshiboken à la fermeture) ────────
+
+
+def test_release_coverage_worker_nulls_reference(qtbot) -> None:
+    """La fin du thread d'indexation libère la référence au worker (pas de pointeur fantôme)."""
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    worker = CoverageWorker(document_id=-1, parent=view)
+    view._coverage_worker = worker
+
+    view._release_coverage_worker()
+
+    assert view._coverage_worker is None
+
+
+def test_shutdown_tolerates_destroyed_coverage_worker(qtbot) -> None:
+    """``shutdown()`` ne doit pas lever si ``_coverage_worker`` vise un objet C++ détruit.
+
+    Régression : le worker d'indexation est détruit par ``deleteLater()`` ; sans garde,
+    la fermeture de la vue relisait ``isRunning()`` sur un pointeur fantôme et levait
+    ``RuntimeError: libshiboken: Internal C++ object (CoverageWorker) already deleted``.
+    """
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    phantom = CoverageWorker(document_id=-1, parent=view)
+    phantom.deleteLater()
+    qtbot.waitUntil(lambda: not isValid(phantom), timeout=5000)
+    view._coverage_worker = phantom
+
+    view.shutdown()  # Ne doit lever aucune exception.
