@@ -43,6 +43,7 @@ nav = [
       { "Laboratoire de Tests A/B" = "features/ab_testing.md" },
       { "Linter Wozniak & Hôpital d'Audit" = "features/linter_wozniak.md" },
       { "Synchronisation & Smart Merge" = "features/synchro_smart_merge.md" },
+      { "Export .apkg & Oracle Anki" = "features/export_apkg_oracle_anki.md" },
       { "Personas & Modèles d'Agents" = "features/personas_et_agents.md" },
   ]},
   { "Architecture" = [

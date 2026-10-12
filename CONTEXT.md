@@ -20,7 +20,7 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : modèle, modèle de notes, modèle de carte, card model, note model
 - **Note** : l'unité de contenu d'une collection — un jeu de valeurs conforme à un type de note. Elle ne porte aucun état de révision.
   _Avoid_ : fiche, item
-- **Carte** : l'unité de révision dérivée d'une note à partir d'un gabarit de son type de note. Elle porte l'état de révision (SRS) et appartient à un paquet.
+- **Carte** : l'unité de révision dérivée d'une note à partir d'un gabarit de son type de note. Elle appartient à un paquet et **héberge** les compteurs SRS d'observation (`ivl`, `reps`, `lapses`, drapeaux, suspension) importés d'Anki, dont l'ordonnancement relève exclusivement d'Anki (voir *Ordonnancement*).
   _Avoid_ : flashcard, question, verso
 - **Carte sangsue (ou Sangsue)** : carte dont le nombre d'échecs répétés lors des révisions (`lapses`) atteint ou dépasse le seuil critique configuré, signalant une anomalie cognitive ou de formulation (surcharge informationnelle, ambiguïté, interférence) nécessitant un diagnostic et une scission atomique.
   _Avoid_ : carte difficile, carte échouée, leech, mauvaise carte
@@ -37,6 +37,9 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 
 - **Charge à l'équilibre** : estimation du nombre de révisions par jour d'une collection parvenue à son régime stable, obtenue en sommant l'inverse de l'intervalle de chaque carte. Ce n'est pas une projection calendaire fondée sur des dates d'échéance, que la Forge ne stocke pas.
   _Avoid_ : charge prévisionnelle, charge projetée, charge future, charge de travail future, workload
+
+- **Ordonnancement (propriété d'Anki)** : l'état de révision *actif* d'une carte — date d'échéance (`due`), facteur de facilité, journal de révision (`revlog`) et paramètres d'algorithme (FSRS/SM-2). Il relève **exclusivement d'Anki** : la Forge ne le modélise, ne le calcule ni ne le reconstitue. Un export ne fabrique jamais d'état d'ordonnancement ; les cartes exportées redémarrent leur flux dans Anki.
+  _Avoid_ : planification, scheduling, ordonnancement AnkiForge, SRS de la Forge
 
 ## Génération IA
 
