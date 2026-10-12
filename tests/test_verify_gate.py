@@ -115,10 +115,11 @@ def test_pre_push_hook_passes_on_success(tmp_path: Path) -> None:
 
 
 def test_verify_script_step_definitions() -> None:
-    """Le script canonique doit définir les 5 étapes dans l'ordre strict requis avec timeouts."""
+    """Le script canonique doit définir les 6 étapes dans l'ordre strict requis avec timeouts."""
     from script.verify import CANONICAL_STEPS
 
     expected_steps = [
+        ("instructions-drift", ["python", "script/sync_agent_instructions.py", "--check"]),
         ("ruff-check", ["ruff", "check", "."]),
         ("ruff-format", ["ruff", "format", "--check", "."]),
         ("mypy", ["mypy", "src/ankiforge"]),
@@ -126,7 +127,7 @@ def test_verify_script_step_definitions() -> None:
         ("pytest-fast", ["pytest", "-m", "not slow", "--max-worker-restart=0"]),
     ]
 
-    assert len(CANONICAL_STEPS) == len(expected_steps), f"Attendu 5 étapes canoniques, reçu {len(CANONICAL_STEPS)}"
+    assert len(CANONICAL_STEPS) == len(expected_steps), f"Attendu 6 étapes canoniques, reçu {len(CANONICAL_STEPS)}"
 
     for i, (expected_name, expected_cmd) in enumerate(expected_steps):
         step = CANONICAL_STEPS[i]
@@ -600,8 +601,8 @@ def test_skip_step_via_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exit_code == 0
     assert "bandit" not in invoked_steps
     assert "pytest-fast" not in invoked_steps
-    # Les 3 étapes restantes doivent avoir été exécutées
-    assert len(invoked_steps) == 3
+    # Les 4 étapes restantes doivent avoir été exécutées
+    assert len(invoked_steps) == 4
 
 
 def test_timeout_override_propagated(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -690,3 +691,24 @@ def test_empty_filter_returns_zero(monkeypatch: pytest.MonkeyPatch) -> None:
 
     exit_code = run_verification(steps=custom_steps, only=["nonexistent"])
     assert exit_code == 0
+
+
+def test_apply_auto_fix_includes_sync_instructions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """apply_auto_fix doit exécuter sync_agent_instructions.py --write avant les commandes Ruff."""
+    from script.verify import apply_auto_fix
+
+    executed_commands: list[list[str]] = []
+
+    def mock_run(cmd: list[str], *args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        executed_commands.append(cmd)
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    exit_code = apply_auto_fix(quiet=True)
+    assert exit_code == 0
+
+    # Vérifier que sync_agent_instructions.py a été invoqué en premier
+    assert len(executed_commands) == 3
+    assert any("sync_agent_instructions.py" in str(arg) for arg in executed_commands[0])
+    assert "--write" in executed_commands[0]

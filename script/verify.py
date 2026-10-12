@@ -3,11 +3,12 @@
 
 Enchaîne de manière déterministe et ordonnée l'ensemble des contrôles de qualité,
 typage, sécurité et tests pré-push du projet :
-1. ruff check .                (Linting et règles PEP8 / T20 no print)
-2. ruff format --check .       (Formatage uniforme)
-3. mypy src/ankiforge          (Typage statique strict 100%)
-4. bandit -c pyproject.toml -r src/ (Audit sécurité statique)
-5. pytest -m "not slow"        (Tests unitaires et headless rapides < 15s)
+1. python script/sync_agent_instructions.py --check (Contrôle dérive adaptateurs instructions)
+2. ruff check .                (Linting et règles PEP8 / T20 no print)
+3. ruff format --check .       (Formatage uniforme)
+4. mypy src/ankiforge          (Typage statique strict 100%)
+5. bandit -c pyproject.toml -r src/ (Audit sécurité statique)
+6. pytest -m "not slow"        (Tests unitaires et headless rapides < 15s)
 
 Utilisation :
     uv run python script/verify.py             # Exécution standard fail-fast
@@ -84,6 +85,12 @@ class StepResult:
 
 
 CANONICAL_STEPS: list[VerificationStep] = [
+    VerificationStep(
+        name="instructions-drift",
+        command=["python", "script/sync_agent_instructions.py", "--check"],
+        description="Contrôle de synchronisation des adaptateurs d'instructions agents",
+        timeout=15.0,
+    ),
     VerificationStep(
         name="ruff-check",
         command=["ruff", "check", "."],
@@ -324,15 +331,23 @@ def run_single_step(
 
 
 def apply_auto_fix(cwd: Path = REPO_ROOT, quiet: bool = False) -> int:
-    """Applique les corrections automatiques Ruff lint et format."""
+    """Applique les corrections automatiques (synchronisation instructions, Ruff lint et format)."""
     if not quiet:
-        print("🛠️  Application automatique des corrections Ruff (lint --fix + format)...")
+        print("🛠️  Application automatique des corrections (instructions agents, Ruff lint --fix + format)...")
 
+    # 1. Synchronisation déterministe des adaptateurs d'instructions agents
+    cmd_sync_instructions = build_full_command(["python", "script/sync_agent_instructions.py", "--write"])
+    res_sync = subprocess.run(cmd_sync_instructions, cwd=cwd, check=False)
+    if res_sync.returncode != 0:
+        return res_sync.returncode
+
+    # 2. Ruff check --fix
     cmd_lint_fix = build_full_command(["ruff", "check", "--fix", "."])
     res_lint = subprocess.run(cmd_lint_fix, cwd=cwd, check=False)
     if res_lint.returncode != 0:
         return res_lint.returncode
 
+    # 3. Ruff format
     cmd_format = build_full_command(["ruff", "format", "."])
     res_fmt = subprocess.run(cmd_format, cwd=cwd, check=False)
     return res_fmt.returncode
