@@ -1,149 +1,50 @@
 ---
 name: mise-a-jour-metadonnees
-description: >
-  Gardien de la cohérence documentaire et méta-auditeur du parc de skills AnkiForge. Met à jour
-  directement les fichiers de métadonnées (GEMINI.md, AGENTS.md, DESIGN.md, docs/Dossier_architecture/,
-  .agents/skills/, README.md, PRODUCT.md, pyproject.toml) et audite/améliore chaque skill
-  (grille de maturité 5 axes, triggers, progressive disclosure, relations avec GEMINI.md et AGENTS.md).
-  Ce skill NE s'active PAS automatiquement — il doit être invoqué EXPLICITEMENT par l'utilisateur
-  (ex: "mets à jour les métadonnées", "sync la doc", "update GEMINI.md", "documenter le nouveau widget",
-  "ajouter une règle", "mettre à jour AGENTS.md", "sync docs architecture", "mettre à jour les skills",
-  "améliorer les skills", "optimiser les skills", "auditer les skills", "cohérence skills",
-  "conseiller des améliorations pour les skills", "méta-skill", "docs out of sync", "mise à jour post-feature").
+description: >-
+  Gardien de la synchronisation documentaire et des métadonnées du projet AnkiForge. Met à jour les 15 fichiers de métadonnées et d'architecture (GEMINI.md, AGENTS.md, DESIGN.md, docs/Dossier_architecture/, README.md, PRODUCT.md) suite à des ajouts ou modifications de code.
+  Use when the user asks to "mets à jour les métadonnées", "sync la doc", "update GEMINI.md", "mettre à jour AGENTS.md", "documenter le nouveau widget", "sync docs architecture", "docs out of sync", "mise à jour post-feature", or needs to align project documentation with code changes.
+  When NOT to use: Do not use for auditing or governing the agent skills catalog (use gouvernance-skills) or building Zensical HTML docs (use documentation-zensical).
 ---
 
-# 📋 Méta-Skill : Métadonnées & Cohérence des Skills — AnkiForge
+# 📋 Synchronisation des Métadonnées & Architecture — AnkiForge
 
-En tant que **Documentaliste Technique & Gardien de la Cohérence**, tu maintiens les fichiers de
-métadonnées du projet en parfaite synchronisation avec le code source et tu assures la qualité du
-catalogue de skills. Tu appliques les mises à jour **directement** (Mode B — git permet le rollback).
-Aucune étape de validation intermédiaire n'est requise.
+En tant que **Documentaliste Technique du Projet**, tu maintiens les 15 fichiers de métadonnées et d'architecture d'AnkiForge en parfaite synchronisation avec le code source après chaque développement.
 
-> **Références adjacentes :**
-> - `references/fichiers_cibles.md` : Structure des 15 fichiers cibles + patterns de détection de désync.
-> - `references/grille_evaluation.md` : Grille de maturité des skills (5 axes /20, rangs A-D).
-> - `references/guide_redaction_skills.md` : Modèle canonique de rédaction d'un SKILL.md.
-> - `references/analyse_besoins_skills.md` : Gap analysis — analyse réelle + fiche candidat pour proposer de nouveaux skills.
-> - `scripts/auditer_coherence_skills.py` : Audit statique automatisé du parc de skills.
-
-## 1. Périmètre — Les 15 Fichiers de Métadonnées
+## 1. Périmètre — Les 15 Fichiers Cibles
 
 | # | Fichier | Déclencheur typique |
 |---|---|---|
-| 1 | `GEMINI.md` | Nouvelle règle, nouveau skill, règle structurante |
-| 2 | `AGENTS.md` | Nouvelle commande, fichier clé, compteur de tests |
-| 3 | `DESIGN.md` | Nouveau widget/thème/layout Qt |
-| 4 | `docs/…/07_inventaire_composants_ui.md` | Nouveau widget, dialog, panel |
-| 5 | `docs/…/08_plan_implementation_global.md` | Feature complétée/modifiée (✅/🔄/❌) |
-| 6 | `docs/…/01_vision_et_cas_d_usage.md` | Nouveau pilier fonctionnel |
-| 7 | `docs/…/02_architecture_technique.md` | Nouveau composant d'architecture |
-| 8 | `docs/…/03_modele_donnees_synchro.md` | Nouveau modèle Peewee, FK, migration |
-| 9 | `docs/…/04_ui_ux_et_maquettes.md` | Nouvelle vue, refonte UX |
-| 10 | `docs/…/05_services_ia_et_analyse.md` | Nouveau fournisseur LLM/service |
+| 1 | `GEMINI.md` | Nouvelle règle d'architecture, mise à jour du catalogue de compétences |
+| 2 | `AGENTS.md` | Nouvelle commande CLI, fichier clé, compteur de tests |
+| 3 | `DESIGN.md` | Nouveau composant Qt, nouveau thème ou layout |
+| 4 | `docs/…/07_inventaire_composants_ui.md` | Nouveau widget, dialogue ou panneau |
+| 5 | `docs/…/08_plan_implementation_global.md` | Statut d'une fonctionnalité complétée (✅/🔄) |
+| 6 | `docs/…/01_vision_et_cas_d_usage.md` | Évolution d'un pilier fonctionnel |
+| 7 | `docs/…/02_architecture_technique.md` | Nouveau service ou composant d'architecture |
+| 8 | `docs/…/03_modele_donnees_synchro.md` | Nouveau modèle Peewee, clé étrangère, migration |
+| 9 | `docs/…/04_ui_ux_et_maquettes.md` | Nouvelle vue ou refonte ergonomique |
+| 10 | `docs/…/05_services_ia_et_analyse.md` | Nouveau fournisseur LLM ou service d'analyse |
 | 11 | `docs/…/06_moteur_orchestration_ia.md` | Nouveau type d'étape DAG, outil MCP |
 | 12 | `docs/…/09_qualite_et_deploiement.md` | Workflow CI, seuil de couverture |
-| 13 | `.agents/skills/*.md` | Nouveau skill, modification d'un skill |
-| 14 | `PRODUCT.md` | Feature majeure livrée |
-| 15 | `README.md` | Feature visible utilisateur, nouvelle commande |
+| 13 | `.agents/skills/*.md` | Compétences disponibles |
+| 14 | `PRODUCT.md` | Fonctionnalité majeure livrée |
+| 15 | `README.md` | Commande utilisateur ou présentation générale |
 
-**À surveiller :** `pyproject.toml` (commandes/scripts ↔ `AGENTS.md`), `pytest.ini`/`conftest.py`
-(contraintes de test), `.github/workflows/` (CI), `.pre-commit-config.yaml` (hooks).
-
-## 2. Détection Automatique des Changements
+## 2. Détection des Évolutions
 
 ```bash
-git diff --name-only HEAD                     # fichiers modifiés depuis le dernier commit
-git diff HEAD                                 # diff complet pour identifier les ajouts
-git log --oneline -5; git diff HEAD~1 --name-only   # si le changement est plus ancien
+git diff --name-only HEAD~1 HEAD
 ```
+Identifier les couches modifiées : `src/ankiforge/ui/` (➔ DESIGN.md, 07), `src/ankiforge/database/` (➔ 03, AGENTS.md), `src/ankiforge/services/` (➔ 05, 06).
 
-Si `git` est indisponible ou la modification est décrite verbalement, utiliser la description
-utilisateur comme source de vérité.
+## 3. Règle d'Application
 
-## 3. Mapping Changement → Fichiers à Mettre à Jour
+- Appliquer les modifications **directement** dans les fichiers concernés (git permet le rollback).
+- Préserver strictement la structure existante et les commentaires.
+- Ne jamais réordonner les numéros de règles dans `GEMINI.md`.
 
-| Modification du code | Fichiers à mettre à jour |
-|---|---|
-| Nouveau widget Qt (`src/ankiforge/ui/`) | `DESIGN.md` §1.1, `07_inventaire_composants_ui.md` |
-| Nouveau modèle Peewee | `03_modele_donnees_synchro.md`, `AGENTS.md` si central |
-| Nouvelle vue / statut → ✅ | `07`, `08_plan_implementation_global.md`, `04_ui_ux_et_maquettes.md` |
-| Nouveau service IA / fournisseur LLM | `05_services_ia_et_analyse.md`, `GEMINI.md` |
-| Nouvelle étape DAG / outil MCP | `06_moteur_orchestration_ia.md`, `GEMINI.md` |
-| Nouvelle commande CLI | `AGENTS.md` Key Commands |
-| Nombre de tests | `AGENTS.md` (vérifier via `uv run pytest --collect-only -q \| tail -3`) |
-| Nouveau fichier clé `src/ankiforge/` | `AGENTS.md` Key Files |
-| Nouvelle règle d'architecture | `GEMINI.md` (numérotation séquentielle, ne jamais réordonner) |
-| Nouveau skill / modification skill | §4 ci-dessous + `GEMINI.md`, `AGENTS.md` |
-| Nouveau thème / layout Qt | `DESIGN.md` PARTIE 2 |
-| Feature visible utilisateur | `README.md`, `PRODUCT.md` |
-| Modification CI/CD | `09_qualite_et_deploiement.md`, `AGENTS.md`, `GEMINI.md` |
+## When NOT to use this skill
 
-## 4. Audit & Amélioration du Parc de Skills
-
-À exécuter dès que la demande touche `.agents/skills/` (“auditer/mettre à jour/améliorer les skills”, création d'un skill).
-
-### 4.1 Audit statique automatisé
-```bash
-uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py
-uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py --json
-```
-Le script vérifie : frontmatter (kebab-case), sync GEMINI/AGENTS/Copilot, profils yaml, taille
-`≤ 150` lignes, garde-fous ⛔, fichiers référencés, absence de `print()`, collisions de triggers.
-
-### 4.2 Scoring de maturité (grille 5 axes)
-Pour chaque skill ciblé, attribuer une note /20 avec `references/grille_evaluation.md` :
-Triggering, Progressive Disclosure, Rigueur procédurale (`uv run`), Conformité AnkiForge, Garde-fous.
-Rang : **A** 18-20 (Production Ready) · **B** 14-17 (Opérationnel) · **C** 10-13 (Perfectible) ·
-**D** <10 (À refondre).
-**Analyser le fond, pas le frontmatter** : lire `references/`+`scripts/`, confronter commandes/paths/
-inventaires au code réel (`pyproject.toml`, `src/`, `DESIGN.md`) et au `git log`.
-
-### 4.3 Recommandations & proposition de nouveaux skills
-- Enrichir description/triggers ; lever les ambiguïtés entre skills voisins ; suggérer `scripts/`/`references/` si dense.
-- Appliquer `references/analyse_besoins_skills.md` : sources de signaux (historique git, demandes
-  récurrentes, procédures manuelles), critères d'admission (preuves ≥ 3, complexité, non-couverture).
-- Présenter chaque candidat (`RECOMMANDÉ`/`EN ATTENTE`/`REJETÉ` + score /7) pour validation
-  utilisateur **avant** création, puis appliquer §4.4.
-
-### 4.4 Application des modifications skills
-Mettre à jour les `SKILL.md` cibles (triggers, section ⛔, déports `references/`/`scripts/`),
-puis synchroniser `GEMINI.md` (section Skills), `AGENTS.md` (catalogue) et `copilot-instructions.md`.
-
-## 5. Application Directe (Mode B)
-
-1. **Lire** chaque fichier impacté pour respecter le style/format existant.
-2. **Modifier** via l'éditeur ; n'utiliser `cat >` que pour créer de **nouveaux** fichiers.
-   - `GEMINI.md` : règles numérotées 1→N, ne jamais réordonner les existantes.
-   - `DESIGN.md` : widgets en §1.1 avec leurs tokens `DesignTokens.*`.
-   - `08_plan_implementation_global.md` : statuts `✅ Opérationnel` / `🔄 En cours` / `❌ Non implémenté`.
-3. **Cohérence croisée** : nouveau skill → référencé dans `GEMINI.md` ET `AGENTS.md` ; widget →
-   aussi dans `07_inventaire_composants_ui.md` ; commande `pyproject.toml` → aussi dans `AGENTS.md`.
-
-## 6. Validation Finale & Rapport
-
-```bash
-uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py
-uv run ruff check .agents/skills/mise-a-jour-metadonnees/scripts/
-```
-
-Restituer un résumé structuré :
-
-```
-## 📋 Métadonnées mises à jour
-| Fichier | Modification |
-|---|---|
-| GEMINI.md | Ajout règle 21 : ... |
-| AGENTS.md | Compteur tests : 146 → 152 |
-| Skill X | Rang B → A, triggers enrichis |
-
-**Rollback :** `git diff HEAD` pour voir les changements, `git checkout HEAD -- <fichier>` pour annuler.
-```
-
-## ⛔ Ne PAS utiliser ce skill si...
-
-- L'activation vient de mots-clés automatiques — l'invocation doit être **explicite** (demande directe ou commande `/`).
-- La modification documentaire est **triviale** (faute de frappe, reformulation) → outils d'édition directs.
-- L'utilisateur demande un **audit de conformité du code** (BDD, sécurité, UI, perf, tests) → skills spécialisés d'audit (`audit-donnees`, `audit-securite`, etc.).
-- La demande porte sur la **doc Zensical** (`docs/`, build, nav) → skill `documentation-zensical`.
-- Le changement de `GEMINI.md` est très structurant → demander confirmation (system prompt global de tous les agents).
-- `git status` échoue → signaler et demander confirmation avant toute modification (pas de rollback possible).
+- L'objectif est d'**auditer la cohérence ou la qualité du parc de skills** → utiliser `gouvernance-skills`.
+- L'objectif est de **valider la compilation HTML de la documentation Zensical** → utiliser `documentation-zensical`.
+- L'objectif est d'**auditer la conformité du code Python aux règles GEMINI.md** → utiliser `audit-ankiforge` ou `audit-qualite-code`.

@@ -196,6 +196,8 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
         if description:
             skill_info["has_description"] = True
             descriptions[skill_name] = description
+            if len(description) > 1024:
+                results["warnings"].append(f"Skill '{skill_name}' : description dépasse 1024 caractères ({len(description)} car., limite agentskills.io).")
             if any(kw in description.lower() for kw in TRIGGER_KEYWORDS):
                 skill_info["has_triggers"] = True
             else:
@@ -205,11 +207,22 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
             skill_info["issues"].append("Clé 'description' manquante dans le frontmatter")
             results["errors"].append(f"Skill '{skill_name}' : description manquante.")
 
-        # Vérification de la section négative (anti-pattern guard) — propagée au statut
-        if "## ⛔ Ne PAS utiliser ce skill si" in content or "## Ne pas utiliser ce skill si" in content:
+        # Vérification de la section négative (anti-pattern guard) — FR ou standard international agentskills.io
+        negative_headers = [
+            "## ⛔ Ne PAS utiliser ce skill si",
+            "## Ne pas utiliser ce skill si",
+            "## When NOT to use this skill",
+            "## When not to use this skill",
+            "## When NOT to use",
+            "## When not to use",
+            "## Boundaries & Exclusions",
+            "## Anti-patterns & Exclusions",
+            "## Exclusions",
+        ]
+        if any(h.lower() in content.lower() for h in negative_headers):
             skill_info["has_negative_triggers"] = True
         else:
-            issue = "Section d'exclusion '## ⛔ Ne PAS utiliser ce skill si...' manquante (garde-fou requis)."
+            issue = "Section d'exclusion ('## When NOT to use this skill...' ou '## ⛔ Ne PAS utiliser ce skill si...') manquante."
             skill_info["issues"].append(issue)
             results["warnings"].append(f"Skill '{skill_name}' : {issue}")
 

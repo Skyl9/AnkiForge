@@ -1,62 +1,46 @@
 ---
 name: ingestion-multimedia
-description: >
-  Expert en ingestion et parsing de contenus multimédia pour AnkiForge. Convertit PDF, DOCX, PPTX,
-  EPUB, notebooks, code source, audio, vidéos YouTube et pages web en Markdown propre, puis en chunks
-  pour le pipeline RAG. Orchestre src/ankiforge/services/parsing/ (DocumentParser, MarkerService,
-  AudioParser, YouTubeParser, WebImporter, EpubParser, PptxParser, chunking_service), la gestion des
-  médias (services/cards/media_manager.py) et l'installation de l'OCR Marker.
-  Use when the user asks to "ingérer un document", "parser un pdf/docx/epub/pptx", "importer une
-  vidéo youtube", "transcrire un audio", "extraire un site web", "installer Marker", "OCR un pdf",
-  "découper en chunks", "segmentation", "préparer des documents pour le RAG", "gérer les images extraites",
-  or needs to convert/segment a source into Markdown.
+description: >-
+  Expert en extraction et conversion de documents multimédia pour AnkiForge. Convertit PDF (Marker OCR / pypdf), audio/transcription STT, vidéos YouTube, pages web, DOCX, PPTX, EPUB, notebooks et code source en Markdown propre avec extraction des médias associés.
+  Use when the user asks to "ingérer un document", "parser un pdf/docx/epub/pptx", "importer une vidéo youtube", "transcrire un audio", "extraire un site web", "installer Marker", "OCR un pdf", "extraire les images d'un document", or needs to parse a source into Markdown.
+  When NOT to use: Do not use for semantic chunking, vector indexing, document delimitation, or card coverage alignment (use rag-smart-coverage).
 ---
 
 # 🎬 Ingestion Multimédia — AnkiForge
 
-En tant qu'**Expert Ingestion & Parsing**, tu transformes toute source (fichiers, médias, URLs) en
-Markdown propre puis en chunks typés pour le pipeline RAG, en orchestrant les parseurs existants.
+En tant qu'**Expert Ingestion & Parsing**, tu transformes toute source brute (fichiers, médias, URLs) en Markdown propre avec extraction des images associées via `MediaManager`.
 
-> **Référence** : `references/catalogue_parsers.md` — mapping format → parseur, entrées/sorties,
-> options et fallbacks. Code source : `src/ankiforge/services/parsing/`.
+> **Référence** : `references/catalogue_parsers.md` — mapping format → parseur, entrées/sorties, options et fallbacks.
+> Code source : `src/ankiforge/services/parsing/`.
 
 ## 1. Périmètre & Principes
 
-- **Périmètre** : `src/ankiforge/services/parsing/` (extraction), `MediaManager`
-  (`services/cards/media_manager.py`), `ChunkingService` (`services/parsing/chunking_service.py`).
-- **Sortie standard** : Markdown (`str`) → chunks typés (`dict`) pour le RAG.
-- **Règles** : pas d'appel réseau/LLM bloquant sur le thread principal (→ workers) ; aucun secret
-  en log (tokens STT/YouTube) ; Marker est un processus externe lourd (venv dédié) à ne pas forcer.
+- **Périmètre** : `src/ankiforge/services/parsing/` (`DocumentParser`, `MarkerService`, `AudioParser`, `YouTubeParser`, `WebImporter`, `EpubParser`, `PptxParser`) et gestion des médias extraits (`src/ankiforge/services/cards/media_manager.py`).
+- **Sortie standard** : Markdown propre (`str`) avec références relatives aux médias extraits dédupliqués.
+- **Règles non négociables** :
+  - Aucun appel réseau ou extraction lourde bloquante sur le thread principal de l'interface (déléguer aux workers `QThread` / `DocumentBatchWorker`).
+  - Aucun secret ou token d'API en log (tokens STT, clés de transcription).
+  - Marker est un processus externe lourd (venv dédié sous `.ankiforge/marker_env`) : vérifier la disponibilité (`is_marker_available()`) avant de forcer une installation.
 
-## 2. Procédure d'ingestion
+## 2. Procédure d'extraction
 
-1. **Identifier la source** (extension / URL / type) → choisir le parseur via `references/catalogue_parsers.md`.
-2. **Parser** : `DocumentParser().parse_document(path, progress_callback=..., check_cancel=...)`
-   (dispatch automatique) ou parseur spécialisé direct (`YouTubeParser`, `WebImporter`, `AudioParser`...).
-3. **Récupérer les médias extraits** : `MediaManager.store_document_source()`, `store_media_bytes()`,
-   `process_extracted_folder()` (dossier Marker) — déduplication MD5, références relatives dans le Markdown.
-4. **Segmenter** : `ChunkingService.extract_chunks()` / `extract_heading_tree_with_pages()` selon
-   `preferred_strategy()` ; ancrer les pages aux sections (`_assign_pages_to_sections`).
-5. **Valider** : relire le Markdown produit (titres, tables, images) puis
-   `uv run pytest tests/services/parsing/`.
+1. **Identifier la source** (extension / URL / type MIME) → sélectionner le parseur via `references/catalogue_parsers.md`.
+2. **Parser** : `DocumentParser().parse_document(path, progress_callback=..., check_cancel=...)` ou parseur spécialisé direct.
+3. **Persister les médias extraits** : `MediaManager.store_document_source()`, `store_media_bytes()`, déduplication MD5, liens relatifs propres dans le Markdown produit.
+4. **Valider** : vérifier la structure du Markdown produit (titres, tables, images) et la suite de tests :
+   ```bash
+   uv run pytest tests/services/parsing/
+   ```
 
-## 3. Cas particuliers
+## 3. Cas Particuliers
 
-- **PDF complexe** : Marker recommandé (`MarkerService.install()`) sinon fallback pypdf
-  (`is_marker_available()`) ; vérifier compatibilité venv/Python avant de forcer l'installation.
-- **YouTube** : extraire d'abord `extract_subtitles()` ; `download_and_transcribe()` seulement quand
-  les sous-titres manquent (coût LLM/STT).
-- **Audio/STT** : vérifier les credentials STT (`_resolve_stt_credentials`), ne JAMAIS les logguer
-  (SecretRedactionFilter du logger).
-- **Web** : `WebImporter.analyze_url()` — détection des murs payants (`_detect_walls`), normalisation
-  d'URL, jamais de téléchargement d'exécutables ; tableaux HTML → Markdown (`_merge_tables_into_markdown`).
-- **Matériel médias** : les images extraites doivent passer par `MediaManager` (MD5, dossier du profil
-  courant) et être référencées en lien relatif, jamais copiées brute dans `collection.media`.
+- **PDF complexe** : Marker OCR privilégié (`MarkerService`) si disponible, sinon repli automatique pypdf.
+- **YouTube** : extraire en priorité les sous-titres (`extract_subtitles()`) avant tout téléchargement audio (`yt-dlp`) + transcription Whisper.
+- **Web** : `WebImporter.analyze_url()` avec détection des paywalls et conversion propre des tableaux HTML en Markdown.
 
-## ⛔ Ne PAS utiliser ce skill si...
+## When NOT to use this skill
 
-- L'objectif est de **créer/modifier des flashcards** (génération, notes) → pipeline AI/cards, pas le parsing.
-- La source est **déjà en Markdown simple** → utilitaires markdown, pas une ingestion.
-- Le besoin porte sur l'**import/export .apkg/.colpkg ou les médias Anki** → `export-synchro-anki`.
-- Le besoin est une **migration de modèle Peewee / BDD** → `peewee-expert`.
-- L'utilisateur veut **auditer la qualité/sécurité du plugin de parsing** → `audit-securite` / `audit-performance`.
+- L'objectif est de **découper en chunks, indexer dans FAISS/ChromaDB ou calculer la couverture de révision** → utiliser `rag-smart-coverage`.
+- Le besoin porte sur l'**import/export de paquets Anki (.apkg/.colpkg)** → utiliser `export-synchro-anki`.
+- L'objectif est de **générer des flashcards via un pipeline IA** → utiliser `pipeline-dag-ia`.
+- La demande concerne une **modification d'interface graphique de l'import** → utiliser `ui-pyside6-design`.
