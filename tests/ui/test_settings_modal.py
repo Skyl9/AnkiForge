@@ -943,13 +943,13 @@ def test_collapsible_section_defaults_collapsed_and_toggles(qtbot):
 
 
 def test_ai_engines_tab_advanced_sections_are_collapsed_by_default(qtbot):
-    """Les paramètres avancés (génération/RAG et vision) sont repliés par défaut."""
+    """Les paramètres avancés (génération/RAG) sont repliés par défaut."""
     tab = AIEnginesTab()
     qtbot.addWidget(tab)
 
     assert tab.sec_advanced_gen.is_collapsed() is True
-    assert tab.sec_vision.is_collapsed() is True
-    assert tab.lbl_sec_vision is not None
+    assert not hasattr(tab, "sec_vision")
+    assert not hasattr(tab, "lbl_sec_vision")
 
     # Un champ avancé replié reste détecté comme modifié
     tab.slider_temp.setValue(90)

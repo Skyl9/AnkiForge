@@ -262,8 +262,8 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+805"/>
         <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+742"/>
         <location line="+10"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+734"/>
-        <location line="+430"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+728"/>
+        <location line="+295"/>
         <source>%1%%</source>
         <translation type="unfinished"></translation>
     </message>
@@ -373,7 +373,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     </message>
     <message>
         <location line="+204"/>
-        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="+321"/>
+        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="+316"/>
         <source>Vision multimodale</source>
         <translation type="unfinished"></translation>
     </message>
@@ -411,7 +411,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location line="+108"/>
         <location filename="../../ui/views/agents_view/view.py" line="+583"/>
         <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="+172"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-936"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-801"/>
         <source>%1 :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -533,22 +533,22 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="-160"/>
+        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="-154"/>
         <source>Document : « %1 » — %2 planche(s) au total</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+161"/>
+        <location line="+155"/>
         <source>CoT Thinking</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+274"/>
+        <location line="+272"/>
         <source>CoT Thinking (%1t)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+36"/>
+        <location line="+18"/>
         <location line="+1"/>
         <location line="+1"/>
         <location line="+31"/>
@@ -1642,7 +1642,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+603"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+468"/>
         <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+398"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
@@ -3211,7 +3211,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+217"/>
+        <location line="+220"/>
         <source>%1 page%2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3246,17 +3246,19 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+95"/>
+        <location line="+93"/>
+        <location line="+26"/>
         <source>%1 : « %2 » pointe vers un moteur qui ne sait pas lire les planches.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="-22"/>
+        <location line="+26"/>
         <source>Lancer l&apos;analyse et la transcription de l&apos;album avec « %1 »</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+98"/>
+        <location line="+99"/>
         <source>Transcription : %1/%2 pages (%3%%)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4133,7 +4135,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-454"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-319"/>
         <source>Streaming des réponses</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4158,38 +4160,18 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+31"/>
-        <source>Catégories de reconnaissance d&apos;image</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+55"/>
-        <source>CoT %1t</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+39"/>
-        <source>Catégorie &apos;%1&apos; mise à jour !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>Catégorie &apos;%1&apos; créée avec succès !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+23"/>
+        <location line="+22"/>
         <source>Veuillez saisir une clé %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+37"/>
-        <location line="+285"/>
+        <location line="+279"/>
         <source>Trousseau OS indisponible : clé %1 non enregistrée (sécurité).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-281"/>
+        <location line="-275"/>
         <source>Impossible d&apos;enregistrer la clé %1.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4209,7 +4191,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+155"/>
+        <location line="+149"/>
         <source>Le modèle &apos;%1&apos; est déjà configuré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4890,7 +4872,7 @@ Une nouvelle version sera automatiquement créée.</source>
 <context>
     <name>AIEnginesTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1204"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1063"/>
         <source>CLÉS API DES FOURNISSEURS CLOUD</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4901,12 +4883,12 @@ Une nouvelle version sera automatiquement créée.</source>
     </message>
     <message>
         <location line="+55"/>
-        <location line="+664"/>
+        <location line="+529"/>
         <source>Format valide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-653"/>
+        <location line="-518"/>
         <source>SERVEURS LOCAUX &amp; PASSERELLES D&apos;ACCÈS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5233,22 +5215,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+28"/>
-        <source>CATÉGORIES DE RECONNAISSANCE D&apos;IMAGE</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+130"/>
-        <source>Catégorie de vision supprimée.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Catégories de vision réinitialisées aux valeurs standard !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
+        <location line="+38"/>
         <source>Clé vide</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5278,7 +5245,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+189"/>
+        <location line="+183"/>
         <source>Veuillez sélectionner un moteur IA à modifier.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5299,7 +5266,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+238"/>
+        <location line="+231"/>
         <source>Renouveler le jeton MCP</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6049,7 +6016,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumPageCard</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1433"/>
+        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1461"/>
         <source>Déplacer vers la gauche (page précédente)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6110,7 +6077,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumTranscriptionDialog</name>
     <message>
-        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="-594"/>
+        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="-568"/>
         <location line="+83"/>
         <source>Transcription de l&apos;album</source>
         <translation type="unfinished"></translation>
@@ -6151,7 +6118,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+62"/>
+        <location line="+56"/>
         <source>Moteur optique haute vitesse : optimisé pour le texte suivi et la prose en bloc. Pour les tableaux structurés, schémas et formules mathématiques, privilégiez un modèle multimodal (VLM, ex: Qwen2.5-VL ou Gemini).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6206,7 +6173,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+145"/>
+        <location line="+143"/>
         <source>OCR optique local</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6216,7 +6183,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+92"/>
+        <location line="+74"/>
         <source>Aucune planche ciblée avec ce filtre.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6234,12 +6201,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+18"/>
-        <source>Catégorie de transcription : elle détermine le modèle de vision utilisé sur les planches</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
+        <location line="+28"/>
         <source>Configurer et lancer la transcription de l&apos;album</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6325,17 +6287,27 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+44"/>
-        <location line="+259"/>
+        <location line="+284"/>
         <source>Annulation en cours...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-176"/>
+        <location line="-185"/>
+        <source>Aucun modèle de vision disponible.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Lancer l&apos;analyse et la transcription de l&apos;album avec Apple Vision (OCR local)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>Lancer l&apos;analyse et la transcription de l&apos;album avec le modèle IA sélectionné</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+17"/>
         <source>Aucune planche à transcrire dans cet album.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6355,7 +6327,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+128"/>
+        <location line="+129"/>
         <source>Annulation en cours : refermez la fenêtre à nouveau dans un instant.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14110,7 +14082,7 @@ Aucune anomalie détectée dans votre collection.</source>
 <context>
     <name>PageInspectorWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1256"/>
+        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1284"/>
         <source>Inspecteur de page</source>
         <extracomment>Plafond du rendu d&apos;inspection. Au-delà, on charge la planche native — ce que le ticket S1 interdit hors d&apos;une demande de zoom explicite. Vrai quand `_zoom_factor` est calculé par ajustement à la fenêtre plutôt que posé.</extracomment>
         <translation type="unfinished"></translation>
@@ -16841,91 +16813,6 @@ https://blog.example.com/article-1</source>
     <message>
         <location filename="../../ui/components/vision_capability.py" line="+89"/>
         <source>Ce moteur analyse les images du document (payload multimodal).</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>VisionCategoryDialog</name>
-    <message>
-        <location filename="../../ui/widgets/settings_modal/dialogs/vision_category_dialog.py" line="+62"/>
-        <source>Configuration de la Catégorie d&apos;Analyse d&apos;Image</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Ex: Raisonnement Visuel Complexe</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Ex: Formules mathématiques et schémas scientifiques</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>Anthropic (Claude 3.7)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Google Gemini (Flash / Pro)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Ollama Local (Qwen2.5-VL)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>OpenAI (GPT-4o)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Natif Matériel macOS (Apple Vision)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Ex: claude-3-7-sonnet-20250219</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>Alloué pour le mode Thinking de Claude 3.7 (0 pour désactiver le raisonnement pas-à-pas)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+19"/>
-        <location line="+61"/>
-        <source>Instructions optionnelles injectées au prompt système pour cette catégorie...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-21"/>
-        <location line="+24"/>
-        <source>claude-3-7-sonnet-20250219</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-14"/>
-        <source>apple_vision</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Non applicable : le moteur optique matériel n&apos;utilise pas de prompt.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+11"/>
-        <source>gemini-2.5-flash</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>qwen2.5-vl:7b</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

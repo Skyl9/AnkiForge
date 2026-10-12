@@ -334,3 +334,22 @@ def test_album_transcription_dialog_dimensions_bounded_on_small_screens(qtbot, m
     assert dlg.height() <= int(768 * 0.9)
     assert dlg.minimumWidth() <= dlg.width()
     assert dlg.minimumHeight() <= dlg.height()
+
+
+def test_model_selector_widget_require_vision_and_native(qtbot, sample_llm_configs):
+    """Vérifie que ModelSelectorWidget filtre sur supports_vision et propose l'OCR natif si demandé."""
+    selector = ModelSelectorWidget(require_vision=True, include_native_vision=True)
+    qtbot.addWidget(selector)
+
+    # Doit contenir m1 (Gemini avec vision) et Apple Vision, mais PAS m2 (Llama sans vision)
+    model_ids = [selector.combo.itemData(i).model_id for i in range(selector.combo.count()) if selector.combo.itemData(i)]
+    assert "gemini-3.5-flash-lite" in model_ids
+    assert "llama3.3:70b" not in model_ids
+    assert "apple_vision" in model_ids
+
+    # Sélection de Apple Vision
+    selector.set_current_model_id("apple_vision")
+    curr = selector.get_current_model()
+    assert curr is not None
+    assert curr.model_id == "apple_vision"
+    assert curr.provider == "native"

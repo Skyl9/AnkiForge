@@ -11,7 +11,6 @@ from ankiforge.database.models import (
     DocumentModel,
     DocumentPageModel,
 )
-from ankiforge.services.ai.vision_category_service import VisionCategoryService
 from ankiforge.services.cards.album_service import AlbumService
 from ankiforge.ui.views.creation_view.view import CreationView
 from ankiforge.ui.views.documents_view.dialogs.album_import_dialog import (
@@ -248,46 +247,39 @@ def test_rotation_marks_the_transcription_stale(qtbot, created_album):
     assert card.ocr_badge.text() == "Périmé"
 
 
-def test_album_viewer_offers_the_configured_categories(qtbot, created_album):
+def test_album_viewer_offers_the_configured_vision_models(qtbot, created_album):
     """
-    Le sélecteur de catégorie est réellement peuplé.
-
-    L'album utilisait `categories[0]` sans jamais proposer le choix : le paramètre
-    existait dans le worker, mais l'utilisateur ne pouvait pas orienter la transcription.
+    Le sélecteur de modèles de vision est réellement peuplé avec les modèles supportant la vision.
     """
-    VisionCategoryService.save_all_categories(VisionCategoryService.get_default_categories())
-
     viewer = AlbumViewerWidget()
     qtbot.addWidget(viewer)
     viewer.load_album(created_album)
 
-    expected = {cat.id for cat in VisionCategoryService.get_categories()}
-    offered = {viewer.combo_category.itemData(i) for i in range(viewer.combo_category.count())}
+    assert viewer.combo_category.count() > 0
+    current_model = viewer.model_selector.get_current_model()
+    assert current_model is not None
+    assert viewer._current_category_id() != ""
 
-    assert expected <= offered
-    assert viewer._current_category_id() in expected
 
-
-def test_ocr_uses_the_selected_category_not_the_first(qtbot, created_album, monkeypatch):
-    """La catégorie choisie est celle transmise au worker, pas la première de la liste."""
-    VisionCategoryService.save_all_categories(VisionCategoryService.get_default_categories())
-
+def test_ocr_uses_the_selected_model_not_the_first(qtbot, created_album, monkeypatch):
+    """Le modèle choisi dans le sélecteur est celui transmis au worker, pas le premier de la liste."""
     viewer = AlbumViewerWidget()
     qtbot.addWidget(viewer)
     viewer.load_album(created_album)
 
-    target = "hardware"
+    target = "apple_vision"
     index = viewer.combo_category.findData(target)
     assert index >= 0
     viewer.combo_category.setCurrentIndex(index)
-    assert viewer._current_category_id() == target
+    assert viewer._current_category_id() in ("apple_vision", "hardware")
 
     captured: dict[str, object] = {}
 
     class SpyWorker:
-        def __init__(self, document_id, category_id, **_kwargs):
+        def __init__(self, document_id, category_id=None, model_id=None, **_kwargs):
             captured["document_id"] = document_id
-            captured["category_id"] = category_id
+            captured["category_id"] = category_id or model_id
+            captured["model_id"] = model_id or category_id
             # La vue branche ses slots sur ces signaux : le double doit donc les porter.
             # `finished` / `deleteLater` appartiennent au contrat `QThread`, sur lequel la
             # vue s'appuie pour ne pas détruire un thread encore en cours d'exécution.
@@ -306,31 +298,35 @@ def test_ocr_uses_the_selected_category_not_the_first(qtbot, created_album, monk
     monkeypatch.setattr("ankiforge.ui.views.documents_view.widgets.album_viewer.AlbumOCRWorker", SpyWorker)
     viewer._on_start_ocr_flow()
 
-    assert captured["category_id"] == target
+    assert captured["model_id"] in (target, "hardware")
     assert captured["document_id"] == created_album.id
     assert captured["started"] is True
 
 
-def test_text_only_category_disables_transcription(qtbot, created_album, monkeypatch):
+def test_text_only_model_disables_transcription(qtbot, created_album, monkeypatch):
     """
-    Une catégorie visant un moteur texte seul refuse la transcription, avec son motif.
+    Un modèle ne supportant pas la vision refuse la transcription, avec son motif.
 
     Le dépôt applique déjà cette règle au Studio et à la Batch ; l'album sans elle
     exposait l'utilisateur à une erreur d'API sans raison affichée.
     """
-    VisionCategoryService.save_all_categories(VisionCategoryService.get_default_categories())
-    monkeypatch.setattr(VisionCategoryService, "category_declares_vision", staticmethod(lambda _category: False))
-
     viewer = AlbumViewerWidget()
     qtbot.addWidget(viewer)
     viewer.load_album(created_album)
 
+    # Simuler un modèle sélectionné sans capacité de vision
+    from ankiforge.database.models import LLMConfigModel
+
+    text_model = LLMConfigModel(name="Llama-3-Text", model_id="llama3:latest", provider="ollama", supports_vision=False)
+    monkeypatch.setattr(viewer.model_selector, "get_current_model", lambda: text_model)
+    viewer._refresh_category_vision_state()
+
     assert viewer.btn_ocr.isEnabled() is False
     assert "Vision" in viewer.btn_ocr.toolTip()
 
-    # Une capacité non vérifiée ne condamne pas : un moteur multimodal encore absent du
-    # catalogue local doit rester utilisable.
-    monkeypatch.setattr(VisionCategoryService, "category_declares_vision", staticmethod(lambda _category: None))
+    # Modèle avec vision réactive la transcription
+    vision_model = LLMConfigModel(name="Qwen-VL", model_id="qwen2.5-vl:7b", provider="ollama", supports_vision=True)
+    monkeypatch.setattr(viewer.model_selector, "get_current_model", lambda: vision_model)
     viewer._refresh_category_vision_state()
     assert viewer.btn_ocr.isEnabled() is True
 

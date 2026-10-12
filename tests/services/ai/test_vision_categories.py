@@ -14,7 +14,6 @@ from ankiforge.services.ai.vision_category_service import VisionCategory, Vision
 from ankiforge.services.cards.album_service import AlbumService
 from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.services.workers.album_worker import AlbumOCRWorker, AlbumPDFWorker
-from ankiforge.ui.widgets.settings_modal.dialogs.vision_category_dialog import VisionCategoryDialog
 from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
 
 pytestmark = pytest.mark.integration
@@ -674,36 +673,20 @@ def test_native_ocr_category_is_not_judged_as_a_model():
     assert VisionCategoryService.category_declares_vision(native) is None
 
 
-def test_vision_category_dialog_ui(qtbot):
-    """Vérifie l'instanciation et la sauvegarde de VisionCategoryDialog."""
-    cat = VisionCategoryService.get_category_by_id("reasoning")
-    dialog = VisionCategoryDialog(category=cat)
-    qtbot.addWidget(dialog)
-
-    # Modification des champs
-    dialog.le_name.setText("Raisonnement Modifié")
-    dialog.spin_thinking.setValue(4096)
-    dialog._on_save()
-
-    res_cat = dialog.get_category()
-    assert res_cat is not None
-    assert res_cat.name == "Raisonnement Modifié"
-    assert res_cat.thinking_budget == 4096
-
-
 def test_ai_engines_tab_ui(qtbot):
-    """Vérifie le rendu complet d'AIEnginesTab avec les cartes de catégories de vision."""
+    """Vérifie le rendu complet d'AIEnginesTab et le retrait de la section VisionCategory."""
     tab = AIEnginesTab()
     qtbot.addWidget(tab)
 
-    # Vérification des sections
+    # Vérification des sections conservées
     assert tab.lbl_sec_keys is not None
     assert tab.lbl_sec_ollama is not None
     assert tab.lbl_sec_cat is not None
-    assert tab.lbl_sec_vision is not None
+    assert tab.table_engines is not None
 
-    # Les 4 cartes de catégories de vision sont générées
-    assert len(tab.vision_cards) >= 4
+    # La section d'indirection artificielle VisionCategory a été retirée
+    assert not hasattr(tab, "lbl_sec_vision")
+    assert not hasattr(tab, "sec_vision")
 
 
 def test_apple_vision_hash_and_binary_cleanup(tmp_path: Path):
@@ -804,18 +787,18 @@ def test_ocr_service_transcribe_page_unknown_category_raises_explicit_error(tmp_
 
 def test_transcribe_signatures_have_no_hardcoded_category_id_default():
     """
-    La valeur par défaut de category_id ne doit plus être codée en dur
-    dans la signature de transcribe_image ou transcribe_page.
+    OCRService accepte directement model_id et data_type, sans repli caché
+    pour forcer le choix explicite du modèle.
     """
     import inspect
 
     sig_img = inspect.signature(OCRService.transcribe_image)
-    param_img = sig_img.parameters["category_id"]
-    assert param_img.default is inspect.Parameter.empty, "category_id ne doit pas avoir de valeur par défaut codée en dur dans transcribe_image"
+    assert "model_id" in sig_img.parameters
+    assert "data_type" in sig_img.parameters
 
     sig_page = inspect.signature(OCRService.transcribe_page)
-    param_page = sig_page.parameters["category_id"]
-    assert param_page.default is inspect.Parameter.empty, "category_id ne doit pas avoir de valeur par défaut codée en dur dans transcribe_page"
+    assert "model_id" in sig_page.parameters
+    assert "data_type" in sig_page.parameters
 
 
 def test_album_ocr_worker_with_unknown_category_reports_honest_failure(tmp_path: Path):
@@ -845,3 +828,34 @@ def test_album_ocr_worker_with_unknown_category_reports_honest_failure(tmp_path:
     for page in album_svc.get_album_pages(doc.id):
         assert page.ocr_text == ""
         assert page.status != "ocr_running"
+
+
+def test_ocr_service_accepts_model_id_and_data_type_directly(tmp_path: Path):
+    """Vérifie qu'OCRService transcrit directement avec model_id et ImageDataType (sans VisionCategory)."""
+    from ankiforge.services.ai.vision_category_service import IMAGE_DATA_TYPES
+
+    service = OCRService()
+    img_path = _create_test_img(tmp_path / "direct_model.png")
+
+    class CapturingProvider(MockProvider):
+        def __init__(self):
+            self.last_instructions = ""
+
+        def generate(self, system_prompt, user_prompt, response_format="text"):
+            if isinstance(user_prompt, list) and user_prompt:
+                self.last_instructions = user_prompt[0].get("text", "")
+            return "Texte extrait de la table"
+
+    provider = CapturingProvider()
+    data_type = IMAGE_DATA_TYPES[0]  # "table"
+
+    text = service.transcribe_image(
+        img_path,
+        model_id="qwen2.5-vl:7b",
+        provider="ollama",
+        data_type=data_type,
+        provider_override=provider,
+    )
+
+    assert text == "Texte extrait de la table"
+    assert "syntaxe Markdown" in provider.last_instructions
