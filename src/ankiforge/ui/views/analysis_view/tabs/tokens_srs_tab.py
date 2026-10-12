@@ -18,20 +18,20 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.services.ai.linter import TokenSrsFinancialService
+from ankiforge.services.audit.fsrs_projection_service import FsrsProjectionService
 from ankiforge.services.audit.leech_service import LeechService
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
-from ankiforge.ui.components.deck_select_window import DeckSelectWindow
-from ankiforge.ui.components.linter_widgets import RetentionCurveCanvas
+from ankiforge.ui.components.deck_select_window import ALL_DECKS_NODE_ID, DeckSelectWindow
 from ankiforge.ui.dialogs.leech_wozniak_split_dialog import LeechWozniakSplitDialog
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.ui.widgets.retention_curve import RetentionCurveWidget
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class AITokensSrsTab(QWidget):
-    """Onglet de suivi financier des jetons et de santé d'apprentissage FSRS-4.5."""
+    """Onglet de suivi financier des jetons et de santé d'apprentissage SRS."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -174,7 +174,7 @@ class AITokensSrsTab(QWidget):
         ico_eq = QLabel()
         ico_eq.setPixmap(load_phosphor_icon("ph.chart-pie", color=DesignTokens.COLOR_PURPLE).pixmap(16, 16))
         ico_eq.setStyleSheet("border: none; background: transparent;")
-        eq_title = QLabel(self.tr("Équilibre & Maturité du Paquet (FSRS-4.5)"))
+        eq_title = QLabel(self.tr("Équilibre & Maturité du Paquet"))
         eq_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         eq_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         h_eqtitle.addWidget(ico_eq)
@@ -187,29 +187,8 @@ class AITokensSrsTab(QWidget):
         eq_layout.addLayout(self.eq_grid)
         r_layout.addWidget(eq_box)
 
-        h_rtitle = QHBoxLayout()
-        ico_curve = QLabel()
-        ico_curve.setPixmap(load_phosphor_icon("ph.chart-line-up", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
-        ico_curve.setStyleSheet("border: none; background: transparent;")
-        r_title = QLabel(self.tr("Courbe Théorique de Rétention (Forgetting Curve FSRS-4.5)"))
-        r_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        r_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
-        h_rtitle.addWidget(ico_curve)
-        h_rtitle.addWidget(r_title)
-        h_rtitle.addStretch()
-        r_layout.addLayout(h_rtitle)
-
-        canvas = RetentionCurveCanvas()
-        r_layout.addWidget(canvas)
-
-        btn_opt = PrimaryButton(
-            "Optimiser FSRS-4.5 (ML Local)",
-            tooltip=self.tr("Calibrer les 17 paramètres FSRS-4.5 sur votre historique de révision via apprentissage automatique local"),
-        )
-        btn_opt.setIcon(load_on_accent_icon("ph.sparkle"))
-        btn_opt.setFixedHeight(30)
-        btn_opt.clicked.connect(self._on_optimize_fsrs)
-        r_layout.addWidget(btn_opt)
+        self.retention_curve = RetentionCurveWidget()
+        r_layout.addWidget(self.retention_curve)
 
         r_layout.addStretch()
         main_grid.addWidget(right_col, 1)
@@ -228,11 +207,9 @@ class AITokensSrsTab(QWidget):
                 elif item.layout() is not None:
                     self._clear_layout(item.layout())
 
-    def _on_optimize_fsrs(self) -> None:
-        show_toast(self, self.tr("Paramètres FSRS-4.5 optimisés avec succès pour votre rythme d'apprentissage !"))
-
     def refresh_stats(self):
         summary = TokenSrsFinancialService.get_financial_summary(self.current_deck_id)
+        projection = FsrsProjectionService.project(self.current_deck_id)
 
         self.lbl_spent.setText(tr("Dépenses : %1 $", f"{summary['total_spent_usd']:.4f}"))
         avg_cost = summary["total_spent_usd"] / max(summary["total_cards"], 1)
@@ -243,35 +220,41 @@ class AITokensSrsTab(QWidget):
         self._clear_layout(self.models_container)
         self._clear_layout(self.tasks_container)
 
+        self.retention_curve.set_projection(projection)
+
         mat_pct = "0%" if summary["total_cards"] == 0 else f"{summary['maturing_cards'] / summary['total_cards'] * 100:.1f}%"
-        diff_pct = float(summary["fsrs_retention_pct"]) - float(summary["target_retention_pct"])
+        retention_j7 = self._checkpoint_retention(projection, day=7)
+        target_pct = float(projection.get("retention_target", 0.90)) * 100
+        retention_detail = self.tr("Aucune carte révisée")
+        if projection.get("available"):
+            retention_detail = tr("Cible : %1%% · J+14 : %2%%", f"{target_pct:.0f}", f"{self._checkpoint_retention(projection, day=14) * 100:.1f}")
         cards_data = [
             (
                 "ph.coins",
-                "Budget Consommé",
+                self.tr("Budget Consommé"),
                 f"{summary['total_spent_usd']:.4f} $",
-                f"{summary['tokens_consumed']:,} jetons · Optimal",
+                tr("%1 jetons · Optimal", f"{summary['tokens_consumed']:,}"),
                 DesignTokens.COLOR_GREEN,
             ),
             (
                 "ph.target",
-                "Rétention FSRS-4.5",
-                f"{summary['fsrs_retention_pct']:.1f}%",
-                f"Cible : {summary['target_retention_pct']:.0f}% ({diff_pct:+.1f}%)",
+                self.tr("Rétention Projetée (J+7)"),
+                f"{retention_j7 * 100:.1f}%",
+                retention_detail,
                 DesignTokens.ACCENT_PRIMARY,
             ),
             (
                 "ph.sparkle",
-                "Cartes Mûres (>21j)",
+                self.tr("Cartes Mûres (>21j)"),
                 f"{summary['maturing_cards']:,} / {summary['total_cards']:,}",
-                f"{mat_pct} · Ancrage fort",
+                tr("%1 · Ancrage fort", mat_pct),
                 DesignTokens.SYNTAX_KEYWORD,
             ),
             (
                 "ph.clock",
-                "Charge Journalière",
-                f"{summary['daily_workload_cards']:.1f} cartes / j",
-                f"Temps estimé : ~{summary['daily_workload_minutes']:.0f} min",
+                self.tr("Charge à l'Équilibre"),
+                tr("%1 / jour", f"{float(projection.get('equilibrium_load_per_day', 0.0)):.1f}"),
+                self.tr("Révisions/j · Σ 1/intervalle"),
                 DesignTokens.COLOR_BLUE,
             ),
         ]
@@ -316,12 +299,15 @@ class AITokensSrsTab(QWidget):
 
         eq_data = []
         tot = summary["total_cards"]
-        if tot > 0:
-            eq_data.append(("NOUVELLES", str(summary["maturity_distribution"]["new"]), f"{summary['maturity_distribution']['new'] / tot * 100:.1f}%", DesignTokens.COLOR_BLUE))
-            eq_data.append(("APPRENTISSAGE", str(summary["maturity_distribution"]["learning"]), f"{summary['maturity_distribution']['learning'] / tot * 100:.1f}%", DesignTokens.COLOR_YELLOW))
-            eq_data.append(("MÛRES (>21j)", str(summary["maturity_distribution"]["maturing"]), f"{summary['maturity_distribution']['maturing'] / tot * 100:.1f}%", DesignTokens.SYNTAX_KEYWORD))
-        else:
-            eq_data = [("NOUVELLES", "0", "0%", DesignTokens.COLOR_BLUE), ("APPRENTISSAGE", "0", "0%", DesignTokens.COLOR_YELLOW), ("MÛRES (>21j)", "0", "0%", DesignTokens.SYNTAX_KEYWORD)]
+        dist = summary["maturity_distribution"]
+        buckets = (
+            (self.tr("NOUVELLES"), dist["new"], DesignTokens.COLOR_BLUE),
+            (self.tr("APPRENTISSAGE"), dist["learning"], DesignTokens.COLOR_YELLOW),
+            (self.tr("MÛRES (>21j)"), dist["maturing"], DesignTokens.SYNTAX_KEYWORD),
+        )
+        for label, count, color in buckets:
+            pct = f"{count / tot * 100:.1f}%" if tot > 0 else "0%"
+            eq_data.append((label, str(count), pct, color))
 
         for lbl, val, sub, col in eq_data:
             bx = QFrame()
@@ -490,6 +476,19 @@ class AITokensSrsTab(QWidget):
 
         self.tasks_container.addWidget(task_box)
         self._refresh_leeches()
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Réapplique les couleurs du thème actif au widget de courbe de rétention."""
+        if hasattr(self, "retention_curve"):
+            self.retention_curve.refresh_theme(profile)
+
+    @staticmethod
+    def _checkpoint_retention(projection: dict[str, Any], day: int) -> float:
+        """Fraction de rétention projetée au repère ``day`` (0.0 si indisponible)."""
+        for checkpoint in projection.get("checkpoints", []):
+            if int(checkpoint.get("day", -1)) == day:
+                return float(checkpoint.get("retention", 0.0))
+        return 0.0
 
     def _setup_leech_panel(self, parent_layout: QVBoxLayout) -> None:
         """Initialise le panneau pleine largeur de diagnostic des cartes sangsues (ADR 0019)."""
@@ -708,6 +707,8 @@ class AITokensSrsTab(QWidget):
         self._deck_modal.show()
 
     def _on_deck_selected(self, deck_id: int, deck_name: str) -> None:
-        self.current_deck_id = deck_id
+        # Le nœud racine virtuel « Tous les paquets » (-1) n'est pas un paquet réel :
+        # il se traduit par l'absence de filtre, jamais par un identifiant inexistant.
+        self.current_deck_id = None if deck_id == ALL_DECKS_NODE_ID else deck_id
         self.btn_deck.setText(deck_name)
         self.refresh_stats()

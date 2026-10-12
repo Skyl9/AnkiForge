@@ -38,6 +38,22 @@ def test_dashboard_macro_activity_navigation(qtbot):
                 "telemetry": {"total_cost_usd": 1.25, "total_tokens": 5000},
                 "duplicates_count": 2,
             },
+            "fsrs_projection": {
+                "available": True,
+                "retention_target": 0.90,
+                "mean_stability_days": 21.4,
+                "checkpoints": [
+                    {"day": 1, "retention": 0.9541},
+                    {"day": 3, "retention": 0.9005},
+                    {"day": 7, "retention": 0.8321},
+                    {"day": 14, "retention": 0.7512},
+                ],
+                "curve": [
+                    {"day": 0.0, "retention": 1.0},
+                    {"day": 14.0, "retention": 0.7512},
+                ],
+                "equilibrium_load_per_day": 0.52,
+            },
             "diagnostics": [
                 {
                     "type": "wozniak",
@@ -83,6 +99,11 @@ def test_dashboard_macro_activity_navigation(qtbot):
         assert len(diag_cards) == 1
         diag_cards[0].action_btn.click()
         assert ("analysis", {"tab": "audit"}) in nav_signals
+
+        # 4. Vérification du relais de la projection FSRS au widget de courbe
+        assert view.retention_curve._available is True
+        assert len(view.retention_curve._checkpoints) == 4
+        assert "0.5" in view.retention_curve._load_badge.text()
 
 
 def test_notification_menu_popup(qtbot):

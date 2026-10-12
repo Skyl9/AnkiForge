@@ -314,7 +314,8 @@ def create_default_tour_steps(main_window: Any) -> list[TourStep]:
         TourStep(
             title="🔬 Analyse, Audit Wozniak & RAG",
             text=(
-                "Vérifiez l'atomicité et l'efficacité mémorielle de vos cartes selon les 20 règles de Piotr Wozniak. Identifiez les lacunes documentaires et optimisez vos rétentions avec FSRS-4.5."
+                "Vérifiez l'atomicité et l'efficacité mémorielle de vos cartes selon les 20 règles de Piotr Wozniak. "
+                "Identifiez les lacunes documentaires et projetez votre charge de révision à l'équilibre (FSRS)."
             ),
             target_widget_getter=lambda: main_window.sidebar._items.get("analysis") if hasattr(main_window, "sidebar") and hasattr(main_window.sidebar, "_items") else None,
             action=lambda: main_window._on_view_selected("analysis") if hasattr(main_window, "_on_view_selected") else None,

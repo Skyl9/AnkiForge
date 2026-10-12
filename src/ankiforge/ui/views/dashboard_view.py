@@ -21,6 +21,7 @@ from shiboken6 import isValid
 from ankiforge.services.audit.metrics_service import MetricsService
 from ankiforge.ui.components import IdePanel, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.widgets.retention_curve import RetentionCurveWidget
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -706,7 +707,7 @@ class DashboardView(QWidget):
         content_layout.addWidget(self.diagnostics_widget)
 
         scroll_area.setWidget(content_widget)
-        left_panel.add_tab("Accueil", scroll_area, icon_name="ph.house", closable=True)
+        left_panel.add_tab(self.tr("Accueil"), scroll_area, icon_name="ph.house", closable=True)
         left_panel.set_active_tab(0)
 
         left_layout.addWidget(left_panel)
@@ -740,11 +741,23 @@ class DashboardView(QWidget):
         stats_grid.addWidget(self.stat_duplicates, 1, 1)
         stats_main_layout.addLayout(stats_grid)
 
-        stats_panel.add_tab("Supervision && Santé", stats_widget, icon_name="ph.chart-line-up", closable=True)
+        stats_panel.add_tab(self.tr("Supervision && Santé"), stats_widget, icon_name="ph.chart-line-up", closable=True)
         stats_panel.set_active_tab(0)
         right_container.addWidget(stats_panel)
 
-        # Panneau 2 : Activité Récente (Grandes actions / Macro-Activités)
+        # Panneau 2 : Rétention projetée & Charge à l'équilibre (FSRS dérivé de l'intervalle)
+        retention_panel = IdePanel(detachable=True)
+        retention_widget = QWidget()
+        retention_layout = QVBoxLayout(retention_widget)
+        retention_layout.setContentsMargins(10, 10, 10, 10)
+        retention_layout.setSpacing(6)
+        self.retention_curve = RetentionCurveWidget()
+        retention_layout.addWidget(self.retention_curve, 1)
+        retention_panel.add_tab(self.tr("Rétention && Charge"), retention_widget, icon_name="ph.chart-line-up", closable=True)
+        retention_panel.set_active_tab(0)
+        right_container.addWidget(retention_panel)
+
+        # Panneau 3 : Activité Récente (Grandes actions / Macro-Activités)
         activity_panel = IdePanel(detachable=True)
         activity_widget = QWidget()
         activity_widget.setMinimumWidth(0)
@@ -776,15 +789,16 @@ class DashboardView(QWidget):
         view_all_btn.clicked.connect(lambda: self._navigate("edition"))
         activity_layout.addWidget(view_all_btn)
 
-        activity_panel.add_tab("Activité Récente", activity_widget, icon_name="ph.clock-counter-clockwise", closable=True)
+        activity_panel.add_tab(self.tr("Activité Récente"), activity_widget, icon_name="ph.clock-counter-clockwise", closable=True)
         activity_panel.set_active_tab(0)
         right_container.addWidget(activity_panel)
 
         splitter.addWidget(right_container)
 
-        right_container.setSizes([160, 400])
+        right_container.setSizes([160, 210, 330])
         right_container.setCollapsible(0, False)
         right_container.setCollapsible(1, False)
+        right_container.setCollapsible(2, False)
 
         splitter.setSizes([850, 370])
         splitter.setCollapsible(0, False)
@@ -862,11 +876,14 @@ class DashboardView(QWidget):
         dup_color = DesignTokens.COLOR_GREEN if dup_count == 0 else DesignTokens.COLOR_YELLOW
         self.stat_duplicates.set_value(str(dup_count), dup_color)
 
-        # 2. Diagnostics & Alertes Proactives
+        # 2. Rétention projetée & charge à l'équilibre (FSRS dérivé de l'intervalle)
+        self.retention_curve.set_projection(data.get("fsrs_projection"))
+
+        # 3. Diagnostics & Alertes Proactives
         diagnostics = data.get("diagnostics", [])
         self.diagnostics_widget.set_diagnostics(diagnostics)
 
-        # 3. Flux des Grandes Actions (Macro-Activités)
+        # 4. Flux des Grandes Actions (Macro-Activités)
         macro_items = data.get("macro_activities")
         if macro_items is None:
             # Repli sur recent_feed si macro_activities non disponible
@@ -954,6 +971,8 @@ class DashboardView(QWidget):
             self.drop_zone.refresh_theme(profile)
         if hasattr(self, "diagnostics_widget"):
             self.diagnostics_widget.refresh_theme(profile)
+        if hasattr(self, "retention_curve"):
+            self.retention_curve.refresh_theme(profile)
         if hasattr(self, "stat_wozniak"):
             self.stat_wozniak.refresh_theme(profile)
         if hasattr(self, "stat_coverage"):

@@ -1333,7 +1333,7 @@ class ConsultantView(QWidget):
             "Audit Wozniak": "Effectue un audit de formulation basé sur les 20 règles de Piotr Wozniak sur mon paquet principal.",
             "Recherche Doublons": "Détecte les cartes doublons ou formulées de façon similaire dans ma collection.",
             "Panorama 360°": "Donne-moi un panorama 360° complet de ma collection (paquets, cartes, sangsues, documents).",
-            "Rétention SRS": "Analyse en détail la rétention SRS et la stabilité FSRS-4.5 de mes paquets.",
+            "Rétention SRS": "Analyse en détail la rétention projetée et la stabilité estimée de mes paquets.",
             "Deep Scan Deck": "Effectue un scan approfondi (deep scan) de la distribution des intervalles et des sangsues de mon paquet principal.",
             "Scission cartes": "Identifie une carte surchargée et propose une scission atomique avec diff.",
         }

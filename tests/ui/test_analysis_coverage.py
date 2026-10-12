@@ -744,7 +744,7 @@ def test_ai_wozniak_linter_tab_and_widgets(qtbot):
 
 
 def test_ai_tokens_srs_tab(qtbot):
-    """Vérifie le simulateur économique de jetons IA et d'impact SRS FSRS-4.5."""
+    """Vérifie le simulateur économique de jetons IA et d'impact SRS."""
     tab = AITokensSrsTab()
     qtbot.addWidget(tab)
 
