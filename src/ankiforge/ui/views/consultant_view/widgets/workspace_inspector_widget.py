@@ -466,7 +466,26 @@ class WorkspaceInspectorWidget(QWidget):
                 except (json.JSONDecodeError, ValueError, TypeError):
                     pass
 
-            if p_type == "card" and isinstance(raw_mod, dict):
+            if p_type == "note_create" and isinstance(raw_mod, dict):
+                nt_name = raw_mod.get("note_type") or raw_mod.get("note_type_name")
+                if nt_name:
+                    nt = NoteTypeModel.get_or_none(NoteTypeModel.name == str(nt_name)) or nt
+                f_data = raw_mod.get("fields")
+                if isinstance(f_data, dict):
+                    preview_fields = {str(k): str(v) for k, v in f_data.items()}
+                else:
+                    preview_fields = {str(k): str(v) for k, v in raw_mod.items() if k not in ("note_type", "deck", "tags", "warnings")}
+            elif p_type == "batch_note_create" and isinstance(raw_mod, dict):
+                notes_arr = raw_mod.get("notes") or []
+                if notes_arr and isinstance(notes_arr[0], dict):
+                    n0 = notes_arr[0]
+                    nt_name = n0.get("note_type") or n0.get("note_type_name")
+                    if nt_name:
+                        nt = NoteTypeModel.get_or_none(NoteTypeModel.name == str(nt_name)) or nt
+                    f_data = n0.get("fields")
+                    if isinstance(f_data, dict):
+                        preview_fields = {str(k): str(v) for k, v in f_data.items()}
+            elif p_type == "card" and isinstance(raw_mod, dict):
                 preview_fields = {str(k): str(v) for k, v in raw_mod.items()}
             elif p_type == "split" and isinstance(raw_mod, list) and raw_mod:
                 c0 = raw_mod[0]
@@ -560,10 +579,85 @@ class WorkspaceInspectorWidget(QWidget):
             warn_html = "".join(f"<div style='color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; margin-top: 4px;'>⚠️ {html.escape(str(w))}</div>" for w in warnings)
             return f"""
                 <div style="font-family: {DesignTokens.FONT_MAIN}; padding: 6px;">
-                    <div style="font-size: 12px; font-weight: bold; color: {DesignTokens.COLOR_BLUE}; margin-bottom: 8px;">🔄 Migration de Type de Note</div>
+                    <div style="font-size: 12px; font-weight: bold; color: {DesignTokens.COLOR_BLUE}; margin-bottom: 8px;">Migration de Type de Note</div>
                     <div style="border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; background: {DesignTokens.BG_PANEL};">
                         <div><b>Nombre de notes ciblées :</b> {len(n_ids)}</div>
                         <div style="margin-top: 6px;"><b>Type de note cible :</b> {tgt}</div>
+                        {warn_html}
+                    </div>
+                </div>
+            """
+
+        elif p_type == "note_create":
+            mod = modified if isinstance(modified, dict) else patch
+            nt_name = html.escape(str(mod.get("note_type") or mod.get("note_type_name") or ""))
+            dk_name = html.escape(str(mod.get("deck") or mod.get("deck_name") or ""))
+            fields = mod.get("fields") or {}
+            tags = mod.get("tags") or []
+            warnings = mod.get("warnings") or []
+            warn_html = "".join(f"<div style='color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; margin-top: 4px;'>[Attention] {html.escape(str(w))}</div>" for w in warnings)
+            tags_badges = []
+            for t in tags:
+                tags_badges.append(
+                    f"<span style='background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; "
+                    f"border-radius: 4px; padding: 1px 5px; font-size: 10px;'>{html.escape(str(t))}</span>"
+                )
+            tags_html = " ".join(tags_badges)
+
+            fields_rows = []
+            if isinstance(fields, dict):
+                for k, v in fields.items():
+                    val_display = html.escape(str(v)) if v else "<i style='color: #64748b;'>vide</i>"
+                    fields_rows.append(
+                        f"<tr><td style='font-weight: bold; padding: 4px 8px; vertical-align: top; "
+                        f"border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.COLOR_YELLOW}; width: 25%;'>"
+                        f"{html.escape(str(k))}</td>"
+                        f"<td style='padding: 4px 8px; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};'>{val_display}</td></tr>"
+                    )
+            table_html = f"<table style='width: 100%; border-collapse: collapse; margin-top: 8px;'>{''.join(fields_rows)}</table>"
+
+            return f"""
+                <div style="font-family: {DesignTokens.FONT_MAIN}; padding: 6px;">
+                    <div style="font-size: 12px; font-weight: bold; color: {DesignTokens.COLOR_GREEN}; margin-bottom: 8px;">{title}</div>
+                    <div style="border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; background: {DesignTokens.BG_PANEL};">
+                        <div style="margin-bottom: 6px;">
+                            <b>Type de note :</b> <span style="color: {DesignTokens.ACCENT_PRIMARY};">{nt_name}</span>
+                            &nbsp;|&nbsp; <b>Paquet :</b> <span>{dk_name}</span>
+                        </div>
+                        {f'<div style="margin-bottom: 6px;"><b>Tags :</b> {tags_html}</div>' if tags else ""}
+                        {table_html}
+                        {warn_html}
+                    </div>
+                </div>
+            """
+
+        elif p_type == "batch_note_create":
+            mod = modified if isinstance(modified, dict) else patch
+            notes_list = mod.get("notes") or []
+            warnings = mod.get("warnings") or []
+            warn_html = "".join(f"<div style='color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; margin-top: 4px;'>[Attention] {html.escape(str(w))}</div>" for w in warnings)
+
+            cards_html = []
+            for i, n_data in enumerate(notes_list[:20], 1):
+                n_fields = n_data.get("fields") or {}
+                first_k = next(iter(n_fields.keys()), "Front") if isinstance(n_fields, dict) else "Front"
+                first_v = n_fields.get(first_k, "") if isinstance(n_fields, dict) else ""
+                n_dk = n_data.get("deck", "")
+                cards_html.append(
+                    f"<div style='border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; background: {DesignTokens.BG_MAIN}; font-size: 11px;'>"
+                    f"<span style='color: {DesignTokens.COLOR_BLUE}; font-weight: bold;'>#{i}</span> "
+                    f"<span style='color: {DesignTokens.TEXT_MUTED};'>[{html.escape(str(n_dk))}]</span> "
+                    f"<b>{html.escape(str(first_k))} :</b> {html.escape(str(first_v)[:60])}"
+                    f"</div>"
+                )
+            if len(notes_list) > 20:
+                cards_html.append(f"<div style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic;'>... et {len(notes_list) - 20} autre(s) note(s)</div>")
+
+            return f"""
+                <div style="font-family: {DesignTokens.FONT_MAIN}; padding: 6px;">
+                    <div style="font-size: 12px; font-weight: bold; color: {DesignTokens.COLOR_BLUE}; margin-bottom: 8px;">{title} ({len(notes_list)} notes)</div>
+                    <div style="border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; background: {DesignTokens.BG_PANEL};">
+                        {"".join(cards_html)}
                         {warn_html}
                     </div>
                 </div>
@@ -836,6 +930,13 @@ class WorkspaceInspectorWidget(QWidget):
             count = result.get("count", 0)
             target = result.get("target_model_name") or metadata.get("target_model", "")
             self.action_applied.emit(f"{count} notes migrées vers '{target}'")
+        elif p_type == "note_create":
+            n_id = result.get("note_id")
+            dk_name = result.get("deck_name", "")
+            self.action_applied.emit(f"Note #{n_id} créée dans '{dk_name}'")
+        elif p_type == "batch_note_create":
+            count = result.get("count", 0)
+            self.action_applied.emit(f"{count} notes créées par lot")
         elif p_type == "card" and note_id:
             self.action_applied.emit(f"Note #{note_id} refactorisée")
         elif p_type == "split" and note_id:

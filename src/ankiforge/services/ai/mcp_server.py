@@ -94,6 +94,7 @@ def propose_card_split(note_id: int, new_cards_json: str, explanation: str = "")
 
 @mcp.tool()
 def apply_patch(
+    patch_id: str = "",
     patch_json: str = "",
     patch_type: str = "",
     target_id: int = 0,
@@ -102,14 +103,18 @@ def apply_patch(
     explanation: str = "",
 ) -> str:
     """Applique un patch validé sur une note, scission, modèle ou CSS en base SQLite avec rollback versionné."""
-    result = ConsultantToolRegistry.apply_patch(
-        patch_json=patch_json,
-        patch_type=patch_type,
-        target_id=target_id,
-        target_name=target_name,
-        patch_data_json=patch_data_json,
-        explanation=explanation,
-    )
+    p_id = patch_id.strip() or (patch_json.strip() if patch_json.strip().startswith("patch_") else "")
+    if p_id:
+        result = ConsultantToolRegistry.preview_and_apply_patch(p_id)
+    else:
+        result = ConsultantToolRegistry.apply_patch(
+            patch_json=patch_json,
+            patch_type=patch_type,
+            target_id=target_id,
+            target_name=target_name,
+            patch_data_json=patch_data_json,
+            explanation=explanation,
+        )
     try:
         data = json.loads(result)
         if isinstance(data, dict) and data.get("status") == "applied":
@@ -221,6 +226,329 @@ def get_notes_by_model(
         note_type_name=note_type_name,
         include_subdecks=include_subdecks,
     )
+
+
+@mcp.tool()
+def list_decks(filter: str = "") -> str:
+    """Liste tous les paquets et sous-paquets hiérarchiques disponibles dans la collection avec filtrage optionnel."""
+    try:
+        from ankiforge.database.models import DeckModel
+
+        query = DeckModel.select().order_by(DeckModel.name.asc())
+        decks = list(query)
+        if filter.strip():
+            f_lower = filter.strip().lower()
+            decks = [d for d in decks if f_lower in d.name.lower()]
+
+        res = {
+            "status": "success",
+            "count": len(decks),
+            "decks": [{"id": d.id, "name": d.name, "description": d.description or ""} for d in decks],
+        }
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Erreur list_decks : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors du listage des paquets : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def create_deck(deck_name: str, description: str = "") -> str:
+    """Crée un paquet et toute son arborescence hiérarchique ('Parent::Enfant') en écriture directe et idempotente."""
+    try:
+        from ankiforge.database.models import DeckModel
+        from ankiforge.repositories.deck_repository import DeckRepository
+
+        dk_clean = deck_name.strip()
+        if not dk_clean:
+            return json.dumps({"status": "error", "message": "Le nom du paquet ne peut pas être vide."}, ensure_ascii=False)
+
+        existing = DeckModel.get_or_none(DeckModel.name == dk_clean)
+        is_new = existing is None
+
+        repo = DeckRepository()
+        deck = repo.get_or_create_deck_hierarchical(dk_clean, description=description.strip())
+
+        return json.dumps(
+            {
+                "status": "success",
+                "deck_id": deck.id,
+                "deck_name": deck.name,
+                "is_new": is_new,
+                "message": f"Paquet '{deck.name}' {'créé avec succès' if is_new else 'existant récupéré'}.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur create_deck : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors de la création du paquet : {e}"}, ensure_ascii=False)
+
+
+def _check_first_field_duplicate(deck_id: int, note_type_id: int, first_field_value: str) -> int | None:
+    """Vérifie si une note active dans le deck cible partage déjà le même premier champ."""
+    val_clean = first_field_value.strip().lower()
+    if not val_clean:
+        return None
+    from ankiforge.database.models import CardModel, NoteModel, NoteVersionModel
+
+    candidates = (
+        NoteModel.select(NoteModel.id)
+        .join(CardModel, on=(CardModel.note_id == NoteModel.id))
+        .where((CardModel.deck_id == deck_id) & (NoteModel.note_type_id == note_type_id) & (NoteModel.status != "archived"))
+        .distinct()
+        .limit(300)
+    )
+    for c_note in candidates:
+        n_obj = NoteModel.get_or_none(NoteModel.id == c_note.id)
+        if not n_obj:
+            continue
+        v = n_obj.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+        if v:
+            try:
+                cnt = json.loads(v.content) if isinstance(v.content, str) else v.content
+                if isinstance(cnt, dict):
+                    first_val = next(iter(cnt.values()), "")
+                    if str(first_val).strip().lower() == val_clean:
+                        return n_obj.id
+            except Exception:
+                pass
+    return None
+
+
+def _validate_note_creation_data(
+    note_type_name: str,
+    deck_name: str,
+    fields_input: str | dict[str, Any],
+) -> tuple[NoteTypeModel, Any, dict[str, str], list[str]]:
+    """Valide les paramètres d'une note. Lève ValueError si invalide.
+
+    Retourne (NoteTypeModel, DeckModel, sanitized_fields, warnings).
+    """
+    from ankiforge.database.models import DeckModel, NoteTypeModel
+
+    # 1. Contrôle du deck (anti-hallucination)
+    dk_clean = deck_name.strip()
+    if not dk_clean:
+        raise ValueError("Le nom du paquet cible ne peut pas être vide.")
+
+    deck = DeckModel.get_or_none(DeckModel.name == dk_clean)
+    if not deck:
+        avail = [d.name for d in DeckModel.select().limit(5)]
+        avail_str = f" Exemples de paquets existants : {avail}." if avail else ""
+        raise ValueError(
+            f"Paquet '{dk_clean}' introuvable en base.{avail_str} Pour éviter toute création de paquet fantôme par hallucination, "
+            f"veuillez utiliser un paquet existant ou le créer préalablement via 'create_deck'."
+        )
+
+    # 2. Contrôle du type de note
+    nt_clean = note_type_name.strip()
+    if not nt_clean:
+        raise ValueError("Le nom du type de note ne peut pas être vide.")
+
+    nt = NoteTypeModel.get_or_none(NoteTypeModel.name == nt_clean)
+    if not nt:
+        raise ValueError(f"Type de note '{nt_clean}' introuvable en base.")
+
+    # 3. Contrôle des champs
+    if isinstance(fields_input, str):
+        try:
+            fields_dict = json.loads(fields_input)
+        except Exception as e:
+            raise ValueError(f"Format JSON invalide pour fields_json : {e}") from e
+    elif isinstance(fields_input, dict):
+        fields_dict = fields_input
+    else:
+        raise ValueError("fields_json doit être un dictionnaire ou une chaîne JSON.")
+
+    schema = json.loads(str(nt.fields_schema)) if nt.fields_schema else []
+    if not isinstance(schema, list) or not schema:
+        raise ValueError(f"Le type de note '{nt.name}' ne possède aucun champ dans son schéma.")
+
+    unknown = set(fields_dict.keys()) - set(schema)
+    if unknown:
+        raise ValueError(f"Champs inconnus pour le type de note '{nt.name}' : {sorted(list(unknown))}. Champs valides attendus : {schema}.")
+
+    sanitized: dict[str, str] = {k: str(fields_dict.get(k, "")).strip() for k in schema}
+
+    if not any(v for v in sanitized.values()):
+        raise ValueError(f"Tous les champs de la note pour le type '{nt.name}' sont vides.")
+
+    # 4. Warnings (doublons sur premier champ)
+    warnings: list[str] = []
+    first_field_name = schema[0] if schema else None
+    if first_field_name and sanitized.get(first_field_name):
+        dup_id = _check_first_field_duplicate(deck.id, nt.id, sanitized[first_field_name])
+        if dup_id:
+            warnings.append(f"Doublon potentiel : la note #{dup_id} dans le paquet '{deck.name}' possède déjà la valeur '{sanitized[first_field_name][:50]}' pour le champ '{first_field_name}'.")
+
+    return nt, deck, sanitized, warnings
+
+
+@mcp.tool()
+def create_note(
+    note_type_name: str,
+    fields_json: str,
+    deck_name: str,
+    tags: str = "",
+) -> str:
+    """Propose la création d'une nouvelle note via un StagedPatch (Two-Phase Commit). Rejette strictement les paquets inexistants."""
+    try:
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        nt, deck, sanitized_fields, warnings = _validate_note_creation_data(
+            note_type_name=note_type_name,
+            deck_name=deck_name,
+            fields_input=fields_json,
+        )
+
+        tags_list = [t.strip() for t in tags.split(",") if t.strip()] if isinstance(tags, str) else list(tags)
+
+        first_field_name = next(iter(sanitized_fields.keys()), "Front")
+        first_val = sanitized_fields.get(first_field_name, "")
+
+        diff_payload = {
+            "type": "note_create",
+            "note_type_name": nt.name,
+            "note_type_id": nt.id,
+            "deck_name": deck.name,
+            "deck_id": deck.id,
+            "fields": sanitized_fields,
+            "tags": tags_list,
+            "warnings": warnings,
+            "modified": {
+                "Front": first_val,
+                "fields": sanitized_fields,
+                "deck": deck.name,
+                "note_type": nt.name,
+                "tags": tags_list,
+                "warnings": warnings,
+            },
+            "title": f"Création de Note dans '{deck.name}' ({nt.name})",
+            "explanation": f"Proposition de création d'une note dans le paquet '{deck.name}' avec le type de note '{nt.name}'.",
+        }
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="note_create",
+            diff_payload=diff_payload,
+        )
+
+        return json.dumps(
+            {
+                "status": "staged",
+                "patch_id": patch.patch_id,
+                "note_type": nt.name,
+                "deck": deck.name,
+                "fields": sanitized_fields,
+                "warnings": warnings,
+                "message": f"Proposition de création de note enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur create_note : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def create_notes_batch(
+    notes_json: str,
+    default_deck: str = "",
+    default_note_type: str = "",
+    default_tags: str = "",
+) -> str:
+    """Propose la création d'un lot de notes via un StagedPatch groupé atomique (Two-Phase Commit, validation Tout-ou-Rien)."""
+    try:
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        try:
+            notes_raw = json.loads(notes_json) if isinstance(notes_json, str) else notes_json
+        except Exception as e:
+            return json.dumps({"status": "error", "message": f"Format JSON invalide pour notes_json : {e}"}, ensure_ascii=False)
+
+        if not isinstance(notes_raw, list) or not notes_raw:
+            return json.dumps({"status": "error", "message": "notes_json doit être une liste JSON non vide de notes."}, ensure_ascii=False)
+
+        def_tags_list = [t.strip() for t in default_tags.split(",") if t.strip()] if isinstance(default_tags, str) else list(default_tags)
+
+        validated_notes: list[dict[str, Any]] = []
+        all_warnings: list[str] = []
+
+        # Validation Tout-ou-Rien
+        for idx, item in enumerate(notes_raw, 1):
+            if not isinstance(item, dict):
+                return json.dumps({"status": "error", "message": f"Note #{idx} invalide : chaque élément doit être un objet JSON."}, ensure_ascii=False)
+
+            nt_name = str(item.get("note_type") or item.get("note_type_name") or default_note_type).strip()
+            dk_name = str(item.get("deck") or item.get("deck_name") or default_deck).strip()
+            fields_val = item.get("fields") or item.get("content_dict") or {}
+
+            try:
+                nt_obj, dk_obj, sanitized_fields, warnings = _validate_note_creation_data(
+                    note_type_name=nt_name,
+                    deck_name=dk_name,
+                    fields_input=fields_val,
+                )
+            except ValueError as err:
+                return json.dumps({"status": "error", "message": f"Note #{idx} invalide : {err}"}, ensure_ascii=False)
+
+            item_tags = item.get("tags")
+            if item_tags is None:
+                combined_tags = list(def_tags_list)
+            elif isinstance(item_tags, str):
+                combined_tags = list(dict.fromkeys(def_tags_list + [t.strip() for t in item_tags.split(",") if t.strip()]))
+            else:
+                combined_tags = list(dict.fromkeys(def_tags_list + list(item_tags)))
+
+            validated_notes.append(
+                {
+                    "note_type": nt_obj.name,
+                    "deck": dk_obj.name,
+                    "fields": sanitized_fields,
+                    "tags": combined_tags,
+                    "warnings": warnings,
+                }
+            )
+            if warnings:
+                all_warnings.extend([f"Note #{idx} : {w}" for w in warnings])
+
+        diff_payload = {
+            "type": "batch_note_create",
+            "notes": validated_notes,
+            "count": len(validated_notes),
+            "default_deck": default_deck,
+            "default_note_type": default_note_type,
+            "default_tags": def_tags_list,
+            "warnings": all_warnings,
+            "modified": {
+                "notes": validated_notes,
+                "count": len(validated_notes),
+                "warnings": all_warnings,
+            },
+            "title": f"Création par lot de {len(validated_notes)} note(s)",
+            "explanation": f"Proposition de création groupée de {len(validated_notes)} notes via Two-Phase Commit atomique.",
+        }
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="batch_note_create",
+            diff_payload=diff_payload,
+        )
+
+        return json.dumps(
+            {
+                "status": "staged",
+                "patch_id": patch.patch_id,
+                "count": len(validated_notes),
+                "warnings": all_warnings,
+                "message": f"Proposition de création de {len(validated_notes)} note(s) enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    except Exception as e:
+        logger.error("Erreur create_notes_batch : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
 
 
 @mcp.tool()

@@ -2474,7 +2474,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+44"/>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+672"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+766"/>
         <source>Erreur d&apos;annulation : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2575,7 +2575,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-581"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-675"/>
         <source>En veille</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2595,7 +2595,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+288"/>
+        <location line="+382"/>
         <source>⚠️ Confirmer (%1) ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16819,7 +16819,7 @@ https://blog.example.com/article-1</source>
 <context>
     <name>WorkspaceInspectorWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-627"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-721"/>
         <source>WORKSPACE &amp; GARDE-FOU</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16910,7 +16910,7 @@ https://blog.example.com/article-1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+305"/>
+        <location line="+399"/>
         <source>✅ Appliqué en BDD</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16940,7 +16940,7 @@ https://blog.example.com/article-1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+119"/>
+        <location line="+126"/>
         <source>Patch copié dans le presse-papiers !</source>
         <translation type="unfinished"></translation>
     </message>

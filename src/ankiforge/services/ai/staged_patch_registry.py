@@ -437,6 +437,162 @@ class StagedPatchRegistry:
                 "message": f"Nettoyage HTML appliqué avec succès sur {len(applied_notes)} note(s).",
             }
 
+        # 8. Type NOTE_CREATE (Création unitaire d'une note)
+        if p_type == "note_create":
+            from ankiforge.services.cards.note_manager import NoteManager
+
+            payload = diff_data.get("modified") if isinstance(diff_data.get("modified"), dict) else diff_data
+            if not isinstance(payload, dict):
+                return {"status": "error", "message": "Payload invalide pour la création de note.", "patch_id": patch_id}
+
+            nt_id = payload.get("note_type_id") or diff_data.get("note_type_id")
+            nt_name = str(payload.get("note_type_name") or payload.get("note_type") or diff_data.get("note_type_name") or diff_data.get("note_type") or "").strip()
+            nt = NoteTypeModel.get_or_none(NoteTypeModel.id == int(nt_id)) if nt_id else None
+            if not nt and nt_name:
+                nt = NoteTypeModel.get_or_none(NoteTypeModel.name == nt_name)
+
+            if not nt:
+                return {"status": "error", "message": f"Type de note '{nt_name or nt_id}' introuvable.", "patch_id": patch_id}
+
+            deck_id = payload.get("deck_id") or diff_data.get("deck_id")
+            deck_name = str(payload.get("deck_name") or payload.get("deck") or diff_data.get("deck_name") or diff_data.get("deck") or "").strip()
+            deck = DeckModel.get_or_none(DeckModel.id == int(deck_id)) if deck_id else None
+            if not deck and deck_name:
+                deck = DeckModel.get_or_none(DeckModel.name == deck_name)
+
+            if not deck:
+                return {"status": "error", "message": f"Paquet '{deck_name or deck_id}' introuvable.", "patch_id": patch_id}
+
+            fields = payload.get("fields") or payload.get("fields_dict") or payload.get("content_dict") or diff_data.get("fields") or {}
+            if isinstance(fields, str):
+                try:
+                    fields = json.loads(fields)
+                except Exception:
+                    fields = {}
+            if not isinstance(fields, dict):
+                return {"status": "error", "message": "Format de champs invalide.", "patch_id": patch_id}
+
+            raw_tags = payload.get("tags") if payload.get("tags") is not None else diff_data.get("tags", [])
+            tags_list: list[str]
+            if isinstance(raw_tags, str):
+                tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
+            elif isinstance(raw_tags, (list, tuple)):
+                tags_list = [str(t).strip() for t in raw_tags if str(t).strip()]
+            else:
+                tags_list = []
+
+            source = str(payload.get("source") or diff_data.get("source", "mcp_agent"))
+
+            try:
+                with db.atomic():
+                    created_note = NoteManager.create_note(
+                        note_type=nt,
+                        deck=deck,
+                        content_dict=fields,
+                        tags=tags_list,
+                        source=source,
+                    )
+                    patch.target_id = created_note.id
+                    patch.status = "applied"
+                    patch.applied_at = datetime.datetime.now()
+                    patch.save()
+
+                cls._notify_mutation("note_create", created_note.id, {"note_id": created_note.id, "patch_id": patch_id, "deck_id": deck.id})
+                return {
+                    "status": "applied",
+                    "patch_id": patch_id,
+                    "note_id": created_note.id,
+                    "deck_name": deck.name,
+                    "note_type_name": nt.name,
+                    "message": f"Note #{created_note.id} créée avec succès dans '{deck.name}'.",
+                }
+            except Exception as err:
+                logger.error("Erreur application note_create : %s", err)
+                return {"status": "error", "message": str(err), "patch_id": patch_id}
+
+        # 9. Type BATCH_NOTE_CREATE (Création groupée de notes par lot)
+        if p_type == "batch_note_create":
+            from ankiforge.services.cards.note_manager import NoteManager
+
+            payload = diff_data.get("modified") if isinstance(diff_data.get("modified"), dict) else diff_data
+            if not isinstance(payload, dict):
+                return {"status": "error", "message": "Payload invalide pour la création de notes par lot.", "patch_id": patch_id}
+
+            notes_list = payload.get("notes") or diff_data.get("notes", [])
+            if not isinstance(notes_list, list) or not notes_list:
+                return {"status": "error", "message": "Aucune note valide fournie dans le lot.", "patch_id": patch_id}
+
+            default_deck_name = str(payload.get("default_deck") or payload.get("deck_name") or diff_data.get("default_deck") or "").strip()
+            default_nt_name = str(payload.get("default_note_type") or payload.get("note_type_name") or diff_data.get("default_note_type") or "").strip()
+            raw_default_tags = payload.get("default_tags") if payload.get("default_tags") is not None else diff_data.get("default_tags", [])
+            default_tags: list[str]
+            if isinstance(raw_default_tags, str):
+                default_tags = [t.strip() for t in raw_default_tags.split(",") if t.strip()]
+            elif isinstance(raw_default_tags, (list, tuple)):
+                default_tags = [str(t).strip() for t in raw_default_tags if str(t).strip()]
+            else:
+                default_tags = []
+
+            created_note_ids: list[int] = []
+            try:
+                with db.atomic():
+                    for idx, n_item in enumerate(notes_list, 1):
+                        if not isinstance(n_item, dict):
+                            continue
+                        dk_name = str(n_item.get("deck") or n_item.get("deck_name") or default_deck_name).strip()
+                        dk = DeckModel.get_or_none(DeckModel.name == dk_name)
+                        if not dk:
+                            raise ValueError(f"Note #{idx} : Paquet '{dk_name}' introuvable.")
+
+                        nt_name = str(n_item.get("note_type") or n_item.get("note_type_name") or default_nt_name).strip()
+                        nt = NoteTypeModel.get_or_none(NoteTypeModel.name == nt_name)
+                        if not nt:
+                            raise ValueError(f"Note #{idx} : Type de note '{nt_name}' introuvable.")
+
+                        fields = n_item.get("fields") or n_item.get("content_dict") or {}
+                        if isinstance(fields, str):
+                            try:
+                                fields = json.loads(fields)
+                            except Exception:
+                                fields = {}
+
+                        item_tags = n_item.get("tags")
+                        item_tags_list: list[str] = []
+                        if isinstance(item_tags, str):
+                            item_tags_list = [t.strip() for t in item_tags.split(",") if t.strip()]
+                        elif isinstance(item_tags, (list, tuple)):
+                            item_tags_list = [str(t).strip() for t in item_tags if str(t).strip()]
+
+                        combined_tags: list[str] = list(dict.fromkeys(default_tags + item_tags_list))
+
+                        source = str(n_item.get("source") or payload.get("source") or diff_data.get("source", "mcp_agent"))
+
+                        created_n = NoteManager.create_note(
+                            note_type=nt,
+                            deck=dk,
+                            content_dict=fields,
+                            tags=combined_tags,
+                            source=source,
+                        )
+                        created_note_ids.append(created_n.id)
+
+                    patch.target_id = created_note_ids[0] if created_note_ids else 0
+                    patch.status = "applied"
+                    patch.applied_at = datetime.datetime.now()
+                    patch.save()
+
+                cls._notify_mutation("batch_note_create", 0, {"created_note_ids": created_note_ids, "patch_id": patch_id})
+                return {
+                    "status": "applied",
+                    "patch_id": patch_id,
+                    "created_note_ids": created_note_ids,
+                    "count": len(created_note_ids),
+                    "message": f"{len(created_note_ids)} note(s) créée(s) avec succès par lot.",
+                }
+            except Exception as err:
+                logger.error("Erreur application batch_note_create : %s", err)
+                return {"status": "error", "message": str(err), "patch_id": patch_id}
+
         return {"status": "error", "message": f"Type de patch non supporté : '{patch.patch_type}'."}
 
     @classmethod
