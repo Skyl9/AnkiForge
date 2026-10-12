@@ -15,6 +15,7 @@ from ankiforge.services.reindex_service import (
     get_stale_documents,
     mark_document_version,
     reindex_document,
+    revectorize_document,
 )
 
 pytestmark = pytest.mark.integration
@@ -123,6 +124,27 @@ def test_reindex_document_preserves_audio_timestamps(mock_db, monkeypatch) -> No
     assert all(c.start_time is not None and c.end_time is not None for c in chunks), "Les horodatages audio doivent survivre à la ré-indexation."
 
 
+def test_reindex_document_reports_fragment_progress(mock_db, monkeypatch) -> None:
+    """La couture expose une micro-progression opportuniste ``(traités, total)`` des fragments."""
+    uid = uuid.uuid4().hex[:6]
+    content = "# Chapitre\n\nIntro.\n\n## Section A\n\nContenu A.\n\n## Section B\n\nContenu B."
+    doc = DocumentModel.create(title=f"Doc fragments {uid}", content=content, file_type="md")
+    doc.chunk_strategy_version = 0
+    doc.save()
+
+    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+
+    seen: list[tuple[int, int]] = []
+    assert reindex_document(doc.id, fragment_cb=lambda cur, tot: seen.append((cur, tot))) == REINDEX_OK
+
+    chunk_count = DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count()
+    assert seen, "Au moins une micro-progression doit être émise."
+    assert seen[0] == (0, chunk_count)
+    assert seen[-1] == (chunk_count, chunk_count)
+    assert all(0 <= cur <= tot == chunk_count for cur, tot in seen)
+
+
 def test_reindex_document_empty_returns_empty_status(mock_db, monkeypatch) -> None:
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Doc vide {uid}", content="", file_type="md")
@@ -185,3 +207,41 @@ class MockAlignmentService:
     @classmethod
     def align_document(cls, doc_id: int) -> dict:
         return {"matched_notes": 0, "coverage_pct": 0.0}
+
+
+def _chunks_snapshot(doc: DocumentModel) -> list[tuple[int, str]]:
+    """Instantané (id, contenu) des fragments, dans l'ordre — prouve l'identité des lignes."""
+    return [(c.id, c.content) for c in DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index)]
+
+
+def test_revectorize_document_preserves_existing_chunks(mock_db, monkeypatch) -> None:
+    """La rév vectorisation ne re-découpe ni ne supprime les fragments.
+
+    C'est l'invariant qui distingue `revectorize_document` de `reindex_document` : la
+    rév vectorisation de la délimitation s'exécute après `sync_extracted_chunks` et doit
+    préserver les identifiants de fragments, faute de quoi les liens de couverture en
+    cascade (`NoteChunkLinkModel.chunk` est en CASCADE) seraient détruits.
+    """
+    uid = uuid.uuid4().hex[:6]
+    content = "# Chapitre\n\nIntro.\n\n## Section A\n\nContenu A.\n\n## Section B\n\nContenu B."
+    doc = DocumentModel.create(title=f"Doc revec {uid}", content=content, file_type="md")
+
+    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    assert reindex_document(doc.id) == REINDEX_OK
+
+    before = _chunks_snapshot(doc)
+    assert before, "Le document doit avoir des fragments avant la rév vectorisation."
+
+    seen: list[tuple[int, int]] = []
+    status = revectorize_document(doc.id, fragment_cb=lambda cur, tot: seen.append((cur, tot)))
+
+    assert status == REINDEX_OK
+    assert _chunks_snapshot(doc) == before, "Les fragments (id compris) doivent être strictement préservés."
+    assert seen and seen[0] == (0, len(before)) and seen[-1] == (len(before), len(before))
+
+
+def test_revectorize_document_missing_doc_returns_error(mock_db, monkeypatch) -> None:
+    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    assert revectorize_document(9_999_999) == REINDEX_ERROR
