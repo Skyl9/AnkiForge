@@ -472,6 +472,10 @@ class MCPServerDaemon:
         self.mcp_data_mutated = self.signals.mcp_data_mutated
 
         self._mcp_server = mcp_server
+        if self._mcp_server is not None:
+            from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
+
+            get_mcp_activity_tracker().attach_to_server(self._mcp_server)
         self._host = host
         self._base_port = base_port
         self._data_dir = data_dir if data_dir is not None else get_app_data_dir()
@@ -558,6 +562,10 @@ class MCPServerDaemon:
 
                 mcp_instance = mcp
                 self._mcp_server = mcp
+
+            from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
+
+            get_mcp_activity_tracker().attach_to_server(mcp_instance)
 
             # 2. Allocation dynamique d'un port disponible avec boucle de repli
             import uvicorn

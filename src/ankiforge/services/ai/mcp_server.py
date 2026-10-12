@@ -7,6 +7,7 @@ from mcp.server.mcpserver import MCPServer
 
 from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, db
 from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
+from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
@@ -58,6 +59,7 @@ _PROMPT_ENV = create_prompt_environment()
 
 # Initialisation du serveur MCP AnkiForge
 mcp = MCPServer("AnkiForge")
+get_mcp_activity_tracker().attach_to_server(mcp)
 
 
 @mcp.tool()
