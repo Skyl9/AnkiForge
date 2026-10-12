@@ -109,6 +109,15 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : masquer, ignorer, exclure
 - **Réparation de provenance** : réécriture automatique, lors d'une synchronisation, des tags de provenance obsolètes vers leur forme canonique, sans migration de données.
 
+## Indexation & Réindexation RAG
+
+- **Réindexation (d'un document)** : la ré-ingestion structurante d'un document — re-découpage, ré-indexation vectorielle (FAISS/BM25) et re-synchronisation de sa couverture — qui le remet en conformité avec la stratégie de découpage courante. C'est l'acte portant sur **un** document.
+  _Avoid_ : réindex, ré-index, vectorisation, re-embedding, rebuild index
+- **Passe de réindexation** : l'exécution qui réindexe un ensemble de documents et dont l'avancement global est rapporté à l'utilisateur. C'est l'unité de la surface d'avancement, indépendamment du chemin qui l'a déclenchée (démarrage, commande manuelle, rév vectorisation de délimitation).
+  _Avoid_ : lot de réindexation, batch RAG, job d'indexation, file d'indexation
+- **Réindexation migratoire** : la passe de réindexation déclenchée automatiquement au démarrage lorsqu'une nouvelle version de stratégie de découpage rend obsolètes des documents indexés avec l'ancienne.
+  _Avoid_ : migration de schéma, upgrade d'index, rattrapage
+
 ## Thèmes, Layouts & Design System
 
 - **Mode d'Apparence** : le régime visuel binaire de l'interface, **Sombre** ou **Clair**. C'est un axe indépendant de l'identité graphique choisie.
@@ -137,6 +146,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Vue monolithique** : vue qui combine dans une même unité la composition visuelle, la coordination d’état, les opérations métier et la gestion des workers, au point de rendre ses parcours difficiles à isoler.
 - **Widget de section** : composant d’interface qui encapsule un parcours cohérent avec son état local, ses signaux et ses règles de validation, plutôt qu’un simple fragment visuel.
 - **Tranche de refactoring** : étape livrable qui extrait et teste une responsabilité d’une vue sans modifier le comportement observable des autres parcours.
+- **Bandeau d'activité global** : indicateur d'avancement unique et persistant, hébergé **hors** des dispositions enfichables (au niveau de la fenêtre), de sorte qu'une passe de réindexation reste visible quel que soit l'écran actif. C'est un composant transversal, jamais un widget de vue.
+  _Avoid_ : barre de statut, barre de progression globale, footer, overlay
 
 ## Protocole MCP & Agents externes
 
