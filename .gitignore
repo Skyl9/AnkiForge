@@ -53,6 +53,7 @@ test.md
 audits/
 *.json
 !tests/fixtures/golden_data/**
+!tests/fixtures/anki_oracle/**
 !package.json
 !tsconfig.json
 
