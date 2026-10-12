@@ -47,17 +47,28 @@ class AlbumOCRWorker(QThread):
         provider_override: LLMProvider | None = None,
         options: Any | None = None,
         parent: Any | None = None,
+        model_id: str | None = None,
+        provider: str | None = None,
+        data_type: str | None = None,
     ) -> None:
         super().__init__(parent)
         self.document_id = document_id
         self.options = options
         self.page_ids: list[int] | None
         if options is not None:
-            self.category_id = str(getattr(options, "category_id", category_id))
+            eff_model = str(getattr(options, "model_id", None) or getattr(options, "category_id", model_id or category_id))
+            self.model_id = eff_model
+            self.category_id = eff_model
+            self.provider = str(getattr(options, "provider", provider or ""))
+            self.data_type = str(getattr(options, "data_type", data_type or "table"))
             target_ids = getattr(options, "target_page_ids", None)
             self.page_ids = [int(p) for p in target_ids] if target_ids is not None else None
         else:
-            self.category_id = category_id
+            eff_model = str(model_id or category_id)
+            self.model_id = eff_model
+            self.category_id = eff_model
+            self.provider = str(provider or "")
+            self.data_type = str(data_type or "table")
             self.page_ids = list(page_ids) if page_ids is not None else None
 
         self.ocr_service = ocr_service or OCRService()
@@ -71,7 +82,7 @@ class AlbumOCRWorker(QThread):
 
     def run(self) -> None:
         """Exécute la transcription séquentielle de chaque page en arrière-plan."""
-        logger.info("Démarrage d'AlbumOCRWorker pour l'album ID %d (catégorie: '%s')", self.document_id, self.category_id)
+        logger.info("Démarrage d'AlbumOCRWorker pour l'album ID %d (modèle: '%s')", self.document_id, self.model_id)
         self.failed_page_ids = []
 
         prompt_instructions: str | None = None
@@ -82,12 +93,12 @@ class AlbumOCRWorker(QThread):
             from ankiforge.services.ai.album_transcription_types import build_album_transcription_prompt
             from ankiforge.services.ai.vision_category_service import VisionCategoryService
 
-            cat = VisionCategoryService.get_category_by_id(self.category_id)
+            cat = VisionCategoryService.get_category_by_id(self.model_id)
             base_inst = cat.custom_instructions if cat else ""
             prompt_instructions = build_album_transcription_prompt(self.options, base_instructions=base_inst)
             temp_override = getattr(self.options, "temperature_override", None)
 
-            if effective_provider is None and cat and cat.provider != "native":
+            if effective_provider is None and self.provider != "native" and (cat and cat.provider != "native"):
                 m_override = getattr(self.options, "model_override", None)
                 tb_override = getattr(self.options, "thinking_budget_override", None)
                 if m_override or (tb_override is not None):
@@ -96,13 +107,14 @@ class AlbumOCRWorker(QThread):
                         from ankiforge.services.settings_service import SettingsService
                         from ankiforge.utils.secret_store import load_llm_key
 
-                        target_model = m_override or cat.model_id
-                        target_tb = tb_override if tb_override is not None else cat.thinking_budget
-                        key = str(SettingsService.get(f"keys/{cat.provider.lower()}", ""))
+                        target_model = m_override or (cat.model_id if cat else self.model_id)
+                        target_provider = self.provider or (cat.provider if cat else "ollama")
+                        target_tb = tb_override if tb_override is not None else (cat.thinking_budget if cat else 0)
+                        key = str(SettingsService.get(f"keys/{target_provider.lower()}", ""))
                         if not key:
-                            key = load_llm_key(str(target_model), str(cat.provider)) or ""
+                            key = load_llm_key(str(target_model), str(target_provider)) or ""
                         effective_provider = AIManager.create_provider(
-                            provider_name=cat.provider,
+                            provider_name=target_provider,
                             model_id=target_model,
                             api_key=key if key else None,
                             thinking_budget=target_tb,
@@ -140,6 +152,15 @@ class AlbumOCRWorker(QThread):
                         transcribe_kwargs["custom_instructions"] = prompt_instructions
                     if temp_override is not None:
                         transcribe_kwargs["temperature"] = temp_override
+
+                    import inspect
+
+                    sig = inspect.signature(self.ocr_service.transcribe_page)
+                    has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+                    if "model_id" in sig.parameters or has_var_kw:
+                        transcribe_kwargs["model_id"] = self.model_id
+                        transcribe_kwargs["provider"] = self.provider or None
+                        transcribe_kwargs["data_type"] = self.data_type
 
                     updated_page = self.ocr_service.transcribe_page(
                         page.id,

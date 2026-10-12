@@ -5,6 +5,7 @@ Dialogue modal de configuration pour la transcription d'un album ou de planches 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -35,10 +36,10 @@ from ankiforge.services.ai.vision_category_service import (
     VisionCategoryService,
     get_closed_image_data_types,
     get_image_data_type,
-    is_engine_compatible_with_type,
 )
 from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.components import Badge, IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.model_selector import ModelSelectorWidget
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -291,23 +292,17 @@ class AlbumTranscriptionDialog(QDialog):
         lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         combo_row.addWidget(lbl_cat)
 
-        self.combo_category = QComboBox()
-        self.combo_category.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 12px;
-                padding: 4px 8px;
-            }}
-        """)
-        self.combo_category.currentIndexChanged.connect(self._on_category_changed)
-        combo_row.addWidget(self.combo_category, 1)
+        self.model_selector = ModelSelectorWidget(
+            require_vision=True,
+            include_native_vision=True,
+            show_badges=False,
+            parent=self,
+        )
+        self.combo_category = self.model_selector.combo
+        self.combo_category.currentIndexChanged.connect(lambda _idx: self._on_model_changed())
+        combo_row.addWidget(self.model_selector, 1)
 
-        self.btn_browse_catalog = IconButton("ph.sparkle", "Explorer le catalogue des modèles de vision...", 28, self)
-        self.btn_browse_catalog.clicked.connect(self._open_catalog)
-        combo_row.addWidget(self.btn_browse_catalog)
+        self.btn_browse_catalog = self.model_selector.btn_inspect
         engine_layout.addLayout(combo_row)
 
         self.lbl_cat_description = QLabel()
@@ -543,43 +538,41 @@ class AlbumTranscriptionDialog(QDialog):
         self._populate_categories()
 
     def _populate_categories(self) -> None:
-        """Alimente la liste des moteurs de vision compatibles avec le type de donnée sélectionné."""
+        """Actualise les modèles de vision compatibles avec le type de donnée sélectionné."""
         dt_id = self.combo_data_type.currentData() if hasattr(self, "combo_data_type") else "texte_imprime"
-        categories = self._category_service.get_categories()
+        dt_obj = get_image_data_type(str(dt_id))
+        allow_native = dt_obj.supports_hardware_ocr if dt_obj else False
 
-        # Le type de donnée d'image borne l'ensemble des candidats moteur (critère 3)
-        compatible_categories = [cat for cat in categories if is_engine_compatible_with_type(cat, dt_id)]
+        prev_model = self.model_selector.get_current_model()
+        prev_model_id = prev_model.model_id if prev_model else None
 
-        prev_cat_id = self.combo_category.currentData() if hasattr(self, "combo_category") else None
+        self.model_selector.include_native_vision = allow_native
+        self.model_selector.refresh_models()
 
-        self.combo_category.blockSignals(True)
-        self.combo_category.clear()
-        for cat in compatible_categories:
-            self.combo_category.addItem(cat.name, cat.id)
-        self.combo_category.blockSignals(False)
+        # Si le modèle précédent était hardware/apple_vision et n'est plus compatible :
+        if prev_model_id in ("hardware", "native", "apple_vision") and not allow_native:
+            if self.model_selector.combo.count() > 0:
+                self.model_selector.combo.setCurrentIndex(0)
+        elif prev_model_id:
+            self.model_selector.set_current_model_id(prev_model_id)
 
-        if compatible_categories:
-            target_idx = self.combo_category.findData(prev_cat_id)
-            if target_idx >= 0:
-                self.combo_category.setCurrentIndex(target_idx)
-            else:
-                self.combo_category.setCurrentIndex(0)
-            self._on_category_changed()
+        self._on_model_changed(self.model_selector.get_current_model())
 
-    def _on_category_changed(self) -> None:
-        """Met à jour les détails, badges et paramètres du moteur de vision sélectionné."""
-        cat_id = self.combo_category.currentData()
-        category = self._category_service.get_category_by_id(cat_id) if cat_id else None
-        if not category:
+    def _on_model_changed(self, model: Any | None = None) -> None:
+        """Met à jour les détails, badges et paramètres du modèle sélectionné."""
+        if model is None:
+            model = self.model_selector.get_current_model()
+        if not model:
             return
 
-        self.lbl_cat_description.setText(category.description)
-        self.spin_temp.setValue(category.temperature)
+        desc = getattr(model, "description", "") or (getattr(model, "display_name", "") or str(getattr(model, "model_id", "")))
+        self.lbl_cat_description.setText(desc)
+        self.spin_temp.setValue(getattr(model, "temperature", 0.2))
 
-        # Le budget de tokens suit strictement le modèle, jamais le type (critère 4)
-        self.spin_thinking.setValue(category.thinking_budget)
+        tb = getattr(model, "thinking_budget", 0) if getattr(model, "supports_thinking", False) else 0
+        self.spin_thinking.setValue(tb)
 
-        is_hardware = category.id == "hardware" or category.provider == "native"
+        is_hardware = str(getattr(model, "model_id", "")) in ("hardware", "native", "apple_vision") or getattr(model, "provider", "") == "native"
         self.hardware_notice.setVisible(is_hardware)
         self.directives_group.setEnabled(not is_hardware)
         self.advanced_drawer.setEnabled(not is_hardware)
@@ -592,37 +585,19 @@ class AlbumTranscriptionDialog(QDialog):
         else:
             self.badge_vision.setText(self.tr("Vision multimodale"))
             self.badge_vision.set_variant("info")
-            if category.thinking_budget > 0:
-                self.badge_thinking.setText(tr("CoT Thinking (%1t)", category.thinking_budget))
+            if tb > 0:
+                self.badge_thinking.setText(tr("CoT Thinking (%1t)", tb))
                 self.badge_thinking.setVisible(True)
             else:
                 self.badge_thinking.setVisible(False)
 
+    def _on_category_changed(self) -> None:
+        """Alias pour _on_model_changed assurant la compatibilité."""
+        self._on_model_changed()
+
     def _open_catalog(self) -> None:
         """Ouvre le catalogue de modèles restreint aux capacités de vision (critère 5)."""
-        from ankiforge.ui.components.model_selector.dialog import ModelDiscoveryDialog
-
-        curr_id = self.combo_category.currentData()
-        dlg = ModelDiscoveryDialog(
-            current_model_id=str(curr_id) if curr_id else None,
-            picker_mode=True,
-            require_vision=True,
-            parent=self,
-        )
-        if dlg.exec():
-            selected = dlg.get_selected_model()
-            if selected:
-                m_id = getattr(selected, "model_id", None) or getattr(selected, "id", None)
-                if m_id:
-                    self._populate_categories()
-                    idx = self.combo_category.findData(str(m_id))
-                    if idx >= 0:
-                        self.combo_category.setCurrentIndex(idx)
-                    else:
-                        d_name = getattr(selected, "display_name", str(m_id))
-                        self.combo_category.addItem(d_name, str(m_id))
-                        self.combo_category.setCurrentIndex(self.combo_category.count() - 1)
-                    self._on_category_changed()
+        self.model_selector._open_discovery_dialog()
 
     def _update_scope_counts(self) -> None:
         total = len(self._pages)
@@ -701,11 +676,17 @@ class AlbumTranscriptionDialog(QDialog):
         think_val = self.spin_thinking.value()
         data_type_id = str(self.combo_data_type.currentData() or "texte_imprime")
 
+        model = self.model_selector.get_current_model()
+        eff_model_id = str(model.model_id) if model else "structured"
+        eff_provider = str(model.provider) if model else ""
+
         return AlbumTranscriptionOptions(
             scope_mode=scope_mode,
             custom_range=self.le_custom_range.text().strip(),
             target_page_ids=self._resolve_target_page_ids(),
-            category_id=str(self.combo_category.currentData() or "structured"),
+            category_id=eff_model_id,
+            model_id=eff_model_id,
+            provider=eff_provider,
             model_override=model_override,
             temperature_override=temp_val,
             thinking_budget_override=think_val if think_val > 0 else None,

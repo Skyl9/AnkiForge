@@ -27,7 +27,6 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import LLMConfigModel, db
 from ankiforge.services.ai.model_catalog import ModelCatalog, _is_loopback_url
-from ankiforge.services.ai.vision_category_service import VisionCategory, VisionCategoryService
 from ankiforge.services.settings_service import SettingsService, values_equal
 from ankiforge.ui.components import (
     DangerButton,
@@ -47,7 +46,6 @@ from ankiforge.ui.widgets.settings_modal.components.settings_card import (
     SettingsCard,
     apply_pill_badge_style,
 )
-from ankiforge.ui.widgets.settings_modal.dialogs.vision_category_dialog import VisionCategoryDialog
 from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
@@ -153,7 +151,7 @@ def _fetch_ollama_models_and_caps(base_url: str) -> tuple[list[str], list[tuple[
 
 
 class AIEnginesTab(SettingsDirtyMixin, QWidget):
-    """Onglet Configuration des Moteurs IA, Clés API et Catégories de Vision d'Image."""
+    """Onglet Configuration des Moteurs IA et Clés API."""
 
     rotate_mcp_token_requested = Signal()
 
@@ -161,13 +159,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.lbl_provider_labels: list[QLabel] = []
-        self.vision_cards: list[SettingsCard] = []
         self._setup_ui()
         # État initial des clés API (jamais relu depuis le trousseau) pour la détection de modification.
         self._initial_keys: dict[str, str] = {p_id: edit.text().strip() for p_id, edit in self.key_edits.items()}
-        # Les catégories sont locales et nécessaires immédiatement pour que
-        # l'onglet expose un état complet avant le premier tour de boucle Qt.
-        self._render_vision_categories()
         self._record_initial_state()
         QTimer.singleShot(0, self.refresh_data)
 
@@ -747,143 +741,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         layout.addWidget(self.card_global_prefs)
 
-        # ── SECTION 5 : CATÉGORIES DE RECONNAISSANCE D'IMAGE (VISION, repliée) ─
-        self.lbl_sec_vision = QLabel(self.tr("CATÉGORIES DE RECONNAISSANCE D'IMAGE"))
-        self.lbl_sec_vision.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
-
-        self.vision_container = QVBoxLayout()
-        self.vision_container.setSpacing(8)
-
-        # Barre d'outils Vision
-        vision_toolbar = QHBoxLayout()
-        vision_toolbar.setSpacing(8)
-
-        self.btn_add_vision_cat = SecondaryButton("+ Ajouter une catégorie")
-        self.btn_add_vision_cat.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY))
-        self.btn_add_vision_cat.clicked.connect(self._add_vision_category)
-        vision_toolbar.addWidget(self.btn_add_vision_cat)
-
-        self.btn_reset_vision = SecondaryButton("Rétablir les préréglages")
-        self.btn_reset_vision.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.TEXT_MUTED))
-        self.btn_reset_vision.clicked.connect(self._reset_vision_categories)
-        vision_toolbar.addWidget(self.btn_reset_vision)
-
-        vision_toolbar.addStretch()
-
-        self.sec_vision = CollapsibleSection(tr("Catégories de reconnaissance d'image"), collapsed=True)
-        self.sec_vision.add_layout(self.vision_container)
-        self.sec_vision.add_layout(vision_toolbar)
-        layout.addWidget(self.sec_vision)
-
         self.scroll.setWidget(self.content_widget)
         root_layout.addWidget(self.scroll)
-
-    def _render_vision_categories(self) -> None:
-        """Génère dynamiquement les cartes de chaque catégorie de vision configurée."""
-        # Nettoyage des anciennes cartes
-        while self.vision_container.count():
-            item = self.vision_container.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
-
-        self.vision_cards.clear()
-        categories = VisionCategoryService.get_categories()
-
-        for cat in categories:
-            card = SettingsCard(self.content_widget)
-            card_layout = QHBoxLayout(card)
-            card_layout.setContentsMargins(12, 10, 12, 10)
-            card_layout.setSpacing(10)
-
-            # Icône catégorie
-            icon_lbl = QLabel()
-            icon_color = DesignTokens.COLOR_GREEN if cat.provider in ("ollama", "native") else DesignTokens.COLOR_BLUE
-            icon_lbl.setPixmap(load_phosphor_icon(cat.icon, color=icon_color).pixmap(20, 20))
-            card_layout.addWidget(icon_lbl)
-
-            # Contenu texte & badges
-            content_col = QVBoxLayout()
-            content_col.setSpacing(3)
-
-            title_row = QHBoxLayout()
-            title_row.setSpacing(6)
-
-            title_lbl = QLabel(cat.name)
-            title_lbl.setStyleSheet(f"font-size: 12.5px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-            title_row.addWidget(title_lbl)
-
-            # Badge Fournisseur
-            prov_badge = QLabel(cat.provider.upper())
-            apply_pill_badge_style(prov_badge, DesignTokens.COLOR_GREEN if cat.provider in ("ollama", "native") else DesignTokens.COLOR_BLUE)
-            title_row.addWidget(prov_badge)
-
-            # Badge Modèle
-            model_badge = QLabel(cat.model_id)
-            apply_pill_badge_style(model_badge, DesignTokens.TEXT_MUTED)
-            title_row.addWidget(model_badge)
-
-            # Badge Thinking si actif
-            if cat.thinking_budget > 0:
-                thinking_badge = QLabel(tr("CoT %1t", cat.thinking_budget))
-                apply_pill_badge_style(thinking_badge, DesignTokens.ACCENT_PRIMARY)
-                title_row.addWidget(thinking_badge)
-
-            title_row.addStretch()
-            content_col.addLayout(title_row)
-
-            desc_lbl = QLabel(cat.description)
-            desc_lbl.setWordWrap(True)
-            desc_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
-            content_col.addWidget(desc_lbl)
-
-            card_layout.addLayout(content_col, 1)
-
-            # Bouton Modifier
-            btn_edit = SecondaryButton("Modifier")
-            btn_edit.setFixedHeight(28)
-            btn_edit.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
-            btn_edit.clicked.connect(lambda _, c=cat: self._edit_vision_category(c))
-            card_layout.addWidget(btn_edit)
-
-            # Bouton Supprimer (uniquement pour les catégories personnalisées)
-            if cat.id not in ("reasoning", "massive", "structured", "hardware", "visual_rag"):
-                btn_del = DangerButton("", ghost=True)
-                btn_del.setFixedSize(28, 28)
-                btn_del.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
-                btn_del.clicked.connect(lambda _, cid=cat.id: self._delete_vision_category(cid))
-                card_layout.addWidget(btn_del)
-
-            self.vision_container.addWidget(card)
-            self.vision_cards.append(card)
-
-    def _edit_vision_category(self, cat: VisionCategory) -> None:
-        dialog = VisionCategoryDialog(category=cat, parent=self)
-        if dialog.exec():
-            updated = dialog.get_category()
-            if updated:
-                VisionCategoryService.save_category(updated)
-                self._render_vision_categories()
-                show_toast(self, tr("Catégorie '%1' mise à jour !", updated.name))
-
-    def _add_vision_category(self) -> None:
-        dialog = VisionCategoryDialog(category=None, parent=self)
-        if dialog.exec():
-            new_cat = dialog.get_category()
-            if new_cat:
-                VisionCategoryService.save_category(new_cat)
-                self._render_vision_categories()
-                show_toast(self, tr("Catégorie '%1' créée avec succès !", new_cat.name))
-
-    def _delete_vision_category(self, cat_id: str) -> None:
-        if VisionCategoryService.delete_category(cat_id):
-            self._render_vision_categories()
-            show_toast(self, self.tr("Catégorie de vision supprimée."))
-
-    def _reset_vision_categories(self) -> None:
-        VisionCategoryService.reset_to_defaults()
-        self._render_vision_categories()
-        show_toast(self, self.tr("Catégories de vision réinitialisées aux valeurs standard !"))
 
     def _test_cloud_key(self, provider_id: str, provider_name: str) -> None:
         key_edit = self.key_edits.get(provider_id)
@@ -1052,7 +911,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         show_toast(self, self.tr("Serveur Ollama inaccessible sur cette adresse."), is_error=True)
 
     def refresh_data(self) -> None:
-        """Recharge les moteurs IA et les catégories de vision."""
+        """Recharge les moteurs IA et les paramètres de configuration."""
         engines: list[Any] = []
         try:
             self.table_engines.blockSignals(True)
@@ -1164,12 +1023,6 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             self.lbl_rag_sim_val.setText(tr("%1%%", sim_pct))
         except Exception as e:
             logger.warning("Erreur refresh_data global_prefs: %s", e)
-
-        # Rafraîchissement des catégories de vision
-        try:
-            self._render_vision_categories()
-        except Exception as e:
-            logger.warning("Erreur refresh_data vision_categories: %s", e)
 
         # Rafraîchissement des passerelles
         try:
@@ -1535,8 +1388,6 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.lbl_sec_cat.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         if hasattr(self, "lbl_sec_global_prefs"):
             self.lbl_sec_global_prefs.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
-        if hasattr(self, "lbl_sec_vision"):
-            self.lbl_sec_vision.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
 
         self.card_keys.refresh_theme(profile)
         self.card_ollama.refresh_theme(profile)
@@ -1554,11 +1405,6 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             self.card_global_prefs.refresh_theme(profile)
         if hasattr(self, "sec_advanced_gen"):
             self.sec_advanced_gen.refresh_theme(profile)
-        if hasattr(self, "sec_vision"):
-            self.sec_vision.refresh_theme(profile)
-
-        for card in self.vision_cards:
-            card.refresh_theme(profile)
 
         if hasattr(self, "lbl_ol_url"):
             self.lbl_ol_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")

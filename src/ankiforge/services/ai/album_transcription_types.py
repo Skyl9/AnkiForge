@@ -15,7 +15,9 @@ class AlbumTranscriptionOptions:
     scope_mode: str  # "all", "untranscribed", "stale", "custom"
     custom_range: str
     target_page_ids: list[int]
-    category_id: str
+    category_id: str = "structured"
+    model_id: str = ""
+    provider: str = ""
     model_override: str | None = None
     temperature_override: float | None = None
     thinking_budget_override: int | None = None
@@ -25,6 +27,13 @@ class AlbumTranscriptionOptions:
     include_headings: bool = True
     custom_instructions: str = ""
     data_type: str = "table"
+
+    def __post_init__(self) -> None:
+        eff_model = self.model_id or self.category_id or "structured"
+        if not self.model_id:
+            object.__setattr__(self, "model_id", eff_model)
+        if not self.category_id:
+            object.__setattr__(self, "category_id", eff_model)
 
 
 def parse_page_ranges(range_str: str, max_page: int) -> set[int]:

@@ -332,38 +332,48 @@ class OCRService:
     def transcribe_image(
         self,
         image_path: str | Path,
-        category_id: str,
+        model_id: str | None = None,
+        provider: str | None = None,
+        data_type: Any | None = None,
         provider_override: LLMProvider | None = None,
         custom_instructions: str | None = None,
         temperature: float | None = None,
+        thinking_budget: int = 0,
+        category_id: str | None = None,
+        **kwargs: Any,
     ) -> str:
         """
-        Transcrit une image en appliquant la catégorie d'IA sélectionnée par l'utilisateur.
+        Transcrit une image en appliquant le modèle d'IA sélectionné et le type de données.
 
-        Lève ValueError si la catégorie demandée est inconnue ou non configurée,
-        sans aucun repli silencieux vers une autre catégorie (compte rendu honnête).
+        Accepte directement model_id / provider ainsi qu'un ImageDataType,
+        tout en préservant la compatibilité avec l'ancienne indirection category_id.
         """
-        category = VisionCategoryService.get_category_by_id(category_id)
-        if not category:
-            logger.error("Catégorie de vision inconnue ou non configurée : '%s'", category_id)
-            raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{category_id}'")
+        from ankiforge.services.ai.vision_category_service import (
+            ImageDataType,
+            get_image_data_type,
+        )
 
-        effective_instructions = custom_instructions if custom_instructions is not None else category.custom_instructions
+        effective_model_id = model_id or category_id or kwargs.get("category_id")
+        if not effective_model_id:
+            logger.error("Modèle de vision non spécifié.")
+            raise ValueError("Modèle de vision non spécifié")
 
-        # 1. Si un provider est fourni explicitement (ex: injection de test ou override)
-        if provider_override:
-            return self.transcribe_with_vlm(
-                image_path,
-                provider_override,
-                custom_instructions=effective_instructions,
-                temperature=temperature,
-            )
+        effective_model_id = str(effective_model_id)
 
-        # 2. Résolution du provider configuré pour la catégorie
-        resolved = VisionCategoryService.resolve_provider_for_category(category)
+        # Préparation des consignes de prompt intégrant le type de donnée d'image
+        prompt_parts: list[str] = []
+        if data_type:
+            dt_obj = data_type if isinstance(data_type, ImageDataType) else get_image_data_type(str(data_type))
+            if dt_obj and dt_obj.default_prompt_directive:
+                prompt_parts.append(dt_obj.default_prompt_directive)
+        if custom_instructions and custom_instructions.strip():
+            prompt_parts.append(custom_instructions.strip())
 
-        if resolved == "native":
-            # Demande d'OCR matériel (Apple Vision sous macOS)
+        effective_instructions = "\n".join(prompt_parts) if prompt_parts else None
+
+        # 1. OCR matériel local (Apple Vision sous macOS)
+        is_native = provider == "native" or effective_model_id in ("hardware", "native", "apple_vision")
+        if is_native:
             if self.is_apple_vision_available():
                 native_text = self.transcribe_with_apple_vision(image_path)
                 if native_text is not None:
@@ -374,39 +384,137 @@ class OCRService:
             logger.error("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
             raise RuntimeError("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
 
-        if isinstance(resolved, LLMProvider):
+        # 2. Validation immédiate de l'existence du modèle ou de la catégorie demandée
+        from ankiforge.database.models import LLMConfigModel
+        from ankiforge.services.ai.flexible_service import AIManager
+        from ankiforge.services.settings_service import SettingsService
+        from ankiforge.utils.secret_store import load_llm_key
+
+        cfg = LLMConfigModel.get_or_none(LLMConfigModel.model_id == effective_model_id)
+        if not cfg and effective_model_id.isdigit():
+            cfg = LLMConfigModel.get_or_none(LLMConfigModel.id == int(effective_model_id))
+        cat = VisionCategoryService.get_category_by_id(effective_model_id)
+
+        if not (is_native or cfg or provider or cat):
+            logger.error("Catégorie de vision inconnue ou non configurée : '%s'", effective_model_id)
+            raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{effective_model_id}'")
+
+        # 3. Si un provider est fourni explicitement (ex: injection de test ou override)
+        if provider_override:
+            effective_inst = effective_instructions
+            if effective_inst is None and cat:
+                effective_inst = cat.custom_instructions
             return self.transcribe_with_vlm(
                 image_path,
-                resolved,
-                custom_instructions=effective_instructions,
+                provider_override,
+                custom_instructions=effective_inst or "",
                 temperature=temperature,
             )
 
-        return MockProvider().generate("", "", response_format="text")
+        # 4. Résolution directe via LLMConfigModel configuré en base SQLite
+
+        if cfg:
+            prov_name = provider or cfg.provider
+            key = str(SettingsService.get(f"keys/{prov_name.lower()}", ""))
+            if not key:
+                key = load_llm_key(str(cfg.model_id), str(prov_name)) or ""
+            effective_tb = thinking_budget if thinking_budget > 0 else (getattr(cfg, "thinking_budget", 0) if getattr(cfg, "supports_thinking", False) else 0)
+            effective_temp = temperature if temperature is not None else getattr(cfg, "temperature", 0.2)
+            resolved_provider = AIManager.create_provider(
+                provider_name=prov_name,
+                model_id=cfg.model_id,
+                api_key=key if key else None,
+                thinking_budget=effective_tb,
+            )
+            return self.transcribe_with_vlm(
+                image_path,
+                resolved_provider,
+                custom_instructions=effective_instructions or "",
+                temperature=effective_temp,
+            )
+
+        # 4. Résolution avec provider explicite
+        if provider:
+            key = str(SettingsService.get(f"keys/{provider.lower()}", ""))
+            if not key:
+                key = load_llm_key(str(effective_model_id), str(provider)) or ""
+            resolved_provider = AIManager.create_provider(
+                provider_name=provider,
+                model_id=effective_model_id,
+                api_key=key if key else None,
+                thinking_budget=thinking_budget,
+            )
+            return self.transcribe_with_vlm(
+                image_path,
+                resolved_provider,
+                custom_instructions=effective_instructions or "",
+                temperature=temperature,
+            )
+
+        # 5. Rétrocompatibilité avec les catégories VisionCategory existantes
+        category = VisionCategoryService.get_category_by_id(effective_model_id)
+        if category:
+            inst = effective_instructions if effective_instructions is not None else category.custom_instructions
+            temp = temperature if temperature is not None else category.temperature
+            resolved = VisionCategoryService.resolve_provider_for_category(category)
+            if resolved == "native":
+                if self.is_apple_vision_available():
+                    native_text = self.transcribe_with_apple_vision(image_path)
+                    if native_text is not None:
+                        return native_text
+                    raise RuntimeError("La transcription locale Apple Vision a échoué ou a dépassé le délai imparti.")
+                raise RuntimeError("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
+
+            if isinstance(resolved, LLMProvider):
+                return self.transcribe_with_vlm(
+                    image_path,
+                    resolved,
+                    custom_instructions=inst or "",
+                    temperature=temp,
+                )
+            return MockProvider().generate("", "", response_format="text")
+
+        logger.error("Catégorie de vision inconnue ou non configurée : '%s'", effective_model_id)
+        raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{effective_model_id}'")
 
     def transcribe_page(
         self,
         page_id: int,
-        category_id: str,
+        model_id: str | None = None,
+        provider: str | None = None,
+        data_type: Any | None = None,
         provider_override: LLMProvider | None = None,
         custom_instructions: str | None = None,
         temperature: float | None = None,
+        thinking_budget: int = 0,
+        category_id: str | None = None,
+        **kwargs: Any,
     ) -> DocumentPageModel:
         """
         Transcrit une DocumentPageModel, met à jour son champ ocr_text et son statut en base SQLite.
 
-        La planche est rendue **par la couture** (ADR 0011) : le modèle reçoit l'orientation
-        de la planche, pas celle du fichier. Transcrire une planche de travers produirait
-        un texte syntaxiquement valide et sémantiquement faux — l'état le plus difficile
-        à rattraper, car rien ne signale l'anomalie.
+        La planche est rendue par la couture (ADR 0011).
         """
+        from ankiforge.database.models import LLMConfigModel
         from ankiforge.services.cards.album_service import AlbumService
 
-        # Validation immédiate de la catégorie demandée avant tout rendu ou écriture
-        category = VisionCategoryService.get_category_by_id(category_id)
-        if not category:
-            logger.error("Catégorie de vision inconnue ou non configurée : '%s'", category_id)
-            raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{category_id}'")
+        effective_model_id = model_id or category_id or kwargs.get("category_id")
+        if not effective_model_id:
+            logger.error("Modèle de vision non spécifié.")
+            raise ValueError("Modèle de vision non spécifié")
+
+        effective_model_id = str(effective_model_id)
+
+        # Validation immédiate du modèle demandé avant tout rendu ou écriture
+        is_native = provider == "native" or effective_model_id in ("hardware", "native", "apple_vision")
+        cfg_found = LLMConfigModel.get_or_none(LLMConfigModel.model_id == effective_model_id)
+        if not cfg_found and effective_model_id.isdigit():
+            cfg_found = LLMConfigModel.get_or_none(LLMConfigModel.id == int(effective_model_id))
+        cat_found = VisionCategoryService.get_category_by_id(effective_model_id)
+
+        if not (is_native or provider_override or cfg_found or provider or cat_found):
+            logger.error("Catégorie de vision inconnue ou non configurée : '%s'", effective_model_id)
+            raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{effective_model_id}'")
 
         model_db = DocumentPageModel._meta.database
         with model_db.atomic():
@@ -416,12 +524,6 @@ class OCRService:
 
             temp_path: Path | None = None
             try:
-                # Les transducteurs (VLM multimodal, Apple Vision) parlent tous un chemin
-                # de fichier : on matérialise la planche rendue dans un fichier éphémère
-                # plutôt que d'ajouter un second chemin d'images en mémoire.
-                # L'extension vient de la couture comme le contenu : demander le suffixe
-                # au média brut ouvrait un second chemin de lecture, et c'est précisément
-                # ce que le test de garde interdit.
                 suffix = album_service.page_media_path(page).suffix or ".png"
                 with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
                     save_rendered_page(rendered, handle.name, suffix)
@@ -434,10 +536,13 @@ class OCRService:
                 try:
                     text = self.transcribe_image(
                         temp_path,
-                        category_id=category_id,
+                        model_id=effective_model_id,
+                        provider=provider,
+                        data_type=data_type,
                         provider_override=provider_override,
                         custom_instructions=custom_instructions,
                         temperature=temperature,
+                        thinking_budget=thinking_budget,
                     )
                 except Exception:
                     page.status = original_status

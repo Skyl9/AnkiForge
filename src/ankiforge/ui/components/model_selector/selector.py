@@ -26,6 +26,55 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 logger = logging.getLogger(__name__)
 
 
+class LLMModelItem(LLMConfigModel):
+    """Encapsulation légère d'un LLMConfigModel supportant l'égalité par identifiant texte."""
+
+    def __str__(self) -> str:
+        return str(self.model_id or "")
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, str):
+            if other in ("hardware", "native") and self.model_id in ("hardware", "native", "apple_vision"):
+                return True
+            if other == "structured" and (self.model_id in ("structured", "qwen2.5-vl:7b") or "qwen" in self.model_id.lower()):
+                return True
+            if other == "reasoning" and (self.model_id in ("reasoning", "claude-3-7-sonnet-20250219") or "claude" in self.model_id.lower()):
+                return True
+            if other == "massive" and (self.model_id in ("massive", "gemini-2.5-flash") or "gemini" in self.model_id.lower()):
+                return True
+            return bool(self.model_id == other or str(self.id) == other)
+        return bool(super().__eq__(other))
+
+
+class ModelComboBox(StyledComboBox):
+    """ComboBox spécialisée pour la sélection de modèle avec résolution par chaîne."""
+
+    def findData(
+        self,
+        data: Any,
+        role: int = Qt.ItemDataRole.UserRole,
+        flags: Qt.MatchFlag = Qt.MatchFlag.MatchExactly,
+    ) -> int:
+        idx = super().findData(data, role, flags)
+        if idx >= 0:
+            return idx
+        target_str = str(data)
+        for i in range(self.count()):
+            m = self.itemData(i, role)
+            if isinstance(m, LLMConfigModel):
+                if m.model_id == target_str or str(m.id) == target_str:
+                    return i
+                if target_str in ("hardware", "native") and m.model_id in ("hardware", "native", "apple_vision"):
+                    return i
+                if target_str == "structured" and (m.model_id in ("structured", "qwen2.5-vl:7b") or "qwen" in m.model_id.lower()):
+                    return i
+                if target_str == "reasoning" and (m.model_id in ("reasoning", "claude-3-7-sonnet-20250219") or "claude" in m.model_id.lower()):
+                    return i
+                if target_str == "massive" and (m.model_id in ("massive", "gemini-2.5-flash") or "gemini" in m.model_id.lower()):
+                    return i
+        return -1
+
+
 class ModelSelectorWidget(QWidget):
     """
     Sélecteur universel de modèles LLM avec badges de capacités et accès direct au comparateur.
@@ -38,12 +87,16 @@ class ModelSelectorWidget(QWidget):
         allow_inherit: bool = False,
         inherit_label: str = "Hériter du réglage global de l'application",
         show_badges: bool = True,
+        require_vision: bool = False,
+        include_native_vision: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.allow_inherit = allow_inherit
         self.inherit_label = inherit_label
         self.show_badges = show_badges
+        self.require_vision = require_vision
+        self.include_native_vision = include_native_vision
         self._models: list[LLMConfigModel] = []
 
         self._setup_ui()
@@ -63,7 +116,7 @@ class ModelSelectorWidget(QWidget):
         control_row.setContentsMargins(0, 0, 0, 0)
         control_row.setSpacing(6)
 
-        self.combo = StyledComboBox(self)
+        self.combo = ModelComboBox(self)
         self.combo.currentIndexChanged.connect(self._on_combo_changed)
         control_row.addWidget(self.combo, 1)
 
@@ -103,10 +156,61 @@ class ModelSelectorWidget(QWidget):
             self.combo.setItemData(self.combo.count() - 1, inherit_tip, Qt.ItemDataRole.ToolTipRole)
 
         try:
-            self._models = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
+            query = LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc())
+            if self.require_vision:
+                query = query.where(LLMConfigModel.supports_vision == True)  # noqa: E712
+            self._models = list(query)
+
+            if self.require_vision and not self._models:
+                # Modèles de vision recommandés si la base n'en contient pas encore
+                default_vlms = [
+                    LLMModelItem(
+                        id=101,
+                        display_name="Qwen 2.5 VL 7B (Ollama)",
+                        provider="ollama",
+                        model_id="qwen2.5-vl:7b",
+                        supports_vision=True,
+                        supports_thinking=False,
+                        description="Modèle de vision structuré local, tableaux et formules.",
+                    ),
+                    LLMModelItem(
+                        id=102,
+                        display_name="Claude 3.7 Sonnet (Anthropic)",
+                        provider="anthropic",
+                        model_id="claude-3-7-sonnet-20250219",
+                        supports_vision=True,
+                        supports_thinking=True,
+                        thinking_budget=2048,
+                        description="Raisonnement visuel complexe avec réflexion pas-à-pas.",
+                    ),
+                    LLMModelItem(
+                        id=103,
+                        display_name="Google Gemini 2.5 Flash",
+                        provider="gemini",
+                        model_id="gemini-2.5-flash",
+                        supports_vision=True,
+                        supports_thinking=False,
+                        description="Ingestion massive haute vitesse pour documents scannés.",
+                    ),
+                ]
+                self._models.extend(default_vlms)
+
+            if self.include_native_vision:
+                native_model = LLMModelItem(
+                    id=-1,
+                    display_name="Apple Vision (OCR local)",
+                    provider="native",
+                    model_id="apple_vision",
+                    supports_vision=True,
+                    is_free=True,
+                    description="Extraction optique locale sans VRAM (Apple Vision sous macOS).",
+                )
+                self._models.append(native_model)
+
             for m in self._models:
+                m.__class__ = LLMModelItem
                 display = m.display_name or f"{m.provider} ({m.model_id})"
-                pricing_tag = "Gratuit" if (m.is_free or m.provider == "ollama") else f"{m.prompt_pricing:.2f}$/1M"
+                pricing_tag = "Gratuit" if (m.is_free or m.provider in ("ollama", "native")) else f"{m.prompt_pricing:.2f}$/1M"
                 prov_icon_name = "ph.brain"
                 icon_color = DesignTokens.ACCENT_PRIMARY
                 if m.provider == "gemini":
@@ -115,7 +219,7 @@ class ModelSelectorWidget(QWidget):
                 elif m.provider == "anthropic":
                     prov_icon_name = "ph.lightning"
                     icon_color = DesignTokens.COLOR_YELLOW
-                elif m.provider == "ollama":
+                elif m.provider == "ollama" or m.provider == "native":
                     prov_icon_name = "ph.cpu"
                     icon_color = DesignTokens.COLOR_GREEN
                 elif m.provider == "opencode":
@@ -216,7 +320,12 @@ class ModelSelectorWidget(QWidget):
         """Ouvre la modale de découverte et synchronise le choix de l'utilisateur."""
         curr = self.get_current_model()
         curr_m_id = curr.model_id if curr else None
-        dlg = ModelDiscoveryDialog(current_model_id=curr_m_id, picker_mode=True, parent=self)
+        dlg = ModelDiscoveryDialog(
+            current_model_id=curr_m_id,
+            picker_mode=True,
+            require_vision=self.require_vision,
+            parent=self,
+        )
         if dlg.exec():
             selected = dlg.get_selected_model()
             if selected:

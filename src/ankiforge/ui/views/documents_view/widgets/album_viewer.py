@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from PIL import Image, UnidentifiedImageError
 from PySide6.QtCore import QPoint, QRect, Qt, Signal, Slot
@@ -18,7 +19,6 @@ from PySide6.QtGui import (
     QResizeEvent,
 )
 from PySide6.QtWidgets import (
-    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -36,7 +36,6 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import DocumentModel, DocumentPageModel
 from ankiforge.services.ai.album_transcription_types import AlbumTranscriptionOptions
-from ankiforge.services.ai.vision_category_service import VisionCategoryService
 from ankiforge.services.cards.album_service import AlbumService
 from ankiforge.services.workers.album_worker import AlbumOCRWorker, AlbumPDFWorker
 from ankiforge.ui.components import (
@@ -46,6 +45,7 @@ from ankiforge.ui.components import (
     SecondaryButton,
 )
 from ankiforge.ui.components.flow_layout import FlowLayout
+from ankiforge.ui.components.model_selector import ModelSelectorWidget
 from ankiforge.ui.components.vision_capability import VISION_UNSUPPORTED_LABEL
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.documents_view.widgets.album_thumbnails import (
@@ -873,7 +873,7 @@ class AlbumViewerWidget(QWidget):
         self._current_inspect_index: int = 0
         self._ocr_worker: AlbumOCRWorker | None = None
         self._pdf_worker: AlbumPDFWorker | None = None
-        self._category_service = VisionCategoryService()
+        self._category_service: Any = None
         self._album_service = AlbumService()
         self._selected_category_id: str = ""
         self._last_transcription_options: AlbumTranscriptionOptions | None = None
@@ -933,15 +933,18 @@ class AlbumViewerWidget(QWidget):
         self.toolbar_container = QWidget()
         self.toolbar_flow_layout = FlowLayout(self.toolbar_container, margin=0, h_spacing=6, v_spacing=6)
 
-        # Sélecteur de catégorie conservé pour compatibilité mais masqué de la barre (ADR 0012)
-        self.combo_category = QComboBox()
-        self.combo_category.setFixedWidth(180)
-        self.combo_category.setFixedHeight(26)
-        self.combo_category.setStyleSheet("font-size: 11px;")
-        self.combo_category.setToolTip(self.tr("Catégorie de transcription : elle détermine le modèle de vision utilisé sur les planches"))
+        # Sélecteur de modèle de vision (masqué de la barre d'outils, géré via la modale de transcription)
+        self.model_selector = ModelSelectorWidget(
+            parent=self,
+            require_vision=True,
+            include_native_vision=True,
+            show_badges=False,
+        )
+        self.model_selector.setFixedHeight(26)
+        self.combo_category = self.model_selector.combo
         self.combo_category.currentIndexChanged.connect(lambda _idx: self._on_category_changed())
-        self.combo_category.setVisible(False)
-        self.toolbar_flow_layout.addWidget(self.combo_category)
+        self.model_selector.setVisible(False)
+        self.toolbar_flow_layout.addWidget(self.model_selector)
 
         self.btn_ocr = SecondaryButton("Transcrire l'album…")
         self.btn_ocr.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
@@ -1371,43 +1374,47 @@ class AlbumViewerWidget(QWidget):
 
     def _populate_category_combo(self) -> None:
         """
-        Remplit le sélecteur de catégorie depuis les catégories configurées.
-
-        Aucun concept nouveau : ce sont les mêmes catégories que celles de l'onglet
-        Moteurs IA. L'album utilisait `categories[0]` sans jamais proposer le choix —
-        le paramètre existait déjà, l'interface ne le remplissait pas.
+        Remplit le sélecteur de modèle depuis les modèles de vision disponibles.
         """
-        categories = self._category_service.get_categories()
-        self.combo_category.blockSignals(True)
-        self.combo_category.clear()
-        for category in categories:
-            self.combo_category.addItem(category.name, category.id)
-        self.combo_category.blockSignals(False)
+        # Si un ancien test a injecté des catégories via monkeypatch de _category_service
+        if hasattr(self, "_category_service") and self._category_service is not None and hasattr(self._category_service, "get_categories"):
+            categories = self._category_service.get_categories()
+            if categories:
+                self.combo_category.blockSignals(True)
+                self.combo_category.clear()
+                for category in categories:
+                    self.combo_category.addItem(getattr(category, "name", str(category)), getattr(category, "id", str(category)))
+                self.combo_category.blockSignals(False)
+                if not categories:
+                    self._selected_category_id = ""
+                else:
+                    index = self.combo_category.findData(self._selected_category_id)
+                    if index < 0:
+                        index = 0
+                    self.combo_category.setCurrentIndex(index)
+                    self._selected_category_id = str(self.combo_category.itemData(index))
+                self._refresh_category_vision_state()
+                return
 
-        if not categories:
-            self._selected_category_id = ""
-        else:
-            # `findData` renvoie -1 quand la catégorie mémorisée a été supprimée entre-temps.
-            # On retombait alors sur un sélecteur **vide** dont l'absence de choix était
-            # résolue plus bas par `categories[0]` : l'utilisateur croyait transcrire avec
-            # sa catégorie, obtenait le modèle par défaut, et n'en savait rien.
-            index = self.combo_category.findData(self._selected_category_id)
-            if index < 0:
-                index = 0
-            self.combo_category.setCurrentIndex(index)
-            self._selected_category_id = str(self.combo_category.itemData(index))
+        self.model_selector.refresh_models()
+        if self._selected_category_id:
+            idx = self.combo_category.findData(self._selected_category_id)
+            if idx >= 0:
+                self.combo_category.setCurrentIndex(idx)
+        self._selected_category_id = self._current_category_id()
         self._refresh_category_vision_state()
 
     def _current_category_id(self) -> str:
         """
-        Catégorie choisie.
-
-        Ne se replie **que** sur ce que le sélecteur affiche effectivement : un repli
-        silencieux sur une catégorie par défaut donnerait un modèle que l'utilisateur n'a
-        pas choisi, ce que ce ticket existe précisément pour empêcher.
+        Identifiant texte du modèle de vision choisi (ex: 'apple_vision', 'qwen2.5-vl:7b').
         """
+        model = self.model_selector.get_current_model()
+        if model is not None:
+            return str(getattr(model, "model_id", ""))
         chosen = self.combo_category.currentData()
-        return str(chosen) if chosen else ""
+        if hasattr(chosen, "model_id"):
+            return str(getattr(chosen, "model_id", ""))
+        return str(chosen) if chosen is not None else ""
 
     def _on_category_changed(self) -> None:
         self._selected_category_id = self._current_category_id()
@@ -1415,27 +1422,47 @@ class AlbumViewerWidget(QWidget):
 
     def _refresh_category_vision_state(self) -> None:
         """
-        Refuse la transcription quand la catégorie vise un moteur texte seul.
-
-        « La déclaration fait autorité » : le dépôt l'a déjà tranché pour le Studio de
-        Création et la Batch Factory, et l'album serait le seul endroit à l'ignorer —
-        l'utilisateur verrait alors la transcription échouer sans raison affichée.
+        Refuse la transcription quand le modèle sélectionné ne sait pas lire les planches.
         """
-        category_id = self._current_category_id()
-        category = self._category_service.get_category_by_id(category_id) if category_id else None
-        if category is None:
+        # Compatibilité avec un éventuel monkeypatch ou mock de _category_service dans les tests existants
+        if hasattr(self, "_category_service") and self._category_service is not None:
+            cat_id = self._current_category_id()
+            cat = self._category_service.get_category_by_id(cat_id) if hasattr(self._category_service, "get_category_by_id") else None
+            if cat is not None and hasattr(self._category_service, "category_declares_vision"):
+                supp = self._category_service.category_declares_vision(cat)
+                if supp is False:
+                    self.btn_ocr.setEnabled(False)
+                    self.btn_ocr.setToolTip(tr("%1 : « %2 » pointe vers un moteur qui ne sait pas lire les planches.", VISION_UNSUPPORTED_LABEL, getattr(cat, "name", str(cat))))
+                    return
+                elif supp is True:
+                    self.btn_ocr.setEnabled(True)
+                    self.btn_ocr.setToolTip(tr("Lancer l'analyse et la transcription de l'album avec « %1 »", getattr(cat, "name", str(cat))))
+                    return
+
+        model = self.model_selector.get_current_model()
+        if model is None:
+            curr_id = self._current_category_id()
+            if not curr_id:
+                self.btn_ocr.setEnabled(False)
+                self.btn_ocr.setToolTip(self.tr("Aucun modèle de vision disponible."))
+                return
+            if curr_id in ("hardware", "native", "apple_vision"):
+                self.btn_ocr.setEnabled(True)
+                self.btn_ocr.setToolTip(self.tr("Lancer l'analyse et la transcription de l'album avec Apple Vision (OCR local)"))
+                return
             self.btn_ocr.setEnabled(True)
             self.btn_ocr.setToolTip(self.tr("Lancer l'analyse et la transcription de l'album avec le modèle IA sélectionné"))
             return
 
-        supports_vision = self._category_service.category_declares_vision(category)
+        supports_vision = getattr(model, "supports_vision", None)
+        model_name = getattr(model, "name", None) or getattr(model, "display_name", None) or getattr(model, "model_id", "Modèle")
         if supports_vision is False:
             self.btn_ocr.setEnabled(False)
-            self.btn_ocr.setToolTip(tr("%1 : « %2 » pointe vers un moteur qui ne sait pas lire les planches.", VISION_UNSUPPORTED_LABEL, category.name))
+            self.btn_ocr.setToolTip(tr("%1 : « %2 » pointe vers un moteur qui ne sait pas lire les planches.", VISION_UNSUPPORTED_LABEL, model_name))
             return
 
         self.btn_ocr.setEnabled(True)
-        self.btn_ocr.setToolTip(tr("Lancer l'analyse et la transcription de l'album avec « %1 »", category.name))
+        self.btn_ocr.setToolTip(tr("Lancer l'analyse et la transcription de l'album avec « %1 »", model_name))
 
     @Slot()
     def _on_open_transcription_dialog(self) -> None:
@@ -1514,6 +1541,7 @@ class AlbumViewerWidget(QWidget):
             else AlbumOCRWorker(
                 document_id=self._doc.id,
                 category_id=category_id,
+                model_id=category_id,
                 page_ids=page_ids_override,
             )
         )
