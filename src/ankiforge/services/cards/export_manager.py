@@ -1,7 +1,11 @@
 """
-Service d'Exportation de Paquets et Collections Anki (.apkg, .colpkg).
+Service d'Exportation de Paquets Anki (.apkg).
 Permet l'exportation sélective par paquet racine, sous-paquets, tags et statut,
 avec inclusion automatique des médias associés et persistance des identifiants stables.
+
+L'export transporte le **contenu** (notes, types de note, gabarits, CSS, médias,
+drapeaux 1-7 et suspension) et jamais l'ordonnancement : les cartes exportées
+redémarrent leur flux dans Anki (ADR 0022).
 """
 
 from __future__ import annotations
@@ -67,7 +71,7 @@ class AnkiForgeCard(genanki.Card):
 
 class ExportManager:
     """
-    Gestionnaire responsable de l'exportation sélective de paquets et de collections au format .apkg/.colpkg.
+    Gestionnaire responsable de l'exportation sélective de paquets au format .apkg.
     """
 
     def __init__(self) -> None:
@@ -85,20 +89,18 @@ class ExportManager:
         deck_id: int | None = None,
         tags: list[str] | None = None,
         status_filter: str = "all",  # 'all', 'new', 'modified'
-        format_type: str = "apkg",
         include_media: bool = True,
         sync_flags_and_suspension_tags: bool = True,
         progress_callback: Callable[[str], None] | None = None,
     ) -> int:
         """
-        Exporte une sélection de cartes vers un fichier .apkg ou .colpkg.
+        Exporte une sélection de cartes vers un fichier .apkg.
 
         Args:
-            output_path: Chemin du fichier de destination.
+            output_path: Chemin du fichier de destination (toujours un `.apkg`).
             deck_id: ID du paquet racine (optionnel, exporte toute la collection si None).
             tags: Liste de tags à filtrer (optionnel).
             status_filter: Filtre de statut ('all', 'new', 'modified').
-            format_type: 'apkg' ou 'colpkg'.
             include_media: Si True, inclut les images et audios référencés.
             sync_flags_and_suspension_tags: Si True, enrichit les notes exportées avec des tags (flag::couleur, is::suspended).
             progress_callback: Fonction de notification de progression.

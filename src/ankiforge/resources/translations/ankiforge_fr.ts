@@ -11514,7 +11514,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+20"/>
-        <source>Exportation Anki (.apkg / .colpkg)</source>
+        <source>Exportation Anki (.apkg)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11568,7 +11568,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+54"/>
+        <location line="+38"/>
+        <source>Enregistrer le paquet Anki</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Paquets Anki (*.apkg);;Tous les fichiers (*.*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
         <source>Destination manquante</source>
         <translation type="unfinished"></translation>
     </message>

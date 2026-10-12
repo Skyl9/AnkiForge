@@ -1,5 +1,5 @@
 """
-Dialogue d'Exportation Sélective de Paquets et Collections Anki (.apkg, .colpkg).
+Dialogue d'Exportation Sélective de Paquets Anki (.apkg).
 Permet de choisir le paquet racine via DeckSelectWindow, filtrer par tags, sélectionner le statut et inclure les médias.
 """
 
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 class ExportDialog(QDialog):
     """
-    Dialogue de configuration et d'exportation vers .apkg ou .colpkg s'appuyant sur DeckSelectWindow.
+    Dialogue de configuration et d'exportation vers .apkg s'appuyant sur DeckSelectWindow.
     """
 
     export_finished = Signal(str, int)  # file_path, count
@@ -73,7 +73,7 @@ class ExportDialog(QDialog):
         icon_lbl.setStyleSheet("border: none; background: transparent;")
 
         title_vbox = QVBoxLayout()
-        title_lbl = QLabel(self.tr("Exportation Anki (.apkg / .colpkg)"))
+        title_lbl = QLabel(self.tr("Exportation Anki (.apkg)"))
         title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 15, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none;")
 
@@ -275,9 +275,9 @@ class ExportDialog(QDialog):
         current_dest = self.dest_input.text().strip()
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Enregistrer le paquet Anki",
+            self.tr("Enregistrer le paquet Anki"),
             current_dest,
-            "Archives Anki (*.apkg);;Collections Anki (*.colpkg);;Tous les fichiers (*.*)",
+            self.tr("Paquets Anki (*.apkg);;Tous les fichiers (*.*)"),
         )
         if file_path:
             p = Path(file_path)
