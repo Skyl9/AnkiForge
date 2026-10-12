@@ -18,6 +18,8 @@ GITHOOKS_PRE_PUSH = REPO_ROOT / ".githooks" / "pre-push"
 SCRIPT_VERIFY = REPO_ROOT / "script" / "verify.py"
 PRE_COMMIT_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
 
+pytestmark = pytest.mark.integration
+
 
 def test_githooks_pre_push_exists_and_executable() -> None:
     """Le hook pre-push doit être présent dans .githooks et être exécutable."""

@@ -9,9 +9,13 @@ import time
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
 from ankiforge.ui.viewmodels.consultant_viewmodel import ConsultantViewModel
 from ankiforge.ui.views.consultant_view.widgets.thought_step_widget import ThoughtStepWidget
+
+pytestmark = pytest.mark.ui
 
 # ---------------------------------------------------------------------------
 # ThoughtStepWidget — Unit Tests

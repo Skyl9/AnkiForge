@@ -15,6 +15,8 @@ from ankiforge.security.signatures import (
     verify_manifest_signature,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def keypair() -> tuple[Ed25519PrivateKey, str]:

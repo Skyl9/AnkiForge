@@ -16,6 +16,8 @@ from ankiforge.services.cards.group_edit_service import (
 )
 from ankiforge.utils.tags import parse_note_tags
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def sample_notes(mock_db):

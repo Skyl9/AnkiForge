@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -13,6 +14,8 @@ SKILL_FILE = SKILL_DIR / "SKILL.md"
 CLAUDE_SKILL_LINK = REPO_ROOT / ".claude" / "skills" / "verification-environnement"
 GEMINI_FILE = REPO_ROOT / "GEMINI.md"
 AGENTS_FILE = REPO_ROOT / "AGENTS.md"
+
+pytestmark = pytest.mark.unit
 
 
 def test_verification_skill_file_exists() -> None:

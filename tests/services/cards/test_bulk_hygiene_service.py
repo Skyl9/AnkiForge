@@ -16,6 +16,8 @@ from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService
 from ankiforge.utils.tags import parse_note_tags
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def hygiene_setup(mock_db):

@@ -2,11 +2,15 @@
 Tests unitaires pour les types d'options et l'assemblage de prompt de transcription d'album.
 """
 
+import pytest
+
 from ankiforge.services.ai.album_transcription_types import (
     AlbumTranscriptionOptions,
     build_album_transcription_prompt,
     parse_page_ranges,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_parse_page_ranges_valid() -> None:

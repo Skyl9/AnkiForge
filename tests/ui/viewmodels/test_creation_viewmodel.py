@@ -13,7 +13,7 @@ from ankiforge.repositories.pipeline_repository import PipelineRepository
 from ankiforge.ui.viewmodels.creation_viewmodel import CreationViewModel
 from ankiforge.utils.event_bus import AppEventBus, CardCreatedEvent, NoteCreatedEvent
 
-pytestmark = pytest.mark.ui
+pytestmark = pytest.mark.integration
 
 
 def test_creation_viewmodel_workflow() -> None:

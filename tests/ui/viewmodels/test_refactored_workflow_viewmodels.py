@@ -9,7 +9,7 @@ from ankiforge.ui.viewmodels.batch_viewmodel import BatchViewModel
 from ankiforge.ui.viewmodels.creation_viewmodel import CreationViewModel
 from ankiforge.ui.viewmodels.documents_viewmodel import DocumentsViewModel
 
-pytestmark = pytest.mark.ui
+pytestmark = pytest.mark.integration
 
 
 class _FakeBatchWorker(QObject):

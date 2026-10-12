@@ -2,12 +2,16 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from ankiforge.services.workers.document_batch_worker import (
     DocumentBatchTask,
     DocumentBatchWorker,
     plan_batch_tasks,
 )
 from ankiforge.services.workers.document_worker import derive_document_title
+
+pytestmark = pytest.mark.integration
 
 PARSER_PATH = "ankiforge.services.workers.document_batch_worker.DocumentParser"
 

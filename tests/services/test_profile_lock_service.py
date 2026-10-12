@@ -5,6 +5,8 @@ import pytest
 
 from ankiforge.services.profile_lock_service import ProfileLockService, is_pid_alive
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def temp_profiles_dir(tmp_path):

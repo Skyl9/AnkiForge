@@ -14,7 +14,7 @@ from ankiforge.repositories.setting_repository import SettingRepository
 from ankiforge.ui.viewmodels.analysis_viewmodel import AnalysisViewModel
 from ankiforge.utils.event_bus import AppEventBus, LinterRuleToggledEvent
 
-pytestmark = pytest.mark.ui
+pytestmark = pytest.mark.integration
 
 
 def test_analysis_viewmodel_operations() -> None:

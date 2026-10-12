@@ -20,6 +20,8 @@ from ankiforge.utils.region_address import (
     render_region_addresses,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestRegionScopeParsing:
     def test_explicit_scopes_are_parsed(self) -> None:

@@ -10,7 +10,7 @@ from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.ui.viewmodels.documents_viewmodel import DocumentsViewModel
 from ankiforge.utils.event_bus import AppEventBus, DocumentAddedEvent, DocumentDeletedEvent
 
-pytestmark = pytest.mark.ui
+pytestmark = pytest.mark.integration
 
 
 def test_documents_viewmodel_management() -> None:

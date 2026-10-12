@@ -9,10 +9,14 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from ankiforge.services.crash_reporter_service import (
     CrashReporterService,
 )
 from ankiforge.services.feedback_service import SystemDiagnosticInfo
+
+pytestmark = pytest.mark.unit
 
 SAMPLE_CRASH_BLOCK_1 = """======================================================================
 CRASH REPORT [2026-10-10 14:30:00 UTC] - Darwin-24.1.0-arm64 | Python 3.12.9

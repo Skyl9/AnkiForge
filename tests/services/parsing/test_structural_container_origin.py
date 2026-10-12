@@ -16,7 +16,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from ankiforge.services.parsing.chunking_service import ChunkingService, ContainerOrigin
+
+pytestmark = pytest.mark.unit
 
 
 def _chunk(heading_path: str, content: str) -> dict[str, Any]:

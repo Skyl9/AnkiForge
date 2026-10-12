@@ -27,7 +27,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def test_setup():
+def sample_mcp_setup():
     with db.atomic():
         deck_parent = DeckModel.create(name="Sciences")
         deck_sub = DeckModel.create(name="Sciences::Biologie", parent_deck=deck_parent)
@@ -200,13 +200,13 @@ def test_mcp_create_note_type_flow():
     asyncio.run(_run())
 
 
-def test_mcp_change_note_type_flow(test_setup):
+def test_mcp_change_note_type_flow(sample_mcp_setup):
     """Vérifie change_note_type -> patch pending -> preview_and_apply_patch -> préservation SRS."""
 
     async def _run():
-        n1 = test_setup["notes"][0]
-        c1 = test_setup["cards"][0]
-        nt_target = test_setup["nt_simple"]
+        n1 = sample_mcp_setup["notes"][0]
+        c1 = sample_mcp_setup["cards"][0]
+        nt_target = sample_mcp_setup["nt_simple"]
 
         c1_id = c1.id
         c1_ivl = c1.ivl
@@ -229,7 +229,7 @@ def test_mcp_change_note_type_flow(test_setup):
         patch_id = prop_data["patch_id"]
 
         # Note toujours sur l'ancien modèle avant validation
-        assert NoteModel.get_by_id(n1.id).note_type.id == test_setup["nt_med"].id
+        assert NoteModel.get_by_id(n1.id).note_type.id == sample_mcp_setup["nt_med"].id
 
         # 2. Validation et application
         res_apply = await mcp.call_tool("preview_and_apply_patch", {"patch_id": patch_id})
@@ -256,11 +256,11 @@ def test_mcp_change_note_type_flow(test_setup):
     asyncio.run(_run())
 
 
-def test_mcp_get_notes_by_model(test_setup):
+def test_mcp_get_notes_by_model(sample_mcp_setup):
     """Vérifie get_notes_by_model avec filtre de type de note, sous-paquets et pagination."""
 
     async def _run():
-        nt_med = test_setup["nt_med"]
+        nt_med = sample_mcp_setup["nt_med"]
 
         # 1. Lister les notes de Medical Model MCP
         res = await mcp.call_tool(
@@ -320,11 +320,11 @@ def test_mcp_get_notes_by_model(test_setup):
     asyncio.run(_run())
 
 
-def test_mcp_audit_note_type_conformity(test_setup):
+def test_mcp_audit_note_type_conformity(sample_mcp_setup):
     """Vérifie audit_note_type_conformity avec détection déterministe des violations."""
 
     async def _run():
-        nt_med = test_setup["nt_med"]
+        nt_med = sample_mcp_setup["nt_med"]
 
         # 1. Audit complet
         res_raw = await mcp.call_tool(
@@ -359,12 +359,12 @@ def test_mcp_audit_note_type_conformity(test_setup):
     asyncio.run(_run())
 
 
-def test_mcp_preview_card_render(test_setup):
+def test_mcp_preview_card_render(sample_mcp_setup):
     """Vérifie preview_card_render avec rendu de carte existante et surcharges."""
 
     async def _run():
-        n1 = test_setup["notes"][0]
-        nt_med = test_setup["nt_med"]
+        n1 = sample_mcp_setup["notes"][0]
+        nt_med = sample_mcp_setup["nt_med"]
 
         # 1. Rendu courant
         res_raw = await mcp.call_tool(

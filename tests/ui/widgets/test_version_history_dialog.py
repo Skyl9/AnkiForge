@@ -14,7 +14,7 @@ pytestmark = pytest.mark.ui
 
 
 @pytest.fixture
-def test_note():
+def sample_note():
     deck = DeckModel.create(name="Deck de Test")
     note_type = NoteTypeModel.create(name="Basique", fields_schema=json.dumps(["Recto", "Verso"]), templates=json.dumps([]), css_style="")
     note = NoteModel.create(guid="test-unique-guid-123", deck=deck, note_type=note_type)
@@ -38,8 +38,8 @@ def test_note():
 
 
 @pytest.fixture
-def dialog(qtbot, test_note):
-    dialog = VersionHistoryDialog(note=test_note)
+def dialog(qtbot, sample_note):
+    dialog = VersionHistoryDialog(note=sample_note)
     qtbot.addWidget(dialog)
     return dialog
 
@@ -68,14 +68,14 @@ def test_version_selection_updates_diff(dialog, qtbot):
 
 
 @patch("PySide6.QtWidgets.QMessageBox.question")
-def test_restore_version_flow(mock_question, dialog, qtbot, test_note):
+def test_restore_version_flow(mock_question, dialog, qtbot, sample_note):
     mock_question.return_value = QMessageBox.StandardButton.Yes
     dialog.version_list.setCurrentRow(1)
     qtbot.mouseClick(dialog.btn_restore, Qt.MouseButton.LeftButton)
     mock_question.assert_called_once()
     assert dialog.result() == QDialog.DialogCode.Accepted
-    assert test_note.versions.count() == 3
-    new_active_version = test_note.versions.where(NoteVersionModel.is_active).first()
+    assert sample_note.versions.count() == 3
+    new_active_version = sample_note.versions.where(NoteVersionModel.is_active).first()
     assert new_active_version.version_number == 3
     content = json.loads(new_active_version.content)
     assert content["Verso"] == "Doggo"

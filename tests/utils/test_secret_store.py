@@ -13,6 +13,8 @@ import pytest
 
 import ankiforge.utils.secret_store as ss
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(autouse=True)
 def clean_cache_and_env():

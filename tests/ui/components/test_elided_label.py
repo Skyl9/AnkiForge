@@ -1,10 +1,13 @@
 from typing import Any
 
+import pytest
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QFont, QResizeEvent
 from PySide6.QtWidgets import QWidget
 
 from ankiforge.ui.components.elided_label import ElidedLabel
+
+pytestmark = pytest.mark.ui
 
 
 def test_elided_label_initialization_and_text(qtbot: Any) -> None:

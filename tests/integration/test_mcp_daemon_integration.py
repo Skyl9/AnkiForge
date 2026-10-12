@@ -171,7 +171,7 @@ def test_mcp_server_daemon_stop_does_not_log_cancelled_error(tmp_path, caplog):
     # Session SSE réellement ouverte : c'est elle qui bloque le shutdown gracieux d'Uvicorn.
     with capture_uvicorn_logs() as uvicorn_log_capture, httpx.stream("GET", f"http://127.0.0.1:{port}/sse", headers=headers, timeout=5.0) as resp:
         assert resp.status_code == 200
-        time.sleep(0.3)
+        time.sleep(0.05)
         uvicorn_log_capture.clear()
         caplog.clear()
         daemon.stop(timeout=5.0)

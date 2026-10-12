@@ -1,6 +1,6 @@
 """Tests unitaires et UI pour AnalysisView et l'onglet Fusions & Doublons."""
 
-import time
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -296,8 +296,10 @@ def test_hide_event_waits_for_running_scan(qtbot) -> None:
     qtbot.addWidget(tab)
     tab.show()
 
+    finish_event = threading.Event()
+
     def _slow_find_duplicates(deck_id: int) -> list:
-        time.sleep(0.4)
+        finish_event.wait(timeout=2.0)
         return []
 
     with patch(_FIND_DUPLICATES_TARGET, side_effect=_slow_find_duplicates):
@@ -306,6 +308,7 @@ def test_hide_event_waits_for_running_scan(qtbot) -> None:
         assert worker is not None
         qtbot.waitUntil(lambda: _is_running_safe(worker), timeout=2000)
 
+        threading.Timer(0.02, finish_event.set).start()
         tab.hide()
 
         assert not _is_running_safe(worker)

@@ -3,6 +3,8 @@ Tests unitaires pour le découplage du type de donnée d'image et du moteur de v
 Conforme aux spécifications de CONTEXT.md:56-59 et au ticket Feature.
 """
 
+import pytest
+
 from ankiforge.services.ai.album_transcription_types import (
     AlbumTranscriptionOptions,
     build_album_transcription_prompt,
@@ -13,6 +15,8 @@ from ankiforge.services.ai.vision_category_service import (
     get_image_data_type,
     is_engine_compatible_with_type,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_closed_image_data_types_exact_six() -> None:

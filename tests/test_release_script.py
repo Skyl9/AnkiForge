@@ -18,6 +18,8 @@ from script.sign_release import (
     sign_manifest,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def temp_manifest(tmp_path: Path) -> Path:

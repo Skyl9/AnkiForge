@@ -11,7 +11,7 @@ from ankiforge.repositories.pipeline_repository import PipelineRepository
 from ankiforge.ui.viewmodels.pipeline_viewmodel import PipelineViewModel
 from ankiforge.utils.event_bus import AppEventBus
 
-pytestmark = pytest.mark.ui
+pytestmark = pytest.mark.integration
 
 
 def test_pipeline_viewmodel_lifecycle() -> None:

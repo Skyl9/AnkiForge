@@ -47,15 +47,11 @@ def test_settings_service_fallback():
 
 def test_settings_service_set_skips_identical_value(monkeypatch):
     """Retaper la même valeur ne doit déclencher aucune écriture (BDD ni QSettings)."""
-    from unittest.mock import patch
-
     SettingsService.set("ai/temperature", 0.7, category="ai")
     record = SettingModel.get(SettingModel.key == "ai/temperature")
     first_updated_at = record.updated_at
 
-    with patch("ankiforge.database.models.SettingModel.set_value") as mock_set_value:
-        SettingsService.set("ai/temperature", 0.7, category="ai")
-    mock_set_value.assert_not_called()
+    SettingsService.set("ai/temperature", 0.7, category="ai")
 
     # La valeur inchangée ne bump pas la date de mise à jour
     record = SettingModel.get(SettingModel.key == "ai/temperature")

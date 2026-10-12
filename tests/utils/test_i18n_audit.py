@@ -22,6 +22,8 @@ import pytest
 
 from ankiforge.utils.i18n import CATALOG_STEM, SOURCE_LANGUAGE, TRANSLATIONS_RELPATH
 
+pytestmark = pytest.mark.unit
+
 SRC_DIR = Path(__file__).resolve().parents[2] / "src" / "ankiforge"
 TRANSLATIONS_DIR = SRC_DIR.joinpath(*TRANSLATIONS_RELPATH[2:])
 

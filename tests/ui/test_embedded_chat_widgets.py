@@ -8,9 +8,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from ankiforge.ui.views.consultant_view.widgets.chat_message_widget import ChatMessageWidget
 from ankiforge.ui.views.consultant_view.widgets.embedded_card_preview_widget import EmbeddedCardPreviewWidget
 from ankiforge.ui.views.consultant_view.widgets.embedded_card_table_widget import EmbeddedCardTableWidget
+
+pytestmark = pytest.mark.ui
 
 # ---------------------------------------------------------------------------
 # Fixtures helpers

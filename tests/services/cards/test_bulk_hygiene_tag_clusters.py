@@ -14,6 +14,8 @@ from ankiforge.services.cards.bulk_hygiene_service import (
 )
 from ankiforge.utils.tags import parse_note_tags
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def tag_hygiene_setup(mock_db):

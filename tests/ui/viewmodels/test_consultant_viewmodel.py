@@ -11,7 +11,7 @@ from ankiforge.repositories.setting_repository import SettingRepository
 from ankiforge.ui.viewmodels.consultant_viewmodel import ConsultantViewModel
 from ankiforge.utils.event_bus import AppEventBus
 
-pytestmark = pytest.mark.ui
+pytestmark = pytest.mark.integration
 
 
 def test_consultant_viewmodel_chat_and_thoughts() -> None:
