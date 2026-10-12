@@ -17,19 +17,24 @@ from typing import Any
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import (
+    QDialog,
     QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
     QScrollArea,
     QSizePolicy,
     QTabBar,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from ankiforge.ui.components.badges import Badge
+from ankiforge.services.ai.mcp_tracker import MCPActivityRecord, get_mcp_activity_tracker
+from ankiforge.ui.components.badges import Badge, StatusBadge
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
@@ -37,6 +42,138 @@ from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
+
+
+class MCPActivityDetailDialog(QDialog):
+    """Dialogue modal d'inspection détaillée d'un appel d'outil MCP."""
+
+    def __init__(self, record: MCPActivityRecord, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("MCPActivityDetailDialog")
+        self.setWindowTitle(tr("Détail de l'appel MCP : %1", record.tool_name))
+        self.resize(680, 520)
+        self._record = record
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        # ── En-tête ──
+        header_row = QHBoxLayout()
+        header_row.setSpacing(10)
+
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(load_phosphor_icon("ph.terminal-window", color=DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
+        header_row.addWidget(icon_lbl)
+
+        lbl_tool = QLabel(self._record.tool_name)
+        lbl_tool.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: 700; font-family: {DesignTokens.FONT_CODE};")
+        header_row.addWidget(lbl_tool)
+
+        header_row.addStretch()
+
+        if self._record.status == "success":
+            badge = StatusBadge(self.tr("Succès"), "ph.check-circle", variant="success")
+        elif self._record.status == "error":
+            badge = StatusBadge(self.tr("Erreur"), "ph.warning-circle", variant="danger")
+        else:
+            badge = StatusBadge(self.tr("En cours"), "ph.hourglass-simple", variant="warning")
+        header_row.addWidget(badge)
+        layout.addLayout(header_row)
+
+        # ── Métadonnées (Horodatage & Durée) ──
+        meta_row = QHBoxLayout()
+        meta_row.setSpacing(16)
+
+        time_str = self._record.started_at.strftime("%H:%M:%S")
+        lbl_time = QLabel(tr("Déclenché à : %1", time_str))
+        lbl_time.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px;")
+        meta_row.addWidget(lbl_time)
+
+        if self._record.status != "running":
+            dur = self._record.duration_ms
+            dur_str = tr("%1 ms", dur) if dur < 1000 else tr("%1 s", round(dur / 1000, 2))
+            lbl_dur = QLabel(tr("Durée d'exécution : %1", dur_str))
+        else:
+            lbl_dur = QLabel(self.tr("En cours d'exécution..."))
+        lbl_dur.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px;")
+        meta_row.addWidget(lbl_dur)
+        meta_row.addStretch()
+        layout.addLayout(meta_row)
+
+        # ── Arguments ──
+        lbl_args = QLabel(self.tr("Paramètres d'appel (Arguments JSON) :"))
+        lbl_args.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 600;")
+        layout.addWidget(lbl_args)
+
+        self.edit_args = QPlainTextEdit()
+        self.edit_args.setObjectName("mcp_detail_edit_args")
+        self.edit_args.setReadOnly(True)
+        self.edit_args.setMaximumHeight(140)
+        args_json = json.dumps(self._record.args_full, indent=2, ensure_ascii=False) if self._record.args_full else "{}"
+        self.edit_args.setPlainText(args_json)
+        self.edit_args.setStyleSheet(f"""
+            QPlainTextEdit#mcp_detail_edit_args {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: 11.5px;
+                padding: 8px;
+            }}
+        """)
+        layout.addWidget(self.edit_args)
+
+        # ── Résultat ou Message d'Erreur ──
+        res_label_text = self.tr("Message d'erreur :") if self._record.status == "error" else self.tr("Observation / Résultat retourné :")
+        lbl_res = QLabel(res_label_text)
+        lbl_res.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 600;")
+        layout.addWidget(lbl_res)
+
+        self.edit_result = QPlainTextEdit()
+        self.edit_result.setObjectName("mcp_detail_edit_result")
+        self.edit_result.setReadOnly(True)
+        self.edit_result.setPlainText(self._record.result_full or self.tr("(aucun contenu retourné)"))
+        res_color = DesignTokens.COLOR_RED if self._record.status == "error" else DesignTokens.TEXT_PRIMARY
+        self.edit_result.setStyleSheet(f"""
+            QPlainTextEdit#mcp_detail_edit_result {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {res_color};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: 11.5px;
+                padding: 8px;
+            }}
+        """)
+        layout.addWidget(self.edit_result, 1)
+
+        # ── Barre de boutons ──
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        self.btn_copy_json = SecondaryButton(self.tr("Copier en JSON"))
+        self.btn_copy_json.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_copy_json.clicked.connect(self._copy_all_json)
+        btn_row.addWidget(self.btn_copy_json)
+
+        btn_row.addStretch()
+
+        self.btn_close = PrimaryButton(self.tr("Fermer"))
+        self.btn_close.clicked.connect(self.accept)
+        btn_row.addWidget(self.btn_close)
+
+        layout.addLayout(btn_row)
+
+    def _copy_all_json(self) -> None:
+        data = self._record.to_dict()
+        clipboard = QGuiApplication.clipboard()
+        if clipboard is not None:
+            clipboard.setText(json.dumps(data, indent=2, ensure_ascii=False))
+            show_toast(self, self.tr("Détail de l'appel copié dans le presse-papiers."))
 
 
 class MCPServerDashboardWidget(QWidget):
@@ -71,6 +208,12 @@ class MCPServerDashboardWidget(QWidget):
 
         self._setup_ui()
         self.set_status(initial_status, port=initial_port, token=self._token)
+
+        self._tracker = get_mcp_activity_tracker()
+        self._tracker.signals.activity_started.connect(self._on_activity_started)
+        self._tracker.signals.activity_updated.connect(self._on_activity_updated)
+        self._tracker.signals.history_cleared.connect(self._on_history_cleared)
+        self._load_activity_history()
 
     @property
     def current_status(self) -> str:
@@ -396,6 +539,102 @@ class MCPServerDashboardWidget(QWidget):
         card_snippets_layout.addWidget(self.edit_snippet_code)
 
         layout.addWidget(self.card_snippets)
+
+        # ── 6. Carte Activité & Historique des Appels en Temps Réel ────────
+        self.card_activity = self._create_card("mcp_card_activity")
+        card_activity_layout = QVBoxLayout(self.card_activity)
+        card_activity_layout.setContentsMargins(18, 16, 18, 16)
+        card_activity_layout.setSpacing(12)
+
+        header_activity_row = QHBoxLayout()
+        header_activity_row.setSpacing(10)
+
+        icon_activity = QLabel()
+        icon_activity.setPixmap(load_phosphor_icon("ph.clock-counter-clockwise", color=DesignTokens.TEXT_MUTED).pixmap(18, 18))
+        header_activity_row.addWidget(icon_activity)
+
+        lbl_activity_sec = QLabel(self.tr("ACTIVITÉ DES OUTILS EN TEMPS RÉEL"))
+        lbl_activity_sec.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; background: transparent; border: none;")
+        header_activity_row.addWidget(lbl_activity_sec)
+
+        self.badge_activity_count = Badge(self.tr("0 appel"), variant="neutral")
+        header_activity_row.addWidget(self.badge_activity_count)
+
+        header_activity_row.addStretch()
+
+        self.btn_clear_activity = SecondaryButton(self.tr("Vider l'historique"))
+        self.btn_clear_activity.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_clear_activity.clicked.connect(self.clear_activity_history)
+        self.btn_clear_activity.setEnabled(False)
+        header_activity_row.addWidget(self.btn_clear_activity)
+
+        card_activity_layout.addLayout(header_activity_row)
+
+        lbl_activity_hint = QLabel(self.tr("Historique en direct des invocations d'outils par vos agents externes. Cliquez sur une ligne pour inspecter les arguments et la réponse."))
+        lbl_activity_hint.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; background: transparent; border: none;")
+        card_activity_layout.addWidget(lbl_activity_hint)
+
+        self.lbl_empty_activity = QLabel(self.tr("Aucune activité enregistrée. Les appels d'outils de vos agents externes (Claude, Cursor, CLI) apparaîtront ici en temps réel."))
+        self.lbl_empty_activity.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_empty_activity.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; padding: 24px; background: transparent; border: none;")
+        card_activity_layout.addWidget(self.lbl_empty_activity)
+
+        self.table_activity = QTableWidget()
+        self.table_activity.setObjectName("mcp_table_activity")
+        self.table_activity.setColumnCount(5)
+        self.table_activity.setHorizontalHeaderLabels(
+            [
+                self.tr("Horodatage"),
+                self.tr("Outil"),
+                self.tr("Statut"),
+                self.tr("Durée"),
+                self.tr("Arguments résumés"),
+            ]
+        )
+        self.table_activity.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table_activity.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table_activity.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_activity.verticalHeader().setVisible(False)
+        self.table_activity.setShowGrid(False)
+        self.table_activity.setMinimumHeight(180)
+        self.table_activity.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.table_activity.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_activity.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_activity.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_activity.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_activity.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.table_activity.cellClicked.connect(self._on_activity_row_clicked)
+        self.table_activity.setStyleSheet(f"""
+            QTableWidget#mcp_table_activity {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                gridline-color: transparent;
+                selection-background-color: {DesignTokens.BG_ACTIVE};
+                selection-color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QTableWidget#mcp_table_activity::item {{
+                padding: 4px 8px;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+            QTableWidget#mcp_table_activity::item:selected {{
+                background-color: {DesignTokens.BG_ACTIVE};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.TEXT_SECONDARY};
+                font-size: 11px;
+                font-weight: 600;
+                padding: 6px 8px;
+                border: none;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+        self.table_activity.setVisible(False)
+        card_activity_layout.addWidget(self.table_activity)
+
+        layout.addWidget(self.card_activity)
         layout.addStretch()
 
         scroll.setWidget(container)
@@ -637,3 +876,145 @@ class MCPServerDashboardWidget(QWidget):
                 f"QPlainTextEdit#mcp_edit_request_prompt {{ background-color: {bg_main}; color: {text_primary}; "
                 f"border: 1px solid {border_color}; border-radius: 6px; font-family: {DesignTokens.FONT_CODE}; font-size: 11.5px; padding: 6px; }}"
             )
+        if hasattr(self, "card_activity"):
+            self.card_activity.setStyleSheet(card_style_tpl.format(name="mcp_card_activity", bg=bg_panel, border=border_color))
+        if hasattr(self, "table_activity"):
+            bg_act = getattr(profile, "bg_active", DesignTokens.BG_ACTIVE)
+            text_sec = getattr(profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
+            self.table_activity.setStyleSheet(f"""
+                QTableWidget#mcp_table_activity {{
+                    background-color: {bg_main};
+                    color: {text_primary};
+                    border: 1px solid {border_color};
+                    border-radius: 6px;
+                    gridline-color: transparent;
+                    selection-background-color: {bg_act};
+                    selection-color: {text_primary};
+                }}
+                QTableWidget#mcp_table_activity::item {{
+                    padding: 4px 8px;
+                    border-bottom: 1px solid {border_color};
+                }}
+                QHeaderView::section {{
+                    background-color: {bg_panel};
+                    color: {text_sec};
+                    font-size: 11px;
+                    font-weight: 600;
+                    padding: 6px 8px;
+                    border: none;
+                    border-bottom: 1px solid {border_color};
+                }}
+            """)
+
+    def _create_status_badge_cell(self, status: str) -> QWidget:
+        if status == "success":
+            badge = StatusBadge(self.tr("Succès"), "ph.check-circle", variant="success")
+        elif status == "error":
+            badge = StatusBadge(self.tr("Erreur"), "ph.warning-circle", variant="danger")
+        else:
+            badge = StatusBadge(self.tr("En cours"), "ph.hourglass-simple", variant="warning")
+
+        wrapper = QWidget()
+        wrapper.setStyleSheet("background: transparent; border: none;")
+        wrap_layout = QHBoxLayout(wrapper)
+        wrap_layout.setContentsMargins(4, 2, 4, 2)
+        wrap_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        wrap_layout.addWidget(badge)
+        return wrapper
+
+    def _create_activity_row(self, row: int, record_data: dict[str, Any]) -> None:
+        call_id = str(record_data.get("call_id", ""))
+        tool_name = str(record_data.get("tool_name", ""))
+        started_at_str = str(record_data.get("started_at", ""))
+        time_str = started_at_str[11:19] if len(started_at_str) >= 19 else started_at_str
+        status = str(record_data.get("status", "running"))
+        duration_ms = float(record_data.get("duration_ms", 0.0))
+        args_summary = str(record_data.get("args_summary", ""))
+
+        item_time = QTableWidgetItem(time_str)
+        item_time.setData(Qt.ItemDataRole.UserRole, call_id)
+        item_time.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.table_activity.setItem(row, 0, item_time)
+
+        item_tool = QTableWidgetItem(tool_name)
+        font = QFont(DesignTokens.FONT_CODE)
+        item_tool.setFont(font)
+        self.table_activity.setItem(row, 1, item_tool)
+
+        self.table_activity.setCellWidget(row, 2, self._create_status_badge_cell(status))
+
+        dur_text = "—"
+        if status != "running":
+            dur_text = tr("%1 ms", duration_ms) if duration_ms < 1000 else tr("%1 s", round(duration_ms / 1000, 2))
+        item_dur = QTableWidgetItem(dur_text)
+        item_dur.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.table_activity.setItem(row, 3, item_dur)
+
+        item_args = QTableWidgetItem(args_summary)
+        item_args.setToolTip(args_summary)
+        self.table_activity.setItem(row, 4, item_args)
+
+    def _on_activity_row_clicked(self, row: int, column: int) -> None:
+        item = self.table_activity.item(row, 0)
+        if not item:
+            return
+        call_id = item.data(Qt.ItemDataRole.UserRole)
+        if not call_id:
+            return
+        record = self._tracker.get_record(str(call_id))
+        if record:
+            dialog = MCPActivityDetailDialog(record, parent=self)
+            dialog.exec()
+
+    def clear_activity_history(self) -> None:
+        self._tracker.clear_history()
+
+    def _load_activity_history(self) -> None:
+        self.table_activity.setRowCount(0)
+        records = self._tracker.get_history()
+        for rec in reversed(records):
+            row = self.table_activity.rowCount()
+            self.table_activity.insertRow(row)
+            self._create_activity_row(row, rec.to_dict())
+        self._update_activity_empty_state()
+
+    def _on_activity_started(self, record_data: dict[str, Any]) -> None:
+        self.table_activity.insertRow(0)
+        self._create_activity_row(0, record_data)
+        self._update_activity_empty_state()
+
+    def _on_activity_updated(self, record_data: dict[str, Any]) -> None:
+        call_id = str(record_data.get("call_id", ""))
+        for row in range(self.table_activity.rowCount()):
+            item = self.table_activity.item(row, 0)
+            if item and item.data(Qt.ItemDataRole.UserRole) == call_id:
+                status = str(record_data.get("status", "success"))
+                duration_ms = float(record_data.get("duration_ms", 0.0))
+                self.table_activity.setCellWidget(row, 2, self._create_status_badge_cell(status))
+                dur_text = tr("%1 ms", duration_ms) if duration_ms < 1000 else tr("%1 s", round(duration_ms / 1000, 2))
+                item_dur = self.table_activity.item(row, 3)
+                if item_dur:
+                    item_dur.setText(dur_text)
+                else:
+                    new_item_dur = QTableWidgetItem(dur_text)
+                    new_item_dur.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                    self.table_activity.setItem(row, 3, new_item_dur)
+                break
+
+    def _on_history_cleared(self) -> None:
+        self.table_activity.setRowCount(0)
+        self._update_activity_empty_state()
+
+    def _update_activity_empty_state(self) -> None:
+        count = self.table_activity.rowCount()
+        if count == 0:
+            self.badge_activity_count.setText(self.tr("0 appel"))
+            self.lbl_empty_activity.setVisible(True)
+            self.table_activity.setVisible(False)
+            self.btn_clear_activity.setEnabled(False)
+        else:
+            text = tr("%1 appel", count) if count == 1 else tr("%1 appels", count)
+            self.badge_activity_count.setText(text)
+            self.lbl_empty_activity.setVisible(False)
+            self.table_activity.setVisible(True)
+            self.btn_clear_activity.setEnabled(True)

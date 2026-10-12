@@ -2479,8 +2479,38 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+245"/>
-        <location line="+234"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+53"/>
+        <source>Détail de l&apos;appel MCP : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Déclenché à : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <location line="+851"/>
+        <location line="+46"/>
+        <source>%1 ms</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-897"/>
+        <location line="+851"/>
+        <location line="+46"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+33"/>
+        <source>%1 s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-896"/>
+        <source>Durée d&apos;exécution : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+290"/>
+        <location line="+330"/>
         <source>Port : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2497,6 +2527,16 @@ Gabarits : %3</source>
     <message>
         <location line="+90"/>
         <source>Contexte ciblé : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+180"/>
+        <source>%1 appel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>%1 appels</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4093,7 +4133,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-421"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-454"/>
         <source>Streaming des réponses</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4169,12 +4209,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+87"/>
-        <source>%1 s</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+68"/>
+        <location line="+155"/>
         <source>Le modèle &apos;%1&apos; est déjà configuré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12794,9 +12829,67 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>MCPActivityDetailDialog</name>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-938"/>
+        <source>Succès</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>En cours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>En cours d&apos;exécution...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Paramètres d&apos;appel (Arguments JSON) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Message d&apos;erreur :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Observation / Résultat retourné :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>(aucun contenu retourné)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>Copier en JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Fermer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Détail de l&apos;appel copié dans le presse-papiers.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>MCPServerDashboardWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-462"/>
+        <location line="+102"/>
         <source>Serveur MCP Local (Model Context Protocol)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12904,22 +12997,74 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+16"/>
-        <location line="+197"/>
+        <location line="+293"/>
         <source>Collez ce bloc dans votre fichier claude_desktop_config.json :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-103"/>
+        <location line="-253"/>
+        <source>ACTIVITÉ DES OUTILS EN TEMPS RÉEL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+451"/>
+        <source>0 appel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-446"/>
+        <source>Vider l&apos;historique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Historique en direct des invocations d&apos;outils par vos agents externes. Cliquez sur une ligne pour inspecter les arguments et la réponse.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Aucune activité enregistrée. Les appels d&apos;outils de vos agents externes (Claude, Cursor, CLI) apparaîtront ici en temps réel.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Horodatage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Outil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Statut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Durée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Arguments résumés</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+115"/>
         <source>Actif</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+3"/>
+        <location line="+204"/>
         <source>Erreur</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="-201"/>
         <source>Mutation...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12956,6 +13101,16 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+27"/>
         <source>Prompt copié dans le presse-papiers pour votre agent externe !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+62"/>
+        <source>Succès</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>En cours</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

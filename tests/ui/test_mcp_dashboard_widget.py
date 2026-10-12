@@ -172,9 +172,108 @@ def test_mcp_dashboard_widget_no_border_cascade_on_children(qtbot) -> None:
 
     # 4. Vérification après rafraîchissement de thème
     widget.refresh_theme(JETBRAINS_LIGHT)
-    for card_name in ("mcp_card_lifecycle", "mcp_card_endpoints", "mcp_card_snippets"):
+    for card_name in ("mcp_card_lifecycle", "mcp_card_endpoints", "mcp_card_snippets", "mcp_card_activity"):
         card = getattr(widget, card_name.replace("mcp_", ""))
         style = card.styleSheet()
         assert f"#{card_name}" in style
         assert "border: none" in style
         assert "background: transparent" in style
+
+
+def test_mcp_dashboard_activity_empty_state_and_live_updates(qtbot) -> None:
+    """Vérifie l'état vide par défaut puis les mises à jour réactives de l'historique d'activité."""
+    from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker, reset_mcp_activity_tracker
+
+    reset_mcp_activity_tracker()
+    tracker = get_mcp_activity_tracker()
+
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+    widget.show()
+
+    # 1. État vide
+    assert widget.table_activity.isHidden()
+    assert not widget.lbl_empty_activity.isHidden()
+    assert "0 appel" in widget.badge_activity_count.text()
+    assert not widget.btn_clear_activity.isEnabled()
+
+    # 2. Démarrage d'un appel
+    cid = tracker.start_tracking("audit_deck_wozniak", {"deck_name": "Grammaire"})
+    qtbot.wait(100)
+
+    assert not widget.table_activity.isHidden()
+    assert widget.lbl_empty_activity.isHidden()
+    assert widget.table_activity.rowCount() == 1
+    assert "1 appel" in widget.badge_activity_count.text()
+    assert widget.btn_clear_activity.isEnabled()
+
+    # Vérifie le contenu de la première ligne
+    assert widget.table_activity.item(0, 1).text() == "audit_deck_wozniak"
+    assert "Grammaire" in widget.table_activity.item(0, 4).text()
+    assert widget.table_activity.item(0, 3).text() == "—"
+
+    # 3. Fin avec succès
+    tracker.record_success(cid, "Audit terminé sans anomalie", duration_ms=42.5)
+    qtbot.wait(50)
+
+    assert widget.table_activity.rowCount() == 1
+    assert "42.5 ms" in widget.table_activity.item(0, 3).text()
+
+    # 4. Deuxième appel avec erreur
+    cid2 = tracker.start_tracking("find_duplicate_cards", {"threshold": 0.9})
+    qtbot.wait(50)
+    assert widget.table_activity.rowCount() == 2
+    assert "2 appels" in widget.badge_activity_count.text()
+
+    tracker.record_error(cid2, "Erreur connexion DB", duration_ms=15.0)
+    qtbot.wait(50)
+    assert "15.0 ms" in widget.table_activity.item(0, 3).text()
+
+    # 5. Vidage de l'historique
+    widget.btn_clear_activity.click()
+    qtbot.wait(50)
+
+    assert widget.table_activity.rowCount() == 0
+    assert widget.table_activity.isHidden()
+    assert not widget.lbl_empty_activity.isHidden()
+    assert "0 appel" in widget.badge_activity_count.text()
+    assert not widget.btn_clear_activity.isEnabled()
+
+
+def test_mcp_activity_detail_dialog(qtbot) -> None:
+    """Vérifie l'affichage et les contrôles du dialogue d'inspection détaillée."""
+    from datetime import datetime
+
+    from ankiforge.services.ai.mcp_tracker import MCPActivityRecord
+    from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import (
+        MCPActivityDetailDialog,
+    )
+
+    record = MCPActivityRecord(
+        call_id="call1234",
+        tool_name="propose_card_refactor",
+        started_at=datetime(2026, 10, 12, 14, 30, 0),
+        ended_at=datetime(2026, 10, 12, 14, 30, 1),
+        duration_ms=150.2,
+        status="success",
+        args_summary="note_id=42, explanation='Correction typo'",
+        args_full={"note_id": 42, "explanation": "Correction typo"},
+        result_summary="Patch généré avec succès",
+        result_full='{"status": "applied", "note_id": 42}',
+    )
+
+    dialog = MCPActivityDetailDialog(record)
+    qtbot.addWidget(dialog)
+
+    assert "propose_card_refactor" in dialog.windowTitle()
+    assert "note_id" in dialog.edit_args.toPlainText()
+    assert "Correction typo" in dialog.edit_args.toPlainText()
+    assert "Patch généré" in dialog.edit_result.toPlainText() or "applied" in dialog.edit_result.toPlainText()
+
+    # Test bouton copier en JSON
+    dialog.btn_copy_json.click()
+    clipboard = QGuiApplication.clipboard()
+    assert clipboard is not None
+    copied_text = clipboard.text()
+    assert "propose_card_refactor" in copied_text
+    assert "call1234" in copied_text
