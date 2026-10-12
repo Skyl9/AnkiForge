@@ -176,3 +176,15 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Règle anti-boucle Obsidian** : le protocole d'interaction atomique imposé aux agents sur le tableau Kanban et les tickets (`Lecture → Écriture/Déplacement → Arrêt immédiat`), interdisant formellement toute auto-vérification circulaire ou relecture non sollicitée.
   _Avoid_ : validation en boucle, boucle de contrôle, vérification du Kanban
 
+## Instructions & Adaptateurs d'Agents
+
+- **Source canonique d'instructions (Canonical Instructions Source)** : ensemble de fragments modulaires sous `.agents/instructions/` définissant la source unique de vérité pour les règles d'ingénierie, commandes canoniques, faits d'architecture et compétences du dépôt.
+  _Avoid_ : règles globales, doc agent, méta-instructions
+- **Adaptateur d'instructions (Instruction Adapter)** : fichier cible propre à un environnement d'agent (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, `GEMINI.md`), conservant ses spécificités d'orchestration ou de persona tout en transcluant fidèlement les fragments canoniques entre balises de synchronisation.
+  _Avoid_ : prompt fichier, instruction template, config agent
+- **Balise de transclusion (Transclusion Tag)** : paire de balises HTML/Markdown délimitant strictement une section synchronisée (`<!-- BEGIN CANONICAL:... -->` / `<!-- END CANONICAL:... -->`), interdisant l'édition manuelle directe dans l'adaptateur au profit de la source canonique.
+  _Avoid_ : marker, placeholder, slot, include tag
+- **Contrôle de dérive des instructions (Instruction Drift Check)** : étape déterministe intégrée à la porte de vérification canonique (`script/verify.py`) et au pre-push, vérifiant sans régénération que chaque adaptateur est strictement isomorphe à sa projection canonique, avec correction automatique sous `--fix`.
+  _Avoid_ : linter de doc, sync check, contrôle markdown
+
+

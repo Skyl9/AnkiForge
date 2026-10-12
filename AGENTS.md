@@ -3,153 +3,184 @@
 ## Project Overview
 AnkiForge: AI-assisted flashcard creation IDE for Anki ecosystem. Python 3.12+, PySide6/Qt6, SQLite/Peewee ORM, local-first architecture with MCP protocol.
 
-## Key Commands
+<!-- CANONICAL:START:commandes -->
+<!-- ⚠️ BLOC AUTO-GÉNÉRÉ DEPUIS .agents/instructions/commandes.md - NE PAS MODIFIER MANUELLEMENT -->
+
+## Commandes Canoniques & Cycle de Vie
+
+Toutes les opérations d'ingénierie s'exécutent via l'environnement virtuel géré par `uv` (Python 3.12+).
+
+### Installation des Dépendances
 ```bash
-# Install deps (standard / dev+docs)
-uv sync
-uv sync --group dev
-
-# Run application
-uv run ankiforge
-uv run ankiforge --dev          # dev environment (~/.ankiforge-dev)
-uv run ankiforge --prod         # force production (~/.ankiforge)
-uv run ankiforge --smoke-test   # binary integrity check
-uv run ankiforge --clone-prod-to-dev
-
-# Tests
-uv run pytest                   # all 1700+ tests (headless Qt via pytest-qt)
-uv run pytest -m "not slow"     # fast tests suite (pre-push hook, < 15s)
-uv run pytest -m unit           # pure unit & algorithmic tests only (< 2s)
-uv run pytest -m integration    # database & service integration tests
-uv run pytest -m ui             # PySide6 headless UI tests
-uv run pytest tests/path/test_file.py::TestClass::test_method
-
-# Canonical verification gate (pre-push gate & quality chain)
-uv run python script/verify.py              # canonical gate: ruff check, ruff format --check, mypy, bandit, pytest fast
-uv run python script/verify.py --fix        # auto-fix and format before verification
-uv run python script/verify.py --all-tests  # run verification with complete test suite
-uv run python script/verify.py --install-hook # install/activate native versioned git pre-push hook (.githooks)
-
-# Skills audit & consistency check
-uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py
-
-# Documentation
-uv run zensical serve           # live at http://127.0.0.1:8000
-uv run zensical build
-
-# C Extension (Levenshtein distance - optional, auto-fallback to Python)
-gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c  # Linux/macOS
-
-# Screenshots & layout thumbnails
-uv run python script/capture_view.py --layout-thumbnails
+uv sync                         # dépendances d'exécution standard
+uv sync --group dev             # dépendances de développement, tests, linters et documentation
 ```
 
-## Architecture Highlights
-- **Multi-profile isolation**: Each profile = separate SQLite DB + media dir under `~/.ankiforge/profiles/<name>/`
-- **Layouts & Miniatures Statiques**: 4 architectures d'interface (`ide`, `macos`, `dashboard`, `glassmorphism`) sélectionnables via une grille 2x2 de miniatures d'aperçu (`LayoutGridSelector` / `LayoutThumbnailCard`) dans `GeneralTab` avec repli gracieux, navigation clavier et accessibilité WCAG. Chaque layout dispose d'une icône Phosphor distinctive et d'une capture haute résolution régénérable via `script/capture_view.py --layout-thumbnails`
-- **Document Scope & Selection Persistence**: `DocumentScopeWidget` (+ wrapper `DocumentScopeDialog`) preserves fine-grained selections (`selection_mode="sections"`, `selected_headings`, `selected_chunk_indices`) across successive generation runs in `CreationView`/`BatchView`. Its live `scope_result` also exposes an aggregated `parts` list (1 part = 1 selected branch: whole subtrees merged, parent intro fused into the first active sub-section, 1 chapter per chapter-mode selection) used by the batch composer's Direct mode
-- **Exclusive Scope Modes**: `ScopeModeExclusivityMixin` (`src/ankiforge/ui/dialogs/scope_mode_exclusivity.py`) is the single activation seam shared by `DocumentScopeWidget` and `DocumentDelimitationDialog`: `activate_scope_mode()` / `ensure_scope_mode()` are the only writers of `selection_mode` once the interface is built (`__init__` fixes the initial mode from pagination detection), and the mode bar is resynced from the governing mode. Any selection-mutating interaction auto-activates its category (chapter cards, chapter range combos, section checkboxes, page sliders/spins/pills/preview) while row navigation stays navigation. `pages_card` is visible only in `pages` mode, and activating a mode re-initialises its own panel (`_reset_page_controls_to_full_span`, `_reset_sections_to_full_scope`, chapter range sync) so no other category's derived state can filter the result. Persisted `page:N` holes are page delimitations, not cross-filters, and survive reactivation. `restore_scope_mode()` is the opening seam (`_restoring_scope_mode` guard): it keeps the state persisted on `DocumentModel` (page bounds, `page:N` holes, heading exclusions) so reopening `DocumentDelimitationDialog` restores a sections delimitation instead of silently erasing it; `DocumentScopeWidget` replays its `initial_scope_result` after population and therefore keeps `activate_scope_mode()`
-- **Batch Slice Composer**: single modal `BatchSliceComposerDialog` (document → mode de découpage → parties → insertion) with live updates: step 1 shows a rich document info card (fiche `doc_info_card` : type, pages, sections, ~mots/~tokens, délimitation active) + two selectable mode cards (Direct / Auto, style page d'accueil) ; step 2 = Direct → `DocumentScopeWidget` (1 partie cochée = 1 tâche, branches agrégées via `scope_result["parts"]` with backward-compatible chunk fallback) or Auto → collapsible panel `_CollapsiblePanel` « Règle de découpage » hosting the `AutoSliceWidget` above the checkbox list of generated slices (`SliceUnit`), auto-expanded on entering step 2, chunk→task fallback via `resolve_chunks`, and scope-memory prefill that never overrides live selection. `DocumentSelectWindow` / `DocumentPickerButton` share `document_meta_line(doc)` (type • pages • ~mots • ~tokens) for informed document choice
-- **Provenance Multi-Blocs des Cartes Batch**: `ankiforge.services.batch.provenance` (`scope_provenance()` / `stamp_scope_provenance()`) est la **seule** écriture de la provenance de portée d'une partie : une partie mono-bloc est estampée avec sa provenance exacte (`_source_chunk_id` / `_source_heading_path` / `_source_page_number` de `BatchSourceBlock.chunk_id`), une partie à N blocs reçoit `_source_blocks` (N routes `{chunk_id, heading_path, page_number}`) et **aucun scalaire agrégé** — ni fil d'Ariane concaténé, ni page du premier bloc. `CoverageAlignmentService.resolve_finest_chunk_for_card(source_blocks=…)` possède alors trois régimes : mono-bloc exact (gagne), multi-blocs (aucun court-circuit `page_number`/`llm_section` ; recherche confinée aux fragments de la partie par `_chunks_for_routes()` puis départagée au recouvrement lexical `_best_chunk_by_lexical_overlap` — une route par page ramène *tous* les fragments de la page, jamais le premier ; une carte dont le texte n'échoque aucun fragment de sa partie reste **non rattachée** plutôt que rattachée hors partie, un faux lien de couverture étant plus trompeur que son absence), et provenance absente (délégation à `resolve_attachment`). `sync_coverage_from_tags()` remonte désormais `unlinked_notes` + `stale_documents` + `stale_skipped_notes` et journalise en `WARNING` toute note non rattachée et tout document stale (au lieu d'un `debug` silencieux) ; `BatchView._save_extracted_notes_to_db()` recompte en querying les liens des **notes qu'il vient de créer** (le rapport de sync est à l'échelle du document et compterait les orphelines d'un lot antérieur une fois par partie) dans `_batch_unlinked_cards`, affiché au récapitulatif de fin de lot (toast `warning` « N hors couverture », remis à zéro à `_on_start_batch`). `BatchView._blocks_for_direct_part()` fige une partie Direct en **un `BatchSourceBlock` par fragment source** (chunks enrichis d'un `chunk_id` par `DocumentScopeWidget._load_filtered_chunks`), avec repli sur un bloc unique pour les portées antérieures à la notion de parties
-- **Multi-Document Batch Import**: `DocumentsView` accepts a multi-selection (native `QFileDialog.getOpenFileNames`) or a multi-file drag & drop (view *and* `DocumentTreeWidget.filesDropped`, extracted by the shared `local_file_paths()`), then drains the queue in a dedicated `DocumentBatchWorker` (`QThread`, extraction only — no DB write, mirroring `UrlImportWorker`). `plan_batch_tasks()` dedupes and drops missing paths while preserving the selection order; a per-document failure is logged and the queue continues (`document_failed`); a batch progress container (`batch_progress_container`: label « Importation X sur N », badge « X / N », progress bar and cancel button) provides live feedback in the left panel. Incremental tree refresh is executed at each `document_finished` (keeping selection anchored on `_batch_first_doc_id`), and any PDF in the queue immediately gets a provisional `DocumentModel` at `document_started` displaying `(analyse en cours)` during Marker OCR, before being updated upon extraction completion. Both unit and batch paths share `_persist_imported_document()` as the single write seam and `derive_document_title()` as the title-derivation seam
-- **Adresses de région & exclusion non destructive (ADR 0010)**: une exclusion est une **règle de périmètre**, jamais une suppression de matière. L'identité est l'adresse (`utils/region_address.py` : `node:` contenu propre d'un titre, `heading:` le titre et sa lignée, `page:` la page exacte, sans préfixe = `heading:` par compatibilité), jamais l'`id` d'un fragment. `DocumentRepository` est l'unique décideur (`is_region_excluded`, `set_region_excluded`, `set_region_neutralized`, `is_page_outside_span`) ; les consommateurs — dialogues de délimitation et de portée, vues Documents et Batch, `CoverageAlignmentService`, réindexation, RAG — l'interrogent au lieu de rejouer des heuristiques de sous-chaîne, et les bornes de pages `start_page`/`end_page` font partie de la règle. L'écriture passe par une seule couture, `sync_extracted_chunks()`, qui apparie les fragments (empreinte puis `(titre, page)`) : ce qui n'a pas changé garde son `id` et donc ses rattachements de cartes. « Écarter » sort du périmètre, de la couverture et de la récupération ; « neutraliser » retire un conteneur du dénominateur de couverture en déclarant son origine (`ContainerOrigin.DECLARED` sur `DocumentChunkModel.container_origin`) sans rien perdre. Le RAG filtre à l'indexation **et** au moment de répondre (`VectorManager._drop_excluded_results`), et un périmètre entièrement écarté retire l'index périmé au lieu de le laisser répondre
-- **Provenance par section (ADR 0009)**: l'identité durable d'une provenance est le couple (document, fil d'Ariane), jamais l'`id` d'un fragment — cet id est un artefact de découpage, détruit à chaque réingestion (24/24 tags `chunk:` pendants sur le profil dev). `build_document_tags()` n'écrit plus `chunk:` et n'écrit `page:` que si une page est un fait avéré (les PDFs/Markdown continus ne produisent donc plus de `page:1` ; les clés de section horodatées `[00:01]` sont tolérées à la lecture, retirées à l'écriture). `CoverageAlignmentService.resolve_attachment()` est l'**unique** politique de résolution, à 4 paliers `exact → section → page → lexical`, abandon sur échec seulement et jamais sur simple présence d'une autre route (un `if`/`elif` faisait d'un tag périmé une preuve de présence) ; `resolve_finest_chunk_for_card()` n'en est qu'un wrapper. Le palier gagnant est persisté sur `NoteChunkLinkModel.resolution` (colonne nullable — `NULL = lexique` serait une affirmation fausse ; cf. migration `042`) pour rendre un lien prouvé indiscernable d'un lien présumé. `sync_coverage_from_tags()` est **réparatrice** (`_canonicalize_note_provenance` + `replace_provenance_tags`) : elle corrige les profils existants sans migration de données, et remonte `repaired_notes` + `resolution_breakdown`. Une carte dont le texte n'échoe aucun fragment de sa partie reste non rattachée plutôt que rattachée hors partie. Une partie multi-blocs reste confinée à ses fragments par `_chunks_for_routes()`
-- **DAG Orchestration**: 6 step types (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`), branching (`on_success_step`, `on_failure_step`), cycle/budget guards (`max_tokens_budget`, `max_step_executions`), persistent state in SQLite (`PipelineRunModel`), and resumption
-- **MCP Server**: In-process, exposes tools (`query_peewee`, `get_deck_stats`, `propose_css_tune`, etc.)
-- **Local RAG**: FAISS/ChromaDB vector search, semantic chunking, coverage tracking
-- **Deterministic Coverage Refinement**: `CoverageAlignmentService.refine_links_to_subsections()` narrows cards attached to broad titles (H1/H2) down to the most specific descendant (H3+) they actually treat, with no LLM call: a unique literal citation of a subsection title wins outright, a card citing several subsections stays on its container, otherwise the shared idf lexical scorer (`_best_chunk_by_lexical_overlap`) elects the candidate that explains the card better than the container, and the last card of a substantive parent (>= `MIN_PARENT_CONTENT_WORDS`) is never moved. Links *and* provenance tags are rewritten in one `db.atomic()` transaction (`replace_provenance_tags` for `section:` + `chunk:`, so `sync_coverage_from_tags` cannot undo the refinement), `TableOfContentsDetector` announcements are excluded as targets, and a `CoverageSyncedEvent(scope="document")` is published only when links changed. Surfaced by the `DocumentInspectorPanel` "Affiner les liens" action, which refreshes its per-row card counts in place (single `GROUP BY`) so the selected section stays selected
-- **Surcharge locale de persona par étape de pipeline**: `services/ai/persona_override.py` est la **couture unique** de la notion de « surcharge locale » — `resolve_prompt_source()` / `resolve_system_prompt()` (ordre `surcharge figée → agent de l'étape → défaut du fournisseur`), `apply_persona_override()` (écrit le texte **et** fige l'agent : horodatage `prompt_override_frozen_at`, empreinte SHA-256 `prompt_override_base_digest`, `prompt_override_base_persona_id`), `clear_persona_override()` (lève la surcharge et rend à l'agent son prompt d'origine), `persona_override_state()` (dérive de l'agent depuis le figeage) et `prompt_override_field_hint()` (indication nommant la source **réelle**). Persistée dans `pipeline_steps.config_data` avec la définition du pipeline, **jamais** dans `PersonaVersionModel` : c'est un réglage du pipeline, pas une version d'agent. Seul un texte vide lève la surcharge ; réécrire le prompt de l'agent tel quel est un figeage volontaire (épingler la version courante), et l'estampille se pose **une seule fois**, au passage à l'état figé — la date dit depuis quand le texte l'est, pas depuis quand on a fini de taper. L'empreinte d'agent est insensible à la mise en forme : réindenter un agent n'est pas une dérive. Les trois consommateurs empruntent la même résolution : `orchestrator.py` (`LLM_PROMPT` **et** `MAP_REDUCE`, qui ignorait `prompt_override` alors que l'inspecteur exposait le champ, que le vérificateur de DAG l'acceptait et que l'aperçu le prévisualisait — trois écrans, une seule règle), `prompt_interpolator.py` (aperçu), et `StepInspectorPanel` (`PersonaIdentityCard.btn_edit_prompt` ➔ `PersonaPromptOverrideDialog`, indicateur `PromptOverrideIndicator`). Une surcharge antérieure sans estampille reste active et lisible mais ne déclenche **aucun** signal de dérive : on ne prétend pas savoir depuis quand un texte que l'on n'a pas figé l'a été
-- **C Extension**: `c_ext/levenshtein_distance.c` → `.so`/`.dll` for fast diff; transparent Python fallback with warning notification in `utils/c_bridge.py`
-- **Navigation Coverage ➔ Éditeur**: `LinkedNoteCard` (`DocumentInspectorPanel`) rend chaque carte Anki liée cliquable (curseur pointeur, `:hover`/`:focus`, activation clic gauche ou Entrée/Espace). L'activation émet `DocumentInspectorPanel.request_navigation("edition", {"note_id": ...})`, relayé par `AISourcesDiagnosticTab` ➔ `AnalysisView` jusqu'à `MainWindow._on_view_selected()`, qui bascule sur `EditionView` et appelle `select_note_by_id(note_id)`
-- **Async Logging**: `QueueHandler`/`QueueListener` pipeline, `SecretRedactionFilter` masks API keys, crash dumps to `~/.ankiforge/logs/crash.log`
-- **Internationalisation Qt Linguist (ADR 0013)**: `utils/i18n.py` est l'**unique** couture de traduction — `install_translator(app)` (appelé dans `__main__.py` juste après la création de `QApplication`, donc avant toute fenêtre) résout le catalogue par `utils/paths.get_resource_path`, jamais par `Path(__file__)` ; `tr()` couvre le code qui n'est pas un `QObject`. Langue source et repli : **français** (`SOURCE_LANGUAGE`), donc un catalogue absent ou vide laisse l'interface parler français sans jamais faire échouer le démarrage. Catalogue unique dans `src/ankiforge/resources/translations/` (`.ts` versionnés, `.qm` ignorés, régénérés par `uv run python script/extract_translations.py`) ; cible = `en` uniquement, vide tant que le ticket de traduction humaine n'a pas été fait — **aucune traduction automatique**. Deux formes seulement, car ce sont les deux seules que `pylupdate` extraie : `self.tr("…")` dans un `QObject`, `tr("…")` ailleurs ; et `tr(f"…")` est **interdit** (la f-chaîne est évaluée avant l'appel, donc absente du catalogue). Trois pièges silencieux, tous gardés par l'audit : `self.tr()` assimile son 2ᵉ argument à une *désambiguïsation* et ne substitue donc rien (dès qu'il y a des valeurs, c'est `tr()`) ; un `tr()` au chargement du module est figé avant l'installation du traducteur (donc jamais dans une constante de module ou de classe — cf. `MainWindow.view_registry()`) ; et les widgets maison (`Badge`, `DangerButton`, `SubTabButton`…) sont des puits d'affichage dont l'audit déduit le contrat des signatures. Les valeurs interpolées passent par des marqueurs Qt Linguist : `tr("Enregistré : %1/%2", faits, total)` — `tr()` applique lui-même la substitution, après traduction, pour qu'une cible puisse réordonner la phrase. Tables `statut → libellé` : clés en littéral (identifiants persistés), **seules les valeurs affichées** sont traduites. Les `.qm` étant ignorés par Git, le pilote les compile avant Nuitka puis `copy_app_resources_to_bundle()` recopie la racine `src/ankiforge/resources` dans le bundle ; ils sont réintégrés dans le wheel via `artifacts` de `pyproject.toml`. Audit de non-régression : `tests/utils/test_i18n_audit.py` (aucun libellé hors `tr()` dans un puits d'affichage Qt ou maison, aucune f-chaîne dans `tr()`, aucun `self.tr()` avec valeurs, aucun `tr()` à l'import, aucune interpolation mal formée, catalogue à jour et non rempli automatiquement) et `tests/test_i18n_packaging.py` (copie et résolution en disposition Nuitka, plus la déclaration wheel)
-- **Édition Groupée & Sélection Multi-Lignes dans EditionView**: `VirtualTableView` configuré en `ExtendedSelection` (Shift+clic pour sélection contiguë, Ctrl/Cmd+clic pour sélection discontinue) avec synchronisation bidirectionnelle stricte entre surlignage/sélection visuelle et cases à cocher en colonne 0 (toute ligne sélectionnée est cochée et toute coche sélectionne la ligne). `EditionView` unifie la résolution des cibles de masse de manière cohérente. Actions atomiques orchestrées par `GroupEditService` sous `db.atomic()`, préservant strictement les tags de provenance (`is_provenance_tag`), appliquant transformations de champs et de tags, et resynchronisant la couverture. Interface servie par le dialogue modal `GroupEditDialog` (raccourci `Ctrl+Shift+E`, bouton dans le ruban de navigation, et options dynamiques dans le menu contextuel avec décompte en direct).
+### Lancement de l'Application
+```bash
+uv run ankiforge                # environnement de profil par défaut
+uv run ankiforge --dev          # environnement isolé de développement (~/.ankiforge-dev)
+uv run ankiforge --prod         # forcer l'environnement de production (~/.ankiforge)
+uv run ankiforge --smoke-test   # vérification d'intégrité binaire et de démarrage sans interface
+uv run ankiforge --clone-prod-to-dev # synchroniser la base prod vers dev pour investigation
+```
 
-## Testing Constraints (Critical)
-- **All LLM calls MUST be mocked** - CI never calls real APIs (OpenAI/Ollama/Gemini)
-- SQLite in-memory shared cache: `file:memdb_test_<worker>?mode=memory&cache=shared`
-- `QT_QPA_PLATFORM=offscreen`, `QTWEBENGINE_DISABLE_SANDBOX=1`, `ANKIFORGE_MOCK_WEBENGINE=1` set in conftest
-- Qt widgets cleaned up after each test via `cleanup_qt_widgets` fixture
-- UI tests use `pytest-qt` headless; no visual snapshots
+### Exécution des Tests
+```bash
+uv run pytest                   # suite complète de tests (headless Qt via pytest-qt)
+uv run pytest -m "not slow"     # suite rapide pré-push (< 15s)
+uv run pytest -m unit           # tests unitaires purs et algorithmiques (< 2s, sans base ni Qt)
+uv run pytest -m integration    # tests d'intégration base de données Peewee et services
+uv run pytest -m ui             # tests headless PySide6 (widgets, signaux, formulaires)
+uv run pytest tests/path/test_file.py::TestClass::test_method
+```
 
-## Code Conventions (Enforced)
-- **No `print()`** - use `logging.getLogger(__name__)` with proper levels
-- **User-facing strings go through `tr()`** (ADR 0013) - any literal displayed to the user, with or without interpolation. `tr(f"…")` is forbidden; use `tr("… %1 …", value)` instead
-- **Strict mypy**: `disallow_untyped_defs = true` for `ankiforge.*`; UI and migrations have relaxed overrides
-- **Ruff rules**: E, F, B, I, UP, T20 (no print), PT, SIM; line-length=200
-- **Pre-commit & Pre-push**: pre-commit runs ruff fix/format, trailing-whitespace, yaml, large files; versioned pre-push hook (`.githooks/pre-push`, `git config core.hooksPath .githooks`) enforces canonical verification `uv run python script/verify.py` before any push
-- **Type stubs**: `types-peewee`, `types-requests`, `types-markdown` in dev deps
+### Porte de Vérification Canonique Unique (Verification Gate)
+La commande canonique unique `script/verify.py` applique séquentiellement l'ensemble des garde-fous de qualité avant tout push :
+```bash
+uv run python script/verify.py              # chaîne canonique : drift, ruff, format, mypy, bandit, pytest fast
+uv run python script/verify.py --fix        # auto-correction (instructions, formatage et fix ruff) avant contrôle
+uv run python script/verify.py --all-tests  # exécution avec la totalité des tests (sans filtre slow)
+uv run python script/verify.py --install-hook # installe et active le hook natif versionné .githooks/pre-push
+```
 
-## Key Files / Entry Points
-- `src/ankiforge/__main__.py` - app entry, env setup, profile selection, migrations, plugin loading
-- `src/ankiforge/database/models/` - modular Peewee models package (30 tables across ai, audit, cards, pipelines, rag, system)
-- `src/ankiforge/services/ai/orchestrator.py` - `PipelineOrchestrator` DAG engine
-- `src/ankiforge/services/ai/mcp_server.py` - in-process MCP server
-- `src/ankiforge/ui/main_window.py` - `MainWindow` (JetBrains-style detachable panels)
-- `src/ankiforge/utils/logger.py` - async logging, crash handlers, secret redaction
-- `src/ankiforge/utils/paths.py` - resource paths (handles Nuitka bundles)
-- `src/ankiforge/utils/i18n.py` - i18n bootstrap seam: `install_translator()` + `tr()` (ADR 0013)
-- `script/extract_translations.py` - regenerates `.ts` (lupdate) and `.qm` (lrelease) catalogs
+### Gouvernance des Compétences Agentiques & Métadonnées
+```bash
+uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py # audit statique des 50 skills
+```
 
-## CI/CD Pipeline (GitHub Actions)
-- **Smart path filter** - only runs relevant jobs
-- **Parallel quality**: ruff, mypy, bandit, pip-audit
-- **Multi-OS test matrix**: Ubuntu/macOS/Windows with C extension compilation
-- **Coverage**: serial (`-n 0`) due to Qt/WebEngine; `--cov-fail-under=70` on Linux
-- **Release**: Nuitka compilation → native binaries (`.exe`, `.app`, `.AppImage`) to GitHub Releases
+### Documentation Zensical
+```bash
+uv run zensical serve           # serveur de documentation local live (http://127.0.0.1:8000)
+uv run zensical build           # compilation statique du site documentaire dans site/
+```
 
-## Environment Variables
-- `.env` (dev) or `~/.ankiforge/.env` (prod): `AI_PROVIDER`, `AI_MODEL`
-- `ANKIFORGE_ENV=testing` set during pytest
-- `--dev`/`--prod` CLI flags override environment
+### Extension C Native (Levenshtein)
+```bash
+gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c  # Linux/macOS
+```
 
-## Agent Skills Catalog (`.agents/skills/`)
-Autonomous specialized skills conforming to Antigravity Progressive Disclosure and agentskills.io standard (50 skills total):
+### Captures & Miniatures de Layouts
+```bash
+uv run python script/capture_view.py --layout-thumbnails # régénère les miniatures haute résolution
+```
+<!-- CANONICAL:END:commandes -->
+
+<!-- CANONICAL:START:regles_ingenierie -->
+<!-- ⚠️ BLOC AUTO-GÉNÉRÉ DEPUIS .agents/instructions/regles_ingenierie.md - NE PAS MODIFIER MANUELLEMENT -->
+
+## Règles d'Ingénierie & Conventions Non Négociables
+
+### 1. Langue de Communication & Restitution Obligatoire
+Toutes les synthèses, explications, interactions, documentations et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, y compris lors de l'exécution de compétences dont la spécification ou les déclencheurs emploient l'anglais.
+
+### 2. Typage Statique Strict 100% (`mypy`)
+- Tout le code du projet sous `src/ankiforge/` respecte le typage strict (`disallow_untyped_defs = true`).
+- Interdiction formelle d'ajouter des règles globales `disable_error_code` masquant les erreurs de typage.
+- Utiliser systématiquement les types stubs (`types-peewee`, `types-requests`, `types-markdown`) et la syntaxe moderne Python 3.12+ (unions `X | Y`, génériques PEP 695).
+
+### 3. Logging Asynchrone & Interdiction Absolue de `print()`
+- **Zéro `print()`** : application stricte de la règle Ruff `T20`. Utiliser systématiquement `logger = logging.getLogger(__name__)` avec le niveau sémantique approprié (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).
+- **Haute performance non bloquante** : tous les logs transitent par le pipeline asynchrone `QueueHandler` / `QueueListener` défini dans `ankiforge.utils.logger`.
+- **Sanitisation des secrets** : le filtre `SecretRedactionFilter` masque automatiquement les clés d'API (`sk-*`, `AIza*`), en-têtes `Bearer` et jetons avant toute écriture sur disque.
+
+### 4. Tests Headless Qt & Isolation
+- **Headless obligatoire** : les tests s'exécutent avec `QT_QPA_PLATFORM=offscreen`, `QTWEBENGINE_DISABLE_SANDBOX=1` et `ANKIFORGE_MOCK_WEBENGINE=1`.
+- **Zéro snapshot visuel** : tester la logique métier, les signaux, les slots et le cycle de vie des formulaires via `pytest-qt` (`qtbot`), jamais de capture d'image en assertion.
+- **Isolation mémoire** : la base de données de test est une SQLite en mémoire partagée (`file:memdb_test_<worker>?mode=memory&cache=shared`).
+- **Nettoyage strict** : chaque widget Qt créé dans un test doit être nettoyé via la fixture `cleanup_qt_widgets`.
+
+### 5. Mocks LLM & RAG Obligatoires
+Tous les appels aux fournisseurs d'IA (OpenAI, Gemini, Anthropic, Ollama), embeddings et retriéveurs vectoriels doivent être **intégralement mockés de manière déterministe** durant les tests. Zéro appel réseau payant ou dépendance à un démon local en CI.
+
+### 6. Discipline Git & Interdiction de Commit Autonome
+L'agent ne doit **JAMAIS** exécuter de `git commit` ou `git push` de manière autonome sans l'accord explicite préalable de l'utilisateur. À l'achèvement d'une tâche modifiant l'arbre de travail, invoquer la compétence `proposer-commits` pour formuler des propositions atomiques conformes à Conventional Commits v1.0.0 en français.
+
+### 7. Internationalisation Qt Linguist (`ADR 0013`)
+- Toute chaîne affichée à l'utilisateur passe par `self.tr("…")` (sous-classe de `QObject`) ou `tr("…")` (ailleurs).
+- Langue source et repli : **français** (`SOURCE_LANGUAGE = "fr"`). Un catalogue absent ou vide ne doit jamais empêcher le démarrage de l'application.
+- **`tr(f"…")` est strictement interdit** : la f-chaîne étant évaluée avant l'appel, le message n'entre pas au catalogue.
+- Marqueurs de position Qt Linguist : utiliser `tr("Enregistré : %1/%2", faits, total)`. `self.tr()` ne réalisant pas de substitution (son second paramètre étant réservé à la désambiguïsation), tout message paramétré emploie `tr()`.
+- Zéro `tr()` au chargement de module : les libellés traduits ne doivent pas être figés dans des constantes globales avant l'appel d'`install_translator()`.
+
+### 8. Respect du Design System (`DESIGN.md`)
+- `DESIGN.md` est la source unique de vérité pour les 12 familles de thèmes et les 4 dispositions d'interface (layouts).
+- Zéro couleur en dur dans le code : toutes les teintes et métriques dérivent des jetons sémantiques `DesignTokens` / `ThemeProfile` injectés par `StyleEngine.generate_stylesheet()`.
+<!-- CANONICAL:END:regles_ingenierie -->
+
+<!-- CANONICAL:START:architecture_points_cles -->
+<!-- ⚠️ BLOC AUTO-GÉNÉRÉ DEPUIS .agents/instructions/architecture_points_cles.md - NE PAS MODIFIER MANUELLEMENT -->
+
+## Points Clés d'Architecture Technique
+
+- **Multi-profils & Isolation stricte** : Chaque profil utilisateur possède sa propre base SQLite (`~/.ankiforge/profiles/<nom>/ankiforge.db`) et son dossier de médias dédié. Le verrou de profil (`ProfileManager`) garantit l'exclusivité d'accès mono-instance par profil tout en autorisant le multi-processus sur des profils disjoints.
+- **Dispositions d'interface (4 Layouts) & Miniatures** : 4 architectures interchangeables à chaud (`ide`, `macos`, `dashboard`, `glassmorphism`) sélectionnables via une grille 2x2 de miniatures d'aperçu haute résolution (`LayoutGridSelector` / `LayoutThumbnailCard`).
+- **Délimitation & Modes de portée exclusifs** : `ScopeModeExclusivityMixin` (`src/ankiforge/ui/dialogs/scope_mode_exclusivity.py`) constitue la couture unique gouvernant les modes de sélection documentaire (`sections`, `pages`, `chapitres`). `activate_scope_mode()` et `restore_scope_mode()` préservent fidèlement les sélections et délimitations utilisateur.
+- **Composition de lots (Batch Slice Composer)** : Dialogue modal unique `BatchSliceComposerDialog` permettant le découpage documentaire en mode Direct (`DocumentScopeWidget`, 1 partie cochée = 1 tâche) ou Auto (`AutoSliceWidget` avec règles de découpage paramétrables).
+- **Adresses de région & Exclusion non destructive (`ADR 0010`)** : Une exclusion est une règle de périmètre (`utils/region_address.py` : `node:`, `heading:`, `page:`), jamais une suppression physique. `DocumentRepository` est l'unique décideur (`is_region_excluded`, `set_region_excluded`, `set_region_neutralized`). Écarter sort du périmètre de calcul et de génération ; neutraliser retire un conteneur du dénominateur de couverture (`ContainerOrigin.DECLARED`).
+- **Provenance par section & Paliers de résolution (`ADR 0009`)** : L'identité durable d'une source est le couple (document, fil d'Ariane `heading_path`), jamais l'identifiant éphémère d'un fragment textuel. `CoverageAlignmentService.resolve_attachment()` applique la résolution déterministe à 4 paliers (`exact → section → page → lexical`). Le palier gagnant est persisté sur `NoteChunkLinkModel.resolution`.
+- **Moteur d'Orchestration DAG IA** : `PipelineOrchestrator` exécute des graphes dirigés acycliques supportant 6 types d'étapes (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`), des branchements conditionnels (`on_success_step`, `on_failure_step`), des budgets de tokens stricts et la persistance SQLite (`PipelineRunModel`) avec reprise interactive sur incident.
+- **Surcharge locale de persona par étape (`persona_override.py`)** : Couture unique de surcharge de prompt au profit d'un pipeline sans altérer la persona globale. Résolution selon l'ordre strict `surcharge figée → agent de l'étape → défaut du fournisseur`, avec empreinte SHA-256 et horodatage de dérive.
+- **Serveur MCP Persistant In-Process & Priorité Externe (`ADR 0014`)** : Serveur MCP autonome intégré (`mcp_server.py`) exposant l'outillage de consultation, d'audit et de mutation à des agents externes via le protocole standardisé, avec validation humaine systématique en deux phases (Two-Phase Commit / patches intermédiaires).
+- **RAG Local & Indexation Vectorielle** : Recherche sémantique déterministe FAISS/ChromaDB couplée à un suivi de couverture granulaire sans dépendance cloud obligatoire.
+- **Extension C Native & Repli Transparent** : Calcul de distance de Levenshtein accéléré par bibliothèque C compilée (`c_ext/levenshtein_distance.so` / `.dll`), avec repli Python transparent et notification dans `utils/c_bridge.py`.
+- **Adaptateurs d'instructions unifiés (`ADR 0016`)** : Source unique de vérité sous `.agents/instructions/` injectée dans les adaptateurs agents (`GEMINI.md`, `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`) avec vérification déterministe fail-fast dans la porte `script/verify.py`.
+<!-- CANONICAL:END:architecture_points_cles -->
+
+<!-- CANONICAL:START:catalogue_skills -->
+<!-- ⚠️ BLOC AUTO-GÉNÉRÉ DEPUIS .agents/instructions/catalogue_skills.md - NE PAS MODIFIER MANUELLEMENT -->
+
+## Catalogue des Compétences Agentiques (`.agents/skills/`)
+
+Le dépôt héberge 50 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
 
 > [!IMPORTANT]
-> **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les skills dont la spécification ou les triggers sont documentés en anglais.
+> **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les compétences dont la spécification ou les déclencheurs emploient l'anglais.
 
-- **Meta & Maintenance**:
-  - `mise-a-jour-metadonnees`: Meta-skill: syncs the 15 metadata/doc files post-feature (`GEMINI.md`, `AGENTS.md`, `DESIGN.md`, docs architecture, etc.)
-  - `gouvernance-skills`: Audits, checks maturity grid (5 axes), prevents trigger collisions, and governs skill admissions/splits
-  - `documentation-zensical`: Proactive Zensical documentation auditor, enhancer, and build validator
-  - `audit-ankiforge`: Global architecture and compliance auditor against `GEMINI.md` rules
-  - `obsidian-vault`: Gestionnaire du vault Obsidian (`ankiforge_obsidian/`), Kanban (`Avancement du projet.md`) et tickets en mode atomique one-shot anti-boucle (Obsidian = todo list pure, documentation canonique dans Zensical `docs/`)
-  - `proposer-commits`: Formulation de propositions de commits atomiques conformes à Conventional Commits v1.0.0 (garde-fou interdisant tout commit autonome sans accord utilisateur)
-  - `verification-environnement`: Règles d'ingénierie préventives et interdits non négociables (typage strict, pas de `print()`, tests headless, pas d'emojis, mocks LLM) et exécution de la commande canonique de vérification (`script/verify.py`)
-- **Architecture & Foundation**:
-  - `peewee-expert`: Database schema design, migrations, atomic transactions, and N+1 query elimination
-  - `ui-pyside6-design`: PySide6 modern UI development, JetBrains-style docking, `StyleEngine`, token adherence (`DESIGN.md`), and `tr()` (ADR 0013)
-  - `ui-screenshot`: Offscreen/headless Qt view capture and visual inspection
-- **Domain Pipelines**:
-  - `ingestion-multimedia`: Parses PDF/DOCX/PPTX/EPUB/audio/YouTube/web into clean Markdown (Marker OCR, media handling)
-  - `rag-smart-coverage`: Semantic chunking, local RAG vector indexing (FAISS/ChromaDB), and deterministic coverage alignment (ADR 0009 / ADR 0010)
-  - `pipeline-dag-ia`: DAG orchestration engine (`PipelineOrchestrator`), 6 step types, token budgets, persona overrides, and MCP integration
-  - `modeles-cartes-jinja`: Card models management (`NoteTypeModel`), Jinja2/HTML/CSS styling atelier, cloze mutations, and Wozniak 20 rules linter
-  - `export-synchro-anki`: Import/merge/export of `.apkg`/`.colpkg`, stable IDs, media dedup (MD5, zstd) and duplicate detection
-- **Specialized Audits** (targeted, non-blocking):
-  - `audit-dependances`: Supply chain, licenses, outdated packages, `pip-audit`
-  - `audit-design-ui`: Design system token adherence, WCAG accessibility, hardcoded colors
-  - `audit-donnees`: Referential integrity, cascade deletes, orphaned records
-  - `audit-ia-pipeline`: DAG engine, MCP tool safety, JSON parsing robustness, token costs
-  - `audit-performance`: Qt GUI responsiveness, background worker offloading, query benchmarks
-  - `audit-qualite-code`: Strict typing (`mypy`), linting (`ruff`), dead code, no `print()`
-  - `audit-securite`: Bandit scans, secret redaction, SSRF, sandbox safety
-  - `audit-tests-ci`: Test mocking discipline, headless constraints, CI workflows
-- **Agentic Engineering Flows (Tristan Workflow / Matt Pocock Framework)**:
-  - `ask-tristan`: Interactive router and navigator for agentic engineering workflows (configured for Obsidian tracker)
-  - `grill-with-docs` / `grill-me` / `grilling`: Relentless interview and design tree frontier exploration
-  - `to-spec` / `to-tickets`: Transformation of conversational decisions into specs and tracer-bullet tickets in Obsidian
-  - `implement` / `tdd`: Test-driven implementation loop (red-green-refactor) bound to Obsidian ticket lifecycle
-  - `code-review`: Two-axis diff review (Standards + Spec) in parallel subagents
-  - `diagnosing-bugs` / `triage`: Bug isolation with tight feedback loops and Obsidian triage state machine
-  - `wayfinder`: Multi-session roadmap and decision mapping for large-scale efforts
-  - `domain-modeling` / `codebase-design`: Shared domain terminology (`CONTEXT.md`, ADRs) and deep module architecture
-  - `improve-codebase-architecture`: Automated code scan to uncover deepening opportunities
-  - `handoff` / `prototype` / `research`: Portable context compaction, throwaway code spikes, and primary source research
-  - `doubt-driven-development` / `source-driven-development`: Adversarial fresh-context review and documentation-grounded decisions
-  - `resolving-merge-conflicts` / `code-simplification`: Intent-based merge conflict resolution and clarity refactoring
-  - `wizard` / `wait-what` / `writing-for-agents` / `to-questionnaire` / `setup-tristan-workflow`: Human interaction bash wizards, communication repair, agent doc standards, questionnaire generation, and workflow bootstrapping
+### 1. Méta & Maintenance du Dépôt
+- `mise-a-jour-metadonnees` (`.agents/skills/mise-a-jour-metadonnees/SKILL.md`) : Synchronisation des 15 fichiers de documentation et métadonnées post-feature (`GEMINI.md`, `AGENTS.md`, `DESIGN.md`, `docs/Dossier_architecture/`, etc.).
+- `gouvernance-skills` (`.agents/skills/gouvernance-skills/SKILL.md`) : Méta-gouverneur du parc de skills, audit statique (`auditer_coherence_skills.py`), détection des collisions Jaccard et grille de maturité 5 axes.
+- `documentation-zensical` (`.agents/skills/documentation-zensical/SKILL.md`) : Audit proactif, enrichissement et validation de la documentation Zensical (`uv run zensical build`).
+- `audit-ankiforge` (`.agents/skills/audit-ankiforge/SKILL.md`) : Orchestration de la batterie complète d'audits et de tests du projet avec consolidation de rapport.
+- `obsidian-vault` (`.agents/skills/obsidian-vault/SKILL.md`) : Gestionnaire du vault Obsidian (`ankiforge_obsidian/`), Kanban (`Avancement du projet.md`) et tickets en mode atomique one-shot anti-boucle.
+- `proposer-commits` (`.agents/skills/proposer-commits/SKILL.md`) : Formulation de propositions de commits atomiques conformes à Conventional Commits v1.0.0 en français (garde-fou interdisant tout commit autonome).
+- `verification-environnement` (`.agents/skills/verification-environnement/SKILL.md`) : Règles d'ingénierie préventives, interdits non négociables et exécution de la porte canonique (`script/verify.py`).
+
+### 2. Socle Technique & Piliers d'Architecture
+- `peewee-expert` (`.agents/skills/peewee-expert/SKILL.md`) : Modélisation Peewee ORM, intégrité référentielle, migrations SQLite et élimination des requêtes N+1.
+- `ui-pyside6-design` (`.agents/skills/ui-pyside6-design/SKILL.md`) : Développement d'interfaces PySide6, dockings JetBrains, respect des tokens `DESIGN.md`, et internationalisation `tr()` (`ADR 0013`).
+- `ui-screenshot` (`.agents/skills/ui-screenshot/SKILL.md`) : Capture d'écrans haute résolution en mode headless/offscreen et inspection visuelle des vues.
+- `ingestion-multimedia` (`.agents/skills/ingestion-multimedia/SKILL.md`) : Parsing et extraction multimédia de sources brutes (Marker OCR, PDF, YouTube, audio, docx, epub) vers Markdown.
+- `rag-smart-coverage` (`.agents/skills/rag-smart-coverage/SKILL.md`) : Découpage sémantique (`ChunkingService`), vecteurs FAISS/ChromaDB et alignement déterministe de couverture (`ADR 0009` et `ADR 0010`).
+- `pipeline-dag-ia` (`.agents/skills/pipeline-dag-ia/SKILL.md`) : Moteur de DAG `PipelineOrchestrator`, 6 types d'étapes, budgets de tokens, surcharge locale `persona_override.py` et intégration MCP.
+- `modeles-cartes-jinja` (`.agents/skills/modeles-cartes-jinja/SKILL.md`) : Gabarits Jinja2/HTML/CSS de types de notes Anki, directives d'occlusion et linter des 20 règles de Piotr Wozniak.
+- `export-synchro-anki` (`.agents/skills/export-synchro-anki/SKILL.md`) : Import/export `.apkg`/`.colpkg`, synchronisation à IDs stables et déduplication des médias.
+
+### 3. Audits Spécialisés Ciblés
+- `audit-dependances` (`.agents/skills/audit-dependances/SKILL.md`) : Chaîne d'approvisionnement, vulnérabilités `pip-audit`, paquets obsolètes et licences.
+- `audit-design-ui` (`.agents/skills/audit-design-ui/SKILL.md`) : Conformité au design system `DESIGN.md`, accessibilité WCAG et détection de couleurs codées en dur.
+- `audit-donnees` (`.agents/skills/audit-donnees/SKILL.md`) : Intégrité référentielle Peewee, clauses CASCADE, données orphelines et couverture des migrations.
+- `audit-ia-pipeline` (`.agents/skills/audit-ia-pipeline/SKILL.md`) : Robustesse du moteur DAG, sécurité des outils MCP, parsing JSON et suivi des budgets de tokens.
+- `audit-performance` (`.agents/skills/audit-performance/SKILL.md`) : Réactivité de la boucle d'événements Qt, délestage en workers d'arrière-plan et profils de requêtes.
+- `audit-qualite-code` (`.agents/skills/audit-qualite-code/SKILL.md`) : Typage strict `mypy`, conformité `ruff`, code mort et interdiction de `print()`.
+- `audit-securite` (`.agents/skills/audit-securite/SKILL.md`) : Audit statique Bandit, masquage des secrets et sécurité de la sandbox d'exécution.
+- `audit-tests-ci` (`.agents/skills/audit-tests-ci/SKILL.md`) : Discipline de mock des LLM, contraintes headless Qt et fiabilité des pipelines CI/CD.
+
+### 4. Flux d'Ingénierie Agentique (Workflow Tristan)
+- `ask-tristan` (`.agents/skills/ask-tristan/SKILL.md`) : Aiguilleur et routeur de tâches d'ingénierie articulé avec le suivi Kanban Obsidian.
+- `grill-with-docs` (`.agents/skills/grill-with-docs/SKILL.md`), `grill-me` (`.agents/skills/grill-me/SKILL.md`), `grilling` (`.agents/skills/grilling/SKILL.md`) : Interviews contradictoires rigoureuses et exploration de la frontière d'arbre de conception.
+- `to-spec` (`.agents/skills/to-spec/SKILL.md`), `to-tickets` (`.agents/skills/to-tickets/SKILL.md`) : Formalisation de spécifications et découpage en tickets traçables dans le vault Obsidian.
+- `implement` (`.agents/skills/implement/SKILL.md`), `tdd` (`.agents/skills/tdd/SKILL.md`) : Réalisation pilotée par les tests (Red-Green-Refactor) liée au cycle de vie des tickets Obsidian.
+- `code-review` (`.agents/skills/code-review/SKILL.md`) : Revue de code contradictoire à deux axes (Standards du dépôt + Respect de la spécification) par sous-agents parallèles.
+- `diagnosing-bugs` (`.agents/skills/diagnosing-bugs/SKILL.md`), `triage` (`.agents/skills/triage/SKILL.md`) : Diagnostic systématique d'anomalies et qualification des retours sur le Kanban.
+- `wayfinder` (`.agents/skills/wayfinder/SKILL.md`) : Cartographie de feuilles de route et d'arbres décisionnels pour chantiers complexes.
+- `domain-modeling` (`.agents/skills/domain-modeling/SKILL.md`), `codebase-design` (`.agents/skills/codebase-design/SKILL.md`) : Modélisation du domaine (`CONTEXT.md`, ADRs) et conception de modules profonds.
+- `improve-codebase-architecture` (`.agents/skills/improve-codebase-architecture/SKILL.md`) : Analyse structurelle pour approfondir les interfaces et réduire les couplages.
+- `handoff` (`.agents/skills/handoff/SKILL.md`), `prototype` (`.agents/skills/prototype/SKILL.md`), `research` (`.agents/skills/research/SKILL.md`) : Compaction de contexte pour reprise de session, spikes jetables et investigation de sources primaires.
+- `doubt-driven-development` (`.agents/skills/doubt-driven-development/SKILL.md`), `source-driven-development` (`.agents/skills/source-driven-development/SKILL.md`) : Contre-revue contradictoire en contexte neutre et ancrage dans les documentations officielles vérifiées.
+- `resolving-merge-conflicts` (`.agents/skills/resolving-merge-conflicts/SKILL.md`), `code-simplification` (`.agents/skills/code-simplification/SKILL.md`) : Résolution d'intentions de fusion et simplification de clarté de code.
+- `wizard` (`.agents/skills/wizard/SKILL.md`), `wait-what` (`.agents/skills/wait-what/SKILL.md`), `writing-for-agents` (`.agents/skills/writing-for-agents/SKILL.md`), `to-questionnaire` (`.agents/skills/to-questionnaire/SKILL.md`), `setup-tristan-workflow` (`.agents/skills/setup-tristan-workflow/SKILL.md`) : Assistants interactifs pour opérations humaines, réparation de compréhension, rédaction de compétences et initialisation de workflow.
+<!-- CANONICAL:END:catalogue_skills -->
 
 ## Documentation References
 - `GEMINI.md` - agentic system prompt, core engineering rules
