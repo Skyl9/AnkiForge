@@ -196,6 +196,17 @@ class StyleEngine(QObject):
             border: 2px solid {p.border_focus};
             padding-top: 9px;
         }}
+        QPushButton[role="secondary"]:checked {{
+            background-color: {p.bg_active};
+            border: 1px solid {p.border_color};
+            color: {p.text_primary};
+            font-weight: 600;
+        }}
+        QPushButton[role="secondary"]:checked:hover {{
+            background-color: {p.bg_hover};
+            border: 1.5px solid {p.accent_primary};
+            color: {p.text_primary};
+        }}
         QPushButton[role="secondary"]:disabled {{
             background-color: {p.bg_input};
             color: {p.text_muted};

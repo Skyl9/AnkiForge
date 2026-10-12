@@ -820,3 +820,52 @@ def test_card_models_table_badge_detection(qtbot, mock_db):
     sample_table = "| Concept | Directive | Champs |\n|---|---|---|\n| Test | Faire X | Front |"
     view.description_input.setText(sample_table)
     assert view.badge_role_table.isHidden() is False
+
+
+def test_responsive_top_action_bar_preview_sync(qtbot):
+    """Vérifie l'API de synchronisation et l'état checkable du bouton d'aperçu dans ResponsiveTopActionBar."""
+    from ankiforge.ui.views.card_models_view.widgets.responsive_action_bar import ResponsiveTopActionBar
+
+    bar = ResponsiveTopActionBar()
+    qtbot.addWidget(bar)
+
+    assert bar.btn_toggle_preview.isCheckable() is True
+    assert bar.btn_toggle_preview.isChecked() is True
+
+    bar.set_preview_visible(False)
+    assert bar.btn_toggle_preview.isChecked() is False
+
+    bar.set_preview_visible(True)
+    assert bar.btn_toggle_preview.isChecked() is True
+
+
+def test_card_models_view_preview_button_neutral_border_and_sync(qtbot, mock_db):
+    """Vérifie l'absence de QSS inline forcé et la synchronisation du bouton Aperçu en direct."""
+    view = CardModelsView()
+    qtbot.addWidget(view)
+    view.show()
+
+    btn = view.top_action_bar.btn_toggle_preview
+    assert btn.isCheckable() is True
+    assert btn.isChecked() is True
+    assert view.preview_container.isVisible() is True
+    # Pas de QSS inline imposant une bordure bleue permanente
+    assert btn.styleSheet() == ""
+
+    # Bascule : masque le panneau
+    view._toggle_preview_panel()
+    assert view.preview_container.isVisible() is False
+    assert btn.isChecked() is False
+    assert btn.styleSheet() == ""
+
+    # Bascule : réaffiche le panneau
+    view._toggle_preview_panel()
+    assert view.preview_container.isVisible() is True
+    assert btn.isChecked() is True
+    assert btn.styleSheet() == ""
+
+    # Fermeture par la croix de l'aperçu
+    view._hide_preview_panel()
+    assert view.preview_container.isVisible() is False
+    assert btn.isChecked() is False
+    assert btn.styleSheet() == ""

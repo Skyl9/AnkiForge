@@ -1836,7 +1836,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1096"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1075"/>
         <location filename="../../ui/views/edition_view/view.py" line="+359"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -2172,7 +2172,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-668"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-647"/>
         <source>Style CSS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2187,7 +2187,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+272"/>
+        <location line="+251"/>
         <source>Type de note : %1
 Type : %2
 Gabarits : %3</source>
@@ -7462,7 +7462,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1184"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1163"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7498,25 +7498,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1086"/>
+        <location line="+1065"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1022"/>
+        <location line="-1001"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+503"/>
+        <location line="+482"/>
         <location line="+2"/>
         <location line="+2"/>
         <source>Front, Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-506"/>
+        <location line="-485"/>
         <source>ex: Front, Back, Audio...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7629,12 +7629,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+436"/>
+        <location line="+415"/>
         <source>Données d&apos;exemple automatiques</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-432"/>
+        <location line="-411"/>
         <source>Rafraîchir la prévisualisation</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7644,7 +7644,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+243"/>
+        <location line="+222"/>
         <source>Replier le volet d&apos;aides</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15051,6 +15051,11 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+2"/>
+        <source>Aperçu en direct</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location line="+5"/>
         <source>Afficher / Masquer l&apos;aperçu en direct à côté du code</source>
         <translation type="unfinished"></translation>
@@ -15061,7 +15066,12 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+2"/>
+        <source>Sauvegarder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>Sauvegarder les modifications du type de note</source>
         <translation type="unfinished"></translation>
     </message>

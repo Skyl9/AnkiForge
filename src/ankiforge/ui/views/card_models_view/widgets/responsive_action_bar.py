@@ -53,15 +53,17 @@ class ResponsiveTopActionBar(QFrame):
         # Boutons d'action
         self.btn_export_json = IconButton("ph.export", tooltip=self.tr("Exporter le type de note au format JSON standardisé AnkiForge"), size=24)
 
-        self.btn_toggle_preview = SecondaryButton("Aperçu en direct")
+        self.btn_toggle_preview = SecondaryButton(self.tr("Aperçu en direct"))
         self.btn_toggle_preview.setIcon(load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_toggle_preview.setCheckable(True)
+        self.btn_toggle_preview.setChecked(True)
         apply_compact_style(self.btn_toggle_preview, height=28)
         self.btn_toggle_preview.setToolTip(self.tr("Afficher / Masquer l'aperçu en direct à côté du code"))
         self.btn_toggle_preview.clicked.connect(self.preview_toggle_requested.emit)
 
         self.btn_refresh = IconButton("ph.arrows-clockwise", tooltip=self.tr("Actualiser la prévisualisation temps réel"), size=24)
 
-        self.btn_save = PrimaryButton("Sauvegarder")
+        self.btn_save = PrimaryButton(self.tr("Sauvegarder"))
         self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         apply_compact_style(self.btn_save, height=28)
         self.btn_save.setToolTip(self.tr("Sauvegarder les modifications du type de note"))
@@ -70,3 +72,7 @@ class ResponsiveTopActionBar(QFrame):
         layout.addWidget(self.btn_toggle_preview)
         layout.addWidget(self.btn_refresh)
         layout.addWidget(self.btn_save)
+
+    def set_preview_visible(self, visible: bool) -> None:
+        """Synchronise l'état coché du bouton avec la visibilité effective du panneau d'aperçu."""
+        self.btn_toggle_preview.setChecked(visible)

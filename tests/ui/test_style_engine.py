@@ -146,6 +146,21 @@ def test_secondary_button_highlights_its_contour_on_hover_and_focus(theme):
     assert f"border: 2px solid {theme.border_focus}" in focus
 
 
+@pytest.mark.parametrize("theme", [JETBRAINS_DARK, JETBRAINS_LIGHT], ids=["dark", "light"])
+def test_secondary_button_checked_uses_neutral_border_and_active_background(theme):
+    """L'état coché adopte un fond `bg_active` et un contour neutre `border_color` (DESIGN.md)."""
+    qss = get_style_engine().generate_stylesheet(theme)
+
+    checked = qss_rule(qss, 'QPushButton[role="secondary"]:checked')
+    assert f"background-color: {theme.bg_active}" in checked
+    assert f"border: 1px solid {theme.border_color}" in checked
+    assert f"color: {theme.text_primary}" in checked
+
+    hover_checked = qss_rule(qss, 'QPushButton[role="secondary"]:checked:hover')
+    assert f"background-color: {theme.bg_hover}" in hover_checked
+    assert f"border: 1.5px solid {theme.accent_primary}" in hover_checked
+
+
 def test_secondary_button_focus_contour_follows_the_border_focus_token():
     """Le focus suit `border_focus` — pas `accent_primary` — pour coller aux champs de saisie.
 

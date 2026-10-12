@@ -520,17 +520,6 @@ class CardModelsView(QWidget):
 
         editor_layout.addWidget(self.editor_horizontal_splitter, 1)
 
-        # Style actif par défaut sur btn_toggle_preview car preview_container est visible
-        self.top_action_bar.btn_toggle_preview.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignTokens.BG_HOVER};
-                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-weight: 600;
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
-
         self.left_panel.setMinimumWidth(280)
         self.editor_panel.add_tab("Éditeur de Modèle", editor_content, "ph.pencil-simple", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
@@ -623,26 +612,16 @@ class CardModelsView(QWidget):
     def _toggle_preview_panel(self) -> None:
         is_visible = not self.preview_container.isVisible()
         self.preview_container.setVisible(is_visible)
+        self.top_action_bar.set_preview_visible(is_visible)
         if is_visible:
             self._sync_current_template_from_editors()
             self._update_preview()
             self.editor_horizontal_splitter.setSizes([500, 420])
-            self.top_action_bar.btn_toggle_preview.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignTokens.BG_HOVER};
-                    border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    font-weight: 600;
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                }}
-            """)
-        else:
-            self.top_action_bar.btn_toggle_preview.setStyleSheet("")
 
     @Slot()
     def _hide_preview_panel(self) -> None:
         self.preview_container.setVisible(False)
-        self.top_action_bar.btn_toggle_preview.setStyleSheet("")
+        self.top_action_bar.set_preview_visible(False)
 
     def _on_code_changed(self) -> None:
         if self._is_syncing_template:
