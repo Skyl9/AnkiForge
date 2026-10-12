@@ -616,6 +616,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location line="+79"/>
+        <location filename="../../ui/dialogs/leech_wozniak_split_dialog.py" line="+315"/>
         <location filename="../../ui/views/creation_view/view.py" line="+727"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="-53"/>
         <source>Erreur : %1</source>
@@ -819,6 +820,77 @@ Aucune modification ne sera écrite en base de données.</source>
         <location line="+9"/>
         <source>Impossible d&apos;importer l&apos;archive :
 %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/dialogs/leech_wozniak_split_dialog.py" line="-263"/>
+        <source>Scission Wozniak — Carte Sangsue #%1 (Note #%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Diagnostic &amp; Scission Atomique Wozniak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>%1 rechutes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Stabilité: %1j</source>
+        <comment>{stability:.2f}</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+55"/>
+        <source>&lt;b&gt;Recto :&lt;/b&gt; %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>&lt;b&gt;Verso :&lt;/b&gt; %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>&lt;b&gt;Remarques / Extra :&lt;/b&gt; %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+102"/>
+        <source>&lt;b&gt;Sous-carte atomique #%1&lt;/b&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>&lt;b&gt;Q :&lt;/b&gt; %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>&lt;b&gt;R :&lt;/b&gt; %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>%1 sous-cartes prêtes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Échec de la génération : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Note #%1 scindée avec succès en cartes atomiques !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Échec de l&apos;application : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1847,7 +1919,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/tokens_srs_tab.py" line="+224"/>
+        <location filename="../../ui/views/analysis_view/tabs/tokens_srs_tab.py" line="+237"/>
         <source>Dépenses : %1 $</source>
         <comment>{summary[&apos;total_spent_usd&apos;]:.4f}</comment>
         <translation type="unfinished"></translation>
@@ -1861,6 +1933,11 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     <message>
         <location line="+172"/>
         <source>%1 · %2 jetons (%3%% des dépenses)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+245"/>
+        <source>%1 sangsue(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5389,7 +5466,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AITokensSrsTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/tokens_srs_tab.py" line="-349"/>
+        <location filename="../../ui/views/analysis_view/tabs/tokens_srs_tab.py" line="-595"/>
         <source>Finances &amp; Rétention SRS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5434,13 +5511,99 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+25"/>
         <source>Paramètres FSRS-4.5 optimisés avec succès pour votre rythme d&apos;apprentissage !</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+216"/>
         <source>Répartition par Type de Tâche IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+68"/>
+        <source>Diagnostic des Cartes Sangsues (Leeches)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+127"/>
+        <source>0 sangsue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-125"/>
+        <source>Inclure rechutes fréquentes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Inclut les cartes avec un nombre élevé d&apos;échecs même si elles ne sont pas encore tagguées &apos;leech&apos; par Anki</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source> oublis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Rafraîchir les cartes sangsues</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Face</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Oublis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Stabilité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Difficulté</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Extrait Recto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Extrait Verso</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Action</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Aucune carte sangsue détectée. Félicitations pour la santé mnésique de votre collection !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+86"/>
+        <source>Scinder</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -12587,6 +12750,54 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location filename="../../ui/widgets/settings_modal/components/layout_grid_selector.py" line="+108"/>
         <source>Aperçu indisponible</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>LeechWozniakSplitDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/leech_wozniak_split_dialog.py" line="-201"/>
+        <source>Cette carte échoue de manière répétée lors des révisions (compteur de rechutes élevé). La scinder en propositions atomiques univoques élimine la surcharge cognitive selon les Règles 4 et 5 de Piotr Wozniak.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+37"/>
+        <source>CARTE ACTUELLE EN BASE (SANGSUE)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+42"/>
+        <source>PROPOSITION DE SCISSION ATOMIQUE WOZNIAK</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Générer la scission atomique avec l&apos;IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Appliquer la scission (Two-Phase Commit)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Fermer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Génération en cours...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Erreur lors de la génération de scission.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+49"/>
+        <source>Régénérer la scission</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -1,17 +1,29 @@
+from __future__ import annotations
+
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from ankiforge.services.ai.linter import TokenSrsFinancialService
+from ankiforge.services.audit.leech_service import LeechService
+from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.linter_widgets import RetentionCurveCanvas
+from ankiforge.ui.dialogs.leech_wozniak_split_dialog import LeechWozniakSplitDialog
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
@@ -202,7 +214,8 @@ class AITokensSrsTab(QWidget):
         r_layout.addStretch()
         main_grid.addWidget(right_col, 1)
 
-        layout.addLayout(main_grid, 1)
+        layout.addLayout(main_grid, 0)
+        self._setup_leech_panel(layout)
         self.refresh_stats()
 
     def _clear_layout(self, layout):
@@ -476,6 +489,218 @@ class AITokensSrsTab(QWidget):
             tb_layout.addLayout(t_row)
 
         self.tasks_container.addWidget(task_box)
+        self._refresh_leeches()
+
+    def _setup_leech_panel(self, parent_layout: QVBoxLayout) -> None:
+        """Initialise le panneau pleine largeur de diagnostic des cartes sangsues (ADR 0019)."""
+        self.leech_panel = QFrame()
+        self.leech_panel.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        lp_layout = QVBoxLayout(self.leech_panel)
+        lp_layout.setContentsMargins(12, 10, 12, 10)
+        lp_layout.setSpacing(8)
+
+        # En-tête du panneau
+        h_row = QHBoxLayout()
+        h_row.setSpacing(8)
+
+        ico_leech = QLabel()
+        ico_leech.setPixmap(load_phosphor_icon("ph.bug", color=DesignTokens.COLOR_RED, weight="fill").pixmap(18, 18))
+        ico_leech.setStyleSheet("border: none; background: transparent;")
+
+        self.lbl_leech_title = QLabel(self.tr("Diagnostic des Cartes Sangsues (Leeches)"))
+        self.lbl_leech_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+        self.lbl_leech_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+
+        self.badge_leech_count = Badge(self.tr("0 sangsue"), color=DesignTokens.COLOR_GREEN)
+
+        self.cb_include_high_lapses = QCheckBox(self.tr("Inclure rechutes fréquentes"))
+        self.cb_include_high_lapses.setToolTip(self.tr("Inclut les cartes avec un nombre élevé d'échecs même si elles ne sont pas encore tagguées 'leech' par Anki"))
+        self.cb_include_high_lapses.setChecked(False)
+        self.cb_include_high_lapses.toggled.connect(self._on_leech_filter_changed)
+
+        self.spn_lapse_threshold = QSpinBox()
+        self.spn_lapse_threshold.setRange(2, 50)
+        self.spn_lapse_threshold.setValue(4)
+        self.spn_lapse_threshold.setPrefix("≥ ")
+        self.spn_lapse_threshold.setSuffix(self.tr(" oublis"))
+        self.spn_lapse_threshold.setEnabled(False)
+        self.spn_lapse_threshold.valueChanged.connect(self._on_leech_filter_changed)
+
+        btn_refresh_leeches = SecondaryButton("", tooltip=self.tr("Rafraîchir les cartes sangsues"))
+        btn_refresh_leeches.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        btn_refresh_leeches.setFixedHeight(26)
+        btn_refresh_leeches.clicked.connect(self._refresh_leeches)
+
+        h_row.addWidget(ico_leech)
+        h_row.addWidget(self.lbl_leech_title)
+        h_row.addWidget(self.badge_leech_count)
+        h_row.addStretch()
+        h_row.addWidget(self.cb_include_high_lapses)
+        h_row.addWidget(self.spn_lapse_threshold)
+        h_row.addWidget(btn_refresh_leeches)
+        lp_layout.addLayout(h_row)
+
+        # Tableau des sangsues
+        self.table_leeches = QTableWidget()
+        self.table_leeches.setColumnCount(9)
+        self.table_leeches.setHorizontalHeaderLabels(
+            [
+                self.tr("ID"),
+                self.tr("Paquet"),
+                self.tr("Face"),
+                self.tr("Oublis"),
+                self.tr("Stabilité"),
+                self.tr("Difficulté"),
+                self.tr("Extrait Recto"),
+                self.tr("Extrait Verso"),
+                self.tr("Action"),
+            ]
+        )
+        self.table_leeches.verticalHeader().setVisible(False)
+        self.table_leeches.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table_leeches.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table_leeches.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_leeches.setMinimumHeight(140)
+        self.table_leeches.setMaximumHeight(220)
+        self.table_leeches.setStyleSheet(f"""
+            QTableWidget {{
+                background-color: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                gridline-color: {DesignTokens.BORDER_COLOR};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.TEXT_SECONDARY};
+                font-weight: bold;
+                border: none;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                padding: 4px 6px;
+            }}
+        """)
+
+        tbl_header = self.table_leeches.horizontalHeader()
+        tbl_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        tbl_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        tbl_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        tbl_header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        tbl_header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        tbl_header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        tbl_header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        tbl_header.setSectionResizeMode(7, QHeaderView.ResizeMode.Stretch)
+        tbl_header.setSectionResizeMode(8, QHeaderView.ResizeMode.Fixed)
+        self.table_leeches.setColumnWidth(8, 95)
+
+        lp_layout.addWidget(self.table_leeches)
+
+        # Message d'état vide
+        self.empty_leech_box = QFrame()
+        self.empty_leech_box.setStyleSheet("background: transparent; border: none;")
+        elb_layout = QHBoxLayout(self.empty_leech_box)
+        elb_layout.setContentsMargins(10, 15, 10, 15)
+        elb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        ico_ok = QLabel()
+        ico_ok.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN, weight="fill").pixmap(20, 20))
+        ico_ok.setStyleSheet("border: none; background: transparent;")
+        lbl_ok = QLabel(self.tr("Aucune carte sangsue détectée. Félicitations pour la santé mnésique de votre collection !"))
+        lbl_ok.setFont(QFont(DesignTokens.FONT_MAIN, 9))
+        lbl_ok.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; border: none; background: transparent;")
+
+        elb_layout.addWidget(ico_ok)
+        elb_layout.addWidget(lbl_ok)
+        self.empty_leech_box.hide()
+        lp_layout.addWidget(self.empty_leech_box)
+
+        parent_layout.addWidget(self.leech_panel)
+
+    def _on_leech_filter_changed(self) -> None:
+        self.spn_lapse_threshold.setEnabled(self.cb_include_high_lapses.isChecked())
+        self._refresh_leeches()
+
+    def _open_split_dialog(self, leech_data: dict[str, Any]) -> None:
+        dialog = LeechWozniakSplitDialog(leech_data=leech_data, parent=self)
+        dialog.split_applied.connect(lambda _: self.refresh_stats())
+        dialog.exec()
+
+    def _refresh_leeches(self) -> None:
+        if not hasattr(self, "table_leeches"):
+            return
+
+        include_high = self.cb_include_high_lapses.isChecked()
+        threshold = self.spn_lapse_threshold.value()
+        leeches = LeechService.get_leech_cards(
+            deck_id=self.current_deck_id,
+            include_high_lapses=include_high,
+            lapse_threshold=threshold,
+        )
+
+        count = len(leeches)
+        if count == 0:
+            self.badge_leech_count.setText(self.tr("0 sangsue"))
+            self.badge_leech_count.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 2px 8px;"
+            )
+            self.table_leeches.setRowCount(0)
+            self.table_leeches.hide()
+            self.empty_leech_box.show()
+            return
+
+        self.badge_leech_count.setText(tr("%1 sangsue(s)", count))
+        self.badge_leech_count.setStyleSheet(
+            f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; border: 1px solid {DesignTokens.COLOR_RED_BORDER}; border-radius: 9999px; padding: 2px 8px;"
+        )
+        self.empty_leech_box.hide()
+        self.table_leeches.show()
+        self.table_leeches.setRowCount(count)
+
+        for row_idx, item in enumerate(leeches):
+            card_id_str = f"#{item['card_id']} (N#{item['note_id']})"
+            it_id = QTableWidgetItem(card_id_str)
+            it_id.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            it_deck = QTableWidgetItem(str(item.get("deck_name", "")))
+            it_deck.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            it_face = QTableWidgetItem(str(item.get("face_name", "")))
+            it_face.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            it_lapses = QTableWidgetItem(str(item.get("lapses", 0)))
+            it_lapses.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            it_stab = QTableWidgetItem(f"{item.get('stability', 0.0):.2f}j")
+            it_stab.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            it_diff = QTableWidgetItem(f"{item.get('difficulty', 0.0):.1f}")
+            it_diff.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            it_front = QTableWidgetItem(str(item.get("front_snippet", "")))
+            it_front.setToolTip(str(item.get("front_snippet", "")))
+
+            it_back = QTableWidgetItem(str(item.get("back_snippet", "")))
+            it_back.setToolTip(str(item.get("back_snippet", "")))
+
+            self.table_leeches.setItem(row_idx, 0, it_id)
+            self.table_leeches.setItem(row_idx, 1, it_deck)
+            self.table_leeches.setItem(row_idx, 2, it_face)
+            self.table_leeches.setItem(row_idx, 3, it_lapses)
+            self.table_leeches.setItem(row_idx, 4, it_stab)
+            self.table_leeches.setItem(row_idx, 5, it_diff)
+            self.table_leeches.setItem(row_idx, 6, it_front)
+            self.table_leeches.setItem(row_idx, 7, it_back)
+
+            btn_split = PrimaryButton(self.tr("Scinder"))
+            btn_split.setIcon(load_on_accent_icon("ph.scissors"))
+            btn_split.setFixedHeight(24)
+            btn_split.clicked.connect(lambda _, d=item: self._open_split_dialog(d))
+            self.table_leeches.setCellWidget(row_idx, 8, btn_split)
 
     def open_deck_select_dialog(self) -> None:
         self._deck_modal = DeckSelectWindow(parent=self)
