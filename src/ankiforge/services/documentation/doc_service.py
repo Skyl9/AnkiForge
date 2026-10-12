@@ -485,7 +485,7 @@ class AppDocumentationService:
             "smart merge": (
                 "Synchronisation & Smart Merge",
                 "features/synchro_smart_merge.md",
-                "Import/export .apkg et .colpkg avec boîte de fusion 3 panneaux (Local, Base, Distant). Seules les modifications du contenu brut déclenchent un arbitrage.",
+                "Import .apkg/.colpkg et export .apkg avec boîte de fusion 3 panneaux (Local, Base, Distant). Seules les modifications du contenu brut déclenchent un arbitrage.",
             ),
             "ollama": (
                 "Fournisseurs LLM Locaux (Ollama)",

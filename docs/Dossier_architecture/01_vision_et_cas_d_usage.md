@@ -3,7 +3,7 @@
 ## 1. Définition et Postulat de Base
 AnkiForge est conçu comme un **environnement de développement intégré (IDE) et un compagnon de maintenance** pour l'écosystème Anki.
 * **Rôle strict :** Il ne remplace en aucun cas l'application Anki pour la phase de révision/apprentissage. C'est une plateforme d'ingénierie de la connaissance.
-* **Flux déconnecté (Air-gapped) et Versionnement :** AnkiForge possède sa propre base de données isolée et ne communique pas en direct avec Anki. Le workflow repose sur un cycle d'import/export (`.apkg` / `.colpkg`). L'application intègre nativement une logique de **versionnement** basée sur les IDs uniques des cartes, ce qui permet de comparer et d'auditer l'historique de manière sécurisée sans corrompre la base Anki originale.
+* **Flux déconnecté (Air-gapped) et Versionnement :** AnkiForge possède sa propre base de données isolée et ne communique pas en direct avec Anki. Le workflow repose sur un cycle d'import (`.apkg` / `.colpkg`) et d'export `.apkg`. L'application intègre nativement une logique de **versionnement** basée sur les IDs uniques des cartes, ce qui permet de comparer et d'auditer l'historique de manière sécurisée sans corrompre la base Anki originale.
 
 ## 2. Philosophie de l'IA : Le Copilote Intentionnel
 L'application rejette le paradigme de l'"IA boîte noire" qui générerait des milliers de cartes sans supervision.

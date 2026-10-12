@@ -49,7 +49,7 @@ AnkiForge prend en charge la palette complète des **7 drapeaux de couleur** off
 | 🟪 **7** | Violet | ++ctrl+7++ | Carte mnémotechnique / Palais mental |
 | ⚪ **0** | Aucun | ++ctrl+0++ | Retirer le drapeau actif |
 
-Les drapeaux sont synchronisés lors des imports/exports `.apkg` et `.colpkg`.
+Les drapeaux sont synchronisés lors des imports `.apkg`/`.colpkg` et des exports `.apkg`.
 
 ---
 

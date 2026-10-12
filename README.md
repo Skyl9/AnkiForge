@@ -9,7 +9,7 @@
 
 **AnkiForge** est un environnement de développement intégré (IDE) et compagnon de création de cartes mémoire pour l'écosystème Anki. Conçu pour les étudiants, enseignants et passionnés d'apprentissage, AnkiForge structure, audite et optimise la génération de flashcards à partir de documents de cours (PDF, vidéos, notes), tout en conservant vos données en local (Air-gapped).
 
-> **Périmètre d'utilisation :** AnkiForge est un atelier de création et d'audit. Il ne remplace pas l'application officielle Anki pour les révisions quotidiennes (répétition espacée - SRS). La synchronisation s'effectue via l'import/export de paquets standard (`.apkg` et `.colpkg`).
+> **Périmètre d'utilisation :** AnkiForge est un atelier de création et d'audit. Il ne remplace pas l'application officielle Anki pour les révisions quotidiennes (répétition espacée - SRS). La synchronisation s'effectue via l'import de paquets standard (`.apkg` et `.colpkg`) et l'export de paquets `.apkg`.
 
 ---
 
@@ -251,7 +251,7 @@ Distribué sous licence MIT. Consultez le fichier [LICENSE.md](LICENSE.md) pour 
 
 **AnkiForge** is an Integrated Development Environment (IDE) and flashcard forging companion for the Anki ecosystem. Tailored for students, researchers, and lifelong learners, AnkiForge structures, audits, and streamlines AI-assisted flashcard generation from course materials (PDFs, videos, Markdown notes) while keeping your data **100% local and air-gapped**.
 
-> **Scope Notice:** AnkiForge is a dedicated creation and audit workshop. It does not replace the official Anki application for daily spaced repetition reviews (SRS). Synchronization is performed through standard `.apkg` and `.colpkg` package imports/exports.
+> **Scope Notice:** AnkiForge is a dedicated creation and audit workshop. It does not replace the official Anki application for daily spaced repetition reviews (SRS). Synchronization is performed through standard `.apkg` and `.colpkg` package imports and `.apkg` exports.
 
 ---
 

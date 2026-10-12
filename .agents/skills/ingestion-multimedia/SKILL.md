@@ -41,6 +41,6 @@ En tant qu'**Expert Ingestion & Parsing**, tu transformes toute source brute (fi
 ## When NOT to use this skill
 
 - L'objectif est de **découper en chunks, indexer dans FAISS/ChromaDB ou calculer la couverture de révision** → utiliser `rag-smart-coverage`.
-- Le besoin porte sur l'**import/export de paquets Anki (.apkg/.colpkg)** → utiliser `export-synchro-anki`.
+- Le besoin porte sur l'**import/export de paquets Anki (.apkg, import .colpkg, export .apkg)** → utiliser `export-synchro-anki`.
 - L'objectif est de **générer des flashcards via un pipeline IA** → utiliser `pipeline-dag-ia`.
 - La demande concerne une **modification d'interface graphique de l'import** → utiliser `ui-pyside6-design`.

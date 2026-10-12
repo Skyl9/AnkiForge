@@ -3,7 +3,7 @@ name: export-synchro-anki
 description: >
   Expert en import/export Anki et synchronisation pour AnkiForge. Analyse, importe et fusionne des
   paquets .apkg/.colpkg (règles de merge intelligentes, gestion des conflits), exporte des decks en
-  .apkg à IDs stables (FSRS, suspend, flags), et administre les médias (déduplication MD5, compression
+  .apkg à IDs stables (suspend, flags ; jamais d'ordonnancement ni de FSRS), et administre les médias (déduplication MD5, compression
   zstd, nettoyage des orphelins). Intervient sur src/ankiforge/services/cards/ (ImportManager,
   ExportManager, MediaManager, DuplicateManager, CardModelIO) et l'isolation par profil.
   Use when the user asks to "importer un .apkg", "importer un .colpkg", "exporter un deck",

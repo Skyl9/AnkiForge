@@ -154,7 +154,7 @@ Le dépôt héberge 50 compétences agentiques autonomes conformes au standard i
 - `rag-smart-coverage` (`.agents/skills/rag-smart-coverage/SKILL.md`) : Découpage sémantique (`ChunkingService`), vecteurs FAISS/ChromaDB et alignement déterministe de couverture (`ADR 0009` et `ADR 0010`).
 - `pipeline-dag-ia` (`.agents/skills/pipeline-dag-ia/SKILL.md`) : Moteur de DAG `PipelineOrchestrator`, 6 types d'étapes, budgets de tokens, surcharge locale `persona_override.py` et intégration MCP.
 - `modeles-cartes-jinja` (`.agents/skills/modeles-cartes-jinja/SKILL.md`) : Gabarits Jinja2/HTML/CSS de types de notes Anki, directives d'occlusion et linter des 20 règles de Piotr Wozniak.
-- `export-synchro-anki` (`.agents/skills/export-synchro-anki/SKILL.md`) : Import/export `.apkg`/`.colpkg`, synchronisation à IDs stables et déduplication des médias.
+- `export-synchro-anki` (`.agents/skills/export-synchro-anki/SKILL.md`) : Import `.apkg`/`.colpkg` et export `.apkg`, synchronisation à IDs stables et déduplication des médias.
 
 ### 3. Audits Spécialisés Ciblés
 - `audit-dependances` (`.agents/skills/audit-dependances/SKILL.md`) : Chaîne d'approvisionnement, vulnérabilités `pip-audit`, paquets obsolètes et licences.

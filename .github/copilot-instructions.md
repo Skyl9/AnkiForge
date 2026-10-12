@@ -5,7 +5,7 @@
 AnkiForge is a Python 3.12+ desktop application for forging and auditing Anki
 cards. It is a local-first PySide6/Qt application: daily SRS reviews remain in
 the official Anki application, while AnkiForge handles document ingestion,
-generation, auditing, editing, and `.apkg`/`.colpkg` import and export.
+generation, auditing, editing, and `.apkg`/`.colpkg` import with `.apkg` export.
 
 The main runtime path is:
 

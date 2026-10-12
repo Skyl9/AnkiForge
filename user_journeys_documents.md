@@ -88,4 +88,4 @@ Lors de l'importation d'une version V2 d'un document (ex: mise à jour du cours)
 4. **Orchestration BDD (Pipelines) :** Lancement du **Pipeline IA de Profilage** sur l'ensemble des pages. Génération de centaines de cartes via RAG Vectoriel et ciblage de facettes (Quoi, Pourquoi, Comment).
 5. **Audit & Linter :** Passage dans l'onglet **Analyse & Audit (Wozniak)**. Le Fact-Checker vérifie la cohérence des cartes face aux *DocumentChunkModels*.
 6. **Mise à Jour V2 (Smart Merge) :** Lors de l'arrivée d'un nouveau polycopié, importation de la V2. L'algorithme de Levenshtein (en C) transfère le "Coverage" des pages inchangées, et l'UI met en exergue les nouveautés exigeant une fusion manuelle intelligente.
-7. **Exportation :** Exportation d'un `.colpkg` complet avec les médias inclus, prêt à être déployé.
+7. **Exportation :** Exportation d'un `.apkg` avec les médias inclus, prêt à être déployé.
