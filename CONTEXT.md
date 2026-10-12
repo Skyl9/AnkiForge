@@ -131,6 +131,10 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Bloc de réflexion étendu (Extended Thinking / Thought Block)** : flux de raisonnement intermédiaire émis par un modèle d'IA avant de formuler sa réponse finale, streamé en temps réel dans l'interface avec des métriques de temps et de tokens, et distinct du contenu final des cartes.
 - **Composant de discussion riche (Rich Chat Widget)** : élément d'interface interactif (tableau de cartes, prévisualisation avec formules KaTeX, sélecteur de modèle) inséré directement dans le fil de conversation du Consultant IA pour manipuler la collection au-delà du simple texte.
 - **Hub MCP & Agents** : interface centrale de supervision et d'accueil orientant en premier lieu vers le serveur MCP local pour outiller les agents externes sans surcoût d'API, tout en maintenant l'accès au Consultant IA in-app en second plan.
+- **Création staged de note** : proposition de création d'une ou plusieurs notes et de leurs cartes physiques associées sous forme de patch en attente (`note_create` ou `batch_note_create`), soumise à validation humaine ou confirmation explicite avant insertion en base.
+  _Avoid_ : note préliminaire, brouillon de carte, création différée
+- **Contrôle d'hallucination de paquet** : garde-fou interdisant la création implicite ou accidentelle de paquets inexistants lors de la soumission de notes par un agent externe, exigeant l'existence préalable du paquet ou sa création délibérée.
+  _Avoid_ : vérification de deck, filtre de paquet, validation de cible
 
 ## Profils, Sauvegardes & Durcissement
 
