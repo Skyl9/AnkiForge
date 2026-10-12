@@ -1120,7 +1120,7 @@ class CreationView(QWidget):
             unit_plural = "planches"
             unit_abbrev = "p"
             scope_title = "PORTÉE DE L'ALBUM"
-            vision_desc = "Extraction des figures, schémas manuscrits et planches d'images."
+            vision_desc = self.tr("Extraction des planches et figures (~1200 tokens visuels/planche).")
         elif is_pdf:
             max_page_chunk = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
             total_units = int(max_page_chunk) if max_page_chunk else 10
@@ -1916,6 +1916,7 @@ class CreationView(QWidget):
     def _on_generate(self, text_source: str = "", source_title: str = "Saisie Libre") -> None:
         self.current_source_title = source_title
         use_vision = self._effective_vision()
+        selected_engine = self.engine_combo.currentData()
 
         active_doc = self.doc_picker_btn.get_document() if (hasattr(self, "doc_picker_btn") and self.doc_picker_btn.get_document() is not None) else getattr(self, "_current_selected_doc", None)
         is_album = getattr(active_doc, "file_type", "") == "album" if active_doc else False
@@ -1923,7 +1924,9 @@ class CreationView(QWidget):
 
         if is_album and active_doc:
             if use_vision:
-                # Mode Vision : ignorer l'extraction de texte OCR et cibler uniquement les images des planches
+                from ankiforge.services.cards.visual_resolver import get_max_vision_images_for_provider
+
+                # Mode Vision : cibler les planches sélectionnées
                 if hasattr(self, "segment_inspector") and self.segment_inspector.segments_list.count() > 0:
                     active_segs = self.segment_inspector.get_active_segments()
                     album_selected_pages = [int(s["page_number"]) for s in active_segs if s.get("page_number") is not None]
@@ -1937,6 +1940,23 @@ class CreationView(QWidget):
                     show_toast(self, self.tr("Aucune planche sélectionnée pour la génération."), is_error=True)
                     return
 
+                # Contrôle du plafond matériel d'images imposé par le fournisseur (ADR 0018)
+                provider_name = str(getattr(selected_engine, "provider", "") or "")
+                max_allowed = get_max_vision_images_for_provider(provider_name)
+                if len(album_selected_pages) > max_allowed:
+                    show_toast(
+                        self,
+                        tr(
+                            "Le fournisseur %1 limite les requêtes à %2 images maximum (%3 planches sélectionnées). "
+                            "Veuillez réduire la sélection ou utiliser la Batch Factory pour un traitement par planche.",
+                            provider_name.capitalize() or "IA",
+                            str(max_allowed),
+                            str(len(album_selected_pages)),
+                        ),
+                        is_error=True,
+                    )
+                    return
+
                 doc_title = getattr(active_doc, "title", "Album")
                 tot_p = getattr(active_doc, "total_pages", len(album_selected_pages)) or len(album_selected_pages)
                 if len(album_selected_pages) < tot_p:
@@ -1944,7 +1964,35 @@ class CreationView(QWidget):
                     desc_target = tr("des planches %1", pages_str)
                 else:
                     desc_target = self.tr("de toutes les planches")
-                text_source = tr("Analyse visuelle multimodale %1 de l'album « %2 ». Générez des flashcards à partir des images jointes.", desc_target, doc_title)
+
+                # Synergie Texte OCR + Image haute fidélité (ADR 0018)
+                valid_ocr_parts: list[str] = []
+                if hasattr(self, "segment_inspector") and self.segment_inspector.segments_list.count() > 0:
+                    for seg in self.segment_inspector.get_active_segments():
+                        cnt = str(seg.get("content", "")).strip()
+                        if cnt and not cnt.startswith("_Planche non transcrite") and "non transcrite" not in cnt.lower():
+                            valid_ocr_parts.append(f"### {seg.get('title', 'Planche')}\n\n{cnt}")
+                else:
+                    pages_query = (
+                        DocumentPageModel.select().where((DocumentPageModel.document == active_doc) & (DocumentPageModel.page_number.in_(album_selected_pages))).order_by(DocumentPageModel.page_number)
+                    )
+                    for p in pages_query:
+                        cnt = p.ocr_text.strip() if p.ocr_text else ""
+                        if cnt and not cnt.startswith("_Planche non transcrite") and "non transcrite" not in cnt.lower():
+                            valid_ocr_parts.append(f"### Planche {p.page_number}\n\n{cnt}")
+
+                if valid_ocr_parts:
+                    text_source = (
+                        tr("Analyse visuelle multimodale %1 de l'album « %2 ».", desc_target, doc_title)
+                        + "\n\n"
+                        + self.tr("Voici la transcription textuelle extraite des planches (utilisez-la pour les termes exacts et formules) :")
+                        + "\n\n"
+                        + "\n\n---\n\n".join(valid_ocr_parts)
+                        + "\n\n"
+                        + self.tr("Réfère-toi également aux images des planches ci-jointes pour analyser les schémas, liaisons et éléments visuels.")
+                    )
+                else:
+                    text_source = tr("Analyse visuelle multimodale %1 de l'album « %2 ». Générez des flashcards à partir des images jointes.", desc_target, doc_title)
             else:
                 # Mode Texte / OCR : vérifier la présence d'une transcription réelle
                 if hasattr(self, "segment_inspector") and self.segment_inspector.segments_list.count() > 0:

@@ -638,45 +638,42 @@ class PipelineOrchestrator(QRunnable):
 
         use_vision = bool(self.state.get_variable("use_vision", False))
         if use_vision:
-            import base64
-            import io
-
+            from ankiforge.database.models import DocumentChunkModel
+            from ankiforge.services.cards.visual_resolver import VisualPayloadResolver
             from ankiforge.utils.paths import get_media_dir
             from ankiforge.utils.vision_utils import prepare_multimodal_payload
 
             media_dir = get_media_dir()
-            extra_images: list[dict[str, Any]] = []
+            doc_id = self.state.get_variable("document_id") or self.state.document_id
+            selected_pages = self.state.get_variable("album_selected_pages") or self.state.get_variable("scope_pages") or self.state.get_variable("source_page_numbers")
+            if not selected_pages:
+                single_p = self.state.get_variable("source_page_number")
+                if single_p is not None:
+                    selected_pages = [single_p]
 
-            is_album = self.state.get_variable("file_type") == "album"
-            doc_id = self.state.get_variable("document_id")
-            if is_album and doc_id:
+            chunk_target: Any = None
+            chunk_id = self.state.get_variable("source_chunk_id")
+            if chunk_id:
                 try:
-                    from ankiforge.database.models import DocumentPageModel
-                    from ankiforge.services.cards.album_service import AlbumService
+                    chunk_target = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
+                except Exception:
+                    chunk_target = None
 
-                    album_service = AlbumService()
-                    selected_pages = self.state.get_variable("album_selected_pages") or self.state.get_variable("scope_pages")
-                    query = DocumentPageModel.select().where(DocumentPageModel.document == doc_id).order_by(DocumentPageModel.page_number)
-                    if selected_pages:
-                        query = query.where(DocumentPageModel.page_number.in_(selected_pages))
-                    pages = list(query)
-                    for page in pages:
-                        rendered_img = album_service.render_page_image(page)
-                        try:
-                            buffer = io.BytesIO()
-                            rendered_img.save(buffer, format="PNG")
-                            b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-                            extra_images.append(
-                                {
-                                    "type": "image_url",
-                                    "image_url": {"url": f"data:image/png;base64,{b64_str}"},
-                                }
-                            )
-                        finally:
-                            rendered_img.close()
-                    logger.info("Mode Vision Album : %d planche(s) rendue(s) et encodée(s) pour le VLM.", len(extra_images))
-                except Exception as err:
-                    logger.error("Erreur lors de la préparation des images d'album pour la Vision : %s", err)
+            if chunk_target is None:
+                chunk_target = {
+                    "document_id": doc_id,
+                    "page_number": self.state.get_variable("source_page_number"),
+                }
+
+            resolver = VisualPayloadResolver(media_dir=media_dir)
+            extra_images = resolver.resolve_visual_images(
+                document_id=doc_id,
+                chunk=chunk_target,
+                page_numbers=selected_pages,
+                media_dir=media_dir,
+            )
+            if extra_images:
+                logger.info("Mode Vision : %d image(s) résolue(s) par la couture et jointe(s) au VLM.", len(extra_images))
 
             multimodal_input = prepare_multimodal_payload(user_input, media_dir, extra_images=extra_images)
             llm_result = self._call_provider_generate_response(
