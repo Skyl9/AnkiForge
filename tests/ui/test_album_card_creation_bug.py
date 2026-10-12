@@ -304,3 +304,119 @@ def test_segment_inspector_displays_album_planches(qtbot, mock_db):
 
     assert active_segs[1]["title"] == "Planche 2"
     assert active_segs[1]["tokens"] == 0
+
+
+def test_album_vision_mode_synergy_ocr_and_image(qtbot, mock_db, tmp_path):
+    """
+    ADR 0018 : En Mode Vision, quand la planche a une transcription OCR,
+    le prompt multimodal transmet à la fois le texte extrait ET la planche en haute fidélité.
+    """
+    from PIL import Image
+
+    from ankiforge.database.models import LLMConfigModel
+    from ankiforge.utils.paths import get_media_dir
+
+    media_dir = get_media_dir()
+    media_dir.mkdir(parents=True, exist_ok=True)
+    img_file = media_dir / "album_synergy_p1.png"
+    img = Image.new("RGB", (100, 100), color="purple")
+    img.save(img_file)
+
+    media = MediaModel.create(filename="album_synergy_p1.png", media_type="image", original_name="album_synergy_p1.png", checksum="chk_syn", mime_type="image/png")
+    doc = DocumentModel.create(title="Album Synergie", file_type="album", total_pages=1, content="")
+    DocumentPageModel.create(document=doc, media=media, page_number=1, ocr_text="Crosse de l'aorte et tronc brachiocéphalique.", status="ready")
+
+    engine = LLMConfigModel.create(display_name="GPT-4o Vision", provider="openai", model_id="gpt-4o", supports_vision=True)
+    deck = DeckModel.create(name="Default")
+    nt = NoteTypeModel.create(name="Basique", fields_schema=json.dumps(["Front", "Back"]), templates="[]", css_style="")
+    pipe = PipelineModel.create(name="Standard")
+    persona = PersonaModel.create(name="Extractor", system_prompt="Extrais.", output_format="json")
+    PipelineStepModel.create(pipeline=pipe, persona=persona, step_order=1)
+
+    provider = CapturedProvider()
+    ai_mgr = MagicMock()
+    ai_mgr.create_provider_from_config.return_value = provider
+
+    view = CreationView(ai_manager=ai_mgr)
+    qtbot.addWidget(view)
+    view.current_deck = deck
+    view.current_model = nt
+    view.refresh_data()
+
+    for i in range(view.engine_combo.count()):
+        if getattr(view.engine_combo.itemData(i), "id", None) == engine.id:
+            view.engine_combo.setCurrentIndex(i)
+            break
+
+    view.vision_cb.setChecked(True)
+    view.load_context({"doc_id": doc.id})
+    editor = view.open_editors.get(doc.title)
+    assert editor is not None
+    editor.btn_generate.click()
+
+    qtbot.waitUntil(lambda: len(provider.captured_multimodal_payloads) > 0, timeout=5000)
+    payload = provider.captured_multimodal_payloads[0]
+
+    # Vérification 1 : L'image est incluse
+    img_parts = [p for p in payload if p.get("type") == "image_url"]
+    assert len(img_parts) == 1, "La planche d'album doit être jointe en image"
+
+    # Vérification 2 : Le texte OCR est aussi inclus (Synergie Texte + Image)
+    text_parts = [p.get("text", "") for p in payload if p.get("type") == "text"]
+    full_text = " ".join(text_parts)
+    assert "Crosse de l'aorte et tronc brachiocéphalique" in full_text, "Le texte extrait doit être présent dans le prompt multimodal"
+    assert "Voici la transcription textuelle extraite des planches" in full_text
+
+
+def test_album_vision_mode_anthropic_limit_blocked(qtbot, mock_db, tmp_path, monkeypatch):
+    """
+    ADR 0018 : Si plus de 20 planches sont sélectionnées avec un modèle Anthropic,
+    la génération est bloquée avec une invitation à utiliser la Batch Factory.
+    """
+    from ankiforge.database.models import LLMConfigModel
+
+    engine = LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic", model_id="claude-3-5-sonnet", supports_vision=True)
+    doc = DocumentModel.create(title="Gros Album", file_type="album", total_pages=25, content="")
+    media = MediaModel.create(filename="dummy.png", media_type="image", original_name="dummy.png", checksum="chk_dum", mime_type="image/png")
+    for p_num in range(1, 26):
+        DocumentPageModel.create(document=doc, media=media, page_number=p_num, ocr_text="", status="ready")
+
+    deck = DeckModel.create(name="Default")
+    nt = NoteTypeModel.create(name="Basique", fields_schema=json.dumps(["Front", "Back"]), templates="[]", css_style="")
+    pipe = PipelineModel.create(name="Standard")
+    persona = PersonaModel.create(name="Extractor", system_prompt="Extrais.", output_format="json")
+    PipelineStepModel.create(pipeline=pipe, persona=persona, step_order=1)
+
+    provider = CapturedProvider()
+    ai_mgr = MagicMock()
+    ai_mgr.create_provider_from_config.return_value = provider
+
+    view = CreationView(ai_manager=ai_mgr)
+    qtbot.addWidget(view)
+    view.current_deck = deck
+    view.current_model = nt
+    view.refresh_data()
+
+    for i in range(view.engine_combo.count()):
+        if getattr(view.engine_combo.itemData(i), "id", None) == engine.id:
+            view.engine_combo.setCurrentIndex(i)
+            break
+
+    view.vision_cb.setChecked(True)
+    view.load_context({"doc_id": doc.id})
+    editor = view.open_editors.get(doc.title)
+    assert editor is not None
+
+    # Sélectionner toutes les 25 planches via le preset "Tout" de l'inspecteur de segments
+    view.segment_inspector.btn_preset_all.click()
+
+    toasts = []
+    monkeypatch.setattr("ankiforge.ui.views.creation_view.view.show_toast", lambda parent, msg, **kwargs: toasts.append(msg))
+
+    editor.btn_generate.click()
+
+    # Doit être bloqué avant lancement de l'orchestrateur
+    assert view.orchestrator is None, "L'orchestrateur ne doit pas être lancé si la limite d'images est dépassée"
+    assert len(toasts) == 1
+    assert "20 images maximum" in toasts[0]
+    assert "Batch Factory" in toasts[0]
