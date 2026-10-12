@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMessageBox,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QSplitter,
@@ -47,6 +48,7 @@ from ankiforge.ui.views.pipelines_view.constants import (
 )
 from ankiforge.ui.views.pipelines_view.widgets import (
     DagFlowOverviewWidget,
+    DagHelpDialog,
     InlineInsertButton,
     PipelineRunDialog,
     StepInspectorPanel,
@@ -154,7 +156,15 @@ class PipelinesView(QWidget):
         self.btn_more_menu.clicked.connect(self._on_open_more_menu)
         pipeline_sel_row.addWidget(self.btn_more_menu, alignment=Qt.AlignmentFlag.AlignVCenter)
 
+        # Aide pédagogique : à quoi sert le moteur DAG (affordance & découverte)
+        self.btn_dag_help = IconButton("ph.info", tooltip=self.tr("À quoi sert le moteur DAG ? (rôle, garde-fous, intérêt du test)"), size=28)
+        self.btn_dag_help.clicked.connect(self._on_show_dag_help)
+        pipeline_sel_row.addWidget(self.btn_dag_help, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         content_layout.addLayout(pipeline_sel_row)
+
+        # Bandeau d'aide court : première rencontre avec le moteur DAG
+        content_layout.addWidget(self._build_help_hint())
 
         # ── 2. Aperçu Visuel du Graphe DAG Interactif ─────────────────────────
         self.flow_overview = DagFlowOverviewWidget()
@@ -219,6 +229,63 @@ class PipelinesView(QWidget):
         self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
         self.btn_rename_pipeline.clicked.connect(self._on_rename_pipeline)
         self.btn_save_pipeline.clicked.connect(self._on_save_pipeline)
+
+    def _build_help_hint(self) -> QFrame:
+        """Bandeau d'aide court présentant l'utilité du moteur DAG dès la première rencontre."""
+        hint = QFrame()
+        hint.setObjectName("DagHelpHint")
+        hint.setStyleSheet(f"""
+            QFrame#DagHelpHint {{
+                background-color: {DesignTokens.ACCENT_BG};
+                border: 1px solid {DesignTokens.ACCENT_BORDER};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QFrame#DagHelpHint QLabel {{
+                background: transparent;
+            }}
+        """)
+        row = QHBoxLayout(hint)
+        row.setContentsMargins(10, 6, 10, 6)
+        row.setSpacing(8)
+
+        lbl_icon = QLabel()
+        lbl_icon.setFixedSize(16, 16)
+        lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_icon.setPixmap(load_phosphor_icon("ph.info", color=DesignTokens.ACCENT_PRIMARY).pixmap(15, 15))
+        row.addWidget(lbl_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        lbl_text = QLabel(
+            self.tr("Le DAG enchaîne vos étapes d'IA en un workflow reproductible (branchements, garde-fous, reprise). Testez une étape sans frais, ou le DAG entier pour repérer l'étape fautive.")
+        )
+        lbl_text.setWordWrap(True)
+        lbl_text.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px;")
+        row.addWidget(lbl_text, 1)
+
+        self.btn_help_more = QPushButton(self.tr("En savoir plus"))
+        self.btn_help_more.setObjectName("DagHelpMoreLink")
+        self.btn_help_more.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_help_more.setFlat(True)
+        self.btn_help_more.setStyleSheet(f"""
+            QPushButton#DagHelpMoreLink {{
+                background: transparent;
+                border: none;
+                color: {DesignTokens.ACCENT_PRIMARY};
+                font-size: 11.5px;
+                font-weight: bold;
+                padding: 2px 4px;
+            }}
+            QPushButton#DagHelpMoreLink:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+        self.btn_help_more.clicked.connect(self._on_show_dag_help)
+        row.addWidget(self.btn_help_more, alignment=Qt.AlignmentFlag.AlignVCenter)
+        return hint
+
+    @Slot()
+    def _on_show_dag_help(self) -> None:
+        """Ouvre le modal pédagogique expliquant le rôle du DAG et la valeur de son test."""
+        DagHelpDialog(parent=self).exec()
 
     def _on_open_more_menu(self) -> None:
         """Affiche le menu contextuel élégant regroupant toutes les actions secondaires."""

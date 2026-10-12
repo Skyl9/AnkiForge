@@ -502,7 +502,7 @@ Cliquer pour voir les détails</source>
         <location filename="../../ui/dialogs/addon_manager_dialog.py" line="+106"/>
         <location filename="../../ui/dialogs/human_validation_dialog.py" line="+72"/>
         <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+204"/>
-        <location filename="../../ui/views/pipelines_view/view.py" line="+597"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="+664"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="+325"/>
         <source>&lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
@@ -3628,12 +3628,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/pipelines_view/view.py" line="-471"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="-536"/>
         <source>0 étapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+216"/>
+        <location line="+281"/>
         <location line="+1"/>
         <source>%1 étape%2</source>
         <translation type="unfinished"></translation>
@@ -9020,6 +9020,121 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+61"/>
         <source>Sortie finale : cartes forgées et prêtes</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>DagHelpDialog</name>
+    <message>
+        <location filename="../../ui/views/pipelines_view/widgets/dag_help.py" line="+48"/>
+        <location line="+28"/>
+        <source>À quoi sert le moteur de pipelines DAG ?</source>
+        <extracomment>Clés des sections pédagogiques, dans l&apos;ordre d&apos;affichage. Exposées pour les tests.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Un pipeline DAG enchaîne des étapes d&apos;IA et de traitement documentaire en un workflow reproductible. Voici ce que le moteur apporte — et pourquoi le tester avant de le lancer est payant.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Types d&apos;étapes :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+36"/>
+        <source>Fermer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Un pipeline est une chaîne d&apos;étapes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Chaque étape reçoit des variables produites en amont et en produit de nouvelles pour la suivante.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Le graphe est orienté acyclique : l&apos;ordre d&apos;exécution reste déterministe et reproductible.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Six types d&apos;étapes composent le workflow : agent IA, recherche RAG, génération parallèle, pause humaine, outil Python et synthèse audio.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Des branchements conditionnels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Une étape peut sauter vers une autre selon son succès (on_success_step).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>En cas d&apos;échec, on choisit le comportement : arrêter le pipeline (défaut), continuer malgré l&apos;erreur, ou router vers une étape de secours (on_failure_step).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Des garde-fous anti-dérapage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Limite d&apos;exécutions par étape : une boucle qui se répète est détectée puis arrêtée par le moteur.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Budget de tokens : lorsqu&apos;un plafond est configuré, l&apos;exécution est interrompue si le volume de tokens est dépassé.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Linter du graphe : le badge de santé du flux signale en amont une variable d&apos;entrée jamais produite.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Une reprise après interruption</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Chaque exécution est persistée : l&apos;état des variables et l&apos;étape courante sont conservés même après une fermeture ou un plantage.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>La reprise (resume_run) repart de l&apos;étape courante enregistrée, sans rejouer les étapes déjà terminées.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Pourquoi tester avant de lancer pour de vrai</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Tester une étape (fournisseur factice) prévisualise le prompt résolu et une réponse simulée, sans aucun appel réel : idéal pour déboguer un gabarit avant de payer des tokens.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Tester le DAG exécute réellement le pipeline sur un texte d&apos;exemple et journalise chaque étape : on localise l&apos;étape fautive avant de le lancer sur un vrai document.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Le badge de santé du flux (DAG Valide / alertes) contrôle en amont les variables et les branchements, avant même d&apos;exécuter.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -14716,7 +14831,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>PipelinesView</name>
     <message>
-        <location filename="../../ui/views/pipelines_view/view.py" line="-621"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="-686"/>
         <source>PIPELINE :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14741,7 +14856,12 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+21"/>
+        <location line="+5"/>
+        <source>À quoi sert le moteur DAG ? (rôle, garde-fous, intérêt du test)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
         <source>ÉTAPES DU WORKFLOW :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14756,7 +14876,17 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+50"/>
+        <source>Le DAG enchaîne vos étapes d&apos;IA en un workflow reproductible (branchements, garde-fous, reprise). Testez une étape sans frais, ou le DAG entier pour repérer l&apos;étape fautive.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>En savoir plus</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+30"/>
         <source>Nouveau Pipeline...</source>
         <translation type="unfinished"></translation>
     </message>

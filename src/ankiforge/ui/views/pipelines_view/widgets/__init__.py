@@ -4,6 +4,10 @@ from ankiforge.ui.views.pipelines_view.widgets.common import (
     SubTabButton,
     TagPillButton,
 )
+from ankiforge.ui.views.pipelines_view.widgets.dag_help import (
+    DAG_HELP_SECTION_KEYS,
+    DagHelpDialog,
+)
 from ankiforge.ui.views.pipelines_view.widgets.dialogs import (
     PipelineRunDialog,
     StepTestDialog,
@@ -40,4 +44,6 @@ __all__ = [
     "StepInspectorPanel",
     "StepTestDialog",
     "PipelineRunDialog",
+    "DagHelpDialog",
+    "DAG_HELP_SECTION_KEYS",
 ]

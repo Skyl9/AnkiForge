@@ -11,7 +11,9 @@ from ankiforge.ui.views.pipelines_view.constants import (
 )
 from ankiforge.ui.views.pipelines_view.view import PipelinesView
 from ankiforge.ui.views.pipelines_view.widgets import (
+    DAG_HELP_SECTION_KEYS,
     DagFlowOverviewWidget,
+    DagHelpDialog,
     InlineInsertButton,
     PersonaIdentityCard,
     PersonaSelectorDialog,
@@ -33,6 +35,8 @@ __all__ = [
     "PRESET_TEMPLATES",
     "audit_pipeline_dag",
     "apply_pill_style",
+    "DagHelpDialog",
+    "DAG_HELP_SECTION_KEYS",
     "TagPillButton",
     "SubTabButton",
     "StatusPillBadge",
