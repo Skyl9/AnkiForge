@@ -50,6 +50,8 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
   * `group_edit_dialog.py` : Boîte de dialogue d'édition groupée manuelle et atomique de notes (tags, modification/remplacement de champs).
   * `settings_modal/` : Configuration globale modulaire en 5 onglets (fournisseurs LLM, paramètres généraux avec sélecteur de dispositions en grille de miniatures `LayoutGridSelector`, chemins, maintenance, extensions).
   * `toast.py` : Notifications système éphémères non-bloquantes.
+* **Activité & Réindexation :**
+  * `reindex_activity_banner.py` : Bandeau d'activité global (`ReindexActivityBanner`) d'une passe de réindexation RAG, hébergé hors des dispositions enfichables (ADR 0021).
 
 ---
 
