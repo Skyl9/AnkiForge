@@ -27,6 +27,17 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Rôle IA (d'un type de note)** : directive sémantique et heuristique attachée à un type de note (`NoteTypeModel.description`), injectée dans la balise `{{ available_card_models }}` des prompts d'extraction pour orienter le choix du type de note le plus pertinent face à chaque concept identifié.
   _Avoid_ : rôle du modèle, description du modèle de carte
 
+## Rétention SRS & Charge
+
+- **Stabilité estimée** : approximation de la stabilité d'oubli d'une carte, dérivée de son intervalle courant sous l'hypothèse d'une rétention cible de 90 %. Ce n'est pas la stabilité calculée par Anki, que la Forge ne stocke pas.
+  _Avoid_ : stabilité FSRS, stabilité réelle, stabilité mémorisée, stability
+
+- **Rétention projetée (courbe d'oubli)** : probabilité de rappel d'une carte en fonction du nombre de jours écoulés **depuis une révision**, gouvernée par la loi de puissance FSRS. Elle vaut 100 % à l'instant de la révision et décroît ensuite. Ce n'est jamais la prédiction d'une date du calendrier.
+  _Avoid_ : rétention future, rétention prédictive, courbe de rétention, taux de rétention
+
+- **Charge à l'équilibre** : estimation du nombre de révisions par jour d'une collection parvenue à son régime stable, obtenue en sommant l'inverse de l'intervalle de chaque carte. Ce n'est pas une projection calendaire fondée sur des dates d'échéance, que la Forge ne stocke pas.
+  _Avoid_ : charge prévisionnelle, charge projetée, charge future, charge de travail future, workload
+
 ## Génération IA
 
 - **Génération** : l'exécution d'un pipeline sur une source, produisant des cartes brutes.

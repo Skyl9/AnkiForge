@@ -37,7 +37,7 @@ L'application adopte une stratégie **Agnostique et Local-First** pour protéger
 * **Linter Wozniak & Règles Personnalisées :** Application des 20 règles de formulation de Piotr Wozniak et de règles sur-mesure configurables en base (`LinterRuleModel`), avec catégories visuelles et propositions de scission/reformulation atomique.
 * **Détection Hybride de Doublons :** Détection textuelle ultra-rapide par extension C native Levenshtein (`c_ext/levenshtein_distance.c`) avec fallback Python transparent (`c_bridge.py`), complétée par une recherche de similarité sémantique vectorielle (FAISS).
 * **Smart Coverage & Traçabilité :** Liaison déterministe Note ↔ Fragment (`NoteChunkLinkModel`) par tags de traçabilité (`doc:ID`, `source:SLUG`, `page:NUM`, `section:SLUG`) via `CoverageAlignmentService.sync_coverage_from_tags` (aucun matching lexical), calcul du taux de couverture documentaire (moyenne pondérée par unités au niveau du KPI Global) et détection des zones non couvertes (Gap Analysis déterministe).
-* **Audit FSRS & Leeches :** Identification des cartes difficiles/sangsues et analyse de rétention selon les algorithmes FSRS-4.5.
+* **Audit FSRS & Leeches :** Identification des cartes difficiles/sangsues et projection de rétention (courbe d'oubli) et de charge à l'équilibre dérivées de l'intervalle (`FsrsProjectionService`, ADR 0020).
 
 ### Dans Types de Note (Stylisation)
 * **Assistance Design CSS :** Génération et injection dynamique de styles HTML/CSS/Jinja2 dans les types de note avec prévisualisation immédiate WebEngine.

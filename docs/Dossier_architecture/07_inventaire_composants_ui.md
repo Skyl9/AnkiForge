@@ -37,6 +37,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 * **Visualisation & Rendu :**
   * `card_preview_widget.py` & `safe_web_preview.py` : Moteur de rendu WebEngine fidèle au comportement d'Anki officiel.
   * `donut_chart.py` : Graphiques circulaires pour les statistiques de répartition.
+  * `retention_curve.py` : Courbe d'oubli projetée (data-driven, dérivée de l'intervalle, ADR 0020) et charge à l'équilibre, rendue en QPainter.
 * **Navigation & Commandes :**
   * `omnibox.py` : Barre de recherche globale et filtres avancés.
   * `command_palette.py` : Palette de commandes JetBrains/VSCode (raccourci clavier universel).
