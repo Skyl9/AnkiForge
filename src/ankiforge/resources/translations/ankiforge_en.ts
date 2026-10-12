@@ -707,7 +707,7 @@ Aucune modification ne sera écrite en base de données.</source>
     </message>
     <message>
         <location line="+83"/>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="+492"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="+491"/>
         <location line="+3293"/>
         <source>Ch. %1</source>
         <translation type="unfinished"></translation>
@@ -1466,7 +1466,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+317"/>
+        <location line="+335"/>
         <source>Un pipeline DAG « %1 » n&apos;a pas été terminé lors de la session précédente (interrompu à l&apos;étape %2).
 
 Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
@@ -1478,7 +1478,27 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+363"/>
+        <location line="+111"/>
+        <source>Une réindexation est déjà en cours (%1/%2).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Réindexation interrompue : %1 document(s) et %2 fragment(s) traités.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Réindexation terminée : %1 document(s), %2 fragment(s), %3 erreur(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Réindexation terminée : %1 document(s), %2 fragment(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+275"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -1874,7 +1894,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+115"/>
+        <location line="+117"/>
         <source>✅ %1 fiches Anki synchronisées via les tags ! Couverture : %2%%</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1914,7 +1934,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+46"/>
         <source>✅ %1 fiches Anki synchronisées via les tags sur l&apos;ensemble des cours !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3297,7 +3317,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+34"/>
+        <location line="+39"/>
         <source>Échec de l&apos;indexation RAG : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4163,6 +4183,28 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
     <message>
         <location line="+14"/>
         <source>Impossible de supprimer le profil : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widgets/reindex_activity_banner.py" line="+78"/>
+        <location line="+31"/>
+        <location line="+29"/>
+        <source>Réindexation en préparation...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-50"/>
+        <source>Interrompre la réindexation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>Réindexation %1/%2 : %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Fragments : %1/%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5406,7 +5448,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AISourcesDiagnosticTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-305"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-308"/>
         <source>Rechercher un document ou cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5491,12 +5533,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+206"/>
-        <source>Indexation FAISS en cours...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
+        <location line="+218"/>
         <source>Synchronisation des fiches Anki pour l&apos;ensemble des cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9900,7 +9937,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentInspectorPanel</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1581"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1586"/>
         <source>Retourner à la liste générale des documents</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10010,17 +10047,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+157"/>
-        <source>Indexation FAISS et structuration en cours...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Indexation FAISS terminée avec succès !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
+        <location line="+174"/>
         <source>Synchronisation des fiches Anki via les tags en cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10385,7 +10412,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2505"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2510"/>
         <source>Importer un fichier local (PDF, Markdown, Texte, .apkg)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10815,12 +10842,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+17"/>
-        <location line="+576"/>
+        <location line="+581"/>
         <source>Veuillez d&apos;abord sélectionner un document.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-571"/>
+        <location line="-576"/>
         <source>L&apos;analyse Marker OCR est disponible uniquement pour les fichiers PDF.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10900,19 +10927,14 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+11"/>
         <source>Indexation RAG...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+12"/>
-        <location line="+11"/>
+        <location line="+10"/>
         <source>Indexer (RAG)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-10"/>
-        <source>Document indexé avec succès pour la recherche IA (RAG) !</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -13007,7 +13029,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>LinkedNoteCard</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1256"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1258"/>
         <source>Ouvrir cette note dans l&apos;éditeur de cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13626,7 +13648,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-676"/>
+        <location filename="../../ui/main_window.py" line="-723"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13636,7 +13658,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+394"/>
+        <location line="+441"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>

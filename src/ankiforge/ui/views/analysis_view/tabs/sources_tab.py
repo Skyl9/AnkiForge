@@ -1377,15 +1377,17 @@ class DocumentInspectorPanel(QWidget):
         dispatch_forge_orphans(self, self.doc, self.request_navigation)
 
     def _on_reindex_faiss(self) -> None:
+        from ankiforge.services.reindex_activity_service import ReindexActivityService
         from ankiforge.services.workers.coverage_worker import CoverageWorker
 
-        show_toast(self, self.tr("Indexation FAISS et structuration en cours..."))
-        self._coverage_worker = CoverageWorker(self.doc.id)
+        activity = ReindexActivityService.get_instance()
+        if not activity.begin(1):
+            return
+        self._coverage_worker = CoverageWorker(self.doc.id, activity=activity)
         self._coverage_worker.finished_processing.connect(self._on_coverage_finished)
         self._coverage_worker.start()
 
     def _on_coverage_finished(self) -> None:
-        show_toast(self, self.tr("Indexation FAISS terminée avec succès !"))
         self.load_chunks()
 
     @Slot()
@@ -1822,10 +1824,13 @@ class AISourcesDiagnosticTab(QWidget):
         dispatch_forge_orphans(self, doc, self.request_navigation)
 
     def _on_card_reindex_requested(self, doc_id: int) -> None:
+        from ankiforge.services.reindex_activity_service import ReindexActivityService
         from ankiforge.services.workers.coverage_worker import CoverageWorker
 
-        show_toast(self, self.tr("Indexation FAISS en cours..."))
-        self._coverage_worker = CoverageWorker(doc_id)
+        activity = ReindexActivityService.get_instance()
+        if not activity.begin(1):
+            return
+        self._coverage_worker = CoverageWorker(doc_id, activity=activity)
         self._coverage_worker.finished_processing.connect(self.refresh_data)
         self._coverage_worker.start()
 

@@ -48,7 +48,6 @@ except ImportError:
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel, NoteChunkLinkModel
 from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.services.markdown.structurer import MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService, HeadingTreeNode
@@ -4078,12 +4077,42 @@ class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
 
         mark_document_version(self.doc)
 
-        # 3. Réindexation RAG si demandée
+        # 3. Réindexation RAG si demandée — déclarée sur le hub d'activité (ADR 0021) et
+        #    servie par la couture `revectorize_document` (non destructive, cf. ci-dessous) :
+        #    ce chemin ne doit plus contourner le suivi d'avancement des réindexations.
         if self.chk_revectorize.isChecked():
-            try:
-                rag = RAGService()
-                rag.create_index(self.doc.id)
-            except Exception as e:
-                logger.warning("Erreur réindexation FAISS : %s", e)
+            from ankiforge.services.reindex_activity_service import ReindexActivityService
+            from ankiforge.services.reindex_service import REINDEX_ERROR, revectorize_document
+
+            activity = ReindexActivityService.get_instance()
+            if activity.begin(1):
+                activity.report_document(1, 1, self.doc.title)
+                fragments: list[int] = [0]
+
+                def _on_fragment(cur: int, tot: int) -> None:
+                    fragments[0] = tot
+                    activity.report_fragments(cur, tot)
+
+                try:
+                    # Rév vectorisation NON destructive : les fragments viennent d'être mis à
+                    # jour différentiellement ci-dessus (`sync_extracted_chunks`), leurs liens
+                    # de couverture doivent donc être préservés — un re-découpage destructeur les
+                    # emporterait en cascade (`NoteChunkLinkModel.chunk` est en CASCADE).
+                    status = revectorize_document(self.doc.id, fragment_cb=_on_fragment)
+                    if status == REINDEX_ERROR:
+                        activity.finish(0, 0, 1)
+                    else:
+                        activity.finish(1, fragments[0], 0)
+                except Exception as e:
+                    logger.warning("Erreur réindexation FAISS : %s", e)
+                    activity.finish(0, 0, 1)
+            else:
+                current, total = activity.current_position()
+                logger.warning(
+                    "Délimitation du document %s : rév vectorisation abandonnée, une passe de réindexation est déjà en cours (%d/%d).",
+                    getattr(self.doc, "id", None),
+                    current,
+                    total,
+                )
 
         self.accept()

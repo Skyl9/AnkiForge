@@ -137,6 +137,24 @@ class MainWindow(QMainWindow):
         self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
+        # Bandeau d'activité global (ADR 0021) : hébergé hors des quatre dispositions
+        # enfichables, il reste donc visible quel que soit l'écran et survit à un
+        # changement de layout à chaud. Le service singleton de thread principal
+        # reçoit l'avancement des déclencheurs et alimente ce bandeau et les toasts.
+        from ankiforge.services.reindex_activity_service import ReindexActivityService
+        from ankiforge.ui.widgets.reindex_activity_banner import ReindexActivityBanner
+
+        self.reindex_activity = ReindexActivityService.get_instance()
+        self._central_container = QWidget()
+        self._central_layout = QVBoxLayout(self._central_container)
+        self._central_layout.setContentsMargins(0, 0, 0, 0)
+        self._central_layout.setSpacing(0)
+        self.reindex_banner = ReindexActivityBanner(self._central_container)
+        self._central_layout.addWidget(self.reindex_banner)
+        self._hosted_layout: QWidget | None = None
+        self.setCentralWidget(self._central_container)
+        self._wire_reindex_activity()
+
         # Enregistrement initial des placeholders légers (Lazy Loading)
         for view_id, (_cat, _icon, title, _cls) in self._view_registry.items():
             placeholder = DummyView(title)
@@ -518,7 +536,11 @@ class MainWindow(QMainWindow):
 
         new_layout.populate_navigation(self._view_registry)
         new_layout.set_stacked_widget(self.stacked_widget)
-        self.setCentralWidget(new_layout)
+        if self._hosted_layout is not None:
+            self._central_layout.removeWidget(self._hosted_layout)
+            self._hosted_layout.setParent(None)
+        self._central_layout.addWidget(new_layout)
+        self._hosted_layout = new_layout
         LayoutManager.save_layout_id(self.profile_name, layout_id)
         LayoutManager.apply_theme_for_layout(layout_id, profile_name=self.profile_name)
         logger.info("Application du layout '%s' (profil: '%s')", layout_id, self.profile_name)
@@ -534,6 +556,49 @@ class MainWindow(QMainWindow):
         self._wire_mcp_ui()
         # `populate_navigation` reconstruit les boutons : republier les pastilles.
         self._refresh_nav_badges()
+
+    def _wire_reindex_activity(self) -> None:
+        """Relie le bandeau d'activité global au hub de réindexation (ADR 0021)."""
+        service = self.reindex_activity
+        service.started.connect(self.reindex_banner.handle_started)
+        service.progress.connect(self.reindex_banner.handle_progress)
+        service.fragment_progress.connect(self.reindex_banner.handle_fragments)
+        service.finished.connect(self._on_reindex_activity_finished)
+        service.refused.connect(self._on_reindex_activity_refused)
+        self.reindex_banner.cancel_requested.connect(service.request_cancel)
+
+    def _on_reindex_activity_refused(self, current: int, total: int) -> None:
+        """Refuse franchement un second déclenchement, par un toast discret."""
+        from ankiforge.ui.widgets.toast import show_toast
+
+        show_toast(
+            self,
+            tr("Une réindexation est déjà en cours (%1/%2).", current, total),
+            level="warning",
+        )
+
+    def _on_reindex_activity_finished(self, documents: int, fragments: int, errors: int, cancelled: bool) -> None:
+        """Masque le bandeau et récapitule la passe (documents, fragments, erreurs)."""
+        from ankiforge.ui.widgets.toast import show_toast
+
+        self.reindex_banner.reset()
+        if cancelled:
+            show_toast(
+                self,
+                tr("Réindexation interrompue : %1 document(s) et %2 fragment(s) traités.", documents, fragments),
+                level="info",
+            )
+        elif errors:
+            show_toast(
+                self,
+                tr("Réindexation terminée : %1 document(s), %2 fragment(s), %3 erreur(s).", documents, fragments, errors),
+                level="warning",
+            )
+        else:
+            show_toast(
+                self,
+                tr("Réindexation terminée : %1 document(s), %2 fragment(s).", documents, fragments),
+            )
 
     def _setup_debug_shortcuts(self) -> None:
         """Configure les raccourcis de debug (ex: Capture d'écran, Galerie des dialogues)."""

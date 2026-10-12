@@ -2671,11 +2671,17 @@ class DocumentsView(FileDropMixin, QWidget):
             show_toast(self, self.tr("Veuillez sélectionner un document à indexer."), is_error=True)
             return
 
+        from ankiforge.services.reindex_activity_service import ReindexActivityService
+
+        activity = ReindexActivityService.get_instance()
+        if not activity.begin(1):
+            return
+
         self.view_model.begin_operation("coverage")
         self.btn_rag.setEnabled(False)
         self.btn_rag.setText(self.tr("Indexation RAG..."))
 
-        self._coverage_worker = CoverageWorker(document_id=self._current_doc_id, parent=self)
+        self._coverage_worker = CoverageWorker(document_id=self._current_doc_id, activity=activity, parent=self)
         self._coverage_worker.finished_processing.connect(self._on_vectorization_success)
         self._coverage_worker.error_occurred.connect(self._on_vectorization_error)
         self._coverage_worker.finished.connect(self._coverage_worker.deleteLater)
@@ -2686,7 +2692,6 @@ class DocumentsView(FileDropMixin, QWidget):
         self.view_model.complete_operation("RAG indexé")
         self.btn_rag.setEnabled(True)
         self.btn_rag.setText(self.tr("Indexer (RAG)"))
-        show_toast(self, self.tr("Document indexé avec succès pour la recherche IA (RAG) !"))
         self._refresh_chapters_list()
         self._update_rag_status_pill()
         if hasattr(self, "album_viewer"):
