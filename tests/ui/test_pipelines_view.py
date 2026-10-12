@@ -2,11 +2,15 @@ import json
 from typing import Any
 
 import pytest
-from PySide6.QtWidgets import QPlainTextEdit
+from PySide6.QtWidgets import QLabel, QPlainTextEdit
 
 from ankiforge.database.models import PersonaModel, PipelineModel, PipelineStepModel
+from ankiforge.ui.components import IconButton
 from ankiforge.ui.views.pipelines_view import (
+    DAG_HELP_SECTION_KEYS,
     PRESET_TEMPLATES,
+    STEP_TYPES_META,
+    DagHelpDialog,
     PersonaIdentityCard,
     PersonaSelectorDialog,
     PipelinesView,
@@ -320,3 +324,50 @@ def test_add_step_includes_documentation_toggle_default(qtbot: Any) -> None:
     view.add_step({"type": "LLM_PROMPT", "persona": p, "config": {"declasser_sections_dans_tags": False}})
     step_off = view.current_steps[1]
     assert step_off["config"]["declasser_sections_dans_tags"] is False
+
+
+def test_dag_help_sections_cover_core_value() -> None:
+    """La matière pédagogique couvre le rôle du DAG, ses garde-fous et la valeur du test."""
+    assert {"purpose", "branching", "guardrails", "resume", "testing"} <= set(DAG_HELP_SECTION_KEYS)
+
+
+def test_dag_help_dialog_renders_sections_and_step_types(qtbot: Any) -> None:
+    """Le modal d'aide construit une carte par section et présente les 6 types d'étapes."""
+    dlg = DagHelpDialog()
+    qtbot.addWidget(dlg)
+
+    assert len(dlg.section_cards) == len(DAG_HELP_SECTION_KEYS)
+    assert tuple(dlg.section_keys) == DAG_HELP_SECTION_KEYS
+    assert dlg.windowTitle()
+    assert len(dlg.step_type_badges) == len(STEP_TYPES_META)
+
+    # Le contenu reste adossé au comportement réel (branchements, garde-fous, reprise, test).
+    rendered = " ".join(label.text() for label in dlg.findChildren(QLabel))
+    for keyword in ("on_success_step", "Budget de tokens", "reprise", "resume_run", "fournisseur factice", "réellement"):
+        assert keyword in rendered
+
+
+def test_pipelines_view_help_button_opens_dag_help_dialog(qtbot: Any, monkeypatch: Any) -> None:
+    """Le bouton d'aide de la barre d'outils ouvre le modal pédagogique DAG."""
+    PipelineModel.create(name="Pipeline Aide DAG")
+    view = PipelinesView()
+    qtbot.addWidget(view)
+
+    assert isinstance(view.btn_dag_help, IconButton)
+
+    opened: list[bool] = []
+    monkeypatch.setattr(DagHelpDialog, "exec", lambda self: opened.append(True) or 0)
+    view.btn_dag_help.click()
+    assert opened == [True]
+
+
+def test_pipelines_view_inline_help_opens_dag_help_dialog(qtbot: Any, monkeypatch: Any) -> None:
+    """Le bandeau d'aide inline ouvre le même modal pédagogique."""
+    PipelineModel.create(name="Pipeline Bandeau Aide")
+    view = PipelinesView()
+    qtbot.addWidget(view)
+
+    opened: list[bool] = []
+    monkeypatch.setattr(DagHelpDialog, "exec", lambda self: opened.append(True) or 0)
+    view.btn_help_more.click()
+    assert opened == [True]
