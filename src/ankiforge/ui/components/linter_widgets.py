@@ -1,11 +1,11 @@
 """
-Widgets UI PySide6 sur mesure pour le Linter Wozniak, Diagnostic des Sources et FSRS-4.5.
+Widgets UI PySide6 sur mesure pour le Linter Wozniak et le Diagnostic des Sources.
 """
 
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -618,113 +618,6 @@ class KatexLivePreviewWidget(QFrame):
     def _on_formula_changed(self, text: str) -> None:
         clean = text.strip()
         self.canvas_preview.setText(tr("\\[ %1 \\]", clean))
-
-
-class RetentionCurveCanvas(QWidget):
-    """Visualiseur graphique QPainter pour la courbe de l'oubli FSRS-4.5."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setFixedHeight(110)
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-
-    def paintEvent(self, event) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        w = self.width()
-        h = self.height()
-
-        left_margin = 35
-        right_margin = 25
-        top_margin = 15
-        bottom_margin = 25
-        plot_w = w - left_margin - right_margin
-        plot_h = h - top_margin - bottom_margin
-
-        # Background Frame
-        painter.fillRect(0, 0, w, h, QColor(DesignTokens.BG_MAIN))
-
-        # Y-Axis Grid lines (100%, 90%, 80%, 70%)
-        pen_grid = QPen(QColor(DesignTokens.BORDER_COLOR), 1, Qt.PenStyle.DashLine)
-        painter.setPen(pen_grid)
-        painter.setFont(QFont(DesignTokens.FONT_MAIN, 8))
-
-        y_100 = top_margin
-        y_90 = int(top_margin + plot_h * 0.33)
-        y_80 = int(top_margin + plot_h * 0.66)
-        y_bottom = top_margin + plot_h
-
-        painter.drawLine(left_margin, y_100, w - right_margin, y_100)
-        painter.drawLine(left_margin, y_80, w - right_margin, y_80)
-        painter.drawLine(left_margin, y_bottom, w - right_margin, y_bottom)
-
-        # Target 90% Line (Green dashed)
-        pen_target = QPen(QColor(16, 185, 129, 180), 1.5, Qt.PenStyle.DashLine)
-        painter.setPen(pen_target)
-        painter.drawLine(left_margin, y_90, w - right_margin, y_90)
-
-        # Y-Axis Labels
-        painter.setPen(QColor(DesignTokens.TEXT_MUTED))
-        painter.drawText(5, y_100 + 4, "100%")
-        painter.setPen(QColor(DesignTokens.COLOR_GREEN))
-        painter.drawText(5, y_90 + 4, " 90%")
-        painter.setPen(QColor(DesignTokens.TEXT_MUTED))
-        painter.drawText(5, y_80 + 4, " 80%")
-
-        # X-Axis Time Labels
-        days = [("J0", 0.0), ("J1", 0.15), ("J7", 0.4), ("J30", 0.7), ("J90", 1.0)]
-        for label, pos_factor in days:
-            x_pos = int(left_margin + plot_w * pos_factor)
-            painter.setPen(QColor(DesignTokens.TEXT_MUTED))
-            painter.drawText(x_pos - 10, h - 6, label)
-
-        # Area under curve gradient
-        path_fill = QPainterPath()
-        path_fill.moveTo(left_margin, y_bottom)
-        path_fill.lineTo(left_margin, y_100)
-        path_fill.cubicTo(
-            left_margin + int(plot_w * 0.3),
-            y_100 + int(plot_h * 0.2),
-            left_margin + int(plot_w * 0.65),
-            y_90 + int(plot_h * 0.2),
-            left_margin + plot_w,
-            y_80 + 8,
-        )
-        path_fill.lineTo(left_margin + plot_w, y_bottom)
-        path_fill.closeSubpath()
-
-        grad = QLinearGradient(0, y_100, 0, y_bottom)
-        grad.setColorAt(0.0, QColor(99, 102, 241, 60))
-        grad.setColorAt(1.0, QColor(99, 102, 241, 0))
-        painter.fillPath(path_fill, QBrush(grad))
-
-        # Retention Curve Path
-        path_curve = QPainterPath()
-        path_curve.moveTo(left_margin, y_100)
-        path_curve.cubicTo(
-            left_margin + int(plot_w * 0.3),
-            y_100 + int(plot_h * 0.2),
-            left_margin + int(plot_w * 0.65),
-            y_90 + int(plot_h * 0.2),
-            left_margin + plot_w,
-            y_80 + 8,
-        )
-
-        pen_curve = QPen(QColor(DesignTokens.ACCENT_PRIMARY), 2.5)
-        painter.setPen(pen_curve)
-        painter.drawPath(path_curve)
-
-        # Key Points Dots
-        points = [
-            (left_margin, y_100, DesignTokens.ACCENT_PRIMARY),
-            (left_margin + int(plot_w * 0.4), y_90, DesignTokens.COLOR_GREEN),
-            (left_margin + plot_w, y_80 + 8, DesignTokens.COLOR_YELLOW),
-        ]
-        for px, py, p_color in points:
-            painter.setPen(QPen(QColor(DesignTokens.BG_PANEL), 2))
-            painter.setBrush(QBrush(QColor(p_color)))
-            painter.drawEllipse(px - 4, py - 4, 8, 8)
 
 
 class SourceDiagnosticCardWidget(QFrame):

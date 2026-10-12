@@ -1,5 +1,5 @@
 """
-Moteur de Linter IA Wozniak, Diagnostic des Sources & Suivi Financier Jetons / FSRS-4.5 pour AnkiForge.
+Moteur de Linter IA Wozniak, Diagnostic des Sources & Suivi Financier Jetons / FSRS pour AnkiForge.
 Raccordement dynamique à la base de données Peewee ORM (NoteModel, DeckModel, NoteVersionModel).
 """
 
@@ -472,11 +472,11 @@ class SourcesDiagnosticService:
 
 
 class TokenSrsFinancialService:
-    """Service d'analyse financière des jetons consommés et de suivi d'apprentissage FSRS-4.5."""
+    """Service d'analyse financière des jetons consommés et de répartition de maturité des cartes."""
 
     @staticmethod
     def get_financial_summary(deck_id: int | None = None) -> dict[str, Any]:
-        """Retourne le bilan financier et les métriques de rétention FSRS-4.5 basé sur la BDD."""
+        """Retourne le bilan financier des jetons consommés et la répartition de maturité des cartes."""
         from peewee import fn
 
         from ankiforge.database.models import CardModel, TokenUsageModel
@@ -489,11 +489,6 @@ class TokenSrsFinancialService:
         maturing_cards = query.where(CardModel.ivl > 21).count()
         new_cards = query.where(CardModel.ivl == 0).count()
         learning_cards = query.where((CardModel.ivl > 0) & (CardModel.ivl <= 21)).count()
-
-        avg_stability = query.select(fn.AVG(CardModel.stability)).scalar() or 0.0
-        fsrs_retention = 90.0
-        if avg_stability > 0:
-            fsrs_retention = min(99.0, max(0.0, 90.0 + (avg_stability * 0.5)))
 
         # Token usage aggregation
         total_spent = TokenUsageModel.select(fn.SUM(TokenUsageModel.estimated_cost_usd)).scalar() or 0.0
@@ -564,12 +559,8 @@ class TokenSrsFinancialService:
             "total_spent_usd": total_spent,
             "avg_cost_per_card_usd": avg_cost,
             "tokens_consumed": total_tokens,
-            "fsrs_retention_pct": round(fsrs_retention, 1),
-            "target_retention_pct": 90.0,
             "maturing_cards": maturing_cards,
             "total_cards": total_cards,
-            "daily_workload_cards": round(total_cards * 0.05, 1),
-            "daily_workload_minutes": round(total_cards * 0.05 * 0.5, 1),
             "models": models_list,
             "tasks_breakdown": tasks_breakdown,
             "maturity_distribution": {

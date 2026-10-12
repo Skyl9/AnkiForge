@@ -1140,7 +1140,7 @@ class StyleEngine(QObject):
         /* --- Composants à décorants QPainter (thème-aware) ---
            Widgets qui dessinent en QPainter (paintEvent / QtCharts) et doivent
            consommer les DesignTokens pour rester conformes en clair et sombre :
-           DonutChartWidget, RetentionCurveCanvas, ScopeRangeBarWidget,
+           DonutChartWidget, RetentionCurveWidget, ScopeRangeBarWidget,
            ProgressTableCellWidget, ImageOcclusionEditor, ActivityChartWidget. */
         QChartView, DonutChartWidget {{
             background: transparent;
