@@ -341,7 +341,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+268"/>
+        <location line="+161"/>
         <source>.%1 · %2 mots</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1424,7 +1424,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
     <message>
         <location line="+1"/>
         <location line="+1"/>
-        <location filename="../../ui/views/dashboard_view.py" line="+689"/>
+        <location filename="../../ui/views/dashboard_view.py" line="+690"/>
         <source>Bibliothèque</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1919,7 +1919,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/tokens_srs_tab.py" line="+237"/>
+        <location filename="../../ui/views/analysis_view/tabs/tokens_srs_tab.py" line="+214"/>
         <source>Dépenses : %1 $</source>
         <comment>{summary[&apos;total_spent_usd&apos;]:.4f}</comment>
         <translation type="unfinished"></translation>
@@ -1930,13 +1930,39 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <comment>{avg_cost:.5f}</comment>
         <translation type="unfinished"></translation>
     </message>
+    <message numerus="yes">
+        <location line="+14"/>
+        <source>Cible : %1%% · J+14 : %2%%</source>
+        <comment>{target_pct:.0f}</comment>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
     <message>
-        <location line="+172"/>
+        <location line="+6"/>
+        <source>%1 jetons · Optimal</source>
+        <comment>{summary[&apos;tokens_consumed&apos;]:,}</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>%1 · Ancrage fort</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>%1 / jour</source>
+        <comment>{float(projection.get(&apos;equilibrium_load_per_day&apos;, 0.0)):.1f}</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+141"/>
         <source>%1 · %2 jetons (%3%% des dépenses)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+245"/>
+        <location line="+258"/>
         <source>%1 sangsue(s)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4140,6 +4166,18 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/widgets/retention_curve.py" line="+99"/>
+        <source>Charge : %1 révisions/j</source>
+        <comment>{load:.1f}</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>S moy. : %1 j</source>
+        <comment>{stability:.0f}</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="+10"/>
         <source>~%1 tok.</source>
         <comment>{token_count:,}</comment>
@@ -5466,7 +5504,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AITokensSrsTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/tokens_srs_tab.py" line="-595"/>
+        <location filename="../../ui/views/analysis_view/tabs/tokens_srs_tab.py" line="-594"/>
         <source>Finances &amp; Rétention SRS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5497,31 +5535,61 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
     </message>
     <message>
         <location line="+54"/>
-        <source>Équilibre &amp; Maturité du Paquet (FSRS-4.5)</source>
+        <source>Équilibre &amp; Maturité du Paquet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+17"/>
-        <source>Courbe Théorique de Rétention (Forgetting Curve FSRS-4.5)</source>
+        <location line="+51"/>
+        <source>Aucune carte révisée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
-        <source>Calibrer les 17 paramètres FSRS-4.5 sur votre historique de révision via apprentissage automatique local</source>
+        <location line="+6"/>
+        <source>Budget Consommé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+25"/>
-        <source>Paramètres FSRS-4.5 optimisés avec succès pour votre rythme d&apos;apprentissage !</source>
+        <location line="+7"/>
+        <source>Rétention Projetée (J+7)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+216"/>
+        <location line="+7"/>
+        <source>Cartes Mûres (&gt;21j)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Charge à l&apos;Équilibre</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Révisions/j · Σ 1/intervalle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+47"/>
+        <source>NOUVELLES</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>APPRENTISSAGE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>MÛRES (&gt;21j)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+128"/>
         <source>Répartition par Type de Tâche IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+68"/>
+        <location line="+81"/>
         <source>Diagnostic des Cartes Sangsues (Leeches)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9200,12 +9268,32 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+102"/>
+        <location line="+37"/>
+        <source>Accueil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>Supervision &amp;&amp; Santé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Rétention &amp;&amp; Charge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+31"/>
         <source>Ouvrir l&apos;Éditeur &amp; Navigateur pour inspecter toutes les cartes de la collection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+50"/>
+        <location line="+5"/>
+        <source>Activité Récente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+46"/>
         <source>Aucune activité récente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11806,7 +11894,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FieldInspectorWidget</name>
     <message>
-        <location filename="../../ui/components/linter_widgets.py" line="-577"/>
+        <location filename="../../ui/components/linter_widgets.py" line="-470"/>
         <source>Inspecteur MCP · 5 Champs SQLite vs Proposition IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14959,7 +15047,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>ProactiveDiagnosticsWidget</name>
     <message>
-        <location filename="../../ui/views/dashboard_view.py" line="-501"/>
+        <location filename="../../ui/views/dashboard_view.py" line="-514"/>
         <source>Diagnostics &amp; Actions Proactives</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15411,6 +15499,32 @@ Utilisez {{ text_source }}.</source>
     <message>
         <location line="+3"/>
         <source>Sauvegarder les modifications du type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>RetentionCurveWidget</name>
+    <message>
+        <location filename="../../ui/widgets/retention_curve.py" line="-36"/>
+        <source>Rétention projetée (courbe d&apos;oubli)</source>
+        <extracomment>Borne basse de l&apos;axe des ordonnées (les valeurs inférieures sont écrêtées au plancher). Graduations affichées sur l&apos;axe des ordonnées (fractions de rétention). Marge haute réservée à l&apos;en-tête et marge basse aux libellés de jours.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+34"/>
+        <source>Charge : —</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-28"/>
+        <location line="+29"/>
+        <source>S moy. : —</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Aucune donnée SRS — importez et révisez des cartes dans Anki.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
