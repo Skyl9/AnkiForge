@@ -70,6 +70,10 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : catégorie, modèle par défaut, moteur de la catégorie
 - **Transcription optique matérielle** : extraction optique brute et locale accélérée par puce matérielle (Apple Neural Engine / Vision), sans modèle de langage génératif (VLM). Elle est optimisée pour la prose et les textes continus en bloc, sans interprétation sémantique, ni reconstruction de tableaux complexes, ni formules KaTeX.
   _Avoid_ : OCR IA, vision multimodale, VLM matériel
+- **Génération visionnée** : mode de génération dans lequel le modèle de langage reçoit directement le rendu visuel conforme des planches ou illustrations en entrée multimodale (VLM), sans injection de balise fabriquée dans le corps textuel.
+  _Avoid_ : génération album, prompt image, injection visuelle
+- **Résolution visuelle de fragment** : opération déterminant et rendant l'image conforme associée à un fragment de document pour l'analyse multimodale ou la consultation (planche pivotée via la couture pour un album, fichier d'illustration lié pour un document textuel).
+  _Avoid_ : extraction d'image, chargement de planche, fetch media
 
 ## Provenance & Couverture
 
