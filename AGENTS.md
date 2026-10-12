@@ -104,9 +104,14 @@ uv run python script/capture_view.py --layout-thumbnails
 - `--dev`/`--prod` CLI flags override environment
 
 ## Agent Skills Catalog (`.agents/skills/`)
-Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
+Autonomous specialized skills conforming to Antigravity Progressive Disclosure and agentskills.io standard (50 skills total):
+
+> [!IMPORTANT]
+> **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les skills dont la spécification ou les triggers sont documentés en anglais.
+
 - **Meta & Maintenance**:
-  - `mise-a-jour-metadonnees`: Meta-skill: syncs the 15 metadata/doc files and audits/improves the skills catalog (maturity grid, triggers, progressive disclosure)
+  - `mise-a-jour-metadonnees`: Meta-skill: syncs the 15 metadata/doc files post-feature (`GEMINI.md`, `AGENTS.md`, `DESIGN.md`, docs architecture, etc.)
+  - `gouvernance-skills`: Audits, checks maturity grid (5 axes), prevents trigger collisions, and governs skill admissions/splits
   - `documentation-zensical`: Proactive Zensical documentation auditor, enhancer, and build validator
   - `audit-ankiforge`: Global architecture and compliance auditor against `GEMINI.md` rules
   - `obsidian-vault`: Gestionnaire du vault Obsidian (`ankiforge_obsidian/`), Kanban (`Avancement du projet.md`) et tickets en mode atomique one-shot anti-boucle (Obsidian = todo list pure, documentation canonique dans Zensical `docs/`)
@@ -114,9 +119,13 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
   - `verification-environnement`: Règles d'ingénierie préventives et interdits non négociables (typage strict, pas de `print()`, tests headless, pas d'emojis, mocks LLM) et exécution de la commande canonique de vérification (`script/verify.py`)
 - **Architecture & Foundation**:
   - `peewee-expert`: Database schema design, migrations, atomic transactions, and N+1 query elimination
+  - `ui-pyside6-design`: PySide6 modern UI development, JetBrains-style docking, `StyleEngine`, token adherence (`DESIGN.md`), and `tr()` (ADR 0013)
   - `ui-screenshot`: Offscreen/headless Qt view capture and visual inspection
 - **Domain Pipelines**:
-  - `ingestion-multimedia`: Parses PDF/DOCX/PPTX/EPUB/audio/YouTube/web into Markdown + RAG chunks (Marker OCR, media handling, chunking)
+  - `ingestion-multimedia`: Parses PDF/DOCX/PPTX/EPUB/audio/YouTube/web into clean Markdown (Marker OCR, media handling)
+  - `rag-smart-coverage`: Semantic chunking, local RAG vector indexing (FAISS/ChromaDB), and deterministic coverage alignment (ADR 0009 / ADR 0010)
+  - `pipeline-dag-ia`: DAG orchestration engine (`PipelineOrchestrator`), 6 step types, token budgets, persona overrides, and MCP integration
+  - `modeles-cartes-jinja`: Card models management (`NoteTypeModel`), Jinja2/HTML/CSS styling atelier, cloze mutations, and Wozniak 20 rules linter
   - `export-synchro-anki`: Import/merge/export of `.apkg`/`.colpkg`, stable IDs, media dedup (MD5, zstd) and duplicate detection
 - **Specialized Audits** (targeted, non-blocking):
   - `audit-dependances`: Supply chain, licenses, outdated packages, `pip-audit`
@@ -127,11 +136,11 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
   - `audit-qualite-code`: Strict typing (`mypy`), linting (`ruff`), dead code, no `print()`
   - `audit-securite`: Bandit scans, secret redaction, SSRF, sandbox safety
   - `audit-tests-ci`: Test mocking discipline, headless constraints, CI workflows
-- **Agentic Engineering Flows (Matt Pocock Framework)**:
-  - `ask-matt`: Interactive router and navigator for agentic engineering workflows
+- **Agentic Engineering Flows (Tristan Workflow / Matt Pocock Framework)**:
+  - `ask-tristan`: Interactive router and navigator for agentic engineering workflows (configured for Obsidian tracker)
   - `grill-with-docs` / `grill-me` / `grilling`: Relentless interview and design tree frontier exploration
-  - `to-spec` / `to-tickets`: Transformation of conversational decisions into specs and tracer-bullet tickets
-  - `implement` / `tdd`: Test-driven implementation loop (red-green-refactor)
+  - `to-spec` / `to-tickets`: Transformation of conversational decisions into specs and tracer-bullet tickets in Obsidian
+  - `implement` / `tdd`: Test-driven implementation loop (red-green-refactor) bound to Obsidian ticket lifecycle
   - `code-review`: Two-axis diff review (Standards + Spec) in parallel subagents
   - `diagnosing-bugs` / `triage`: Bug isolation with tight feedback loops and Obsidian triage state machine
   - `wayfinder`: Multi-session roadmap and decision mapping for large-scale efforts
@@ -140,13 +149,13 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
   - `handoff` / `prototype` / `research`: Portable context compaction, throwaway code spikes, and primary source research
   - `doubt-driven-development` / `source-driven-development`: Adversarial fresh-context review and documentation-grounded decisions
   - `resolving-merge-conflicts` / `code-simplification`: Intent-based merge conflict resolution and clarity refactoring
-  - `wizard` / `wait-what` / `writing-for-agents` / `to-questionnaire` / `setup-matt-pocock-skills`: Human interaction bash wizards, communication repair, agent doc standards, and questionnaire generation
+  - `wizard` / `wait-what` / `writing-for-agents` / `to-questionnaire` / `setup-tristan-workflow`: Human interaction bash wizards, communication repair, agent doc standards, questionnaire generation, and workflow bootstrapping
 
 ## Documentation References
 - `GEMINI.md` - agentic system prompt, core engineering rules
 - `AGENTS.md` - quick reference guide and developer cheat-sheet
 - `.github/copilot-instructions.md` - GitHub Copilot rules and reference contracts
-- `.agents/skills/` - directory of 44 agent skills with progressive disclosure
+- `.agents/skills/` - directory of 50 agent skills with progressive disclosure (agentskills.io compliant)
 - `docs/Dossier_architecture/` - 9 architecture docs (data model, UI inventory, DAG engine, quality/deploy)
 - `DESIGN.md` - design system, semantic tokens, 12 themes, 4 layouts; all new widgets must be documented here
 

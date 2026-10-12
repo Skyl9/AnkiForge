@@ -164,3 +164,15 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : tag pivot, tag maître, tag de remplacement
 - **Fusion de tags** : l'opération atomique remplaçant sur toutes les notes concernées les variantes d'une grappe par leur tag canonique unique, sans duplication ni altération des tags de provenance.
   _Avoid_ : renommage de tags, écrasement de tags
+
+## Compétences agentiques & Workflow Tristan
+
+- **Catalogue de compétences (Skill catalog)** : l'ensemble des modules d'expertise procédurale (`SKILL.md`) situés sous `.agents/skills/`, conformes au standard ouvert `agentskills.io` et chargés à la demande par divulgation progressive.
+  _Avoid_ : plugins, prompts système, extensions, prompts agents
+- **Divulgation progressive (Progressive disclosure)** : le mécanisme d'activation cognitive à trois paliers d'une compétence — Niveau 1 (découverte minimale par nom et description dans le contexte initial), Niveau 2 (activation du corps procédural `SKILL.md` sur correspondance de tâche), Niveau 3 (exécution ciblée des ressources spécialisées dans `references/` ou `scripts/`).
+  _Avoid_ : chargement paresseux, lazy loading, prompt caching
+- **Aiguilleur de flux (`ask-tristan`)** : le routeur décisionnel guidant l'agent et l'utilisateur à travers le réseau des compétences d'ingénierie (`idée → cadrage → spécification → tickets → implémentation → revue`), ancré exclusivement sur le gestionnaire de tâches Obsidian du projet.
+  _Avoid_ : routeur Matt, ask-matt, copilote, superviseur
+- **Règle anti-boucle Obsidian** : le protocole d'interaction atomique imposé aux agents sur le tableau Kanban et les tickets (`Lecture → Écriture/Déplacement → Arrêt immédiat`), interdisant formellement toute auto-vérification circulaire ou relecture non sollicitée.
+  _Avoid_ : validation en boucle, boucle de contrôle, vérification du Kanban
+

@@ -20,9 +20,14 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 💾 **Base de Données (Peewee ORM)** : `~/.gemini/skills/technologies/peewee-orm-standards.md` ou `.agents/skills/peewee-expert/SKILL.md`
 - 🧪 **Tests & QA (pytest-qt)** : `~/.gemini/skills/technologies/pytest-qt-headless.md`
 - 🔍 **Audit de Conformité AnkiForge** : `.agents/skills/audit-ankiforge/SKILL.md`
-- 📋 **Métadonnées & Cohérence des Skills (audit + amélioration)** : `.agents/skills/mise-a-jour-metadonnees/SKILL.md`
+- 📋 **Synchronisation des Métadonnées & Architecture** : `.agents/skills/mise-a-jour-metadonnees/SKILL.md`
+- 🛡️ **Gouvernance & Méta-Audit des Skills** : `.agents/skills/gouvernance-skills/SKILL.md`
 - 📚 **Documentation Zensical (Qualité, Build & Proactivité)** : `.agents/skills/documentation-zensical/SKILL.md`
-- 🎬 **Ingestion Multimédia (Parseeing PDF/DOCX/PPTX/EPUB/audio/YouTube/Web → Markdown + chunks RAG)** : `.agents/skills/ingestion-multimedia/SKILL.md`
+- 🎬 **Ingestion Multimédia (Extraction PDF/Audio/YouTube/Web → Markdown)** : `.agents/skills/ingestion-multimedia/SKILL.md`
+- 🧠 **RAG Local & Smart Coverage (Découpage, FAISS, Traçabilité ADR 0009/0010)** : `.agents/skills/rag-smart-coverage/SKILL.md`
+- 🎨 **UI & Composants PySide6 (DESIGN.md, StyleEngine, tr ADR 0013)** : `.agents/skills/ui-pyside6-design/SKILL.md`
+- ⚡ **Moteur d'Orchestration DAG IA & Personas (PipelineOrchestrator, MCP)** : `.agents/skills/pipeline-dag-ia/SKILL.md`
+- 🗂️ **Modèles de Cartes, Gabarits Jinja2 & Wozniak** : `.agents/skills/modeles-cartes-jinja/SKILL.md`
 - 🔁 **Export & Synchronisation Anki (.apkg/.colpkg, médias, merge, IDs stables)** : `.agents/skills/export-synchro-anki/SKILL.md`
 - 📋 **Gestionnaire Vault & Kanban Obsidian** : `.agents/skills/obsidian-vault/SKILL.md`
 - 📦 **Propositions de Commits Atomiques (Conventional Commits)** : `.agents/skills/proposer-commits/SKILL.md`
@@ -39,8 +44,8 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 🧪 **Audit Tests & CI/CD** : `.agents/skills/audit-tests-ci/SKILL.md`
 - 📸 **Inspection Visuelle UI (screenshot offscreen)** : `.agents/skills/ui-screenshot/SKILL.md`
 
-*Flux d'ingénierie agentique & résolution de tâches (Framework Matt Pocock) :*
-- 🧭 **Aiguillage des Flux & Routeur** : `.agents/skills/ask-matt/SKILL.md`
+*Flux d'ingénierie agentique & résolution de tâches (Workflow Tristan & Obsidian) :*
+- 🧭 **Aiguillage des Flux & Routeur** : `.agents/skills/ask-tristan/SKILL.md`
 - 🎯 **Affûtage & Interview Cadrage** : `.agents/skills/grill-with-docs/SKILL.md`, `.agents/skills/grill-me/SKILL.md`, `.agents/skills/grilling/SKILL.md`
 - 📐 **Spécification & Découpage Tickets** : `.agents/skills/to-spec/SKILL.md`, `.agents/skills/to-tickets/SKILL.md`
 - 🔨 **Implémentation & Tests (TDD)** : `.agents/skills/implement/SKILL.md`, `.agents/skills/tdd/SKILL.md`
@@ -51,7 +56,10 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 📦 **Compaction, Spikes & Recherche** : `.agents/skills/handoff/SKILL.md`, `.agents/skills/prototype/SKILL.md`, `.agents/skills/research/SKILL.md`
 - 🛡️ **Revue Contradictoire & Sources Officielles** : `.agents/skills/doubt-driven-development/SKILL.md`, `.agents/skills/source-driven-development/SKILL.md`
 - 🔀 **Résolution Conflits & Simplification** : `.agents/skills/resolving-merge-conflicts/SKILL.md`, `.agents/skills/code-simplification/SKILL.md`
-- 🧙 **Utilitaires Spéciaux** : `.agents/skills/wizard/SKILL.md`, `.agents/skills/wait-what/SKILL.md`, `.agents/skills/writing-for-agents/SKILL.md`, `.agents/skills/to-questionnaire/SKILL.md`, `.agents/skills/setup-matt-pocock-skills/SKILL.md`
+- 🧙 **Utilitaires Spéciaux** : `.agents/skills/wizard/SKILL.md`, `.agents/skills/wait-what/SKILL.md`, `.agents/skills/writing-for-agents/SKILL.md`, `.agents/skills/to-questionnaire/SKILL.md`, `.agents/skills/setup-tristan-workflow/SKILL.md`
+
+> **Langue de communication & restitution obligatoire :** Toutes les interactions, synthèses, analyses, plans d'action et rapports destinés à l'utilisateur doivent être rédigés en **français**.
+
 
 ## 🗺️ Règles Métier & Architecture Technique Actuelle (AnkiForge)
 
