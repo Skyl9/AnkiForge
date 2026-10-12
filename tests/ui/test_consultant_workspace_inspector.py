@@ -592,3 +592,116 @@ def test_inline_diff_card_staged_patch_conflict(qtbot):
 
     card.btn_apply.click()
     assert "Conflit de version" in card.status_badge.text()
+
+
+def test_workspace_inspector_note_create_rendering_and_apply(qtbot):
+    """Vérifie le rendu visuel et l'application d'un patch note_create dans l'inspecteur."""
+    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_Create_{uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    dk = DeckModel.create(name=f"Deck_Create_{uid}")
+
+    patch_obj = StagedPatchRegistry.create_patch(
+        patch_type="note_create",
+        diff_payload={
+            "type": "note_create",
+            "note_type": nt.name,
+            "deck": dk.name,
+            "fields": {"Front": "Q Test UI", "Back": "R Test UI"},
+            "tags": ["ui_test"],
+            "title": f"Création de Note ({nt.name})",
+            "modified": {
+                "Front": "Q Test UI",
+                "fields": {"Front": "Q Test UI", "Back": "R Test UI"},
+                "deck": dk.name,
+                "note_type": nt.name,
+            },
+        },
+    )
+
+    widget = WorkspaceInspectorWidget()
+    qtbot.addWidget(widget)
+
+    widget.add_patch_to_queue(
+        {
+            "patch_id": patch_obj.patch_id,
+            "type": "note_create",
+            "title": f"Création de Note ({nt.name})",
+            "modified": {
+                "Front": "Q Test UI",
+                "fields": {"Front": "Q Test UI", "Back": "R Test UI"},
+                "deck": dk.name,
+                "note_type": nt.name,
+            },
+            "original": {},
+        }
+    )
+
+    # Vérification du rendu HTML
+    html_content = widget.preview_browser.toHtml()
+    assert nt.name in html_content
+    assert dk.name in html_content
+    assert "Q Test UI" in html_content
+
+    # Application du patch via le bouton
+    widget.btn_apply.click()
+
+    # Vérification que la note existe bien en BDD
+    created_patch = StagedPatchRegistry.get_patch(patch_obj.patch_id)
+    assert created_patch.status == "applied"
+    assert created_patch.target_id > 0
+    note_in_db = NoteModel.get_or_none(NoteModel.id == created_patch.target_id)
+    assert note_in_db is not None
+    assert note_in_db.note_type.id == nt.id
+
+
+def test_workspace_inspector_batch_note_create_rendering_and_apply(qtbot):
+    """Vérifie le rendu visuel et l'application d'un patch batch_note_create dans l'inspecteur."""
+    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_Batch_{uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    dk = DeckModel.create(name=f"Deck_Batch_{uid}")
+
+    notes_data = [
+        {"note_type": nt.name, "deck": dk.name, "fields": {"Front": f"Q1_{uid}", "Back": "R1"}},
+        {"note_type": nt.name, "deck": dk.name, "fields": {"Front": f"Q2_{uid}", "Back": "R2"}},
+    ]
+
+    patch_obj = StagedPatchRegistry.create_patch(
+        patch_type="batch_note_create",
+        diff_payload={
+            "type": "batch_note_create",
+            "notes": notes_data,
+            "count": 2,
+            "title": "Création par lot de 2 note(s)",
+            "modified": {"notes": notes_data, "count": 2},
+        },
+    )
+
+    widget = WorkspaceInspectorWidget()
+    qtbot.addWidget(widget)
+
+    widget.add_patch_to_queue(
+        {
+            "patch_id": patch_obj.patch_id,
+            "type": "batch_note_create",
+            "title": "Création par lot de 2 note(s)",
+            "modified": {"notes": notes_data, "count": 2},
+            "original": {},
+        }
+    )
+
+    # Vérification du rendu HTML
+    html_content = widget.preview_browser.toHtml()
+    assert f"Q1_{uid}" in html_content
+    assert f"Q2_{uid}" in html_content
+
+    # Application du patch
+    widget.btn_apply.click()
+
+    created_patch = StagedPatchRegistry.get_patch(patch_obj.patch_id)
+    assert created_patch.status == "applied"
+    notes_in_db = list(NoteModel.select().where(NoteModel.note_type == nt))
+    assert len(notes_in_db) == 2
