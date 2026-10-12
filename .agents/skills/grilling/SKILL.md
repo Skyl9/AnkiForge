@@ -1,28 +1,38 @@
 ---
 name: grilling
-description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
+description: >-
+  Moteur primitif d'interview contradictoire par rounds de questions pour explorer la frontière de décision d'un arbre de conception.
+  Use when the user asks to "grilling", "relentless interview", or when invoked by grill-me or grill-with-docs.
+  When NOT to use: Do not use directly for full feature scoping with documentation (use grill-with-docs).
 ---
 
-Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
+# Grilling — Moteur Primitif d'Interview
 
-Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
+Interviewe l'utilisateur de manière méthodique jusqu'à atteindre une compréhension partagée. Modélise la réflexion sous forme d'un **arbre de conception** où chaque choix conditionne les décisions aval.
 
-Format a round like so:
+## Fonctionnement par Tours (Rounds)
 
-```
-❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+La **frontière** représente l'ensemble des décisions dont les prérequis sont déjà tranchés : les questions qu'il est possible de poser *immédiatement* sans anticiper sur des arbitrages en suspens. Pose toute la frontière en un seul round :
 
-➡️ <your recommended answer>
+```markdown
+❓ **Q1** - **<titre>** : <corps de la question avec options éventuelles>
+
+➡️ <réponse recommandée>
 
 ---
 
-❓ **Q2** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+❓ **Q2** - **<titre>** : <corps de la question>
 
-➡️ <your recommended answer>
+➡️ <réponse recommandée>
 ```
 
-Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
+## Règles Clés
 
-Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it; don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now. The _decisions_ are the user's: put each to them and wait.
+- **Faits vs Décisions** : chercher les faits dans le code, les tests et l'environnement est le rôle de l'agent. Les décisions appartiennent à l'utilisateur.
+- À chaque round complété, recalculer la frontière et poser le round suivant.
+- La session se termine lorsque la frontière est vide. Ne pas agir tant que l'accord partagé n'est pas explicite.
 
-The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.
+## When NOT to use this skill
+
+- Ne pas utiliser directement pour une séance de cadrage d'architecture liée à un dépôt → utiliser `/grill-with-docs`.
+- Ne pas utiliser pour une interview sans trace hors d'un dépôt → utiliser `/grill-me`.

@@ -1,75 +1,53 @@
 ---
 name: to-spec
-description: "Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed."
+description: >-
+  Synthétise la discussion et le cadrage en cours en une spécification technique structurée prête pour le découpage en tickets Obsidian.
+  Use when the user asks to "to-spec", "rédiger la spec", "spécifier", "synthétiser en spec", or wants to formalize a discussed plan into a full technical specification.
+  When NOT to use: Do not use if the idea still needs sharpening (use grill-with-docs) or if you want tickets directly (use to-tickets).
 disable-model-invocation: true
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
+# To Spec — Synthèse en Spécification Technique
 
-The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
+Transforme le fil de conception et la compréhension de la base de code en une **spécification technique formelle**. Aucune nouvelle interview n'est menée : il s'agit d'une synthèse directe de ce qui a déjà été arbitré.
 
-## Process
+Le document produit sert de base directe pour le découpage en tickets via **`/to-tickets`** dans le vault Obsidian (`ankiforge_obsidian/`).
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
+## Processus
 
-2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
+1. **Explorer le contexte** : réutiliser le glossaire `CONTEXT.md` et les ADRs applicables.
+2. **Identifier les coutures (Seams)** : identifier le point d'intégration le plus haut possible pour tester le comportement de bout en bout.
+3. **Rédiger la spécification** selon le gabarit canonique ci-dessous.
 
-Check with the user that these seams match their expectations.
+## Gabarit de Spécification
 
-3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+```markdown
+## Problématique (Problem Statement)
+Description du problème ou du besoin du point de vue de l'utilisateur.
 
-<spec-template>
+## Solution proposée
+Description synthétique de la réponse fonctionnelle et technique.
 
-## Problem Statement
+## User Stories (Extensives)
+1. En tant que [rôle], je veux [action], afin de [bénéfice].
+2. ...
 
-The problem that the user is facing, from the user's perspective.
+## Décisions d'Implémentation
+- Modules et interfaces touchés
+- Schéma de base de données / migrations
+- Contrats d'API et flux d'état
+- Composants d'interface utilisateur
 
-## Solution
+## Décisions de Test
+- Stratégie de test aux coutures clés (tests unitaires, tests headless Qt)
+- Précédents et fixtures existantes
 
-The solution to the problem, from the user's perspective.
+## Hors Périmètre (Out of Scope)
+Ce que cette spécification exclut délibérément.
+```
 
-## User Stories
+## When NOT to use this skill
 
-A LONG, numbered list of user stories. Each user story should be in the format of:
-
-1. As an <actor>, I want a <feature>, so that <benefit>
-
-<user-story-example>
-1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
-</user-story-example>
-
-This list of user stories should be extremely extensive and cover all aspects of the feature.
-
-## Implementation Decisions
-
-A list of implementation decisions that were made. This can include:
-
-- The modules that will be built/modified
-- The interfaces of those modules that will be modified
-- Technical clarifications from the developer
-- Architectural decisions
-- Schema changes
-- API contracts
-- Specific interactions
-
-Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
-
-Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
-
-## Testing Decisions
-
-A list of testing decisions that were made. Include:
-
-- A description of what makes a good test (only test external behavior, not implementation details)
-- Which modules will be tested
-- Prior art for the tests (i.e. similar types of tests in the codebase)
-
-## Out of Scope
-
-A description of the things that are out of scope for this spec.
-
-## Further Notes
-
-Any further notes about the feature.
-
-</spec-template>
+- Ne pas utiliser si des questions de conception restent ouvertes → utiliser `/grill-with-docs`.
+- Ne pas utiliser pour découper directement en tickets de travail → utiliser `/to-tickets`.
+- Ne pas utiliser pour implémenter du code immédiatement → utiliser `/implement`.

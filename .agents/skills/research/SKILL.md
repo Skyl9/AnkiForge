@@ -1,12 +1,23 @@
 ---
 name: research
-description: Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.
+description: >-
+  Délègue l'investigation documentaire et l'analyse de sources primaires fiables à un sous-agent d'arrière-plan avec restitution sous forme de synthèse Markdown.
+  Use when the user asks to "rechercher", "investiguer", "documenter les options", "research", or wants to delegate investigation of primary sources to a background agent.
+  When NOT to use: Do not use for quick targeted lookups you can do yourself in one turn or for coding directly.
 ---
 
-Spin up a **background agent** to do the research, so you keep working while it reads.
+# Research — Investigation Documentaire Autonome
 
-Its job:
+Délègue un travail de lecture et d'analyse approfondie à un **sous-agent de recherche**, permettant à la session principale de poursuivre d'autres tâches en parallèle.
 
-1. Investigate the question against **primary sources** (official docs, source code, specs, first-party APIs), not a secondary write-up of them. Follow every claim back to the source that owns it.
-2. Write the findings to a single Markdown file, citing each claim's source.
-3. Save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
+## Mission du Sous-Agent
+
+1. **Sources primaires exclusivement** : consulter la documentation officielle, le code source amont, les spécifications normatives ou les APIs de premier niveau.
+2. **Rapport sourcé unique** : rédiger la synthèse dans un fichier Markdown structuré citant explicitement chaque source.
+3. **Restitution** : enregistrer le document sous `docs/` ou dans le répertoire de notes convenu.
+
+## When NOT to use this skill
+
+- Pour une vérification rapide d'une signature d'API réalisable immédiatement en un tour → consulter directement.
+- Pour affûter une décision en direct avec l'utilisateur → utiliser `/grill-with-docs`.
+- Pour implémenter du code de production → utiliser `/implement`.

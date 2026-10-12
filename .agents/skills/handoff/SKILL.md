@@ -1,16 +1,29 @@
 ---
 name: handoff
-description: Compact the current conversation into a handoff document for another agent to pick up.
+description: >-
+  Compresse la conversation courante en un document de transfert (handoff) portable pour permettre à un nouvel agent ou une nouvelle session de reprendre le travail.
+  Use when the user asks to "handoff", "passer la main", "résumé pour prochaine session", "préparer le transfert", or wants to compact the conversation into a handoff document.
+  When NOT to use: Do not use if you are continuing work in the same session without context boundary (just continue).
 argument-hint: "What will the next session be used for?"
 disable-model-invocation: true
 ---
 
-Write a handoff document summarising the current conversation so a fresh agent can continue the work. Save to the temporary directory of the user's OS - not the current workspace.
+# Handoff — Transfert de Contexte Inter-Sessions
 
-Include a "suggested skills" section in the document, naming which skills the next agent should call the Skill tool for.
+Rédige un document de synthèse structuré permettant à un agent dans une session vierge de reprendre immédiatement le travail sans perte d'information.
 
-Do not duplicate content already captured in other artifacts (specs, plans, ADRs, issues, commits, diffs). Reference them by path or URL instead.
+## Consignes
 
-Redact any sensitive information, such as API keys, passwords, or personally identifiable information.
+1. **Emplacement** : enregistrer dans le répertoire temporaire du système (`/tmp` ou équivalent), jamais à la racine du projet.
+2. **Contenu ciblé** :
+   - Objectif poursuivi et état actuel d'avancement.
+   - Décisions déjà arbitrées et références vers les fichiers réels (`CONTEXT.md`, tickets Obsidian, ADRs).
+   - Section **« Compétences recommandées »** indiquant explicitement les skills à activer pour la suite.
+3. **Sécurité & Hygiène** : masquer tout secret ou clé d'API (`<REDACTED>`).
+4. Ne pas dupliquer le contenu déjà committé ou formalisé dans les tickets ; utiliser des chemins relatifs ou liens.
 
-If the user passed arguments, treat them as a description of what the next session will focus on and tailor the doc accordingly.
+## When NOT to use this skill
+
+- Ne pas utiliser si le travail se poursuit directement dans la session courante sans dépassement de contexte.
+- Ne pas utiliser pour rédiger un ticket de travail permanent → utiliser `/to-tickets`.
+- Ne pas utiliser pour consigner une décision d'architecture → utiliser `/domain-modeling` (ADR).

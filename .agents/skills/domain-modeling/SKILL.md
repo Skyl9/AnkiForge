@@ -72,3 +72,11 @@ Only offer to create an ADR when all three are true:
 3. **The result of a real trade-off**: there were genuine alternatives and you picked one for specific reasons
 
 If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+
+## When NOT to use this skill
+
+- Ne pas utiliser pour la conception de l'architecture technique des modules et interfaces → utiliser `/codebase-design`.
+- Ne pas utiliser pour interviewer sur une fonctionnalité complète → utiliser `/grill-with-docs`.
+- Ne pas utiliser pour simplement consulter le glossaire sans modifier de terme.
+
+
