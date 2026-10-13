@@ -26,6 +26,7 @@ L'application est découpée en modules fonctionnels (Vues) précis. Voici leur 
 ### 📚 Documents (`documents_view.py`)
 * **Rôle :** Hub d'ingestion (Porte d'entrée des sources) et base de connaissances vectorielle.
 * **Actions/Boutons :** *Import (PDF via Marker OCR lazy-loadé, Markdown, URL, vidéo YouTube)*, *Délimitation intelligente de la portée (`DocumentDelimitationDialog`)*, *Vectorisation sémantique FAISS/ChromaDB avec badge live*, *Recherche et test RAG instantané (`RAGTestDialog`)*, *Bouton "⚡ Forger la section" vers la Création*.
+* **Onglet Inspecteur « Figures » :** Galerie des figures du document (`FiguresGalleryWidget`), portée « section courante » / « tout le document », avec action directe *Image Occlusion* depuis une figure : les cartes créées sont rattachées à leur fragment source au palier `exact` (`CoverageAlignmentService.attach_notes_to_source`, ADR 0023).
 
 ### 🏭 Création & Pipelines (`creation_view.py` & `pipelines_view.py`)
 * **Rôle :** Orchestration de la génération de masse de cartes à partir des sources via le moteur DAG.
