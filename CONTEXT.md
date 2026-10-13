@@ -91,6 +91,13 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Résolution visuelle de fragment** : opération déterminant et rendant l'image conforme associée à un fragment de document pour l'analyse multimodale ou la consultation (planche pivotée via la couture pour un album, fichier d'illustration lié pour un document textuel).
   _Avoid_ : extraction d'image, chargement de planche, fetch media
 
+## Figures de documents
+
+- **Figure** : image extraite d'un document textuel (PDF, DOCX, PPTX, Markdown, page web) et rattachée au fragment de texte dont elle dépend. Elle se distingue de la **Planche** — page d'un album — en ce qu'elle n'est jamais une page autonome : elle ne porte ni transcription propre, ni rotation durable, ni recadrage.
+  _Avoid_ : illustration, image liée, image de document, vignette, figure de planche
+- **Galerie de figures** : surface présentant les figures d'un document ou de la **section courante**, offrant leur consultation et l'action directe vers le masquage d'occlusion. Sa portée suit celle de la section affichée, avec une vue étendue possible à tout le document.
+  _Avoid_ : panneau médias, bibliothèque d'images, collection d'images
+
 ## Provenance & Couverture
 
 - **Fil d'Ariane (heading path)** : la suite ordonnée des titres traversés pour atteindre un point du document, de la racine à la section. C'est l'identité d'une section.

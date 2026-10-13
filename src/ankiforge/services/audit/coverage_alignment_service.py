@@ -45,11 +45,14 @@ from ankiforge.services.reindex_service import mark_document_version
 from ankiforge.utils.paths import get_profile_dir
 from ankiforge.utils.tags import (
     HEADING_SEPARATOR,
+    build_document_tags,
     clean_source_slug,
     extract_tag_metadata,
     legacy_section_key,
+    parse_note_tags,
     replace_provenance_tags,
     section_key,
+    serialize_note_tags,
 )
 
 logger = logging.getLogger(__name__)
@@ -535,6 +538,87 @@ class CoverageAlignmentService:
             cls._notify_coverage_synced(target_doc.id, scope="document")
 
         return [link]
+
+    @classmethod
+    def attach_notes_to_source(
+        cls,
+        notes: list[NoteModel],
+        *,
+        doc_id: int,
+        source_chunk_id: int,
+    ) -> int:
+        """Rattache des notes fraîchement créées à leur fragment source, au palier ``exact``.
+
+        Motif « la provenance appartient à l'appelant » (ADR 0023) : une occlusion forgée
+        depuis une figure **connaît** son fragment, elle n'a donc rien à déduire. On
+        court-circuite les paliers de repli de :meth:`resolve_attachment` en lui passant
+        directement ``source_chunk_id`` — le résultat est ``exact`` par construction, et
+        non « section » ou « page » faute d'information.
+
+        Les tags de provenance (``doc:``, ``source:``, ``section:``, ``page:``) sont réécrits
+        dans la forme canonique du fragment, et le lien de couverture ``NoteChunkLinkModel``
+        est créé. L'ensemble est réuni dans une seule transaction ``db.atomic()``.
+
+        Args:
+            notes: Les notes d'occlusion à rattacher.
+            doc_id: Le document source des notes.
+            source_chunk_id: Le fragment porteur de la figure.
+
+        Returns:
+            int: Le nombre de notes rattachées (``0`` si le fragment est introuvable).
+        """
+        if not notes:
+            return 0
+
+        target_chunk, resolution = cls.resolve_attachment(
+            doc_id=doc_id,
+            source_chunk_id=source_chunk_id,
+        )
+        if target_chunk is None or not resolution:
+            logger.warning(
+                "Rattachement d'occlusion impossible : fragment %s introuvable pour le document %s.",
+                source_chunk_id,
+                doc_id,
+            )
+            return 0
+
+        target_doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
+        provenance = build_document_tags(
+            doc_id=doc_id,
+            doc_title=target_doc.title if target_doc else None,
+            page_number=target_chunk.page_number,
+            section_name=target_chunk.heading_path,
+        )
+
+        attached = 0
+        with db.atomic():
+            for note in notes:
+                NoteChunkLinkModel.get_or_create(
+                    note=note,
+                    chunk=target_chunk,
+                    defaults={"is_hallucinating": False, "resolution": resolution},
+                )
+                # Réécriture canonique des tags réécrivables (section/page/chunk), puis
+                # ajout des faits d'appartenance (`doc:`/`source:`) absents des notes neuves.
+                canonical = replace_provenance_tags(
+                    note.tags,
+                    {
+                        "section": section_key(target_chunk.heading_path) or None,
+                        "page": target_chunk.page_number,
+                        "chunk": None,
+                    },
+                )
+                merged = parse_note_tags(canonical)
+                for tag in provenance:
+                    if tag not in merged:
+                        merged.append(tag)
+                note.tags = serialize_note_tags(merged)
+                note.save(only=[NoteModel.tags])
+                attached += 1
+
+        if attached:
+            cls._notify_coverage_synced(doc_id, scope="document")
+        return attached
 
     @classmethod
     def align_document(
