@@ -1066,7 +1066,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location line="+26"/>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+474"/>
         <location filename="../../ui/views/creation_view/view.py" line="+226"/>
-        <location filename="../../ui/views/documents_view/view.py" line="+1594"/>
+        <location filename="../../ui/views/documents_view/view.py" line="+1603"/>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
@@ -2764,7 +2764,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/documents_view/view.py" line="-1243"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-1246"/>
         <source>%1 (Non extrait)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3150,7 +3150,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-676"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-681"/>
         <source>Markdown</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3160,7 +3160,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+528"/>
+        <location line="+533"/>
         <source>Document renommé en « %1 »</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3175,7 +3175,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+170"/>
+        <location line="+173"/>
         <source>RAG Prêt (%1 chunks)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3297,7 +3297,12 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+241"/>
+        <location line="+158"/>
+        <source>%1 carte(s) d&apos;occlusion rattachée(s) à la section.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+145"/>
         <source>✅ %1 cartes synchronisées via les tags ! Couverture : %2%%</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3323,7 +3328,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
     </message>
     <message>
         <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="+118"/>
-        <location line="+264"/>
+        <location line="+265"/>
         <source>Recadrée</source>
         <extracomment>Côté utile de la vignette, en pixels logiques. Sert de plafond : la carte ne demande jamais plus grand que ce qu&apos;elle peut afficher.</extracomment>
         <translation type="unfinished"></translation>
@@ -3339,12 +3344,12 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+130"/>
+        <location line="+136"/>
         <source>0 pages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+220"/>
+        <location line="+221"/>
         <source>%1 page%2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3354,7 +3359,12 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+108"/>
+        <location line="+118"/>
+        <source>%1 carte(s) d&apos;occlusion rattachée(s) à la planche.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
         <source>%1 image(s) ajoutée(s) à l&apos;album.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3433,6 +3443,11 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
     <message>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="-91"/>
         <source>%1 (Audio non supporté)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/views/documents_view/widgets/figures_gallery.py" line="+215"/>
+        <source>%1 figure(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6294,7 +6309,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumPageCard</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1461"/>
+        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1500"/>
         <source>Déplacer vers la gauche (page précédente)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6469,7 +6484,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumViewerWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="+684"/>
+        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="+691"/>
         <source>Album d&apos;images</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6524,7 +6539,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+92"/>
+        <location line="+93"/>
         <source>Erreur lors de la rotation de la page.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6554,7 +6569,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+84"/>
         <source>Erreur lors de l&apos;ajout des images.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10412,7 +10427,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2524"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2594"/>
         <source>Importer un fichier local (PDF, Markdown, Texte, .apkg)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10433,12 +10448,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+1841"/>
+        <location line="+1849"/>
         <source>Supprimer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1837"/>
+        <location line="-1845"/>
         <source>Importer des documents depuis un autre profil</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10569,25 +10584,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+37"/>
-        <location line="+1637"/>
+        <location line="+1645"/>
         <location line="+21"/>
         <source>Couverture : 0%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1654"/>
+        <location line="-1662"/>
         <source>Ouvrir le diagnostic complet du document dans Analyse &amp; Audit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+25"/>
-        <location line="+1611"/>
+        <location line="+1619"/>
         <location line="+21"/>
         <source>0 sections analysées • 0 cartes liées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1626"/>
+        <location line="-1634"/>
         <source>Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10632,7 +10647,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+144"/>
+        <location line="+149"/>
         <source>Renommer le document...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10677,7 +10692,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+91"/>
+        <location line="+94"/>
         <source>Non indexé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10842,12 +10857,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+17"/>
-        <location line="+595"/>
+        <location line="+657"/>
         <source>Veuillez d&apos;abord sélectionner un document.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-590"/>
+        <location line="-652"/>
         <source>L&apos;analyse Marker OCR est disponible uniquement pour les fichiers PDF.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10902,7 +10917,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+232"/>
+        <location line="+162"/>
+        <source>Figure introuvable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Fichier de la figure introuvable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+123"/>
         <source>Veuillez sélectionner un chapitre dans le sommaire.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11938,6 +11963,91 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+27"/>
         <source>PROPOSITION MUTÉE IA MCP</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>FigureCard</name>
+    <message>
+        <location filename="../../ui/views/documents_view/widgets/figures_gallery.py" line="-146"/>
+        <source>Chargement…</source>
+        <extracomment>Côté de la vignette d&apos;une figure (plafonné avant transformation par la plaque).</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Forger des cartes de masquage depuis cette figure</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Figure indisponible</source>
+        <extracomment>Référence forte : un QPixmap nul se lit comme « vignette absente », sans erreur.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>FiguresGalleryWidget</name>
+    <message>
+        <location line="+38"/>
+        <source>Tout le document</source>
+        <extracomment>Les callbacks de la plaque peuvent être livrés après la construction : on garde les tasks vivantes le temps du rendu (leur QRunnable est auto-supprimé).</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+127"/>
+        <source>0 figure</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-77"/>
+        <source>Aucun document sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélectionnez un document dans l&apos;explorateur.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Document album</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Les planches d&apos;un album s&apos;inspectent depuis la vue Album.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Document non indexé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Structurez ou indexez le document pour révéler ses figures.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Aucune figure dans cette section</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Activez « Tout le document » pour voir les autres sections.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Aucune figure</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ce document ne contient aucune illustration liée à un fragment.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -14553,7 +14663,7 @@ Aucune anomalie détectée dans votre collection.</source>
 <context>
     <name>PageInspectorWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1284"/>
+        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1322"/>
         <source>Inspecteur de page</source>
         <extracomment>Plafond du rendu d&apos;inspection. Au-delà, on charge la planche native — ce que le ticket S1 interdit hors d&apos;une demande de zoom explicite. Vrai quand `_zoom_factor` est calculé par ajustement à la fenêtre plutôt que posé.</extracomment>
         <translation type="unfinished"></translation>
