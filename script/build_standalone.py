@@ -17,9 +17,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from copy_runtime_dependencies import copy_runtime_deps
-from extract_translations import LANGUAGES, compile_catalog
-from generate_version import generate_version_file, read_pyproject_version, sync_project_files
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from copy_runtime_dependencies import copy_runtime_deps  # noqa: E402
+from extract_translations import LANGUAGES, compile_catalog  # noqa: E402
+from generate_version import generate_version_file, read_pyproject_version, sync_project_files  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("AnkiForgeBuilder")
@@ -39,6 +43,62 @@ def compile_translation_catalogs() -> None:
     for language in LANGUAGES:
         catalog = compile_catalog(language)
         logger.info("Catalogue Qt compilé : %s (%d octets)", catalog.name, catalog.stat().st_size)
+
+
+def sanitize_macos_native_dependencies(search_dirs: list[Path] | None = None) -> bool:
+    """Corrige de manière préventive les identifiants Mach-O LC_ID_DYLIB corrompus dans les wheels tiers.
+
+    Notamment, le wheel officiel du package ``anki`` pour macOS distribue ``anki/_rsbridge.so``
+    avec un LC_ID_DYLIB pointant vers le chemin absolu du runner GitHub d'origine
+    (``/Users/runner/work/anki/anki/out/rust/release-lto/deps/librsbridge.dylib``).
+
+    Lorsque Nuitka résout les dépendances Mach-O via otool, cette référence absolue
+    inexistante est interprétée comme une DLL manquante non résolue (erreur FATAL).
+    Cette fonction réécrit l'ID en ``@rpath/_rsbridge.so`` via ``install_name_tool``.
+    """
+    if search_dirs is None:
+        dirs_to_check: list[Path] = []
+        if sys.prefix:
+            py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+            dirs_to_check.append(Path(sys.prefix) / "lib" / py_ver / "site-packages")
+        dirs_to_check.append(PROJECT_ROOT / ".venv" / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages")
+    else:
+        dirs_to_check = search_dirs
+
+    corrected = False
+    for base in dirs_to_check:
+        if not base.exists():
+            continue
+        candidates = [
+            base / "anki" / "_rsbridge.so",
+            base / "_rsbridge.so",
+        ]
+        for candidate in candidates:
+            if candidate.is_file():
+                try:
+                    out = subprocess.run(
+                        ["otool", "-D", str(candidate)],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if out.returncode == 0 and ("librsbridge.dylib" in out.stdout or "/Users/runner/" in out.stdout):
+                        logger.info("Correction Mach-O LC_ID_DYLIB pour %s via install_name_tool...", candidate)
+                        sub = subprocess.run(
+                            ["install_name_tool", "-id", "@rpath/_rsbridge.so", str(candidate)],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                        )
+                        if sub.returncode == 0:
+                            logger.info("✅ Mach-O LC_ID_DYLIB corrigé avec succès (@rpath/_rsbridge.so)")
+                            corrected = True
+                        else:
+                            logger.warning("Échec install_name_tool sur %s : %s", candidate, sub.stderr)
+                except Exception as err:
+                    logger.warning("Erreur lors de l'inspection/correction de %s : %s", candidate, err)
+
+    return corrected
 
 
 def load_config() -> dict[str, Any]:
@@ -353,6 +413,10 @@ def main() -> None:
     # Les `.qm` sont générés localement dans le runner : ils sont volontairement
     # ignorés par Git et Nuitka échoue immédiatement si le motif reste vide.
     compile_translation_catalogs()
+
+    # Assainissement préventif des bibliothèques Mach-O (ex: anki/_rsbridge.so)
+    if target_os == "darwin":
+        sanitize_macos_native_dependencies()
 
     # 1. Exécution de la compilation Nuitka
     ret = subprocess.run(cmd, check=False)

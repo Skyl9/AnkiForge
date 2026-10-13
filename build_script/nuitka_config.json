@@ -23,6 +23,8 @@
     ],
     "include_data_files": {},
     "nofollow_imports": [
+      "anki",
+      "aqt",
       "google",
       "faiss",
       "openai",

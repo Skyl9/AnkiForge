@@ -12,6 +12,10 @@ echo "[INFO] Compilation de l'extension C native Levenshtein (Universal 2)..."
 mkdir -p c_ext
 clang -O3 -flto -shared -fPIC -arch arm64 -arch x86_64 -o c_ext/levenshtein_distance.so c_ext/levenshtein_distance.c 2>/dev/null || true
 
+# Note sur anki / librsbridge.dylib :
+# 'anki' est une dependance dev (oracle de test pour .apkg). Il est exclu du binaire
+# standalone via nofollow_imports (nuitka_config.json) et skip_names (copy_runtime_dependencies.py).
+# build_standalone.py assainit egalement le LC_ID_DYLIB Mach-O de _rsbridge.so si installe.
 echo "[INFO] Execution du pilote de compilation universel..."
 BUILD_ARGS=(--target-os=darwin)
 if [[ -n "${BUILD_VERSION:-}" && "$*" != *"--version"* ]]; then

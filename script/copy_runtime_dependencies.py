@@ -24,6 +24,8 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
         "shiboken6_generator",
         "nuitka",
         "ankiforge",
+        "anki",
+        "aqt",
         "peewee",
         "playhouse",
         "peewee_migrate",
