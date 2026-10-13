@@ -77,6 +77,7 @@ from ankiforge.ui.views.documents_view.utils import FileDropMixin, apply_pill_st
 from ankiforge.ui.views.documents_view.widgets import (
     AlbumViewerWidget,
     DocumentTreeWidget,
+    FiguresGalleryWidget,
 )
 from ankiforge.ui.widgets.document_outline import DocumentOutlineWidget
 from ankiforge.ui.widgets.katex_editor import KaTeXEditor
@@ -779,6 +780,10 @@ class DocumentsView(FileDropMixin, QWidget):
         self.outline_widget = DocumentOutlineWidget()
         self.coverage_panel.register_tab("Plan", self.outline_widget, "ph.tree-structure", closable=True, active_by_default=False)
 
+        # --- TAB 4: Figures du document (galerie d'occlusion) ---
+        self.figures_gallery = FiguresGalleryWidget()
+        self.coverage_panel.register_tab("Figures", self.figures_gallery, "ph.bounding-box", closable=True, active_by_default=False)
+
         self.main_splitter.addWidget(self.coverage_panel)
 
         self.main_splitter.setCollapsible(0, False)
@@ -800,6 +805,7 @@ class DocumentsView(FileDropMixin, QWidget):
         self.text_editor.content_changed.connect(self._on_document_text_changed)
         self.outline_widget.heading_selected.connect(self._on_outline_heading_selected)
         self.outline_widget.forge_section_requested.connect(self._on_forge_outline_section)
+        self.figures_gallery.occlusion_requested.connect(self._on_figure_occlusion_requested)
         self.outline_widget.repair_requested.connect(self._on_repair_document_headings)
         self.outline_widget.toc_requested.connect(self._on_insert_document_toc)
         self.outline_widget.outline_availability_changed.connect(self._set_outline_tab_visible)
@@ -1141,6 +1147,7 @@ class DocumentsView(FileDropMixin, QWidget):
                     self.editor_stack.setCurrentIndex(2)
                     self._update_rag_status_pill()
                     self._refresh_chapters_list()
+                    self._refresh_figures_gallery()
                     return
 
                 self.text_editor.blockSignals(True)
@@ -1210,6 +1217,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
                 self.editor_stack.setCurrentIndex(1)
                 self._refresh_chapters_list()
+                self._refresh_figures_gallery()
         else:
             self.btn_marker.hide()
             if hasattr(self, "audio_player"):
@@ -1222,6 +1230,7 @@ class DocumentsView(FileDropMixin, QWidget):
             self.btn_doc_kebab.setEnabled(False)
             self.editor_stack.setCurrentIndex(0)
             self._refresh_chapters_list()
+            self._refresh_figures_gallery()
 
     def _update_rag_status_pill(self) -> None:
         if not self._current_doc_id:
@@ -2454,6 +2463,67 @@ class DocumentsView(FileDropMixin, QWidget):
         keys = [heading_path, full_slug, leaf_raw, leaf_slug]
         return list(dict.fromkeys(keys))
 
+    def _current_figure_scope_heading(self) -> str | None:
+        """Fil d'Ariane de la section courante pour la galerie de figures, ou ``None``.
+
+        La « section courante » est le chapitre sélectionné dans la liste de couverture —
+        la même sélection qui pilote déjà la navigation de l'éditeur, donc une seule notion
+        de section dans la vue, jamais deux.
+        """
+        key = self._current_selected_chapter_key()
+        if not key:
+            return None
+        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == key[0])
+        return chunk.heading_path if chunk else None
+
+    def _refresh_figures_gallery(self) -> None:
+        """Recharge la galerie de figures depuis le document et la section courants."""
+        if not hasattr(self, "figures_gallery"):
+            return
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id) if self._current_doc_id else None
+        heading = self._current_figure_scope_heading() if doc is not None else None
+        self.figures_gallery.load(doc, heading)
+
+    @Slot(int)
+    def _on_figure_occlusion_requested(self, chunk_id: int) -> None:
+        """Ouvre l'éditeur d'occlusion sur la figure et rattache les notes à sa source.
+
+        La provenance est écrite **ici**, pas dans le service d'occlusion : la vue détient le
+        contexte documentaire, le service de cartes ne le connaît pas (ADR 0023).
+        """
+        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
+        if chunk is None or chunk.media is None:
+            show_toast(self, self.tr("Figure introuvable."), is_error=True)
+            return
+
+        from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+        from ankiforge.services.cards.visual_resolver import VisualPayloadResolver
+        from ankiforge.ui.dialogs.image_occlusion_dialog import ImageOcclusionDialog
+
+        media_path = VisualPayloadResolver().figure_media_path(chunk)
+        if media_path is None:
+            show_toast(self, self.tr("Fichier de la figure introuvable."), is_error=True)
+            return
+
+        dialog = ImageOcclusionDialog(image_path=media_path, parent=self.window())
+        dialog.exec()
+        notes = dialog.get_created_notes()
+        if not notes:
+            return
+
+        attached = CoverageAlignmentService.attach_notes_to_source(
+            notes,
+            doc_id=chunk.document_id,
+            source_chunk_id=chunk.id,
+        )
+        if attached:
+            show_toast(
+                self,
+                tr("%1 carte(s) d'occlusion rattachée(s) à la section.", attached),
+                level="success",
+            )
+        self._refresh_chapters_list()
+
     def _current_selected_chapter_key(self) -> list[int] | None:
         item = self.chapters_list.currentItem()
         if item is None:
@@ -2500,6 +2570,7 @@ class DocumentsView(FileDropMixin, QWidget):
         chunk_ids = item.data(Qt.ItemDataRole.UserRole)
         if not isinstance(chunk_ids, list) or not chunk_ids:
             return
+        self._refresh_figures_gallery()
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_ids[0])
         if chunk and chunk.start_time is not None and hasattr(self, "audio_player") and not self.audio_player.isHidden():
             self.audio_player.seek_seconds(chunk.start_time)
