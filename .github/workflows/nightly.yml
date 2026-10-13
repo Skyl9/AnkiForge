@@ -125,7 +125,6 @@ jobs:
       - name: Build Standalone Binary on Linux
         if: runner.os == 'Linux'
         run: |
-          chmod +x build_script/*.sh
           ./build_script/build_prod_linux.sh --channel nightly
           ./build_script/package_appimage.sh
 
@@ -133,7 +132,6 @@ jobs:
       - name: Build App Bundle on macOS
         if: runner.os == 'macOS'
         run: |
-          chmod +x build_script/*.sh
           ./build_script/build_prod_mac.sh --channel nightly
           ./build_script/package_dmg.sh
 

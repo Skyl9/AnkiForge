@@ -1,0 +1,25 @@
+# Configuration Git pour la préservation des fins de ligne et des scripts
+
+# Détection automatique du texte par défaut
+* text=auto
+
+# Les scripts shell doivent impérativement conserver les fins de ligne Unix (LF)
+*.sh text eol=lf
+.githooks/* text eol=lf
+
+# Fichiers binaires
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.dylib binary
+*.so binary
+*.dll binary
+*.exe binary
+*.dmg binary
+*.AppImage binary
+*.zip binary
+*.tar.gz binary
+*.db binary
+*.sqlite binary

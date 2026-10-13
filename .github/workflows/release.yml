@@ -156,13 +156,11 @@ jobs:
       - name: Build Binary with Nuitka (Linux)
         if: runner.os == 'Linux'
         run: |
-          chmod +x build_script/build_prod_linux.sh
           ./build_script/build_prod_linux.sh --version "${{ env.BUILD_VERSION }}" --channel stable
 
       - name: Build Binary with Nuitka (macOS)
         if: runner.os == 'macOS'
         run: |
-          chmod +x build_script/build_prod_mac.sh
           ./build_script/build_prod_mac.sh --version "${{ env.BUILD_VERSION }}" --channel stable
 
       - name: Disable Windows Defender for Build Performance (Windows)
@@ -199,7 +197,6 @@ jobs:
       - name: Package Linux AppImage & Tarball
         if: runner.os == 'Linux'
         run: |
-          chmod +x build_script/package_appimage.sh
           ./build_script/package_appimage.sh
 
           tar -czf ankiforge-linux-x86_64.tar.gz -C dist_prod AnkiForge.dist/
@@ -209,7 +206,6 @@ jobs:
       - name: Package macOS DMG
         if: runner.os == 'macOS'
         run: |
-          chmod +x build_script/package_dmg.sh
           ./build_script/package_dmg.sh
 
       # ── Notarisation & Signature macOS (Conditionnelle aux secrets Apple) ──
