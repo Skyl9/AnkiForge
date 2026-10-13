@@ -95,6 +95,10 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 
 - **Figure** : image extraite d'un document textuel (PDF, DOCX, PPTX, Markdown, page web) et rattachée au fragment de texte dont elle dépend. Elle se distingue de la **Planche** — page d'un album — en ce qu'elle n'est jamais une page autonome : elle ne porte ni transcription propre, ni rotation durable, ni recadrage.
   _Avoid_ : illustration, image liée, image de document, vignette, figure de planche
+- **Fragment de figure** : fragment documentaire (`DocumentChunkModel`) porteur d'une clé média non nulle et de son contexte textuel immédiat (fil d'Ariane, numéro de page, légende ou extrait), matérialisant l'unité d'ancrage déterministe pour l'Image Occlusion et l'analyse visuelle.
+  _Avoid_ : chunk image, fragment visuel, nœud média
+- **Filtrage de figure** : règle déterministe d'exclusion géométrique et dimensionnelle éliminant les artéfacts décoratifs (puces, icônes, séparateurs) lors de l'ingestion native selon un seuil de surface minimale (22 500 px²), un côté minimal (60 px) et des bornes de ratio d'aspect (entre 1:8 et 8:1).
+  _Avoid_ : seuil de taille, nettoyage d'images, crop auto
 - **Galerie de figures** : surface présentant les figures d'un document ou de la **section courante**, offrant leur consultation et l'action directe vers le masquage d'occlusion. Sa portée suit celle de la section affichée, avec une vue étendue possible à tout le document.
   _Avoid_ : panneau médias, bibliothèque d'images, collection d'images
 
