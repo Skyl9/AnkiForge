@@ -173,6 +173,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : note préliminaire, brouillon de carte, création différée
 - **Contrôle d'hallucination de paquet** : garde-fou interdisant la création implicite ou accidentelle de paquets inexistants lors de la soumission de notes par un agent externe, exigeant l'existence préalable du paquet ou sa création délibérée.
   _Avoid_ : vérification de deck, filtre de paquet, validation de cible
+- **Amorçage d'agent (Init)** : opération par laquelle un agent externe demande au serveur MCP de générer un fichier d'instructions méthodologiques dans son répertoire de travail, afin de maximiser ses compétences pour piloter AnkiForge. Le fichier produit est un adaptateur d'instructions au format attendu par le client (`GEMINI.md`, `CLAUDE.md`, `ANKIFORGE_GUIDE.md`, etc.), contenant les workflows d'usage, le catalogue des outils MCP et les garde-fous anticipatifs.
+  _Avoid_ : bootstrap, setup, onboarding, workspace init, init workspace
 
 ## Profils, Sauvegardes & Durcissement
 
