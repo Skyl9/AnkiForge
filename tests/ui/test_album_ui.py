@@ -524,6 +524,11 @@ def test_occlusion_receives_the_rotated_planche(qtbot, tmp_path, mock_db, monkey
         def exec(self) -> None:
             captured["exec"] = True
 
+        def get_created_notes(self) -> list:
+            # Contrat de `ImageOcclusionDialog` : la vue lit les notes après `exec()` pour
+            # les rattacher. Le double doit donc le porter, même s'il n'en crée aucune.
+            return []
+
     monkeypatch.setattr("ankiforge.ui.dialogs.image_occlusion_dialog.ImageOcclusionDialog", SpyOcclusionDialog)
 
     inspector._on_open_image_occlusion()
@@ -732,3 +737,53 @@ def test_album_viewer_toolbar_responsive_wrapping(qtbot):
     viewer.resize(380, 500)
     viewer.layout().activate()
     assert viewer.toolbar_container.width() <= 380
+
+
+def test_album_occlusion_notes_are_attached_to_the_page_chunk(qtbot, created_album, mock_db):
+    """
+    Le chemin album rattache désormais les occlusions à leur planche (ADR 0023).
+
+    Auparavant, `_on_open_image_occlusion` jetait `get_created_notes()` : une carte
+    d'occlusion de planche était orpheline de sa source. Le rattachement retrouve le
+    fragment « page » créé par l'indexation visuelle et l'inscrit au palier exact.
+    """
+    import json
+    import uuid
+
+    from ankiforge.database.models import (
+        DocumentChunkModel,
+        NoteChunkLinkModel,
+        NoteModel,
+        NoteTypeModel,
+    )
+    from ankiforge.services.audit.coverage_alignment_service import RESOLUTION_EXACT
+
+    viewer = AlbumViewerWidget()
+    qtbot.addWidget(viewer)
+    viewer.load_album(created_album)
+
+    page = DocumentPageModel.select().where(DocumentPageModel.document == created_album).first()
+    chunk = DocumentChunkModel.create(
+        document=created_album,
+        chunk_index=0,
+        heading_path=f"Page {page.page_number}",
+        content="Page illustrée.",
+        content_hash=uuid.uuid4().hex,
+        page_number=page.page_number,
+        media=page.media,
+    )
+    note_type = NoteTypeModel.create(
+        name=f"IOE {uuid.uuid4().hex[:6]}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style="",
+    )
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=note_type, tags=json.dumps(["image-occlusion"]))
+    note.add_version({"Front": "masque", "Back": "réponse"}, source="manual")
+
+    viewer._on_occlusion_notes_created(page.id, [note])
+
+    link = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note)
+    assert link is not None, "l'occlusion de planche n'a pas été rattachée à son fragment"
+    assert link.chunk_id == chunk.id
+    assert link.resolution == RESOLUTION_EXACT

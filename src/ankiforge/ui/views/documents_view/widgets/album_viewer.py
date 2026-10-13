@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import DocumentModel, DocumentPageModel
+from ankiforge.database.models import DocumentModel, DocumentPageModel, NoteModel
 from ankiforge.services.ai.album_transcription_types import AlbumTranscriptionOptions
 from ankiforge.services.cards.album_service import AlbumService
 from ankiforge.services.workers.album_worker import AlbumOCRWorker, AlbumPDFWorker
@@ -333,6 +333,7 @@ class PageInspectorWidget(QWidget):
     navigate_requested = Signal(int)  # delta (-1 pour précédent, +1 pour suivant)
     rotate_requested = Signal(int)  # page_id
     page_crop_changed = Signal(int)  # page_id
+    occlusion_notes_created = Signal(int, list)  # page_id, list[NoteModel]
 
     #: Plafond du rendu d'inspection. Au-delà, on charge la planche native — ce que le
     #: ticket S1 interdit hors d'une demande de zoom explicite.
@@ -853,6 +854,12 @@ class PageInspectorWidget(QWidget):
 
             dialog = ImageOcclusionDialog(image_path=staged, parent=self.window())
             dialog.exec()
+            notes = dialog.get_created_notes()
+            if notes and self.current_page is not None:
+                # Le dialogue a produit des cartes : la planche doit les voir rattachées à son
+                # fragment. Jeter ici `get_created_notes()` (comportement d'origine) laissait
+                # l'occlusion orpheline de sa source.
+                self.occlusion_notes_created.emit(self.current_page.id, notes)
 
 
 class AlbumViewerWidget(QWidget):
@@ -1110,6 +1117,7 @@ class AlbumViewerWidget(QWidget):
         self.inspector.navigate_requested.connect(self._on_inspector_navigate)
         self.inspector.rotate_requested.connect(self._on_rotate_page)
         self.inspector.page_crop_changed.connect(self._on_page_crop_changed)
+        self.inspector.occlusion_notes_created.connect(self._on_occlusion_notes_created)
         self.stack.addWidget(self.inspector)
 
         main_layout.addWidget(self.stack, 1)
@@ -1252,6 +1260,37 @@ class AlbumViewerWidget(QWidget):
                 break
         if self._doc:
             self.album_modified.emit(self._doc.id)
+
+    @Slot(int, list)
+    def _on_occlusion_notes_created(self, page_id: int, notes: list[NoteModel]) -> None:
+        """Rattache les notes d'occlusion d'une planche à son fragment (ADR 0023).
+
+        Le chemin album jetait jusqu'ici ``get_created_notes()`` : une occlusion de planche
+        n'était pas moins tracée qu'une occlusion de figure, elle ne l'était pas du tout. Le
+        fragment visé est le fragment « page » que l'indexation visuelle a créé pour cette
+        planche (``heading_path = "Page N"``, média = la planche).
+        """
+        if not self._doc or not notes:
+            return
+
+        from ankiforge.database.models import DocumentChunkModel
+        from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+        page = DocumentPageModel.get_or_none(DocumentPageModel.id == page_id)
+        if page is None:
+            return
+
+        chunk = DocumentChunkModel.get_or_none((DocumentChunkModel.document == self._doc.id) & (DocumentChunkModel.page_number == page.page_number))
+        if chunk is None:
+            return
+
+        attached = CoverageAlignmentService.attach_notes_to_source(
+            notes,
+            doc_id=self._doc.id,
+            source_chunk_id=chunk.id,
+        )
+        if attached:
+            show_toast(self, tr("%1 carte(s) d'occlusion rattachée(s) à la planche.", attached), level="success")
 
     @Slot()
     def _on_add_pages(self) -> None:
