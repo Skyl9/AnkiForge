@@ -157,3 +157,48 @@ class VisualPayloadResolver:
                             logger.warning("Impossible de lire l'image liée %s : %s", file_path, err)
 
         return resolved_images
+
+    def list_document_figures(
+        self,
+        document_id: int,
+        heading_path: str | None = None,
+    ) -> list[DocumentChunkModel]:
+        """
+        Liste, **sans les encoder**, les fragments porteurs d'une figure d'un document.
+
+        C'est la seule source de vérité pour « quelles illustrations ce document
+        contient-il ? ». Elle applique le même critère que :meth:`resolve_visual_images`
+        (un fragment à clé média liée). Interroger ``DocumentChunkModel.media`` ailleurs
+        créerait une seconde règle de sélection qui divergerait de la résolution — ce que
+        la couture ADR 0018 existe pour empêcher.
+
+        Args:
+            document_id: Le document dont on veut les figures.
+            heading_path: Fil d'Ariane de la section à restreindre. ``None`` = tout le
+                document.
+
+        Returns:
+            list[DocumentChunkModel]: Les fragments en périmètre, ordonnés par position
+            (index de fragment, puis id). Vide si le document est non indexé ou sans figure.
+        """
+        query = (
+            DocumentChunkModel.select()
+            .where((DocumentChunkModel.document == document_id) & (DocumentChunkModel.media.is_null(False)))
+            .order_by(DocumentChunkModel.chunk_index.asc(), DocumentChunkModel.id.asc())
+        )
+        if heading_path:
+            query = query.where(DocumentChunkModel.heading_path == heading_path)
+        return list(query)
+
+    def figure_media_path(self, chunk: DocumentChunkModel, media_dir: Path | None = None) -> Path | None:
+        """
+        Chemin physique de la figure portée par un fragment, ou ``None`` si le fichier manque.
+
+        Le nom de fichier vient de la clé média du fragment, jamais d'une convention
+        reconstruite côté appelant : une seule règle de localisation, comme pour l'encodage.
+        """
+        media = chunk.media
+        if media is None or not getattr(media, "filename", None):
+            return None
+        path = (media_dir or self.media_dir) / str(media.filename)
+        return path if path.exists() else None
