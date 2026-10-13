@@ -25,15 +25,15 @@ import logging
 import threading
 from collections import OrderedDict
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
+from PySide6.QtGui import QImage
 
 from ankiforge.services.cards.album_service import AlbumService
 
 if TYPE_CHECKING:
-    from PySide6.QtGui import QImage
-
     from ankiforge.database.models import DocumentPageModel
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,16 @@ class ThumbnailCache:
     def key_for(page: DocumentPageModel, size_px: int) -> tuple[int, int, str, int]:
         media_id = page.media_id if page.media_id is not None else -1
         return (int(media_id), int(page.rotation or 0) % 360, str(page.crop_data or ""), size_bucket(size_px))
+
+    @staticmethod
+    def key_for_media(media_id: int | None, size_px: int) -> tuple[int, int, str, int]:
+        """Clé d'une figure de document : image fixe, donc orientation 0 et recadrage vide.
+
+        Le composant ``media_id`` distingue deux figures ; les composants d'orientation et de
+        recadrage restent vides, une figure n'ayant ni rotation durable ni crop (contrairement
+        à une planche d'album, ADR 0011).
+        """
+        return (int(media_id if media_id is not None else -1), 0, "", size_bucket(size_px))
 
     def get(self, key: tuple[int, int, str, int]) -> QImage | None:
         with self._lock:
@@ -189,4 +199,92 @@ def request_thumbnail(
         task.signals.failed.connect(on_failed)
     pool = thread_pool if thread_pool is not None else QThreadPool.globalInstance()
     pool.start(task)
+    return task
+
+
+class MediaThumbnailSignals(QObject):
+    """Signaux d'un runnable de vignette de figure : ``QObject`` exigé par Qt, ``QRunnable`` non."""
+
+    ready = Signal(int, int, object)  # (media_id, size_px, QImage) — jamais un QPixmap
+    failed = Signal(int, str)  # (media_id, message)
+
+
+class MediaThumbnailTask(QRunnable):
+    """
+    Rend la vignette d'un **fichier média** hors du thread GUI.
+
+    Une figure n'est pas une planche : pas de rotation durable ni de recadrage, donc une clé
+    de cache réduite à ``(media_id, 0, "", palier)``. Le reste suit la discipline de la plaque
+    d'album : plafonner **avant** transformation, produire une ``QImage`` (Qt refuse un
+    ``QPixmap`` hors thread GUI, et le refus est silencieux), laisser la conversion au thread GUI.
+    """
+
+    def __init__(
+        self,
+        media_id: int,
+        file_path: Path,
+        size_px: int,
+        cache: ThumbnailCache | None = None,
+    ) -> None:
+        super().__init__()
+        self.setAutoDelete(True)
+        self.media_id = media_id
+        self.file_path = file_path
+        self.size_px = size_px
+        self.cache = cache if cache is not None else GLOBAL_THUMBNAIL_CACHE
+        self.signals = MediaThumbnailSignals()
+        self._key = self.cache.key_for_media(media_id, size_px)
+
+    @Slot()
+    def run(self) -> None:
+        cached = self.cache.get(self._key)
+        if cached is not None:
+            self.signals.ready.emit(self.media_id, self.size_px, cached)
+            return
+
+        try:
+            from PIL import Image
+
+            with Image.open(self.file_path) as source:
+                rendered = source.convert("RGB")
+                rendered.thumbnail((self.size_px, self.size_px), Image.Resampling.LANCZOS)
+                width, height = rendered.size
+                image = QImage(rendered.tobytes(), width, height, 3 * width, QImage.Format.Format_RGB888).copy()
+        except Exception as e:
+            logger.warning("Vignette indisponible pour la figure %d : %s", self.media_id, e)
+            self.signals.failed.emit(self.media_id, str(e))
+            return
+
+        if image.isNull():
+            self.signals.failed.emit(self.media_id, "Image illisible")
+            return
+
+        self.cache.put(self._key, image)
+        self.signals.ready.emit(self.media_id, self.size_px, image)
+
+
+def request_media_thumbnail(
+    media_id: int,
+    file_path: Path,
+    size_px: int,
+    on_ready: Callable[[int, int, QImage], None],
+    on_failed: Callable[[int, str], None] | None = None,
+    cache: ThumbnailCache | None = None,
+    thread_pool: QThreadPool | None = None,
+) -> MediaThumbnailTask:
+    """
+    Demande la vignette d'un fichier média en arrière-plan et branche les callbacks.
+
+    Comme :func:`request_thumbnail`, **l'appelant doit conserver la task retournée** : le
+    ``QRunnable`` est auto-supprimé en fin de ``run()`` et son ``QObject`` porteur de signaux
+    disparaît avec la dernière référence — un ramassage prématuré ne lève rien, le signal ne
+    trouve simplement plus personne.
+    """
+    task = MediaThumbnailTask(media_id, file_path, size_px, cache=cache)
+    task.signals.ready.connect(on_ready)
+    if on_failed is not None:
+        task.signals.failed.connect(on_failed)
+    pool = thread_pool if thread_pool is not None else QThreadPool.globalInstance()
+    pool.start(task)
+    return task
     return task

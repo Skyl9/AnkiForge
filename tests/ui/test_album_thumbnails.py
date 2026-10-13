@@ -16,6 +16,7 @@ from ankiforge.services.cards.album_service import AlbumService
 from ankiforge.ui.views.documents_view.widgets.album_thumbnails import (
     GLOBAL_THUMBNAIL_CACHE,
     ThumbnailCache,
+    request_media_thumbnail,
     request_thumbnail,
     size_bucket,
 )
@@ -273,3 +274,61 @@ def test_missing_file_reports_failure_instead_of_hanging(qtbot, album_page):
 def test_global_cache_is_shared_between_requests():
     """Le cache global est bien un cache (et non une fonction sans état)."""
     assert isinstance(GLOBAL_THUMBNAIL_CACHE, ThumbnailCache)
+
+
+def test_media_key_has_identity_in_a_stable_slot():
+    """Une figure n'a ni rotation ni crop : sa clé l'inscrit dans le même cache que l'album."""
+    assert ThumbnailCache.key_for_media(7, 180) == (7, 0, "", 180)
+    assert ThumbnailCache.key_for_media(None, 180) == (-1, 0, "", 180)
+    # Deux médias distincts ne partagent pas d'entrée.
+    assert ThumbnailCache.key_for_media(7, 180) != ThumbnailCache.key_for_media(8, 180)
+
+
+def test_media_thumbnail_is_capped_and_delivered(qtbot, tmp_path):
+    """Une figure native est plafonnée avant livraison, comme une planche d'album."""
+    path = tmp_path / "figure.png"
+    Image.new("RGB", (1000, 800), color="white").save(path)
+    cache = ThumbnailCache()
+    pool = QThreadPool()
+
+    results: list[tuple[int, int, object]] = []
+    task = request_media_thumbnail(
+        42,
+        path,
+        180,
+        on_ready=lambda mid, size, image: results.append((mid, size, image)),
+        on_failed=lambda mid, msg: results.append((mid, -1, msg)),
+        cache=cache,
+        thread_pool=pool,
+    )
+    pool.waitForDone(5000)
+    qtbot.wait(150)
+    assert task is not None
+
+    assert len(results) == 1
+    mid, size, image = results[0]
+    assert mid == 42
+    assert size == 180
+    assert image.width() <= 180
+    assert image.height() <= 180
+    assert len(cache) == 1
+
+
+def test_media_thumbnail_reports_missing_file(qtbot, tmp_path):
+    """Un fichier absent signale son échec au lieu de laisser la vignette muette."""
+    failures: list[tuple[int, str]] = []
+    task = request_media_thumbnail(
+        3,
+        tmp_path / "absent.png",
+        180,
+        on_ready=lambda mid, size, image: None,
+        on_failed=lambda mid, msg: failures.append((mid, msg)),
+        cache=ThumbnailCache(),
+        thread_pool=QThreadPool(),
+    )
+    QThreadPool.globalInstance().waitForDone(5000)
+    qtbot.wait(150)
+    assert task is not None
+
+    assert len(failures) == 1
+    assert failures[0][0] == 3
