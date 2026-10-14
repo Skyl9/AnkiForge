@@ -232,3 +232,7 @@ def clone_production_data_to_development(copy_media: bool = True) -> tuple[int, 
         dev_dir,
     )
     return (cloned_profiles, copied_media_count)
+
+
+# URL canonique de soutien Ko-fi (Dialogue de soutien / Rappel de soutien au démarrage)
+KOFI_URL: str = "https://ko-fi.com/tristan92"

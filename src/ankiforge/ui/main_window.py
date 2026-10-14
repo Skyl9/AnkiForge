@@ -4,6 +4,8 @@ Main Window & Navigation for AnkiForge.
 
 import contextlib
 import logging
+import os
+import sys
 from typing import Any, cast
 
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -16,7 +18,7 @@ from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — r
 from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view import AgentsView
-from ankiforge.utils.environment import is_development
+from ankiforge.utils.environment import is_development, is_testing
 from ankiforge.utils.event_bus import (
     OpenConsultantRequestedEvent,
     OpenFeedbackRequestedEvent,
@@ -134,6 +136,7 @@ class MainWindow(QMainWindow):
         self._latest_update_info: Any | None = None
         self._fallback_mcp_status_widget: Any | None = None
         self._crash_dialog: QWidget | None = None
+        self._support_dialog: QWidget | None = None
         self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
@@ -196,6 +199,11 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(1500, self._check_uncompleted_pipeline_runs)
         # Vérification HTTP forcée à chaque lancement pour actualiser le cache et les assets
         QTimer.singleShot(2000, self._check_for_updates)
+
+        # Invitation de soutien Ko-fi temporisée et non bloquante au démarrage.
+        # Désactivée automatiquement en mode test, headless ou smoke-test.
+        if not (is_testing() or os.environ.get("QT_QPA_PLATFORM", "").lower() == "offscreen" or "--smoke-test" in sys.argv):
+            QTimer.singleShot(2500, self._check_startup_support_dialog)
 
     def _prewarm_web_engine(self) -> None:
         """Préchauffe silencieusement Chromium au démarrage pour éviter tout rechargement visuel lors de la première navigation vers un composant WebEngine."""
@@ -965,6 +973,23 @@ class MainWindow(QMainWindow):
         initial_title = getattr(event, "initial_title", "")
         context_error = getattr(event, "context_error", "")
         self._open_feedback_dialog(tab=tab, initial_title=initial_title, context_error=context_error)
+
+    def _check_startup_support_dialog(self) -> None:
+        """Affiche l'invitation de soutien Ko-fi si la préférence utilisateur le permet."""
+        from ankiforge.utils.environment import get_app_qsettings
+
+        try:
+            show_dialog = get_app_qsettings().value("app/show_startup_support_dialog", True, type=bool)
+        except Exception:
+            show_dialog = True
+        if not show_dialog:
+            return
+
+        from ankiforge.ui.dialogs.support_dialog import SupportDialog
+
+        dialog = SupportDialog(parent=self)
+        self._support_dialog = dialog
+        dialog.show()
 
     def _check_pending_crash_report(self) -> None:
         """Vérifie si un rapport de crash antérieur doit être proposé à l'utilisateur."""
