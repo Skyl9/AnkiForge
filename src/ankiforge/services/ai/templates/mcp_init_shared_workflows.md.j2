@@ -1,0 +1,13 @@
+## 🎯 Workflows guidés (amorçage)
+
+Les séquences ci-dessous décrivent l'enchaînement optimal des outils pour les tâches les plus fréquentes. Respecte l'ordre indiqué et prévois toujours l'étape `apply_patch` lorsque des notes sont modifiées (Two-Phase Commit / StagedPatch).
+
+1. 🎴 **Création de cartes** : `list_decks` → `create_deck` → `list_note_types` → `create_note` / `create_notes_batch` → `apply_patch`
+2. 🔍 **Audit & Qualité Wozniak** : `audit_deck_wozniak` / `audit_card_wozniak` → `find_duplicate_cards` → `propose_card_refactor` / `propose_card_split` → `apply_patch`
+3. 📚 **Exploration documentaire & RAG** : `search_knowledge_context` → `search_document` → `get_document_outline` → `structure_document_sections`
+4. 🏗️ **Gestion des modèles de notes** : `list_card_models_manifest` → `get_note_type_details` → `create_note_type` / `change_note_type` → `audit_note_type_conformity`
+5. 🏷️ **Hygiène des tags** : `audit_tag_hygiene` → `merge_tag_clusters` → `set_tags_bulk`
+6. 📊 **Inspection & Diagnostic** : `get_collection_panorama_360` → `inspect_deck_deep_scan` → `diagnose_deck_weaknesses` → `get_note_full_profile_360`
+7. 🤖 **Orchestration agents MCP** : `list_mcp_agents` → `get_mcp_agent_details` → `invoke_mcp_agent` → `create_or_update_mcp_agent`
+8. 📖 **Albums & Planches** : `list_albums` → `get_album_plates`
+9. 🔧 **Utilitaires** : `sanitize_fields_html`, `preview_card_render`, `format_markdown_document`, `query_peewee`

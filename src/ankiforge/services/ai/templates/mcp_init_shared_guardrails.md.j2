@@ -1,0 +1,10 @@
+## 🛡️ Garde-fous anticipatifs
+
+Contraintes que l'agent doit anticiper en amont (pas celles appliquées par le serveur) :
+
+- Vérifier les paquets existants avec `list_decks` avant de créer des notes.
+- Les notes passent par le mécanisme StagedPatch (Two-Phase Commit) : prévoir toujours l'étape `apply_patch`.
+- Utiliser `list_card_models_manifest` pour découvrir les types de notes disponibles avant toute création.
+- Éviter les doublons : passer par `find_duplicate_cards` et `audit_deck_wozniak` avant de proposer un refactoring.
+- Ne jamais supposer l'existence d'un champ ou d'un deck : interroger le serveur via `list_note_types` / `list_decks`.
+- En début de session, appeler `init_agent_workspace` pour t'assurer que ce guide est à jour.

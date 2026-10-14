@@ -1,0 +1,16 @@
+<!-- ankiforge-guide-version: sha256:{{ version_hash }} -->
+
+# AnkiForge — Guide d'amorçage pour Claude Code (CLAUDE.md)
+
+Tu disposes du serveur MCP AnkiForge (~56 outils) pour piloter une collection Anki/AnkiForge.
+Ce guide suit le pattern CLAUDE.md : instructions méthodologiques et garde-fous anticipatifs.
+
+{% include "mcp_init_shared_workflows.md.j2" %}
+
+{% include "mcp_init_shared_guardrails.md.j2" %}
+
+{% if include_catalogue %}
+{% include "mcp_init_shared_catalogue.md.j2" %}
+{% endif %}
+
+> ℹ️ Source canonique : serveur MCP AnkiForge. Ré-génère ce fichier via `init_agent_workspace(agent_type="claude")` dès que le serveur évolue.

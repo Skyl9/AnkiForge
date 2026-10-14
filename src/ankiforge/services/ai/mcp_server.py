@@ -1,8 +1,12 @@
+import hashlib
 import json
 import logging
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Literal
 
+from jinja2 import FileSystemLoader
+from jinja2.sandbox import SandboxedEnvironment
 from mcp.server.mcpserver import MCPServer
 
 from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, db
@@ -56,6 +60,35 @@ def _notify_mcp_mutation(data: dict[str, Any]) -> None:
 
 # Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
 _PROMPT_ENV = create_prompt_environment()
+
+# Répertoire des templates d'amorçage d'agent MCP.
+_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+_GUIDE_AGENT_FILENAMES: dict[str, str] = {
+    "claude": "CLAUDE.md",
+    "gemini": "GEMINI.md",
+    "cursor": ".cursorrules",
+    "generic": "ANKIFORGE_GUIDE.md",
+}
+# Environnement Jinja2 sandboxé dédié au rendu des guides d'amorçage (inclut les fichiers).
+_GUIDE_ENV = SandboxedEnvironment(
+    loader=FileSystemLoader(str(_TEMPLATES_DIR)),
+    autoescape=False,  # B701 non applicable : sortie Markdown texte
+)
+
+
+def _compute_guide_version_hash() -> str:
+    """Calcule le hash SHA-256 de version à partir des templates d'amorçage."""
+    h = hashlib.sha256()
+    if _TEMPLATES_DIR.exists():
+        for path in sorted(_TEMPLATES_DIR.glob("*.j2")):
+            try:
+                h.update(path.read_bytes())
+            except OSError:
+                continue
+    return h.hexdigest()
+
+
+_GUIDE_VERSION_HASH: str = _compute_guide_version_hash()
 
 # Initialisation du serveur MCP AnkiForge
 mcp = MCPServer("AnkiForge")
@@ -1215,6 +1248,143 @@ def prompt_run_with_agent(agent_name: str, task: str) -> str:
         "### Mission à accomplir :\n<<< CONTENU UTILISATEUR >>>\n{{ task }}\n<<< FIN >>>\n\n"
         "Respecte strictement tes compétences et ton périmètre d'action."
     ).render(agent_name=agent_name, agent_info=agent_info, task=task)
+
+
+def _normalise_agent_type(agent_type: str) -> str:
+    value = (agent_type or "generic").strip().lower()
+    return value if value in _GUIDE_AGENT_FILENAMES else "generic"
+
+
+def _build_tool_catalogue() -> str:
+    """Construit le catalogue catégorisé des outils MCP à partir de l'introspection du serveur."""
+    try:
+        tools = mcp._tool_manager.list_tools()
+    except Exception as e:
+        logger.warning("Impossible d'introspecter les outils MCP : %s", e)
+        return "Catalogue non disponible."
+    lines: list[str] = []
+    for tool in sorted(tools, key=lambda t: t.name):
+        desc = (tool.description or "").strip().replace("\n", " ")
+        lines.append(f"- **{tool.name}** : {desc}")
+    return "\n".join(lines)
+
+
+def _build_agents_list() -> str:
+    """Renvoie la liste textuelle des agents MCP configurés par l'utilisateur."""
+    try:
+        return ConsultantToolRegistry.list_mcp_agents(scope="all")
+    except Exception as e:
+        logger.warning("Impossible de lister les agents MCP : %s", e)
+        return "Aucun agent configuré (erreur de lecture)."
+
+
+def _render_guide(agent_type: str, include_catalogue: bool) -> str:
+    name = _normalise_agent_type(agent_type)
+    template_name = f"mcp_init_guide_{name}.md.j2"
+    catalogue = _build_tool_catalogue() if include_catalogue else "(catalogue désactivé)"
+    agents = _build_agents_list()
+    template = _GUIDE_ENV.get_template(template_name)
+    return template.render(
+        version_hash=_GUIDE_VERSION_HASH,
+        include_catalogue=include_catalogue,
+        catalogue=catalogue,
+        agents=agents,
+    )
+
+
+@mcp.tool()
+def init_agent_workspace(
+    agent_type: str = "generic",
+    workspace_path: str = "",
+    include_catalogue: bool = True,
+) -> str:
+    """Génère un guide méthodologique adapté au type d'agent, dans son répertoire de travail. Si `workspace_path` est vide, renvoie le contenu sans écriture."""
+    try:
+        content = _render_guide(agent_type, include_catalogue)
+    except Exception as e:
+        logger.error("Erreur rendu guide d'amorçage : %s", e)
+        return f"Erreur lors de la génération du guide : {e}"
+
+    name = _normalise_agent_type(agent_type)
+    filename = _GUIDE_AGENT_FILENAMES[name]
+
+    if workspace_path and workspace_path.strip():
+        target_dir = Path(workspace_path).expanduser()
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.error("Impossible de créer le répertoire %s : %s", target_dir, e)
+            return f"Erreur : répertoire inaccessible ({e}). Contenu non écrit.\n\n{content}"
+        target_file = target_dir / filename
+        try:
+            target_file.write_text(content, encoding="utf-8")
+        except OSError as e:
+            logger.error("Impossible d'écrire %s : %s", target_file, e)
+            return f"Erreur : écriture impossible ({e}). Contenu non écrit.\n\n{content}"
+        logger.info("Guide d'amorçage généré : %s", target_file)
+
+    return content
+
+
+@mcp.tool()
+def check_guide_version(
+    workspace_path: str = "",
+    file_path: str = "",
+    guide_path: str = "",
+    path: str = "",
+    agent_type: str = "generic",
+) -> str:
+    """Compare le hash de version d'un guide sur disque avec la version courante du serveur."""
+    import re
+
+    normalised = _normalise_agent_type(agent_type)
+    filename = _GUIDE_AGENT_FILENAMES[normalised]
+
+    candidate = ""
+    for raw in (file_path, guide_path, path):
+        if raw and raw.strip():
+            candidate = raw.strip()
+            break
+
+    if candidate:
+        target = Path(candidate).expanduser()
+        # Si un répertoire est fourni, on y cherche le fichier adapté.
+        if target.is_dir():
+            target = target / filename
+    elif workspace_path and workspace_path.strip():
+        target = Path(workspace_path).expanduser() / filename
+    else:
+        return json.dumps(
+            {"current_hash": _GUIDE_VERSION_HASH, "stale": False, "file_path": None},
+            ensure_ascii=False,
+        )
+
+    stale = True
+    found_hash: str | None = None
+    try:
+        if target.exists():
+            text = target.read_text(encoding="utf-8")
+            match = re.search(r"ankiforge-guide-version:\s*sha256:([0-9a-fA-F]+)", text)
+            if match:
+                found_hash = match.group(1).lower()
+                stale = found_hash != _GUIDE_VERSION_HASH
+    except OSError:
+        stale = True
+
+    payload = {
+        "current_hash": _GUIDE_VERSION_HASH,
+        "stale": stale,
+        "file_path": str(target),
+    }
+    if found_hash is not None:
+        payload["file_hash"] = found_hash
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.resource("workspace://agent-guide")
+def get_workspace_agent_guide_resource() -> str:
+    """Sert le contenu du guide d'amorçage (version generic) en lecture temps réel."""
+    return _render_guide("generic", True)
 
 
 def run_server(transport: Literal["stdio", "sse", "streamable-http"] = "streamable-http") -> None:
