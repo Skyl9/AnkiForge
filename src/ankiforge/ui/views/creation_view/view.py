@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
-    QInputDialog,
     QLabel,
     QMenu,
     QMessageBox,
@@ -68,6 +67,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.vision_capability import effective_vision, sync_vision_capability, vision_tooltip
+from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
 from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.dialogs.selection_dialog import MultiSelectionDialog
 from ankiforge.ui.theme import DesignTokens
@@ -87,7 +87,6 @@ from ankiforge.utils.event_bus import (
     NoteCreatedEvent,
     event_bus,
 )
-from ankiforge.utils.hierarchy import SEPARATOR
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error, redact_secrets
@@ -1460,16 +1459,20 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_create_new_deck(self) -> None:
-        name, ok = QInputDialog.getText(self, "Nouveau Paquet", f"Nom du paquet Anki (ex: Science{SEPARATOR}Physique) :")
-        if ok and name.strip():
-            try:
-                dk_name = name.strip()
-                new_deck = self.deck_repo.get_or_create_deck_hierarchical(dk_name, description="Nouveau paquet créé depuis le Studio.")
-                self.refresh_data()
-                self._set_current_deck(new_deck)
-                show_toast(self, tr("Paquet '%1' créé avec succès !", new_deck.name))
-            except Exception as e:
-                log_and_notify_error(e, context="Création de paquet", parent=self, title="Erreur")
+        dialog = CreateDeckDialog(parent=self, deck_repository=self.deck_repo)
+        dialog.deck_created.connect(self._on_deck_created_from_dialog)
+        dialog.exec()
+
+    @Slot(int, str)
+    def _on_deck_created_from_dialog(self, deck_id: int, deck_name: str) -> None:
+        try:
+            self.refresh_data()
+            deck = self.deck_repo.get_deck_by_id(deck_id)
+            if deck is not None:
+                self._set_current_deck(deck)
+            show_toast(self, tr("Paquet '%1' créé avec succès !", deck_name))
+        except Exception as e:
+            log_and_notify_error(e, context="Création de paquet", parent=self, title="Erreur")
 
     @Slot()
     def _open_settings_modal(self) -> None:

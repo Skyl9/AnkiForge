@@ -52,9 +52,9 @@ def test_creation_view_creation(qtbot: Any, mock_db: Any) -> None:
     assert view is not None
 
 
-def test_creation_view_create_new_deck_hierarchical(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
-    """Le « Nouveau Paquet » du Studio doit créer la hiérarchie complète (parents + lien parent_deck)."""
-    from PySide6.QtWidgets import QInputDialog
+def test_creation_view_create_new_deck_via_dialog_hierarchical(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
+    """Le « Nouveau Paquet » du Studio ouvre CreateDeckDialog et crée la hiérarchie complète."""
+    from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
 
     uid = uuid.uuid4().hex[:6]
     view = CreationView(ai_manager=None)
@@ -63,9 +63,24 @@ def test_creation_view_create_new_deck_hierarchical(qtbot: Any, mock_db: Any, mo
     assert hasattr(view, "btn_new_deck")
 
     new_name = f"Maths_{uid}::Algebre_{uid}::Polynomes_{uid}"
-    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: (new_name, True)))
+    toasts: list[str] = []
+    monkeypatch.setattr("ankiforge.ui.views.creation_view.view.show_toast", lambda parent, msg, **kwargs: toasts.append(msg))
 
-    view._on_create_new_deck()
+    dialog_opened = False
+
+    def mock_exec(dialog_self: CreateDeckDialog) -> int:
+        nonlocal dialog_opened
+        dialog_opened = True
+        dialog_self.txt_name.setText(new_name)
+        dialog_self._on_submit()
+        return 1
+
+    monkeypatch.setattr(CreateDeckDialog, "exec", mock_exec)
+
+    # Déclenchement via le bouton de l'UI
+    view.btn_new_deck.click()
+
+    assert dialog_opened is True
 
     parent1 = DeckModel.get_or_none(DeckModel.name == f"Maths_{uid}")
     parent2 = DeckModel.get_or_none(DeckModel.name == f"Maths_{uid}::Algebre_{uid}")
@@ -73,9 +88,41 @@ def test_creation_view_create_new_deck_hierarchical(qtbot: Any, mock_db: Any, mo
     assert parent1.parent_deck is None
     assert parent2 is not None
     assert parent2.parent_deck_id == parent1.id
+
+    # Vérification de la sélection du paquet et de la mise à jour UI
     assert view.current_deck is not None
     assert view.current_deck.name == new_name
     assert view.current_deck.parent_deck_id == parent2.id
+    assert view.btn_select_deck.text() == new_name
+
+    # Vérification du cache de paquets
+    cached_names = [d.name for d in view.decks_cache]
+    assert new_name in cached_names
+
+    # Vérification du toast
+    assert any(new_name in t for t in toasts)
+
+
+def test_creation_view_create_deck_dialog_rejected(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
+    """Si l'utilisateur annule CreateDeckDialog, le paquet courant et le cache restent inchangés."""
+    from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    initial_deck = view.current_deck
+    initial_cache_len = len(view.decks_cache)
+
+    def mock_exec_reject(dialog_self: CreateDeckDialog) -> int:
+        dialog_self.reject()
+        return 0
+
+    monkeypatch.setattr(CreateDeckDialog, "exec", mock_exec_reject)
+
+    view.btn_new_deck.click()
+
+    assert view.current_deck == initial_deck
+    assert len(view.decks_cache) == initial_cache_len
 
 
 def test_free_input_remains_editable_for_generation(qtbot: Any, mock_db: Any) -> None:

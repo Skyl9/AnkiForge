@@ -307,7 +307,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location line="+64"/>
         <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+192"/>
         <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+111"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+1653"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+1656"/>
         <location line="+29"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="+512"/>
         <location line="+75"/>
@@ -2252,7 +2252,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+47"/>
-        <location filename="../../ui/views/creation_view/view.py" line="-2028"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-2032"/>
         <location filename="../../ui/widgets/note_table_widget.py" line="+101"/>
         <source>Rejeter</source>
         <translation type="unfinished"></translation>
@@ -2269,7 +2269,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+132"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+2127"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+2131"/>
         <source>Enregistrer dans la Forge (%1/%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2765,8 +2765,8 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/creation_view/view.py" line="-1948"/>
-        <location line="+636"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-1952"/>
+        <location line="+640"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="-87"/>
         <location line="+29"/>
         <location line="+17"/>
@@ -2774,7 +2774,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-607"/>
+        <location line="-611"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="-39"/>
         <source>1-%1</source>
         <translation type="unfinished"></translation>
@@ -2791,7 +2791,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+41"/>
         <source>Paquet &apos;%1&apos; créé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8735,7 +8735,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CreationView</name>
     <message>
-        <location filename="../../ui/views/creation_view/view.py" line="-2947"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-2951"/>
         <source>Créer une saisie libre sans document source</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8751,12 +8751,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+22"/>
-        <location line="+1539"/>
+        <location line="+1543"/>
         <source>Sélectionner un type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1511"/>
+        <location line="-1515"/>
         <source>ORCHESTRATION IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8803,12 +8803,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+56"/>
-        <location line="+1950"/>
+        <location line="+1954"/>
         <source>Type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1950"/>
+        <location line="-1954"/>
         <source>Front</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8819,12 +8819,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+0"/>
-        <location line="+1950"/>
+        <location line="+1954"/>
         <source>Statut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1922"/>
+        <location line="-1926"/>
         <source>Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8835,23 +8835,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+8"/>
-        <location line="+2060"/>
+        <location line="+2064"/>
         <source>Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-2056"/>
+        <location line="-2060"/>
         <source>Modifier le texte de la carte (Raccourci: E)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+2050"/>
+        <location line="+2054"/>
         <source>Valider la carte active et passer à la suivante (Raccourci: Espace ou V)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-2032"/>
+        <location line="-2036"/>
         <source>Journal d&apos;exécution en direct</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8872,12 +8872,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+12"/>
-        <location line="+1447"/>
+        <location line="+1451"/>
         <source>Aucune erreur lors du processus de génération.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1160"/>
+        <location line="-1164"/>
         <source>Veuillez sélectionner un document à délimiter.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8912,7 +8912,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+159"/>
+        <location line="+163"/>
         <source>Ce PDF n&apos;a pas encore été extrait. Vous ne pouvez pas l&apos;ouvrir en texte.</source>
         <translation type="unfinished"></translation>
     </message>
