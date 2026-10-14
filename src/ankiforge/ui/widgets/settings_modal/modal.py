@@ -62,6 +62,7 @@ class SettingsModal(QDialog):
         self._tts_tab: TTSSettingsTab | None = None
         self._maint_tab: StorageMaintenanceTab | None = None
         self._addons_tab: AddonManagerWidget | None = None
+        self._support_tab: Any = None
         self._dev_tab: DeveloperTab | None = None
         self._tabs: list[QWidget | None] = []
 
@@ -129,7 +130,12 @@ class SettingsModal(QDialog):
 
             self._addons_tab = AddonManagerWidget()
             tab = self._addons_tab
-        elif index == 6 and is_development():
+        elif index == 6:
+            from ankiforge.ui.widgets.settings_modal.tabs.support_tab import SupportTab
+
+            self._support_tab = SupportTab()
+            tab = self._support_tab
+        elif index == 7 and is_development():
             from ankiforge.ui.widgets.settings_modal.tabs.developer_tab import DeveloperTab
 
             self._dev_tab = DeveloperTab(parent=self)
@@ -237,16 +243,12 @@ class SettingsModal(QDialog):
         self.stacked_widget.blockSignals(False)
 
     @property
-    def dev_tab(self) -> Any:
-        if is_development():
-            return self._ensure_tab_loaded(6)
-        return None
+    def support_tab(self) -> Any:
+        return self._ensure_tab_loaded(6)
 
-    @dev_tab.setter
-    def dev_tab(self, value: Any) -> None:
-        if not is_development():
-            return
-        self._dev_tab = value
+    @support_tab.setter
+    def support_tab(self, value: Any) -> None:
+        self._support_tab = value
         self._tabs[6] = value
         old = self.stacked_widget.widget(6)
         self.stacked_widget.blockSignals(True)
@@ -254,6 +256,26 @@ class SettingsModal(QDialog):
         if old is not None:
             old.deleteLater()
         self.stacked_widget.insertWidget(6, value)
+        self.stacked_widget.blockSignals(False)
+
+    @property
+    def dev_tab(self) -> Any:
+        if is_development():
+            return self._ensure_tab_loaded(7)
+        return None
+
+    @dev_tab.setter
+    def dev_tab(self, value: Any) -> None:
+        if not is_development():
+            return
+        self._dev_tab = value
+        self._tabs[7] = value
+        old = self.stacked_widget.widget(7)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old)
+        if old is not None:
+            old.deleteLater()
+        self.stacked_widget.insertWidget(7, value)
         self.stacked_widget.blockSignals(False)
 
     def _update_save_enabled(self) -> None:
@@ -328,9 +350,10 @@ class SettingsModal(QDialog):
             ("Audio && TTS", "ph.speaker-high", 3),
             ("Maintenance", "ph.wrench", 4),
             ("Extensions", "ph.puzzle-piece", 5),
+            ("Soutien", "ph.heart", 6),
         ]
         if is_development():
-            tabs_info.append(("Développeur", "ph.code", 6))
+            tabs_info.append(("Développeur", "ph.code", 7))
 
         for title, icon_name, idx in tabs_info:
             btn = SettingsNavButton(title, icon_name, idx)
@@ -346,7 +369,7 @@ class SettingsModal(QDialog):
 
         # Stacked Widget avec chargement différé (lazy-loading) des onglets
         self.general_tab = GeneralTab()
-        num_additional = 6 if is_development() else 5
+        num_additional = 7 if is_development() else 6
         self._tabs = [self.general_tab] + [None] * num_additional
 
         self.stacked_widget.addWidget(self.general_tab)
@@ -447,6 +470,8 @@ class SettingsModal(QDialog):
             self._tts_tab.save_tab()
         if self._maint_tab is not None:
             self._maint_tab.save_tab()
+        if self._support_tab is not None:
+            self._support_tab.save_tab()
         if self._dev_tab is not None:
             self._dev_tab.save_tab()
 

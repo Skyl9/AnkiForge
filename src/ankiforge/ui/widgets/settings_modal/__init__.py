@@ -24,6 +24,7 @@ from ankiforge.ui.widgets.settings_modal.tabs import (
     AnkiSyncTab,
     GeneralTab,
     StorageMaintenanceTab,
+    SupportTab,
     TTSSettingsTab,
 )
 
@@ -35,6 +36,7 @@ __all__ = [
     "AnkiSyncTab",
     "StorageMaintenanceTab",
     "TTSSettingsTab",
+    "SupportTab",
     "MaintenanceTab",
     "StatisticsTab",
     "SettingsCard",
