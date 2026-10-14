@@ -138,6 +138,7 @@ class CommandPalette(QDialog):
         self.register_command("action.export", "Exporter des cartes Anki (.apkg)", "upload-simple", "Ctrl+Shift+E", "Actions")
         self.register_command("action.tour", "Lancer la visite guidée d'AnkiForge", "compass", "F1", "Aide")
         self.register_command("action.feedback", "Signaler un bug ou proposer une idée", "chat-circle-dots", "", "Aide")
+        self.register_command("action.support", "Soutenir le projet AnkiForge (Ko-fi)", "ph.heart", "", "Aide")
         self.register_command("action.settings", "Ouvrir les Paramètres", "gear", "Ctrl+,", "Système")
         if is_development():
             self.register_command(

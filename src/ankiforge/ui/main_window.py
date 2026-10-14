@@ -8,8 +8,8 @@ import os
 import sys
 from typing import Any, cast
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QIcon, QKeySequence, QShortcut
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStackedWidget, QVBoxLayout, QWidget
 
 from ankiforge.services.ai.flexible_service import AIManager
@@ -18,7 +18,7 @@ from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — r
 from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view import AgentsView
-from ankiforge.utils.environment import is_development, is_testing
+from ankiforge.utils.environment import KOFI_URL, is_development, is_testing
 from ankiforge.utils.event_bus import (
     OpenConsultantRequestedEvent,
     OpenFeedbackRequestedEvent,
@@ -948,6 +948,8 @@ class MainWindow(QMainWindow):
             self._open_feedback_dialog()
         elif command_id == "action.crash_report":
             self._open_crash_report_dialog()
+        elif command_id == "action.support":
+            QDesktopServices.openUrl(QUrl(KOFI_URL))
         elif command_id == "action.dialog_gallery":
             self._open_dialog_gallery()
 

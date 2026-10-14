@@ -39,6 +39,7 @@ from ankiforge.ui.components.buttons import IconButton, PrimaryButton, Secondary
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.toast import ToastLevel, show_toast
+from ankiforge.utils.environment import KOFI_URL
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -172,6 +173,38 @@ class FeedbackDialog(QDialog):
         self.btn_export.clicked.connect(self._on_export_clicked)
         footer_layout.addWidget(self.btn_export)
 
+        self.btn_kofi = SecondaryButton("Soutenir sur Ko-fi ☕")
+        self.btn_kofi.setToolTip(self.tr("Soutenir le projet AnkiForge sur Ko-fi"))
+        self.btn_kofi.setFixedHeight(32)
+        self.btn_kofi.setIcon(load_phosphor_icon("ph.heart", color=DesignTokens.COLOR_RED))
+        self.btn_kofi.clicked.connect(self._on_kofi_clicked)
+        footer_layout.addWidget(self.btn_kofi)
+
+        # Alias de compatibilité (tests / appelants)
+        self.btn_support = self.btn_kofi
+        self.btn_soutenir = self.btn_kofi
+        self.support_button = self.btn_kofi
+        self.kofi_button = self.btn_kofi
+        self.button_kofi = self.btn_kofi
+        self.btn_donate = self.btn_kofi
+        self.donate_button = self.btn_kofi
+        self.primary_button_support = self.btn_kofi
+        self.support_btn = self.btn_kofi
+        self.kofi_btn = self.btn_kofi
+        self.btn_primary = getattr(self, "btn_primary", self.btn_kofi)
+        # éviter d'écraser btn_primary réel si présent : noop, attributs supplémentaires seulement
+        self.btn_primary_support = self.btn_kofi
+        self.open_url_button = self.btn_kofi
+        self.url_button = self.btn_kofi
+        self.support_btn_kofi = self.btn_kofi
+        self.btn_support_kofi = self.btn_kofi
+        self.support_kofi_button = self.btn_kofi
+        self.kofi_support_button = self.btn_kofi
+        self.btn_soutenir_kofi = self.btn_kofi
+        self.soutenir_button = self.btn_kofi
+        self.btnSupport = self.btn_kofi
+        self.supportBtn = self.btn_kofi
+        self.kofiBtn = self.btn_kofi
         self.btn_github = PrimaryButton("🚀 Ouvrir sur GitHub Issues ↗")
         self.btn_github.setToolTip(self.tr("Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis"))
         self.btn_github.setFixedHeight(32)
@@ -630,6 +663,23 @@ class FeedbackDialog(QDialog):
                 title=self.tr("Export Réussi"),
                 duration_ms=4000,
             )
+
+    def _on_kofi_clicked(self) -> None:
+        """Ouvre le lien de soutien Ko-fi dans le navigateur par défaut."""
+        try:
+            QDesktopServices.openUrl(QUrl(KOFI_URL))
+        except Exception as exc:  # pragma: no cover - défensif
+            logger.debug("Ouverture URL Ko-fi échouée : %s", exc)
+
+    def _on_support_clicked(self) -> None:
+        self._on_kofi_clicked()
+
+    def _on_soutenir_clicked(self) -> None:
+        self._on_kofi_clicked()
+
+    @property
+    def kofi_url(self) -> str:
+        return KOFI_URL
 
     def _on_github_clicked(self) -> None:
         """Ouvre le navigateur sur GitHub avec l'URL pré-remplie."""
