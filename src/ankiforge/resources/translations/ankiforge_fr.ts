@@ -627,17 +627,17 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/create_deck_dialog.py" line="+87"/>
+        <location filename="../../ui/dialogs/create_deck_dialog.py" line="+97"/>
         <source>Ex: Sciences%1Physique%2Thermodynamique</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+21"/>
+        <location line="+41"/>
         <source>💡 Utilisez le séparateur &apos;%1&apos; pour imbriquer des sous-paquets.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+79"/>
+        <location line="+113"/>
         <location filename="../../ui/dialogs/leech_wozniak_split_dialog.py" line="+315"/>
         <location filename="../../ui/views/creation_view/view.py" line="+727"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="-53"/>
@@ -8643,12 +8643,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CreateDeckDialog</name>
     <message>
-        <location filename="../../ui/dialogs/create_deck_dialog.py" line="-150"/>
+        <location filename="../../ui/dialogs/create_deck_dialog.py" line="-208"/>
         <source>Créer un nouveau paquet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+34"/>
+        <location line="+38"/>
         <source>Nouveau paquet Anki</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8663,7 +8663,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+31"/>
+        <location line="+51"/>
         <source>Description (optionnelle) :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8673,7 +8673,28 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+56"/>
+        <location line="+30"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+38"/>
+        <source>Créer le paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-6"/>
+        <source>Ce paquet existe déjà (il sera sélectionné)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Sélectionner le paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
         <source>Le nom du paquet ne peut pas être vide.</source>
         <translation type="unfinished"></translation>
     </message>

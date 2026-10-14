@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import DeckModel
 from ankiforge.repositories.deck_repository import DeckRepository
+from ankiforge.ui.components import HierarchyBreadcrumbBar, HierarchyCompleter
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.hierarchy import SEPARATOR
@@ -32,7 +33,12 @@ class CreateDeckDialog(QDialog):
 
     deck_created = Signal(int, str)  # (deck_id, deck_name)
 
-    def __init__(self, initial_name: str = "", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        initial_name: str = "",
+        parent: QWidget | None = None,
+        deck_repository: DeckRepository | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Créer un nouveau paquet"))
         self.setFixedWidth(460)
@@ -40,7 +46,8 @@ class CreateDeckDialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
 
         self.created_deck: DeckModel | None = None
-        self._deck_repo = DeckRepository()
+        self._deck_repo = deck_repository if deck_repository is not None else DeckRepository()
+        self._existing_deck_names: set[str] = set()
 
         self.setStyleSheet(f"""
             QDialog {{
@@ -51,6 +58,9 @@ class CreateDeckDialog(QDialog):
         """)
 
         self._setup_ui(initial_name)
+        self.refresh_decks()
+        if initial_name:
+            self._on_name_changed(initial_name)
 
     def _setup_ui(self, initial_name: str) -> None:
         layout = QVBoxLayout(self)
@@ -101,8 +111,28 @@ class CreateDeckDialog(QDialog):
                 border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
-        self.txt_name.textChanged.connect(self._on_name_changed)
         layout.addWidget(self.txt_name)
+
+        # Compléteur contextuel hiérarchique
+        self.completer = HierarchyCompleter(paths=[], separator=SEPARATOR, parent=self)
+        self.txt_name.setCompleter(self.completer)
+
+        # Fil d'Ariane prévisionnel interactif
+        self.breadcrumb_bar = HierarchyBreadcrumbBar(
+            initial_path=initial_name,
+            existing_paths=self._existing_deck_names,
+            separator=SEPARATOR,
+            parent=self,
+        )
+        self.breadcrumb_bar.segment_clicked.connect(self._on_breadcrumb_segment_clicked)
+        layout.addWidget(self.breadcrumb_bar)
+
+        # Message d'information / statut bienveillant (paquet existant)
+        self.lbl_info = QLabel()
+        self.lbl_info.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; border: none; background: transparent;")
+        self.lbl_info.hide()
+        self.lbl_status = self.lbl_info
+        layout.addWidget(self.lbl_info)
 
         # Indication hiérarchie
         lbl_hint = QLabel(tr("💡 Utilisez le séparateur '%1' pour imbriquer des sous-paquets.", SEPARATOR))
@@ -145,11 +175,11 @@ class CreateDeckDialog(QDialog):
         footer = QHBoxLayout()
         footer.setSpacing(8)
 
-        self.btn_cancel = SecondaryButton("Annuler")
+        self.btn_cancel = SecondaryButton(self.tr("Annuler"))
         self.btn_cancel.setAutoDefault(False)
         self.btn_cancel.clicked.connect(self.reject)
 
-        self.btn_submit = PrimaryButton("Créer le paquet")
+        self.btn_submit = PrimaryButton(self.tr("Créer le paquet"))
         self.btn_submit.setEnabled(bool(initial_name.strip()))
         self.btn_submit.setDefault(True)
         self.btn_submit.clicked.connect(self._on_submit)
@@ -161,12 +191,46 @@ class CreateDeckDialog(QDialog):
         layout.addLayout(footer)
 
         # Entrée dans le champ nom valide la création (au lieu d'activer le bouton Annuler)
+        self.txt_name.textChanged.connect(self._on_name_changed)
         self.txt_name.returnPressed.connect(self._on_submit)
+
+    def refresh_decks(self) -> None:
+        """Charge ou rafraîchit la liste des paquets existants pour le compléteur et le fil d'Ariane."""
+        try:
+            decks = self._deck_repo.get_all_decks()
+            self._existing_deck_names = {d.name.strip() for d in decks if d.name and d.name.strip()}
+        except Exception as exc:
+            logger.debug("Impossible de charger les paquets existants: %s", exc)
+            self._existing_deck_names = set()
+
+        sorted_paths = sorted(self._existing_deck_names)
+        self.completer.set_paths(sorted_paths)
+        self.breadcrumb_bar.set_existing_paths(self._existing_deck_names)
+        self._check_idempotence(self.txt_name.text())
+
+    def _check_idempotence(self, text: str) -> None:
+        clean = text.strip()
+        if clean and clean in self._existing_deck_names:
+            self.lbl_info.setText(self.tr("Ce paquet existe déjà (il sera sélectionné)"))
+            self.lbl_info.show()
+            self.btn_submit.setText(self.tr("Sélectionner le paquet"))
+        else:
+            self.lbl_info.setText("")
+            self.lbl_info.hide()
+            self.btn_submit.setText(self.tr("Créer le paquet"))
 
     def _on_name_changed(self, text: str) -> None:
         clean = text.strip()
         self.lbl_error.hide()
         self.btn_submit.setEnabled(bool(clean))
+        self.breadcrumb_bar.set_path(clean)
+        self.completer.update_completions(text)
+        self._check_idempotence(text)
+
+    def _on_breadcrumb_segment_clicked(self, subpath: str) -> None:
+        self.txt_name.setText(subpath)
+        self.txt_name.setFocus()
+        self.txt_name.setCursorPosition(len(subpath))
 
     def _on_submit(self) -> None:
         deck_name = self.txt_name.text().strip()
