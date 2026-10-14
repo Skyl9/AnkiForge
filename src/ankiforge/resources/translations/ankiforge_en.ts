@@ -274,6 +274,28 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/components/hierarchy_breadcrumb_bar.py" line="+87"/>
+        <source>Nœud existant : %1
+Cliquer pour tronquer la saisie à ce niveau</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>%1 (existant)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Nouveau nœud : %1
+Cliquer pour tronquer la saisie à ce niveau</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>%1 (nouveau)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/components/linter_rules_dialog.py" line="+285"/>
         <location filename="../../ui/views/documents_view/dialogs/album_import_dialog.py" line="+206"/>
         <location filename="../../ui/views/documents_view/dialogs/folder_dialog.py" line="+157"/>
@@ -595,7 +617,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/crash_report_dialog.py" line="+145"/>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+293"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+315"/>
         <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -785,7 +807,7 @@ Aucune modification ne sera écrite en base de données.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="+266"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="+299"/>
         <source>Profil : %1 · %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1506,7 +1528,7 @@ Voulez-vous vraiment %2 ? Ce travail sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+219"/>
+        <location line="+221"/>
         <source>Impossible de basculer vers l&apos;espace « %1 » : il est actuellement ouvert par une autre instance%2.
 
 L&apos;accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.</source>
@@ -3866,7 +3888,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/command_palette.py" line="+203"/>
+        <location filename="../../ui/widgets/command_palette.py" line="+204"/>
         <source>[%1]</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4307,7 +4329,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+184"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+187"/>
         <source>✓ Paramètres sauvegardés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8063,7 +8085,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CommandPalette</name>
     <message>
-        <location filename="../../ui/widgets/command_palette.py" line="-132"/>
+        <location filename="../../ui/widgets/command_palette.py" line="-133"/>
         <source>Rechercher cartes, paquets, vues ou commandes...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11636,7 +11658,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FeedbackDialog</name>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="-564"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="-596"/>
         <source>Retours &amp; Suggestions AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11677,6 +11699,11 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+6"/>
+        <source>Soutenir le projet AnkiForge sur Ko-fi</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+32"/>
         <source>Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11899,7 +11926,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+29"/>
         <source>✓ Page GitHub ouverte dans votre navigateur</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13768,7 +13795,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-740"/>
+        <location filename="../../ui/main_window.py" line="-742"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13783,7 +13810,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+139"/>
+        <location line="+141"/>
         <source>Aucun incident n&apos;est enregistré dans crash.log.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15923,8 +15950,8 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SettingsModal</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="-411"/>
-        <location line="+220"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="-435"/>
+        <location line="+241"/>
         <source>Paramètres AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15934,7 +15961,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+67"/>
+        <location line="+68"/>
         <source>⌨️ Échap pour fermer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15944,7 +15971,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+55"/>
+        <location line="+57"/>
         <source>Application des tokens et du design system...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16668,13 +16695,46 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+24"/>
         <source>Fermer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
         <source>Offrir un café sur Ko-fi ☕</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SupportTab</name>
+    <message>
+        <location filename="../../ui/widgets/settings_modal/tabs/support_tab.py" line="+91"/>
+        <source>Soutenir AnkiForge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>AnkiForge est un projet indépendant, gratuit et développé bénévolement. Votre soutien permet de financer le développement, les serveurs et les futures fonctionnalités. Merci pour votre aide !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Offrir un café sur Ko-fi ☕</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Rappel au démarrage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Afficher l&apos;invitation de soutien au démarrage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Prévisualiser le dialogue de soutien</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

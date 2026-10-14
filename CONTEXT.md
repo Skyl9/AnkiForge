@@ -26,6 +26,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : carte difficile, carte échouée, leech, mauvaise carte
 - **Rôle IA (d'un type de note)** : directive sémantique et heuristique attachée à un type de note (`NoteTypeModel.description`), injectée dans la balise `{{ available_card_models }}` des prompts d'extraction pour orienter le choix du type de note le plus pertinent face à chaque concept identifié.
   _Avoid_ : rôle du modèle, description du modèle de carte
+- **Enveloppement de balise (Wrapping)** : opération d'encadrement non destructif d'une sélection textuelle au sein d'un gabarit de type de note par une balise HTML (`<span>` en ligne, `<div>` en bloc), une règle CSS ou une directive conditionnelle Anki (`{{#Champ}}...{{/Champ}}`), préservant l'intégrité du contenu existant.
+  _Avoid_ : remplacement de sélection, écrasement de balise, injection destructrice
 
 ## Rétention SRS & Charge
 
@@ -55,12 +57,27 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Catalogue & Comparateur des modèles IA** : régime complet d'exploration technique permettant d'inspecter les spécifications réelles (vision, thinking, tarification, contexte) et de comparer côte à côte plusieurs moteurs IA.
   _Avoid_ : fenêtre catalogue, comparateur IA
 
-## Documents & Arborescence de classement
+## Paquets, Documents & Arborescences de classement
 
+- **Paquet (Deck)** : conteneur logique de cartes d'une collection Anki, pouvant être organisé en sous-paquets selon une arborescence délimitée par le séparateur canonique `::`.
+  _Avoid_ : deck, dossier de cartes, classeur de cartes
+- **Sous-paquet** : paquet rattaché à un paquet parent, dont le nom canonique est préfixé par le chemin hiérarchique du parent suivi du séparateur `::`.
+  _Avoid_ : sous-deck, child deck, sous-dossier de cartes
 - **Dossier de documents** : conteneur logique permettant de classer et organiser les documents de la bibliothèque par matière, niveau ou thématique.
 - **Chemin hiérarchique (Séparateur `::`)** : convention standard d'Anki et d'AnkiForge séparant les niveaux arborescents (ex: `Faculté::Semestre 1::Biologie`). Chaque segment du chemin constitue un nœud d'arborescence ayant sa propre existence logique et son identité dans le modèle de données.
 - **Sous-dossier** : dossier rattaché à un dossier parent, dont le nom canonique est préfixé par le chemin hiérarchique du parent suivi du séparateur `::`.
+- **Autocomplétion hiérarchique** : mécanisme de complétion contextuelle guidé par le séparateur `::`, qui propose dynamiquement à la frappe les branches parentes et les sous-conteneurs existants sous le préfixe courant.
+  _Avoid_ : complétion texte brute, autocomplete simple
+- **Fil d'Ariane prévisionnel (de création)** : composant d'interface décomposant en temps réel les segments d'un chemin hiérarchique en cours de saisie, distinguant visuellement les conteneurs déjà existants de ceux qui seront créés à la validation.
+  _Avoid_ : breadcrumb passif, prévisualisation texte, indicateur de chemin
 - **Surface documentaire** : ensemble cohérent des interactions permettant de sélectionner, importer, structurer, consulter, délimiter, indexer ou auditer un document. Une surface peut traverser plusieurs vues, widgets et dialogues.
+
+## Ingestion & Parsing documentaire
+
+- **Passe d'extraction Marker** : exécution du moteur d'apprentissage profond `marker_single` convertissant un document PDF en Markdown structuré KaTeX et extrayant ses illustrations, pilotée par un jeu d'options d'exécution typées (`MarkerOptions`).
+  _Avoid_ : OCR complet, run marker, parse job
+- **Options d'extraction Marker (`MarkerOptions`)** : contrat de configuration technique encapsulant les drapeaux d'exécution du binaire Marker (portée de pages, forçage ou contournement de l'OCR, filtrage KaTeX, résolution DPI et cible d'accélération matérielle).
+  _Avoid_ : config OCR, marker flags, paramètres PDF
 
 ## Albums & Planches
 
@@ -204,6 +221,13 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Notarisation système** : certification externe délivrée par le système hôte (Apple Notary Service) garantissant l'absence de logiciels malveillants identifiés avant l'exécution du binaire.
   _Avoid_ : signature Ed25519, code signing interne
 
+## Soutien & Financement communautaire
+
+- **Dialogue de soutien** : boîte de dialogue invitant l'utilisateur à contribuer au financement bénévole du projet via une plateforme tierce (Ko-fi).
+  _Avoid_ : pop-up ko-fi, modal don, fenêtre de donation, popup de soutien
+- **Rappel de soutien au démarrage** : préférence d'application déterminant si le dialogue de soutien est présenté de façon temporisée lors du lancement de l'application.
+  _Avoid_ : popup de démarrage, nag screen, notif ko-fi, prompt démarrage
+
 ## Tags & Hygiène taxonomique
 
 - **Grappe de tags (cluster)** : un ensemble de variantes d'un tag (différences de casse ou proximité typographique Levenshtein) identifiées comme se rapportant au même concept.
@@ -213,16 +237,23 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Fusion de tags** : l'opération atomique remplaçant sur toutes les notes concernées les variantes d'une grappe par leur tag canonique unique, sans duplication ni altération des tags de provenance.
   _Avoid_ : renommage de tags, écrasement de tags
 
-## Compétences agentiques & Workflow Tristan
+## Compétences agentiques & Flux d'ingénierie AnkiForge
 
 - **Catalogue de compétences (Skill catalog)** : l'ensemble des modules d'expertise procédurale (`SKILL.md`) situés sous `.agents/skills/`, conformes au standard ouvert `agentskills.io` et chargés à la demande par divulgation progressive.
   _Avoid_ : plugins, prompts système, extensions, prompts agents
 - **Divulgation progressive (Progressive disclosure)** : le mécanisme d'activation cognitive à trois paliers d'une compétence — Niveau 1 (découverte minimale par nom et description dans le contexte initial), Niveau 2 (activation du corps procédural `SKILL.md` sur correspondance de tâche), Niveau 3 (exécution ciblée des ressources spécialisées dans `references/` ou `scripts/`).
   _Avoid_ : chargement paresseux, lazy loading, prompt caching
-- **Aiguilleur de flux (`ask-tristan`)** : le routeur décisionnel guidant l'agent et l'utilisateur à travers le réseau des compétences d'ingénierie (`idée → cadrage → spécification → tickets → implémentation → revue`), ancré exclusivement sur le gestionnaire de tâches Obsidian du projet.
-  _Avoid_ : routeur Matt, ask-matt, copilote, superviseur
+- **Aiguilleur de flux (`ask-forge`)** : le routeur décisionnel guidant l'agent et l'utilisateur à travers le réseau des compétences d'ingénierie (`idée → cadrage → spécification → tickets → implémentation → revue`), ancré exclusivement sur le gestionnaire de tâches Obsidian du projet.
+  _Avoid_ : routeur Matt, ask-tristan, ask-matt, copilote, superviseur
 - **Règle anti-boucle Obsidian** : le protocole d'interaction atomique imposé aux agents sur le tableau Kanban et les tickets (`Lecture → Écriture/Déplacement → Arrêt immédiat`), interdisant formellement toute auto-vérification circulaire ou relecture non sollicitée.
   _Avoid_ : validation en boucle, boucle de contrôle, vérification du Kanban
+
+## Documentation & Hygiène du Dépôt
+
+- **Docstring Google sans redondance** : standard de documentation en français décrivant la finalité métier (`Args:`, `Returns:`, `Raises:`) sans répéter les types de paramètres déjà portés de façon stricte par la signature Python 3.12+ vérifiée par `mypy`.
+  _Avoid_ : docstring sphinx, docstring numpy, types dans docstring
+- **Commentaire de justification architecturale** : commentaire de code explicitant le pourquoi non évident d'un choix technique (verrous WAL SQLite sous Windows, contournements de packaging macOS/Nuitka, directives de linters), sanctuarisé contre toute suppression.
+  _Avoid_ : paraphrase de code, commentaire trivial, commentaire de bruit
 
 ## Instructions & Adaptateurs d'Agents
 

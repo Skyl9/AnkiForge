@@ -19,6 +19,7 @@ from .document_picker_button import DocumentPickerButton
 from .document_select_window import DocumentSelectWindow
 from .elided_label import ElidedLabel
 from .flow_layout import FlowLayout, FlowWidget
+from .hierarchy_breadcrumb_bar import BreadcrumbSegmentButton, HierarchyBreadcrumbBar
 from .hierarchy_completer import HierarchyCompleter
 from .inputs import (
     AutoExpandingTextEdit,
@@ -83,6 +84,8 @@ __all__ = [
     "ContextItem",
     "VirtualListView",
     "HierarchyCompleter",
+    "HierarchyBreadcrumbBar",
+    "BreadcrumbSegmentButton",
     "Badge",
     "StatusBadge",
     "TagButton",
