@@ -19,6 +19,7 @@ from .document_picker_button import DocumentPickerButton
 from .document_select_window import DocumentSelectWindow
 from .elided_label import ElidedLabel
 from .flow_layout import FlowLayout, FlowWidget
+from .hierarchy_completer import HierarchyCompleter
 from .inputs import (
     AutoExpandingTextEdit,
     ComboBoxWheelFilter,
@@ -81,6 +82,7 @@ __all__ = [
     "DocTreeItem",
     "ContextItem",
     "VirtualListView",
+    "HierarchyCompleter",
     "Badge",
     "StatusBadge",
     "TagButton",
