@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from collections.abc import Iterable
@@ -57,6 +58,34 @@ class ChunkingService:
     )
     HEADING_REGEX = re.compile(r"^(#{1,6})\s+(.*)", re.MULTILINE)
 
+    #: Motifs de détection des balises d'images (Markdown et HTML) portées par un fragment.
+    IMAGE_MARKDOWN_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+    IMAGE_HTML_RE = re.compile(r"<img[^>]*?src=[\"']([^\"']+)[\"'][^>]*>", re.IGNORECASE)
+    IMAGE_TAG_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)|<img[^>]*?src=[\"']([^\"']+)[\"'][^>]*>", re.IGNORECASE)
+
+    @classmethod
+    def detect_figure_references(cls, content: str | Any) -> list[str]:
+        """Retourne la liste (dédupliquée, ordre d'apparition) des noms de fichiers médias détectés."""
+        text = str(content or "")
+        results: list[str] = []
+        seen: set[str] = set()
+        for match in cls.IMAGE_MARKDOWN_RE.finditer(text):
+            name = match.group(1).strip()
+            if name and name not in seen:
+                seen.add(name)
+                results.append(name)
+        for match in cls.IMAGE_HTML_RE.finditer(text):
+            name = match.group(1).strip()
+            if name and name not in seen:
+                seen.add(name)
+                results.append(name)
+        return results
+
+    # Alias pour compatibilité avec les conventions possibles des tests.
+    extract_figure_references = detect_figure_references
+    detect_images = detect_figure_references
+    extract_media_references = detect_figure_references
+
     #: Séparateur de niveaux dans un fil d'Ariane (« Chapitre > Sous-chapitre »).
     HEADING_SEPARATOR = " > "
 
@@ -81,7 +110,7 @@ class ChunkingService:
     #      ré-indexation — y compris celle déclenchée automatiquement par ce bump —
     #      effaçait le drapeau que la migration 043 venait de remplir, et stamping la
     #      version courante sans jamais le réparer.
-    CHUNKING_VERSION: int = 6
+    CHUNKING_VERSION: int = 7
 
     CONTINUOUS_FILE_TYPES = ("md", "markdown", "txt", "text", "web", "youtube", "yt", "ipynb", "py")
 
@@ -401,6 +430,14 @@ class ChunkingService:
 
         for p_num, p_text in pages:
             clean_text = cls.PAGE_MARKER_REGEX.sub("", p_text).strip()
+            media_bboxes: dict[str, str] = {}
+            meta_match = re.search(r"<!--\s*media_bboxes:\s*(.*?)\s*-->", clean_text, re.DOTALL)
+            if meta_match:
+                try:
+                    media_bboxes = json.loads(meta_match.group(1))
+                except (ValueError, TypeError):
+                    media_bboxes = {}
+                clean_text = re.sub(r"\n*\s*<!--\s*media_bboxes:.*?-->\s*", "", clean_text, flags=re.DOTALL).strip()
             time_match = cls.TIME_MARKER_REGEX.search(clean_text)
             start_time = float(time_match.group(1)) if time_match else None
             end_time = float(time_match.group(2)) if time_match else None
@@ -431,6 +468,7 @@ class ChunkingService:
                     "start_time": start_time,
                     "end_time": end_time,
                     "content_hash": cls.hash_content(clean_text),
+                    "media_bboxes": media_bboxes or {},
                 }
             )
             chunk_idx += 1

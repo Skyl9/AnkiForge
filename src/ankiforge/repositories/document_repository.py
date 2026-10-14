@@ -567,6 +567,56 @@ class DocumentRepository(BaseRepository):
         current = DocumentModel.get_or_none(DocumentModel.id == doc.id) or doc
         extracted = ChunkingService.flag_structural_containers(extracted, declared_addresses=DocumentRepository.get_neutralized_regions(current))
 
+        # Expansion centralisée des figures : un fragment de figure dédié par balise d'image
+        # détectée, portant son media_id, sa bounding_box, son fil d'Ariane et sa page,
+        # sans altérer le fragment textuel source.
+        expanded: list[dict[str, Any]] = []
+        for data in extracted or []:
+            entry = dict(data)
+            expanded.append(entry)
+            content = str(data.get("content") or "")
+            detected = ChunkingService.detect_figure_references(content)
+            if not detected:
+                continue
+            media_bboxes = data.get("media_bboxes") if isinstance(data.get("media_bboxes"), dict) else {}
+            page = data.get("page_number")
+            heading = data.get("heading_path")
+            base_bbox = data.get("bounding_box")
+            for filename in detected:
+                # Préserve la balise d'origine correspondant à ce fichier.
+                tag = None
+                for match in ChunkingService.IMAGE_MARKDOWN_RE.finditer(content):
+                    if match.group(1).strip() == filename:
+                        tag = match.group(0)
+                        break
+                if tag is None:
+                    for match in ChunkingService.IMAGE_HTML_RE.finditer(content):
+                        if match.group(1).strip() == filename:
+                            tag = match.group(0)
+                            break
+                if tag is None:
+                    tag = f"![Figure]({filename})"
+                bbox = media_bboxes.get(filename) if isinstance(media_bboxes, dict) else None
+                if bbox is None:
+                    bbox = base_bbox
+                expanded.append(
+                    {
+                        **dict(data),
+                        "content": tag,
+                        "content_hash": ChunkingService.hash_content(tag),
+                        "page_number": page,
+                        "heading_path": heading,
+                        "start_time": data.get("start_time"),
+                        "end_time": data.get("end_time"),
+                        "is_structural_container": False,
+                        "container_origin": None,
+                        "media_filename": filename,
+                        "_is_figure": True,
+                        "bounding_box": bbox,
+                    }
+                )
+        extracted = expanded
+
         existing_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index))
         existing_by_hash: dict[str, list[DocumentChunkModel]] = {}
         existing_by_heading_page: dict[tuple[str | None, int | None], list[DocumentChunkModel]] = {}
@@ -585,6 +635,12 @@ class DocumentRepository(BaseRepository):
                 content_hash = data.get("content_hash") or ChunkingService.hash_content(content)
                 page = data.get("page_number")
                 heading = data.get("heading_path")
+                is_figure = bool(data.get("media_filename") or data.get("_is_figure"))
+                figure_media = None
+                if is_figure:
+                    from ankiforge.database.models.cards import MediaModel
+
+                    figure_media = MediaModel.get_or_none(MediaModel.filename == data.get("media_filename"))
 
                 matched: DocumentChunkModel | None = None
                 for bucket in (existing_by_hash.get(content_hash), existing_by_heading_page.get((heading, page))):
@@ -607,6 +663,12 @@ class DocumentRepository(BaseRepository):
                     matched.container_origin = data.get("container_origin")
                     matched.start_time = data.get("start_time", matched.start_time)
                     matched.end_time = data.get("end_time", matched.end_time)
+                    if is_figure:
+                        if figure_media is not None:
+                            matched.media = figure_media
+                        bbox = data.get("bounding_box")
+                        if bbox is not None:
+                            matched.bounding_box = bbox
                     matched.save()
                     report = report.preserved_one()
                 else:
@@ -621,6 +683,8 @@ class DocumentRepository(BaseRepository):
                         is_structural_container=bool(data.get("is_structural_container", False)),
                         container_origin=data.get("container_origin"),
                         content_hash=content_hash,
+                        media=figure_media if is_figure else None,
+                        bounding_box=data.get("bounding_box"),
                     )
                     matched_ids.add(created.id)
                     report = report.created_one()

@@ -22,7 +22,27 @@ from pptx import Presentation
 
 from ankiforge.services.cards.media_manager import MediaManager
 
+# PyMuPDF (fitz) : import tolérant. Aucun caractère bloquant si absent : le fallback pypdf s'en charge.
+fitz: Any = None
+try:
+    import pymupdf as _pymupdf
+
+    fitz = _pymupdf
+except Exception:  # pragma: no cover - dépendance déclarée dans pyproject
+    try:
+        import fitz as _fitz2
+
+        fitz = _fitz2
+    except Exception:  # pragma: no cover
+        fitz = None
+
 logger = logging.getLogger(__name__)
+
+
+def is_figure_admissible(width: Any, height: Any) -> bool:
+    """Fonction utilitaire module-level (alias)."""
+    return DocumentParser._is_figure_admissible(width, height)
+
 
 WEB_SOURCE_PREFIXES = ("http://", "https://")
 
@@ -52,6 +72,42 @@ class DocumentParser:
             media_manager (MediaManager | None): Pour gérer les images extraites (ex: PDF).
         """
         self.media_manager = media_manager or MediaManager()
+
+    # ------------------------------------------------------------------
+    # Filtrage géométrique des figures (ADR 0025)
+    # ------------------------------------------------------------------
+    #: Surface minimale d'une figure admise (150 x 150 px).
+    FIGURE_MIN_SURFACE: int = 22500
+    #: Côté minimal (largeur comme hauteur).
+    FIGURE_MIN_SIDE: int = 60
+    #: Bornes du ratio d'aspect (1:8 -> 8:1).
+    FIGURE_MIN_ASPECT: float = 1.0 / 8.0
+    FIGURE_MAX_ASPECT: float = 8.0
+
+    @staticmethod
+    def _is_figure_admissible(width: int | float | None, height: int | float | None) -> bool:
+        """Règle déterministe d'admission d'une image comme figure de cours.
+
+        Admise ssi surface >= 22500 px², min(l,h) >= 60 px, ratio d'aspect dans [1:8,8:1].
+        """
+        try:
+            w = float(width or 0)
+            h = float(height or 0)
+        except (TypeError, ValueError):
+            return False
+        if w <= 0 or h <= 0:
+            return False
+        if w * h < DocumentParser.FIGURE_MIN_SURFACE:
+            return False
+        if min(w, h) < DocumentParser.FIGURE_MIN_SIDE:
+            return False
+        ratio = w / h
+        return not (ratio < DocumentParser.FIGURE_MIN_ASPECT or ratio > DocumentParser.FIGURE_MAX_ASPECT)
+
+    @staticmethod
+    def is_figure_admissible(width: int | float | None, height: int | float | None) -> bool:
+        """Alias public de :meth:`_is_figure_admissible`."""
+        return DocumentParser._is_figure_admissible(width, height)
 
     def parse_document(
         self,
@@ -102,7 +158,14 @@ class DocumentParser:
         ext = file_path.suffix.lower()
 
         if ext == ".pdf":
-            res = self._parse_pdf_with_marker(file_path, progress_callback, check_cancel) if self.is_marker_available() else self._parse_pdf_with_pypdf(file_path, progress_callback, check_cancel)
+            if self.is_marker_available():
+                res = self._parse_pdf_with_marker(file_path, progress_callback, check_cancel)
+            else:
+                try:
+                    res = self._parse_pdf_with_pymupdf(file_path, progress_callback, check_cancel)
+                except Exception as exc:  # nosec B110
+                    logger.warning("PyMuPDF a échoué (%s) ; repli sur pypdf.", exc)
+                    res = self._parse_pdf_with_pypdf(file_path, progress_callback, check_cancel)
         elif ext == ".ipynb":
             if progress_callback:
                 progress_callback("Lecture du notebook Jupyter en cours...")
@@ -332,6 +395,113 @@ class DocumentParser:
 
             if progress_callback:
                 progress_callback(f"Lecture de la page {i + 1} / {num_pages}...")
+
+        if not pages_text:
+            raise ValueError("Aucun texte extractible trouvé dans ce fichier PDF (il s'agit peut-être d'un document scanné/image nécessitant Marker OCR).")
+
+        return "\n\n[SPLIT]\n\n".join(pages_text)
+
+    def _parse_pdf_with_pymupdf(self, file_path: str | Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
+        """Extraction native rapide via PyMuPDF (texte + figures filtrées, entrelacées selon y0)."""
+        if fitz is None:
+            raise RuntimeError("Le module pymupdf (fitz) n'est pas installé. Lancez 'uv add pymupdf'")
+
+        if progress_callback:
+            progress_callback("Extraction PDF native en cours (PyMuPDF)...")
+
+        doc = fitz.open(str(file_path))
+        try:
+            num_pages = len(doc)
+            pages_text: list[str] = []
+
+            for i, page in enumerate(doc):
+                if check_cancel and check_cancel():
+                    raise InterruptedError("Extraction annulée par l'utilisateur.")
+
+                page_blocks: list[tuple[float, str, str]] = []
+                # Texte par blocs (coordonnée verticale y0)
+                try:
+                    for block in page.get_text("blocks") or []:
+                        # block: (x0, y0, x1, y1, text, block_no, block_type)
+                        btype = block[6] if len(block) > 6 else 0
+                        if btype != 0:
+                            continue
+                        text = str(block[4] or "").strip()
+                        if text:
+                            page_blocks.append((float(block[1]), "text", text))
+                except Exception:
+                    text = (page.get_text() or "").strip()
+                    if text:
+                        page_blocks.append((0.0, "text", text))
+
+                # Figures filtrées
+                figure_counter = 0
+                media_bboxes: dict[str, str] = {}
+                try:
+                    image_infos = page.get_image_info(xrefs=True) or []
+                except Exception:
+                    image_infos = []
+                for info in image_infos:
+                    width = info.get("width")
+                    height = info.get("height")
+                    if not self._is_figure_admissible(width, height):
+                        continue
+                    xref = info.get("xref")
+                    if xref is None:
+                        continue
+                    try:
+                        extracted = doc.extract_image(xref)
+                    except Exception:  # nosec B112
+                        continue
+                    if not extracted:
+                        continue
+                    image_bytes = extracted.get("image")
+                    ext = (extracted.get("ext") or "png").lower()
+                    if not image_bytes:
+                        continue
+                    original_name = f"page_{i + 1}_figure_{figure_counter + 1}.{ext}"
+                    mime_type = f"image/{ext}" if ext != "jpg" else "image/jpeg"
+                    media = self.media_manager.store_media_bytes(
+                        data=image_bytes,
+                        original_name=original_name,
+                        mime_type=mime_type,
+                    )
+                    if not media:
+                        continue
+                    filename = getattr(media, "filename", None)
+                    if not filename:
+                        continue
+                    figure_counter += 1
+                    bbox = info.get("bbox") or (0, 0, 0, 0)
+                    try:
+                        bbox_str = ",".join(str(round(float(v), 2)) for v in bbox)
+                    except Exception:
+                        bbox_str = None
+                    if bbox_str:
+                        media_bboxes[str(filename)] = bbox_str
+                    tag = f"![Figure {figure_counter} (Page {i + 1})]({filename})"
+                    y0 = float(bbox[1]) if isinstance(bbox, (tuple, list)) and len(bbox) > 1 else 0.0
+                    page_blocks.append((y0, "image", tag))
+
+                # Entrelacement vertical par y0
+                page_blocks.sort(key=lambda item: item[0])
+                parts = [block[2] for block in page_blocks if block[2].strip()]
+                # conserve la cartographie des bboxes pour la liaison en base (chunk metadata)
+                page_content = "\n\n".join(parts).strip()
+                if page_content:
+                    if media_bboxes:
+                        # encode dans un commentaire HTML discret pour ne pas altérer le texte
+                        meta = "<!-- media_bboxes: " + json.dumps(media_bboxes) + " -->"
+                        page_content = page_content + "\n\n" + meta
+                    pages_text.append(f"## Page {i + 1}\n\n{page_content}")
+
+                if progress_callback:
+                    progress_callback(f"Lecture de la page {i + 1} / {num_pages}...")
+        finally:
+            try:
+                doc.close()
+            except Exception:
+                pass
 
         if not pages_text:
             raise ValueError("Aucun texte extractible trouvé dans ce fichier PDF (il s'agit peut-être d'un document scanné/image nécessitant Marker OCR).")
