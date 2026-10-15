@@ -1247,3 +1247,248 @@ def test_code_editor_html_class_completion_preserves_adjacent_closing_quote(qtbo
     _press_key(native, Qt.Key.Key_Tab)
 
     assert native.toPlainText() == '<div class="card">'
+
+
+# --- Enveloppement non destructif et menu contextuel ---
+
+
+def test_code_editor_wrap_selection_atomic_undo(qtbot):
+    """wrap_selection encapsule la sélection dans un bloc d'édition atomique réversible via Ctrl+Z."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    native.setPlainText("Texte brut")
+    # Sélectionner 'Texte'
+    cursor = native.textCursor()
+    cursor.setPosition(0)
+    cursor.setPosition(5, cursor.MoveMode.KeepAnchor)
+    native.setTextCursor(cursor)
+    assert native.textCursor().selectedText() == "Texte"
+
+    # Envelopper dans <b>...</b>
+    native.wrap_selection("<b>", "</b>")
+    assert native.toPlainText() == "<b>Texte</b> brut"
+
+    # Annulation atomique (un seul undo rétablit le texte initial)
+    native.undo()
+    assert native.toPlainText() == "Texte brut"
+
+
+def test_code_editor_wrap_selection_empty_placeholder_positions_cursor(qtbot):
+    """Sans sélection active, wrap_selection insère le placeholder et positionne le curseur au centre."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    native.setPlainText("")
+    with patch.object(native, "setFocus") as mock_focus:
+        native.wrap_selection("<div>\n", "\n</div>", empty_placeholder="  ")
+        mock_focus.assert_called_once()
+
+    assert native.toPlainText() == "<div>\n  \n</div>"
+    # Curseur positionné après les 2 espaces d'indentation
+    assert native.textCursor().position() == len("<div>\n  ")
+
+
+def test_code_editor_apply_css_class_html_inline(qtbot):
+    """En HTML, une sélection mono-ligne est enveloppée dans <span class="{classe}">...</span>."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    native.setPlainText("Texte mono-ligne")
+    cursor = native.textCursor()
+    cursor.select(cursor.SelectionType.Document)
+    native.setTextCursor(cursor)
+
+    native.apply_css_class("highlight")
+    assert native.toPlainText() == '<span class="highlight">Texte mono-ligne</span>'
+
+
+def test_code_editor_apply_css_class_html_multiline(qtbot):
+    """En HTML, une sélection multi-lignes est enveloppée dans <div class="{classe}">\n...\n</div>."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    native.setPlainText("Ligne 1\nLigne 2")
+    cursor = native.textCursor()
+    cursor.select(cursor.SelectionType.Document)
+    native.setTextCursor(cursor)
+
+    native.apply_css_class("card")
+    assert native.toPlainText() == '<div class="card">\nLigne 1\nLigne 2\n</div>'
+
+
+def test_code_editor_apply_css_class_html_empty_selection(qtbot):
+    """En HTML sans sélection, l'application d'une classe insère la div vierge avec curseur au centre."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    native.setPlainText("")
+    with patch.object(native, "setFocus") as mock_focus:
+        native.apply_css_class("af-callout-info")
+        mock_focus.assert_called_once()
+
+    assert native.toPlainText() == '<div class="af-callout-info">\n  \n</div>'
+    assert native.textCursor().position() == len('<div class="af-callout-info">\n  ')
+
+
+def test_code_editor_apply_css_class_css_mode(qtbot):
+    """En CSS, une sélection est enveloppée dans .{classe} { ... }, ou insère le squelette vierge."""
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+
+    wrapper = CodeEditorWithGutter(placeholder="", mode="css")
+    qtbot.addWidget(wrapper)
+    wrapper.show()
+    native = wrapper.editor
+
+    # 1. Avec sélection de déclarations
+    native.setPlainText("color: red;\nfont-size: 14px;")
+    cursor = native.textCursor()
+    cursor.select(cursor.SelectionType.Document)
+    native.setTextCursor(cursor)
+
+    native.apply_css_class("custom-badge")
+    assert native.toPlainText() == ".custom-badge {\ncolor: red;\nfont-size: 14px;\n}"
+
+    # 2. Sans sélection : squelette vierge
+    native.setPlainText("")
+    with patch.object(native, "setFocus") as mock_focus:
+        native.apply_css_class("empty-rule")
+        mock_focus.assert_called_once()
+
+    assert native.toPlainText() == ".empty-rule {\n  \n}"
+    assert native.textCursor().position() == len(".empty-rule {\n  ")
+
+
+def test_card_models_view_condition_pill_wraps_selection(qtbot, mock_db):
+    """Dans CardModelsView, les pilules de condition Anki enveloppent la sélection existante."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(
+        name=f"Modèle Cond {uid}",
+        fields_schema=json.dumps(["Question", "Reponse"]),
+        templates=json.dumps([{"name": "Carte 1", "qfmt": "{{Question}}", "afmt": "{{Reponse}}"}]),
+        css_style=".card {}",
+    )
+
+    view = CardModelsView()
+    qtbot.addWidget(view)
+    view.show()
+
+    # Sélectionner le modèle
+    for i in range(view.list_widget.count()):
+        item = view.list_widget.item(i)
+        if item.data(Qt.ItemDataRole.UserRole).id == nt.id:
+            view.list_widget.setCurrentItem(item)
+            break
+
+    # Se positionner sur l'éditeur Front (index 1)
+    view.editor_stack.setCurrentIndex(1)
+    front_native = view.front_html_wrapper.editor
+    front_native.setPlainText("Texte optionnel")
+    cursor = front_native.textCursor()
+    cursor.select(cursor.SelectionType.Document)
+    front_native.setTextCursor(cursor)
+
+    # Invoquer l'insertion de condition pour le champ 'Question'
+    view._insert_condition_to_active_editor("Question")
+
+    assert front_native.toPlainText() == "{{#Question}}\nTexte optionnel\n{{/Question}}"
+
+    # Cas sans sélection
+    front_native.setPlainText("")
+    view._insert_condition_to_active_editor("Question")
+    assert front_native.toPlainText() == "{{#Question}}\n  {{Question}}\n{{/Question}}"
+
+
+def test_card_models_view_css_pill_wraps_selection_and_empty(qtbot, mock_db):
+    """Dans CardModelsView, cliquer sur une pilule de classe CSS applique le wrapping à l'éditeur actif."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(
+        name=f"Modèle PillWrap {uid}",
+        fields_schema=json.dumps(["Front", "Back"]),
+        templates=json.dumps([{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style=".card {}\n.highlight {}",
+    )
+
+    view = CardModelsView()
+    qtbot.addWidget(view)
+    view.show()
+
+    for i in range(view.list_widget.count()):
+        item = view.list_widget.item(i)
+        if item.data(Qt.ItemDataRole.UserRole).id == nt.id:
+            view.list_widget.setCurrentItem(item)
+            break
+
+    view.editor_stack.setCurrentIndex(1)
+    front_native = view.front_html_wrapper.editor
+
+    # 1. Sélection mono-ligne -> span
+    front_native.setPlainText("Mot clé")
+    cursor = front_native.textCursor()
+    cursor.select(cursor.SelectionType.Document)
+    front_native.setTextCursor(cursor)
+
+    view._insert_css_class_to_active_editor("highlight")
+    assert front_native.toPlainText() == '<span class="highlight">Mot clé</span>'
+
+    # 2. Sélection multi-lignes -> div
+    front_native.setPlainText("Para 1\nPara 2")
+    cursor = front_native.textCursor()
+    cursor.select(cursor.SelectionType.Document)
+    front_native.setTextCursor(cursor)
+
+    view._insert_css_class_to_active_editor("card")
+    assert front_native.toPlainText() == '<div class="card">\nPara 1\nPara 2\n</div>'
+
+
+def test_code_editor_context_menu_applies_css_class(qtbot):
+    """Le menu contextuel propose 'Appliquer la classe CSS' et applique le wrapping au texte sélectionné."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+    native.set_custom_classes(["custom-alert"])
+
+    native.setPlainText("Avertissement")
+    cursor = native.textCursor()
+    cursor.select(cursor.SelectionType.Document)
+    native.setTextCursor(cursor)
+
+    menu = native.create_context_menu()
+    assert menu is not None
+
+    # Trouver le sous-menu "Appliquer la classe CSS"
+    sub_menu = None
+    for action in menu.actions():
+        if action.menu() and "Appliquer la classe CSS" in action.text():
+            sub_menu = action.menu()
+            break
+
+    assert sub_menu is not None
+    action_texts = [a.text() for a in sub_menu.actions()]
+    assert ".card" in action_texts
+    assert ".custom-alert" in action_texts
+
+    # Déclencher l'action pour .custom-alert
+    for a in sub_menu.actions():
+        if a.text() == ".custom-alert":
+            a.trigger()
+            break
+
+    assert native.toPlainText() == '<span class="custom-alert">Avertissement</span>'
+
+
+def test_code_editor_context_menu_event_triggers_menu_exec(qtbot):
+    """L'événement contextMenuEvent ouvre le menu contextuel sans bloquer l'exécution."""
+    from unittest.mock import MagicMock
+
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QContextMenuEvent
+
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    event = QContextMenuEvent(QContextMenuEvent.Reason.Mouse, QPoint(10, 10), QPoint(100, 100))
+    dummy_menu = MagicMock()
+    with patch.object(native, "create_context_menu", return_value=dummy_menu) as mock_create:
+        native.contextMenuEvent(event)
+        mock_create.assert_called_once_with(event.pos())
+        dummy_menu.exec.assert_called_once_with(event.globalPos())

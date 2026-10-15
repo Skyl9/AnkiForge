@@ -1067,8 +1067,7 @@ class CardModelsView(QWidget):
                 cond_tag = f"{{{{#{f}}}}}"
                 btn_cond = TagPillButton(cond_tag, variant="condition")
                 btn_cond.setToolTip(tr("Insérer le bloc conditionnel si '%1' n'est pas vide", f))
-                cond_snippet = f"{{{{#{f}}}}}\n  {{{{{f}}}}}\n{{{{/{f}}}}}"
-                btn_cond.clicked.connect(lambda _, s=cond_snippet: self._insert_tag_to_active_editor(s))
+                btn_cond.clicked.connect(lambda _, field=f: self._insert_condition_to_active_editor(field))
                 self.tags_flow_layout.addWidget(btn_cond)
 
         total_pills = self.tags_flow_layout.count()
@@ -1079,22 +1078,34 @@ class CardModelsView(QWidget):
         active_idx = self.editor_stack.currentIndex()
         if active_idx == 1:
             self.front_html_wrapper.insertPlainText(tag_str)
+            self.front_html_wrapper.editor.setFocus()
         elif active_idx == 2:
             self.back_html_wrapper.insertPlainText(tag_str)
+            self.back_html_wrapper.editor.setFocus()
         elif active_idx == 0:
             self.css_editor_wrapper.insertPlainText(tag_str)
+            self.css_editor_wrapper.editor.setFocus()
+
+    def _insert_condition_to_active_editor(self, field_name: str) -> None:
+        active_idx = self.editor_stack.currentIndex()
+        prefix = f"{{{{#{field_name}}}}}\n"
+        suffix = f"\n{{{{/{field_name}}}}}"
+        empty_placeholder = f"  {{{{{field_name}}}}}"
+        if active_idx == 1:
+            self.front_html_wrapper.wrap_selection(prefix, suffix, empty_placeholder=empty_placeholder)
+        elif active_idx == 2:
+            self.back_html_wrapper.wrap_selection(prefix, suffix, empty_placeholder=empty_placeholder)
+        elif active_idx == 0:
+            self.css_editor_wrapper.wrap_selection(prefix, suffix, empty_placeholder=empty_placeholder)
 
     def _insert_css_class_to_active_editor(self, class_name: str) -> None:
         active_idx = self.editor_stack.currentIndex()
-        if active_idx in (1, 2):
-            tag = f'<div class="{class_name}">\n  \n</div>'
-            if active_idx == 1:
-                self.front_html_wrapper.insertPlainText(tag)
-            else:
-                self.back_html_wrapper.insertPlainText(tag)
+        if active_idx == 1:
+            self.front_html_wrapper.apply_css_class(class_name)
+        elif active_idx == 2:
+            self.back_html_wrapper.apply_css_class(class_name)
         elif active_idx == 0:
-            rule = f"\n.{class_name} {{\n  \n}}\n"
-            self.css_editor_wrapper.insertPlainText(rule)
+            self.css_editor_wrapper.apply_css_class(class_name)
 
     @Slot()
     def _update_preview(self, immediate: bool = False) -> None:

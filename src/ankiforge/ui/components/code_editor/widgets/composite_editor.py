@@ -88,6 +88,12 @@ class CodeEditorWithGutter(QFrame):
     def format_code(self) -> None:
         self.native_editor.format_code()
 
+    def wrap_selection(self, prefix: str, suffix: str, empty_placeholder: str = "") -> None:
+        self.native_editor.wrap_selection(prefix, suffix, empty_placeholder)
+
+    def apply_css_class(self, class_name: str) -> None:
+        self.native_editor.apply_css_class(class_name)
+
     def refresh_theme(self) -> None:
         """Rafraîchit la coloration syntaxique et les styles lors d'un changement de thème."""
         self.native_editor.refresh_highlighter()

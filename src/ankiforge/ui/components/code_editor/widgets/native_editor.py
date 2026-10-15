@@ -3,9 +3,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from PySide6.QtCore import QModelIndex, QRect, QStringListModel, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QModelIndex, QPoint, QRect, QStringListModel, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QColor,
+    QContextMenuEvent,
     QFont,
     QPainter,
     QPaintEvent,
@@ -16,6 +17,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QCompleter,
+    QMenu,
     QPlainTextEdit,
     QTextEdit,
     QWidget,
@@ -624,3 +626,78 @@ class NativeCodeEditor(QPlainTextEdit):
             super().keyPressEvent(event)
 
         self._trigger_completion()
+
+    # --- Enveloppement Non Destructif & Application de Classes CSS ---
+
+    def wrap_selection(self, prefix: str, suffix: str, empty_placeholder: str = "") -> None:
+        """
+        Enveloppe de manière non destructive la sélection active entre ``prefix`` et ``suffix``.
+        Si aucune sélection n'est active, insère ``prefix + empty_placeholder + suffix``,
+        positionne le curseur au centre (après l'éventuel placeholder d'indentation)
+        et redonne le focus à l'éditeur.
+
+        L'ensemble de l'opération est encapsulé dans un bloc d'édition atomique
+        (``beginEditBlock`` / ``endEditBlock``) pour garantir une annulation unitaire via Ctrl+Z.
+        """
+        cursor = self.textCursor()
+        cursor.beginEditBlock()
+        try:
+            if cursor.hasSelection():
+                selected_text = cursor.selectedText().replace("\u2029", "\n")
+                cursor.insertText(f"{prefix}{selected_text}{suffix}")
+                self.setTextCursor(cursor)
+            else:
+                start_pos = cursor.position()
+                cursor.insertText(f"{prefix}{empty_placeholder}{suffix}")
+                cursor.setPosition(start_pos + len(prefix) + len(empty_placeholder))
+                self.setTextCursor(cursor)
+        finally:
+            cursor.endEditBlock()
+        self.setFocus()
+
+    def apply_css_class(self, class_name: str) -> None:
+        """
+        Applique une classe CSS à l'éditeur actif selon son mode et la sélection :
+        - En HTML :
+          - Sélection mono-ligne (inline) : enveloppe dans <span class="{classe}">{sélection}</span>
+          - Sélection multi-lignes (bloc) : enveloppe dans <div class="{classe}">\n{sélection}\n</div>
+          - Sans sélection : insère <div class="{classe}">\n  \n</div> avec curseur au centre
+        - En CSS :
+          - Avec sélection : enveloppe dans .{classe} {\n{sélection}\n}
+          - Sans sélection : insère .{classe} {\n  \n} avec curseur au centre
+        """
+        clean_name = class_name.lstrip(".")
+        cursor = self.textCursor()
+
+        if self.mode == "html":
+            if cursor.hasSelection():
+                selected_text = cursor.selectedText().replace("\u2029", "\n")
+                if "\n" in selected_text:
+                    self.wrap_selection(f'<div class="{clean_name}">\n', "\n</div>")
+                else:
+                    self.wrap_selection(f'<span class="{clean_name}">', "</span>")
+            else:
+                self.wrap_selection(f'<div class="{clean_name}">\n', "\n</div>", empty_placeholder="  ")
+        elif self.mode == "css":
+            if cursor.hasSelection():
+                self.wrap_selection(f".{clean_name} {{\n", "\n}")
+            else:
+                self.wrap_selection(f".{clean_name} {{\n", "\n}", empty_placeholder="  ")
+
+    # --- Menu Contextuel Enrichi ---
+
+    def create_context_menu(self, pos: QPoint | None = None) -> QMenu:
+        """Crée le menu contextuel enrichi du sous-menu d'application des classes CSS."""
+        menu = self.createStandardContextMenu(pos) if pos is not None else self.createStandardContextMenu()
+        classes = self.get_known_css_classes()
+        if classes:
+            menu.addSeparator()
+            apply_menu = menu.addMenu(self.tr("Appliquer la classe CSS"))
+            for cls_name in classes:
+                action = apply_menu.addAction(f".{cls_name}")
+                action.triggered.connect(lambda _, c=cls_name: self.apply_css_class(c))
+        return menu
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        menu = self.create_context_menu(event.pos())
+        menu.exec(event.globalPos())

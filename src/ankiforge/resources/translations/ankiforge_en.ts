@@ -1950,7 +1950,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1075"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1074"/>
         <location filename="../../ui/views/edition_view/view.py" line="+359"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -2317,7 +2317,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-647"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-646"/>
         <source>Style CSS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2387,7 +2387,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+90"/>
+        <location line="+101"/>
         <source>Type de note &apos;%1&apos; créé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7749,7 +7749,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1163"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1174"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7785,12 +7785,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+1065"/>
+        <location line="+1076"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1001"/>
+        <location line="-1012"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7981,7 +7981,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+76"/>
+        <location line="+87"/>
         <source>Nouveau type de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14365,6 +14365,14 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <message>
         <location line="+51"/>
         <source>0 modèle(s) sélectionné(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>NativeCodeEditor</name>
+    <message>
+        <location filename="../../ui/components/code_editor/widgets/native_editor.py" line="+695"/>
+        <source>Appliquer la classe CSS</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
