@@ -87,7 +87,6 @@ dev = [
 # On autorise des lignes plus longues (200) pour ne pas casser les prompts IA
 line-length = 200
 target-version = "py312"
-extend-exclude = ["script/tools", "script/ui_rebuild"]
 
 [tool.ruff.lint]
 # E/F/B: PEP8 & bugs, I: isort, UP: pyupgrade 3.12, T20: zero print, PT: pytest style, SIM: simplify, RUF100: noqa morte

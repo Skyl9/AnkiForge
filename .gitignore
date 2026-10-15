@@ -47,6 +47,9 @@ coverage.json
 mutants/
 .mutmut-cache/
 
+# --- Journaux et Logs ---
+*.log
+log.txt
 
 test.md
 # --- Rapports générés par les skills d'audit ---
