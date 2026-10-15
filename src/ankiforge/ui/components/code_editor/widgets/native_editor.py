@@ -41,6 +41,18 @@ class NativeCodeEditor(QPlainTextEdit):
 
     lint_issues_changed = Signal(list)
 
+    DEFAULT_CSS_CLASSES: list[str] = [
+        "card",
+        "af-callout-info",
+        "af-callout-warning",
+        "af-callout-danger",
+        "af-callout-tip",
+        "af-badge-diff",
+        "cloze",
+        "nightMode",
+        "highlight",
+    ]
+
     def __init__(
         self,
         mode: str = "html",
@@ -52,6 +64,8 @@ class NativeCodeEditor(QPlainTextEdit):
         self._known_fields: list[str] = []
         self._custom_classes: list[str] = []
         self._lint_issues: list[LintIssue] = []
+        self._html_words: list[str] = []
+        self._css_words: list[str] = []
 
         # Police et styles de base
         font = QFont(DesignTokens.FONT_CODE, 12)
@@ -334,6 +348,15 @@ class NativeCodeEditor(QPlainTextEdit):
 
         self._update_autocomplete_model()
 
+    def get_known_css_classes(self) -> list[str]:
+        """Renvoie la liste dédupliquée des classes CSS par défaut et personnalisées."""
+        classes: list[str] = list(self.DEFAULT_CSS_CLASSES)
+        for c in self._custom_classes:
+            clean = c.lstrip(".")
+            if clean and clean not in classes:
+                classes.append(clean)
+        return classes
+
     def _update_autocomplete_model(self) -> None:
         words: list[str] = []
         if self.mode == "html":
@@ -354,6 +377,7 @@ class NativeCodeEditor(QPlainTextEdit):
                     "<code>",
                 ]
             )
+            self._html_words = list(words)
         elif self.mode == "css":
             words.extend(
                 [
@@ -392,6 +416,7 @@ class NativeCodeEditor(QPlainTextEdit):
                     "linear-gradient(",
                 ]
             )
+            self._css_words = list(words)
 
         model = QStringListModel(words, self.completer)
         self.completer.setModel(model)
@@ -401,11 +426,11 @@ class NativeCodeEditor(QPlainTextEdit):
         Détermine le préfixe de complétion à partir du contexte du curseur.
 
         Retourne un couple ``(type, préfixe)`` où le type vaut ``"anki"``, ``"html"``,
-        ``"css_class"`` ou ``"word"``. En mode implicite (frappe libre), seuls les
-        déclencheurs contextuels stricts (``{{``, ``<``, ``.`` de sélecteur CSS) sont
-        reconnus : ``"word"`` n'est proposé qu'en mode explicite (Ctrl+Espace). Hors
-        déclencheur, renvoie ``("", "")`` afin de ne jamais ouvrir le popup à
-        l'improviste.
+        ``"html_class"``, ``"css_class"`` ou ``"word"``. En mode implicite (frappe libre),
+        seuls les déclencheurs contextuels stricts (``{{``, ``<``, ``.`` de sélecteur CSS,
+        ou attribut HTML ``class="..."``) sont reconnus : ``"word"`` n'est proposé qu'en
+        mode explicite (Ctrl+Espace). Hors déclencheur, renvoie ``("", "")`` afin de ne
+        jamais ouvrir le popup à l'improviste.
         """
         tc = self.textCursor()
         block_text = tc.block().text()
@@ -416,6 +441,14 @@ class NativeCodeEditor(QPlainTextEdit):
         if last_double != -1 and "}}" not in text_before[last_double:]:
             return "anki", text_before[last_double:]
 
+        if self.mode == "html":
+            class_match = re.search(r'class\s*=\s*"([^"]*)$', text_before)
+            if not class_match:
+                class_match = re.search(r"class\s*=\s*'([^']*)$", text_before)
+            if class_match:
+                attr_val = class_match.group(1)
+                return "html_class", attr_val.split(" ")[-1]
+
         last_angle = text_before.rfind("<")
         if last_angle != -1 and ">" not in text_before[last_angle:]:
             return "html", text_before[last_angle:]
@@ -425,8 +458,10 @@ class NativeCodeEditor(QPlainTextEdit):
             return "css_class", text_before[last_dot:]
 
         if explicit:
-            tc.select(QTextCursor.SelectionType.WordUnderCursor)
-            return "word", tc.selectedText()
+            match = re.search(r"(?:var\(--[a-zA-Z0-9_\-]*|[a-zA-Z0-9_\-]+)$", text_before)
+            if match:
+                return "word", match.group(0)
+            return "word", ""
 
         return "", ""
 
@@ -453,9 +488,29 @@ class NativeCodeEditor(QPlainTextEdit):
     @Slot(str)
     def _insert_completion(self, completion: str) -> None:
         tc = self.textCursor()
-        _, prefix = self._get_completion_prefix(explicit=True)
-        if prefix:
-            tc.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, len(prefix))
+        kind, prefix = self._get_completion_prefix(explicit=True)
+
+        block_text = tc.block().text()
+        pos = tc.positionInBlock()
+        text_after = block_text[pos:]
+
+        suffix_len = 0
+        if ((kind == "anki" or completion.endswith("}}")) and text_after.startswith("}}")) or (completion.endswith(": ") and text_after.startswith(": ")):
+            suffix_len = 2
+        elif (
+            ((kind == "anki" or completion.endswith("}}")) and text_after.startswith("}"))
+            or ((kind == "html" or completion.endswith(">")) and text_after.startswith(">"))
+            or (completion.endswith(": ") and text_after.startswith(":"))
+        ):
+            suffix_len = 1
+
+        if suffix_len > 0:
+            tc.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, suffix_len)
+
+        to_select = len(prefix) + suffix_len
+        if to_select > 0:
+            tc.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, to_select)
+
         tc.insertText(completion)
         self.setTextCursor(tc)
 
@@ -469,6 +524,14 @@ class NativeCodeEditor(QPlainTextEdit):
         if not explicit and not kind:
             self.completer.popup().hide()
             return
+
+        if kind == "html_class":
+            classes = self.get_known_css_classes()
+            self.completer.setModel(QStringListModel(classes, self.completer))
+        elif self.mode == "html":
+            self.completer.setModel(QStringListModel(self._html_words, self.completer))
+        elif self.mode == "css":
+            self.completer.setModel(QStringListModel(self._css_words, self.completer))
 
         self.completer.setCompletionPrefix(prefix)
         if explicit and prefix and self.completer.completionCount() == 0:

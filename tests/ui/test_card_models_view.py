@@ -1097,3 +1097,153 @@ def test_code_editor_css_prefix_ignores_decimals_and_detects_classes(qtbot):
     kind, prefix = native._get_completion_prefix()
     assert kind == ""
     assert prefix == ""
+
+
+# --- Remplacement chirurgical des tokens et complétion attribut class ---
+
+
+def test_code_editor_anki_completion_after_auto_pairing_removes_orphan_brackets(qtbot):
+    """La complétion d'un champ Anki après auto-appairage {{}} produit {{Champ}} sans }} orphelin."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    # 1. Frappe de {{ déclenchant l'auto-appairage {}}
+    _type_free_text(native, "{{")
+    assert native.toPlainText() == "{{}}"
+    # Le curseur est positionné entre {{ et }} (position 2)
+    assert native.textCursor().position() == 2
+
+    # 2. Frappe du préfixe 'F'
+    _type_free_text(native, "F")
+    assert native.toPlainText() == "{{F}}"
+
+    # 3. Validation de la complétion {{Front}}
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+
+    assert native.toPlainText() == "{{Front}}"
+    assert native.completer.popup().isVisible() is False
+
+
+def test_code_editor_html_tag_completion_consumes_adjacent_closing_angle(qtbot):
+    """La complétion des balises HTML après < consomme le chevron fermant adjacent s'il existe."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    # Pré-configuration avec un chevron fermant existant : <|>
+    native.setPlainText("<>")
+    cursor = native.textCursor()
+    cursor.setPosition(1)
+    native.setTextCursor(cursor)
+
+    # Frappe de 'di'
+    _type_free_text(native, "di")
+    assert native.toPlainText() == "<di>"
+
+    # Sélection et validation de <div class="card">
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+
+    assert native.toPlainText() == '<div class="card">'
+    assert not native.toPlainText().endswith(">>")
+
+
+def test_code_editor_css_hyphenated_properties_and_selectors_no_duplication(qtbot):
+    """Les propriétés CSS et sélecteurs à tirets sont complétés sans duplication de préfixe."""
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+
+    wrapper = CodeEditorWithGutter(placeholder="", mode="css")
+    qtbot.addWidget(wrapper)
+    wrapper.show()
+    native = wrapper.editor
+
+    # 1. Propriété à tiret 'font-s' -> 'font-size: '
+    _type_free_text(native, "font-s")
+    _press_key(native, Qt.Key.Key_Space, Qt.KeyboardModifier.ControlModifier)
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+    assert native.toPlainText() == "font-size: "
+
+    # 2. Sélecteur à tiret '.af-' -> '.af-callout-info'
+    native.setPlainText("")
+    _type_free_text(native, ".af-")
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+    assert native.toPlainText() == ".af-callout-info"
+
+    # 3. Variable CSS 'var(--'
+    native.setPlainText("")
+    _type_free_text(native, "var(--")
+    _press_key(native, Qt.Key.Key_Space, Qt.KeyboardModifier.ControlModifier)
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+    assert native.toPlainText() == "var(--"
+
+
+def test_code_editor_html_class_attribute_triggers_css_classes_completion(qtbot):
+    """La frappe dans l'attribut HTML class="..." ou class='...' suggère les classes CSS."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+    native.set_custom_classes(["my-custom-box"])
+
+    # 1. Ouverture avec guillemets doubles class="
+    _type_free_text(native, '<div class="')
+    popup = native.completer.popup()
+    assert popup.isVisible() is True
+
+    # 2. Frappe du préfixe 'af-'
+    _type_free_text(native, "af-")
+    assert popup.isVisible() is True
+
+    # Validation d'une classe CSS (ex. af-callout-info)
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+    assert native.toPlainText() == '<div class="af-callout-info'
+
+    # 3. Deuxième classe après espace
+    _type_free_text(native, " my-")
+    assert popup.isVisible() is True
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+    assert native.toPlainText() == '<div class="af-callout-info my-custom-box'
+
+    # 4. Même comportement avec guillemets simples class='...'
+    native.setPlainText("")
+    _type_free_text(native, "<span class='af-")
+    assert native.completer.popup().isVisible() is True
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+    assert native.toPlainText() == "<span class='af-callout-info"
+
+
+def test_code_editor_anki_direct_completion_without_typing_prefix(qtbot):
+    """Après auto-appairage {{}}, la sélection immédiate sans frappe de lettre remplace tout {{}}."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    _type_free_text(native, "{{")
+    assert native.toPlainText() == "{{}}"
+
+    # Flèche bas puis Tab directement sur {{Front}}
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+
+    assert native.toPlainText() == "{{Front}}"
+
+
+def test_code_editor_html_class_completion_preserves_adjacent_closing_quote(qtbot):
+    """La complétion dans class="..." avec guillemet fermant adjacent préserve le guillemet."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    # Structure avec guillemets préexistants : <div class="">
+    native.setPlainText('<div class="">')
+    cursor = native.textCursor()
+    cursor.setPosition(len('<div class="'))
+    native.setTextCursor(cursor)
+
+    _type_free_text(native, "card")
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+
+    assert native.toPlainText() == '<div class="card">'
