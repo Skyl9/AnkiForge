@@ -869,3 +869,231 @@ def test_card_models_view_preview_button_neutral_border_and_sync(qtbot, mock_db)
     assert view.preview_container.isVisible() is False
     assert btn.isChecked() is False
     assert btn.styleSheet() == ""
+
+
+# --- Autocomplétion non intrusive et priorité Entrée (NativeCodeEditor) ---
+
+
+def _type_free_text(native: Any, text: str) -> None:
+    """Simule la frappe caractère par caractère en passant par ``keyPressEvent``."""
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QKeyEvent
+
+    for char in text:
+        native.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_unknown, Qt.KeyboardModifier.NoModifier, char))
+
+
+def _press_key(native: Any, key: Any, modifiers: Any = Qt.KeyboardModifier.NoModifier, text: str = "") -> None:
+    """Simule une frappe de touche spéciale (Entrée, Tab, Échap, flèches…)."""
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QKeyEvent
+
+    native.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, key, modifiers, text))
+
+
+def _place_cursor_at_end(native: Any) -> None:
+    """Place le curseur en fin de document."""
+    cursor = native.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    native.setTextCursor(cursor)
+
+
+def _make_html_editor(qtbot: Any) -> Any:
+    """Construit un éditeur HTML headless enrichi de champs Anki connus.
+
+    Retourne le conteneur ``CodeEditorWithGutter`` : le conserver vivant est
+    indispensable car son éditeur natif et son completer en dépendent.
+    """
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+
+    wrapper = CodeEditorWithGutter(placeholder="", mode="html")
+    qtbot.addWidget(wrapper)
+    wrapper.show()
+    wrapper.editor.set_known_fields(["Front", "Back", "Extra"])
+    return wrapper
+
+
+def test_code_editor_free_typing_never_opens_completion_popup(qtbot):
+    """La frappe de texte libre n'ouvre plus le popup d'autocomplétion de façon intempestive."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    _type_free_text(native, "bonjour le monde")
+
+    assert native.toPlainText() == "bonjour le monde"
+    assert native.completer.popup().isVisible() is False
+
+
+def test_code_editor_enter_after_free_typing_inserts_newline(qtbot):
+    """Texte libre suivi d'Entrée : saut de ligne, sans insertion de champ Anki parasite."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    _type_free_text(native, "bonjour")
+    assert native.completer.popup().isVisible() is False
+
+    _press_key(native, Qt.Key.Key_Return, text="\n")
+
+    assert native.toPlainText() == "bonjour\n"
+    assert "{{" not in native.toPlainText()
+
+
+def test_code_editor_anki_trigger_opens_popup_without_preselection(qtbot):
+    """Le déclencheur ``{{`` ouvre le popup sans présélectionner le premier élément."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+
+    _type_free_text(native, "{{")
+
+    popup = native.completer.popup()
+    assert popup.isVisible() is True
+    assert popup.currentIndex().isValid() is False
+
+
+def test_code_editor_enter_without_navigation_does_not_insert_field(qtbot):
+    """Popup ouvert mais aucun élément navigué : Entrée produit un saut de ligne."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+    _type_free_text(native, "{{")
+
+    popup = native.completer.popup()
+    assert popup.isVisible() is True
+
+    _press_key(native, Qt.Key.Key_Return, text="\n")
+
+    assert popup.isVisible() is False
+    assert "{{Front}}" not in native.toPlainText()
+    # Saut de ligne inséré au curseur (entre les accolades auto-appairées), pas de champ.
+    assert native.toPlainText() == "{{\n}}"
+
+
+def test_code_editor_arrow_navigation_then_enter_inserts_selection(qtbot):
+    """Une navigation explicite (flèche bas) autorise l'insertion par la touche Entrée."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+    _type_free_text(native, "<di")
+
+    popup = native.completer.popup()
+    assert popup.isVisible() is True
+    assert popup.currentIndex().isValid() is False
+
+    _press_key(native, Qt.Key.Key_Down)
+    assert popup.currentIndex().isValid() is True
+
+    _press_key(native, Qt.Key.Key_Return, text="\n")
+
+    assert popup.isVisible() is False
+    assert native.toPlainText() == '<div class="card">'
+
+
+def test_code_editor_tab_validates_selected_completion(qtbot):
+    """La touche Tab valide et insère l'élément sélectionné dans la liste."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+    _type_free_text(native, "<di")
+
+    popup = native.completer.popup()
+    assert popup.isVisible() is True
+    assert popup.currentIndex().isValid() is False
+
+    _press_key(native, Qt.Key.Key_Down)
+    _press_key(native, Qt.Key.Key_Tab)
+
+    assert native.toPlainText() == '<div class="card">'
+    assert popup.isVisible() is False
+
+
+def test_code_editor_mouse_click_validates_selection(qtbot):
+    """Le clic souris sur un élément du popup valide et insère la complétion."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+    _type_free_text(native, "<di")
+
+    popup = native.completer.popup()
+    index = native.completer.completionModel().index(0, 0)
+    assert index.isValid()
+
+    popup.clicked.emit(index)
+
+    assert native.toPlainText() == '<div class="card">'
+    assert popup.isVisible() is False
+
+
+def test_code_editor_css_free_typing_then_enter_inserts_newline(qtbot):
+    """En CSS — où le bug d'ouverture intempestive se manifestait — la frappe libre reste inerte.
+
+    Taper un mot libre ne doit ni ouvrir le popup, ni permettre à Entrée d'insérer une
+    propriété CSS (ex. ``background-color: ``).
+    """
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+
+    wrapper = CodeEditorWithGutter(placeholder="", mode="css")
+    qtbot.addWidget(wrapper)
+    wrapper.show()
+    native = wrapper.editor
+
+    _type_free_text(native, "background")
+
+    assert native.completer.popup().isVisible() is False
+
+    _press_key(native, Qt.Key.Key_Return, text="\n")
+
+    assert native.toPlainText() == "background\n"
+    assert "background-color" not in native.toPlainText()
+
+
+def test_code_editor_escape_hides_popup_without_altering_cursor(qtbot):
+    """Échap masque le popup sans modifier ni le texte ni la position du curseur."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+    _type_free_text(native, "<di")
+
+    text_before = native.toPlainText()
+    cursor_before = native.textCursor().position()
+
+    _press_key(native, Qt.Key.Key_Escape)
+
+    assert native.completer.popup().isVisible() is False
+    assert native.toPlainText() == text_before
+    assert native.textCursor().position() == cursor_before
+
+
+def test_code_editor_ctrl_space_opens_catalog(qtbot):
+    """Ctrl+Espace ouvre explicitement le catalogue de complétion, sans présélection."""
+    wrapper = _make_html_editor(qtbot)
+    native = wrapper.editor
+    _type_free_text(native, "bonjour ")
+
+    assert native.completer.popup().isVisible() is False
+
+    _press_key(native, Qt.Key.Key_Space, Qt.KeyboardModifier.ControlModifier)
+
+    popup = native.completer.popup()
+    assert popup.isVisible() is True
+    assert popup.currentIndex().isValid() is False
+
+
+def test_code_editor_css_prefix_ignores_decimals_and_detects_classes(qtbot):
+    """Le déclencheur CSS `.` couvre les sélecteurs composés mais ignore les nombres décimaux."""
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+
+    wrapper = CodeEditorWithGutter(placeholder="", mode="css")
+    qtbot.addWidget(wrapper)
+    wrapper.show()
+    native = wrapper.editor
+
+    native.setPlainText(".card")
+    _place_cursor_at_end(native)
+    kind, prefix = native._get_completion_prefix()
+    assert (kind, prefix) == ("css_class", ".card")
+
+    native.setPlainText("div.af-callout-info")
+    _place_cursor_at_end(native)
+    kind, prefix = native._get_completion_prefix()
+    assert (kind, prefix) == ("css_class", ".af-callout-info")
+
+    native.setPlainText("width: 1.1vw")
+    _place_cursor_at_end(native)
+    kind, prefix = native._get_completion_prefix()
+    assert kind == ""
+    assert prefix == ""
