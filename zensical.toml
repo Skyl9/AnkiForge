@@ -36,6 +36,7 @@ nav = [
   ]},
   { "Fonctionnalités" = [
       { "Hub Documentaire & Multimodalité" = "features/hub_multimodal.md" },
+      { "Parcours Documents & Cartographie" = "features/parcours_documents.md" },
       { "Éditeur de Notes & KaTeX" = "features/editeur_notes_katex.md" },
       { "Synthèse Vocale (TTS) & Audio" = "features/tts_audio.md" },
       { "Consultant IA & Protocole MCP" = "features/consultant_mcp.md" },
