@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 from pptx import Presentation
 
 from ankiforge.services.cards.media_manager import MediaManager
+from ankiforge.services.parsing.marker_service import MarkerOptions
 
 # PyMuPDF (fitz) : import tolérant. Aucun caractère bloquant si absent : le fallback pypdf s'en charge.
 fitz: Any = None
@@ -115,6 +116,7 @@ class DocumentParser:
         progress_callback: Any = None,
         check_cancel: Any = None,
         auto_format: bool = False,
+        marker_options: MarkerOptions | None = None,
     ) -> str:
         """
         Détermine le type de document et invoque le parseur approprié.
@@ -124,6 +126,7 @@ class DocumentParser:
             progress_callback (callable | None): Fonction de rappel pour la progression (msg: str).
             check_cancel (callable | None): Fonction pour vérifier si l'utilisateur a annulé.
             auto_format (bool): Si True, nettoie et normalise le Markdown extrait.
+            marker_options (MarkerOptions | None): Options d'extraction Marker OCR pour les PDF.
 
         Returns:
             str: Le texte extrait au format Markdown.
@@ -159,7 +162,12 @@ class DocumentParser:
 
         if ext == ".pdf":
             if self.is_marker_available():
-                res = self._parse_pdf_with_marker(file_path, progress_callback, check_cancel)
+                res = self._parse_pdf_with_marker(
+                    file_path,
+                    progress_callback,
+                    check_cancel,
+                    options=marker_options,
+                )
             else:
                 try:
                     res = self._parse_pdf_with_pymupdf(file_path, progress_callback, check_cancel)
@@ -508,7 +516,13 @@ class DocumentParser:
 
         return "\n\n[SPLIT]\n\n".join(pages_text)
 
-    def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
+    def _parse_pdf_with_marker(
+        self,
+        file_path: str | Path,
+        progress_callback: Any = None,
+        check_cancel: Any = None,
+        options: MarkerOptions | None = None,
+    ) -> str:
         """Extraction Deep Learning via Marker pour un LaTeX le plus proche de la réalité."""
         with tempfile.TemporaryDirectory() as temp_dir_str:
             temp_dir = Path(temp_dir_str)
@@ -517,7 +531,8 @@ class DocumentParser:
             if not executable:
                 raise FileNotFoundError("L'outil Marker n'est pas installé ou introuvable dans le PATH.")
 
-            cmd = [executable, str(file_path), "--output_dir", str(temp_dir), "--paginate_output"]
+            opts = options or MarkerOptions.from_env()
+            cmd = [executable, str(file_path)] + opts.to_cli_args(temp_dir)
 
             if progress_callback:
                 progress_callback("Lancement du moteur de Deep Learning (Marker)...")
@@ -533,6 +548,7 @@ class DocumentParser:
                     shell=False,  # nosec B603  # argv liste fixe (exe Marker + chemins vérifiés), shell explicite interdit
                     encoding="utf-8",
                     errors="replace",
+                    env=opts.get_process_env(),
                 ) as process:
                     if process.stdout is not None:
                         for line in iter(process.stdout.readline, ""):

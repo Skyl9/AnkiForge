@@ -1,4 +1,5 @@
 import json
+import os
 import stat
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -9,7 +10,7 @@ from pptx import Presentation
 
 import ankiforge.services.parsing.document_parser as document_parser
 from ankiforge.services.parsing.document_parser import DocumentParser
-from ankiforge.services.parsing.marker_service import MarkerService
+from ankiforge.services.parsing.marker_service import MarkerOptions, MarkerService
 
 pytestmark = pytest.mark.unit
 
@@ -468,3 +469,175 @@ def test_parse_python_plain_module_keeps_code(tmp_path):
     assert "```python" in result
     assert "IMPORT_MATHS = True" in result
     assert "print('hello')" in result
+
+
+# ==========================================
+# TESTS INJECTION MARKER_OPTIONS
+# ==========================================
+
+
+@patch("ankiforge.services.parsing.document_parser.MediaManager")
+@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("subprocess.Popen")
+def test_parse_pdf_with_marker_options_explicit(mock_popen, mock_get_marker, MockMediaManager, tmp_path):
+    """Vérifie la transmission fidèle des options explicites MarkerOptions à la CLI et à l'environnement."""
+    fake_pdf = tmp_path / "cours_opt.pdf"
+    fake_pdf.write_bytes(b"%PDF-1.4 mock pdf content")
+
+    mock_media_instance = MockMediaManager.return_value
+    mock_media_instance.process_extracted_folder.return_value = "Markdown avec options explicites"
+
+    captured_calls: list[dict] = []
+
+    def side_effect_popen(cmd, *args, **kwargs):
+        captured_calls.append({"cmd": cmd, "kwargs": kwargs})
+        out_dir_idx = cmd.index("--output_dir") + 1
+        temp_dir = Path(cmd[out_dir_idx])
+        marker_folder = temp_dir / "cours_opt"
+        marker_folder.mkdir(parents=True, exist_ok=True)
+        (marker_folder / "cours_opt.md").write_text("Contenu brut", encoding="utf-8")
+
+        mock_process = MagicMock()
+        mock_process.__enter__.return_value = mock_process
+        mock_process.stdout.readline.side_effect = [""]
+        mock_process.returncode = 0
+        return mock_process
+
+    mock_popen.side_effect = side_effect_popen
+
+    options = MarkerOptions(
+        page_range="2-5",
+        force_ocr=True,
+        highres_image_dpi=240,
+        device="cpu",
+        extra_cli_args=["--languages", "fr,en"],
+    )
+
+    parser = DocumentParser()
+    result = parser.parse_document(str(fake_pdf), marker_options=options)
+
+    assert result == "Markdown avec options explicites"
+    assert len(captured_calls) == 1
+
+    call = captured_calls[0]
+    cmd = call["cmd"]
+    env = call["kwargs"].get("env", {})
+
+    # Vérification des arguments CLI
+    assert cmd[0] == "/usr/local/bin/marker_single"
+    assert cmd[1] == str(fake_pdf)
+    assert "--output_dir" in cmd
+    assert "--paginate_output" in cmd
+    assert "--page_range" in cmd
+    assert cmd[cmd.index("--page_range") + 1] == "2-5"
+    assert "--force_ocr" in cmd
+    assert "--highres_image_dpi" in cmd
+    assert cmd[cmd.index("--highres_image_dpi") + 1] == "240"
+    assert "--languages" in cmd
+    assert cmd[cmd.index("--languages") + 1] == "fr,en"
+
+    # Vérification de l'environnement matériel injecté
+    assert env.get("TORCH_DEVICE") == "cpu"
+
+
+@patch("ankiforge.services.parsing.document_parser.MediaManager")
+@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("subprocess.Popen")
+def test_parse_pdf_with_marker_options_from_env(mock_popen, mock_get_marker, MockMediaManager, tmp_path, monkeypatch):
+    """Vérifie que les variables ANKIFORGE_MARKER_* sont résolues automatiquement par défaut."""
+    fake_pdf = tmp_path / "cours_env.pdf"
+    fake_pdf.write_bytes(b"%PDF-1.4 mock pdf content")
+
+    monkeypatch.setenv("ANKIFORGE_MARKER_PAGE_RANGE", "1-3")
+    monkeypatch.setenv("ANKIFORGE_MARKER_DISABLE_OCR", "1")
+    monkeypatch.setenv("ANKIFORGE_MARKER_DEVICE", "mps")
+
+    mock_media_instance = MockMediaManager.return_value
+    mock_media_instance.process_extracted_folder.return_value = "Markdown depuis variables env"
+
+    captured_calls: list[dict] = []
+
+    def side_effect_popen(cmd, *args, **kwargs):
+        captured_calls.append({"cmd": cmd, "kwargs": kwargs})
+        out_dir_idx = cmd.index("--output_dir") + 1
+        temp_dir = Path(cmd[out_dir_idx])
+        marker_folder = temp_dir / "cours_env"
+        marker_folder.mkdir(parents=True, exist_ok=True)
+        (marker_folder / "cours_env.md").write_text("Contenu brut", encoding="utf-8")
+
+        mock_process = MagicMock()
+        mock_process.__enter__.return_value = mock_process
+        mock_process.stdout.readline.side_effect = [""]
+        mock_process.returncode = 0
+        return mock_process
+
+    mock_popen.side_effect = side_effect_popen
+
+    parser = DocumentParser()
+    result = parser.parse_document(str(fake_pdf))  # marker_options=None -> résolu via from_env()
+
+    assert result == "Markdown depuis variables env"
+    assert len(captured_calls) == 1
+
+    call = captured_calls[0]
+    cmd = call["cmd"]
+    env = call["kwargs"].get("env", {})
+
+    assert "--page_range" in cmd
+    assert cmd[cmd.index("--page_range") + 1] == "1-3"
+    assert "--disable_ocr" in cmd
+    assert env.get("TORCH_DEVICE") == "mps"
+
+
+@patch("ankiforge.services.parsing.document_parser.MediaManager")
+@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("subprocess.Popen")
+def test_parse_pdf_with_marker_default_retrocompatibility(mock_popen, mock_get_marker, MockMediaManager, tmp_path, monkeypatch):
+    """Vérifie la rétrocompatibilité stricte et l'injection par défaut de TORCH_DEVICE sans option explicite."""
+    fake_pdf = tmp_path / "cours_retro.pdf"
+    fake_pdf.write_bytes(b"%PDF-1.4 mock pdf content")
+
+    # Nettoyage préventif des variables ANKIFORGE_MARKER_*
+    for key in list(os.environ.keys()):
+        if key.startswith("ANKIFORGE_MARKER_"):
+            monkeypatch.delenv(key, raising=False)
+
+    mock_media_instance = MockMediaManager.return_value
+    mock_media_instance.process_extracted_folder.return_value = "Markdown retro"
+
+    captured_calls: list[dict] = []
+
+    def side_effect_popen(cmd, *args, **kwargs):
+        captured_calls.append({"cmd": cmd, "kwargs": kwargs})
+        out_dir_idx = cmd.index("--output_dir") + 1
+        temp_dir = Path(cmd[out_dir_idx])
+        marker_folder = temp_dir / "cours_retro"
+        marker_folder.mkdir(parents=True, exist_ok=True)
+        (marker_folder / "cours_retro.md").write_text("Contenu brut", encoding="utf-8")
+
+        mock_process = MagicMock()
+        mock_process.__enter__.return_value = mock_process
+        mock_process.stdout.readline.side_effect = [""]
+        mock_process.returncode = 0
+        return mock_process
+
+    mock_popen.side_effect = side_effect_popen
+
+    parser = DocumentParser()
+    result = parser.parse_document(str(fake_pdf))
+
+    assert result == "Markdown retro"
+    assert len(captured_calls) == 1
+
+    call = captured_calls[0]
+    cmd = call["cmd"]
+    env = call["kwargs"].get("env", {})
+
+    assert cmd[0] == "/usr/local/bin/marker_single"
+    assert cmd[1] == str(fake_pdf)
+    assert "--output_dir" in cmd
+    assert "--paginate_output" in cmd
+    assert "--page_range" not in cmd
+    assert "--force_ocr" not in cmd
+    assert "--disable_ocr" not in cmd
+    assert "TORCH_DEVICE" in env

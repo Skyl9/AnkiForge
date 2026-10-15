@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from PySide6.QtCore import QThread, Signal
 
 from ankiforge.services.parsing.document_parser import DocumentParser, is_web_source
+from ankiforge.services.parsing.marker_service import MarkerOptions
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +44,24 @@ class DocumentWorker(QThread):
     log_signal = Signal(str)
     cancelled_signal = Signal()
 
-    def __init__(self, file_path: str, doc_id_to_update: int | None = None) -> None:
+    def __init__(
+        self,
+        file_path: str,
+        doc_id_to_update: int | None = None,
+        marker_options: MarkerOptions | None = None,
+    ) -> None:
         """
         Initialise le worker d'extraction.
 
         Args:
             file_path (str): Chemin vers le fichier ou URL de la page web.
             doc_id_to_update (int | None): Identifiant du document existant à mettre à jour.
+            marker_options (MarkerOptions | None): Options d'extraction Marker OCR pour les PDF.
         """
         super().__init__()
         self.file_path = file_path
         self.doc_id_to_update = doc_id_to_update
+        self.marker_options = marker_options
         self._is_cancelled = False
 
     def cancel(self) -> None:
@@ -71,7 +79,12 @@ class DocumentWorker(QThread):
         try:
             parser = DocumentParser()
             title = derive_document_title(self.file_path)
-            content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit, check_cancel=self.is_cancelled)
+            content = parser.parse_document(
+                self.file_path,
+                progress_callback=self.log_signal.emit,
+                check_cancel=self.is_cancelled,
+                marker_options=self.marker_options,
+            )
             if not self._is_cancelled:
                 elapsed = time.perf_counter() - t0
                 logger.info(
