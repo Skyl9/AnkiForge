@@ -9,11 +9,163 @@ import shutil
 import subprocess  # nosec B404
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from ankiforge.utils.paths import get_tools_search_dirs
 
 logger = logging.getLogger(__name__)
+
+
+def _detect_torch_device() -> str | None:
+    """Tente de détecter un accélérateur via PyTorch si le module est présent."""
+    try:
+        import sys
+
+        torch_mod = sys.modules.get("torch")
+        if torch_mod is None:
+            import importlib
+
+            torch_mod = importlib.import_module("torch")
+
+        cuda_mod = getattr(torch_mod, "cuda", None)
+        if cuda_mod is not None and callable(getattr(cuda_mod, "is_available", None)) and cuda_mod.is_available():
+            return "cuda"
+        backends = getattr(torch_mod, "backends", None)
+        mps_mod = getattr(backends, "mps", None) if backends is not None else None
+        if mps_mod is not None and callable(getattr(mps_mod, "is_available", None)) and mps_mod.is_available():
+            return "mps"
+    except (ImportError, Exception):
+        pass
+    return None
+
+
+def detect_default_device() -> str:
+    """Détecte le périphérique d'accélération matérielle par défaut (mps, cuda ou cpu)."""
+    torch_device = _detect_torch_device()
+    if torch_device is not None:
+        return torch_device
+
+    # Détection déterministe selon la plateforme et le matériel hôte pour le sous-processus
+    if platform.system() == "Darwin" and platform.machine() in ("arm64", "aarch64"):
+        return "mps"
+    if shutil.which("nvidia-smi") is not None:
+        return "cuda"
+    return "cpu"
+
+
+@dataclass(frozen=True)
+class MarkerOptions:
+    """Options d'extraction et configuration d'exécution de Marker OCR."""
+
+    page_range: str | None = None
+    force_ocr: bool = False
+    disable_ocr: bool = False
+    strip_existing_ocr: bool = False
+    disable_ocr_math: bool = False
+    extract_images: bool = True
+    filter_blank_pages: bool = False
+    highres_image_dpi: int = 192
+    lowres_image_dpi: int = 96
+    pdftext_workers: int = 1
+    debug: bool = False
+    device: str | None = None
+    extra_cli_args: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Valide les options et interdit formellement les options LLM non supervisées."""
+        for arg in self.extra_cli_args:
+            if arg == "--use_llm" or arg.startswith("--use_llm"):
+                raise ValueError("L'option '--use_llm' est strictement interdite dans MarkerOptions. L'enrichissement IA relève exclusivement des pipelines supervisés d'AnkiForge.")
+        if self.force_ocr and self.disable_ocr:
+            raise ValueError("Les options 'force_ocr' et 'disable_ocr' sont mutuellement exclusives.")
+
+    @staticmethod
+    def detect_default_device() -> str:
+        """Détecte le périphérique d'exécution par défaut (délégation vers detect_default_device)."""
+        return detect_default_device()
+
+    def to_cli_args(self, output_dir: Path) -> list[str]:
+        """Génère la liste ordonnée d'arguments CLI pour marker_single."""
+        args: list[str] = [
+            "--output_dir",
+            str(output_dir),
+            "--paginate_output",
+        ]
+
+        if self.page_range:
+            args.extend(["--page_range", self.page_range])
+        if self.force_ocr:
+            args.append("--force_ocr")
+        if self.disable_ocr:
+            args.append("--disable_ocr")
+        if self.strip_existing_ocr:
+            args.append("--strip_existing_ocr")
+        if self.disable_ocr_math:
+            args.append("--disable_ocr_math")
+        if self.extract_images:
+            args.append("--extract_images")
+        if self.filter_blank_pages:
+            args.append("--filter_blank_pages")
+        if self.highres_image_dpi != 192:
+            args.extend(["--highres_image_dpi", str(self.highres_image_dpi)])
+        if self.lowres_image_dpi != 96:
+            args.extend(["--lowres_image_dpi", str(self.lowres_image_dpi)])
+        if self.pdftext_workers != 1:
+            args.extend(["--pdftext_workers", str(self.pdftext_workers)])
+        if self.debug:
+            args.append("--debug")
+
+        if self.extra_cli_args:
+            for arg in self.extra_cli_args:
+                if arg == "--use_llm" or arg.startswith("--use_llm"):
+                    raise ValueError("L'option '--use_llm' est strictement interdite.")
+            args.extend(self.extra_cli_args)
+
+        return args
+
+    def get_process_env(self, base_env: dict[str, str] | None = None) -> dict[str, str]:
+        """Retourne l'environnement du sous-processus injectant la consigne matérielle TORCH_DEVICE."""
+        env = dict(os.environ if base_env is None else base_env)
+        target_device = self.device if self.device is not None else self.detect_default_device()
+        env["TORCH_DEVICE"] = target_device
+        return env
+
+    @classmethod
+    def from_env(cls, env: dict[str, str] | None = None) -> MarkerOptions:
+        """Instancie MarkerOptions en lisant les surcharges des variables ANKIFORGE_MARKER_*."""
+        source = os.environ if env is None else env
+
+        def _bool_val(key: str, default: bool) -> bool:
+            if key not in source:
+                return default
+            return source[key].strip().lower() in ("1", "true", "yes", "on")
+
+        def _int_val(key: str, default: int) -> int:
+            if key not in source:
+                return default
+            try:
+                return int(source[key].strip())
+            except ValueError:
+                return default
+
+        page_range = source.get("ANKIFORGE_MARKER_PAGE_RANGE") or None
+        device = source.get("ANKIFORGE_MARKER_DEVICE") or None
+
+        return cls(
+            page_range=page_range,
+            force_ocr=_bool_val("ANKIFORGE_MARKER_FORCE_OCR", False),
+            disable_ocr=_bool_val("ANKIFORGE_MARKER_DISABLE_OCR", False),
+            strip_existing_ocr=_bool_val("ANKIFORGE_MARKER_STRIP_EXISTING_OCR", False),
+            disable_ocr_math=_bool_val("ANKIFORGE_MARKER_DISABLE_OCR_MATH", False),
+            extract_images=_bool_val("ANKIFORGE_MARKER_EXTRACT_IMAGES", True),
+            filter_blank_pages=_bool_val("ANKIFORGE_MARKER_FILTER_BLANK_PAGES", False),
+            highres_image_dpi=_int_val("ANKIFORGE_MARKER_HIGHRES_IMAGE_DPI", 192),
+            lowres_image_dpi=_int_val("ANKIFORGE_MARKER_LOWRES_IMAGE_DPI", 96),
+            pdftext_workers=_int_val("ANKIFORGE_MARKER_PDFTEXT_WORKERS", 1),
+            debug=_bool_val("ANKIFORGE_MARKER_DEBUG", False),
+            device=device,
+        )
 
 
 class MarkerService:
