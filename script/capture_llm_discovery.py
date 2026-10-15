@@ -18,7 +18,10 @@ from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.views.agents_view.view import AgentsView
 from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
 
-ARTIFACT_DIR = Path("/Users/tristanrigaud-humbert/.gemini/antigravity-cli/brain/fa9cb504-f162-4b31-85ba-886709b4bb68")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+_artifact_env = os.getenv("ARTIFACT_DIR")
+ARTIFACT_DIR = Path(_artifact_env) if _artifact_env else (REPO_ROOT / "docs" / "images")
+ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def main() -> None:

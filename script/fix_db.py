@@ -1,8 +1,10 @@
 import json
+from pathlib import Path
 
 from ankiforge.database.models import NoteVersionModel, db
 
-db_path = "/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/.ankiforge/ankiforge.db"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+db_path = REPO_ROOT / ".ankiforge" / "ankiforge.db"
 db.init(db_path)
 db.connect(reuse_if_open=True)
 

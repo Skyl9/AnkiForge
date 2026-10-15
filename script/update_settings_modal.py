@@ -1,4 +1,7 @@
-path = "/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/widgets/settings_modal.py"
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+path = REPO_ROOT / "src" / "ankiforge" / "ui" / "widgets" / "settings_modal.py"
 with open(path, encoding="utf-8") as f:
     content = f.read()
 

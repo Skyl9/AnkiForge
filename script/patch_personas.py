@@ -3,7 +3,8 @@ from pathlib import Path
 import ankiforge.database.models
 from ankiforge.database.models import PersonaModel, db
 
-ankiforge.database.models.DEFAULT_DB_PATH = Path("/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/.ankiforge/ankiforge.db")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+ankiforge.database.models.DEFAULT_DB_PATH = REPO_ROOT / ".ankiforge" / "ankiforge.db"
 
 wozniak_prompt = (
     "You are an expert Anki flashcard auditor following Piotr Wozniak's '20 rules of formulating knowledge'.\n"

@@ -4,6 +4,7 @@ Script de génération des galeries de comparaison visuelle :
 2. Light Mode : Baseline (39bcf3d4) vs Current Light (JetBrains Light)
 """
 
+import os
 import shutil
 from pathlib import Path
 
@@ -62,7 +63,9 @@ def main():
     curr_dark_dir = root / "temp" / "visual_diffs" / "current_dark"
     curr_light_dir = root / "temp" / "visual_diffs" / "current_light"
     comp_dir = root / "temp" / "visual_diffs" / "comparisons"
-    artifact_dir = Path("/Users/tristanrigaud-humbert/.gemini/antigravity-cli/brain/e505ac87-3c27-444a-a095-8ccc8845a763")
+    artifact_env = os.getenv("ARTIFACT_DIR")
+    artifact_dir = Path(artifact_env) if artifact_env else comp_dir
+    artifact_dir.mkdir(parents=True, exist_ok=True)
 
     views = [
         ("dashboard", "Tableau de Bord"),
@@ -87,7 +90,8 @@ def main():
 
         if b_file.exists() and c_file.exists():
             pct = make_composite(b_file, c_file, out_file, f"🔴 AVANT (HEAD 39bcf3d4) : {name}", f"🟢 APRÈS (Sombre Harmonisé) : {name}")
-            shutil.copy(str(out_file), str(art_file))
+            if art_file != out_file:
+                shutil.copy(str(out_file), str(art_file))
             print(f"• {name} (Sombre vs Sombre): {pct:.2f}% de variation de pixels")
 
     print("\n--- 2. COMPARAISONS LIGHT MODE (Baseline vs JetBrains Light) ---")
@@ -99,7 +103,8 @@ def main():
 
         if b_file.exists() and c_file.exists():
             pct = make_composite(b_file, c_file, out_file, f"🔴 AVANT (Sombre Référence) : {name}", f"☀️ APRÈS (Nouveau Mode Clair) : {name}")
-            shutil.copy(str(out_file), str(art_file))
+            if art_file != out_file:
+                shutil.copy(str(out_file), str(art_file))
             print(f"• {name} (Sombre vs Clair): {pct:.2f}% de variation")
 
 
