@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from PySide6.QtCore import QRect, QStringListModel, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QModelIndex, QRect, QStringListModel, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -14,6 +14,7 @@ from PySide6.QtGui import (
     QTextCursor,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QCompleter,
     QPlainTextEdit,
     QTextEdit,
@@ -395,7 +396,17 @@ class NativeCodeEditor(QPlainTextEdit):
         model = QStringListModel(words, self.completer)
         self.completer.setModel(model)
 
-    def _get_completion_prefix(self) -> tuple[str, str]:
+    def _get_completion_prefix(self, *, explicit: bool = False) -> tuple[str, str]:
+        """
+        Détermine le préfixe de complétion à partir du contexte du curseur.
+
+        Retourne un couple ``(type, préfixe)`` où le type vaut ``"anki"``, ``"html"``,
+        ``"css_class"`` ou ``"word"``. En mode implicite (frappe libre), seuls les
+        déclencheurs contextuels stricts (``{{``, ``<``, ``.`` de sélecteur CSS) sont
+        reconnus : ``"word"`` n'est proposé qu'en mode explicite (Ctrl+Espace). Hors
+        déclencheur, renvoie ``("", "")`` afin de ne jamais ouvrir le popup à
+        l'improviste.
+        """
         tc = self.textCursor()
         block_text = tc.block().text()
         pos = tc.positionInBlock()
@@ -410,49 +421,81 @@ class NativeCodeEditor(QPlainTextEdit):
             return "html", text_before[last_angle:]
 
         last_dot = text_before.rfind(".")
-        if last_dot != -1 and not any(c in text_before[last_dot:] for c in (" ", "{", "}", ";", ":")):
+        if last_dot != -1 and self._is_css_class_trigger(text_before, last_dot):
             return "css_class", text_before[last_dot:]
 
-        tc.select(QTextCursor.SelectionType.WordUnderCursor)
-        return "word", tc.selectedText()
+        if explicit:
+            tc.select(QTextCursor.SelectionType.WordUnderCursor)
+            return "word", tc.selectedText()
+
+        return "", ""
+
+    @staticmethod
+    def _is_css_class_trigger(text_before: str, dot_index: int) -> bool:
+        """Vrai si le point situé à ``dot_index`` introduit bien un sélecteur de classe CSS.
+
+        Le point ne doit pas suivre un chiffre (ce qui écarte les nombres décimaux
+        comme ``1.1vw`` ou ``10.5px``) et ne doit être suivi que de caractères de
+        classe, préservant ainsi les sélecteurs composés du type ``div.card``.
+        """
+        if dot_index > 0 and text_before[dot_index - 1].isdigit():
+            return False
+        return all(c.isalnum() or c in "_-" for c in text_before[dot_index + 1 :])
+
+    def _current_completion(self) -> str:
+        """Renvoie l'élément réellement sélectionné dans le popup, ou ``""`` si aucun."""
+        index = self.completer.popup().currentIndex()
+        if not index.isValid():
+            return ""
+        data = index.data()
+        return "" if data is None else str(data)
 
     @Slot(str)
     def _insert_completion(self, completion: str) -> None:
         tc = self.textCursor()
-        _, prefix = self._get_completion_prefix()
+        _, prefix = self._get_completion_prefix(explicit=True)
         if prefix:
             tc.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, len(prefix))
         tc.insertText(completion)
         self.setTextCursor(tc)
 
-    def keyPressEvent(self, event: Any) -> None:
-        is_ctrl_alt_l = event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier) and event.key() == Qt.Key.Key_L
-        is_ctrl_shift_i = event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier) and event.key() == Qt.Key.Key_I
-        is_shift_alt_f = event.modifiers() == (Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier) and event.key() == Qt.Key.Key_F
+    def _trigger_completion(self, *, explicit: bool = False) -> None:
+        """Ouvre le popup uniquement sur un déclencheur contextuel ou un raccourci explicite.
 
-        if is_ctrl_alt_l or is_ctrl_shift_i or is_shift_alt_f:
-            event.accept()
-            self.format_code()
+        Le popup s'affiche toujours sans présélection : l'utilisateur doit naviguer
+        (flèches haut/bas) avant qu'une touche de validation n'insère un élément.
+        """
+        kind, prefix = self._get_completion_prefix(explicit=explicit)
+        if not explicit and not kind:
+            self.completer.popup().hide()
             return
 
-        if self.completer and self.completer.popup().isVisible():
-            if event.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Tab):
-                event.ignore()
-                current_completion = self.completer.currentCompletion()
-                if current_completion:
-                    self._insert_completion(current_completion)
-                self.completer.popup().hide()
-                return
-            elif event.key() == Qt.Key.Key_Escape:
-                self.completer.popup().hide()
-                event.ignore()
-                return
+        self.completer.setCompletionPrefix(prefix)
+        if explicit and prefix and self.completer.completionCount() == 0:
+            # Ctrl+Espace sur un mot libre sans correspondance : proposer tout le catalogue.
+            prefix = ""
+            self.completer.setCompletionPrefix(prefix)
 
+        if self.completer.completionCount() == 0:
+            self.completer.popup().hide()
+            return
+
+        popup = self.completer.popup()
+        cr = self.cursorRect()
+        cr.setWidth(popup.sizeHintForColumn(0) + popup.verticalScrollBar().sizeHint().width() + 20)
+        self.completer.complete(cr)
+        # Aucun élément présélectionné par défaut.
+        popup.setCurrentIndex(QModelIndex())
+
+    def _auto_close_markup(self, event: Any) -> bool:
+        """Auto-paire les balises HTML et les accolades Anki.
+
+        Renvoie ``True`` lorsque le texte a été inséré et le curseur repositionné,
+        auquel cas l'événement ne doit pas être transmis à ``super()``.
+        """
         if event.text() == ">" and self.mode == "html":
             tc = self.textCursor()
-            block_text = tc.block().text()
-            pos = tc.positionInBlock()
-            text_before = block_text[:pos]
+            text_before = tc.block().text()[: tc.positionInBlock()]
 
             match = re.search(r"<([a-zA-Z0-9_\-]+)(\s+[^<>]*)?$", text_before)
             if match:
@@ -466,28 +509,55 @@ class NativeCodeEditor(QPlainTextEdit):
                         len(f"</{tag_name}>"),
                     )
                     self.setTextCursor(tc)
-                    return
+                    event.accept()
+                    return True
 
         if event.text() == "{" and self.mode == "html":
             tc = self.textCursor()
-            block_text = tc.block().text()
-            pos = tc.positionInBlock()
-            text_before = block_text[:pos]
-            if text_before.endswith("{"):
+            if tc.block().text()[: tc.positionInBlock()].endswith("{"):
                 tc.insertText("{}}")
                 tc.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 2)
                 self.setTextCursor(tc)
+                event.accept()
+                return True
+
+        return False
+
+    def keyPressEvent(self, event: Any) -> None:
+        is_ctrl_alt_l = event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier) and event.key() == Qt.Key.Key_L
+        is_ctrl_shift_i = event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier) and event.key() == Qt.Key.Key_I
+        is_shift_alt_f = event.modifiers() == (Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier) and event.key() == Qt.Key.Key_F
+
+        if is_ctrl_alt_l or is_ctrl_shift_i or is_shift_alt_f:
+            event.accept()
+            self.format_code()
+            return
+
+        if event.key() == Qt.Key.Key_Space and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            event.accept()
+            self._trigger_completion(explicit=True)
+            return
+
+        popup = self.completer.popup()
+        if popup.isVisible():
+            if event.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Tab):
+                completion = self._current_completion()
+                popup.hide()
+                if completion:
+                    event.accept()
+                    self._insert_completion(completion)
+                    return
+                # Sans sélection explicite : Entrée saute une ligne, Tab garde son comportement standard.
+            elif event.key() == Qt.Key.Key_Escape:
+                event.accept()
+                popup.hide()
+                return
+            elif event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+                event.accept()
+                QApplication.sendEvent(popup, event)
                 return
 
-        super().keyPressEvent(event)
+        if not self._auto_close_markup(event):
+            super().keyPressEvent(event)
 
-        _, prefix = self._get_completion_prefix()
-        if prefix and len(prefix) >= 1:
-            self.completer.setCompletionPrefix(prefix)
-            popup = self.completer.popup()
-            popup.setCurrentIndex(self.completer.completionModel().index(0, 0))
-            cr = self.cursorRect()
-            cr.setWidth(self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width() + 20)
-            self.completer.complete(cr)
-        elif self.completer:
-            self.completer.popup().hide()
+        self._trigger_completion()
