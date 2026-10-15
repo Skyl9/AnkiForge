@@ -1,4 +1,4 @@
-# Architecture du parc de skills, standard agentskills.io et flux d'ingénierie Tristan
+# Architecture du parc de skills, standard agentskills.io et flux d'ingénierie AnkiForge
 
 Le pilotage agentique d'AnkiForge repose sur un parc de 50 compétences autonomes (`.agents/skills/`). Afin de garantir la fiabilité du routage Just-In-Time (JIT), la modularité du code et l'absence de saturation de contexte pour les modèles, nous unifions la gouvernance de ces compétences autour du standard international **agentskills.io**, nous scindons les compétences à responsabilités multiples, nous comblons les angles morts structurels du projet, et nous alignons les flux d'ingénierie sur le gestionnaire de tâches Obsidian du dépôt avec une restitution obligatoirement francophone.
 
@@ -22,8 +22,8 @@ Accepté
    - **`ui-pyside6-design`** : développement d'interface PySide6, docking multi-fenêtré, tokens `DESIGN.md`, internationalisation `tr()` (ADR 0013) et tests headless `pytest-qt`.
    - **`pipeline-dag-ia`** : moteur d'orchestration `PipelineOrchestrator`, budgets de tokens, surcharge locale `persona_override.py` et intégration des outils du serveur MCP.
    - **`modeles-cartes-jinja`** : cycle de vie `NoteTypeModel`, atelier de styles Jinja2/HTML/CSS, occlusions et linter Wozniak des 20 règles.
-6. **Flux Tristan & Intégration native Obsidian** :
-   - Le routeur et l'installateur de flux sont baptisés **`ask-tristan`** et **`setup-tristan-workflow`**.
+6. **Flux d'ingénierie AnkiForge & Intégration native Obsidian** :
+   - Le routeur et l'installateur de flux sont baptisés **`ask-forge`** et **`setup-forge-workflow`**.
    - Suppression totale des artefacts éphémères non versionnés (`.scratch/`) dans les compétences de flux au profit direct des tickets Obsidian sous `ankiforge_obsidian/Tickets/` et du Kanban `Avancement du projet.md`.
    - Application stricte de la **règle anti-boucle** (one-shot pass) : un agent lit et écrit dans Obsidian de manière atomique, sans jamais relire circulairement une note qu'il vient de créer ou mettre à jour.
 7. **Règle absolue de restitution francophone** : Retenu. Bien que les spécifications des compétences de flux puissent employer une terminologie en anglais pour la compatibilité avec les standards internationaux, toute interaction, rapport d'analyse, message d'étape et proposition de commit doit être restitué en **français**.
@@ -39,5 +39,5 @@ Accepté
 - Les compétences volumineuses (`code-simplification`, `doubt-driven-development`, `source-driven-development`) ont déporté leurs matrices et patrons dans `references/`, réduisant leur empreinte contextuelle de plus de 60%.
 
 ### Alignement sur le cycle de vie du projet
-- Le flux d'ingénierie passe de manière fluide de la découverte (`ask-tristan`), au cadrage (`grill-with-docs`), à la spécification (`to-spec`), à la planification Kanban (`to-tickets`), à l'implémentation TDD (`implement`, `tdd`), à la revue contradictoire (`doubt-driven-development`, `code-review`), à la vérification canonique (`verification-environnement`) et à la proposition de commits atomiques (`proposer-commits`).
+- Le flux d'ingénierie passe de manière fluide de la découverte (`ask-forge`), au cadrage (`grill-with-docs`), à la spécification (`to-spec`), à la planification Kanban (`to-tickets`), à l'implémentation TDD (`implement`, `tdd`), à la revue contradictoire (`doubt-driven-development`, `code-review`), à la vérification canonique (`verification-environnement`) et à la proposition de commits atomiques (`proposer-commits`).
 - Aucune donnée métier ou de documentation d'architecture ne réside dans le vault Obsidian : Obsidian est une todo-list pure, la documentation canonique réside exclusivement dans `docs/` et `docs/adr/`.

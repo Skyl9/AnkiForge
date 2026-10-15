@@ -1,13 +1,13 @@
 ---
-name: ask-tristan
+name: ask-forge
 description: >-
   Aiguilleur de flux et routeur d'ingénierie pour AnkiForge. Oriente l'agent et le développeur vers le chemin optimal (idée, cadrage, spécification, tickets Obsidian, TDD, revue).
-  Use when the user asks to "ask-tristan", "quel skill", "quel flux", "comment aborder", "orienter la tâche", "router le ticket", or needs guidance on which skill or engineering flow to follow.
+  Use when the user asks to "ask-forge", "quel skill", "quel flux", "comment aborder", "orienter la tâche", "router le ticket", or needs guidance on which skill or engineering flow to follow.
   When NOT to use: Do not use for implementing code directly (use implement) or debugging (use diagnosing-bugs).
 disable-model-invocation: true
 ---
 
-# Ask Tristan — Flux d'Ingénierie AnkiForge
+# Ask Forge — Flux d'Ingénierie AnkiForge
 
 Tu ne peux pas mémoriser chaque compétence : consulte l'aiguilleur.
 

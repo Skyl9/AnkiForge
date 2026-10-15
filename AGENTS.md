@@ -166,8 +166,8 @@ Le dépôt héberge 50 compétences agentiques autonomes conformes au standard i
 - `audit-securite` (`.agents/skills/audit-securite/SKILL.md`) : Audit statique Bandit, masquage des secrets et sécurité de la sandbox d'exécution.
 - `audit-tests-ci` (`.agents/skills/audit-tests-ci/SKILL.md`) : Discipline de mock des LLM, contraintes headless Qt et fiabilité des pipelines CI/CD.
 
-### 4. Flux d'Ingénierie Agentique (Workflow Tristan)
-- `ask-tristan` (`.agents/skills/ask-tristan/SKILL.md`) : Aiguilleur et routeur de tâches d'ingénierie articulé avec le suivi Kanban Obsidian.
+### 4. Flux d'Ingénierie Agentique (Workflow AnkiForge)
+- `ask-forge` (`.agents/skills/ask-forge/SKILL.md`) : Aiguilleur et routeur de tâches d'ingénierie articulé avec le suivi Kanban Obsidian.
 - `grill-with-docs` (`.agents/skills/grill-with-docs/SKILL.md`), `grill-me` (`.agents/skills/grill-me/SKILL.md`), `grilling` (`.agents/skills/grilling/SKILL.md`) : Interviews contradictoires rigoureuses et exploration de la frontière d'arbre de conception.
 - `to-spec` (`.agents/skills/to-spec/SKILL.md`), `to-tickets` (`.agents/skills/to-tickets/SKILL.md`) : Formalisation de spécifications et découpage en tickets traçables dans le vault Obsidian.
 - `implement` (`.agents/skills/implement/SKILL.md`), `tdd` (`.agents/skills/tdd/SKILL.md`) : Réalisation pilotée par les tests (Red-Green-Refactor) liée au cycle de vie des tickets Obsidian.
@@ -179,7 +179,7 @@ Le dépôt héberge 50 compétences agentiques autonomes conformes au standard i
 - `handoff` (`.agents/skills/handoff/SKILL.md`), `prototype` (`.agents/skills/prototype/SKILL.md`), `research` (`.agents/skills/research/SKILL.md`) : Compaction de contexte pour reprise de session, spikes jetables et investigation de sources primaires.
 - `doubt-driven-development` (`.agents/skills/doubt-driven-development/SKILL.md`), `source-driven-development` (`.agents/skills/source-driven-development/SKILL.md`) : Contre-revue contradictoire en contexte neutre et ancrage dans les documentations officielles vérifiées.
 - `resolving-merge-conflicts` (`.agents/skills/resolving-merge-conflicts/SKILL.md`), `code-simplification` (`.agents/skills/code-simplification/SKILL.md`) : Résolution d'intentions de fusion et simplification de clarté de code.
-- `wizard` (`.agents/skills/wizard/SKILL.md`), `wait-what` (`.agents/skills/wait-what/SKILL.md`), `writing-for-agents` (`.agents/skills/writing-for-agents/SKILL.md`), `to-questionnaire` (`.agents/skills/to-questionnaire/SKILL.md`), `setup-tristan-workflow` (`.agents/skills/setup-tristan-workflow/SKILL.md`) : Assistants interactifs pour opérations humaines, réparation de compréhension, rédaction de compétences et initialisation de workflow.
+- `wizard` (`.agents/skills/wizard/SKILL.md`), `wait-what` (`.agents/skills/wait-what/SKILL.md`), `writing-for-agents` (`.agents/skills/writing-for-agents/SKILL.md`), `to-questionnaire` (`.agents/skills/to-questionnaire/SKILL.md`), `setup-forge-workflow` (`.agents/skills/setup-forge-workflow/SKILL.md`) : Assistants interactifs pour opérations humaines, réparation de compréhension, rédaction de compétences et initialisation de workflow.
 <!-- CANONICAL:END:catalogue_skills -->
 
 ## Documentation References

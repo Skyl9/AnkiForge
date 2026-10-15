@@ -1,15 +1,15 @@
 ---
-name: setup-tristan-workflow
+name: setup-forge-workflow
 description: >-
-  Configure l'environnement de développement pour le flux d'ingénierie Tristan : initialise le suivi des tâches dans le vault Obsidian (ankiforge_obsidian/), les statuts de triage et la structure de domaine CONTEXT.md/ADRs.
-  Use when the user asks to "setup-tristan-workflow", "configurer le workflow", "initialiser le tracker", or sets up the agent engineering environment.
+  Configure l'environnement de développement pour le flux d'ingénierie AnkiForge : initialise le suivi des tâches dans le vault Obsidian (ankiforge_obsidian/), les statuts de triage et la structure de domaine CONTEXT.md/ADRs.
+  Use when the user asks to "setup-forge-workflow", "configurer le workflow", "initialiser le tracker", or sets up the agent engineering environment.
   When NOT to use: Do not use if the Obsidian vault and CONTEXT.md are already initialised and operational.
 disable-model-invocation: true
 ---
 
-# Setup Tristan Workflow — Initialisation de l'Environnement Agent
+# Setup Forge Workflow — Initialisation de l'Environnement Agent
 
-Configure l'environnement du projet pour le flux d'ingénierie Tristan & AnkiForge :
+Configure l'environnement du projet pour le flux d'ingénierie AnkiForge :
 
 - **Issue tracker natif** : le vault Obsidian (`ankiforge_obsidian/`) avec ses dossiers `Tickets/` et son tableau Kanban `Avancement du projet.md`.
 - **Machine à états de triage** : les 5 statuts canoniques (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`).
@@ -31,4 +31,4 @@ Dans AnkiForge, l'environnement est configuré par défaut comme suit :
 
 - Ne pas utiliser si le vault Obsidian et `CONTEXT.md` sont déjà en place et fonctionnels (cas standard d'AnkiForge).
 - Ne pas utiliser pour manipuler des tickets individuels → utiliser `obsidian-vault` ou `to-tickets`.
-- Ne pas utiliser pour router une tâche → utiliser `ask-tristan`.
+- Ne pas utiliser pour router une tâche → utiliser `ask-forge`.
