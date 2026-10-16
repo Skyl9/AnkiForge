@@ -4,7 +4,7 @@
 <context>
     <name></name>
     <message>
-        <location filename="../../__main__.py" line="+260"/>
+        <location filename="../../__main__.py" line="+271"/>
         <source>Espace de travail en cours d&apos;utilisation</source>
         <translation type="unfinished"></translation>
     </message>
@@ -26,7 +26,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../services/cards/note_type_roles.py" line="+40"/>
+        <location filename="../../services/cards/note_type_roles.py" line="+38"/>
         <source>Basique (Q/R standard)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -159,7 +159,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+62"/>
+        <location line="+60"/>
         <source>Définition &amp; Concept clé</source>
         <translation type="unfinished"></translation>
     </message>
