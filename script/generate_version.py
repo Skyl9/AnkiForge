@@ -85,6 +85,7 @@ def generate_version_file(
     target_file.parent.mkdir(parents=True, exist_ok=True)
 
     content = f'''"""Fichier généré automatiquement lors du build/packaging d'AnkiForge.
+
 Ne pas modifier manuellement.
 """
 

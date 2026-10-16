@@ -29,6 +29,23 @@ class TestBuildConfiguration:
         assert "anki" in nofollow, "Le package 'anki' doit être exclu via common.nofollow_imports"
         assert "aqt" in nofollow, "Le package 'aqt' doit être exclu via common.nofollow_imports"
 
+    def test_nuitka_config_excludes_heavy_runtime_dependencies(self) -> None:
+        """Vérifie que nuitka_config.json exclut pymupdf, fitz, youtube_transcript_api et leurs sous-modules."""
+        config_path = PROJECT_ROOT / "build_script" / "nuitka_config.json"
+        with open(config_path, encoding="utf-8") as f:
+            config = json.load(f)
+
+        nofollow = config.get("common", {}).get("nofollow_imports", [])
+        expected_exclusions = ("pymupdf", "fitz", "youtube_transcript_api", "defusedxml", "markdownify")
+        for pkg in expected_exclusions:
+            assert pkg in nofollow, f"Le package '{pkg}' doit être exclu via common.nofollow_imports pour éviter le débordement heap MSVC"
+
+        # Vérifie que les sous-modules lourds problématiques sont bien interceptés par le pattern matching Nuitka
+        for submodule in ("pymupdf", "pymupdf.mupdf", "fitz", "youtube_transcript_api", "youtube_transcript_api.proxies"):
+            m = ModuleName(submodule)
+            match, _ = m.matchesToShellPatterns(nofollow)
+            assert match is True, f"Nuitka aurait dû exclure le sous-module '{submodule}' avec nofollow_imports"
+
     def test_copy_runtime_dependencies_skips_anki_and_aqt(self) -> None:
         """Vérifie que copy_runtime_dependencies.py n'embarque pas anki/aqt dans le bundle."""
         script_path = PROJECT_ROOT / "script" / "copy_runtime_dependencies.py"

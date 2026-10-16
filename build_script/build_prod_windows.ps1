@@ -28,6 +28,7 @@ try {
 
 Write-Host "[INFO] Execution du pilote de compilation universel..."
 $env:_CL_ = "/bigobj"
+$env:PreferredToolArchitecture = "x64"
 $buildArgs = @("--target-os=windows")
 if ($Version) {
     $buildArgs += @("--version", $Version)
