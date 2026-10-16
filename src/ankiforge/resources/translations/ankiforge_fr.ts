@@ -32,7 +32,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/main_window.py" line="+78"/>
+        <location filename="../../ui/main_window.py" line="+76"/>
         <source>Général</source>
         <extracomment>view_id -&gt; (catégorie, icône, titre, WidgetClass) La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés ne peuvent être résolus qu&apos;une fois le traducteur installé, donc au premier usage. Une constante de classe figerait le français à l&apos;import du module — c&apos;est-à-dire avant `install_translator()` — et la navigation resterait française dans une interface anglaise. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne casse rien, les vues d&apos;un même groupe partagent toujours la même clef.</extracomment>
         <translation type="unfinished"></translation>
@@ -225,7 +225,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/deck_select_window.py" line="+332"/>
+        <location filename="../../ui/components/deck_select_window.py" line="+330"/>
         <source>Un paquet nommé « %1 » existe déjà.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -256,10 +256,10 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/components/linter_widgets.py" line="+260"/>
+        <location filename="../../ui/components/linter_widgets.py" line="+258"/>
         <location filename="../../ui/views/batch_view/widgets/progress_cell_widget.py" line="+36"/>
         <location line="+36"/>
-        <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+805"/>
+        <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+804"/>
         <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+742"/>
         <location line="+10"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+728"/>
@@ -274,7 +274,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/hierarchy_breadcrumb_bar.py" line="+87"/>
+        <location filename="../../ui/components/hierarchy_breadcrumb_bar.py" line="+85"/>
         <source>Nœud existant : %1
 Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
@@ -296,8 +296,8 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/linter_rules_dialog.py" line="+285"/>
-        <location filename="../../ui/views/documents_view/dialogs/album_import_dialog.py" line="+206"/>
+        <location filename="../../ui/components/linter_rules_dialog.py" line="+283"/>
+        <location filename="../../ui/views/documents_view/dialogs/album_import_dialog.py" line="+203"/>
         <location filename="../../ui/views/documents_view/dialogs/folder_dialog.py" line="+157"/>
         <source>📁 %1</source>
         <translation type="unfinished"></translation>
@@ -309,7 +309,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+111"/>
         <location filename="../../ui/views/creation_view/view.py" line="+1656"/>
         <location line="+29"/>
-        <location filename="../../ui/widgets/segment_inspector_widget.py" line="+512"/>
+        <location filename="../../ui/widgets/segment_inspector_widget.py" line="+509"/>
         <location line="+75"/>
         <location line="+15"/>
         <source>%1 %2</source>
@@ -368,10 +368,10 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/model_select_window.py" line="+205"/>
+        <location filename="../../ui/components/model_select_window.py" line="+202"/>
         <location filename="../../ui/components/tabs/bars/settings_bar.py" line="+25"/>
         <location filename="../../ui/views/batch_view/dialogs/batch_slice_composer_dialog.py" line="+181"/>
-        <location filename="../../ui/widgets/note_editor_widget.py" line="+746"/>
+        <location filename="../../ui/widgets/note_editor_widget.py" line="+741"/>
         <source>%1  %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -383,7 +383,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+1001"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+999"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -395,7 +395,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+204"/>
-        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="+316"/>
+        <location filename="../../ui/dialogs/album_transcription_dialog.py" line="+313"/>
         <source>Vision multimodale</source>
         <translation type="unfinished"></translation>
     </message>
@@ -431,14 +431,14 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+108"/>
-        <location filename="../../ui/views/agents_view/view.py" line="+583"/>
+        <location filename="../../ui/views/agents_view/view.py" line="+581"/>
         <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="+172"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-801"/>
         <source>%1 :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/nav_badge.py" line="+77"/>
+        <location filename="../../ui/components/nav_badge.py" line="+76"/>
         <source>%1 — %2 élément%3 en cours</source>
         <translation type="unfinished"></translation>
     </message>
@@ -453,7 +453,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/persona_select_window.py" line="+170"/>
+        <location filename="../../ui/components/persona_select_window.py" line="+167"/>
         <source>↳ %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -474,7 +474,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/snippet_drawer.py" line="+349"/>
+        <location filename="../../ui/components/snippet_drawer.py" line="+346"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+268"/>
         <source>Supprimer</source>
         <translation type="unfinished"></translation>
@@ -521,11 +521,11 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/addon_manager_dialog.py" line="+106"/>
+        <location filename="../../ui/dialogs/addon_manager_dialog.py" line="+104"/>
         <location filename="../../ui/dialogs/human_validation_dialog.py" line="+72"/>
-        <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+204"/>
+        <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+203"/>
         <location filename="../../ui/views/pipelines_view/view.py" line="+664"/>
-        <location filename="../../ui/widgets/note_editor_widget.py" line="+325"/>
+        <location filename="../../ui/widgets/note_editor_widget.py" line="+323"/>
         <source>&lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -550,7 +550,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+50"/>
+        <location line="+48"/>
         <source>🛡️ Mode Sans Échec Actif</source>
         <translation type="unfinished"></translation>
     </message>
@@ -578,7 +578,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/card_export_dialog.py" line="+115"/>
+        <location filename="../../ui/dialogs/card_export_dialog.py" line="+113"/>
         <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="+375"/>
         <source>Sélection active (%1 cartes)</source>
         <translation type="unfinished"></translation>
@@ -595,7 +595,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location line="+271"/>
-        <location filename="../../ui/dialogs/export_dialog.py" line="+329"/>
+        <location filename="../../ui/dialogs/export_dialog.py" line="+327"/>
         <source>✅ %1 cartes exportées avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -627,7 +627,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/create_deck_dialog.py" line="+97"/>
+        <location filename="../../ui/dialogs/create_deck_dialog.py" line="+95"/>
         <source>Ex: Sciences%1Physique%2Thermodynamique</source>
         <translation type="unfinished"></translation>
     </message>
@@ -638,14 +638,14 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location line="+113"/>
-        <location filename="../../ui/dialogs/leech_wozniak_split_dialog.py" line="+315"/>
+        <location filename="../../ui/dialogs/leech_wozniak_split_dialog.py" line="+312"/>
         <location filename="../../ui/views/creation_view/view.py" line="+727"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="-53"/>
         <source>Erreur : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/css_conflict_dialog.py" line="+60"/>
+        <location filename="../../ui/dialogs/css_conflict_dialog.py" line="+58"/>
         <source>Le snippet « %1 » utilise des classes déjà présentes dans votre modèle.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -708,7 +708,7 @@ Aucune modification ne sera écrite en base de données.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/document_scope_dialog.py" line="+214"/>
+        <location filename="../../ui/dialogs/document_scope_dialog.py" line="+213"/>
         <source>%1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -729,7 +729,7 @@ Aucune modification ne sera écrite en base de données.</source>
     </message>
     <message>
         <location line="+83"/>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="+491"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="+492"/>
         <location line="+3293"/>
         <source>Ch. %1</source>
         <translation type="unfinished"></translation>
@@ -786,7 +786,7 @@ Aucune modification ne sera écrite en base de données.</source>
     </message>
     <message>
         <location line="+2"/>
-        <location filename="../../ui/dialogs/import_dialog.py" line="+266"/>
+        <location filename="../../ui/dialogs/import_dialog.py" line="+264"/>
         <source>📁 %1 ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -823,7 +823,7 @@ Aucune modification ne sera écrite en base de données.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+72"/>
+        <location line="+70"/>
         <source>✓ Rapport enregistré : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -956,7 +956,7 @@ Aucune modification ne sera écrite en base de données.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/model_import_dialog.py" line="+116"/>
+        <location filename="../../ui/dialogs/model_import_dialog.py" line="+114"/>
         <source>&lt;b&gt;Auteur :&lt;/b&gt; %1 | &lt;b&gt;Version :&lt;/b&gt; v%2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -982,7 +982,7 @@ Aucune modification ne sera écrite en base de données.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/note_type_role_guide_dialog.py" line="+189"/>
+        <location filename="../../ui/dialogs/note_type_role_guide_dialog.py" line="+187"/>
         <source>%1
 
 Champs suggérés : %2</source>
@@ -1000,7 +1000,7 @@ Champs suggérés : %2</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/persona_history_dialog.py" line="+110"/>
-        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="+77"/>
+        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="+75"/>
         <source>v%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1037,7 +1037,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/profile_transfer_dialog.py" line="+110"/>
+        <location filename="../../ui/dialogs/profile_transfer_dialog.py" line="+107"/>
         <source>Copier des paquets, notes et médias vers le profil actif « %1 ».</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1053,7 +1053,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/selection_dialog.py" line="+296"/>
+        <location filename="../../ui/dialogs/selection_dialog.py" line="+290"/>
         <source>%1 modèle(s) sélectionné(s)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1068,7 +1068,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+146"/>
+        <location line="+144"/>
         <source>Similarité : 85%</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1084,11 +1084,11 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/views/ab_tests_view/view.py" line="+1372"/>
+        <location filename="../../ui/views/ab_tests_view/view.py" line="+1370"/>
         <location line="+26"/>
-        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+474"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+471"/>
         <location filename="../../ui/views/creation_view/view.py" line="+226"/>
-        <location filename="../../ui/views/documents_view/view.py" line="+1603"/>
+        <location filename="../../ui/views/documents_view/view.py" line="+1601"/>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
@@ -1251,7 +1251,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+68"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+67"/>
         <source>Erreur</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1588,7 +1588,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/views/consultant_view/widgets/embedded_card_table_widget.py" line="+133"/>
+        <location filename="../../ui/views/consultant_view/widgets/embedded_card_table_widget.py" line="+131"/>
         <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-3537"/>
         <source>%1 carte%2</source>
         <translation type="unfinished"></translation>
@@ -1949,8 +1949,8 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+286"/>
         <location line="+3"/>
         <location line="+1"/>
-        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+129"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1074"/>
+        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+127"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1071"/>
         <location filename="../../ui/views/edition_view/view.py" line="+359"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -2064,7 +2064,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/batch_view/view.py" line="+339"/>
+        <location filename="../../ui/views/batch_view/view.py" line="+337"/>
         <source>Vision (PDF)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2134,7 +2134,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+7"/>
-        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-283"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-282"/>
         <source>Arrêter</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2164,7 +2164,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/batch_view/widgets/batch_metrics_bar.py" line="+41"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_metrics_bar.py" line="+40"/>
         <source>STATUT GLOBAL</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2185,12 +2185,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="-27"/>
-        <location line="+369"/>
+        <location line="+368"/>
         <source>Terminé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-368"/>
+        <location line="-367"/>
         <source>En cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2221,7 +2221,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+21"/>
-        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-260"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-259"/>
         <source>En attente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2241,7 +2241,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+232"/>
+        <location line="+231"/>
         <source>Type: %1 | Mots: %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2253,12 +2253,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     <message>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+47"/>
         <location filename="../../ui/views/creation_view/view.py" line="-2032"/>
-        <location filename="../../ui/widgets/note_table_widget.py" line="+101"/>
+        <location filename="../../ui/widgets/note_table_widget.py" line="+99"/>
         <source>Rejeter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+111"/>
+        <location line="+110"/>
         <source>Revue — %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2422,7 +2422,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="+618"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="+616"/>
         <source>Espace de Travail</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2452,7 +2452,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+107"/>
-        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="+178"/>
+        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="+177"/>
         <source>Voulez-vous vraiment supprimer la discussion &apos;%1&apos; ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2619,12 +2619,12 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+44"/>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+766"/>
+        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+762"/>
         <source>Erreur d&apos;annulation : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+53"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+52"/>
         <source>Détail de l&apos;appel MCP : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2685,7 +2685,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="+155"/>
+        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="+152"/>
         <source>📦 %1 mod.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2760,7 +2760,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/creation_view/dialogs/reasoning_dialog.py" line="+80"/>
+        <location filename="../../ui/views/creation_view/dialogs/reasoning_dialog.py" line="+77"/>
         <source>Étape %1 (%2 car.)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2917,7 +2917,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-397"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-398"/>
         <source>Extrait filtré</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2927,7 +2927,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+41"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="+126"/>
         <source>Planche %1</source>
         <translation type="unfinished"></translation>
@@ -2943,7 +2943,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+346"/>
+        <location line="+345"/>
         <source>Portée : Page %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3350,23 +3350,23 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
     </message>
     <message>
         <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="+118"/>
-        <location line="+265"/>
+        <location line="+262"/>
         <source>Recadrée</source>
         <extracomment>Côté utile de la vignette, en pixels logiques. Sert de plafond : la carte ne demande jamais plus grand que ce qu&apos;elle peut afficher.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+184"/>
+        <location line="+183"/>
         <source>Page %1 sur %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+224"/>
+        <location line="+218"/>
         <source>Erreur lors du recadrage : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+136"/>
+        <location line="+135"/>
         <source>0 pages</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3411,7 +3411,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+93"/>
+        <location line="+86"/>
         <location line="+26"/>
         <source>%1 : « %2 » pointe vers un moteur qui ne sait pas lire les planches.</source>
         <translation type="unfinished"></translation>
@@ -3468,7 +3468,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/figures_gallery.py" line="+215"/>
+        <location filename="../../ui/views/documents_view/widgets/figures_gallery.py" line="+213"/>
         <source>%1 figure(s)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3494,7 +3494,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+74"/>
+        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+73"/>
         <source>Tag de traçabilité documentaire : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3883,7 +3883,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/cloze_manager.py" line="+39"/>
+        <location filename="../../ui/widgets/cloze_manager.py" line="+37"/>
         <source>Trou %1 (c%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3924,7 +3924,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/widgets/segment_inspector_widget.py" line="-595"/>
+        <location filename="../../ui/widgets/segment_inspector_widget.py" line="-592"/>
         <source>#%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3949,7 +3949,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/filter_sidebar.py" line="+37"/>
+        <location filename="../../ui/widgets/filter_sidebar.py" line="+34"/>
         <source>EXPLORATEUR</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4034,7 +4034,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/mcp_status_widget.py" line="+229"/>
+        <location filename="../../ui/widgets/mcp_status_widget.py" line="+224"/>
         <source>URL %1 copiée : %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4049,7 +4049,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/note_editor_widget.py" line="-787"/>
+        <location filename="../../ui/widgets/note_editor_widget.py" line="-782"/>
         <source>Champ du type de note : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4059,7 +4059,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+549"/>
+        <location line="+546"/>
         <source>Audio introuvable : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4074,7 +4074,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+171"/>
+        <location line="+169"/>
         <source>&lt;b&gt;Édition (Type de note : %1)&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4245,7 +4245,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/retention_curve.py" line="+99"/>
+        <location filename="../../ui/widgets/retention_curve.py" line="+98"/>
         <source>Charge : %1 révisions/j</source>
         <comment>{load:.1f}</comment>
         <translation type="unfinished"></translation>
@@ -4263,7 +4263,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+99"/>
+        <location line="+96"/>
         <source>1 page</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4669,7 +4669,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/theme_transition_overlay.py" line="+138"/>
+        <location filename="../../ui/widgets/theme_transition_overlay.py" line="+136"/>
         <source>Application : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5814,7 +5814,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AddonConfigForm</name>
     <message>
-        <location filename="../../ui/dialogs/addon_manager_dialog.py" line="-397"/>
+        <location filename="../../ui/dialogs/addon_manager_dialog.py" line="-395"/>
         <source>Cet addon ne possède aucun paramètre de configuration personnalisable.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5913,7 +5913,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AddonManagerDialog</name>
     <message>
-        <location line="+202"/>
+        <location line="+200"/>
         <source>Gestionnaire d&apos;Extensions AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6331,7 +6331,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumPageCard</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1500"/>
+        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1482"/>
         <source>Déplacer vers la gauche (page précédente)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6356,7 +6356,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+21"/>
         <source>Chargement…</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6366,7 +6366,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+21"/>
         <source>Périmé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6379,7 +6379,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumPageMiniWidget</name>
     <message>
-        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-742"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-741"/>
         <source>Portée</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6506,7 +6506,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumViewerWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="+691"/>
+        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="+682"/>
         <source>Album d&apos;images</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6602,7 +6602,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+44"/>
-        <location line="+284"/>
+        <location line="+277"/>
         <source>Annulation en cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6642,7 +6642,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+129"/>
+        <location line="+128"/>
         <source>Annulation en cours : refermez la fenêtre à nouveau dans un instant.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7023,7 +7023,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>BatchActivityLog</name>
     <message>
-        <location filename="../../ui/views/batch_view/widgets/batch_activity_log.py" line="+122"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_activity_log.py" line="+120"/>
         <source>Filtrer :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7205,7 +7205,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>BatchStagingPanel</name>
     <message>
-        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-664"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-663"/>
         <source>Revue &amp; Staging — sélectionnez une tâche terminée</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7241,12 +7241,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+66"/>
-        <location line="+254"/>
+        <location line="+253"/>
         <source>0 / 0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-218"/>
+        <location line="-217"/>
         <source>Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7257,28 +7257,28 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+11"/>
-        <location line="+426"/>
+        <location line="+425"/>
         <source>Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-421"/>
+        <location line="-420"/>
         <source>Modifier les champs de la carte (Raccourci: E ou double-clic)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+414"/>
+        <location line="+413"/>
         <source>Valider la carte active et passer à la suivante (Raccourci: Espace ou V)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-408"/>
+        <location line="-407"/>
         <source>Abandonner toute la tranche et ses cartes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+187"/>
+        <location line="+186"/>
         <source>En attente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8098,7 +8098,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ConflictFieldRow</name>
     <message>
-        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="-219"/>
+        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="-217"/>
         <source>Utiliser le contenu Local</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8512,7 +8512,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ContextPillBadge</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1644"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1642"/>
         <source>Cliquer pour retirer du contexte</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9937,7 +9937,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+108"/>
+        <location line="+107"/>
         <source>00:00 / 00:00</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10454,7 +10454,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentSelectWindow</name>
     <message>
-        <location filename="../../ui/components/document_select_window.py" line="+106"/>
+        <location filename="../../ui/components/document_select_window.py" line="+104"/>
         <source>Rechercher un document (ex: Anatomie, Cardiologie)...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11530,7 +11530,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EmbeddedCardPreviewWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/embedded_card_preview_widget.py" line="+119"/>
+        <location filename="../../ui/views/consultant_view/widgets/embedded_card_preview_widget.py" line="+117"/>
         <source>RECTO</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11679,7 +11679,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FeedbackDialog</name>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="-596"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="-594"/>
         <source>Retours &amp; Suggestions AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11927,7 +11927,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+159"/>
+        <location line="+157"/>
         <source>✓ Rapport copié dans le presse-papier !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12017,7 +12017,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FigureCard</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/figures_gallery.py" line="-146"/>
+        <location filename="../../ui/views/documents_view/widgets/figures_gallery.py" line="-145"/>
         <source>Chargement…</source>
         <extracomment>Côté de la vignette d&apos;une figure (plafonné avant transformation par la plaque).</extracomment>
         <translation type="unfinished"></translation>
@@ -12037,7 +12037,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FiguresGalleryWidget</name>
     <message>
-        <location line="+38"/>
+        <location line="+37"/>
         <source>Tout le document</source>
         <extracomment>Les callbacks de la plaque peuvent être livrés après la construction : on garde les tasks vivantes le temps du rendu (leur QRunnable est auto-supprimé).</extracomment>
         <translation type="unfinished"></translation>
@@ -12938,7 +12938,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ImportDropZone</name>
     <message>
-        <location line="-308"/>
+        <location line="-306"/>
         <source>Glissez-déposez votre archive Anki ici</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14371,7 +14371,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NativeCodeEditor</name>
     <message>
-        <location filename="../../ui/components/code_editor/widgets/native_editor.py" line="+695"/>
+        <location filename="../../ui/components/code_editor/widgets/native_editor.py" line="+691"/>
         <source>Appliquer la classe CSS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14447,7 +14447,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NoteFieldEditorWidget</name>
     <message>
-        <location line="-499"/>
+        <location line="-497"/>
         <location line="+133"/>
         <source>Écouter la prononciation audio</source>
         <translation type="unfinished"></translation>
@@ -14719,7 +14719,7 @@ Aucune anomalie détectée dans votre collection.</source>
 <context>
     <name>PageInspectorWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1322"/>
+        <location filename="../../ui/views/documents_view/widgets/album_viewer.py" line="-1306"/>
         <source>Inspecteur de page</source>
         <extracomment>Plafond du rendu d&apos;inspection. Au-delà, on charge la planche native — ce que le ticket S1 interdit hors d&apos;une demande de zoom explicite. Vrai quand `_zoom_factor` est calculé par ajustement à la fenêtre plutôt que posé.</extracomment>
         <translation type="unfinished"></translation>
@@ -14790,7 +14790,7 @@ Aucune anomalie détectée dans votre collection.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+151"/>
+        <location line="+144"/>
         <source>Image non disponible</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14820,7 +14820,7 @@ Aucune anomalie détectée dans votre collection.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+29"/>
         <source>Image de la planche illisible.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15109,7 +15109,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>PipelineSelectWindow</name>
     <message>
-        <location filename="../../ui/components/pipeline_select_window.py" line="+61"/>
+        <location filename="../../ui/components/pipeline_select_window.py" line="+58"/>
         <source>Rechercher un pipeline (nom, description)...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15930,7 +15930,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SegmentItemWidget</name>
     <message>
-        <location line="-545"/>
+        <location line="-542"/>
         <source>Inclure ou exclure ce fragment de la génération</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15943,7 +15943,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SelectionDialog</name>
     <message>
-        <location filename="../../ui/dialogs/selection_dialog.py" line="-181"/>
+        <location filename="../../ui/dialogs/selection_dialog.py" line="-179"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15951,7 +15951,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SessionItemWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="-181"/>
+        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="-178"/>
         <source>Options de la discussion</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16067,7 +16067,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SmartMergeDialog</name>
     <message>
-        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="+46"/>
+        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="+44"/>
         <source>Smart Merge — Résolution de Conflits</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16125,7 +16125,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SnippetCardWidget</name>
     <message>
-        <location filename="../../ui/components/snippet_drawer.py" line="-805"/>
+        <location filename="../../ui/components/snippet_drawer.py" line="-802"/>
         <source>Insérer dans le code au curseur</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16138,7 +16138,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SnippetLibraryDrawer</name>
     <message>
-        <location line="+64"/>
+        <location line="+61"/>
         <source>BIBLIOTHÈQUE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16708,7 +16708,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SupportDialog</name>
     <message>
-        <location filename="../../ui/dialogs/support_dialog.py" line="+41"/>
+        <location filename="../../ui/dialogs/support_dialog.py" line="+40"/>
         <location line="+35"/>
         <source>Soutenir AnkiForge</source>
         <translation type="unfinished"></translation>
@@ -16737,7 +16737,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SupportTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/support_tab.py" line="+91"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/support_tab.py" line="+90"/>
         <source>Soutenir AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17006,7 +17006,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TagSelectWindow</name>
     <message>
-        <location filename="../../ui/components/tag_select_window.py" line="+49"/>
+        <location filename="../../ui/components/tag_select_window.py" line="+47"/>
         <source>Rechercher ou saisir un nouveau tag...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17044,18 +17044,18 @@ Utilisez {{ text_source }}.</source>
     <name>ThoughtStepWidget</name>
     <message>
         <location filename="../../ui/views/consultant_view/widgets/thought_step_widget.py" line="-63"/>
-        <location line="+131"/>
+        <location line="+128"/>
         <location line="+8"/>
         <source>Détails ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-74"/>
+        <location line="-71"/>
         <source>🧠 Réflexion</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+71"/>
+        <location line="+68"/>
         <source>Masquer ▴</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17551,7 +17551,7 @@ https://blog.example.com/article-1</source>
 <context>
     <name>VisionCapabilityBadge</name>
     <message>
-        <location filename="../../ui/components/vision_capability.py" line="+89"/>
+        <location filename="../../ui/components/vision_capability.py" line="+88"/>
         <source>Ce moteur analyse les images du document (payload multimodal).</source>
         <translation type="unfinished"></translation>
     </message>
