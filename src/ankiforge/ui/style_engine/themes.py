@@ -1,5 +1,5 @@
-"""
-Built-in Themes Definitions for AnkiForge Style Engine.
+"""Built-in Themes Definitions for AnkiForge Style Engine.
+
 Contient l'ensemble des 24 thèmes officiels (12 Sombres & 12 Clairs) organisés en 12 Familles de Thèmes bivalentes.
 """
 

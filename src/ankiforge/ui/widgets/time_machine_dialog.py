@@ -1,5 +1,5 @@
-"""
-Machine à Remonter le Temps (Time Machine) Unifiée d'AnkiForge.
+"""Machine à Remonter le Temps (Time Machine) Unifiée d'AnkiForge.
+
 Permet d'explorer l'historique complet des versions d'une note (NoteVersionModel),
 de visualiser les différences textuelles colorées (rouge/vert) et de restaurer une version en 1 clic.
 """
@@ -108,12 +108,12 @@ class DiffViewerWidget(QTextBrowser):
 
 
 class TimeMachineDialog(QDialog):
-    """
-    Modale Time Machine consolidée :
+    """Modale Time Machine consolidée .
+
     - Timeline chronologique des versions de la note
     - Diff textuel coloré (rouge/vert) comparant à la version active
     - Aperçu du rendu HTML/KaTeX de la version sélectionnée
-    - Bouton de restauration en 1 clic
+    - Bouton de restauration en 1 clic.
     """
 
     version_restored = Signal(int, dict)  # note_id, restored_content_dict

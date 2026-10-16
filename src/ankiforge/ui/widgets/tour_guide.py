@@ -1,5 +1,5 @@
-"""
-Tour Guide & Onboarding interactif pour AnkiForge.
+"""Tour Guide & Onboarding interactif pour AnkiForge.
+
 Affiche une bulle d'aide flottante guidant l'utilisateur à travers les zones clés de l'application.
 """
 

@@ -60,8 +60,8 @@ logger = logging.getLogger(__name__)
 
 
 class AlbumPageCard(QFrame):
-    """
-    Carte de vignette individuelle pour une page d'album dans la planche-contact.
+    """Carte de vignette individuelle pour une page d'album dans la planche-contact.
+
     Affiche la miniature, le numéro de page, le statut OCR et une barre d'actions rapides.
 
     La vignette est rendue **hors du thread GUI** (ticket S1) : la carte ne fait que
@@ -173,8 +173,7 @@ class AlbumPageCard(QFrame):
         layout.addLayout(actions_layout)
 
     def _request_thumbnail(self) -> None:
-        """
-        Demande la vignette à la plaque de rendu (hors thread GUI).
+        """Demande la vignette à la plaque de rendu (hors thread GUI).
 
         Le plafond demandé est la taille utile de la carte, jamais la résolution native :
         un scan A4 à 300 dpi ferait 2500×3500 px, et c'est précisément ce chargement-là
@@ -213,8 +212,7 @@ class AlbumPageCard(QFrame):
         self.crop_badge.setVisible(bool(active_crop))
 
     def update_status(self, ocr_text: str, status: str | None = None) -> None:
-        """
-        Met à jour le badge de statut de transcription.
+        """Met à jour le badge de statut de transcription.
 
         Un état dérivé **périmé** se dit : la planche a changé, sa transcription
         précédente décrit une orientation qui n'est plus la sienne. Le silence laisserait
@@ -237,8 +235,8 @@ class AlbumPageCard(QFrame):
 
 
 class CropImageLabel(QLabel):
-    """
-    QLabel interactif pour la sélection rectangulaire de recadrage.
+    """QLabel interactif pour la sélection rectangulaire de recadrage.
+
     En mode recadrage, permet de tracer une zone de sélection à la souris avec retour visuel.
     """
 
@@ -321,8 +319,7 @@ class CropImageLabel(QLabel):
 
 
 class PageInspectorWidget(QWidget):
-    """
-    Vue détaillée et zoomable pour inspecter une planche et retoucher son texte OCR.
+    """Vue détaillée et zoomable pour inspecter une planche et retoucher son texte OCR.
 
     L'orientation affichée vient de la couture de lecture (ADR 0011), jamais d'une
     transformation locale : deux chemins d'orientation ne peuvent pas diverger.
@@ -555,8 +552,7 @@ class PageInspectorWidget(QWidget):
         main_layout.addWidget(splitter, 1)
 
     def load_page(self, page: DocumentPageModel, total_pages: int) -> None:
-        """
-        Affiche la planche spécifiée dans l'inspecteur.
+        """Affiche la planche spécifiée dans l'inspecteur.
 
         L'image vient de la couture : elle porte donc l'orientation de la planche. Le
         rendu est plafonné (`INSPECTION_PX`) — la pleine résolution n'est rechargée que
@@ -605,8 +601,7 @@ class PageInspectorWidget(QWidget):
         return ratio if ratio and ratio > 0 else 1.0
 
     def _viewport_size(self) -> tuple[int, int]:
-        """
-        Taille du viewport en pixels **logiques**.
+        """Taille du viewport en pixels **logiques**.
 
         La densité d'écran ne passe pas par ici, et c'est délibéré. Elle sert à *décoder*
         assez de pixels (`_inspection_px`), jamais à *dimensionner* : un `QPixmap` sans
@@ -622,8 +617,7 @@ class PageInspectorWidget(QWidget):
         return max(1, int(self.INSPECTION_PX * self._device_ratio()))
 
     def _fit_zoom_factor(self) -> float:
-        """
-        Facteur d'ajustement à la fenêtre : la plus grande échelle tenant dans le viewport.
+        """Facteur d'ajustement à la fenêtre : la plus grande échelle tenant dans le viewport.
 
         C'est ce que « ajuster à la fenêtre » promettait. Poser 1.0 — 100 % de la
         résolution native — ne réduit rien : sur une planche de 2500 px dans un widget de
@@ -635,8 +629,7 @@ class PageInspectorWidget(QWidget):
         return min(view_w / self._raw_pixmap.width(), view_h / self._raw_pixmap.height())
 
     def _native_max_px(self) -> int:
-        """
-        Plus grand côté de la planche **native**, sans la recharger.
+        """Plus grand côté de la planche **native**, sans la recharger.
 
         Décoder la planche entière pour mesurer ce qu'on sait déjà lire dans ses en-têtes
         PIL annulerait le plafond mis en place : c'est précisément le coût que
@@ -653,10 +646,7 @@ class PageInspectorWidget(QWidget):
             return 0
 
     def _display_pixmap(self) -> QPixmap | None:
-        """
-        Pixmap servant de base à l'affichage, en chargeant la pleine résolution si le
-        zoom la demande (au-delà de ce que le rendu plafonné contient).
-        """
+        """Pixmap servant de base à l'affichage, en chargeant la pleine résolution si le zoom la demande (au-delà de ce que le rendu plafonné contient)."""
         if not self.current_page:
             return self._raw_pixmap
         if self._raw_pixmap is None or self._raw_pixmap.isNull():
@@ -816,8 +806,7 @@ class PageInspectorWidget(QWidget):
         show_toast(self, self.tr("Transcription enregistrée avec succès."))
 
     def _on_open_image_occlusion(self) -> None:
-        """
-        Ouvre le dialogue Image Occlusion sur la planche **dans son orientation**.
+        """Ouvre le dialogue Image Occlusion sur la planche **dans son orientation**.
 
         C'est le seul site où une donnée, et non un simple affichage, dépendait de
         l'orientation : les masques SVG sont cuits aux coordonnées relevées sur l'image
@@ -863,8 +852,8 @@ class PageInspectorWidget(QWidget):
 
 
 class AlbumViewerWidget(QWidget):
-    """
-    Composant central pour l'affichage, la manipulation et la transcription d'un Album d'images.
+    """Composant central pour l'affichage, la manipulation et la transcription d'un Album d'images.
+
     Alterne entre la planche-contact (grille responsive) et l'inspecteur zoomable.
     """
 
@@ -1388,8 +1377,7 @@ class AlbumViewerWidget(QWidget):
 
     @Slot()
     def _release_worker(self, kind: str) -> None:
-        """
-        Lâche la référence Python du worker — sur le **vrai** `QThread.finished` seulement.
+        """Lâche la référence Python du worker — sur le **vrai** `QThread.finished` seulement.
 
         Les signaux métier (`finished_signal`, `cancelled_signal`, `error_signal`) sont émis
         depuis `run()`, donc juste avant que le thread ne rende la main : y remettre
@@ -1412,9 +1400,7 @@ class AlbumViewerWidget(QWidget):
         self._refresh_pdf_button_state()
 
     def _populate_category_combo(self) -> None:
-        """
-        Remplit le sélecteur de modèle depuis les modèles de vision disponibles.
-        """
+        """Remplit le sélecteur de modèle depuis les modèles de vision disponibles."""
         # Si un ancien test a injecté des catégories via monkeypatch de _category_service
         if hasattr(self, "_category_service") and self._category_service is not None and hasattr(self._category_service, "get_categories"):
             categories = self._category_service.get_categories()
@@ -1444,9 +1430,7 @@ class AlbumViewerWidget(QWidget):
         self._refresh_category_vision_state()
 
     def _current_category_id(self) -> str:
-        """
-        Identifiant texte du modèle de vision choisi (ex: 'apple_vision', 'qwen2.5-vl:7b').
-        """
+        """Identifiant texte du modèle de vision choisi (ex: 'apple_vision', 'qwen2.5-vl:7b')."""
         model = self.model_selector.get_current_model()
         if model is not None:
             return str(getattr(model, "model_id", ""))
@@ -1460,9 +1444,7 @@ class AlbumViewerWidget(QWidget):
         self._refresh_category_vision_state()
 
     def _refresh_category_vision_state(self) -> None:
-        """
-        Refuse la transcription quand le modèle sélectionné ne sait pas lire les planches.
-        """
+        """Refuse la transcription quand le modèle sélectionné ne sait pas lire les planches."""
         # Compatibilité avec un éventuel monkeypatch ou mock de _category_service dans les tests existants
         if hasattr(self, "_category_service") and self._category_service is not None:
             cat_id = self._current_category_id()
@@ -1676,8 +1658,7 @@ class AlbumViewerWidget(QWidget):
             self.forge_requested.emit(self._doc.id)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # Nom imposé par Qt.
-        """
-        Annule les workers en vol avant de laisser la vue disparaître.
+        """Annule les workers en vol avant de laisser la vue disparaître.
 
         Un `QThread` détruit alors que `run()` s'exécute provoke un crash natif, pas une
         exception Python : fermer la vue en pleine transcription ou en pleine compilation

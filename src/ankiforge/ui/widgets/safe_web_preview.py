@@ -1,5 +1,5 @@
-"""
-Composant de prévisualisation web durci et optimisé pour PySide6 QtWebEngine.
+"""Composant de prévisualisation web durci et optimisé pour PySide6 QtWebEngine.
+
 Intègre AnkiForgeWebProfile pour unifier le profil Chromium avec cache mémoire borné,
 SafeWebEnginePage pour bloquer les alertes/prompts JavaScript (anti-XSS) et intercepter les protocoles applicatifs,
 et SafeWebEngineView pour prévenir les fuites de mémoire (Memory Leaks).
@@ -62,8 +62,8 @@ class AnkiForgeWebProfile:
 
 
 class SafeWebEnginePage(QWebEnginePage):
-    """
-    Page WebEngine durcie contre les attaques XSS et les dialogues JavaScript bloquants.
+    """Page WebEngine durcie contre les attaques XSS et les dialogues JavaScript bloquants.
+
     Intercepte et neutralise alert(), confirm() et prompt() sans bloquer l'Event Loop Qt.
     Prend en charge l'interception de liens d'actions applicatives 'ankiforge://<action>/<params>'.
     """
@@ -147,9 +147,9 @@ class SafeWebEnginePage(QWebEnginePage):
 
 
 class SafeWebEngineView(QWebEngineView):
-    """
-    Un QWebEngineView optimisé pour éviter les fuites de mémoire (Memory Leaks)
-    lors des appels répétés à setHtml() (notamment avec MathJax/KaTeX),
+    """QWebEngineView optimisé pour éviter les fuites de mémoire (Memory Leaks).
+
+    Prévient les fuites lors des appels répétés à setHtml() (notamment avec MathJax/KaTeX),
     doté d'un profil partagé mémoire borné et d'un nettoyage DOM sans réallocation de page.
     """
 

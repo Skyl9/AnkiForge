@@ -1,5 +1,5 @@
-"""
-Modèle de tableau virtuel paginé pour l'explorateur de notes et la vue d'Édition (AnkiForge).
+"""Modèle de tableau virtuel paginé pour l'explorateur de notes et la vue d'Édition (AnkiForge).
+
 Fournit un rendu instantané, un préchargement par lot (Batch Prefetch) des versions actives
 et une virtualisation totale compatible 100 000+ cartes à 60 FPS.
 """
@@ -102,8 +102,8 @@ class CardRowData:
 
 
 class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
-    """
-    Modèle de tableau virtuel paginé pour NoteModel et CardModel.
+    """Modèle de tableau virtuel paginé pour NoteModel et CardModel.
+
     Gère le mode d'affichage Dual :
       - 'notes' : 1 ligne = 1 Note physique avec ses champs
       - 'cards' : 1 ligne = 1 Carte physique avec Question, Réponse, Gabarit, Paquet, Modèle
@@ -893,8 +893,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
         self._unchecked_note_ids.difference_update(ids_to_remove)
 
     def sync_checked_with_row_indices(self, selected_row_indices: set[int] | list[int]) -> None:
-        """
-        Synchronise strictement l'état coché des lignes avec les indices des lignes sélectionnées (soulignées).
+        """Synchronise strictement l'état coché des lignes avec les indices des lignes sélectionnées (soulignées).
+
         Met à jour row_data.checked, _checked_note_ids (ou _checked_card_ids) et émet dataChanged.
         """
         selected_set = set(selected_row_indices)

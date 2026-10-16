@@ -1,5 +1,5 @@
-"""
-Widget de saisie de chat hautement interactif pour le Consultant IA.
+"""Widget de saisie de chat hautement interactif pour le Consultant IA.
+
 Prend en charge :
 - L'autocomplétion non-bloquante et sécurisée des commandes Slash (/) et des mentions (@).
 - L'envoi direct via la touche Entrée (et saut de ligne via Shift+Entrée).

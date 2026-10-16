@@ -1,5 +1,5 @@
-"""
-Layout IDE (JetBrains / Power-User style) pour AnkiForge.
+"""Layout IDE (JetBrains / Power-User style) pour AnkiForge.
+
 Sidebar latérale sombre rétractable (260px <-> 68px), Topbar avec Omnibox et zone centrale pour QStackedWidget.
 """
 
@@ -15,11 +15,11 @@ from ankiforge.ui.layouts.base_layout import BaseLayout
 
 
 class IdeLayout(BaseLayout):
-    """
-    Layout Concept IDE :
+    """Layout Concept IDE .
+
     - Sidebar latérale gauche rétractable
     - TopBar avec Omnibox, Token Tracker et Daemon Status
-    - Zone centrale pour le QStackedWidget
+    - Zone centrale pour le QStackedWidget.
     """
 
     def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:

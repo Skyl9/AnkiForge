@@ -10,8 +10,8 @@ from ankiforge.ui.theme import DesignTokens
 
 
 class VirtualTableView(QTableView):
-    """
-    Vue tabulaire virtualisée haute performance (60 FPS).
+    """Vue tabulaire virtualisée haute performance (60 FPS).
+
     Conçue pour se connecter à des QAbstractTableModel paginés (NoteVirtualTableModel).
     Active par défaut : uniformRowHeights, ScrollPerPixel, masquage des headers verticaux,
     absence de gridlines lourdes et réactivité complète aux thèmes DesignTokens.

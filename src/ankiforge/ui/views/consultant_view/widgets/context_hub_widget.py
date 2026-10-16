@@ -1,5 +1,4 @@
-"""
-Hub de Contexte et Mémoire de Travail pour l'Agent Aidant IA.
+"""Hub de Contexte et Mémoire de Travail pour l'Agent Aidant IA.
 
 Remplace l'ancien inspecteur de diff par un cockpit d'analyse contextuelle complet :
 - Directive et Persona actifs.
@@ -230,8 +229,8 @@ class ContextAssetCard(QFrame):
 
 
 class ContextHubWidget(QWidget):
-    """
-    Cockpit de gestion de contexte intelligent et de mémoire de travail pour l'Agent Aidant.
+    """Cockpit de gestion de contexte intelligent et de mémoire de travail pour l'Agent Aidant.
+
     Remplace l'ancien inspecteur de diffs redondant.
     """
 

@@ -1,6 +1,6 @@
-"""
-Éditeur de Champ de Note Natif Qt avec IntelliSense (LaTeX, HTML, Jinja2/Cloze),
-Coloration syntaxique temps réel, gouttière de numéros de ligne et auto-complétion.
+"""Éditeur de Champ de Note Natif Qt avec IntelliSense (LaTeX, HTML, Jinja2/Cloze).
+
+Fournit la coloration syntaxique temps réel, gouttière de numéros de ligne et auto-complétion.
 100% Conforme aux spécifications du ticket Obsidian et de GEMINI.md.
 """
 
@@ -140,12 +140,12 @@ STANDARD_JINJA: list[tuple[str, str]] = [
 
 
 class NoteKaTeXHighlighter(QSyntaxHighlighter):
-    """
-    Surligneur syntaxique haute performance pour champs de notes Anki :
+    """Surligneur syntaxique haute performance pour champs de notes Anki .
+
     - HTML (Bleu)
     - Math KaTeX / LaTeX ($..$, $$..$$, \\(..\\), \\[..\\]) (Vert / Émeraude)
     - Variables Jinja2 / Champs de modèle (Orange / Jaune)
-    - Cloze Deletions {{cN::...}} (Violet / Accent)
+    - Cloze Deletions {{cN::...}} (Violet / Accent).
     """
 
     def __init__(self, parent: Any = None) -> None:
@@ -201,9 +201,7 @@ class NoteKaTeXHighlighter(QSyntaxHighlighter):
 
 
 class NoteKaTeXCompleter(QCompleter):
-    """
-    IntelliSense flottant contextuel pour macros LaTeX, balises HTML et champs du modèle.
-    """
+    """IntelliSense flottant contextuel pour macros LaTeX, balises HTML et champs du modèle."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -272,10 +270,7 @@ class NoteLineNumberArea(QWidget):
 
 
 class NoteFieldTextEdit(QPlainTextEdit):
-    """
-    QPlainTextEdit natif avec gouttière, autocomplétion flottante,
-    coloration syntaxique KaTeX/HTML/Cloze et fermeture automatique des délimiteurs.
-    """
+    """QPlainTextEdit natif avec gouttière, autocomplétion flottante, coloration syntaxique KaTeX/HTML/Cloze et fermeture automatique des délimiteurs."""
 
     focus_changed = Signal(bool)
     save_requested = Signal()
@@ -589,11 +584,11 @@ class NoteFieldTextEdit(QPlainTextEdit):
 
 
 class NoteFieldEditorWidget(QWidget):
-    """
-    Widget complet de champ de note :
+    """Widget complet de champ de note .
+
     - En-tête cliquable avec chevron animé et badge de nom
     - Éditeur natif `NoteFieldTextEdit` avec IntelliSense & KaTeX
-    - Signalement des changements de contenu et de focus
+    - Signalement des changements de contenu et de focus.
     """
 
     content_changed = Signal(str)  # field_name
@@ -852,9 +847,7 @@ class NoteFieldEditorWidget(QWidget):
 
 
 class NoteEditorWidget(QWidget):
-    """
-    Composant d'édition complet pour compatibilité ascendante.
-    """
+    """Composant d'édition complet pour compatibilité ascendante."""
 
     note_updated = Signal(int, dict, int)
     note_created = Signal(int)

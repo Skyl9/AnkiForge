@@ -1,5 +1,5 @@
-"""
-Composant de sélection de pipeline DAG pour les tests A/B.
+"""Composant de sélection de pipeline DAG pour les tests A/B.
+
 Reproduit le pattern architectural de `deck_select_window.py`.
 """
 
@@ -17,10 +17,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class PipelineSelectWindow(QWidget):
-    """
-    Fenêtre modale de sélection de pipeline DAG avec recherche instantanée
-    et décompte des étapes.
-    """
+    """Fenêtre modale de sélection de pipeline DAG avec recherche instantanée et décompte des étapes."""
 
     pipeline_selected = Signal(int, str)  # (pipeline_id, pipeline_name)
 

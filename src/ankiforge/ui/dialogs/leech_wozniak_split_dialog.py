@@ -1,5 +1,5 @@
-"""
-Dialogue modal d'inspection et de scission atomique d'une carte sangsue (ADR 0019).
+"""Dialogue modal d'inspection et de scission atomique d'une carte sangsue (ADR 0019).
+
 Permet de visualiser la carte défaillante et de déclencher une proposition Two-Phase Commit
 selon les règles 4 et 5 de Piotr Wozniak.
 """
@@ -34,10 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class LeechWozniakSplitDialog(QDialog):
-    """
-    Dialogue modal permettant d'examiner une carte sangsue et d'ordonner sa scission
-    en cartes atomiques via le Linter Wozniak sans altérer la file de révision.
-    """
+    """Dialogue modal permettant d'examiner une carte sangsue et d'ordonner sa scission en cartes atomiques via le Linter Wozniak sans altérer la file de révision."""
 
     split_applied = Signal(int)  # Émet note_id après application réussie
 

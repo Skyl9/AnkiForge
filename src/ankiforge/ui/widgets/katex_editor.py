@@ -188,8 +188,8 @@ class KaTeXTextEdit(QPlainTextEdit):
 
 
 def sanitize_user_markdown_html(html_body: str) -> str:
-    """
-    Neutralise les balises scripts et attributs d'exécution arbitraire dans le HTML utilisateur (Anti-XSS).
+    """Neutralise les balises scripts et attributs d'exécution arbitraire dans le HTML utilisateur (Anti-XSS).
+
     Affiche le code sous forme de bloc <pre><code> sans exécution par le moteur web.
     """
     import html as html_lib

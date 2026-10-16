@@ -1,5 +1,4 @@
-"""
-Compatibilité Vision du moteur IA sélectionné : politique unique, libellés et indicateurs partagés.
+"""Compatibilité Vision du moteur IA sélectionné : politique unique, libellés et indicateurs partagés.
 
 Le Studio de Création et la Batch Factory exposent tous deux une bascule « Vision ». Cette
 bascule n'a de sens que si le moteur sélectionné sait lire des images : transmettre un payload

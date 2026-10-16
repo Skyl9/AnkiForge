@@ -1,5 +1,5 @@
-"""
-Modale d'historique et de Machine à Remonter le Temps pour les Personas & Agents IA.
+"""Modale d'historique et de Machine à Remonter le Temps pour les Personas & Agents IA.
+
 Permet d'explorer les versions passées, de comparer les diffs de prompts et de restaurer un état antérieur.
 """
 

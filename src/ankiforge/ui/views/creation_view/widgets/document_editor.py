@@ -130,7 +130,8 @@ class AlbumPageMiniWidget(QFrame):
         snippet: str,
         parent: QWidget | None = None,
     ) -> None:
-        """
+        """Initialise la carte miniature de planche d'album.
+
         `page_image` vient de la couture (`AlbumService.render_page_qimage`) et non d'un
         chemin de fichier : recevoir un chemin ici rendait l'orientation de la planche à la
         charge de l'appelant, donc facultative et donc perdue en silence (ADR 0011).
@@ -479,8 +480,7 @@ class DocumentEditorWidget(QWidget):
         self.set_content(content)
 
     def _album_page_image(self, page: DocumentPageModel) -> QImage | None:
-        """
-        Rend la planche par la couture, pour la taille d'une vignette de galerie.
+        """Rend la planche par la couture, pour la taille d'une vignette de galerie.
 
         Le plafond évite d'ouvrir 200 planches en pleine résolution pour une grille de
         168 px : la galerie était le dernier endroit où le coût ne dépendait pas de la

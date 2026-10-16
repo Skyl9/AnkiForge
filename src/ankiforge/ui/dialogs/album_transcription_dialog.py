@@ -1,6 +1,4 @@
-"""
-Dialogue modal de configuration pour la transcription d'un album ou de planches sélectionnées.
-"""
+"""Dialogue modal de configuration pour la transcription d'un album ou de planches sélectionnées."""
 
 from __future__ import annotations
 
@@ -48,8 +46,7 @@ logger = logging.getLogger(__name__)
 
 
 class AlbumTranscriptionDialog(QDialog):
-    """
-    Dialogue modal de configuration de transcription d'album.
+    """Dialogue modal de configuration de transcription d'album.
 
     Permet de sélectionner un périmètre exclusif (avec décompte dynamique),
     le moteur de vision, les directives de formatage et les consignes contextuelles.

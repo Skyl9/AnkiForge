@@ -14,10 +14,9 @@ from ankiforge.ui.theme import DesignTokens
 
 
 class CodeEditorWithGutter(QFrame):
-    """
-    Conteneur d'édition de code haut niveau encapsulant l'éditeur natif,
-    la coloration syntaxique, la gouttière synchronisée avec pastilles de couleur,
-    le linter temps réel, le formateur de code et la barre d'état.
+    """Conteneur d'édition de code encapsulant éditeur natif, coloration, gouttière et linter.
+
+    Intègre également le formateur de code et la barre d'état temps réel.
     """
 
     textChanged = Signal()

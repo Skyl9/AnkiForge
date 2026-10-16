@@ -6,9 +6,7 @@ from ankiforge.ui.theme import DesignTokens
 
 
 class AnkiHtmlHighlighter(QSyntaxHighlighter):
-    """
-    Highlighter pour les templates Anki (HTML + Moustaches {{...}}).
-    """
+    """Highlighter pour les templates Anki (HTML + Moustaches {{...}})."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -32,9 +30,7 @@ class AnkiHtmlHighlighter(QSyntaxHighlighter):
 
 
 class CssHighlighter(QSyntaxHighlighter):
-    """
-    Highlighter basique pour le CSS des modèles Anki.
-    """
+    """Highlighter basique pour le CSS des modèles Anki."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -62,9 +58,7 @@ class CssHighlighter(QSyntaxHighlighter):
 
 
 class JinjaHighlighter(QSyntaxHighlighter):
-    """
-    Highlighter pour les prompts système utilisant la syntaxe Jinja2 et Markdown.
-    """
+    """Highlighter pour les prompts système utilisant la syntaxe Jinja2 et Markdown."""
 
     def __init__(self, parent=None):
         super().__init__(parent)

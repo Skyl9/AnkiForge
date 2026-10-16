@@ -1,5 +1,5 @@
-"""
-Composant d'onglets et de sous-onglets unifié pour AnkiForge.
+"""Composant d'onglets et de sous-onglets unifié pour AnkiForge.
+
 Fournit une barre d'onglets segmentée ou de sous-panneaux avec gestion des styles
 sémantiques via DesignTokens, badges d'état et navigation au clavier.
 """
@@ -186,9 +186,7 @@ class SegmentedTabButton(QPushButton):
 
 
 class SegmentedTabBar(QWidget):
-    """
-    Barre de sous-onglets modulaire avec navigation clavier et adaptation au thème.
-    """
+    """Barre de sous-onglets modulaire avec navigation clavier et adaptation au thème."""
 
     tab_changed = Signal(str)  # tab_id
     tab_index_changed = Signal(int)  # index

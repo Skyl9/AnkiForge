@@ -1,6 +1,4 @@
-"""
-ViewModel for Application Dashboard and Global KPIs Cockpit.
-"""
+"""ViewModel for Application Dashboard and Global KPIs Cockpit."""
 
 from __future__ import annotations
 

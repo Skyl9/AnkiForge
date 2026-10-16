@@ -1,6 +1,4 @@
-"""
-Main Window & Navigation for AnkiForge.
-"""
+"""Main Window & Navigation for AnkiForge."""
 
 import contextlib
 import logging

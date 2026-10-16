@@ -1,5 +1,5 @@
-"""
-Dialogue d'Exportation Sélective de Paquets Anki (.apkg).
+"""Dialogue d'Exportation Sélective de Paquets Anki (.apkg).
+
 Permet de choisir le paquet racine via DeckSelectWindow, filtrer par tags, sélectionner le statut et inclure les médias.
 """
 
@@ -39,9 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExportDialog(QDialog):
-    """
-    Dialogue de configuration et d'exportation vers .apkg s'appuyant sur DeckSelectWindow.
-    """
+    """Dialogue de configuration et d'exportation vers .apkg s'appuyant sur DeckSelectWindow."""
 
     export_finished = Signal(str, int)  # file_path, count
 

@@ -8,9 +8,7 @@ from ankiforge.ui.theme import DesignTokens
 
 
 class DonutChartWidget(QWidget):
-    """
-    Un graphique en anneau (Donut) réutilisable, interactif et 100% natif.
-    """
+    """Un graphique en anneau (Donut) réutilisable, interactif et 100% natif."""
 
     def __init__(self, title_center="TOTAL", parent=None):
         super().__init__(parent)
@@ -61,9 +59,9 @@ class DonutChartWidget(QWidget):
         self.main_layout.addWidget(self.chart_view)
 
     def update_data(self, data_dict: dict[str, int]):
-        """
-        Met à jour le graphique avec de nouvelles données.
-        Format attendu : {"Maths": 120, "Anglais": 50}
+        """Met à jour le graphique avec de nouvelles données.
+
+        Format attendu : {"Maths": 120, "Anglais": 50}.
         """
         self.series.clear()
         self.total = sum(data_dict.values())

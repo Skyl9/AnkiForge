@@ -80,9 +80,7 @@ logger = logging.getLogger(__name__)
 
 
 class AgentsView(QWidget):
-    """
-    Vue Atelier d'Agents IA — Architecture Maître-Détail avec dossiers et sous-dossiers récursifs.
-    """
+    """Vue Atelier d'Agents IA — Architecture Maître-Détail avec dossiers et sous-dossiers récursifs."""
 
     def __init__(
         self,

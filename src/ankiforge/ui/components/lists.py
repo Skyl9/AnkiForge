@@ -18,8 +18,8 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class VirtualListView(QListView):
-    """
-    Vue de liste virtualisée haute performance (60 FPS).
+    """Vue de liste virtualisée haute performance (60 FPS).
+
     Conçue pour se connecter à des QAbstractListModel paginés (VirtualChunkListModel).
     Active par défaut : uniformItemSizes, ScrollPerPixel, masquage des focus rings lourds,
     et réactivité complète aux thèmes DesignTokens.

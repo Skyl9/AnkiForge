@@ -35,10 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class AlbumImportDialog(QDialog):
-    """
-    Boîte de dialogue modale permettant d'importer un lot de clichés/scans photographiques
-    pour créer un nouvel album de cours avec tri naturel ou chronologique EXIF.
-    """
+    """Boîte de dialogue modale permettant d'importer un lot de clichés/scans photographiques pour créer un nouvel album de cours avec tri naturel ou chronologique EXIF."""
 
     album_created = Signal(int)  # document_id
 

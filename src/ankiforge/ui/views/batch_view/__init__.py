@@ -1,5 +1,5 @@
-"""
-Package BatchView d'AnkiForge (Batch Factory CI/CD).
+"""Package BatchView d'AnkiForge (Batch Factory CI/CD).
+
 Re-exporte l'ensemble des composants, utilitaires et la vue principale pour 100% de rétrocompatibilité.
 """
 

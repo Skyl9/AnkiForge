@@ -1,5 +1,5 @@
-"""
-TopBar principale AnkiForge.
+"""TopBar principale AnkiForge.
+
 Barre supérieure 60px pleine largeur : section marque (logo + toggle sidebar)
 alignée au pixel près avec la sidebar, fil d'Ariane, omnibox, token tracker,
 import/export et cloche de notifications.
@@ -41,8 +41,8 @@ class ClickableLabel(QLabel):
 
 
 class TopBar(QWidget):
-    """
-    Barre supérieure 60px pleine largeur :
+    """Barre supérieure 60px pleine largeur .
+
     - Section Marque (Logo + Titre + Toggle Sidebar) à gauche, alignée sur la largeur de la sidebar (260px <-> 68px).
     - Section Contenu à droite (Breadcrumb + Omnibox + Token Tracker + Actions Import/Export/Notif).
     """

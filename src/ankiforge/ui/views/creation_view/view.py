@@ -104,8 +104,8 @@ def _fmt_duration(seconds: float) -> str:
 
 
 class CreationView(QWidget):
-    """
-    Studio de Création AnkiForge.
+    """Studio de Création AnkiForge.
+
     Signal request_navigation(str) pour basculer vers d'autres vues (documents, pipelines, settings).
     """
 

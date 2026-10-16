@@ -1,5 +1,5 @@
-"""
-Inspecteur de segments et de portée documentaire interactif (SegmentInspectorWidget).
+"""Inspecteur de segments et de portée documentaire interactif (SegmentInspectorWidget).
+
 Fusionne la définition de la portée (presets, plages personnalisées, steppers) et le découpage
 en segments avec sélection granulaire (cocher / décocher des fragments) avant la génération
 dans CreationView et BatchView.
@@ -174,10 +174,7 @@ class SegmentItemWidget(QWidget):
 
 
 class SegmentInspectorWidget(QFrame):
-    """
-    Inspecteur visuel interactif fusionnant la portée documentaire (presets, plages)
-    et le découpage en segments granulaires sélectionnables pour la génération de cartes.
-    """
+    """Inspecteur visuel interactif fusionnant la portée documentaire (presets, plages) et le découpage en segments granulaires sélectionnables pour la génération de cartes."""
 
     segments_updated = Signal(int, int)  # (active_count, total_count)
     segment_selected = Signal(int, str)  # (chunk_index, chunk_content)

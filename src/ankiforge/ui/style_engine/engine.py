@@ -1,5 +1,5 @@
-"""
-Moteur de Style Centralisé (StyleEngine) pour AnkiForge.
+"""Moteur de Style Centralisé (StyleEngine) pour AnkiForge.
+
 Génère et applique dynamiquement les règles QSS sémantiques basées sur les sélecteurs de propriétés Qt.
 """
 
@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__)
 
 
 class StyleEngine(QObject):
-    """
-    Moteur de style centralisé singleton.
+    """Moteur de style centralisé singleton.
+
     Gère la compilation du QSS sémantique et le hot-reloading de l'interface.
     """
 
@@ -93,8 +93,8 @@ class StyleEngine(QObject):
         return all_themes
 
     def generate_stylesheet(self, theme: ThemeProfile | None = None) -> str:
-        """
-        Compile la feuille de style globale complète à partir d'un ThemeProfile.
+        """Compile la feuille de style globale complète à partir d'un ThemeProfile.
+
         Définit tous les sélecteurs sémantiques pour éliminer le CSS codé en dur dans les composants.
         """
         p = theme or self._current_theme
@@ -1177,9 +1177,7 @@ class StyleEngine(QObject):
         """
 
     def apply_theme(self, theme_or_id: str | ThemeProfile, app: QApplication | None = None) -> None:
-        """
-        Applique un thème à l'ensemble de l'application en mettant à jour DesignTokens, QPalette et QSS.
-        """
+        """Applique un thème à l'ensemble de l'application en mettant à jour DesignTokens, QPalette et QSS."""
         profile = self.get_theme(theme_or_id) if isinstance(theme_or_id, str) else theme_or_id
 
         self._current_theme = profile
@@ -1219,9 +1217,8 @@ class StyleEngine(QObject):
         self.theme_changed.emit(profile)
 
     def force_global_repolish(self, app: QApplication | None = None) -> None:
-        """
-        Force le dé-polissage et re-polissage de tous les widgets actifs pour
-        appliquer immédiatement la nouvelle feuille de style QSS sans redémarrage.
+        """Force le re-polissage de tous les widgets actifs pour appliquer le QSS sans redémarrage.
+
         Invoque également refresh_theme(profile) sur tous les widgets le supportant.
         """
         application = app or QApplication.instance()
@@ -1250,8 +1247,7 @@ class StyleEngine(QObject):
         self._custom_themes.clear()
 
     def load_theme_library(self, themes_dir: Path | None = None) -> list[ThemeFamily]:
-        """Scanne le répertoire global de la bibliothèque de thèmes (~/.ankiforge/themes/)
-        et peuple les registres mémoire de familles et de thèmes personnalisés."""
+        """Scanne le répertoire global de la bibliothèque de thèmes (~/.ankiforge/themes/) et peuple les registres mémoire de familles et de thèmes personnalisés."""
         from ankiforge.ui.style_engine.theme_storage import load_custom_theme_families
 
         self.clear_custom_library()

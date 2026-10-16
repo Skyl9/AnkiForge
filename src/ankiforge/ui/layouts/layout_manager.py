@@ -1,5 +1,5 @@
-"""
-Layout Manager pour l'Architecture UI Enfichable d'AnkiForge.
+"""Layout Manager pour l'Architecture UI Enfichable d'AnkiForge.
+
 Permet d'instancier, enregistrer et basculer à chaud entre les différents layouts et leurs thèmes visuels.
 """
 
@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class LayoutManager:
-    """
-    Gestionnaire central des layouts et des thèmes visuels associés de l'application.
-    """
+    """Gestionnaire central des layouts et des thèmes visuels associés de l'application."""
 
     LAYOUTS: dict[str, type[BaseLayout]] = {
         "ide": IdeLayout,

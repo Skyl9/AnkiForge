@@ -1,5 +1,5 @@
-"""
-Dialogue d'exportation rapide des cartes en texte ou JSON (analyse rapide, contrôle qualité, scripts).
+"""Dialogue d'exportation rapide des cartes en texte ou JSON (analyse rapide, contrôle qualité, scripts).
+
 Permet de sélectionner la portée (sélection courante, filtre actif ou ensemble de la collection),
 le format cible (JSON, JSONL, Texte, Markdown) et les options de structure.
 """
@@ -40,9 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 class CardExportDialog(QDialog):
-    """
-    Dialogue modal permettant d'exporter les cartes sélectionnées ou filtrées en texte brut ou JSON.
-    """
+    """Dialogue modal permettant d'exporter les cartes sélectionnées ou filtrées en texte brut ou JSON."""
 
     export_finished = Signal(str, int)  # file_path, card_count
 

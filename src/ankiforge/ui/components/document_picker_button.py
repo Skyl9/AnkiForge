@@ -1,5 +1,5 @@
-"""
-Composant bouton-sélecteur de document source (DocumentPickerButton).
+"""Composant bouton-sélecteur de document source (DocumentPickerButton).
+
 Miroir des sélecteurs de Paquets et Modèles d'AnkiForge, avec prévisualisation et métadonnées.
 """
 
@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentPickerButton(QFrame):
-    """
-    Bouton interactif élégant affichant le document source actif avec son icône,
-    son titre et ses métadonnées (type, pages, estimation de tokens).
+    """Bouton interactif affichant le document source actif avec son icône et métadonnées.
+
+    Affiche son titre et ses métadonnées (type, pages, estimation de tokens).
     Un clic ouvre la modale DocumentSelectWindow.
     """
 

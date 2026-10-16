@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 class FolderCreateDialog(QDialog):
-    """
-    Boîte de dialogue permettant de créer un nouveau dossier ou sous-dossier de documents.
+    """Boîte de dialogue permettant de créer un nouveau dossier ou sous-dossier de documents.
+
     Permet de sélectionner le dossier parent et gère la hiérarchie '::'.
     """
 

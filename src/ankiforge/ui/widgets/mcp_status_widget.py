@@ -1,5 +1,4 @@
-"""
-Bouton de navigation et supervision MCP pour la barre latérale (Sidebar) AnkiForge.
+"""Bouton de navigation et supervision MCP pour la barre latérale (Sidebar) AnkiForge.
 
 Affiche en temps réel le statut d'écoute du démon MCP (actif, inactif, erreur, mutation)
 directement sous le bouton Paramètres de la barre latérale, en respectant la charte visuelle
@@ -27,8 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class MCPStatusWidget(QPushButton):
-    """
-    Bouton de supervision permanente du serveur MCP positionné dans la barre latérale.
+    """Bouton de supervision permanente du serveur MCP positionné dans la barre latérale.
 
     Hérite de QPushButton pour s'intégrer harmonieusement dans le footer de la Sidebar
     (juste en dessous du bouton Paramètres) avec support du repli 68px/260px.
@@ -172,10 +170,7 @@ class MCPStatusWidget(QPushButton):
             style.polish(self)
 
     def flash_mutation(self, duration_ms: int = 1500) -> None:
-        """
-        Déclenche un flash visuel 'mutating' temporaire lors de modifications de cartes/styles,
-        puis restaure automatiquement l'état précédent.
-        """
+        """Déclenche un flash visuel 'mutating' temporaire lors de modifications de cartes/styles, puis restaure automatiquement l'état précédent."""
         if self._status != "mutating":
             self._pre_mutation_status = self._status
 

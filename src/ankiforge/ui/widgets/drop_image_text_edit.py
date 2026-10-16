@@ -22,10 +22,7 @@ class _CopySignals(QObject):
 
 
 class _ImageCopyWorker(QRunnable):
-    """
-    Worker léger (QRunnable) qui exécute la copie de fichier image dans QThreadPool,
-    hors du thread Qt principal, pour éviter tout gel de l'interface.
-    """
+    """Worker léger (QRunnable) qui exécute la copie de fichier image dans QThreadPool, hors du thread Qt principal, pour éviter tout gel de l'interface."""
 
     def __init__(self, src: str, dest: Path, new_name: str) -> None:
         super().__init__()
@@ -45,8 +42,8 @@ class _ImageCopyWorker(QRunnable):
 
 
 class _ImageSaveWorker(QRunnable):
-    """
-    Worker léger (QRunnable) qui sauvegarde une QImage sur disque hors thread principal.
+    """Worker léger (QRunnable) qui sauvegarde une QImage sur disque hors thread principal.
+
     Utilisé pour le Ctrl+V d'une capture d'écran ou d'une image du presse-papier.
     """
 
@@ -68,9 +65,9 @@ class _ImageSaveWorker(QRunnable):
 
 
 class DropImageTextEdit(QTextEdit):
-    """
-    Un éditeur de texte brut qui intercepte les images (Drag&Drop et Ctrl+V)
-    et écrit automatiquement la balise HTML correspondante.
+    """Éditeur de texte brut interceptant le glisser-déposer et le collage d'images.
+
+    Écrit automatiquement la balise HTML correspondante.
     La copie/sauvegarde de fichier est déportée dans QThreadPool (non-bloquante).
     """
 

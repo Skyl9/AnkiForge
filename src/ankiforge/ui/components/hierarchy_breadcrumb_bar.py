@@ -1,5 +1,4 @@
-"""
-Composant fil d'Ariane prévisionnel interactif (HierarchyBreadcrumbBar).
+"""Composant fil d'Ariane prévisionnel interactif (HierarchyBreadcrumbBar).
 
 Affiche en temps réel la décomposition horizontale d'un chemin hiérarchique (paquet,
 dossier de documents ou tag), distingue visuellement les nœuds existants des nœuds
@@ -35,8 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class BreadcrumbSegmentButton(QPushButton):
-    """
-    Pastille cliquable représentant un niveau hiérarchique au sein du fil d'Ariane.
+    """Pastille cliquable représentant un niveau hiérarchique au sein du fil d'Ariane.
 
     Distingue visuellement les nœuds existants (icône dossier neutre / bleu)
     des nouveaux nœuds à créer (icône dossier avec plus, fond teinté création).
@@ -165,8 +163,7 @@ class BreadcrumbSegmentButton(QPushButton):
 
 
 class HierarchyBreadcrumbBar(QWidget):
-    """
-    Bandeau horizontal interactif de fil d'Ariane pour chemins hiérarchiques.
+    """Bandeau horizontal interactif de fil d'Ariane pour chemins hiérarchiques.
 
     Affiche la chaîne de nœuds découpée, distingue ceux qui existent déjà en base
     de ceux en cours de création, et transmet un signal lorsqu'un segment parent
@@ -267,9 +264,7 @@ class HierarchyBreadcrumbBar(QWidget):
         return list(self._separator_labels)
 
     def set_existing_paths(self, existing_paths: Iterable[str]) -> None:
-        """
-        Met à jour la collection des chemins existants et rafraîchit les statuts visuels.
-        """
+        """Met à jour la collection des chemins existants et rafraîchit les statuts visuels."""
         self._existing_paths = {p.strip() for p in existing_paths if p and p.strip()}
         for btn in self._segment_buttons:
             is_existing = btn.subpath in self._existing_paths
@@ -280,8 +275,7 @@ class HierarchyBreadcrumbBar(QWidget):
         path: str,
         existing_paths: Iterable[str] | None = None,
     ) -> None:
-        """
-        Découpe et affiche réactivement le chemin hiérarchique en segments.
+        """Découpe et affiche réactivement le chemin hiérarchique en segments.
 
         Args:
             path: Chemin hiérarchique complet (ex: "Sciences::Physique::Thermodynamique").

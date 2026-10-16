@@ -1,5 +1,5 @@
-"""
-Composant de badges et capsules de capacités pour les modèles de langage (LLM).
+"""Composant de badges et capsules de capacités pour les modèles de langage (LLM).
+
 Affiche de manière compacte et élégante la Vision, le Thinking, le Contexte, la Vitesse et le Coût.
 """
 
@@ -64,8 +64,8 @@ class CapabilityPill(QWidget):
 
 
 class ModelCapabilityBadgesWidget(QWidget):
-    """
-    Rangée horizontale dynamique affichant les capacités du modèle LLM actif :
+    """Rangée horizontale dynamique affichant les capacités du modèle LLM actif .
+
     Vision, Thinking (Raisonnement), Vitesse, Taille de contexte, et Gratuité/Coût.
     """
 

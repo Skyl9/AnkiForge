@@ -1,5 +1,5 @@
-"""
-Barre de titre globale AnkiForge.
+"""Barre de titre globale AnkiForge.
+
 Barre 28px pour le drag macOS avec titre centré.
 """
 

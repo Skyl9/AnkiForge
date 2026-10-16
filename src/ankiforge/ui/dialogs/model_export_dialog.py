@@ -1,5 +1,5 @@
-"""
-Dialogue d'Exportation de Modèle de Carte (.afmodel / .json).
+"""Dialogue d'Exportation de Modèle de Carte (.afmodel / .json).
+
 Permet de configurer les métadonnées de partage (auteur, version, description, cartes démos).
 """
 

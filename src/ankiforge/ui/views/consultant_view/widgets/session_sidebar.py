@@ -1,5 +1,4 @@
-"""
-Sidebar de gestion des sessions pour le Consultant IA (Style Cursor / Windsurf).
+"""Sidebar de gestion des sessions pour le Consultant IA (Style Cursor / Windsurf).
 
 Affiche l'arborescence chronologique des sessions de discussion, permet la recherche rapide,
 la création, le renommage, la suppression et l'exportation des conversations.
@@ -183,10 +182,7 @@ class SessionItemWidget(QWidget):
 
 
 class ConsultantSessionSidebar(QFrame):
-    """
-    Panneau latéral moderne listant les discussions avec recherche instantanée,
-    actions contextuelles et indicateurs de métriques.
-    """
+    """Panneau latéral moderne listant les discussions avec recherche instantanée, actions contextuelles et indicateurs de métriques."""
 
     session_selected = Signal(int)
     new_chat_requested = Signal()

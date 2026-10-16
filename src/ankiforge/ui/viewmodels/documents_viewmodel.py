@@ -1,6 +1,4 @@
-"""
-ViewModel for Documents Library, Folder Hierarchy, and File Ingestion.
-"""
+"""ViewModel pour la bibliothèque de documents, la hiérarchie des dossiers et l'ingestion."""
 
 from __future__ import annotations
 
@@ -21,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentsViewModel(BaseViewModel):
-    """Encapsulates state and reactive logic for managing documentary sources."""
+    """Encapsule l'état et la logique réactive pour la gestion des sources documentaires."""
 
     data_loaded = Signal()
     document_selected = Signal(object)
@@ -65,7 +63,7 @@ class DocumentsViewModel(BaseViewModel):
         return self._selected_document
 
     def load_data(self) -> None:
-        """Load folders and documents."""
+        """Charge les dossiers et les documents."""
         try:
             self._folders = self._doc_repo.get_all_folders()
             folder_id = self._selected_folder.id if self._selected_folder else None
@@ -77,7 +75,7 @@ class DocumentsViewModel(BaseViewModel):
             self.set_error(f"Failed to load documents data: {e}")
 
     def select_folder(self, folder_id: int | None) -> None:
-        """Select folder and refresh document list."""
+        """Sélectionne un dossier et rafraîchit la liste des documents."""
         if folder_id is not None:
             self._selected_folder = self._doc_repo.get_folder_by_id(folder_id)
         else:
@@ -88,7 +86,7 @@ class DocumentsViewModel(BaseViewModel):
         self.documents_list_updated.emit(self._documents)
 
     def select_document_by_id(self, doc_id: int) -> None:
-        """Select a document."""
+        """Sélectionne un document d'après son identifiant."""
         doc = self._doc_repo.get_document_by_id(doc_id)
         self._selected_document = doc
         self.document_selected.emit(doc)
@@ -99,7 +97,7 @@ class DocumentsViewModel(BaseViewModel):
         self.document_selected.emit(None)
 
     def create_document(self, title: str, content: str = "", file_type: str = "md") -> DocumentModel:
-        """Create a new document."""
+        """Crée un nouveau document."""
         doc = self._doc_repo.create_document(
             title=title,
             content=content,
@@ -112,7 +110,7 @@ class DocumentsViewModel(BaseViewModel):
         return doc
 
     def delete_document(self, doc_id: int) -> bool:
-        """Delete a document."""
+        """Supprime un document d'après son identifiant."""
         success = self._doc_repo.delete_document(doc_id)
         if success:
             self.publish_event(DocumentDeletedEvent(doc_id=doc_id))

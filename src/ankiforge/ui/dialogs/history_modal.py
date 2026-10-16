@@ -1,5 +1,5 @@
-"""
-Module de compatibilité ascendante pour HistoryModal.
+"""Module de compatibilité ascendante pour HistoryModal.
+
 Redirige directement vers TimeMachineDialog.
 """
 

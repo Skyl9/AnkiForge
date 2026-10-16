@@ -1,5 +1,5 @@
-"""
-Package for AnkiForge MVVM ViewModels.
+"""Package for AnkiForge MVVM ViewModels.
+
 Provides pure reactive state containers decoupled from the UI rendering layer.
 """
 

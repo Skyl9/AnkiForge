@@ -1,5 +1,5 @@
-"""
-Dialogue de transfert élargi de contenu entre profils (notes, cartes, modèles, médias).
+"""Dialogue de transfert élargi de contenu entre profils (notes, cartes, modèles, médias).
+
 Architecture moderne conforme aux DesignTokens et au référentiel DESIGN.md.
 """
 
@@ -37,10 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProfileTransferDialog(QDialog):
-    """
-    Dialogue permettant de transférer des paquets, des notes, des modèles de cartes
-    et des médias depuis un autre profil utilisateur vers le profil actif.
-    """
+    """Dialogue permettant de transférer des paquets, des notes, des modèles de cartes et des médias depuis un autre profil utilisateur vers le profil actif."""
 
     transfer_completed = Signal(object)
 

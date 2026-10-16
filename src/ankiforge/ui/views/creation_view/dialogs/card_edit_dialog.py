@@ -30,8 +30,8 @@ from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class CardEditDialog(QDialog):
-    """
-    Dialogue d'édition complet d'une carte générée avant son enregistrement en BDD :
+    """Dialogue d'édition complet d'une carte générée avant son enregistrement en BDD .
+
     - Filtrage strict des champs selon le schéma du modèle (zéro champ fantôme).
     - Barre d'outils de mise en forme riche (HTML, LaTeX KaTeX, Clozes).
     - Coloration syntaxique temps réel (NoteKaTeXHighlighter).

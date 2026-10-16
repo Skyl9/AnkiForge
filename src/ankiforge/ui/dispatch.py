@@ -1,5 +1,4 @@
-"""
-Utilitaires de dispatch Qt thread-safe pour les rafraîchissements d'interface.
+"""Utilitaires de dispatch Qt thread-safe pour les rafraîchissements d'interface.
 
 Permet d'exécuter une mise à jour d'UI déclenchée depuis un worker (QThread)
 sur le thread d'affinité du widget cible (en général le thread GUI).

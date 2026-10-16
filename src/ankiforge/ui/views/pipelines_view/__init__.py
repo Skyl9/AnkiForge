@@ -1,5 +1,5 @@
-"""
-Package PipelinesView d'AnkiForge (Éditeur de Chaînes DAG et d'Actions Système).
+"""Package PipelinesView d'AnkiForge (Éditeur de Chaînes DAG et d'Actions Système).
+
 Re-exporte l'ensemble des constantes, assistants, widgets et la vue principale pour 100% rétrocompatibilité.
 """
 

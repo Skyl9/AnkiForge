@@ -1,6 +1,4 @@
-"""
-Widgets UI PySide6 sur mesure pour le Linter Wozniak et le Diagnostic des Sources.
-"""
+"""Widgets UI PySide6 sur mesure pour le Linter Wozniak et le Diagnostic des Sources."""
 
 from typing import Any
 

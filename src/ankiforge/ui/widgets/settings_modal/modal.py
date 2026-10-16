@@ -41,8 +41,8 @@ if TYPE_CHECKING:
 
 
 class SettingsModal(QDialog):
-    """
-    Modale de Paramètres Globale AnkiForge.
+    """Modale de Paramètres Globale AnkiForge.
+
     Architecture moderne 960x640px, non bloquante, 5 onglets thématiques réactifs.
     """
 

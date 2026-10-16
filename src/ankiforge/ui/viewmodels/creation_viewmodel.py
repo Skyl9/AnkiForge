@@ -1,6 +1,4 @@
-"""
-ViewModel for Creation Studio, AI Flashcard Ingestion, and Review.
-"""
+"""ViewModel for Creation Studio, AI Flashcard Ingestion, and Review."""
 
 from __future__ import annotations
 

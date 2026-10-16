@@ -1,6 +1,4 @@
-"""
-Dialogue de Prévisualisation et d'Importation de Modèle de Carte (.afmodel / .json).
-"""
+"""Dialogue de Prévisualisation et d'Importation de Modèle de Carte (.afmodel / .json)."""
 
 from __future__ import annotations
 

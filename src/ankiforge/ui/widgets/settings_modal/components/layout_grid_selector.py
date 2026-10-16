@@ -1,5 +1,5 @@
-"""
-Sélecteur visuel en grille de miniatures pour les dispositions d'interface (Layouts).
+"""Sélecteur visuel en grille de miniatures pour les dispositions d'interface (Layouts).
+
 Conforme aux tokens sémantiques AnkiForge et aux règles d'accessibilité WCAG.
 """
 
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 class LayoutThumbnailCard(QFrame):
-    """
-    Carte interactive présentant la miniature et la description d'une disposition (Layout).
+    """Carte interactive présentant la miniature et la description d'une disposition (Layout).
+
     Gère le survol, le focus clavier (Entrée/Espace) et le retour d'état d'accessibilité.
     """
 
@@ -219,8 +219,8 @@ class LayoutThumbnailCard(QFrame):
 
 
 class LayoutGridSelector(QWidget):
-    """
-    Grille de sélection de dispositions (Layouts) avec miniatures d'aperçu.
+    """Grille de sélection de dispositions (Layouts) avec miniatures d'aperçu.
+
     Expose une API compatible par duck-typing avec QComboBox pour faciliter l'intégration
     dans GeneralTab et la détection d'état sale (dirty).
     """

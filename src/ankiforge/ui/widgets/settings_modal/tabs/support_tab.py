@@ -1,5 +1,4 @@
-"""
-Onglet « Soutien » autonome des Paramètres AnkiForge (SupportTab).
+"""Onglet « Soutien » autonome des Paramètres AnkiForge (SupportTab).
 
 Expose les liens pour soutenir le projet sur Ko-fi et permet de piloter le
 rappel de soutien au démarrage via la clé ``app/show_startup_support_dialog``

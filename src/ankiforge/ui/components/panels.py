@@ -225,7 +225,7 @@ class PanelPlaceholderWidget(QFrame):
 
 
 class PanelDragOverlay(QWidget):
-    """Transparent glass pane overlay to draw the drag split preview rect on top of all child widgets."""
+    """Voile transparent dessinant le rectangle de prévisualisation de découpe par-dessus les widgets enfants."""
 
     def __init__(self, parent_panel: QWidget) -> None:
         super().__init__(parent_panel)

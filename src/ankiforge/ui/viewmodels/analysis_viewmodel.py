@@ -1,6 +1,4 @@
-"""
-ViewModel for AI Analysis, Wozniak Linter, Gap Coverage, Duplicates, and Telemetry.
-"""
+"""ViewModel pour l'analyse IA, le linter Wozniak, la couverture de lacunes, les doublons et la télémétrie."""
 
 from __future__ import annotations
 
@@ -32,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class AnalysisViewModel(BaseViewModel):
-    """Encapsulates state and reactive business logic for Wozniak audit, coverage, and duplicates."""
+    """Encapsule l'état et la logique métier réactive pour l'audit Wozniak, la couverture et les doublons."""
 
     data_loaded = Signal()
     audit_started = Signal()
@@ -107,7 +105,7 @@ class AnalysisViewModel(BaseViewModel):
         return self._token_stats
 
     def load_data(self) -> None:
-        """Load initial rules, decks, documents and telemetry."""
+        """Charge les règles initiales, les paquets, les documents et la télémétrie."""
         try:
             self._decks = self._deck_repo.get_all_decks()
             self._linter_rules = self._audit_repo.get_all_rules()
@@ -119,12 +117,12 @@ class AnalysisViewModel(BaseViewModel):
             self.set_error(f"Failed to load analysis data: {e}")
 
     def select_deck(self, deck_id: int | None) -> None:
-        """Filter audit by deck."""
+        """Filtre l'audit par paquet."""
         self._selected_deck_id = deck_id
         self.load_audit_records()
 
     def toggle_rule(self, rule_id: int, is_active: bool) -> None:
-        """Toggle active status for a linter rule."""
+        """Bascule l'état actif d'une règle de linter."""
         success = self._audit_repo.toggle_rule(rule_id, is_active)
         if success:
             self._linter_rules = self._audit_repo.get_all_rules()
@@ -139,7 +137,7 @@ class AnalysisViewModel(BaseViewModel):
         category_label: str = "Atomicité & Restructuration",
         description: str | None = None,
     ) -> LinterRuleModel:
-        """Create a new custom linter rule."""
+        """Crée une nouvelle règle de linter personnalisée."""
         rule = self._audit_repo.create_rule(
             name=name,
             prompt_injection=prompt_injection,
@@ -151,30 +149,30 @@ class AnalysisViewModel(BaseViewModel):
         return rule
 
     def delete_rule(self, rule_id: int) -> bool:
-        """Delete a linter rule."""
+        """Supprime une règle de linter."""
         success = self._audit_repo.delete_rule(rule_id)
         if success:
             self._linter_rules = self._audit_repo.get_all_rules()
         return success
 
     def load_audit_records(self) -> None:
-        """Fetch audit records from repository."""
+        """Récupère les enregistrements d'audit depuis le repository."""
         self._audit_records = self._audit_repo.get_audit_records(deck_id=self._selected_deck_id)
         self._anomalies_count = sum(1 for r in self._audit_records if not r.is_compliant)
         self.audit_completed.emit(self._audit_records, self._anomalies_count)
 
     def clear_audit_records(self) -> None:
-        """Clear audit history."""
+        """Efface l'historique d'audit."""
         self._audit_repo.clear_audit_records(deck_id=self._selected_deck_id)
         self.load_audit_records()
 
     def notify_audit_started(self) -> None:
-        """Notify audit start."""
+        """Notifie le démarrage d'un audit."""
         self.publish_event(AuditStartedEvent(deck_id=self._selected_deck_id))
         self.audit_started.emit()
 
     def notify_audit_completed(self, total_notes: int, anomalies_count: int) -> None:
-        """Notify audit finished."""
+        """Notifie la fin d'un audit."""
         self.publish_event(
             AuditCompletedEvent(
                 total_notes=total_notes,
@@ -185,7 +183,7 @@ class AnalysisViewModel(BaseViewModel):
         self.load_audit_records()
 
     def ignore_duplicate(self, note_a_id: int, note_b_id: int) -> None:
-        """Ignore a detected duplicate pair."""
+        """Ignore une paire de cartes en doublon détectée."""
         self._audit_repo.ignore_duplicate(note_a_id, note_b_id)
         self._duplicates = [
             d for d in self._duplicates if not ((d.get("note_a_id") == note_a_id and d.get("note_b_id") == note_b_id) or (d.get("note_a_id") == note_b_id and d.get("note_b_id") == note_a_id))
@@ -193,12 +191,12 @@ class AnalysisViewModel(BaseViewModel):
         self.duplicates_updated.emit(self._duplicates)
 
     def load_coverage(self, doc_id: int) -> None:
-        """Calculate coverage for a document."""
+        """Calcule la couverture documentaire pour un document donné."""
         self._selected_doc_id = doc_id
         self._coverage_stats = self._doc_repo.get_coverage_stats(doc_id)
         self.coverage_updated.emit(self._coverage_stats)
 
     def load_token_stats(self) -> None:
-        """Fetch total token consumption and costs."""
+        """Récupère les statistiques globales d'utilisation des jetons et coûts."""
         self._token_stats = self._setting_repo.get_total_token_usage_stats()
         self.token_stats_updated.emit(self._token_stats)

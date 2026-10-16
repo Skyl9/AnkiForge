@@ -1,5 +1,4 @@
-"""
-Gestionnaire d'échange et de stockage de thèmes au format JSON (ADR 0005 & 0006).
+"""Gestionnaire d'échange et de stockage de thèmes au format JSON (ADR 0005 & 0006).
 
 Définit le format d'échange conteneur de Famille de Thème (variantes sombre & claire),
 la validation stricte des champs, la tolérance de charge utile, la gestion de version,

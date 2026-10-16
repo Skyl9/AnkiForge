@@ -25,8 +25,7 @@ contraint à 26px écrase verticalement son texte et son icône (besoin réel �
 
 
 def apply_compact_style(button: QPushButton, *, height: int = COMPACT_BUTTON_HEIGHT) -> None:
-    """Bascule un bouton en densité `compact` (padding vertical 2px, police `font_size_sm`)
-    et lui réserve une hauteur qui accueille texte et icône sans rognage.
+    """Bascule un bouton en densité compacte et lui réserve une hauteur adaptée.
 
     Aucun style local n'est écrit : couleurs, anneau de focus et survol restent portés par le
     QSS global (règle `role` + règle `density`). La propriété dynamique étant fixée après la

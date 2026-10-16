@@ -105,9 +105,6 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "script/*" = ["T201", "T203"]  # Les scripts CLI utilisent print() pour la sortie console
 "tests/*" = ["T201", "PT004", "PT011", "PT018"]
-# Dette pydocstyle de l'interface PySide6, portée par le ticket « Refactor : docstrings google
-# interface pyside6 et clôture canonique » (ADR 0026, étape UI). Cette ignore sera levée à sa clôture.
-"src/ankiforge/ui/**" = ["D200", "D205", "D212", "D415"]
 
 [tool.mypy]
 python_version = "3.12"

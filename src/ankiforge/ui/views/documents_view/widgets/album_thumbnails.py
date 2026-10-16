@@ -1,5 +1,4 @@
-"""
-Plaque de vignettes hors du thread GUI (ticket S1).
+"""Plaque de vignettes hors du thread GUI (ticket S1).
 
 La grille d'album ouvrait chaque planche **en pleine résolution** sur le thread GUI,
 puis la transformait : sur un scan A4 à 300 dpi (~2500×3500 px) et 200 planches, une
@@ -54,8 +53,7 @@ def size_bucket(px: int) -> int:
 
 
 class ThumbnailCache:
-    """
-    Cache LRU en mémoire de vignettes déjà rendues, clé `(media_id, rotation, bucket)`.
+    """Cache LRU en mémoire de vignettes déjà rendues, clé `(media_id, rotation, bucket)`.
 
     La rotation dans la clé est ce qui rend le cache juste sans travail d'invalidation :
     pivoter une planche produit une clé différente, donc une entrée neuve, et l'ancienne
@@ -124,8 +122,7 @@ class ThumbnailSignals(QObject):
 
 
 class ThumbnailTask(QRunnable):
-    """
-    Rend une vignette **dans un thread de fond** et la publie via un signal.
+    """Rend une vignette **dans un thread de fond** et la publie via un signal.
 
     Le worker produit une `QImage`, pas un `QPixmap` : Qt refuse de créer un `QPixmap`
     hors du thread GUI, et le refus est silencieux — un `QPixmap` nul qui se lit comme
@@ -184,8 +181,7 @@ def request_thumbnail(
     album_service: AlbumService | None = None,
     thread_pool: QThreadPool | None = None,
 ) -> ThumbnailTask:
-    """
-    Demande une vignette en arrière-plan et branche les callbacks.
+    """Demande une vignette en arrière-plan et branche les callbacks.
 
     **L'appelant doit conserver la task retournée** : son `QRunnable` est auto-supprimé
     à la fin de `run()`, et son `QObject` porteur de signaux disparaît avec la dernière
@@ -210,8 +206,7 @@ class MediaThumbnailSignals(QObject):
 
 
 class MediaThumbnailTask(QRunnable):
-    """
-    Rend la vignette d'un **fichier média** hors du thread GUI.
+    """Rend la vignette d'un **fichier média** hors du thread GUI.
 
     Une figure n'est pas une planche : pas de rotation durable ni de recadrage, donc une clé
     de cache réduite à ``(media_id, 0, "", palier)``. Le reste suit la discipline de la plaque
@@ -272,8 +267,7 @@ def request_media_thumbnail(
     cache: ThumbnailCache | None = None,
     thread_pool: QThreadPool | None = None,
 ) -> MediaThumbnailTask:
-    """
-    Demande la vignette d'un fichier média en arrière-plan et branche les callbacks.
+    """Demande la vignette d'un fichier média en arrière-plan et branche les callbacks.
 
     Comme :func:`request_thumbnail`, **l'appelant doit conserver la task retournée** : le
     ``QRunnable`` est auto-supprimé en fin de ``run()`` et son ``QObject`` porteur de signaux

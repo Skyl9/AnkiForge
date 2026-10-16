@@ -36,10 +36,7 @@ from ankiforge.ui.theme import DesignTokens
 
 
 class NativeCodeEditor(QPlainTextEdit):
-    """
-    Éditeur de code avec numéros de lignes natifs, pastilles de couleurs,
-    coloration syntaxique temps réel, formatage de code et autocomplétion.
-    """
+    """Éditeur de code avec numéros de lignes natifs, pastilles de couleurs, coloration syntaxique temps réel, formatage de code et autocomplétion."""
 
     lint_issues_changed = Signal(list)
 
@@ -424,8 +421,7 @@ class NativeCodeEditor(QPlainTextEdit):
         self.completer.setModel(model)
 
     def _get_completion_prefix(self, *, explicit: bool = False) -> tuple[str, str]:
-        """
-        Détermine le préfixe de complétion à partir du contexte du curseur.
+        """Détermine le préfixe de complétion à partir du contexte du curseur.
 
         Retourne un couple ``(type, préfixe)`` où le type vaut ``"anki"``, ``"html"``,
         ``"html_class"``, ``"css_class"`` ou ``"word"``. En mode implicite (frappe libre),
@@ -630,8 +626,8 @@ class NativeCodeEditor(QPlainTextEdit):
     # --- Enveloppement Non Destructif & Application de Classes CSS ---
 
     def wrap_selection(self, prefix: str, suffix: str, empty_placeholder: str = "") -> None:
-        """
-        Enveloppe de manière non destructive la sélection active entre ``prefix`` et ``suffix``.
+        """Enveloppe de manière non destructive la sélection active entre ``prefix`` et ``suffix``.
+
         Si aucune sélection n'est active, insère ``prefix + empty_placeholder + suffix``,
         positionne le curseur au centre (après l'éventuel placeholder d'indentation)
         et redonne le focus à l'éditeur.
@@ -656,15 +652,15 @@ class NativeCodeEditor(QPlainTextEdit):
         self.setFocus()
 
     def apply_css_class(self, class_name: str) -> None:
-        """
-        Applique une classe CSS à l'éditeur actif selon son mode et la sélection :
+        """Applique une classe CSS à l'éditeur actif selon son mode et la sélection .
+
         - En HTML :
           - Sélection mono-ligne (inline) : enveloppe dans <span class="{classe}">{sélection}</span>
           - Sélection multi-lignes (bloc) : enveloppe dans <div class="{classe}">\n{sélection}\n</div>
           - Sans sélection : insère <div class="{classe}">\n  \n</div> avec curseur au centre
         - En CSS :
           - Avec sélection : enveloppe dans .{classe} {\n{sélection}\n}
-          - Sans sélection : insère .{classe} {\n  \n} avec curseur au centre
+          - Sans sélection : insère .{classe} {\n  \n} avec curseur au centre.
         """
         clean_name = class_name.lstrip(".")
         cursor = self.textCursor()

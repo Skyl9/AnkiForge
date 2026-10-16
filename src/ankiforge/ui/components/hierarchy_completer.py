@@ -1,5 +1,4 @@
-"""
-Compléteur hiérarchique générique pour les chemins séparés par ``::``.
+"""Compléteur hiérarchique générique pour les chemins séparés par ``::``.
 
 Ce composant est volontairement découplé de la base de données Peewee : il reçoit une
 collection de chemins complets (chaînes) et un séparateur configurable (par défaut

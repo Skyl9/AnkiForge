@@ -1,6 +1,4 @@
-"""
-Moteur de Style Centralisé pour AnkiForge.
-"""
+"""Moteur de Style Centralisé pour AnkiForge."""
 
 from ankiforge.ui.style_engine.appearance import (
     AppearancePreference,

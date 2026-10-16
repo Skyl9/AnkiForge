@@ -66,8 +66,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_preview_mock_fields(raw_fields: list[str]) -> dict[str, str]:
-    """
-    Génère un dictionnaire de valeurs factices représentatives pour prévisualiser un modèle de cartes.
+    """Génère un dictionnaire de valeurs factices représentatives pour prévisualiser un modèle de cartes.
 
     Détecte heuristiquement le type probable du champ (cloze, question, réponse, audio, image, nombre, indice)
     afin de fournir un rendu fidèle sans obliger l'utilisateur à créer une note témoin au préalable.
@@ -97,9 +96,7 @@ def generate_preview_mock_fields(raw_fields: list[str]) -> dict[str, str]:
 
 
 class CardModelsView(QWidget):
-    """
-    Vue Card Models (Atelier de Modèles de Cartes) — Conforme Pilier 3 d'AnkiForge.
-    """
+    """Vue Card Models (Atelier de Modèles de Cartes) — Conforme Pilier 3 d'AnkiForge."""
 
     def __init__(self, ai_manager: Any | None = None, profile_name: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)

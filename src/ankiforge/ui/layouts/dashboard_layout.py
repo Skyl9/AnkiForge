@@ -1,5 +1,5 @@
-"""
-Layout Dashboard (Portail Moderne & Cartes) pour AnkiForge.
+"""Layout Dashboard (Portail Moderne & Cartes) pour AnkiForge.
+
 Disposition aérée centrée sur les flux de travail avec barre de navigation élégante et conteneur façon carte.
 """
 
@@ -76,10 +76,10 @@ class DashboardTabButton(NavBadgeButton):
 
 
 class DashboardLayout(BaseLayout):
-    """
-    Layout Concept Dashboard :
+    """Layout Concept Dashboard .
+
     - En-tête aéré avec marque, recherche, télémétrie et barre d'onglets façon cartes
-    - Zone de contenu stylisée
+    - Zone de contenu stylisée.
     """
 
     def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:

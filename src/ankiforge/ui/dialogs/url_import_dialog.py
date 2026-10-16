@@ -1,6 +1,6 @@
-"""Dialogue d'import web fonctionnel : lot d'URLs, options, prévisualisation,
-gestion des cas limites (anti-bot, SPA, paywall) et dédoublonnage.
+"""Dialogue d'import web fonctionnel pour lots d'URLs, prévisualisation et options d'extraction.
 
+Gère les cas limites (anti-bot, SPA, paywall) et le dédoublonnage.
 Produit des DocumentModel(file_type="web") directement réutilisables par les
 pipelines de génération de cartes (Studio de Création).
 """

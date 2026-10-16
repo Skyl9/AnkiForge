@@ -1,6 +1,4 @@
-"""
-ViewModel for AI Consultant Chat, Persistent Sessions, and Tool Execution.
-"""
+"""ViewModel pour le chat du Consultant IA, la persistance des sessions et l'exécution d'outils."""
 
 from __future__ import annotations
 
@@ -27,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConsultantViewModel(BaseViewModel):
-    """Encapsulates state, session persistence, and reactive logic for AI Consultant chat."""
+    """Encapsule l'état, la persistance des sessions et la logique réactive pour le Consultant IA."""
 
     data_loaded = Signal()
     session_changed = Signal(object)
@@ -131,7 +129,7 @@ class ConsultantViewModel(BaseViewModel):
         return self._modified_cards_count
 
     def load_data(self) -> None:
-        """Load available personas, LLM engine configurations, and persistent chat sessions."""
+        """Charge les personas disponibles, les configurations de modèles LLM et les sessions de discussion persistantes."""
         try:
             self._personas = self._persona_repo.get_all_personas()
             self._llm_configs = self._persona_repo.get_all_llm_configs()
@@ -148,7 +146,7 @@ class ConsultantViewModel(BaseViewModel):
             self.set_error(f"Failed to load consultant data: {e}")
 
     def load_sessions(self) -> list[ConsultantSessionModel]:
-        """Loads all chat sessions from SQLite, sorted by most recent."""
+        """Charge toutes les sessions de discussion depuis SQLite, triées par date décroissante."""
         try:
             self._sessions = list(ConsultantSessionModel.select().order_by(ConsultantSessionModel.updated_at.desc()).limit(30))
             if not self._sessions:
@@ -163,7 +161,7 @@ class ConsultantViewModel(BaseViewModel):
             return []
 
     def create_new_session(self, title: str = "Nouvelle Session") -> ConsultantSessionModel:
-        """Creates a fresh chat session and sets it as active."""
+        """Crée une nouvelle session de discussion et la définit comme active."""
         try:
             with db.atomic():
                 session = ConsultantSessionModel.create(
@@ -183,7 +181,7 @@ class ConsultantViewModel(BaseViewModel):
             raise
 
     def switch_session(self, session_id: int) -> None:
-        """Switches active session and loads its persistent message history."""
+        """Bascule vers la session demandée et charge son historique persistant de messages."""
         try:
             session = ConsultantSessionModel.get_or_none(ConsultantSessionModel.id == session_id)
             if not session:
@@ -211,34 +209,34 @@ class ConsultantViewModel(BaseViewModel):
             logger.error("Erreur switch session consultant : %s", e)
 
     def select_persona_by_id(self, persona_id: int) -> None:
-        """Select persona by ID."""
+        """Sélectionne une persona par son identifiant."""
         persona = self._persona_repo.get_persona_by_id(persona_id)
         if persona:
             self._selected_persona = persona
 
     def select_llm_config_by_id(self, config_id: int) -> None:
-        """Select LLM configuration by ID."""
+        """Sélectionne une configuration LLM par son identifiant."""
         config = self._persona_repo.get_llm_config_by_id(config_id)
         if config:
             self._selected_llm_config = config
 
     def set_thinking(self, thinking: bool) -> None:
-        """Update thinking state."""
+        """Met à jour l'indicateur d'état de réflexion."""
         self._is_thinking = thinking
         self.thinking_changed.emit(thinking)
 
     def set_next_steps(self, next_steps: list[str]) -> None:
-        """Update proactive next steps suggestions."""
+        """Met à jour les suggestions proactives d'étapes suivantes."""
         self._next_steps = list(next_steps)
         self.next_steps_updated.emit(self._next_steps)
 
     def update_workspace_preview(self, state_dict: dict[str, Any]) -> None:
-        """Update workspace live inspector preview data (diffs, KaTeX, cards)."""
+        """Met à jour les données de l'inspecteur d'espace de travail en direct (diffs, KaTeX, cartes)."""
         self._workspace_state = dict(state_dict)
         self.workspace_preview_updated.emit(self._workspace_state)
 
     def add_user_message(self, text: str) -> dict[str, Any]:
-        """Record, persist in SQLite, and emit a user message."""
+        """Enregistre, persiste dans SQLite et émet un message utilisateur."""
         msg = {"role": "user", "text": text}
         self._messages.append(msg)
         self._conversation_history.append({"role": "user", "content": text})
@@ -276,7 +274,7 @@ class ConsultantViewModel(BaseViewModel):
         tool_calls: list[tuple[str, str, str, bool]] | None = None,
         staged_diff: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Record, persist in SQLite, and emit an assistant message."""
+        """Enregistre, persiste dans SQLite et émet un message assistant."""
         msg = {
             "role": "assistant",
             "text": text,
@@ -315,7 +313,7 @@ class ConsultantViewModel(BaseViewModel):
         return msg
 
     def record_thought_delta(self, iteration: int, delta: str) -> None:
-        """Record an incremental thought delta and emit thought_delta_added."""
+        """Enregistre un fragment incrémental de pensée et émet thought_delta_added."""
         found = False
         for idx, (step, current_text) in enumerate(self._current_thoughts):
             if step == iteration:
@@ -327,7 +325,7 @@ class ConsultantViewModel(BaseViewModel):
         self.thought_delta_added.emit(iteration, delta)
 
     def record_thought(self, iteration: int, thought: str, is_running: bool = False) -> None:
-        """Record or update an incremental thought step."""
+        """Enregistre ou met à jour une étape incrémentale de pensée."""
         found = False
         for idx, (step, _) in enumerate(self._current_thoughts):
             if step == iteration:
@@ -339,7 +337,7 @@ class ConsultantViewModel(BaseViewModel):
         self.thought_added.emit(iteration, thought, is_running)
 
     def record_tool_call(self, tool_name: str, args: str, result: str = "", is_done: bool = False, is_error: bool = False) -> None:
-        """Record or update an incremental tool invocation."""
+        """Enregistre ou met à jour une invocation incrémentale d'outil."""
         found = False
         for idx in range(len(self._current_tool_calls) - 1, -1, -1):
             t_name, t_args, t_res, _ = self._current_tool_calls[idx]
@@ -352,13 +350,13 @@ class ConsultantViewModel(BaseViewModel):
         self.tool_call_added.emit(tool_name, args, result, is_done)
 
     def update_metrics(self, tokens_delta: int, cards_delta: int) -> None:
-        """Update session tokens and cards modified count."""
+        """Met à jour le décompte de jetons consommés et de cartes modifiées."""
         self._used_tokens_count += tokens_delta
         self._modified_cards_count += cards_delta
         self.stats_updated.emit(self._used_tokens_count, self._modified_cards_count)
 
     def clear_chat(self) -> None:
-        """Clear message history and current scratchpad."""
+        """Efface l'historique des messages et la zone de travail temporaire."""
         self._messages.clear()
         self._conversation_history.clear()
         self._current_thoughts.clear()

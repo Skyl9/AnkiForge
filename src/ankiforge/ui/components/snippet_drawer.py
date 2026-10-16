@@ -1,5 +1,5 @@
-"""
-Composant Tiroir / Bibliothèque de Snippets Modulaires pour l'Atelier de Modèles.
+"""Composant Tiroir / Bibliothèque de Snippets Modulaires pour l'Atelier de Modèles.
+
 Permet d'explorer, inspecter les codes HTML/CSS, modifier en place, et créer de nouveaux snippets
 sans modale (navigation Master-Detail & In-Place Form intégrée avec relief tactile, onglets de code compacts et affordance visuelle).
 """
@@ -104,10 +104,7 @@ class SnippetCardWidget(QFrame):
 
 
 class SnippetLibraryDrawer(QWidget):
-    """
-    Explorateur complet des snippets modulaires avec navigation intégrée Master-Detail
-    et création de composants in-place sans modale bloquante.
-    """
+    """Explorateur complet des snippets modulaires avec navigation intégrée Master-Detail et création de composants in-place sans modale bloquante."""
 
     snippet_selected = Signal(SnippetItem)
 

@@ -1,5 +1,4 @@
-"""
-Widget d'Inspection & Espace de Travail (Workspace Inspector) pour le Consultant IA.
+"""Widget d'Inspection & Espace de Travail (Workspace Inspector) pour le Consultant IA.
 
 Fournit :
 - Un visualiseur de diffs comparatifs haute fidélité (Recto/Verso avant/après, CSS).
@@ -55,10 +54,7 @@ logger = logging.getLogger(__name__)
 
 
 class WorkspaceInspectorWidget(QWidget):
-    """
-    Panneau interactif de travail (Workspace IDE) avec Garde-Fou, Diff Viewer,
-    Édition Directe et gestion des propositions par lot (Patch Queue).
-    """
+    """Panneau interactif de travail (Workspace IDE) avec Garde-Fou, Diff Viewer, Édition Directe et gestion des propositions par lot (Patch Queue)."""
 
     action_applied = Signal(str)
     action_rejected = Signal(str)

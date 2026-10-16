@@ -1,5 +1,5 @@
-"""
-Dialogue modal d'exploration, de découverte et de comparaison des modèles LLM.
+"""Dialogue modal d'exploration, de découverte et de comparaison des modèles LLM.
+
 Permet d'inspecter les spécifications détaillées, filtrer par capacités et comparer côte à côte.
 """
 
@@ -293,8 +293,8 @@ class ModelCardWidget(QFrame):
 
 
 class ModelDiscoveryDialog(QDialog):
-    """
-    Modale complète d'exploration, de découverte et de comparaison des modèles IA.
+    """Modale complète d'exploration, de découverte et de comparaison des modèles IA.
+
     Prend en charge le filtrage par fournisseur, capacités et cas d'usage AnkiForge.
     """
 

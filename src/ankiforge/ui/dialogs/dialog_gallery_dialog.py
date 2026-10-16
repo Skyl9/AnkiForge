@@ -1,5 +1,5 @@
-"""
-Galerie de Test des Boîtes de Dialogue en Mode Dev (Dialog Gallery).
+"""Galerie de Test des Boîtes de Dialogue en Mode Dev (Dialog Gallery).
+
 Permet aux développeurs d'instancier, d'inspecter et de déboguer l'ensemble des modales
 et dialogues de l'application avec des données mockées réalistes et une isolation absolue
 vis-à-vis de la base de données réelle (zéro écriture SQLite).
@@ -364,8 +364,8 @@ class GalleryCardWidget(QFrame):
 
 
 class DialogGalleryDialog(QDialog):
-    """
-    Modale de Galerie de Test des Boîtes de Dialogue en Mode Dev.
+    """Modale de Galerie de Test des Boîtes de Dialogue en Mode Dev.
+
     Permet de tester interactivement chaque dialogue avec un jeu de données mocké.
     """
 

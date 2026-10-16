@@ -1,5 +1,5 @@
-"""
-Bandeau de traçabilité documentaire pour la vue d'Édition (DocumentSourceBadge).
+"""Bandeau de traçabilité documentaire pour la vue d'Édition (DocumentSourceBadge).
+
 Fournit un affichage responsive et résistant au rétrécissement liant une carte à son document source.
 """
 

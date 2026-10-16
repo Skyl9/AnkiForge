@@ -1,5 +1,5 @@
-"""
-Composant réutilisable encapsulant la prévisualisation d'une carte Anki.
+"""Composant réutilisable encapsulant la prévisualisation d'une carte Anki.
+
 Multi-appareils : Bureau (100% largeur), Tablette (768px) et Mobile (375px).
 Seule la largeur du conteneur varie selon le mode sélectionné.
 """
@@ -23,8 +23,8 @@ from ankiforge.utils.paths import get_media_dir
 
 
 class CardPreviewWidget(QWidget):
-    """
-    Composant réutilisable encapsulant la prévisualisation d'une carte Anki.
+    """Composant réutilisable encapsulant la prévisualisation d'une carte Anki.
+
     Support multi-appareils (Bureau 🖥️ 100%, Tablette 📱 768px, Mobile 📱 375px).
     La seule différence entre les modes est la largeur du navigateur.
     """

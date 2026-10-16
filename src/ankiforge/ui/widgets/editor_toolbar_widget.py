@@ -1,5 +1,5 @@
-"""
-Barre d'outils d'édition modulaire et extensible pour AnkiForge.
+"""Barre d'outils d'édition modulaire et extensible pour AnkiForge.
+
 Permet d'appliquer des enrichissements (Gras, Italique, Math KaTeX, Cloze, Liens, Images)
 sur le champ actif et de rajouter dynamiquement de nouvelles actions.
 """
@@ -33,8 +33,8 @@ class ToolbarAction:
 
 
 class EditorToolbarWidget(QWidget):
-    """
-    Barre d'outils unifiée et extensible pour l'édition de cartes Anki.
+    """Barre d'outils unifiée et extensible pour l'édition de cartes Anki.
+
     Fournit un registre public permettant d'ajouter et personnaliser les outils d'édition.
     """
 

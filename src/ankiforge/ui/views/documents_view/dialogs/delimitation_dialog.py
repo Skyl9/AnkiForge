@@ -217,7 +217,8 @@ class DocumentStructureTreeWidget(QTreeWidget):
 
 
 class TristateTreeCheckBox(QCheckBox):
-    """Case à cocher pour arbre hiérarchique :
+    """Case à cocher pour arbre hiérarchique .
+
     L'utilisateur ne cycle qu'entre Checked et Unchecked au clic.
     L'état PartiallyChecked n'est défini que par programme."""
 
@@ -1003,8 +1004,8 @@ class RangeSegmentsWidget(QWidget):
 
 
 class DocumentPreviewWidget(QWidget):
-    """
-    Visionneuse de document intégrée et synchronisée :
+    """Visionneuse de document intégrée et synchronisée .
+
     Affiche directement le document tel que lisible en dehors de l'application :
     - PDF natif multipages avec navigation et zoom (via QPdfView)
     - Markdown enrichi et stylisé (via QTextBrowser avec feuille de style sombre et ancres de pagination)
@@ -1831,8 +1832,8 @@ class DocumentPreviewWidget(QWidget):
 
 
 class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
-    """
-    Dialogue interactif de délimitation de documents :
+    """Dialogue interactif de délimitation de documents .
+
     Permet de sélectionner des plages de pages utiles, de filtrer les sections
     et d'exclure les parties non pédagogiques (sommaires, remerciements, bibliographies).
     Sauvegarde durablement les bornes et exclut le bruit de la couverture et du RAG.

@@ -1,5 +1,5 @@
-"""
-Dialogue d'invitation non-bloquante pour la transmission des rapports de crash.
+"""Dialogue d'invitation non-bloquante pour la transmission des rapports de crash.
+
 Permet de visualiser l'incident en toute transparence (traceback, environnement),
 de copier ou exporter le rapport Markdown sanitisé, ou de le transmettre sur GitHub.
 """
@@ -44,8 +44,8 @@ logger = logging.getLogger(__name__)
 
 
 class CrashReportDialog(QDialog):
-    """
-    Dialogue non-bloquant de proposition de transmission du crash report.
+    """Dialogue non-bloquant de proposition de transmission du crash report.
+
     Affiche un aperçu exhaustif des données envoyées (secrets masqués),
     propose la copie / l'export ou l'ouverture GitHub, et permet de désactiver
     l'invite au démarrage via les préférences.

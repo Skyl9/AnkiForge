@@ -124,8 +124,8 @@ class TemplateCard(QFrame):
 
 
 class PersonaCreationWizardDialog(QDialog):
-    """
-    Assistant de création de Personas et Galerie de Modèles prêts à l'emploi.
+    """Assistant de création de Personas et Galerie de Modèles prêts à l'emploi.
+
     Offre un mode assisté (recommandé) et un mode création vierge personnalisée.
     """
 

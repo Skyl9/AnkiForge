@@ -1,6 +1,6 @@
-"""
-Base ViewModel for AnkiForge MVVM architecture.
-Inherits from QObject to provide reactive Signal emissions while keeping business state testable.
+"""ViewModel de base pour l'architecture MVVM d'AnkiForge.
+
+Hérite de QObject pour fournir des émissions de signaux réactives tout en maintenant l'état métier testable.
 """
 
 from __future__ import annotations
@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class BaseViewModel(QObject):
-    """
-    Base ViewModel providing reactive state properties, error handling,
-    busy indicator signalling, and decoupled EventBus integration.
+    """ViewModel de base pour l'état réactif et l'intégration à l'EventBus.
+
+    Fournit les propriétés d'état réactives, la gestion des erreurs,
+    les indicateurs d'occupation et l'intégration découplée avec l'EventBus.
     """
 
     busy_changed = Signal(bool)
@@ -50,33 +51,33 @@ class BaseViewModel(QObject):
         return self._error_message
 
     def set_busy(self, busy: bool) -> None:
-        """Update busy status and emit signal if changed."""
+        """Met à jour le statut d'occupation et émet le signal si l'état a changé."""
         if self._is_busy != busy:
             self._is_busy = busy
             self.busy_changed.emit(busy)
 
     def set_error(self, message: str | None) -> None:
-        """Update error status and emit error signal if present."""
+        """Met à jour le message d'erreur et émet le signal d'erreur correspondant."""
         self._error_message = message
         if message:
             logger.error("[%s] Error: %s", self.__class__.__name__, message)
             self.error_occurred.emit(message)
 
     def emit_message(self, message: str) -> None:
-        """Emit a user-facing informational message."""
+        """Émet un message d'information destiné à l'utilisateur."""
         self.message_emitted.emit(message)
 
     def subscribe_event(self, event_type: type[AppEvent] | str, handler: Any) -> None:
-        """Subscribe to an AppEvent and track it for clean disposal."""
+        """Abonne un gestionnaire à un événement AppEvent et l'enregistre pour un nettoyage propre."""
         self._event_bus.subscribe(event_type, handler)
         self._subscriptions.append((event_type, handler))
 
     def publish_event(self, event: AppEvent | str, *args: Any, **kwargs: Any) -> list[Any]:
-        """Publish an event through the EventBus."""
+        """Publie un événement via l'EventBus global ou local."""
         return self._event_bus.publish(event, *args, **kwargs)
 
     def dispose(self) -> None:
-        """Unsubscribe all active event handlers and reset state."""
+        """Désabonne tous les gestionnaires d'événements actifs et réinitialise l'état."""
         for event_type, handler in self._subscriptions:
             self._event_bus.unsubscribe(event_type, handler)
         self._subscriptions.clear()

@@ -12,8 +12,8 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class ThoughtStepWidget(QFrame):
-    """
-    Cartouche repliable avec streaming temps réel affichant la réflexion approfondie (Extended Thinking).
+    """Cartouche repliable avec streaming temps réel affichant la réflexion approfondie (Extended Thinking).
+
     Inclut chronomètre en direct, compteur de tokens, repli automatique au premier token utile,
     et badge d'audit final.
     """
@@ -168,10 +168,7 @@ class ThoughtStepWidget(QFrame):
             self.finish_thinking()
 
     def finish_thinking(self, duration_seconds: float | None = None, tokens_count: int | None = None) -> None:
-        """
-        Finalise la réflexion : stoppe le chronomètre, replie automatiquement le bloc,
-        et fige l'en-tête avec les métriques d'audit.
-        """
+        """Finalise la réflexion : stoppe le chronomètre, replie automatiquement le bloc, et fige l'en-tête avec les métriques d'audit."""
         if self._timer.isActive():
             self._timer.stop()
 

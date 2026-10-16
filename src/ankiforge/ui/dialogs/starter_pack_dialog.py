@@ -1,6 +1,4 @@
-"""
-Dialogue de Sélection et d'Installation des Modèles Communautaires Préconfigurés (Starter Pack).
-"""
+"""Dialogue de Sélection et d'Installation des Modèles Communautaires Préconfigurés (Starter Pack)."""
 
 from __future__ import annotations
 

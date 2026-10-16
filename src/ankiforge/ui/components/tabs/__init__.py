@@ -1,5 +1,5 @@
-"""
-Package Tabs d'AnkiForge.
+"""Package Tabs d'AnkiForge.
+
 Re-exporte l'ensemble des barres d'onglets, boutons et fenêtrages détachables pour rétrocompatibilité 100%.
 """
 

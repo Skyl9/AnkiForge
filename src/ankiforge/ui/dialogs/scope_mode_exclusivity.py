@@ -1,5 +1,4 @@
-"""
-Exclusivité stricte des modes de portée documentaire (Pages / Chapitres / Sections).
+"""Exclusivité stricte des modes de portée documentaire (Pages / Chapitres / Sections).
 
 Ce module héberge le seul point d'entrée d'activation d'un mode de portée, partagé par
 ``DocumentScopeWidget`` (génération) et ``DocumentDelimitationDialog`` (délimitation) :

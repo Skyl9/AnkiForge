@@ -1,5 +1,4 @@
-"""
-Onglet « Figures » de l'Inspecteur : la galerie des figures d'un document.
+"""Onglet « Figures » de l'Inspecteur : la galerie des figures d'un document.
 
 L'onglet lit la **couture visuelle** (`VisualPayloadResolver`) au lieu d'interroger la base
 lui-même — une seule règle décide de ce qu'est une figure — et n'écrit **aucune provenance** :
@@ -105,8 +104,7 @@ class FigureCard(QFrame):
 
 
 class FiguresGalleryWidget(QWidget):
-    """
-    Galerie des figures d'un document, en colonne (l'Inspecteur fait 250–320 px).
+    """Galerie des figures d'un document, en colonne (l'Inspecteur fait 250–320 px).
 
     Émet ``occlusion_requested(chunk_id)`` : la vue décide quoi en faire. La portée est
     « section courante » par défaut, avec bascule « tout le document ».

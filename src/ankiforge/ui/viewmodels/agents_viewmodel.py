@@ -1,6 +1,4 @@
-"""
-ViewModel for AI Agents, Personas, and System Prompts Management.
-"""
+"""ViewModel pour la gestion des agents IA, personas et prompts système."""
 
 from __future__ import annotations
 
@@ -27,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class AgentsViewModel(BaseViewModel):
-    """Encapsulates state and reactive logic for Persona editing and versioning."""
+    """Encapsule l'état et la logique réactive pour l'édition et le versionnement des personas."""
 
     data_loaded = Signal()
     persona_selected = Signal(object)
@@ -65,7 +63,7 @@ class AgentsViewModel(BaseViewModel):
         return self._llm_configs
 
     def load_data(self) -> None:
-        """Load persona folders, personas and engine configs."""
+        """Charge les dossiers de personas, les personas et les configurations de modèles."""
         try:
             self._folders = self._persona_repo.get_all_folders()
             self._personas = self._persona_repo.get_all_personas()
@@ -82,7 +80,7 @@ class AgentsViewModel(BaseViewModel):
             self.set_error(f"Failed to load agents data: {e}")
 
     def select_persona_by_id(self, persona_id: int) -> None:
-        """Select a persona."""
+        """Sélectionne une persona d'après son identifiant."""
         persona = self._persona_repo.get_persona_by_id(persona_id)
         self._selected_persona = persona
         self.persona_selected.emit(persona)
@@ -95,7 +93,7 @@ class AgentsViewModel(BaseViewModel):
         output_format: str = "json",
         persona_type: str = "pipeline",
     ) -> PersonaModel:
-        """Create a new persona."""
+        """Crée une nouvelle persona."""
         persona = self._persona_repo.create_persona(
             name=name,
             system_prompt=system_prompt,
@@ -109,7 +107,7 @@ class AgentsViewModel(BaseViewModel):
         return persona
 
     def update_persona(self, persona_id: int, **kwargs: Any) -> PersonaModel | None:
-        """Update an existing persona."""
+        """Met à jour une persona existante."""
         updated = self._persona_repo.update_persona(persona_id, **kwargs)
         if updated:
             self.publish_event(PersonaUpdatedEvent(persona_id=persona_id, name=updated.name))
@@ -118,7 +116,7 @@ class AgentsViewModel(BaseViewModel):
         return updated
 
     def delete_persona(self, persona_id: int) -> bool:
-        """Delete a persona."""
+        """Supprime une persona d'après son identifiant."""
         success = self._persona_repo.delete_persona(persona_id)
         if success:
             self.publish_event(PersonaDeletedEvent(persona_id=persona_id))

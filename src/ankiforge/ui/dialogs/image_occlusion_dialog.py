@@ -1,5 +1,5 @@
-"""
-Boîte de dialogue modale pour le Masquage d'Images Intelligent (Image Occlusion IA).
+"""Boîte de dialogue modale pour le Masquage d'Images Intelligent (Image Occlusion IA).
+
 Permet de charger une image depuis le disque, le presse-papier ou une vue,
 et d'interagir avec l'éditeur visuel d'occlusion.
 """

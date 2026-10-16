@@ -1,5 +1,4 @@
-"""
-Batch Metrics Bar — Barre supérieure de 4 KPI cards pour l'Atelier de Production.
+"""Batch Metrics Bar — Barre supérieure de 4 KPI cards pour l'Atelier de Production.
 
 Qt equivalent : QWidget (HBoxLayout of CicdMetricCard)
 """
@@ -17,12 +16,12 @@ from ankiforge.utils.i18n import tr
 
 
 class BatchMetricsBar(QWidget):
-    """
-    Barre de 4 CicdMetricCard rétrocompatibles avec l'API existante de BatchView :
+    """Barre de 4 CicdMetricCard rétrocompatibles avec l'API existante de BatchView .
+
       - self.card_status  (STATUT GLOBAL)
       - self.card_time    (TEMPS ÉCOULÉ)
       - self.card_cards   (CARTES GÉNÉRÉES — badge cliquable ouvrant la revue)
-      - self.card_cost    (COÛT ESTIMÉ)
+      - self.card_cost    (COÛT ESTIMÉ).
 
     Qt equivalent: QWidget (HBoxLayout)
     """

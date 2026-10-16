@@ -1,5 +1,5 @@
-"""
-Package CreationView d'AnkiForge (Studio de Création).
+"""Package CreationView d'AnkiForge (Studio de Création).
+
 Re-exporte l'ensemble des composants, dialogues, assistants et la vue principale pour 100% rétrocompatibilité.
 """
 

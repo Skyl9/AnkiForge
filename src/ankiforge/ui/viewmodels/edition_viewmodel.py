@@ -1,6 +1,4 @@
-"""
-ViewModel for Edition View, Card Browser, and Note Version Management.
-"""
+"""ViewModel for Edition View, Card Browser, and Note Version Management."""
 
 from __future__ import annotations
 

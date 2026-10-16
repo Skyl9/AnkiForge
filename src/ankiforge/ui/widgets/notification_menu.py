@@ -1,5 +1,5 @@
-"""
-Menu / Fenêtre popup des notifications et diagnostics proactifs d'AnkiForge.
+"""Menu / Fenêtre popup des notifications et diagnostics proactifs d'AnkiForge.
+
 Accessible depuis la cloche de notification de la barre supérieure (TopBar).
 """
 

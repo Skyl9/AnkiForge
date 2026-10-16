@@ -1,5 +1,4 @@
-"""
-EmbeddedCardPreviewWidget — Cartouche de rendu live KaTeX d'une carte Anki dans le fil de chat.
+"""EmbeddedCardPreviewWidget — Cartouche de rendu live KaTeX d'une carte Anki dans le fil de chat.
 
 Affiche une carte Anki telle qu'elle apparaîtra lors des révisions (Recto / Verso) avec :
 - Rendu mathématique KaTeX (formules en $..$, $$..$$ et \\[..\\]).
@@ -36,8 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddedCardPreviewWidget(QFrame):
-    """
-    Cartouche de rendu live KaTeX d'une carte Anki intégré dans une bulle de chat du Consultant IA.
+    """Cartouche de rendu live KaTeX d'une carte Anki intégré dans une bulle de chat du Consultant IA.
 
     Affiche le contenu HTML d'une carte avec les styles CSS du modèle et le rendu KaTeX.
     Propose un bouton Recto/Verso et se fige après action via freeze().
@@ -57,12 +55,12 @@ class EmbeddedCardPreviewWidget(QFrame):
         title: str = "Aperçu de la carte",
         parent: QWidget | None = None,
     ) -> None:
-        """
-        Args:
-            fields: Dictionnaire des champs de la note (nom_champ -> contenu_html).
-            note_type: Modèle de note Peewee optionnel pour récupérer les templates et le CSS.
-            note_id: Identifiant de la note en BDD (pour le bouton ↗ ouvrir dans l'Éditeur).
-            title: Titre affiché dans l'en-tête.
+        """Args.
+
+        fields: Dictionnaire des champs de la note (nom_champ -> contenu_html).
+        note_type: Modèle de note Peewee optionnel pour récupérer les templates et le CSS.
+        note_id: Identifiant de la note en BDD (pour le bouton ↗ ouvrir dans l'Éditeur).
+        title: Titre affiché dans l'en-tête.
         """
         super().__init__(parent)
         self.is_frozen: bool = False

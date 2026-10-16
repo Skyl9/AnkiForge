@@ -14,11 +14,11 @@ from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class CreationHubWidget(QWidget):
-    """
-    Vue d'accueil et d'aiguillage du Studio de Création (Progressive Disclosure).
+    """Vue d'accueil et d'aiguillage du Studio de Création (Progressive Disclosure).
+
     Propose à l'utilisateur de choisir entre :
     1. Explorer les documents de sa bibliothèque
-    2. Démarrer une saisie libre ou coller un extrait
+    2. Démarrer une saisie libre ou coller un extrait.
     """
 
     open_free_text_requested = Signal()

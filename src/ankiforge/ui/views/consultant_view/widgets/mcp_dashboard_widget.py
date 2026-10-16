@@ -1,5 +1,4 @@
-"""
-Tableau de bord autonome et interactif du serveur MCP local (Model Context Protocol).
+"""Tableau de bord autonome et interactif du serveur MCP local (Model Context Protocol).
 
 Hébergé en tant qu'onglet de premier niveau dans la vue MCP & Agents.
 Permet la supervision en direct, le pilotage de cycle de vie (start/stop/restart/rotate),

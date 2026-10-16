@@ -68,9 +68,7 @@ logger = logging.getLogger(__name__)
 
 
 class ABTestsView(QWidget):
-    """
-    Vue Laboratoire A/B — Comparateur haute précision de Moteurs, Prompts et Pipelines DAG.
-    """
+    """Vue Laboratoire A/B — Comparateur haute précision de Moteurs, Prompts et Pipelines DAG."""
 
     def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)

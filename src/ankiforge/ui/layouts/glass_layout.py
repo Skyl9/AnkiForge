@@ -1,5 +1,5 @@
-"""
-Layout Glassmorphism (Moderne / Semi-Translucide) pour AnkiForge.
+"""Layout Glassmorphism (Moderne / Semi-Translucide) pour AnkiForge.
+
 Design contemporain avec panneaux semi-transparents, bordures lumineuses et esthétique futuriste.
 """
 
@@ -76,11 +76,11 @@ class GlassTabButton(NavBadgeButton):
 
 
 class GlassmorphismLayout(BaseLayout):
-    """
-    Layout Concept Glassmorphism :
+    """Layout Concept Glassmorphism .
+
     - En-tête flottant effet verre dépoli
     - Navigation par pilules translucides
-    - Conteneur de travail avec bordure néon douce
+    - Conteneur de travail avec bordure néon douce.
     """
 
     def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:

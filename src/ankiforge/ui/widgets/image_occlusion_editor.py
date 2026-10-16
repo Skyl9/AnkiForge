@@ -1,5 +1,5 @@
-"""
-Éditeur Visuel Interactif d'Occlusion d'Images (Image Occlusion).
+"""Éditeur Visuel Interactif d'Occlusion d'Images (Image Occlusion).
+
 Canevas graphique QGraphicsView & QGraphicsScene permettant d'afficher l'image source,
 d'ajouter, déplacer, redimensionner ou supprimer des masques SVG et de générer les cartes Anki.
 """
@@ -69,8 +69,8 @@ HANDLE_SIZE = 8.0
 
 
 class OcclusionGraphicsItem(QGraphicsRectItem):
-    """
-    Rectangle d'occlusion interactif sur le canevas QGraphicsScene.
+    """Rectangle d'occlusion interactif sur le canevas QGraphicsScene.
+
     Supporte le déplacement, la sélection et le redimensionnement via 4 poignées d'angle.
     """
 
@@ -308,8 +308,8 @@ class OcclusionCanvasView(QGraphicsView):
 
 
 class ImageOcclusionEditor(QWidget):
-    """
-    Éditeur visuel interactif complet de masquage d'images (Image Occlusion).
+    """Éditeur visuel interactif complet de masquage d'images (Image Occlusion).
+
     Offre un canevas graphique, une barre d'outils, la détection IA et un panneau de configuration.
     """
 

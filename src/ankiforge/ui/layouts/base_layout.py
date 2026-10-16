@@ -1,6 +1,4 @@
-"""
-Base Layout for Pluggable UI Architecture in AnkiForge.
-"""
+"""Base Layout for Pluggable UI Architecture in AnkiForge."""
 
 from abc import abstractmethod
 
@@ -9,8 +7,8 @@ from PySide6.QtWidgets import QStackedWidget, QWidget
 
 
 class BaseLayout(QWidget):
-    """
-    Classe de base pour toutes les coquilles d'interface (Layouts).
+    """Classe de base pour toutes les coquilles d'interface (Layouts).
+
     Reçoit le QStackedWidget central contenant les vues réelles uniques et gère la navigation / l'ergonomie.
     """
 

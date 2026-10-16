@@ -1,5 +1,5 @@
-"""
-Dialogue modal de sélection de la portée de génération documentaire (DocumentScopeDialog).
+"""Dialogue modal de sélection de la portée de génération documentaire (DocumentScopeDialog).
+
 Offre une interface visuelle similaire à la délimitation, mais restreinte exclusivement
 aux parties utiles/filtrées du document (bornes start_page/end_page, exclusions respectées)
 pour sélectionner la portée de génération (pages, sections, segments) sans altérer la base de données.
@@ -87,9 +87,8 @@ def _safe_int(val: Any, default: int = 1) -> int:
 
 
 class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
-    """
-    Widget de sélection de la portée de génération pour CreationView (via DocumentScopeDialog)
-    et BatchView (via BatchSliceComposerDialog).
+    """Widget de sélection de la portée de génération pour CreationView et BatchView.
+
     - Donne accès uniquement aux parties filtrées/utiles du document.
     - Le slider de portée n'est affiché qu'en mode 'Plage personnalisée' sur documents paginés.
     - Non destructif pour la BDD (ne modifie pas DocumentModel ni DocumentChunkModel).
@@ -2726,8 +2725,8 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
 
 
 class DocumentScopeDialog(QDialog):
-    """
-    Modale de sélection de la portée de génération (CreationView).
+    """Modale de sélection de la portée de génération (CreationView).
+
     Embarque DocumentScopeWidget et ajoute le pied de validation (Valider / Annuler).
     Tous les attributs non définis sont délégués au widget embarqué.
     """

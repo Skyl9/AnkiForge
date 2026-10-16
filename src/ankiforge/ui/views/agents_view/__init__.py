@@ -1,5 +1,5 @@
-"""
-Package AgentsView d'AnkiForge (Atelier d'Agents IA & Personas).
+"""Package AgentsView d'AnkiForge (Atelier d'Agents IA & Personas).
+
 Re-exporte l'ensemble des composants, dialogues, constantes et la vue principale pour 100% de rétrocompatibilité.
 """
 

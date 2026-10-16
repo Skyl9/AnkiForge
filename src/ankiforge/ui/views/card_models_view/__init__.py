@@ -1,5 +1,5 @@
-"""
-Package CardModelsView d'AnkiForge (Atelier de Modèles de Cartes).
+"""Package CardModelsView d'AnkiForge (Atelier de Modèles de Cartes).
+
 Re-exporte l'ensemble des composants, dialogues, utilitaires et la vue principale pour 100% de rétrocompatibilité.
 """
 

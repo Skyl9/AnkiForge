@@ -1,5 +1,5 @@
-"""
-Package CodeEditor d'AnkiForge.
+"""Package CodeEditor d'AnkiForge.
+
 Re-exporte l'ensemble des linters, formatters, highlighters et widgets pour rétrocompatibilité 100%.
 """
 

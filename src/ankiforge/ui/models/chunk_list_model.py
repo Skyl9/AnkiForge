@@ -1,5 +1,5 @@
-"""
-Modèle de liste virtuel paginé pour l'explorateur de fragments RAG et les sections de cours (DocumentsView).
+"""Modèle de liste virtuel paginé pour l'explorateur de fragments RAG et les sections de cours (DocumentsView).
+
 Gère la virtualisation des milliers de fragments de texte extraits de gros manuels PDF.
 """
 
@@ -33,9 +33,7 @@ class ChunkItemData:
 
 
 class VirtualChunkListModel(QAbstractListModel):
-    """
-    Modèle de liste virtuel haute performance pour les fragments de documents.
-    """
+    """Modèle de liste virtuel haute performance pour les fragments de documents."""
 
     CHUNK_SIZE: int = 50
 

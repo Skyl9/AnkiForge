@@ -1,6 +1,4 @@
-"""
-Module des Layouts Enfichables pour AnkiForge.
-"""
+"""Module des Layouts Enfichables pour AnkiForge."""
 
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.layouts.dashboard_layout import DashboardLayout

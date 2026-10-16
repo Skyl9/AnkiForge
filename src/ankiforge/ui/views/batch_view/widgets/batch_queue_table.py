@@ -1,5 +1,4 @@
-"""
-Batch Queue Table — Tableau de bord de la file d'attente de l'Atelier de Production.
+"""Batch Queue Table — Tableau de bord de la file d'attente de l'Atelier de Production.
 
 Encapsule le StyledTableWidget (9 colonnes), la barre de filtres par état
 (Tous / En attente / À réviser / Terminés / Erreurs) et le rendu des badges,
@@ -99,8 +98,7 @@ def _filter_labels() -> dict[str, str]:
 
 
 class BatchQueueTable(QWidget):
-    """
-    Tableau de bord de la file d'attente : rendu, filtres par état et actions unitaires.
+    """Tableau de bord de la file d'attente : rendu, filtres par état et actions unitaires.
 
     Signaux émis (re-steering vers BatchView) :
       - review_requested(row_idx)  → ouvrir la zone de staging (clic simple sur « À réviser »,

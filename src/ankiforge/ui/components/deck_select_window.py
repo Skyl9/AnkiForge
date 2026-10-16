@@ -1,5 +1,5 @@
-"""
-Composant de sélection de dossier / deck.
+"""Composant de sélection de dossier / deck.
+
 Reproduit la maquette `folder_select_modal.html`.
 """
 
@@ -20,9 +20,7 @@ ALL_DECKS_NODE_ID = -1
 
 
 class DeckSelectWindow(QWidget):
-    """
-    Fenêtre de sélection de paquet (Deck) avec arborescence et recherche.
-    """
+    """Fenêtre de sélection de paquet (Deck) avec arborescence et recherche."""
 
     deck_selected = Signal(int, str)  # (deck_id, deck_name)
 

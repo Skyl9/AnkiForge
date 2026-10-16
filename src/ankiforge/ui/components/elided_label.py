@@ -1,5 +1,5 @@
-"""
-Composant QLabel avec élision dynamique de texte (ElidedLabel).
+"""Composant QLabel avec élision dynamique de texte (ElidedLabel).
+
 Permet au texte d'être tronqué proprement avec des points de suspension (...) selon la largeur disponible,
 sans imposer de largeur minimale au layout conteneur.
 """
@@ -12,9 +12,9 @@ from PySide6.QtWidgets import QLabel, QSizePolicy, QWidget
 
 
 class ElidedLabel(QLabel):
-    """
-    QLabel qui élide dynamiquement son texte avec des points de suspension (...)
-    selon la largeur allouée par le layout, tout en conservant le texte intégral
+    """QLabel qui élide dynamiquement son texte avec des points de suspension (...).
+
+    Élide selon la largeur allouée par le layout tout en conservant le texte intégral
     accessible via ``text()`` et en garantissant une taille minimale nulle (width=0).
     """
 

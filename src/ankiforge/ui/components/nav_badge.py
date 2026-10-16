@@ -1,5 +1,4 @@
-"""
-Pastille d'état partagée par les boutons de navigation d'AnkiForge.
+"""Pastille d'état partagée par les boutons de navigation d'AnkiForge.
 
 Les quatre layouts (`ide`, `macos`, `dashboard`, `glassmorphism`) déclarent leurs
 boutons de navigation via des classes distinctes. Elles héritent toutes de

@@ -1,6 +1,4 @@
-"""
-Dialogue d'Arbitrage des Conflits de Styles CSS pour l'Atelier de Modèles.
-"""
+"""Dialogue d'Arbitrage des Conflits de Styles CSS pour l'Atelier de Modèles."""
 
 from __future__ import annotations
 

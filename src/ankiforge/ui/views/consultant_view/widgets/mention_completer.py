@@ -1,6 +1,7 @@
-"""
-Gestionnaire d'autocomplétion des mentions inline (@deck:, @doc:, @model:, @card:)
-et des commandes rapides Slash (/clear, /undo, /compact, /panorama, /deepscan, /help) pour le Consultant IA.
+"""Gestionnaire d'autocomplétion des mentions inline et commandes rapides Slash.
+
+Gère les mentions inline (@deck:, @doc:, @model:, @card:) et les commandes rapides Slash
+(/clear, /undo, /compact, /panorama, /deepscan, /help) pour le Consultant IA.
 """
 
 from __future__ import annotations

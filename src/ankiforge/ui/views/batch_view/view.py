@@ -159,9 +159,7 @@ def _blocks_for_direct_part(
 
 
 class BatchView(QWidget):
-    """
-    Batch Factory CI/CD View — 100% Conforme à la Maquette concept_ide/index.html (L1883-L2062).
-    """
+    """Batch Factory CI/CD View — 100% Conforme à la Maquette concept_ide/index.html (L1883-L2062)."""
 
     def __init__(self, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)

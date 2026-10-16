@@ -1,5 +1,5 @@
-"""
-Onglet Paramètres Synthèse Vocale (TTS) & Gestionnaire de Moteurs Découplés.
+"""Onglet Paramètres Synthèse Vocale (TTS) & Gestionnaire de Moteurs Découplés.
+
 Permet de choisir le moteur de voix par défaut, d'auditionner les voix,
 et d'installer/mettre à jour le binaire autonome Piper TTS en local.
 """

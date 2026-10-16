@@ -1,5 +1,5 @@
-"""
-Package ABTestsView d'AnkiForge (Laboratoire de Tests A/B).
+"""Package ABTestsView d'AnkiForge (Laboratoire de Tests A/B).
+
 Re-exporte l'ensemble des composants, constantes et la vue principale pour 100% de rétrocompatibilité.
 """
 

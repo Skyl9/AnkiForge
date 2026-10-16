@@ -1,5 +1,5 @@
-"""
-Layout macOS (Apple Native Style) pour AnkiForge.
+"""Layout macOS (Apple Native Style) pour AnkiForge.
+
 Barre supérieure unifiée (Unified Toolbar), contrôles segmentés arrondis, typographie épurée et affichage pleine largeur.
 """
 
@@ -76,11 +76,11 @@ class MacosSegmentButton(NavBadgeButton):
 
 
 class MacosLayout(BaseLayout):
-    """
-    Layout Concept macOS :
+    """Layout Concept macOS .
+
     - Barre supérieure unifiée 54px avec navigation segmentée
     - Zéro barre latérale pour maximiser la largeur de travail
-    - Look épuré et minimaliste
+    - Look épuré et minimaliste.
     """
 
     def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:

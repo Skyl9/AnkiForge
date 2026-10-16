@@ -75,8 +75,8 @@ logger = logging.getLogger(__name__)
 
 
 def extract_card_proposal_from_text(response: str, user_query: str = "") -> dict[str, Any] | None:
-    """
-    Extrait une proposition de refactorisation ou scission de carte depuis le texte retourné par l'IA.
+    """Extrait une proposition de refactorisation ou scission de carte depuis le texte retourné par l'IA.
+
     Permet d'activer le diff et le Garde-Fou même si le LLM a renvoyé du JSON brut dans sa réponse.
     """
 
@@ -298,9 +298,7 @@ def format_session_to_markdown(session: ConsultantSessionModel) -> str:
 
 
 class ConsultantView(QWidget):
-    """
-    AI Consultant Studio — Streaming Live, Stop Button, Sessions Persistées, Garde-Fous et Diff Viewer.
-    """
+    """AI Consultant Studio — Streaming Live, Stop Button, Sessions Persistées, Garde-Fous et Diff Viewer."""
 
     request_navigation = Signal(str, object)
     mcp_start_requested = Signal()

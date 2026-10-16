@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class RepairHeadingsDialog(QDialog):
-    """Dialogue modal permettant de visualiser les sauts anormaux de titres et de choisir
+    """Dialogue modal permettant de visualiser les sauts anormaux de titres et de choisir.
 
     quelles corrections appliquer avant modification du document.
     """

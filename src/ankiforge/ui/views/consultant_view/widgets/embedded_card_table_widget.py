@@ -1,5 +1,4 @@
-"""
-EmbeddedCardTableWidget — Tableau compact de cartes Anki intégré dans le fil de chat du Consultant IA.
+"""EmbeddedCardTableWidget — Tableau compact de cartes Anki intégré dans le fil de chat du Consultant IA.
 
 Affiche une sélection de notes retournées par un outil MCP (diagnostic, FTS5, recherche) sous forme d'un
 tableau tabulaire défilable avec colonnes ID, Modèle, Recto, Verso et action d'ouverture directe dans
@@ -35,8 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddedCardTableWidget(QFrame):
-    """
-    Tableau compact et fluide de cartes Anki inséré dans une bulle de chat du Consultant IA.
+    """Tableau compact et fluide de cartes Anki inséré dans une bulle de chat du Consultant IA.
 
     Affiche les colonnes : ID • Modèle • Recto (tronqué) • Verso (tronqué) • Action ↗.
     Supporte le tri par colonne, le mode figé (is_frozen) et refresh_theme().
@@ -54,10 +52,10 @@ class EmbeddedCardTableWidget(QFrame):
         title: str = "Cartes retournées",
         parent: QWidget | None = None,
     ) -> None:
-        """
-        Args:
-            card_rows: Liste de dicts avec clés : id, model, front, back.
-            title: Titre affiché dans l'en-tête du tableau.
+        """Args.
+
+        card_rows: Liste de dicts avec clés : id, model, front, back.
+        title: Titre affiché dans l'en-tête du tableau.
         """
         super().__init__(parent)
         self.is_frozen: bool = False

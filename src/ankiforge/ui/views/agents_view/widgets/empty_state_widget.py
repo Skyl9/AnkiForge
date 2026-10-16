@@ -18,8 +18,8 @@ from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class PersonaEmptyStateWidget(QWidget):
-    """
-    Écran d'accueil affiché lorsqu'aucun agent n'est sélectionné ou que la liste est vide.
+    """Écran d'accueil affiché lorsqu'aucun agent n'est sélectionné ou que la liste est vide.
+
     Guide l'utilisateur avec des explications claires et des raccourcis d'onboarding.
     """
 

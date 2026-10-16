@@ -1,5 +1,5 @@
-"""
-Dialogue modal de personnalisation de la barre d'outils de l'éditeur de notes.
+"""Dialogue modal de personnalisation de la barre d'outils de l'éditeur de notes.
+
 Permet d'activer ou masquer les boutons par catégorie avec mémorisation des préférences.
 """
 

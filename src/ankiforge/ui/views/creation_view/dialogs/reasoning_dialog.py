@@ -23,10 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class ReasoningViewerDialog(QDialog):
-    """
-    Boîte de dialogue permettant d'inspecter les chaînes de pensée détaillées (CoT / reasoning)
-    capturées par étape lors de la génération.
-    """
+    """Boîte de dialogue permettant d'inspecter les chaînes de pensée détaillées (CoT / reasoning) capturées par étape lors de la génération."""
 
     def __init__(self, thoughts: dict[int, str], parent: QWidget | None = None) -> None:
         super().__init__(parent)

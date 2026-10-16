@@ -80,9 +80,7 @@ logger = logging.getLogger(__name__)
 
 
 class EditionView(QWidget):
-    """
-    Vue Principale d'Édition et de Navigation des Cartes avec Divulgation Progressive.
-    """
+    """Vue Principale d'Édition et de Navigation des Cartes avec Divulgation Progressive."""
 
     request_navigation = Signal(str, object)
 

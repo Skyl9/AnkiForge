@@ -1,5 +1,5 @@
-"""
-Fenêtre modale de sélection de document / cours RAG.
+"""Fenêtre modale de sélection de document / cours RAG.
+
 Miroir de `deck_select_window.py` pour les documents et la bibliothèque de cours.
 """
 
@@ -65,9 +65,7 @@ def document_meta_line(doc: DocumentModel) -> str:
 
 
 class DocumentSelectWindow(QWidget):
-    """
-    Fenêtre modale de sélection d'un document ou cours (RAG) avec arborescence et recherche.
-    """
+    """Fenêtre modale de sélection d'un document ou cours (RAG) avec arborescence et recherche."""
 
     document_selected = Signal(int, str)  # (doc_id, doc_title)
 

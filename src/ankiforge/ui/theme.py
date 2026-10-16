@@ -1,5 +1,5 @@
-"""
-Design System and Theme definitions for AnkiForge.
+"""Design System and Theme definitions for AnkiForge.
+
 Single point of truth for all visual values and multi-layout theme profiles.
 """
 
@@ -280,7 +280,7 @@ class DesignTokens:
 
 
 def setup_dynamic_theme(app: QApplication) -> None:
-    """Configures the theme, fonts, and palette for the given QApplication."""
+    """Configure le thème, les polices et la palette pour l'application QApplication."""
     from ankiforge.ui.components.inputs import ComboBoxWheelFilter
     from ankiforge.ui.style_engine.engine import StyleEngine
 
@@ -292,7 +292,7 @@ def setup_dynamic_theme(app: QApplication) -> None:
 
 
 def is_dark_mode() -> bool:
-    """Returns whether the application is in dark mode."""
+    """Indique si l'application est en mode sombre."""
     return DesignTokens.is_dark_mode()
 
 

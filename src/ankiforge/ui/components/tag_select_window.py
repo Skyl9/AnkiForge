@@ -1,5 +1,5 @@
-"""
-Fenêtre de sélection de tag.
+"""Fenêtre de sélection de tag.
+
 Basée sur DeckSelectWindow pour maintenir une cohérence d'UX.
 """
 
@@ -17,9 +17,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class TagSelectWindow(QWidget):
-    """
-    Fenêtre de sélection de Tag avec arborescence (::) et recherche.
-    """
+    """Fenêtre de sélection de Tag avec arborescence (::) et recherche."""
 
     tag_selected = Signal(str)  # (tag_name)
 

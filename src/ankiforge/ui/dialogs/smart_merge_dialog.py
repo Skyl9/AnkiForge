@@ -1,10 +1,10 @@
-"""
-Dialogue de Fusion Smart Merge à 3 Panneaux pour AnkiForge.
+"""Dialogue de Fusion Smart Merge à 3 Panneaux pour AnkiForge.
+
 Permet d'arbitrer visuellement et interactivement les conflits de contenu entre
 la base locale AnkiForge et une archive entrante (.apkg / .colpkg).
 - Panneau 1 (Gauche, Rouge) : Version Locale AnkiForge
 - Panneau 2 (Centre, Bleu/Éditable) : Résultat Fusionné Interactif avec boutons de transfert par champ
-- Panneau 3 (Droite, Vert) : Version Entrante Anki .apkg
+- Panneau 3 (Droite, Vert) : Version Entrante Anki .apkg.
 """
 
 from __future__ import annotations
@@ -155,9 +155,7 @@ class ConflictFieldRow(QWidget):
 
 
 class SmartMergeDialog(QDialog):
-    """
-    Dialogue de Fusion Interactive à 3 Panneaux pour résoudre les conflits d'importation.
-    """
+    """Dialogue de Fusion Interactive à 3 Panneaux pour résoudre les conflits d'importation."""
 
     merge_completed = Signal(dict)  # dict[guid, resolution_dict]
 

@@ -1,5 +1,5 @@
-"""
-Package des modèles de données Qt virtualisés (Model/View Architecture) pour AnkiForge.
+"""Package des modèles de données Qt virtualisés (Model/View Architecture) pour AnkiForge.
+
 Fournit des implémentations de QAbstractTableModel et QAbstractListModel avec pagination
 intelligente (canFetchMore/fetchMore), requêtes Peewee optimisées (batch prefetch),
 et des délégués de rendu vectoriel QStyledItemDelegate pour 60 FPS constants.

@@ -1,5 +1,5 @@
-"""
-Widget de mini-graphique d'activité sur 7 jours (cartes créées vs modifiées).
+"""Widget de mini-graphique d'activité sur 7 jours (cartes créées vs modifiées).
+
 Rendu 100% natif Qt / PySide6 via QPainter, avec infobulle interactive et réactivité aux thèmes.
 """
 

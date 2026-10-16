@@ -2,8 +2,8 @@ from ankiforge.ui.components.code_editor.models import LintIssue
 
 
 class CSSLinter:
-    """
-    Moteur d'analyse statique et de lintage syntaxique pour feuilles de style CSS modernes.
+    """Moteur d'analyse statique et de lintage syntaxique pour feuilles de style CSS modernes.
+
     Supporte les variables CSS (--var: val), les fonctions (clamp, calc, color-mix),
     les sélecteurs multi-lignes, les pseudo-classes, les at-rules (@media, @keyframes)
     et les blocs imbriqués (CSS nesting).

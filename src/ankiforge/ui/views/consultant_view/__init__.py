@@ -1,5 +1,5 @@
-"""
-Package ConsultantView d'AnkiForge (AI Consultant Studio).
+"""Package ConsultantView d'AnkiForge (AI Consultant Studio).
+
 Re-exporte l'ensemble des composants, widgets et la vue principale pour 100% de rétrocompatibilité.
 """
 

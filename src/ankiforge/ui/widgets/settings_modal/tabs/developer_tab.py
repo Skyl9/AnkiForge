@@ -1,5 +1,5 @@
-"""
-Onglet Développeur & Diagnostics des Paramètres AnkiForge (DeveloperTab).
+"""Onglet Développeur & Diagnostics des Paramètres AnkiForge (DeveloperTab).
+
 Fournit un cockpit d'inspection de l'environnement actif (profil, BDD SQLite, versions)
 et intègre la Galerie des Boîtes de Dialogue avec lanceurs directs isolés.
 Visible exclusivement lorsque l'application s'exécute en mode développement (--dev).
@@ -45,8 +45,8 @@ from ankiforge.version import get_version_info
 
 
 class DeveloperTab(QWidget):
-    """
-    Onglet Développeur accessible en mode dev dans SettingsModal.
+    """Onglet Développeur accessible en mode dev dans SettingsModal.
+
     Héberge le cockpit des métadonnées de runtime et la galerie de test des modales.
     """
 

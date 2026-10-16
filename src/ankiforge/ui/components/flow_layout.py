@@ -1,5 +1,5 @@
-"""
-Layout Fluide (Flow / Wrap Layout) et Conteneur Fluide pour PySide6.
+"""Layout Fluide (Flow / Wrap Layout) et Conteneur Fluide pour PySide6.
+
 Permet d'aligner des widgets horizontalement avec retour à la ligne automatique sans débordement ni collision.
 """
 
@@ -10,9 +10,9 @@ from PySide6.QtWidgets import QLayout, QLayoutItem, QSizePolicy, QWidget
 
 
 class FlowLayout(QLayout):
-    """
-    Un layout fluide (Flow / Wrap Layout) qui dispose ses widgets de gauche à droite
-    et passe automatiquement à la ligne lorsque la largeur du conteneur est atteinte.
+    """Layout fluide disposant ses widgets horizontalement avec retour à la ligne automatique.
+
+    Passe automatiquement à la ligne lorsque la largeur du conteneur est atteinte.
     Idéal pour les balises d'aides Anki, filtres, tags et badges dynamiques.
     """
 
@@ -117,9 +117,7 @@ class FlowLayout(QLayout):
 
 
 class FlowWidget(QWidget):
-    """
-    Conteneur spécialisé pour FlowLayout avec nettoyage propre et politique d'expansion fluide.
-    """
+    """Conteneur spécialisé pour FlowLayout avec nettoyage propre et politique d'expansion fluide."""
 
     def __init__(
         self,

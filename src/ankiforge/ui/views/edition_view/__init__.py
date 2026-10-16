@@ -1,5 +1,5 @@
-"""
-Package EditionView d'AnkiForge (Navigateur & Éditeur de Cartes).
+"""Package EditionView d'AnkiForge (Navigateur & Éditeur de Cartes).
+
 Re-exporte l'ensemble des composants, utilitaires et la vue principale pour 100% de rétrocompatibilité.
 """
 

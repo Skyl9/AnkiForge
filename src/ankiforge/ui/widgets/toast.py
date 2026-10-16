@@ -1,5 +1,5 @@
-"""
-Système de Notifications Flottantes Réactives (Toasts & ToastManager).
+"""Système de Notifications Flottantes Réactives (Toasts & ToastManager).
+
 Notifications temporaires non-bloquantes avec niveaux visuels (Success, Info, Warning, Error),
 animation de fondu, barre de progression et empilement vertical sans chevauchement.
 """
@@ -71,8 +71,8 @@ class _ToastProgressBar(QProgressBar):
 
 
 class Toast(QWidget):
-    """
-    Notification flottante unitaire non-intrusive.
+    """Notification flottante unitaire non-intrusive.
+
     Supporte 4 niveaux sémantiques, barre de progression temporelle et fermeture manuelle.
     """
 
@@ -274,8 +274,8 @@ class Toast(QWidget):
 
 
 class ToastManager:
-    """
-    Gestionnaire centralisé des toasts pour une fenêtre ou l'application.
+    """Gestionnaire centralisé des toasts pour une fenêtre ou l'application.
+
     Positionne les toasts en bas à droite et gère l'empilement vertical fluide.
     """
 
@@ -296,8 +296,8 @@ class ToastManager:
         return cls._instance
 
     def _resolve_host_window(self, parent: QWidget | None) -> QWidget | None:
-        """
-        Résout la fenêtre hôte durable (QMainWindow ou fenêtre principale active).
+        """Résout la fenêtre hôte durable (QMainWindow ou fenêtre principale active).
+
         Évite d'ancrer un toast à une boîte de dialogue (QDialog) temporaire qui va être détruite.
         """
         from PySide6.QtWidgets import QApplication, QDialog, QMainWindow
@@ -442,12 +442,12 @@ def show_toast(
     title: str = "",
     duration_ms: int = 4000,
 ) -> Toast | None:
-    """
-    Fonction globale pour afficher un toast flottant.
+    """Fonction globale pour afficher un toast flottant.
+
     Rétrocompatible et résiliente :
     - show_toast(parent, message, is_error=True/False)
     - show_toast(parent, message, level='success'|'info'|'warning'|'error', title='...')
-    - show_toast(message, is_error=True/False)  # parent implicite résolu via la fenêtre active
+    - show_toast(message, is_error=True/False)  # parent implicite résolu via la fenêtre active.
     """
     real_parent: QWidget | None = None
     real_message: str = ""
@@ -479,8 +479,8 @@ def show_toast(
 
 
 def show_import_toast(parent: QWidget | None, summary: dict[str, int]) -> Toast | None:
-    """
-    Affiche une notification Toast détaillée récapitulant les résultats d'une importation Anki.
+    """Affiche une notification Toast détaillée récapitulant les résultats d'une importation Anki.
+
     Fournit un retour utilisateur clair et exhaustif (cartes créées, mises à jour, fusions, médias).
     """
     created = summary.get("created", 0)

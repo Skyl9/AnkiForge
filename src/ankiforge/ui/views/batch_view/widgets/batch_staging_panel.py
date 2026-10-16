@@ -1,5 +1,4 @@
-"""
-Batch Staging Panel — Volet de Revue & Staging des cartes générées.
+"""Batch Staging Panel — Volet de Revue & Staging des cartes générées.
 
 Affiché quand l'utilisateur clique sur "Examiner" ou sélectionne une tâche en statut REVIEW.
 Harmonisé sur les principes ergonomiques de CreationView :
@@ -55,8 +54,7 @@ logger = logging.getLogger(__name__)
 
 
 class BatchStagingPanel(QWidget):
-    """
-    Volet de revue interactif pour les tâches en statut REVIEW.
+    """Volet de revue interactif pour les tâches en statut REVIEW.
 
     L'utilisateur peut :
       • Examiner les cartes une par une avec l'aperçu WebEngine en direct
@@ -343,8 +341,7 @@ class BatchStagingPanel(QWidget):
         prepared_notes: list[dict[str, Any]],
         force: bool = False,
     ) -> None:
-        """
-        Charge une tâche terminée pour révision.
+        """Charge une tâche terminée pour révision.
 
         Args:
             task_idx: Indice de la tâche dans queue_tasks_data.

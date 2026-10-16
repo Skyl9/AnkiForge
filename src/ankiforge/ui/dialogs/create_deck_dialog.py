@@ -1,6 +1,4 @@
-"""
-Dialogue modal de création d'un nouveau paquet Anki avec support hiérarchique.
-"""
+"""Dialogue modal de création d'un nouveau paquet Anki avec support hiérarchique."""
 
 from __future__ import annotations
 

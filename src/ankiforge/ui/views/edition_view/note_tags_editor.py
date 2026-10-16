@@ -1,5 +1,4 @@
-"""
-Éditeur interactif de tags de note pour EditionView (AnkiForge).
+"""Éditeur interactif de tags de note pour EditionView (AnkiForge).
 
 Affiche les tags de la carte sélectionnée sous forme de jetons/puces (chips)
 dans un conteneur fluide (FlowWidget). Permet l'ajout immédiat (y compris avec espaces),

@@ -1,6 +1,4 @@
-"""
-ViewModel for DAG Pipeline Editor and Execution Management.
-"""
+"""ViewModel pour l'éditeur de pipelines DAG et la gestion de leur exécution."""
 
 from __future__ import annotations
 
@@ -33,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineViewModel(BaseViewModel):
-    """Encapsulates state and business logic for DAG pipeline configuration and execution."""
+    """Encapsule l'état et la logique métier pour la configuration et l'exécution des pipelines DAG."""
 
     pipelines_loaded = Signal(list)
     pipeline_selected = Signal(object)
@@ -92,7 +90,7 @@ class PipelineViewModel(BaseViewModel):
         return self._python_tools
 
     def load_data(self) -> None:
-        """Load pipelines, personas, tools and llm configs from repositories."""
+        """Charge les pipelines, personas, outils et configurations de modèles depuis les repositories."""
         try:
             self._personas = self._persona_repo.get_all_personas()
             self._llm_configs = self._persona_repo.get_all_llm_configs()
@@ -112,7 +110,7 @@ class PipelineViewModel(BaseViewModel):
             self.set_error(f"Failed to load pipeline data: {e}")
 
     def select_pipeline(self, pipeline_id: int) -> None:
-        """Select a pipeline by its ID and load its steps."""
+        """Sélectionne un pipeline par son identifiant et charge ses étapes."""
         pipeline = self._pipeline_repo.get_pipeline_by_id(pipeline_id)
         if not pipeline:
             return
@@ -130,7 +128,7 @@ class PipelineViewModel(BaseViewModel):
             self.step_selected.emit(-1, None)
 
     def create_pipeline(self, name: str, description: str = "") -> PipelineModel:
-        """Create a new pipeline and select it."""
+        """Crée un nouveau pipeline et le sélectionne."""
         pipeline = self._pipeline_repo.create_pipeline(name=name, description=description)
         self._pipelines = self._pipeline_repo.get_all_pipelines()
         self.publish_event(PipelineCreatedEvent(pipeline_id=pipeline.id, pipeline_name=pipeline.name))
@@ -139,7 +137,7 @@ class PipelineViewModel(BaseViewModel):
         return pipeline
 
     def duplicate_pipeline(self, pipeline_id: int, new_name: str) -> PipelineModel | None:
-        """Duplicate an existing pipeline."""
+        """Duplique un pipeline existant."""
         new_pipeline = self._pipeline_repo.duplicate_pipeline(pipeline_id, new_name)
         if new_pipeline:
             self._pipelines = self._pipeline_repo.get_all_pipelines()
@@ -149,7 +147,7 @@ class PipelineViewModel(BaseViewModel):
         return new_pipeline
 
     def delete_pipeline(self, pipeline_id: int) -> bool:
-        """Delete a pipeline."""
+        """Supprime un pipeline d'après son identifiant."""
         success = self._pipeline_repo.delete_pipeline(pipeline_id)
         if success:
             self.publish_event(PipelineDeletedEvent(pipeline_id=pipeline_id))
@@ -157,7 +155,7 @@ class PipelineViewModel(BaseViewModel):
         return success
 
     def select_step(self, index: int) -> None:
-        """Select a step by its index in the current pipeline."""
+        """Sélectionne une étape d'après son index dans le pipeline courant."""
         if 0 <= index < len(self._steps):
             self._selected_step_index = index
             self.step_selected.emit(index, self._steps[index])
@@ -168,7 +166,7 @@ class PipelineViewModel(BaseViewModel):
         persona_id: int | None = None,
         config: dict[str, Any] | None = None,
     ) -> PipelineStepModel | None:
-        """Add a step to the current pipeline."""
+        """Ajoute une étape au pipeline courant."""
         if not self._current_pipeline:
             return None
 
@@ -188,7 +186,7 @@ class PipelineViewModel(BaseViewModel):
         return step
 
     def update_step(self, step_id: int, **kwargs: Any) -> PipelineStepModel | None:
-        """Update properties of a step."""
+        """Met à jour les propriétés d'une étape."""
         updated = self._pipeline_repo.update_step(step_id, **kwargs)
         if updated and self._current_pipeline:
             self._steps = self._pipeline_repo.get_steps_for_pipeline(self._current_pipeline.id)
@@ -199,7 +197,7 @@ class PipelineViewModel(BaseViewModel):
         return updated
 
     def delete_step(self, step_id: int) -> bool:
-        """Delete a step from the current pipeline."""
+        """Supprime une étape du pipeline courant."""
         if not self._current_pipeline:
             return False
 
@@ -216,7 +214,7 @@ class PipelineViewModel(BaseViewModel):
         return success
 
     def reorder_steps(self, step_ids: list[int]) -> None:
-        """Reorder steps for the current pipeline."""
+        """Réordonne les étapes du pipeline courant."""
         if not self._current_pipeline:
             return
 
@@ -226,7 +224,7 @@ class PipelineViewModel(BaseViewModel):
         self.publish_event(PipelineUpdatedEvent(pipeline_id=self._current_pipeline.id, pipeline_name=self._current_pipeline.name))
 
     def duplicate_step(self, step_id: int) -> PipelineStepModel | None:
-        """Duplicate a step in the current pipeline."""
+        """Duplique une étape dans le pipeline courant."""
         if not self._current_pipeline:
             return None
 
@@ -248,11 +246,11 @@ class PipelineViewModel(BaseViewModel):
         )
 
     def log_execution(self, log_line: str) -> None:
-        """Append an execution log line."""
+        """Ajoute une ligne au journal d'exécution."""
         self.execution_log_appended.emit(log_line)
 
     def notify_run_started(self, run_id: str = "") -> None:
-        """Notify execution start."""
+        """Notifie le démarrage de l'exécution."""
         if self._current_pipeline:
             self.publish_event(
                 PipelineRunStartedEvent(
@@ -264,7 +262,7 @@ class PipelineViewModel(BaseViewModel):
             self.execution_started.emit(self._current_pipeline.name)
 
     def notify_run_finished(self, success: bool, error: str = "", cards_count: int = 0) -> None:
-        """Notify execution finish."""
+        """Notifie la fin de l'exécution."""
         if self._current_pipeline:
             self.publish_event(
                 PipelineRunFinishedEvent(

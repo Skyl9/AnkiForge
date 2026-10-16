@@ -179,7 +179,7 @@ class OutlineItemDelegate(QStyledItemDelegate):
 
 
 class DocumentOutlineWidget(QWidget):
-    """Panneau interactif d'arborescence Markdown avec navigation bidirectionnelle (Scroll Spy)
+    """Panneau interactif d'arborescence Markdown avec navigation bidirectionnelle (Scroll Spy).
 
     et intégration directe de la couverture SRS et de la création de cartes.
     """

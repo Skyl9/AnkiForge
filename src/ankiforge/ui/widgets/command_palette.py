@@ -1,5 +1,5 @@
-"""
-Palette de commandes ⌘K style VS Code / Raycast / JetBrains Search Everywhere.
+"""Palette de commandes ⌘K style VS Code / Raycast / JetBrains Search Everywhere.
+
 Permet la recherche globale et la navigation rapide entre toutes les vues d'AnkiForge.
 """
 

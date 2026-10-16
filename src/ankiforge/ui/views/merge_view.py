@@ -1,6 +1,4 @@
-"""
-Vue et Composant SmartMergeView pour la résolution visuelle des conflits.
-"""
+"""Vue et Composant SmartMergeView pour la résolution visuelle des conflits."""
 
 from __future__ import annotations
 
@@ -15,9 +13,7 @@ from ankiforge.ui.dialogs.smart_merge_dialog import SmartMergeDialog
 
 
 class MergeView(QWidget):
-    """
-    Vue conteneur pour intégrer le dialogue ou widget Smart Merge dans l'IDE.
-    """
+    """Vue conteneur pour intégrer le dialogue ou widget Smart Merge dans l'IDE."""
 
     merge_resolved = Signal(dict)
 

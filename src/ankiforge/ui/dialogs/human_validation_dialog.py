@@ -1,5 +1,5 @@
-"""
-Modale interactive de Validation Humaine (Copilote Intentionnel).
+"""Modale interactive de Validation Humaine (Copilote Intentionnel).
+
 S'affiche lorsqu'un pipeline DAG atteint une étape de type HUMAN_VALIDATION.
 Permet à l'utilisateur de valider, corriger ou enrichir les données intermédiaires (ex: Plan de cours).
 """

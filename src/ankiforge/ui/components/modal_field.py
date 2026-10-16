@@ -1,5 +1,4 @@
-"""
-Champ sélectionnable compact ouvrant une modale (mini DocumentPickerButton).
+"""Champ sélectionnable compact ouvrant une modale (mini DocumentPickerButton).
 
 Affiche une icône + un libellé + un chevron ; le clic émet `clicked` et la vue
 ouvre la fenêtre de sélection correspondante (DeckSelectWindow, ModelSelectWindow,
@@ -19,10 +18,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class ModalField(QFrame):
-    """
-    Bouton-champ cliquable : icône + libellé principal (placeholder quand vide)
-    + sous-titre optionnel + chevron. Le payload sélectionné est conservé.
-    """
+    """Bouton-champ cliquable : icône + libellé principal (placeholder quand vide) + sous-titre optionnel + chevron. Le payload sélectionné est conservé."""
 
     clicked = Signal()
     value_changed = Signal(object)  # payload sélectionné (objet modèle ou None)

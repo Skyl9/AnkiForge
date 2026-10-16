@@ -10,9 +10,7 @@ def is_template_cloze(templates: list[dict[str, Any]]) -> bool:
 
 
 def get_cloze_card_count(fields: dict[str, str], minimum: int = 1) -> int:
-    """
-    Calcule le nombre de cartes cloze à afficher à partir des champs remplis.
-    """
+    """Calcule le nombre de cartes cloze à afficher à partir des champs remplis."""
     from ankiforge.utils.anki_renderer import get_max_cloze_index
 
     return max(minimum, get_max_cloze_index(fields))
@@ -23,8 +21,8 @@ def sync_preview_card_selector(
     templates: list[dict[str, Any]],
     current_fields: dict[str, str],
 ) -> tuple[bool, int]:
-    """
-    Met à jour le sélecteur de cartes selon le type de note.
+    """Met à jour le sélecteur de cartes selon le type de note.
+
     Retourne (is_cloze, selected_index).
     """
     is_cloze = is_template_cloze(templates)
@@ -61,9 +59,7 @@ def get_preview_template(
     is_cloze: bool,
     selected_index: int,
 ) -> tuple[dict[str, Any], int]:
-    """
-    Renvoie le template à utiliser pour l'aperçu et l'index de carte réel.
-    """
+    """Renvoie le template à utiliser pour l'aperçu et l'index de carte réel."""
     if is_cloze:
         return templates[0] if templates else {}, selected_index
 

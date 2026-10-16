@@ -1,5 +1,5 @@
-"""
-Dialogue de gestion et de bascule des espaces de travail / profils AnkiForge.
+"""Dialogue de gestion et de bascule des espaces de travail / profils AnkiForge.
+
 Architecture moderne conforme aux DesignTokens et au référentiel DESIGN.md.
 """
 
@@ -156,8 +156,8 @@ class ProfileItemWidget(QFrame):
 
 
 class ProfileSelectorDialog(QDialog):
-    """
-    Dialogue de gestion et de bascule des espaces de travail / profils AnkiForge.
+    """Dialogue de gestion et de bascule des espaces de travail / profils AnkiForge.
+
     Permet de sélectionner un profil existant, d'en créer un nouveau ou de supprimer un profil inutilisé.
     """
 

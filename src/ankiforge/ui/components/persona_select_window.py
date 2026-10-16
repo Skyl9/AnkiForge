@@ -1,5 +1,5 @@
-"""
-Composant de sélection d'agent / persona (prompt) pour les tests A/B.
+"""Composant de sélection d'agent / persona (prompt) pour les tests A/B.
+
 Reproduit le pattern architectural de `model_select_window.py`.
 """
 
@@ -17,10 +17,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class PersonaSelectWindow(QWidget):
-    """
-    Fenêtre modale de sélection d'agent / prompt (PersonaModel) avec recherche instantanée
-    et aperçu du system prompt.
-    """
+    """Fenêtre modale de sélection d'agent / prompt (PersonaModel) avec recherche instantanée et aperçu du system prompt."""
 
     persona_selected = Signal(int, str)  # (persona_id, persona_name)
 

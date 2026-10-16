@@ -1,5 +1,5 @@
-"""
-Package Model Selector d'AnkiForge.
+"""Package Model Selector d'AnkiForge.
+
 Fournit les composants de sélection, badges de capacités et dialogue de découverte des modèles LLM.
 """
 

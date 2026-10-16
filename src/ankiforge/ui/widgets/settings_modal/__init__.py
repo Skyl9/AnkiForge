@@ -1,5 +1,5 @@
-"""
-Package SettingsModal d'AnkiForge.
+"""Package SettingsModal d'AnkiForge.
+
 Re-exporte l'ensemble des composants, onglets et dialogue principal pour rétrocompatibilité 100%.
 """
 

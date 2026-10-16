@@ -1,5 +1,4 @@
-"""
-Widget de Diff Inline intégré directement dans le message de chat.
+"""Widget de Diff Inline intégré directement dans le message de chat.
 
 Permet à l'utilisateur de comparer les champs d'une carte (Recto, Verso),
 d'éditer directement le texte proposé avant validation, de scinder des cartes
@@ -158,11 +157,11 @@ def compute_word_diff_html(original: str, modified: str, show_deletions: bool = 
 
 
 class FieldDiffWidget(QFrame):
-    """
-    Composant d'affichage d'un champ avec support des modes :
+    """Composant d'affichage d'un champ avec support des modes .
+
     - Vue Unifiée (diff mot à mot fusionné)
     - Vue Côte à Côte (2 colonnes : Actuel vs Proposition Éditable)
-    - Vue Édition Directe pleine largeur
+    - Vue Édition Directe pleine largeur.
     """
 
     def __init__(
@@ -540,8 +539,8 @@ class SplitCardItemWidget(QFrame):
 
 
 class InlineDiffCardWidget(QFrame):
-    """
-    Carte interactive de diff intégrée dans un message de chat.
+    """Carte interactive de diff intégrée dans un message de chat.
+
     Comporte un Garde-Fou humain direct ([ ✅ Appliquer ], [ ❌ Rejeter ], [ 👁️ Inspecteur ]).
     """
 

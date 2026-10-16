@@ -53,9 +53,7 @@ VIEW_MODE_QUARANTINE = "quarantine"
 
 
 class NoteTableWidget(RoundedPanel):
-    """
-    Panneau central affichant le tableau des notes/cartes avec sa toolbar d'actions.
-    """
+    """Panneau central affichant le tableau des notes/cartes avec sa toolbar d'actions."""
 
     note_selected = Signal(int)  # ID de la note sélectionnée
     selection_changed = Signal(list)  # Liste des IDs de notes sélectionnées
@@ -208,7 +206,7 @@ class NoteTableWidget(RoundedPanel):
         return note_ids
 
     def select_and_scroll_to_note(self, note_id: int) -> bool:
-        """Selects a note in the table and scrolls to it. Returns True if found."""
+        """Sélectionne une note dans la table et fait défiler jusqu'à elle. Retourne True si trouvée."""
         for row in range(self.data_table.rowCount()):
             table_item = self.data_table.item(row, 0)
             if table_item and table_item.data(Qt.ItemDataRole.UserRole) == note_id:

@@ -1,5 +1,5 @@
-"""
-Boîte de dialogue moderne de Retours & Suggestions d'AnkiForge.
+"""Boîte de dialogue moderne de Retours & Suggestions d'AnkiForge.
+
 Permet aux utilisateurs de signaler des anomalies avec diagnostics système anonymisés
 ou de proposer de nouvelles fonctionnalités, avec envoi GitHub Issues 1-clic et export Markdown.
 """
@@ -47,8 +47,8 @@ logger = logging.getLogger(__name__)
 
 
 class FeedbackDialog(QDialog):
-    """
-    Modale bivalente de retour utilisateur :
+    """Modale bivalente de retour utilisateur .
+
     - Onglet 1 : Signalement de bug avec diagnostic système et logs récents sanitisés.
     - Onglet 2 : Boîte à idées et propositions de fonctionnalités structurées.
     """
@@ -590,9 +590,7 @@ class FeedbackDialog(QDialog):
         self.diag_preview_edit.setEnabled(checked)
 
     def _build_current_report(self) -> tuple[str, str, str]:
-        """
-        Génère (titre, markdown_body, github_label) selon l'onglet actif.
-        """
+        """Génère (titre, markdown_body, github_label) selon l'onglet actif."""
         is_bug = self.tab_bar.currentIndex() == 0
 
         if is_bug:

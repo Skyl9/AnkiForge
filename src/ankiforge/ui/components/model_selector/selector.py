@@ -1,5 +1,5 @@
-"""
-Composant universel de sélection de modèle LLM pour AnkiForge.
+"""Composant universel de sélection de modèle LLM pour AnkiForge.
+
 Combine un menu déroulant enrichi, des badges de capacités dynamiques et un bouton d'inspection/découverte.
 """
 
@@ -76,9 +76,7 @@ class ModelComboBox(StyledComboBox):
 
 
 class ModelSelectorWidget(QWidget):
-    """
-    Sélecteur universel de modèles LLM avec badges de capacités et accès direct au comparateur.
-    """
+    """Sélecteur universel de modèles LLM avec badges de capacités et accès direct au comparateur."""
 
     model_changed = Signal(object)  # LLMConfigModel | None
 

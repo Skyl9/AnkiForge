@@ -1,5 +1,4 @@
-"""
-Widget de courbe de rétention projetée (courbe d'oubli) et de charge à l'équilibre.
+"""Widget de courbe de rétention projetée (courbe d'oubli) et de charge à l'équilibre.
 
 Rendu 100 % natif Qt / PySide6 via QPainter, piloté par les données de
 ``FsrsProjectionService`` : la courbe est ancrée à la révision (100 % à J0) et

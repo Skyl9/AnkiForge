@@ -1,5 +1,5 @@
-"""
-Délégués graphiques haute performance (QStyledItemDelegate) pour l'architecture Model/View d'AnkiForge.
+"""Délégués graphiques haute performance (QStyledItemDelegate) pour l'architecture Model/View d'AnkiForge.
+
 Tous les rendus sont exécutés directement au pinceau vectoriel (QPainter) sans créer aucun sous-widget Qt,
 garantissant un taux de rafraîchissement constant à 60 FPS et une consommation mémoire minimale.
 """
@@ -43,8 +43,8 @@ IS_SUSPENDED_ROLE = Qt.ItemDataRole.UserRole + 10
 
 
 class CheckboxItemDelegate(QStyledItemDelegate):
-    """
-    Délégué de case à cocher personnalisée ultra-rapide.
+    """Délégué de case à cocher personnalisée ultra-rapide.
+
     Dessine une case à cocher stylée moderne (16x16px) avec bords arrondis (4px)
     et coche vectorielle blanche sans instancier de QCheckBox.
     """
@@ -124,8 +124,8 @@ class CheckboxItemDelegate(QStyledItemDelegate):
 
 
 class FlagItemDelegate(QStyledItemDelegate):
-    """
-    Délégué graphique vectoriel haute performance pour les drapeaux Anki (flags 1..7).
+    """Délégué graphique vectoriel haute performance pour les drapeaux Anki (flags 1..7).
+
     Dessine un mât et un fanion vectoriel coloré (QPainter) sans instancier de QWidget.
     """
 
@@ -246,10 +246,7 @@ def parse_qcolor(color_val: Any, fallback: str | None = None) -> QColor:
 
 
 class BadgeItemDelegate(QStyledItemDelegate):
-    """
-    Délégué dessinant une pilule/badge textuel avec coins ultra-arrondis
-    et couleurs sémantiques dynamiques (ex: Modèles, Statuts, Decks).
-    """
+    """Délégué dessinant une pilule/badge textuel avec coins ultra-arrondis et couleurs sémantiques dynamiques (ex: Modèles, Statuts, Decks)."""
 
     def __init__(
         self,
@@ -313,10 +310,7 @@ class BadgeItemDelegate(QStyledItemDelegate):
 
 
 class TagItemDelegate(QStyledItemDelegate):
-    """
-    Délégué pour afficher des tags multiples sous forme de pastilles successives (#tag1, #tag2...)
-    sans débordement et avec troncature propre.
-    """
+    """Délégué pour afficher des tags multiples sous forme de pastilles successives (#tag1, #tag2...) sans débordement et avec troncature propre."""
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
         self._paint_selection_background(painter, option)
@@ -387,9 +381,7 @@ class TagItemDelegate(QStyledItemDelegate):
 
 
 class TextSnippetDelegate(QStyledItemDelegate):
-    """
-    Délégué de texte avec police monospace et détection d'anomalies (cartes vides/invalides).
-    """
+    """Délégué de texte avec police monospace et détection d'anomalies (cartes vides/invalides)."""
 
     def __init__(self, is_code_font: bool = True, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -449,9 +441,7 @@ class TextSnippetDelegate(QStyledItemDelegate):
 
 
 class ProgressBarItemDelegate(QStyledItemDelegate):
-    """
-    Délégué peignant directement une barre de progression moderne pour les files d'attente (Batch).
-    """
+    """Délégué peignant directement une barre de progression moderne pour les files d'attente (Batch)."""
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
         self._paint_selection_background(painter, option)
@@ -506,9 +496,7 @@ class ProgressBarItemDelegate(QStyledItemDelegate):
 
 
 class SimilarityBadgeDelegate(QStyledItemDelegate):
-    """
-    Délégué peignant le badge de similarité (ex: 96.5% en rouge >95%, jaune sinon).
-    """
+    """Délégué peignant le badge de similarité (ex: 96.5% en rouge >95%, jaune sinon)."""
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
         if option.state & QStyle.StateFlag.State_Selected:
@@ -561,10 +549,7 @@ class SimilarityBadgeDelegate(QStyledItemDelegate):
 
 
 class SrsMasteryDelegate(QStyledItemDelegate):
-    """
-    Délégué peignant la comparaison de maîtrise SRS (ex: 🟢 Maîtrisée vs 🔴 Nouvelle)
-    directement au pinceau sans aucun QLabel ni conteneur QWidget.
-    """
+    """Délégué peignant la comparaison de maîtrise SRS (ex: 🟢 Maîtrisée vs 🔴 Nouvelle) directement au pinceau sans aucun QLabel ni conteneur QWidget."""
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
         if option.state & QStyle.StateFlag.State_Selected:

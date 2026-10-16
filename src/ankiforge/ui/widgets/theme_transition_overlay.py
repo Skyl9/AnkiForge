@@ -1,5 +1,5 @@
-"""
-Overlay d'animation de chargement et de transition de style / thème.
+"""Overlay d'animation de chargement et de transition de style / thème.
+
 Affiche un rideau fluide et élégant avec indicateur animé lors de l'application d'un nouveau thème.
 """
 
@@ -67,9 +67,7 @@ class SpinningIconLabel(QWidget):
 
 
 class ThemeTransitionOverlay(QWidget):
-    """
-    Overlay semi-transparent affichant une carte animée pendant le changement de thème.
-    """
+    """Overlay semi-transparent affichant une carte animée pendant le changement de thème."""
 
     def __init__(
         self,
@@ -216,9 +214,7 @@ def show_theme_transition(
     duration_ms: int = 400,
     on_applied: Callable[[], None] | None = None,
 ) -> ThemeTransitionOverlay | None:
-    """
-    Lance une animation de transition fluide par-dessus le widget parent.
-    """
+    """Lance une animation de transition fluide par-dessus le widget parent."""
     if not parent:
         if on_applied:
             on_applied()

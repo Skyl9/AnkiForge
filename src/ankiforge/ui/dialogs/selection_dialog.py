@@ -1,6 +1,4 @@
-"""
-Dialogue générique de sélection d'éléments (Paquets, Modèles, etc.).
-"""
+"""Dialogue générique de sélection d'éléments (Paquets, Modèles, etc.)."""
 
 from collections.abc import Callable, Sequence
 from typing import Any
@@ -25,9 +23,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class SelectionDialog(QDialog):
-    """
-    Fenêtre modale générique permettant de filtrer et sélectionner un élément dans une liste.
-    """
+    """Fenêtre modale générique permettant de filtrer et sélectionner un élément dans une liste."""
 
     def __init__(self, title: str, items: Sequence[Any], display_func: Callable[[Any], str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -148,9 +144,7 @@ class SelectionDialog(QDialog):
 
 
 class MultiSelectionDialog(QDialog):
-    """
-    Fenêtre modale permettant de cocher un ou plusieurs éléments avec filtres et actions rapides.
-    """
+    """Fenêtre modale permettant de cocher un ou plusieurs éléments avec filtres et actions rapides."""
 
     def __init__(
         self,

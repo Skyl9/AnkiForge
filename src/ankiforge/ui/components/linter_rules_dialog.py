@@ -1,5 +1,5 @@
-"""
-Dialogue interactif de configuration et de gestion des règles d'audit Wozniak et catégories personnalisées.
+"""Dialogue interactif de configuration et de gestion des règles d'audit Wozniak et catégories personnalisées.
+
 Permet à l'utilisateur de créer, modifier, activer/désactiver et catégoriser ses règles d'analyse IA.
 """
 
@@ -36,9 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class LinterRulesManagerDialog(QDialog):
-    """
-    Dialogue de gestion des règles et catégories d'audit du Linter.
-    """
+    """Dialogue de gestion des règles et catégories d'audit du Linter."""
 
     rules_updated = Signal()
 

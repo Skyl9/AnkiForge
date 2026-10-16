@@ -1,5 +1,5 @@
-"""
-Classe de base abstraite pour les modèles de table/liste Peewee paginés (Virtualisation Qt).
+"""Classe de base abstraite pour les modèles de table/liste Peewee paginés (Virtualisation Qt).
+
 Implémente le protocole natif canFetchMore() / fetchMore() avec requêtes Peewee paginées
 par blocs (limit/offset) pour garantir une empreinte mémoire constante et un défilement 60 FPS.
 """
@@ -19,8 +19,7 @@ _ROOT_INDEX = QModelIndex()
 
 
 class BasePaginatedPeeweeModel[T](QAbstractTableModel):
-    """
-    Modèle de table virtuel paginé générique connecté à Peewee ORM.
+    """Modèle de table virtuel paginé générique connecté à Peewee ORM.
 
     Permet de charger des dizaines de milliers d'enregistrements à la demande
     par blocs configurables (ex: 100 éléments), sans jamais bloquer l'UI.
@@ -78,9 +77,7 @@ class BasePaginatedPeeweeModel[T](QAbstractTableModel):
         total_count: int | None = None,
         auto_fetch_first_batch: bool = True,
     ) -> None:
-        """
-        Réinitialise le modèle avec une nouvelle requête Peewee filtrée.
-        """
+        """Réinitialise le modèle avec une nouvelle requête Peewee filtrée."""
         self.beginResetModel()
         self._base_query = query
         self._loaded_rows.clear()
@@ -163,8 +160,8 @@ class BasePaginatedPeeweeModel[T](QAbstractTableModel):
     # --- Méthodes à surcharger par les classes dérivées ---
 
     def _process_batch(self, raw_items: list[Any]) -> list[T]:
-        """
-        Hook de conversion et de préchargement des relations en lot.
+        """Hook de conversion et de préchargement des relations en lot.
+
         Par défaut, renvoie la liste brute.
         """
         return raw_items

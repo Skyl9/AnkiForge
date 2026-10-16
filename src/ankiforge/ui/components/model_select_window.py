@@ -1,5 +1,5 @@
-"""
-Composant de sélection de modèle de carte (NoteType).
+"""Composant de sélection de modèle de carte (NoteType).
+
 Reproduit le pattern architectural de `deck_select_window.py` et `tag_select_window.py`.
 """
 
@@ -31,10 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 class ModelSelectWindow(QWidget):
-    """
-    Fenêtre modale de sélection de modèle de carte (NoteType) avec recherche instantanée
-    et prévisualisation des champs et du volume de notes.
-    """
+    """Fenêtre modale de sélection de modèle de carte (NoteType) avec recherche instantanée et prévisualisation des champs et du volume de notes."""
 
     model_selected = Signal(int, str)  # (model_id, model_name)
 

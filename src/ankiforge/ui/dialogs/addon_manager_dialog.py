@@ -1,5 +1,5 @@
-"""
-Gestionnaire Visuel d'Addons & Extensions AnkiForge.
+"""Gestionnaire Visuel d'Addons & Extensions AnkiForge.
+
 Conforme au Design System AnkiForge (DesignTokens, PySide6, Nuitka-Safe).
 Fournit un éditeur graphique automatique de configuration (config.json),
 un visualiseur de documentation (config.md) et un installateur d'archives ZIP.
@@ -61,9 +61,7 @@ def _safe_show_toast(widget: QWidget, message: str, is_error: bool = False) -> N
 
 
 class AddonConfigForm(QWidget):
-    """
-    Formulaire dynamique généré à partir du dictionnaire config.json d'un addon.
-    """
+    """Formulaire dynamique généré à partir du dictionnaire config.json d'un addon."""
 
     config_saved = Signal(dict)
 
@@ -456,9 +454,7 @@ class AddonDetailWidget(QWidget):
 
 
 class AddonManagerWidget(QWidget):
-    """
-    Vue principale du gestionnaire d'addons pour intégration dans la modale Paramètres.
-    """
+    """Vue principale du gestionnaire d'addons pour intégration dans la modale Paramètres."""
 
     def __init__(self, plugin_manager: PluginManager | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)

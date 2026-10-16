@@ -1,5 +1,4 @@
-"""
-Batch Activity Log — Journal d'activité moderne remplaçant le terminal QPlainTextEdit vert.
+"""Batch Activity Log — Journal d'activité moderne remplaçant le terminal QPlainTextEdit vert.
 
 Timeline d'événements horodatés avec icônes Phosphor et badges d'erreur filtrables.
 Maintient la rétrocompatibilité avec les tests qui accèdent à :
@@ -91,8 +90,7 @@ class _LogEntry(QFrame):
 
 
 class BatchActivityLog(QWidget):
-    """
-    Journal d'activité moderne remplaçant la QPlainTextEdit verte.
+    """Journal d'activité moderne remplaçant la QPlainTextEdit verte.
 
     Expose :
       - append_log(level, message)   → ajoute une entrée typée

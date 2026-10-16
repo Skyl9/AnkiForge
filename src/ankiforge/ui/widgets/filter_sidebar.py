@@ -16,10 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class FilterSidebar(RoundedPanel):
-    """
-    Panneau latéral permettant de naviguer dans les paquets Anki
-    et de filtrer par tags.
-    """
+    """Panneau latéral permettant de naviguer dans les paquets Anki et de filtrer par tags."""
 
     deck_selected = Signal(int)  # ID du paquet
     tag_selected = Signal(object)  # str ou None

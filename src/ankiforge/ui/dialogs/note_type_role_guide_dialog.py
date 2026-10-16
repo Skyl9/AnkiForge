@@ -1,6 +1,4 @@
-"""
-Dialogue modal unifié présentant le guide sémantique et le générateur de tableaux des rôles IA pour les types de note.
-"""
+"""Dialogue modal unifié présentant le guide sémantique et le générateur de tableaux des rôles IA pour les types de note."""
 
 from __future__ import annotations
 
@@ -61,10 +59,10 @@ class TargetFieldsItemDelegate(QStyledItemDelegate):
 
 
 class NoteTypeRoleGuideDialog(QDialog):
-    """
-    Dialogue modal unifié permettant de consulter le catalogue des rôles IA,
-    de choisir un archétype pré-mappé sur les champs réels du modèle,
-    ou de personnaliser son tableau Markdown avec prévisualisation en temps réel.
+    """Dialogue modal unifié de consultation et d'attribution des rôles IA pour modèles de notes.
+
+    Permet de consulter le catalogue des rôles IA, de choisir un archétype pré-mappé sur
+    les champs réels du modèle, ou de personnaliser son tableau Markdown avec prévisualisation.
     """
 
     def __init__(

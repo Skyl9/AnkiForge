@@ -1,5 +1,5 @@
-"""
-Dialogue d'Importation de Paquets et Collections Anki (.apkg, .colpkg, .txt).
+"""Dialogue d'Importation de Paquets et Collections Anki (.apkg, .colpkg, .txt).
+
 Gère l'analyse préliminaire, le déclenchement du Smart Merge si conflits de contenu,
 et l'écriture finale en base avec rapport de synthèse.
 """
@@ -101,9 +101,7 @@ class ImportDropZone(QFrame):
 
 
 class ImportDialog(QDialog):
-    """
-    Dialogue complet d'importation avec analyse, détection de conflits et confirmation.
-    """
+    """Dialogue complet d'importation avec analyse, détection de conflits et confirmation."""
 
     import_finished = Signal(dict)
 

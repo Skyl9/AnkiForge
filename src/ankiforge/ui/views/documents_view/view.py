@@ -121,9 +121,7 @@ class MarkerInstallerWorker(QThread):
 
 
 class DocumentsView(FileDropMixin, QWidget):
-    """
-    Vue My Documents / Library — 100% Conforme au Design System AnkiForge.
-    """
+    """Vue My Documents / Library — 100% Conforme au Design System AnkiForge."""
 
     request_navigation = Signal(str, object)
 

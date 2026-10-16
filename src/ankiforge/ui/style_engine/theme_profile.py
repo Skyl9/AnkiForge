@@ -1,5 +1,5 @@
-"""
-ThemeProfile definition for AnkiForge Style Engine.
+"""ThemeProfile definition for AnkiForge Style Engine.
+
 Représente la structure complète et typée d'un profil de thème visuel.
 """
 

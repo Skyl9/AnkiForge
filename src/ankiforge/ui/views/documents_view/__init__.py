@@ -1,5 +1,5 @@
-"""
-Package DocumentsView d'AnkiForge (Hub Documentaire & RAG Local).
+"""Package DocumentsView d'AnkiForge (Hub Documentaire & RAG Local).
+
 Re-exporte l'ensemble des dialogues, widgets et la vue principale pour 100% de rétrocompatibilité.
 """
 

@@ -1,5 +1,5 @@
-"""
-Package AnalysisView d'AnkiForge (Analyse, Audit IA, Couverture, SRS et Doublons).
+"""Package AnalysisView d'AnkiForge (Analyse, Audit IA, Couverture, SRS et Doublons).
+
 Re-exporte l'ensemble des composants pour 100% de rétrocompatibilité.
 """
 

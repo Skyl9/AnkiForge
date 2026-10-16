@@ -47,9 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 class AIWozniakLinterTab(QWidget):
-    """
-    Onglet Wozniak Linter & Anti-Hallucination avec Cockpit Analytique et Hub Comparatif.
-    """
+    """Onglet Wozniak Linter & Anti-Hallucination avec Cockpit Analytique et Hub Comparatif."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)

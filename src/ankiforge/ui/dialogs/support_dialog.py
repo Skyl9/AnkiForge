@@ -1,5 +1,4 @@
-"""
-Dialogue d'invitation de soutien Ko-fi pour AnkiForge.
+"""Dialogue d'invitation de soutien Ko-fi pour AnkiForge.
 
 Présente une invitation chaleureuse et non bloquante à soutenir le développement
 volontaire du projet, avec possibilité de désactiver durablement l'invitation

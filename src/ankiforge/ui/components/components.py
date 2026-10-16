@@ -1,6 +1,4 @@
-"""
-Compatibilité composant pour widgets réintégrés.
-"""
+"""Compatibilité composant pour widgets réintégrés."""
 
 from PySide6.QtWidgets import QLabel
 

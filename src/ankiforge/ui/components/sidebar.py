@@ -1,5 +1,5 @@
-"""
-Sidebar de navigation principale AnkiForge.
+"""Sidebar de navigation principale AnkiForge.
+
 Barre latérale rétractable (260px <-> 68px) avec sections, profils et paramètres.
 """
 
