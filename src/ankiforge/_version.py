@@ -1,4 +1,5 @@
 """Fichier généré automatiquement lors du build/packaging d'AnkiForge.
+
 Ne pas modifier manuellement.
 """
 

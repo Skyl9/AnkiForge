@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour SystemNotificationService.
+"""Tests unitaires pour SystemNotificationService.
+
 Vérifie la détection de fenêtre en arrière-plan, l'émission des notifications de bureau,
 le repli sur l'alerte dock/taskbar et l'inhibition sécurisée en environnement de test.
 """

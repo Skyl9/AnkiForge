@@ -1,5 +1,5 @@
-"""
-Tests UI pour ImageOcclusionEditor et ImageOcclusionDialog avec pytest-qt.
+"""Tests UI pour ImageOcclusionEditor et ImageOcclusionDialog avec pytest-qt.
+
 Vérifie la manipulation graphique, l'ajout/suppression de masques et les signaux.
 """
 

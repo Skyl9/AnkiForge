@@ -1,8 +1,8 @@
-"""
-Tests d'interface graphique (PySide6 / pytest-qt) pour la personnalisation des drapeaux Anki dans AnkiSyncTab :
+"""Tests d'interface graphique (PySide6 / pytest-qt) pour la personnalisation des drapeaux Anki dans AnkiSyncTab.
+
 - Affichage des 7 drapeaux avec pastilles de couleur
 - Détection des modifications en attente via has_pending_changes()
-- Sauvegarde et persistance via save_tab()
+- Sauvegarde et persistance via save_tab().
 """
 
 from __future__ import annotations

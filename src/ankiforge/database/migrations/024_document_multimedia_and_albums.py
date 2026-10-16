@@ -1,3 +1,5 @@
+"""Migration 024 : albums d'images, table document_pages et champs multimodaux des chunks."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

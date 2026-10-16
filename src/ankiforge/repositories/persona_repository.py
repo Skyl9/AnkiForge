@@ -1,6 +1,4 @@
-"""
-Repository for Persona Models, Persona Folders, Persona Versions, LLM Configs, and Prompts.
-"""
+"""Dépôt des modèles de persona, des dossiers de persona, des versions de persona, des configurations LLM et des prompts."""
 
 from __future__ import annotations
 
@@ -22,14 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 class PersonaRepository(BaseRepository):
-    """Data access repository for AI Personas, folders, LLM engine configurations, and prompts."""
+    """Dépôt d'accès aux données des personas IA, des dossiers, des configurations de moteur LLM et des prompts."""
 
     def get_all_folders(self) -> list[PersonaFolderModel]:
-        """Retrieve all persona folders."""
+        """Retourne tous les dossiers de persona."""
         return list(PersonaFolderModel.select().order_by(PersonaFolderModel.name.asc()))
 
     def get_folder_by_id(self, folder_id: int) -> PersonaFolderModel | None:
-        """Retrieve a persona folder by ID."""
+        """Retourne un dossier de persona par son ID."""
         try:
             return PersonaFolderModel.get_or_none(PersonaFolderModel.id == folder_id)
         except Exception as e:
@@ -37,12 +35,12 @@ class PersonaRepository(BaseRepository):
             return None
 
     def create_folder(self, name: str, parent: PersonaFolderModel | None = None) -> PersonaFolderModel:
-        """Create a new persona folder."""
+        """Crée un nouveau dossier de persona."""
         with self.atomic():
             return PersonaFolderModel.create(name=name, parent=parent)
 
     def delete_folder(self, folder_id: int) -> bool:
-        """Delete a persona folder and cascade."""
+        """Supprime un dossier de persona et propage en cascade."""
         folder = self.get_folder_by_id(folder_id)
         if not folder:
             return False
@@ -56,7 +54,7 @@ class PersonaRepository(BaseRepository):
         folder_id: int | None = None,
         persona_type: str | None = None,
     ) -> list[PersonaModel]:
-        """Retrieve all personas optionally filtered by folder or type."""
+        """Retourne toutes les personas, éventuellement filtrées par dossier ou par type."""
         query = PersonaModel.select().order_by(PersonaModel.name.asc())
         if folder_id is not None:
             query = query.where(PersonaModel.folder == folder_id)
@@ -65,7 +63,7 @@ class PersonaRepository(BaseRepository):
         return list(query)
 
     def get_persona_by_id(self, persona_id: int) -> PersonaModel | None:
-        """Retrieve a persona by ID."""
+        """Retourne une persona par son ID."""
         try:
             return PersonaModel.get_or_none(PersonaModel.id == persona_id)
         except Exception as e:
@@ -73,7 +71,7 @@ class PersonaRepository(BaseRepository):
             return None
 
     def get_persona_by_name(self, name: str) -> PersonaModel | None:
-        """Retrieve a persona by its unique name."""
+        """Retourne une persona par son nom unique."""
         try:
             return PersonaModel.get_or_none(PersonaModel.name == name)
         except Exception as e:
@@ -91,7 +89,7 @@ class PersonaRepository(BaseRepository):
         allowed_tools: list[str] | None = None,
         llm_config: LLMConfigModel | None = None,
     ) -> PersonaModel:
-        """Create a new persona and its initial version snapshot."""
+        """Crée une nouvelle persona et son instantané de version initial."""
         tools_str = json.dumps(allowed_tools or [])
         with self.atomic():
             persona = PersonaModel.create(
@@ -119,7 +117,7 @@ class PersonaRepository(BaseRepository):
             return persona
 
     def update_persona(self, persona_id: int, **kwargs: Any) -> PersonaModel | None:
-        """Update fields of an existing persona."""
+        """Met à jour les champs d'une persona existante."""
         persona = self.get_persona_by_id(persona_id)
         if not persona:
             return None
@@ -135,7 +133,7 @@ class PersonaRepository(BaseRepository):
             return persona
 
     def delete_persona(self, persona_id: int) -> bool:
-        """Delete a persona and cascade to its versions."""
+        """Supprime une persona et propage en cascade à ses versions."""
         persona = self.get_persona_by_id(persona_id)
         if not persona:
             return False
@@ -145,11 +143,11 @@ class PersonaRepository(BaseRepository):
             return True
 
     def get_all_llm_configs(self) -> list[LLMConfigModel]:
-        """Retrieve all LLM engine configurations."""
+        """Retourne toutes les configurations de moteur LLM."""
         return list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.display_name.asc()))
 
     def get_llm_config_by_id(self, config_id: int) -> LLMConfigModel | None:
-        """Retrieve an LLM configuration by ID."""
+        """Retourne une configuration LLM par son ID."""
         try:
             return LLMConfigModel.get_or_none(LLMConfigModel.id == config_id)
         except Exception as e:
@@ -157,7 +155,7 @@ class PersonaRepository(BaseRepository):
             return None
 
     def get_llm_config_by_display_name(self, name: str) -> LLMConfigModel | None:
-        """Retrieve an LLM configuration by display name."""
+        """Retourne une configuration LLM par son nom d'affichage."""
         try:
             return LLMConfigModel.get_or_none(LLMConfigModel.display_name == name)
         except Exception as e:
@@ -179,7 +177,7 @@ class PersonaRepository(BaseRepository):
         is_free: bool = False,
         supports_vision: bool | None = None,
     ) -> LLMConfigModel:
-        """Create a new LLM configuration.
+        """Crée une nouvelle configuration LLM.
 
         Les capacités (Vision, Thinking, JSON…) sont déduites du catalogue au moment de la création,
         sauf valeur imposée — un moteur local détecté avec un projecteur CLIP, que le catalogue hors
@@ -222,7 +220,7 @@ class PersonaRepository(BaseRepository):
             )
 
     def update_llm_config(self, config_id: int, **kwargs: Any) -> LLMConfigModel | None:
-        """Update an existing LLM configuration."""
+        """Met à jour une configuration LLM existante."""
         config = self.get_llm_config_by_id(config_id)
         if not config:
             return None
@@ -235,7 +233,7 @@ class PersonaRepository(BaseRepository):
             return config
 
     def delete_llm_config(self, config_id: int) -> bool:
-        """Delete an LLM configuration."""
+        """Supprime une configuration LLM."""
         config = self.get_llm_config_by_id(config_id)
         if not config:
             return False
@@ -245,11 +243,11 @@ class PersonaRepository(BaseRepository):
             return True
 
     def get_all_prompts(self) -> list[PromptModel]:
-        """Retrieve all prompt templates."""
+        """Retourne tous les modèles de prompt."""
         return list(PromptModel.select().order_by(PromptModel.name.asc()))
 
     def get_prompt_by_name(self, name: str) -> PromptModel | None:
-        """Retrieve a prompt template by name."""
+        """Retourne un modèle de prompt par son nom."""
         try:
             return PromptModel.get_or_none(PromptModel.name == name)
         except Exception as e:

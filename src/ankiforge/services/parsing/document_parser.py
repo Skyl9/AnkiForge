@@ -1,3 +1,5 @@
+"""Extraction de documents hétérogènes (PDF, DOCX, PPTX, EPUB, HTML, notebooks, code) vers Markdown."""
+
 import ast
 import json
 import logging
@@ -58,19 +60,17 @@ def is_web_source(source: str) -> bool:
 
 
 class DocumentParser:
-    """
-    Service d'extraction de texte multi-format.
+    """Service d'extraction de texte multi-format.
 
     Capacité à transformer des fichiers PDF, Word, PowerPoint, Markdown et des pages Web
     en texte brut structuré (Markdown) optimisé pour le traitement par IA.
     """
 
     def __init__(self, media_manager: MediaManager | None = None):
-        """
-        Initialise le parseur avec un gestionnaire de médias.
+        """Initialise le parseur avec un gestionnaire de médias.
 
         Args:
-            media_manager (MediaManager | None): Pour gérer les images extraites (ex: PDF).
+            media_manager: Pour gérer les images extraites (ex: PDF).
         """
         self.media_manager = media_manager or MediaManager()
 
@@ -118,18 +118,17 @@ class DocumentParser:
         auto_format: bool = False,
         marker_options: MarkerOptions | None = None,
     ) -> str:
-        """
-        Détermine le type de document et invoque le parseur approprié.
+        """Détermine le type de document et invoque le parseur approprié.
 
         Args:
-            source_file_path (str | Path): Chemin local ou URL du document.
-            progress_callback (callable | None): Fonction de rappel pour la progression (msg: str).
-            check_cancel (callable | None): Fonction pour vérifier si l'utilisateur a annulé.
-            auto_format (bool): Si True, nettoie et normalise le Markdown extrait.
-            marker_options (MarkerOptions | None): Options d'extraction Marker OCR pour les PDF.
+            source_file_path: Chemin local ou URL du document.
+            progress_callback: Fonction de rappel pour la progression (msg: str).
+            check_cancel: Fonction pour vérifier si l'utilisateur a annulé.
+            auto_format: Si True, nettoie et normalise le Markdown extrait.
+            marker_options: Options d'extraction Marker OCR pour les PDF.
 
         Returns:
-            str: Le texte extrait au format Markdown.
+            Le texte extrait au format Markdown.
 
         Raises:
             FileNotFoundError: Si le fichier local est introuvable.
@@ -223,9 +222,7 @@ class DocumentParser:
         progress_callback: Callable[[str], None] | None = None,
         check_cancel: Callable[[], bool] | None = None,
     ) -> str:
-        """
-        Télécharge et extrait le contenu principal d'une page Web.
-        """
+        """Télécharge et extrait le contenu principal d'une page Web."""
         if "youtube.com/watch" in url or "youtu.be/" in url:
             from ankiforge.services.parsing.youtube_parser import YouTubeParser
 
@@ -243,7 +240,6 @@ class DocumentParser:
             raise RuntimeError("Le module trafilatura n'est pas installé. Lancez 'uv add trafilatura'")
         if "wikipedia.org/wiki/" in url:
             return self._parse_wikipedia(url)
-        # Téléchargement
         downloaded = trafilatura.fetch_url(url)
         if downloaded is None:
             raise ValueError("Accès refusé ou URL invalide. Le site est peut-être protégé contre les robots (Cloudflare, connexion requise...).")
@@ -258,14 +254,13 @@ class DocumentParser:
 
     @staticmethod
     def _parse_wikipedia(url: str) -> str:
-        """
-        Extrait le contenu d'un article Wikipédia en préservant les formules LaTeX.
+        """Extrait le contenu d'un article Wikipédia en préservant les formules LaTeX.
 
         Args:
-            url (str): URL de l'article Wikipédia.
+            url: URL de l'article Wikipédia.
 
         Returns:
-            str: L'article converti en Markdown avec LaTeX protégé par des $$.
+            L'article converti en Markdown avec LaTeX protégé par des $$.
         """
         if BeautifulSoup is None or markdownify is None:
             raise RuntimeError("Pour lire les mathématiques de Wikipédia, installez les outils : 'uv add beautifulsoup4 markdownify'")
@@ -609,7 +604,6 @@ class DocumentParser:
                 style = para.style
                 raw_name = getattr(style, "name", "") if style else ""
 
-                # On s'assure d'avoir une chaîne de caractères (même vide)
                 style_name = str(raw_name).lower() if raw_name else ""
                 # Traduction sémantique pour aider le "Chunking" de l'IA
                 if "heading 1" in style_name or "titre 1" in style_name:
@@ -649,14 +643,13 @@ class DocumentParser:
 
     @staticmethod
     def _parse_text(file_path: Path) -> str:
-        """
-        Lit un fichier texte brut ou Markdown.
+        """Lit un fichier texte brut ou Markdown.
 
         Args:
-            file_path (Path): Chemin vers le fichier.
+            file_path: Chemin vers le fichier.
 
         Returns:
-            str: Le contenu du fichier.
+            Le contenu du fichier.
         """
         return file_path.read_text(encoding="utf-8")
 
@@ -693,8 +686,7 @@ class DocumentParser:
         return outputs
 
     def _parse_ipynb(self, file_path: Path) -> str:
-        """
-        Convertit un notebook Jupyter (.ipynb) en Markdown structuré.
+        """Convertit un notebook Jupyter (.ipynb) en Markdown structuré.
 
         Les cellules Markdown sont conservées telles quelles, les cellules de code
         sont embarquées dans des blocs ```python précédés d'un titre, et leurs
@@ -760,8 +752,7 @@ class DocumentParser:
         return ""
 
     def _parse_python(self, file_path: Path) -> str:
-        """
-        Convertit un fichier source Python (.py) en Markdown structuré par AST.
+        """Convertit un fichier source Python (.py) en Markdown structuré par AST.
 
         Le code est préservé intégralement dans des blocs ```python, avec un titre
         et la docstring en tête de chaque classe et fonction (dans l'ordre du fichier).

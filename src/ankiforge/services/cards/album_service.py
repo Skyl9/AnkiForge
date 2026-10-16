@@ -1,3 +1,9 @@
+"""Service métier de gestion des Albums d'images et Livres scannés (rendu, rotation, compilation PDF).
+
+Orchestre le tri des planches, le rendu orienté par la couture (ADR 0011), la rotation
+non destructive et la compilation d'un album en PDF de lecture unique.
+"""
+
 from __future__ import annotations
 
 import datetime
@@ -26,8 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class AlbumCompileCancelled(RuntimeError):
-    """
-    Interruption demandée de la compilation d'un album.
+    """Interruption demandée de la compilation d'un album.
 
     Exception distincte d'un échec : une annulation n'est pas une erreur, et l'interface
     ne doit pas la rapporter comme telle.
@@ -56,10 +61,7 @@ def crop_box_source_to_rotated(
     source_height: int,
     rotation: int,
 ) -> tuple[int, int, int, int]:
-    """
-    Convertit un rectangle de recadrage (x, y, w, h) du repère natif de l'image source
-    vers le repère de la planche pivotée à 0, 90, 180 ou 270 degrés.
-    """
+    """Convertit un rectangle de recadrage (x, y, w, h) du repère natif de l'image source vers le repère de la planche pivotée à 0, 90, 180 ou 270 degrés."""
     x, y, w, h = box
     x1, y1 = x, y
     x2, y2 = x + w, y + h
@@ -83,10 +85,7 @@ def crop_box_rotated_to_source(
     source_height: int,
     rotation: int,
 ) -> tuple[int, int, int, int]:
-    """
-    Convertit un rectangle de recadrage (x, y, w, h) du repère de la planche pivotée
-    vers le repère natif de l'image source.
-    """
+    """Convertit un rectangle de recadrage (x, y, w, h) du repère de la planche pivotée vers le repère natif de l'image source."""
     rx, ry, rw, rh = box
     rx1, ry1 = rx, ry
     rx2, ry2 = rx + rw, ry + rh
@@ -105,8 +104,7 @@ def crop_box_rotated_to_source(
 
 
 def reaggregate_document_content(document_id: int) -> None:
-    """
-    Reconstruit `DocumentModel.content` depuis les fragments **vivants** du document.
+    """Reconstruit `DocumentModel.content` depuis les fragments **vivants** du document.
 
     Le contenu agrégé est une copie : retirer un fragment ne le retirait pas de la copie,
     qui continuait donc de servir — et d'indexer — une description d'orientation périmée.
@@ -124,8 +122,8 @@ def reaggregate_document_content(document_id: int) -> None:
 
 
 def extract_exif_timestamp(file_path: str | Path) -> datetime.datetime | None:
-    """
-    Extrait la date et l'heure de capture depuis les métadonnées EXIF (DateTimeOriginal ou DateTime).
+    """Extrait la date et l'heure de capture depuis les métadonnées EXIF (DateTimeOriginal ou DateTime).
+
     Retourne None si l'image ne contient pas de métadonnées exploitables ou en cas d'erreur.
     """
     try:
@@ -163,11 +161,11 @@ class AlbumService:
         mode: str = "natural",
         method: str | None = None,
     ) -> list[Path]:
-        """
-        Trie une liste de chemins d'images selon le mode spécifié :
+        """Trie une liste de chemins d'images selon le mode spécifié.
+
         - 'natural' : tri alphanumérique naturel (page_1, page_2, page_10)
         - 'exif' : tri par date de prise de vue EXIF (avec repli sur mtime puis tri naturel)
-        - 'none' : conserve l'ordre fourni
+        - 'none' : conserve l'ordre fourni.
         """
         active_mode = method if method is not None else mode
         paths = [Path(p) for p in image_paths]
@@ -189,7 +187,6 @@ class AlbumService:
 
             return sorted(paths, key=_exif_key)
 
-        # Mode "natural" par défaut
         return sorted(paths, key=natural_sort_key)
 
     def create_album_from_images(
@@ -201,10 +198,7 @@ class AlbumService:
         folder_id: int | None = None,
         sort_method: str | None = None,
     ) -> DocumentModel:
-        """
-        Crée un DocumentModel de type 'album' et archive les images dans MediaModel
-        en générant les DocumentPageModel ordonnés.
-        """
+        """Crée un DocumentModel de type 'album' et archive les images dans MediaModel en générant les DocumentPageModel ordonnés."""
         if not image_paths:
             raise ValueError("Impossible de créer un album sans image.")
 
@@ -248,8 +242,7 @@ class AlbumService:
         return list(DocumentPageModel.select().where(DocumentPageModel.document == document_id).order_by(DocumentPageModel.page_number.asc()))
 
     def page_media_path(self, page: DocumentPageModel) -> Path:
-        """
-        Chemin du fichier image **brut** d'une planche.
+        """Chemin du fichier image **brut** d'une planche.
 
         Réservé à la couture : lire une planche passe par `render_page_image`, jamais par
         ce chemin seul — un fichier brut ignore la rotation de la planche, et l'ignorer
@@ -272,8 +265,8 @@ class AlbumService:
         page_id: int,
         crop_box: Sequence[int] | None,
     ) -> DocumentPageModel:
-        """
-        Définit ou retire le rectangle de recadrage restrictif sur l'image source d'une planche.
+        """Définit ou retire le rectangle de recadrage restrictif sur l'image source d'une planche.
+
         Invalide l'état dérivé (transcription vidée, fragment retiré, status=stale).
         """
         with db.atomic():
@@ -307,8 +300,7 @@ class AlbumService:
         selection_rect: tuple[int, int, int, int],
         view_size: tuple[int, int],
     ) -> DocumentPageModel:
-        """
-        Définit le recadrage à partir des coordonnées d'une sélection tracée sur la vue affichée.
+        """Définit le recadrage à partir des coordonnées d'une sélection tracée sur la vue affichée.
 
         Convertit l'échelle de la vue vers les dimensions orientées de la planche, puis vers le
         repère natif de l'image source selon la rotation de la planche.
@@ -341,11 +333,11 @@ class AlbumService:
         max_size: int | None = None,
         ignore_crop: bool = False,
     ) -> Image.Image:
-        """
-        **Seule voie de lecture d'une planche** (ADR 0011) : rend l'image à l'orientation
-        propre de la planche, en appliquant fidèlement le recadrage source éventuel,
-        sous forme de `PIL.Image.Image` — la représentation que la transcription, la
-        compilation et le modèle de vision parlent déjà.
+        """**Seule voie de lecture d'une planche** (ADR 0011) : rend l'image à l'orientation propre de la planche.
+
+        Le recadrage source éventuel est appliqué fidèlement ; le résultat est un
+        `PIL.Image.Image`, la représentation que la transcription, la compilation et le
+        modèle de vision parlent déjà.
 
         Le recadrage est appliqué **sur l'image source** avant mise à l'échelle et rotation.
         Le fichier image n'est jamais réécrit : le `MediaManager` dédupliquant par MD5,
@@ -400,8 +392,7 @@ class AlbumService:
         max_size: int | None = None,
         ignore_crop: bool = False,
     ) -> QImage:
-        """
-        Adaptateur `QImage` de la couture — le format **sûr hors thread GUI**.
+        """Adaptateur `QImage` de la couture — le format **sûr hors thread GUI**.
 
         `QImage` est indépendant du thread et se construit donc dans un `QThreadPool` ;
         `QPixmap`, lui, ne peut être créé que sur le thread GUI. On expose donc les deux :
@@ -427,8 +418,7 @@ class AlbumService:
         max_size: int | None = None,
         ignore_crop: bool = False,
     ) -> QPixmap:
-        """
-        Adaptateur `QPixmap` de la couture, pour l'interface.
+        """Adaptateur `QPixmap` de la couture, pour l'interface.
 
         **À appeler sur le thread GUI** : Qt refuse de construire un `QPixmap` ailleurs.
         Un worker de vignettes doit produire une `QImage` et laisser la conversion ici.
@@ -438,10 +428,10 @@ class AlbumService:
         return QPixmap.fromImage(self.render_page_qimage(page, max_size=max_size, ignore_crop=ignore_crop))
 
     def rotate_page(self, page_id: int, degrees: int = 90) -> DocumentPageModel:
-        """
-        Fait pivoter une page par incrément de 90° (0°, 90°, 180°, 270°) et **périme son
-        état dérivé** : transcription et description dense décrivent une planche dans une
-        orientation qui n'est plus la sienne (ADR 0011).
+        """Fait pivoter une page par incrément de 90° (0°, 90°, 180°, 270°) et **périme son état dérivé** (ADR 0011).
+
+        Transcription et description dense décrivent une planche dans une orientation
+        qui n'est plus la sienne.
 
         L'état périmé est marqué, jamais servi ni recalculé d'office : sur un album de
         200 planches, une retranscription automatique coûterait 200 appels à un modèle de
@@ -467,8 +457,8 @@ class AlbumService:
             return page
 
     def reorder_pages(self, document_id: int, new_page_ids_order: Sequence[int]) -> list[DocumentPageModel]:
-        """
-        Réordonne les pages d'un album selon la liste ordonnée des IDs fournie.
+        """Réordonne les pages d'un album selon la liste ordonnée des IDs fournie.
+
         Utilise une mise à jour temporaire négative pour éviter tout conflit sur l'index UNIQUE(document, page_number).
         """
         with db.atomic():
@@ -488,10 +478,7 @@ class AlbumService:
             return self.get_album_pages(document_id)
 
     def delete_page(self, page_id: int) -> None:
-        """
-        Supprime une page de l'album, renumérote les pages restantes de façon contiguë (1..N),
-        et met à jour total_pages du DocumentModel.
-        """
+        """Supprime une page de l'album, renumérote les pages restantes de façon contiguë (1..N), et met à jour total_pages du DocumentModel."""
         with db.atomic():
             page = DocumentPageModel.get_by_id(page_id)
             document = page.document
@@ -521,8 +508,8 @@ class AlbumService:
         image_paths: Sequence[str | Path],
         insert_at: int | None = None,
     ) -> list[DocumentPageModel]:
-        """
-        Ajoute de nouvelles images à un album existant à la position spécifiée (1-indexed).
+        """Ajoute de nouvelles images à un album existant à la position spécifiée (1-indexed).
+
         Si insert_at est None, les images sont ajoutées à la fin.
         """
         if not image_paths:
@@ -540,7 +527,6 @@ class AlbumService:
             else:
                 target_pos = insert_at
 
-            # Décaler les pages existantes à partir de target_pos
             new_count = len(image_paths)
             new_order_pages: list[tuple[int, int]] = []
 
@@ -557,7 +543,6 @@ class AlbumService:
             for p_id, final_num in new_order_pages:
                 DocumentPageModel.update(page_number=final_num).where(DocumentPageModel.id == p_id).execute()
 
-            # Création des nouvelles pages
             created_pages: list[DocumentPageModel] = []
             for offset, img_path in enumerate(image_paths):
                 media = self.media_manager.store_document_source(str(img_path))
@@ -591,9 +576,7 @@ class AlbumService:
         progress_callback: Callable[[int, int], None] | None = None,
         should_cancel: Callable[[], bool] | None = None,
     ) -> Path:
-        """
-        Compile toutes les pages de l'album en un fichier PDF de lecture unique,
-        en appliquant fidèlement les rotations définies sur chaque page.
+        """Compile toutes les pages de l'album en un fichier PDF de lecture unique, en appliquant fidèlement les rotations définies sur chaque page.
 
         Les planches sont rendues **par la couture** : la rotation est donc appliquée par
         construction, et non par une boucle qui l'oublierait un jour.
@@ -626,7 +609,6 @@ class AlbumService:
                 if progress_callback is not None:
                     progress_callback(idx + 1, total_pages)
 
-            # Sauvegarde PDF
             first_image = pil_images[0]
             rest_images = pil_images[1:]
             first_image.save(

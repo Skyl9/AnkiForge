@@ -1,6 +1,4 @@
-"""
-Tests d'intégration pour VectorManager et RAGService avec support RAG Hybride (FAISS + BM25 + RRF).
-"""
+"""Tests d'intégration pour VectorManager et RAGService avec support RAG Hybride (FAISS + BM25 + RRF)."""
 
 import uuid
 from pathlib import Path

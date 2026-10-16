@@ -1,6 +1,4 @@
-"""
-Tests UI PySide6 pour WorkspaceInspectorWidget avec Garde-Fou, Patch Queue, Direct Edit et InlineDiffCardWidget.
-"""
+"""Tests UI PySide6 pour WorkspaceInspectorWidget avec Garde-Fou, Patch Queue, Direct Edit et InlineDiffCardWidget."""
 
 import json
 import uuid

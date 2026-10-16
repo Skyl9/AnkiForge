@@ -1,6 +1,4 @@
-"""
-Repository for Folders, Documents, Chunks, and Note-Chunk Traceability Links.
-"""
+"""Dépôt des dossiers, des documents, des fragments et des liens de traçabilité note-fragment."""
 
 from __future__ import annotations
 
@@ -45,26 +43,29 @@ class ChunkSyncReport:
     deleted: int = 0
 
     def preserved_one(self) -> ChunkSyncReport:
+        """Retourne un nouveau bilan avec un fragment préservé de plus."""
         return ChunkSyncReport(self.preserved + 1, self.created, self.deleted)
 
     def created_one(self) -> ChunkSyncReport:
+        """Retourne un nouveau bilan avec un fragment créé de plus."""
         return ChunkSyncReport(self.preserved, self.created + 1, self.deleted)
 
     def deleted_one(self, count: int) -> ChunkSyncReport:
+        """Retourne un nouveau bilan avec le nombre de fragments supprimés incrémenté."""
         return ChunkSyncReport(self.preserved, self.created, self.deleted + count)
 
 
 class DocumentRepository(BaseRepository):
-    """Data access repository for documents, folders, and RAG chunk linkages."""
+    """Dépôt d'accès aux données des documents, des dossiers et des rattachements de fragments RAG."""
 
     _PAGE_LABEL_RE = re.compile(r"^\s*page\s*\d+\s*$", re.IGNORECASE)
 
     def get_all_folders(self) -> list[FolderModel]:
-        """Retrieve all document library folders."""
+        """Retourne tous les dossiers de la bibliothèque documentaire."""
         return list(FolderModel.select().order_by(FolderModel.name.asc()))
 
     def get_folder_by_id(self, folder_id: int) -> FolderModel | None:
-        """Retrieve a folder by its ID."""
+        """Retourne un dossier par son ID."""
         try:
             return FolderModel.get_or_none(FolderModel.id == folder_id)
         except Exception as e:
@@ -72,7 +73,7 @@ class DocumentRepository(BaseRepository):
             return None
 
     def get_folder_by_name(self, name: str) -> FolderModel | None:
-        """Retrieve a folder by its name."""
+        """Retourne un dossier par son nom."""
         try:
             return FolderModel.get_or_none(FolderModel.name == name)
         except Exception as e:
@@ -80,12 +81,12 @@ class DocumentRepository(BaseRepository):
             return None
 
     def create_folder(self, name: str) -> FolderModel:
-        """Create a new folder."""
+        """Crée un nouveau dossier."""
         with self.atomic():
             return FolderModel.create(name=name)
 
     def delete_folder(self, folder_id: int) -> bool:
-        """Delete a folder and cascade deletion."""
+        """Supprime un dossier et propage la suppression en cascade."""
         folder = self.get_folder_by_id(folder_id)
         if not folder:
             return False
@@ -181,14 +182,14 @@ class DocumentRepository(BaseRepository):
         return folder
 
     def get_all_documents(self, folder_id: int | None = None) -> list[DocumentModel]:
-        """Retrieve all documents, optionally filtered by folder."""
+        """Retourne tous les documents, éventuellement filtrés par dossier."""
         query = DocumentModel.select().order_by(DocumentModel.created_at.desc())
         if folder_id is not None:
             query = query.where(DocumentModel.folder == folder_id)
         return list(query)
 
     def get_document_by_id(self, doc_id: int) -> DocumentModel | None:
-        """Retrieve a document by its ID."""
+        """Retourne un document par son ID."""
         try:
             return DocumentModel.get_or_none(DocumentModel.id == doc_id)
         except Exception as e:
@@ -196,7 +197,7 @@ class DocumentRepository(BaseRepository):
             return None
 
     def get_document_by_title(self, title: str) -> DocumentModel | None:
-        """Retrieve a document by its exact title."""
+        """Retourne un document par son titre exact."""
         try:
             return DocumentModel.get_or_none(DocumentModel.title == title)
         except Exception as e:
@@ -213,7 +214,7 @@ class DocumentRepository(BaseRepository):
         chroma_collection_name: str | None = None,
         original_media: MediaModel | None = None,
     ) -> DocumentModel:
-        """Create a new document."""
+        """Crée un nouveau document."""
         with self.atomic():
             return DocumentModel.create(
                 title=title,
@@ -226,7 +227,7 @@ class DocumentRepository(BaseRepository):
             )
 
     def update_document(self, doc_id: int, **kwargs: Any) -> DocumentModel | None:
-        """Update fields of an existing document."""
+        """Met à jour les champs d'un document existant."""
         doc = self.get_document_by_id(doc_id)
         if not doc:
             return None
@@ -239,7 +240,7 @@ class DocumentRepository(BaseRepository):
             return doc
 
     def delete_document(self, doc_id: int) -> bool:
-        """Delete a document and cascade to its chunks and links."""
+        """Supprime un document et propage en cascade à ses fragments et liens."""
         doc = self.get_document_by_id(doc_id)
         if not doc:
             return False
@@ -249,11 +250,11 @@ class DocumentRepository(BaseRepository):
             return True
 
     def get_chunks_for_document(self, doc_id: int) -> list[DocumentChunkModel]:
-        """Retrieve chunks for a document ordered by index."""
+        """Retourne les fragments d'un document triés par index."""
         return list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id).order_by(DocumentChunkModel.chunk_index.asc()))
 
     def get_document_by_source_url(self, source_url: str) -> DocumentModel | None:
-        """Retrieve the most recent document associated with a source URL (dédoublonnage web)."""
+        """Retourne le document le plus récent associé à une URL source (dédoublonnage web)."""
         try:
             return DocumentModel.select().where(DocumentModel.source_url == source_url).order_by(DocumentModel.created_at.desc()).first()
         except Exception as e:
@@ -327,7 +328,7 @@ class DocumentRepository(BaseRepository):
         mark_document_version(doc)
 
     def create_chunks(self, doc: DocumentModel, chunks_data: list[dict[str, Any]]) -> list[DocumentChunkModel]:
-        """Batch create document chunks."""
+        """Crée en lot les fragments d'un document."""
         created_chunks: list[DocumentChunkModel] = []
         with self.atomic():
             for idx, data in enumerate(chunks_data):
@@ -352,7 +353,7 @@ class DocumentRepository(BaseRepository):
         return created_chunks
 
     def delete_chunks_by_document(self, doc_id: int) -> int:
-        """Delete all chunks for a document."""
+        """Supprime tous les fragments d'un document."""
         with self.atomic():
             return int(DocumentChunkModel.delete().where(DocumentChunkModel.document == doc_id).execute())
 
@@ -362,7 +363,7 @@ class DocumentRepository(BaseRepository):
         chunk: DocumentChunkModel,
         is_hallucinating: bool = False,
     ) -> NoteChunkLinkModel:
-        """Create or update traceability link between a note and a source chunk."""
+        """Crée ou met à jour le lien de traçabilité entre une note et un fragment source."""
         with self.atomic():
             link, _ = NoteChunkLinkModel.get_or_create(
                 note=note,
@@ -372,7 +373,7 @@ class DocumentRepository(BaseRepository):
             return link
 
     def get_linked_notes_for_chunk(self, chunk_id: int) -> list[NoteModel]:
-        """Retrieve notes linked to a specific chunk."""
+        """Retourne les notes rattachées à un fragment donné."""
         return list(NoteModel.select().join(NoteChunkLinkModel).where(NoteChunkLinkModel.chunk == chunk_id))
 
     @staticmethod
@@ -776,7 +777,7 @@ class DocumentRepository(BaseRepository):
         return [c for c in chunks if not self.is_region_excluded(doc, heading_path=c.heading_path, page_number=c.page_number) and not c.is_structural_container and c.id not in linked_chunk_ids]
 
     def get_coverage_stats(self, doc_id: int) -> dict[str, Any]:
-        """Calculate coarse-grained coverage and gap metrics for a document (by page or section)."""
+        """Calcule les métriques globales de couverture et de lacunes d'un document (par page ou section)."""
         doc = self.get_document_by_id(doc_id)
         chunks = self.get_chunks_for_document(doc_id)
         total_chunks = len(chunks)

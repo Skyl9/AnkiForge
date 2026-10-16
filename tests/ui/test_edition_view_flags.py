@@ -1,8 +1,8 @@
-"""
-Tests UI PySide6 / pytest-qt pour l'intégration des libellés personnalisés de drapeaux dans EditionView et NoteVirtualTableModel :
+"""Tests UI PySide6 / pytest-qt pour l'intégration des libellés personnalisés de drapeaux dans EditionView et NoteVirtualTableModel.
+
 - Infobulle de la colonne drapeau reflétant le libellé personnalisé
 - Titre du menu de filtrage des drapeaux
-- Rafraîchissement live lors de l'émission de FlagLabelsUpdatedEvent
+- Rafraîchissement live lors de l'émission de FlagLabelsUpdatedEvent.
 """
 
 from __future__ import annotations

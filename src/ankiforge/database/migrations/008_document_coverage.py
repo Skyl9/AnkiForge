@@ -1,3 +1,5 @@
+"""Migration 008 : tables du diagnostic documentaire (chunks, facettes cognitives et liens note-fragment)."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 
@@ -51,6 +53,7 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake=False):
+    """Supprime les tables du diagnostic documentaire créées par la migration 008."""
     migrator.remove_model("note_chunk_links")
     migrator.remove_model("chunk_facet_requirements")
     migrator.remove_model("document_chunks")

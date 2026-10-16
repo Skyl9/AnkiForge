@@ -149,10 +149,7 @@ def test_ocr_service_transcribe_image(tmp_path: Path):
 
 
 def test_native_hardware_category_never_falls_back_to_cloud_ai(tmp_path: Path):
-    """
-    Vérifie qu'un échec ou indisponibilité d'Apple Vision lève une exception et
-    ne déclenche aucun repli automatique silencieux vers un LLM cloud/distant.
-    """
+    """Vérifie qu'un échec ou indisponibilité d'Apple Vision lève une exception et ne déclenche aucun repli automatique silencieux vers un LLM cloud/distant."""
     service = OCRService()
     img_path = _create_test_img(tmp_path / "apple_test.png")
 
@@ -194,8 +191,7 @@ def test_ocr_service_transcribe_page_db_update(tmp_path: Path):
 
 
 def test_transcribe_page_sends_the_rotated_planche(tmp_path: Path):
-    """
-    Le modèle reçoit la planche **dans son orientation**, jamais le fichier brut.
+    """Le modèle reçoit la planche **dans son orientation**, jamais le fichier brut.
 
     On intercepte l'image effectivement encodée dans le payload : la preuve porte sur
     ce que le LLM voit, pas sur un appel de méthode. Sans cela, transcrire une planche
@@ -296,8 +292,7 @@ def test_album_ocr_worker_execution(tmp_path: Path):
 
 
 def test_album_ocr_worker_carries_the_category_down_to_transcription(tmp_path: Path):
-    """
-    La catégorie choisie descend jusqu'à l'appel de transcription, et n'est pas perdue.
+    """La catégorie choisie descend jusqu'à l'appel de transcription, et n'est pas perdue.
 
     Le worker transporte `category_id` jusqu'à `OCRService.transcribe_page`, qui en déduit le
     modèle. Le sélecteur de l'interface ne servait donc à rien si le worker se rabattait
@@ -406,8 +401,7 @@ def test_album_pdf_worker_compiles_off_thread(tmp_path: Path):
 
 
 def test_album_pdf_worker_applies_the_planche_rotation(tmp_path: Path):
-    """
-    Les planches du PDF sont rendues **à leur orientation propre**, via la couture S2a.
+    """Les planches du PDF sont rendues **à leur orientation propre**, via la couture S2a.
 
     La compilation annonçait des « rotations fidèlement appliquées » sans jamais passer
     par la couture : une planche à 90° sortait couchée du PDF. On le vérifie sur la
@@ -432,8 +426,7 @@ def test_album_pdf_worker_applies_the_planche_rotation(tmp_path: Path):
 
 @pytest.mark.ui
 def test_album_pdf_compilation_never_runs_on_the_gui_thread(qtbot, tmp_path: Path):
-    """
-    La boucle de compilation ne s'exécute jamais sur le thread GUI, un album de N planches.
+    """La boucle de compilation ne s'exécute jamais sur le thread GUI, un album de N planches.
 
     « La compilation PDF d'image plante » venait de là : ouvrir chaque planche en pleine
     résolution depuis le slot qui dessine la fenêtre gelait l'interface. On vérifie la
@@ -480,8 +473,7 @@ def test_album_pdf_compilation_never_runs_on_the_gui_thread(qtbot, tmp_path: Pat
 
 
 def test_album_pdf_worker_releases_every_intermediate_image(tmp_path: Path, monkeypatch):
-    """
-    Les planches PIL rendues par la couture sont réellement fermées, chemin compris l'annulation.
+    """Les planches PIL rendues par la couture sont réellement fermées, chemin compris l'annulation.
 
     200 planches non libérées en fin de compilation ou d'annulation saturent la mémoire
     d'images décodées d'un album réel. On instrumente `close()` : observer le fichier de la
@@ -589,8 +581,7 @@ def test_album_pdf_worker_surfaces_a_real_failure(tmp_path: Path):
 
 
 def test_category_declares_vision_refuses_a_declared_text_only_engine():
-    """
-    Un moteur déclaré « sans Vision » fait **refuser** la transcription.
+    """Un moteur déclaré « sans Vision » fait **refuser** la transcription.
 
     C'est le refus que S4 livre réellement ; le cas « modèle absent » est vérifié à part.
     L'assertion précédente acceptait `None` **et** `False`, donc ne prouvait rien.
@@ -620,8 +611,7 @@ def test_category_declares_vision_refuses_a_declared_text_only_engine():
 
 
 def test_category_declares_vision_never_guesses_on_an_unknown_model():
-    """
-    Un moteur introuvable n'est pas une preuve d'incompatibilité.
+    """Un moteur introuvable n'est pas une preuve d'incompatibilité.
 
     Condamner ici fermerait la transcription sur un moteur multimodal encore absent du
     catalogue local — un refus sans fondement sur une configuration valide.
@@ -739,10 +729,7 @@ def test_apple_vision_category_description():
 
 
 def test_ocr_service_unknown_category_raises_explicit_error_without_silent_fallback(tmp_path: Path):
-    """
-    Un category_id inconnu ou périmé ne doit JAMAIS déclencher un repli silencieux
-    sur la première catégorie (categories[0]), mais lever une erreur explicite.
-    """
+    """Un category_id inconnu ou périmé ne doit JAMAIS déclencher un repli silencieux sur la première catégorie (categories[0]), mais lever une erreur explicite."""
     service = OCRService()
     img_path = _create_test_img(tmp_path / "unknown_cat.png")
 
@@ -764,10 +751,7 @@ def test_ocr_service_unknown_category_raises_explicit_error_without_silent_fallb
 
 
 def test_ocr_service_transcribe_page_unknown_category_raises_explicit_error(tmp_path: Path):
-    """
-    Vérifie que transcribe_page avec une catégorie inconnue lève une exception,
-    ne marque pas la planche comme prête, et n'enregistre aucun texte erroné.
-    """
+    """Vérifie que transcribe_page avec une catégorie inconnue lève une exception, ne marque pas la planche comme prête, et n'enregistre aucun texte erroné."""
     manager = MediaManager()
     album_svc = AlbumService(media_manager=manager)
     ocr_svc = OCRService(media_manager=manager)
@@ -786,10 +770,7 @@ def test_ocr_service_transcribe_page_unknown_category_raises_explicit_error(tmp_
 
 
 def test_transcribe_signatures_have_no_hardcoded_category_id_default():
-    """
-    OCRService accepte directement model_id et data_type, sans repli caché
-    pour forcer le choix explicite du modèle.
-    """
+    """OCRService accepte directement model_id et data_type, sans repli caché pour forcer le choix explicite du modèle."""
     import inspect
 
     sig_img = inspect.signature(OCRService.transcribe_image)
@@ -802,10 +783,7 @@ def test_transcribe_signatures_have_no_hardcoded_category_id_default():
 
 
 def test_album_ocr_worker_with_unknown_category_reports_honest_failure(tmp_path: Path):
-    """
-    Un album lancé avec une catégorie inconnue rapporte fidèlement l'échec de chaque page
-    via finished_signal(0, N) sans repli silencieux ni faux succès.
-    """
+    """Un album lancé avec une catégorie inconnue rapporte fidèlement l'échec de chaque page via finished_signal(0, N) sans repli silencieux ni faux succès."""
     album_svc = AlbumService()
     imgs = [_create_test_img(tmp_path / "p1.png"), _create_test_img(tmp_path / "p2.png")]
     doc = album_svc.create_album_from_images("Album Cat Inconnue", imgs)

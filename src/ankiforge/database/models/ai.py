@@ -1,3 +1,5 @@
+"""Modèles Peewee des fournisseurs LLM, personas, sessions du Consultant et patchs en attente."""
+
 from __future__ import annotations
 
 import datetime
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class PromptModel(BaseModel):
-    """Stocke les templates Jinja2 personnalisés"""
+    """Stocke les templates Jinja2 personnalisés."""
 
     name = CharField(unique=True)
     content = TextField()

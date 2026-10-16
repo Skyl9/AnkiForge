@@ -1,6 +1,4 @@
-"""
-Tests unitaires et UI pour CreateDeckDialog (HierarchyCompleter, fil d'Ariane et idempotence).
-"""
+"""Tests unitaires et UI pour CreateDeckDialog (HierarchyCompleter, fil d'Ariane et idempotence)."""
 
 from __future__ import annotations
 

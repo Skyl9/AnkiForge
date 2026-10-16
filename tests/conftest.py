@@ -270,7 +270,7 @@ def cleanup_qt_widgets():
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Garantit que 100% des tests possèdent au moins un marqueur primaire (unit, integration, ui)
+    """Garantit que 100% des tests possèdent au moins un marqueur primaire (unit, integration, ui).
 
     selon leur nature et leur emplacement, tout en respectant les marqueurs explicites.
     """

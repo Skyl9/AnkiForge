@@ -1,3 +1,9 @@
+"""Édition groupée atomique de notes Anki (ajout de tags, mise à jour de champs).
+
+Applique les modifications à un lot de notes dans une transaction SQLite unique afin de
+préserver la cohérence et de générer les versions de note correspondantes.
+"""
+
 from __future__ import annotations
 
 import json
@@ -56,7 +62,6 @@ class GroupEditService:
         if not note_ids:
             return GroupEditResult(success=True)
 
-        # Nettoyage préalable des listes de tags
         tags_add_clean: list[str] = []
         for raw_tag in options.tags_to_add:
             for parsed_tag in parse_note_tags(raw_tag):
@@ -94,12 +99,10 @@ class GroupEditService:
 
                     note_modified = False
 
-                    # 1. Traitement des tags
                     if has_tag_mods:
                         current_tags = parse_note_tags(note.tags)
                         new_tags_list = list(current_tags)
 
-                        # Retrait de tags
                         if tags_remove_clean:
                             filtered_tags: list[str] = []
                             for t in new_tags_list:
@@ -113,7 +116,6 @@ class GroupEditService:
                                     filtered_tags.append(t)
                             new_tags_list = filtered_tags
 
-                        # Ajout de tags
                         if tags_add_clean:
                             for t in tags_add_clean:
                                 if t not in new_tags_list:
@@ -127,7 +129,6 @@ class GroupEditService:
                         else:
                             tags_by_note[nid] = current_tags
 
-                    # 2. Traitement des champs de contenu
                     if has_field_mods and options.field_name and options.field_action:
                         active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
                         if not active_version:

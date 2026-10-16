@@ -1,6 +1,4 @@
-"""
-Unit tests for DocumentRepository.
-"""
+"""Unit tests for DocumentRepository."""
 
 from __future__ import annotations
 

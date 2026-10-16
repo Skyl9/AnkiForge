@@ -1,3 +1,5 @@
+"""Worker QThread de modification IA par lots sur des notes existantes."""
+
 import json
 import logging
 import time
@@ -12,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class BatchEditWorker(QThread):
-    """
-    Exécute des requêtes de modification IA par lots sur des notes existantes.
+    """Exécute des requêtes de modification IA par lots sur des notes existantes.
 
     Récupère le contenu actuel des notes et demande à l'IA d'appliquer une transformation
     (ex: simplifier, traduire, formater) sur chaque lot (chunk) de cartes.
@@ -25,14 +26,13 @@ class BatchEditWorker(QThread):
     cancelled = Signal()
 
     def __init__(self, ai_provider: Any, note_ids: list[int], user_prompt: str, chunk_size: int):
-        """
-        Initialise le worker de modification par lots.
+        """Initialise le worker de modification par lots.
 
         Args:
-            ai_provider (Any): Le moteur IA à solliciter.
-            note_ids (list[int]): IDs des notes à modifier.
-            user_prompt (str): Instructions de modification (ex: 'Traduis en anglais').
-            chunk_size (int): Nombre de notes envoyées simultanément à l'IA.
+            ai_provider: Le moteur IA à solliciter.
+            note_ids: IDs des notes à modifier.
+            user_prompt: Instructions de modification (ex: 'Traduis en anglais').
+            chunk_size: Nombre de notes envoyées simultanément à l'IA.
         """
         super().__init__()
         self.ai_provider = ai_provider

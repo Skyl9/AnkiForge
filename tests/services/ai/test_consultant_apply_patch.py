@@ -1,10 +1,10 @@
-"""
-Tests unitaires pour l'application des diffs et patches du Consultant IA (ConsultantToolRegistry.apply_patch).
+"""Tests unitaires pour l'application des diffs et patches du Consultant IA (ConsultantToolRegistry.apply_patch).
+
 Vérifie la mutation atomique en base SQLite, le versionnage NoteVersionModel et le support des 4 types :
 - card
 - split
 - model
-- css
+- css.
 """
 
 import json

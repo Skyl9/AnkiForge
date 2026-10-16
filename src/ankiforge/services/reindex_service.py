@@ -1,5 +1,4 @@
-"""
-Service de re-indexation documentaire (Qt-free).
+"""Service de re-indexation documentaire (Qt-free).
 
 Fournit la logique déterministe de structuration / indexation RAG d'un document,
 réutilisée par CoverageWorker, le bouton « Ré-indexer FAISS » et la re-indexation
@@ -97,7 +96,7 @@ def reindex_document(
             Il ne doit jamais faire échouer la ré-indexation ni retarder le niveau macro.
 
     Returns:
-        str: Statut de l'opération — ``REINDEX_OK``, ``REINDEX_EMPTY`` ou ``REINDEX_ERROR``.
+        Statut de l'opération — ``REINDEX_OK``, ``REINDEX_EMPTY`` ou ``REINDEX_ERROR``.
     """
 
     def _emit(msg: str) -> None:
@@ -255,7 +254,7 @@ def revectorize_document(
         fragment_cb: Callback opportuniste de micro-progression ``(traités, total)``.
 
     Returns:
-        str: Statut de l'opération — ``REINDEX_OK`` ou ``REINDEX_ERROR``.
+        Statut de l'opération — ``REINDEX_OK`` ou ``REINDEX_ERROR``.
     """
 
     def _emit(msg: str) -> None:

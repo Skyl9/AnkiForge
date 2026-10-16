@@ -1,5 +1,5 @@
-"""
-Service métier de Masquage d'Images Intelligent (Image Occlusion IA).
+"""Service métier de Masquage d'Images Intelligent (Image Occlusion IA).
+
 Gère la détection multimodale des légendes via Vision LLM, la génération des masques SVG
 (modes Hide All / Hide One avec support de l'éradication des fuites contextuelles)
 et la création des cartes au standard 'Image Occlusion Enhanced'.
@@ -58,10 +58,12 @@ class OcclusionBox:
     hint: str = ""  # Indice optionnel
 
     def to_dict(self) -> dict[str, Any]:
+        """Sérialise le masque d'occlusion en dictionnaire."""
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> OcclusionBox:
+        """Reconstruit un masque d'occlusion depuis un dictionnaire, avec valeurs par défaut."""
         return cls(
             id=int(data.get("id", 1)),
             x=float(data.get("x", 0.0)),
@@ -156,8 +158,8 @@ class ImageOcclusionService:
         provider_name: str | None = None,
         model_id: str | None = None,
     ) -> list[OcclusionBox]:
-        """
-        Détecte les légendes et coordonnées (bounding boxes) sur une image via un modèle de vision.
+        """Détecte les légendes et coordonnées (bounding boxes) sur une image via un modèle de vision.
+
         Gère la normalisation 0-1000 et le re-calibrage sur les dimensions réelles de l'image.
         """
         path_obj = Path(image_path)
@@ -167,7 +169,6 @@ class ImageOcclusionService:
         with Image.open(path_obj) as img:
             img_w, img_h = img.size
 
-        # Résolution du provider si non fourni
         active_provider = provider
         if active_provider is None:
             if provider_name and model_id:
@@ -251,13 +252,11 @@ class ImageOcclusionService:
             # Format [ymin, xmin, ymax, xmax] normalisé 0-1000
             ymin, xmin, ymax, xmax = (float(v) for v in box_2d[:4])
 
-            # Conversion en pixels réels
             px_x = (xmin / 1000.0) * img_w
             px_y = (ymin / 1000.0) * img_h
             px_w = ((xmax - xmin) / 1000.0) * img_w
             px_h = ((ymax - ymin) / 1000.0) * img_h
 
-            # Garde-fous et clamping
             px_x = max(0.0, min(float(img_w), px_x))
             px_y = max(0.0, min(float(img_h), px_y))
             px_w = max(4.0, min(float(img_w - px_x), px_w))
@@ -322,8 +321,7 @@ class ImageOcclusionService:
         is_answer: bool = False,
         keep_other_masks_on_answer: bool = True,
     ) -> str:
-        """
-        Génère la chaîne XML SVG pour le masque de Question ou de Réponse.
+        """Génère la chaîne XML SVG pour le masque de Question ou de Réponse.
 
         Styles visuels :
         - Masque actif en Question : rectangle rouge (#e11d48) avec badge numéroté.
@@ -391,8 +389,8 @@ class ImageOcclusionService:
         keep_other_masks_on_answer: bool = True,
         tags: list[str] | None = None,
     ) -> list[NoteModel]:
-        """
-        Crée l'ensemble des notes et cartes d'occlusion au standard Image Occlusion Enhanced.
+        """Crée l'ensemble des notes et cartes d'occlusion au standard Image Occlusion Enhanced.
+
         Sauvegarde l'image de base et les masques SVG vectoriels dans media_dir.
         """
         if not boxes:
@@ -408,7 +406,6 @@ class ImageOcclusionService:
         with Image.open(path_obj) as img:
             img_w, img_h = img.size
 
-        # Archivage de l'image de base dans le dossier média
         base_media = self.media_manager.store_document_source(str(path_obj))
         if not base_media:
             raise RuntimeError(f"Impossible d'archiver l'image source '{path_obj.name}' dans les médias.")
@@ -427,7 +424,6 @@ class ImageOcclusionService:
 
         with db.atomic():
             for box in boxes:
-                # 1. Masque Question
                 q_svg = self.generate_svg_mask(
                     boxes,
                     img_w,
@@ -440,7 +436,6 @@ class ImageOcclusionService:
                 q_filename = f"{group_id}_q_{box.id}.svg"
                 self.media_manager.store_media_bytes(q_svg.encode("utf-8"), q_filename, mime_type="image/svg+xml")
 
-                # 2. Masque Réponse
                 a_svg = self.generate_svg_mask(
                     boxes,
                     img_w,
@@ -453,7 +448,6 @@ class ImageOcclusionService:
                 a_filename = f"{group_id}_a_{box.id}.svg"
                 self.media_manager.store_media_bytes(a_svg.encode("utf-8"), a_filename, mime_type="image/svg+xml")
 
-                # 3. Création de la Note
                 note = NoteModel.create(
                     note_type=note_type,
                     tags=serialize_note_tags(final_tags),
@@ -476,7 +470,6 @@ class ImageOcclusionService:
 
                 note.add_version(content_dict, source="image_occlusion")
 
-                # 4. Création de la Carte physique Anki
                 CardModel.create(
                     note=note,
                     deck=deck,

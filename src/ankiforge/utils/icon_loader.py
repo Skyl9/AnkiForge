@@ -1,3 +1,5 @@
+"""Chargement, mise en cache et rendu multi-résolutions des icônes SVG de l'application."""
+
 import logging
 
 from PySide6.QtCore import QByteArray, Qt
@@ -43,14 +45,13 @@ def _render_svg_to_icon(svg_content: str) -> QIcon:
 
 
 def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weight: str = "regular") -> QIcon:
-    """
-    Charge une icône Phosphor SVG, applique la couleur demandée et retourne une QIcon multi-résolution.
+    """Charge une icône Phosphor SVG, applique la couleur demandée et retourne une QIcon multi-résolution.
+
     Supporte les préfixes 'ph.', 'ph:' et les suffixes '.svg'.
     """
     if not name:
         return QIcon()
 
-    # Nettoyage du nom d'icône
     clean_name = name
     for prefix in ("ph.", "ph:", "phosphor.", "phosphor:"):
         if clean_name.startswith(prefix):
@@ -85,7 +86,6 @@ def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weig
         with open(svg_path, encoding="utf-8") as f:
             svg_content = f.read()
 
-        # Remplacement de couleur (fill & stroke)
         svg_content = svg_content.replace("currentColor", color) if "currentColor" in svg_content else svg_content.replace("<svg ", f'<svg fill="{color}" ')
 
         icon = _render_svg_to_icon(svg_content)

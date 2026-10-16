@@ -1,6 +1,4 @@
-"""
-Unit tests for SettingRepository.
-"""
+"""Unit tests for SettingRepository."""
 
 from __future__ import annotations
 

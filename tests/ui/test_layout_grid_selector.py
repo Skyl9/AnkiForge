@@ -1,6 +1,4 @@
-"""
-Tests unitaires et UI pour LayoutGridSelector et LayoutThumbnailCard.
-"""
+"""Tests unitaires et UI pour LayoutGridSelector et LayoutThumbnailCard."""
 
 from pathlib import Path
 

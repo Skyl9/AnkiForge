@@ -132,7 +132,7 @@ class YtDlpService:
             check_cancel: Callback optionnel vérifiant si l'annulation est demandée.
 
         Returns:
-            Path: Chemin absolu vers le fichier audio téléchargé.
+            Chemin absolu vers le fichier audio téléchargé.
 
         Raises:
             YtDlpUnavailableError: Si yt-dlp n'est pas installé.

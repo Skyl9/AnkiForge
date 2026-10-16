@@ -109,8 +109,7 @@ def store_llm_key(model_id: str, provider: str, value: str) -> bool:
 
 
 def load_llm_key(model_id: str, provider: str) -> str | None:
-    """Récupère la clé API LLM d'un modèle ; tente aussi la clé provider-level
-    stockée par les anciennes sauvegardes de paramètres (trousseau de l'onglet)."""
+    """Récupère la clé API LLM d'un modèle ; tente aussi la clé provider-level stockée par les anciennes sauvegardes de paramètres (trousseau de l'onglet)."""
     # 1. Vérifie si une variable d'environnement de session est déjà définie
     env_keys = [f"{provider.upper()}_API_KEY"]
     if provider.lower() == "gemini":

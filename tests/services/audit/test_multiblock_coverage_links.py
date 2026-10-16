@@ -1,6 +1,4 @@
-"""
-Tests de la résolution fine et du rattachement effectif des cartes issues d'une partie
-multi-blocs du Batch Slice Composer.
+"""Tests de la résolution fine et du rattachement effectif des cartes issues d'une partie multi-blocs du Batch Slice Composer.
 
 Une partie agrège N fragments : la carte doit être rattachée au fragment qu'elle traite
 réellement, et le lien de couverture (``NoteChunkLinkModel``) doit exister.

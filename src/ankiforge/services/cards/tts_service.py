@@ -1,10 +1,10 @@
-"""
-Service de Synthèse Vocale (TTS) & Génération Audio pour AnkiForge.
+"""Service de Synthèse Vocale (TTS) & Génération Audio pour AnkiForge.
+
 Architecture multi-moteurs découplée et 100% compatible Nuitka (Règle GEMINI.md n°10) :
 - Edge-TTS : Moteur en-processus pur Python asynchrone (zéro C++, ultra-léger)
 - Piper TTS : Moteur local hors-ligne autonome en sidecar déporté dans ~/.ankiforge/tools/tts/
 - Kokoro-82M : Runner optionnel externe déporté
-- Moteur Système : Fallback natif OS sans réseau ni téléchargement (macOS say / Windows SAPI5 / Linux spd-say)
+- Moteur Système : Fallback natif OS sans réseau ni téléchargement (macOS say / Windows SAPI5 / Linux spd-say).
 """
 
 import abc
@@ -135,17 +135,15 @@ class TextNormalizer:
         """Supprime toutes les balises HTML tout en préservant le texte lisible."""
         if not text:
             return ""
-        # Remplacer les retours à la ligne HTML par des espaces
         cleaned = re.sub(r"<(br|p|div|tr|li)[^>]*>", " ", text, flags=re.IGNORECASE)
-        # Supprimer le reste des balises
         cleaned = re.sub(r"<[^>]+>", "", cleaned)
         return cleaned
 
     @staticmethod
     def expand_cloze(text: str) -> str:
-        """
-        Développe les occlusions Anki (Clozes) pour que le TTS prononce le mot masqué.
-        Ex: 'La capitale est {{c1::Paris::Indice}}' -> 'La capitale est Paris'
+        """Développe les occlusions Anki (Clozes) pour que le TTS prononce le mot masqué.
+
+        Ex: 'La capitale est {{c1::Paris::Indice}}' -> 'La capitale est Paris'.
         """
         if not text:
             return ""
@@ -233,8 +231,8 @@ def _run_async(coro: Any) -> Any:
 
 
 class EdgeTTSProvider(TTSProvider):
-    """
-    Fournisseur Edge-TTS : Pur Python, asynchrone, 100% Nuitka-compatible.
+    """Fournisseur Edge-TTS : Pur Python, asynchrone, 100% Nuitka-compatible.
+
     Utilise le service neural gratuit de Microsoft Edge (100+ langues, voix naturelles).
     """
 
@@ -259,6 +257,7 @@ class EdgeTTSProvider(TTSProvider):
     ]
 
     def is_available(self) -> bool:
+        """Indique si le paquet `edge-tts` est importable."""
         try:
             import edge_tts  # noqa: F401
 
@@ -277,6 +276,7 @@ class EdgeTTSProvider(TTSProvider):
         rate: str = "+0%",
         pitch: str = "+0Hz",
     ) -> bytes:
+        """Synthétise l'audio MP3 via le service neural Edge-TTS."""
         if not self.is_available():
             raise RuntimeError("Le module 'edge-tts' n'est pas disponible.")
 
@@ -296,10 +296,7 @@ class EdgeTTSProvider(TTSProvider):
 
 
 class PiperSidecarProvider(TTSProvider):
-    """
-    Fournisseur Piper TTS en Sidecar Local : Exécutable précompilé autonome
-    situé dans ~/.ankiforge/tools/tts/piper (sans dépendances Python/PyTorch).
-    """
+    """Fournisseur Piper TTS en Sidecar Local : Exécutable précompilé autonome situé dans ~/.ankiforge/tools/tts/piper (sans dépendances Python/PyTorch)."""
 
     id = "piper"
     display_name = "Piper TTS (Local Hors-Ligne Standalone)"
@@ -413,6 +410,7 @@ class PiperSidecarProvider(TTSProvider):
         rate: str = "+0%",
         pitch: str = "+0Hz",
     ) -> bytes:
+        """Synthétise l'audio WAV via l'exécutable Piper local."""
         piper_exe = self.get_piper_executable()
         if not piper_exe:
             raise RuntimeError("Le binaire Piper est introuvable. Téléchargez-le dans les Paramètres d'AnkiForge ou installez-le dans ~/.ankiforge/tools/tts/piper.")
@@ -556,6 +554,7 @@ class KokoroSidecarProvider(TTSProvider):
         rate: str = "+0%",
         pitch: str = "+0Hz",
     ) -> bytes:
+        """Synthétise l'audio WAV via le runner Kokoro local."""
         cmd = self.get_kokoro_command()
         if not cmd:
             raise RuntimeError("Le runner Kokoro est introuvable. Installez-le dans ~/.ankiforge/tools/tts/kokoro/ ou configurez-le dans les Paramètres d'AnkiForge.")
@@ -598,10 +597,7 @@ class KokoroSidecarProvider(TTSProvider):
 
     @classmethod
     def install_runner(cls, progress_callback: Callable[[str], None] | None = None) -> bool:
-        """
-        Déploie un script runner autonome et auto-suffisant pour Kokoro-82M dans
-        ~/.ankiforge/tools/tts/kokoro/run.py.
-        """
+        """Déploie un script runner autonome et auto-suffisant pour Kokoro-82M dans ~/.ankiforge/tools/tts/kokoro/run.py."""
         kokoro_dir = cls.get_kokoro_dir()
         run_script = kokoro_dir / "run.py"
 
@@ -694,18 +690,19 @@ if __name__ == "__main__":
 
 
 class SystemSpeechProvider(TTSProvider):
-    """
-    Fournisseur Système OS : Zéro réseau, zéro téléchargement.
+    """Fournisseur Système OS : Zéro réseau, zéro téléchargement.
+
     Exploite les synthétiseurs natifs :
     - macOS : /usr/bin/say + afconvert
     - Windows : PowerShell SAPI5
-    - Linux : espeak-ng / spd-say
+    - Linux : espeak-ng / spd-say.
     """
 
     id = "system"
     display_name = "Moteur Système OS (Fallback Natif Sans Réseau)"
 
     def is_available(self) -> bool:
+        """Indique si le moteur vocal natif du système d'exploitation est disponible."""
         sys_name = platform.system()
         if sys_name == "Darwin":
             return Path("/usr/bin/say").exists()
@@ -716,6 +713,7 @@ class SystemSpeechProvider(TTSProvider):
         return False
 
     def get_voices(self) -> list[dict[str, str]]:
+        """Retourne les voix proposées par le moteur vocal système (limitées aux quinze premières sous macOS)."""
         sys_name = platform.system()
         if sys_name == "Darwin":
             try:
@@ -739,6 +737,7 @@ class SystemSpeechProvider(TTSProvider):
         rate: str = "+0%",
         pitch: str = "+0Hz",
     ) -> bytes:
+        """Synthétise l'audio via le moteur vocal natif du système d'exploitation."""
         sys_name = platform.system()
         temp_dir = get_app_data_dir() / "temp"
         temp_dir.mkdir(parents=True, exist_ok=True)
@@ -799,8 +798,8 @@ class SystemSpeechProvider(TTSProvider):
 
 
 class TTSService:
-    """
-    Façade centrale pour la synthèse vocale et la gestion du stockage média AnkiForge.
+    """Façade centrale pour la synthèse vocale et la gestion du stockage média AnkiForge.
+
     Gère la sélection du moteur, la normalisation, le cache MD5 et l'archivage via MediaManager.
     """
 
@@ -808,7 +807,6 @@ class TTSService:
         self.media_manager = media_manager or MediaManager()
         self.normalizer = TextNormalizer()
 
-        # Registre des moteurs disponibles
         self._providers: dict[str, TTSProvider] = {
             "edge-tts": EdgeTTSProvider(),
             "piper": PiperSidecarProvider(),
@@ -855,8 +853,7 @@ class TTSService:
         pitch: str | None = None,
         strip_cloze: bool = True,
     ) -> tuple[str, Path]:
-        """
-        Synthétise un texte en fichier audio et l'intègre au dossier média AnkiForge.
+        """Synthétise un texte en fichier audio et l'intègre au dossier média AnkiForge.
 
         Returns:
             tuple[str, Path]:
@@ -867,7 +864,6 @@ class TTSService:
         if not clean_text:
             raise ValueError("Le texte à synthétiser est vide après normalisation.")
 
-        # Récupération des paramètres par défaut si omis
         actual_engine = engine or SettingsService.get("tts.engine", "edge-tts")
         actual_voice = voice or SettingsService.get("tts.voice", "fr-FR-VivienneMultilingualNeural")
         actual_rate = rate or SettingsService.get("tts.rate", "+0%")
@@ -875,11 +871,9 @@ class TTSService:
 
         provider = self.get_provider(actual_engine)
 
-        # 1. Calcul du hash d'identification unique pour le cache
         cache_key = f"{provider.id}:{actual_voice}:{actual_rate}:{actual_pitch}:{clean_text}"
         audio_hash = hashlib.md5(cache_key.encode("utf-8"), usedforsecurity=False).hexdigest()
 
-        # Déterminer l'extension cible
         ext = ".mp3" if provider.id == "edge-tts" else ".wav"
         if provider.id == "system" and platform.system() == "Darwin":
             ext = ".m4a"
@@ -895,7 +889,6 @@ class TTSService:
             logger.debug("Audio déjà présent dans le cache média : %s", target_filename)
             return f"[sound:{target_filename}]", existing_path
 
-        # 2. Génération des données audio brutes
         logger.info(
             "Synthèse vocale en cours [%s / %s] : '%s' (%d caractères)",
             provider.id,
@@ -905,11 +898,9 @@ class TTSService:
         )
         raw_bytes = provider.synthesize(clean_text, voice=actual_voice, rate=actual_rate, pitch=actual_pitch)
 
-        # 3. Sauvegarde directe sous target_filename dans media_dir
         dest_path = self.media_manager.media_dir / target_filename
         dest_path.write_bytes(raw_bytes)
 
-        # Enregistrement en base de données MediaModel pour la traçabilité
         try:
             from ankiforge.database.models import MediaModel
 
@@ -996,9 +987,7 @@ class TTSService:
 
     @staticmethod
     def download_and_install_piper(progress_callback: Callable[[str], None] | None = None) -> bool:
-        """
-        Télécharge et décompresse automatiquement l'exécutable officiel Piper
-        correspondant à la plateforme courante dans ~/.ankiforge/tools/tts/.
+        """Télécharge et décompresse automatiquement l'exécutable officiel Piper correspondant à la plateforme courante dans ~/.ankiforge/tools/tts/.
 
         Intégrité : chaque asset est épinglé en SHA-256 (source officielle GitHub)
         et le téléchargement est soumis à un plafond de taille et un timeout.
@@ -1006,7 +995,6 @@ class TTSService:
         sys_name = platform.system()
         arch = platform.machine().lower()
 
-        # Résolution de l'asset officiel correspondant à la plateforme
         key = (sys_name, "amd64") if sys_name == "Windows" else (sys_name, "arm64" if "arm" in arch or "aarch64" in arch else "x86_64")
         if key not in _PIPER_ASSETS:
             raise RuntimeError(f"Plateforme non supportée pour Piper automatique : {sys_name} {arch}")
@@ -1051,7 +1039,6 @@ class TTSService:
                     if helper.exists():
                         os.chmod(helper, 0o755)  # nosec B103  # idem
 
-            # Télécharger une voix française par défaut si aucune voix n'est présente
             voices_dir = PiperSidecarProvider.get_voices_dir()
             if not list(voices_dir.glob("*.onnx")):
                 if progress_callback:

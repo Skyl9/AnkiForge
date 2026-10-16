@@ -1,3 +1,5 @@
+"""Worker QThread d'exécution séquentielle d'une file de tâches de génération par lots."""
+
 from __future__ import annotations
 
 import json
@@ -35,8 +37,8 @@ def require_real_provider(provider: Any, provider_name: str) -> None:
 
 @dataclass
 class BatchTaskPayload:
-    """
-    Conteneur de données brutes pour une tâche de traitement par lots.
+    """Conteneur de données brutes pour une tâche de traitement par lots.
+
     Évite les accès directs à la base de données dans le thread secondaire.
     """
 
@@ -66,8 +68,7 @@ class BatchTaskPayload:
 
 
 class BatchWorker(QThread):
-    """
-    Worker d'exécution par lots s'appuyant sur le moteur DAG PipelineOrchestrator.
+    """Worker d'exécution par lots s'appuyant sur le moteur DAG PipelineOrchestrator.
 
     Traite séquentiellement chaque document de la file d'attente, notifie en direct
     l'UI de la progression spécifique à chaque tâche, et isole les erreurs éventuelles
@@ -117,7 +118,7 @@ class BatchWorker(QThread):
 
     @staticmethod
     def can_retry(task: BatchTaskSnapshot) -> bool:
-        """Return whether a failed scope still has a manual retry available."""
+        """Indique si une portée en échec dispose encore d'une relance manuelle."""
         return task.status == BatchTaskStatus.FAILED and task.attempt < 3
 
     def run(self) -> None:
@@ -351,7 +352,7 @@ class BatchWorker(QThread):
         return success_count, error_count, total_cards_generated
 
     def _run_scope_snapshots(self, tasks: list[BatchTaskSnapshot]) -> tuple[int, int, int]:
-        """Execute the scope-based protocol and synchronise the task status with the UI."""
+        """Exécute le protocole fondé sur les portées et synchronise le statut de la tâche avec l'UI."""
         total_tasks = len(tasks)
         if total_tasks == 0:
             return 0, 0, 0

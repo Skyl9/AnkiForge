@@ -1,5 +1,5 @@
-"""
-Service de diagnostic et détection des cartes sangsues (Leeches) pour AnkiForge (ADR 0019).
+"""Service de diagnostic et détection des cartes sangsues (Leeches) pour AnkiForge (ADR 0019).
+
 Gère le filtrage dual (tag officiel Anki 'leech' et rechutes répétées) et la préparation
 des métriques FSRS pour la restructuration via le Linter Wozniak.
 """
@@ -31,8 +31,7 @@ class LeechService:
         include_high_lapses: bool = False,
         lapse_threshold: int = 4,
     ) -> list[dict[str, Any]]:
-        """
-        Récupère la liste ordonnée des cartes sangsues selon la politique ADR 0019.
+        """Récupère la liste ordonnée des cartes sangsues selon la politique ADR 0019.
 
         Args:
             deck_id: Identifiant optionnel du paquet pour restreindre la recherche.
@@ -41,7 +40,7 @@ class LeechService:
             lapse_threshold: Seuil d'échecs pour le mode de détection préventif (défaut: 4).
 
         Returns:
-            list[dict[str, Any]]: Liste des cartes sangsues ordonnée par sévérité
+            Liste des cartes sangsues ordonnée par sévérité
                                   (lapses décroissant, puis stability croissante).
         """
         try:
@@ -152,9 +151,7 @@ class LeechService:
         include_high_lapses: bool = False,
         lapse_threshold: int = 4,
     ) -> int:
-        """
-        Compte rapidement le nombre de sangsues correspondant aux critères.
-        """
+        """Compte rapidement le nombre de sangsues correspondant aux critères."""
         return len(
             cls.get_leech_cards(
                 deck_id=deck_id,
@@ -170,9 +167,7 @@ class LeechService:
         subcards: list[dict[str, Any]] | None = None,
         explanation: str = "",
     ) -> dict[str, Any]:
-        """
-        Prépare une proposition de scission atomique sous forme de StagedPatch (Two-Phase Commit, ADR 0019).
-        """
+        """Prépare une proposition de scission atomique sous forme de StagedPatch (Two-Phase Commit, ADR 0019)."""
         from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 
         note = NoteModel.get_or_none(NoteModel.id == note_id)

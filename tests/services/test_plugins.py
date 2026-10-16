@@ -1,5 +1,5 @@
-"""
-Tests unitaires et d'intégration pour le système d'addons et plugins d'AnkiForge.
+"""Tests unitaires et d'intégration pour le système d'addons et plugins d'AnkiForge.
+
 Valide la conformité Nuitka, l'isolation try/catch, le Safe Mode, le vendoring sys.path,
 l'enregistrement d'actions d'éditeur, les étapes DAG et les outils MCP.
 """

@@ -1,3 +1,5 @@
+"""Migration 025 : colonnes page_number et heading_path sur document_chunks."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

@@ -1,3 +1,5 @@
+"""Modèles Peewee de la file de traitement par lots (runs et tâches)."""
+
 import datetime
 from typing import Any
 
@@ -61,6 +63,7 @@ class BatchTaskModel(BaseModel):
 
     @classmethod
     def touch(cls, pk: Any) -> None:
+        """Met à jour l'horodatage updated_at de la tâche identifiée."""
         cls.update(updated_at=datetime.datetime.now()).where(cls.id == pk).execute()
 
     class Meta:

@@ -1,6 +1,4 @@
-"""
-Tests unitaires des utilitaires de hiérarchie séparée par ``::``.
-"""
+"""Tests unitaires des utilitaires de hiérarchie séparée par ``::``."""
 
 from __future__ import annotations
 

@@ -137,9 +137,7 @@ def test_restore_granular_backup_success(fake_profile_env):
 
 
 def test_restore_granular_backup_closes_all_sqlite_connections(fake_profile_env, monkeypatch):
-    """Régression Windows : chaque connexion SQLite ouverte pendant la restauration doit
-    être fermée. Une connexion laissée ouverte en garbage cyclique retient un verrou de
-    fichier sous Windows et fait échouer le remplacement de la base restaurée."""
+    """Régression Windows : chaque connexion SQLite ouverte pendant la restauration doit être fermée, sinon un verrou de fichier fait échouer le remplacement."""
     profile_name = fake_profile_env["profile_name"]
     profiles_dir = fake_profile_env["profiles_dir"]
     backup_dir = fake_profile_env["backup_dir"]

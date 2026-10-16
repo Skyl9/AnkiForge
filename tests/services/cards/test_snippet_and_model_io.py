@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour la bibliothèque de snippets, le résolveur de conflits CSS et l'import/export de modèles.
-"""
+"""Tests unitaires pour la bibliothèque de snippets, le résolveur de conflits CSS et l'import/export de modèles."""
 
 import json
 import uuid

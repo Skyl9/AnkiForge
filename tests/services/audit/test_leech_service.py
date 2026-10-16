@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour LeechService (détection des cartes sangsues et métriques de rechutes).
-"""
+"""Tests unitaires pour LeechService (détection des cartes sangsues et métriques de rechutes)."""
 
 from __future__ import annotations
 

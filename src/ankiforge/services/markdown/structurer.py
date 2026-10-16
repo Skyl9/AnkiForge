@@ -309,7 +309,7 @@ class MarkdownStructurer:
         """Insère ou met à jour in-place la Table des Matières dans le document Markdown.
 
         Returns:
-            Tuple (nouveau_texte, modifie_ou_non)
+            Le Markdown mis à jour et un booléen indiquant si la table des matières a changé.
         """
         if not text or not text.strip():
             return text, False

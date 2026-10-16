@@ -1,5 +1,4 @@
-"""
-Utilitaires de manipulation et normalisation des tags AnkiForge.
+"""Utilitaires de manipulation et normalisation des tags AnkiForge.
 
 Fournit des fonctions pour parser les tags sérialisés (JSON ou séparés par des espaces),
 extraire les métadonnées de traçabilité documentaire (doc:ID, source:SLUG, page:NUM, section:SLUG)
@@ -37,8 +36,7 @@ def is_provenance_tag(tag: str) -> bool:
 
 
 def parse_note_tags(tags: str | Sequence[str] | set[str] | None) -> list[str]:
-    """
-    Parse et normalise les tags d'une note quel que soit leur format d'origine.
+    """Parse et normalise les tags d'une note quel que soit leur format d'origine.
 
     Prend en charge :
     - Liste / itérable natif Python : ['tag1', 'tag2']
@@ -50,7 +48,7 @@ def parse_note_tags(tags: str | Sequence[str] | set[str] | None) -> list[str]:
         tags: La chaîne brute ou la collection de tags.
 
     Returns:
-        list[str]: Liste ordonnée de tags uniques sans espaces superflus.
+        Liste ordonnée de tags uniques sans espaces superflus.
     """
     if not tags:
         return []
@@ -91,8 +89,7 @@ def parse_note_tags(tags: str | Sequence[str] | set[str] | None) -> list[str]:
 
 
 def serialize_note_tags(tags: str | Sequence[str] | set[str] | None) -> str:
-    """
-    Sérialise canoniquement les tags d'une note en JSON (format unique d'écriture).
+    """Sérialise canoniquement les tags d'une note en JSON (format unique d'écriture).
 
     Garantit qu'un tag contenant un espace (ex. "médecine générale") survit à l'aller-retour
     sans être scindé, tout en éliminant les doublons et les chaînes vides.
@@ -102,8 +99,7 @@ def serialize_note_tags(tags: str | Sequence[str] | set[str] | None) -> str:
 
 
 def clean_source_slug(title: str) -> str:
-    """
-    Transforme un nom de document en slug propre pour le tag `source:<slug>`.
+    """Transforme un nom de document en slug propre pour le tag `source:<slug>`.
 
     Exemple : "Cours Anatomie Ch1.pdf" -> "cours_anatomie_ch1"
     """
@@ -182,8 +178,7 @@ def legacy_section_key(heading_path: str | None) -> str:
 
 
 def extract_tag_metadata(tags: str | list[str] | None) -> dict[str, Any]:
-    """
-    Extrait les métadonnées de traçabilité documentaire portées par les tags.
+    """Extrait les métadonnées de traçabilité documentaire portées par les tags.
 
     Tags reconnus :
     - `doc:<id>` -> doc_id (int)
@@ -243,8 +238,7 @@ def build_document_tags(
     section_name: str | None = None,
     extra_tags: list[str] | None = None,
 ) -> list[str]:
-    """
-    Construit la liste des tags normalisés pour une note issue d'un document.
+    """Construit la liste des tags normalisés pour une note issue d'un document.
 
     Seuls des faits vérifiés sur la source sont étiquetés : ``page:`` n'est écrit que si la
     page a effectivement été résolue sur un fragment (un document Markdown non paginé n'en
@@ -264,7 +258,7 @@ def build_document_tags(
         extra_tags: Tags additionnels optionnels.
 
     Returns:
-        list[str]: Liste des tags incluant 'ankiforge_generated' et les tags de traçabilité.
+        Liste des tags incluant 'ankiforge_generated' et les tags de traçabilité.
     """
     tags: list[str] = ["ankiforge_generated"]
 
@@ -320,7 +314,7 @@ def replace_provenance_tags(
             Une valeur ``None`` ou vide retire le tag ; une clé absente le laisse inchangé.
 
     Returns:
-        str: Tags re-sérialisés en JSON canonique via :func:`serialize_note_tags`.
+        Tags re-sérialisés en JSON canonique via :func:`serialize_note_tags`.
     """
     parsed = parse_note_tags(tags)
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""
-Test Manuel Interactif (CLI) du Moteur DAG d'AnkiForge.
+"""Test Manuel Interactif (CLI) du Moteur DAG d'AnkiForge.
+
 Permet d'exécuter différents scénarios réels ou simulés pour tester :
 1. Pipeline de Création avec Copilote Intentionnel (RAG -> Plan -> Pause Humaine -> Map-Reduce -> Linteur)
 2. Pipeline d'Audit de Masse (Map-Reduce sur des cartes -> Détection de Cartes Malades -> Correction)
-3. Graphe avec Branchements Conditionnels et Récupération d'Erreur (on_success / on_failure)
+3. Graphe avec Branchements Conditionnels et Récupération d'Erreur (on_success / on_failure).
 
 Usage:
     python script/test_manual_dag_cli.py

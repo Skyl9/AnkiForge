@@ -1,6 +1,4 @@
-"""
-Package du Système d'Addons et Plugins pour AnkiForge.
-"""
+"""Package du Système d'Addons et Plugins pour AnkiForge."""
 
 from ankiforge.services.plugins.api import (
     AddonConfigAPI,

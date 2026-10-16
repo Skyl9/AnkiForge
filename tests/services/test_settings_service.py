@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour SettingsService (Persistance BDD Peewee et fallback QSettings).
-"""
+"""Tests unitaires pour SettingsService (Persistance BDD Peewee et fallback QSettings)."""
 
 import pytest
 

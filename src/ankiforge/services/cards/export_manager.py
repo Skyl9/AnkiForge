@@ -1,5 +1,5 @@
-"""
-Service d'Exportation de Paquets Anki (.apkg).
+"""Service d'Exportation de Paquets Anki (.apkg).
+
 Permet l'exportation sélective par paquet racine, sous-paquets, tags et statut,
 avec inclusion automatique des médias associés et persistance des identifiants stables.
 
@@ -43,6 +43,7 @@ class AnkiForgeCard(genanki.Card):
         self.flags = flags
 
     def write_to_db(self, cursor: Any, timestamp: float, deck_id: int, note_id: int, id_gen: Any, due: int = 0) -> None:
+        """Insère la carte dans la base d'export en préservant les drapeaux Anki (flags 1..7)."""
         queue = -1 if self.suspend else 0
         cursor.execute(
             "INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
@@ -70,9 +71,7 @@ class AnkiForgeCard(genanki.Card):
 
 
 class ExportManager:
-    """
-    Gestionnaire responsable de l'exportation sélective de paquets au format .apkg.
-    """
+    """Gestionnaire responsable de l'exportation sélective de paquets au format .apkg."""
 
     def __init__(self) -> None:
         self.media_dir = get_media_dir()
@@ -93,8 +92,7 @@ class ExportManager:
         sync_flags_and_suspension_tags: bool = True,
         progress_callback: Callable[[str], None] | None = None,
     ) -> int:
-        """
-        Exporte une sélection de cartes vers un fichier .apkg.
+        """Exporte une sélection de cartes vers un fichier .apkg.
 
         Args:
             output_path: Chemin du fichier de destination (toujours un `.apkg`).
@@ -106,7 +104,7 @@ class ExportManager:
             progress_callback: Fonction de notification de progression.
 
         Returns:
-            int: Nombre de notes exportées.
+            Nombre de notes exportées.
         """
 
         import time
@@ -135,7 +133,6 @@ class ExportManager:
             logger.warning("Aucun paquet trouvé pour l'exportation.")
             raise ValueError("Aucun paquet trouvé pour l'exportation.")
 
-        # Construction de la requête
         condition = CardModel.deck.in_(matching_decks)
 
         if status_filter == "new":
@@ -162,7 +159,6 @@ class ExportManager:
             if note.id in processed_notes:
                 continue
 
-            # Filtre par tags si spécifié
             if tags:
                 note_tags = []
                 if note.tags:
@@ -182,7 +178,6 @@ class ExportManager:
             if not nt:
                 continue
 
-            # Modèle genanki
             if nt.id not in genanki_models:
                 fields_list: list[str] = []
                 if nt.fields_schema:
@@ -217,7 +212,6 @@ class ExportManager:
                     except Exception as save_err:
                         logger.debug("Remarque sur la persistance de l'auto-healing pour nt ID=%d : %s", nt.id, save_err)
 
-                # Templates
                 templates_list: list[dict[str, Any]] = []
                 if nt.templates:
                     try:
@@ -248,7 +242,6 @@ class ExportManager:
                             }
                         )
 
-                # Si aucun gabarit fonctionnel n'est défini
                 if not g_templates:
                     if is_cloze:
                         f0 = fields_list[0]
@@ -285,7 +278,6 @@ class ExportManager:
 
             g_model, fields_list = genanki_models[nt.id]
 
-            # Contenu de la note active
             active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
             if not active_version:
                 active_version = NoteVersionModel.select().where(NoteVersionModel.note == note).order_by(NoteVersionModel.version_number.desc()).first()
@@ -302,9 +294,7 @@ class ExportManager:
                 val = str(content_dict.get(field_name, ""))
                 field_values.append(val)
 
-                # Récupération automatique des médias
                 if include_media:
-                    # Images
                     img_matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', val)
                     for img_name in img_matches:
                         img_path = self.media_dir / img_name
@@ -394,7 +384,6 @@ class ExportManager:
             logger.warning("Aucune carte ne correspond aux critères d'exportation sélectionnés.")
             raise ValueError("Aucune carte ne correspond aux critères d'exportation sélectionnés.")
 
-        # Emballage final
         if progress_callback:
             progress_callback(f"Génération de l'archive ({len(media_files_to_export)} médias inclus)...")
 
@@ -412,7 +401,6 @@ class ExportManager:
 
         package.write_to_file(str(out_path))
 
-        # Mise à jour du statut des notes exportées
         with db.atomic():
             NoteModel.update(status="exported").where(NoteModel.id.in_(exported_note_ids)).execute()
 

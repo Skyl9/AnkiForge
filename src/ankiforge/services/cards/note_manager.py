@@ -1,3 +1,9 @@
+"""Création et manipulation des notes Anki, de leurs versions et de leurs cartes physiques.
+
+Garantit qu'une note créée possède toujours une version initiale et les cartes
+(basique ou cloze) dérivées de son modèle de note.
+"""
+
 import json
 import logging
 import uuid
@@ -10,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class NoteManager:
-    """
-    Service métier orchestrant la création et la manipulation des notes.
+    """Service métier orchestrant la création et la manipulation des notes.
 
     Cette classe centralise la logique complexe de création de notes, garantissant
     que chaque note possède une version initiale et ses cartes physiques correspondantes.
@@ -26,22 +31,21 @@ class NoteManager:
         status: str = "new",
         source: str = "manual",
     ) -> NoteModel:
-        """
-        Crée une nouvelle note de manière atomique.
+        """Crée une nouvelle note de manière atomique.
 
         Génère la note, sa version initiale et toutes les cartes (CardModel)
         nécessaires selon le modèle de note (basique ou cloze).
 
         Args:
-            note_type (NoteTypeModel): Modèle Anki définissant les champs et templates.
-            deck (DeckModel): Paquet Anki de destination.
-            content_dict (dict[str, str]): Valeurs pour chaque champ défini dans le modèle.
-            tags (list[str] | None): Liste de tags optionnelle.
-            status (str): État initial de la note ('new', 'exported', etc.).
-            source (str): Origine de la note ('manual', 'ai', 'import').
+            note_type: Modèle Anki définissant les champs et templates.
+            deck: Paquet Anki de destination.
+            content_dict: Valeurs pour chaque champ défini dans le modèle.
+            tags: Liste de tags optionnelle.
+            status: État initial de la note ('new', 'exported', etc.).
+            source: Origine de la note ('manual', 'ai', 'import').
 
         Returns:
-            NoteModel: L'objet Note créé.
+            L'objet Note créé.
 
         Raises:
             RuntimeError: En cas d'échec de l'opération en base de données.
@@ -56,7 +60,6 @@ class NoteManager:
 
         try:
             with db.atomic():
-                # 1. Création de la coquille vide (La Note)
                 new_note = NoteModel.create(
                     guid=str(uuid.uuid4())[:10],
                     note_type=note_type,
@@ -64,10 +67,8 @@ class NoteManager:
                     status=status,
                 )
 
-                # 2. Création de la version initiale du contenu
                 new_note.add_version(content_dict, source=source)
 
-                # 3. Génération des cartes physiques selon la logique Anki
                 if is_cloze:
                     max_cloze = get_max_cloze_index(content_dict)
                     num_cards = max(1, max_cloze)

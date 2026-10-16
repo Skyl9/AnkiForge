@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour les outils de contrôle qualité et de diagnostic 360° du Consultant IA.
-"""
+"""Tests unitaires pour les outils de contrôle qualité et de diagnostic 360° du Consultant IA."""
 
 import json
 import uuid

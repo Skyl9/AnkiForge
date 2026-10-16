@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour reindex_service (Re-indexation migratoire des documents stale).
-"""
+"""Tests unitaires pour reindex_service (Re-indexation migratoire des documents stale)."""
 
 import uuid
 

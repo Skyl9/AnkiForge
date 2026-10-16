@@ -1,6 +1,4 @@
-"""
-Tests unitaires et d'intégration pour les outils d'inspection chirurgicale et manifeste du Consultant IA (MCP-ADV-02).
-"""
+"""Tests unitaires et d'intégration pour les outils d'inspection chirurgicale et manifeste du Consultant IA (MCP-ADV-02)."""
 
 import json
 import uuid

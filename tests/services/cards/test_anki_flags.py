@@ -1,10 +1,10 @@
-"""
-Tests complets pour la gestion des drapeaux Anki (flags 1 à 7) :
+"""Tests complets pour la gestion des drapeaux Anki (flags 1 à 7).
+
 - Persistance Peewee CardModel
 - Migration 026
 - Méthodes NoteRepository et syntaxe de recherche flag:X
 - Importation & Exportation .apkg avec préservation des drapeaux
-- Modèle virtuel NoteVirtualTableModel et FlagItemDelegate
+- Modèle virtuel NoteVirtualTableModel et FlagItemDelegate.
 """
 
 from __future__ import annotations

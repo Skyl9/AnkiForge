@@ -144,8 +144,7 @@ def test_page_inspector_widget_zoom_and_save(qtbot, created_album):
 
 
 def test_page_inspector_fits_in_logical_pixels_on_a_hidpi_screen(qtbot, created_album, monkeypatch):
-    """
-    Sur un écran à haute densité, l'ajustement doit toujours remplir le viewport.
+    """Sur un écran à haute densité, l'ajustement doit toujours remplir le viewport.
 
     Le calcul d'échelle se faisait sur des pixels **physiques** alors que Qt met en page
     un `QPixmap` sans `devicePixelRatio` en pixels **logiques** : l'image rendue
@@ -188,8 +187,7 @@ def test_page_inspector_fits_in_logical_pixels_on_a_hidpi_screen(qtbot, created_
 
 
 class _StubSignal:
-    """
-    Signal factice : la vue branche ses slots, et le double peut les déclencher.
+    """Signal factice : la vue branche ses slots, et le double peut les déclencher.
 
     Mémoriser les slots n'est pas un détail : la vue ne libère un worker que sur le vrai
     `QThread.finished`. Un double qui jetait les branchements rendait ce chemin
@@ -208,8 +206,7 @@ class _StubSignal:
 
 
 def test_inspector_surfaces_a_stale_transcription(qtbot, created_album):
-    """
-    Un état périmé se dit à l'endroit où l'on corrige la transcription.
+    """Un état périmé se dit à l'endroit où l'on corrige la transcription.
 
     L'inspecteur est précisément l'écran de relecture : y montrer un texte décrivant une
     orientation abandonnée invite à le recopier, donc à figer l'erreur dans les cartes.
@@ -248,9 +245,7 @@ def test_rotation_marks_the_transcription_stale(qtbot, created_album):
 
 
 def test_album_viewer_offers_the_configured_vision_models(qtbot, created_album):
-    """
-    Le sélecteur de modèles de vision est réellement peuplé avec les modèles supportant la vision.
-    """
+    """Le sélecteur de modèles de vision est réellement peuplé avec les modèles supportant la vision."""
     viewer = AlbumViewerWidget()
     qtbot.addWidget(viewer)
     viewer.load_album(created_album)
@@ -304,8 +299,7 @@ def test_ocr_uses_the_selected_model_not_the_first(qtbot, created_album, monkeyp
 
 
 def test_text_only_model_disables_transcription(qtbot, created_album, monkeypatch):
-    """
-    Un modèle ne supportant pas la vision refuse la transcription, avec son motif.
+    """Un modèle ne supportant pas la vision refuse la transcription, avec son motif.
 
     Le dépôt applique déjà cette règle au Studio et à la Batch ; l'album sans elle
     exposait l'utilisateur à une erreur d'API sans raison affichée.
@@ -485,8 +479,7 @@ def test_creation_view_album_integration(qtbot, created_album, mock_db):
 
 
 def test_occlusion_receives_the_rotated_planche(qtbot, tmp_path, mock_db, monkeypatch):
-    """
-    Le masque d'occlusion est cuit sur l'image **dans son orientation**.
+    """Le masque d'occlusion est cuit sur l'image **dans son orientation**.
 
     Les masques SVG sont cuits aux coordonnées relevées sur l'image fournie : passer le
     fichier brut produisait un masque en rapport avec une image que l'utilisateur ne voit
@@ -559,8 +552,7 @@ def _blue_columns(pixmap) -> list[int]:
 
 
 def test_satellite_surfaces_render_a_rotated_planche(qtbot, tmp_path, mock_db):
-    """
-    Les consommateurs satellites rendent la planche **dans son orientation**.
+    """Les consommateurs satellites rendent la planche **dans son orientation**.
 
     Studio et délimitation partageaient le défaut que la couture est venue supprimer :
     chacun ouvrait le fichier brut, donc montrait une planche couchée, et — pour la
@@ -608,8 +600,7 @@ def test_satellite_surfaces_render_a_rotated_planche(qtbot, tmp_path, mock_db):
 
 
 def test_inspector_keeps_the_capped_render_until_zoom_exceeds_it(qtbot, tmp_path, mock_db):
-    """
-    La pleine résolution se charge *à la demande*, et jamais parce qu'une planche est petite.
+    """La pleine résolution se charge *à la demande*, et jamais parce qu'une planche est petite.
 
     Décoder une planche entière pour l'afficher dans un cadre de quelques centaines de
     pixels est le gel que S1 supprime. Mais refuser cette lecture au-delà de 100 %
@@ -645,8 +636,7 @@ def test_inspector_keeps_the_capped_render_until_zoom_exceeds_it(qtbot, tmp_path
 
 
 def test_album_view_keeps_the_worker_reference_until_the_thread_really_ends(qtbot, created_album, mock_db):
-    """
-    La référence Python du worker n'est lâchée qu'à la **vraie** fin du QThread.
+    """La référence Python du worker n'est lâchée qu'à la **vraie** fin du QThread.
 
     `finished_signal` est émis depuis `run()`, donc juste avant que le thread ne rende la
     main. Y remettre `self._ocr_worker = None` suffisait à laisser le wrapper être ramassé
@@ -668,8 +658,7 @@ def test_album_view_keeps_the_worker_reference_until_the_thread_really_ends(qtbo
 
 
 def test_album_view_refuses_to_close_while_a_worker_still_runs(qtbot, created_album, mock_db):
-    """
-    Fermer la vue pendant qu'un worker tourne doit **refuser** l'événement, pas l'annoncer.
+    """Fermer la vue pendant qu'un worker tourne doit **refuser** l'événement, pas l'annoncer.
 
     Le `closeEvent` journalisait « destruction reportée » puis laissait l'événement passer :
     la vue se détruisait quand même et le `QThread` avec elle. Un avertissement dans le
@@ -740,8 +729,7 @@ def test_album_viewer_toolbar_responsive_wrapping(qtbot):
 
 
 def test_album_occlusion_notes_are_attached_to_the_page_chunk(qtbot, created_album, mock_db):
-    """
-    Le chemin album rattache désormais les occlusions à leur planche (ADR 0023).
+    """Le chemin album rattache désormais les occlusions à leur planche (ADR 0023).
 
     Auparavant, `_on_open_image_occlusion` jetait `get_created_notes()` : une carte
     d'occlusion de planche était orpheline de sa source. Le rattachement retrouve le

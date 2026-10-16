@@ -1,7 +1,4 @@
-"""
-Tests unitaires et d'intégration pour le système d'onglets IdePanel, le détachement/rattachement,
-la réouverture via le bouton +, la SegmentedTabBar et la navigation transverse.
-"""
+"""Tests unitaires et d'intégration pour le système d'onglets IdePanel, le détachement/rattachement, la réouverture via le bouton +, la SegmentedTabBar et la navigation transverse."""
 
 from __future__ import annotations
 

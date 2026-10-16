@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour l'Architecture UI Enfichable (Layouts) d'AnkiForge.
-"""
+"""Tests unitaires pour l'Architecture UI Enfichable (Layouts) d'AnkiForge."""
 
 from unittest.mock import patch
 

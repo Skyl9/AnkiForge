@@ -104,8 +104,8 @@ def test_edition_target_resolution_priority(qtbot, edition_test_data):
 
 
 def test_bidirectional_sync_between_selection_and_checkboxes(qtbot, edition_test_data):
-    """
-    Vérifie la synchronisation bidirectionnelle stricte :
+    """Vérifie la synchronisation bidirectionnelle stricte.
+
     - Ligne soulignée/sélectionnée => icône de coche à gauche validée (Checked).
     - Icône cochée => ligne soulignée/sélectionnée dans card_table.
     """

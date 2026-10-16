@@ -1,12 +1,12 @@
-"""
-Tests complets pour la gestion des cartes suspendues et drapeaux Anki :
+"""Tests complets pour la gestion des cartes suspendues et drapeaux Anki.
+
 - Persistance Peewee CardModel (is_suspended)
 - Migration 027
 - Méthodes NoteRepository (suspend_card, suspend_note, is_note_suspended) et syntaxe is:suspended / -is:suspended
 - Exportation .apkg avec SQLite queue == -1 et synchronisation des tags (flag::<color>, is::suspended)
 - Importation .apkg avec extraction de queue == -1 ➔ is_suspended = True
 - Modèle virtuel NoteVirtualTableModel (rôle IS_SUSPENDED_ROLE, BackgroundRole amber, suffixe ⏸️)
-- EditionView bascule suspend (! / Ctrl+J) et filtrage statut (Actives / Suspendues)
+- EditionView bascule suspend (! / Ctrl+J) et filtrage statut (Actives / Suspendues).
 """
 
 from __future__ import annotations

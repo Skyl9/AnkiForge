@@ -1,5 +1,5 @@
-"""
-Service d'Exportation et d'Importation de Modèles de Cartes AnkiForge.
+"""Service d'Exportation et d'Importation de Modèles de Cartes AnkiForge.
+
 Supporte le format de paquet bundle communautaire .afmodel (archive zip) et le format .json.
 """
 
@@ -45,7 +45,6 @@ class CardModelIO:
             templates = []
 
         if not demo_cards:
-            # Génère des cartes témoins par défaut basées sur le schéma
             demo_cards = [{f: f"Exemple de contenu pour {f}" for f in fields}]
 
         return {
@@ -97,9 +96,7 @@ class CardModelIO:
         demo_cards: list[dict[str, str]] | None = None,
         assets: dict[str, bytes] | None = None,
     ) -> Path:
-        """
-        Exporte un modèle au format bundle .afmodel (archive ZIP contenant templates, CSS, manifeste et démos).
-        """
+        """Exporte un modèle au format bundle .afmodel (archive ZIP contenant templates, CSS, manifeste et démos)."""
         out = Path(output_path)
         if out.suffix.lower() != BUNDLE_EXTENSION:
             out = out.with_suffix(BUNDLE_EXTENSION)
@@ -121,10 +118,8 @@ class CardModelIO:
         }
 
         with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            # 1. Manifeste
             zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
 
-            # 2. Templates
             templates = model_dict["templates"]
             if templates:
                 first_tmpl = templates[0]
@@ -132,13 +127,10 @@ class CardModelIO:
                 zf.writestr("back.html", first_tmpl.get("afmt", "{{FrontSide}}<hr id='answer'>{{Back}}"))
             zf.writestr("templates.json", json.dumps(templates, indent=2, ensure_ascii=False))
 
-            # 3. Styles CSS
             zf.writestr("style.css", model_dict.get("css_style", ""))
 
-            # 4. Cartes démos
             zf.writestr("demo_cards.json", json.dumps(model_dict.get("demo_cards", []), indent=2, ensure_ascii=False))
 
-            # 5. Assets optionnels
             if assets:
                 for asset_name, asset_bytes in assets.items():
                     zf.writestr(f"assets/{asset_name}", asset_bytes)
@@ -148,9 +140,7 @@ class CardModelIO:
 
     @classmethod
     def validate_and_parse_json(cls, json_str: str) -> tuple[bool, dict[str, Any] | None, str]:
-        """
-        Valide et normalise la structure d'un modèle JSON AnkiForge.
-        """
+        """Valide et normalise la structure d'un modèle JSON AnkiForge."""
         try:
             data = json.loads(json_str)
         except Exception as e:
@@ -159,7 +149,6 @@ class CardModelIO:
         if not isinstance(data, dict):
             return False, None, "Le contenu doit être un objet JSON valide."
 
-        # Vérification du nom
         name = ""
         if "metadata" in data and isinstance(data["metadata"], dict) and "name" in data["metadata"]:
             name = str(data["metadata"]["name"]).strip()
@@ -169,12 +158,10 @@ class CardModelIO:
         if not name:
             return False, None, "Nom du modèle manquant dans le fichier JSON."
 
-        # Vérification des champs
         fields = data.get("fields_schema", [])
         if not isinstance(fields, list) or not fields:
             fields = ["Front", "Back"]
 
-        # Vérification des templates
         templates = data.get("templates", [])
         if not isinstance(templates, list) or not templates:
             templates = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id='answer'>{{Back}}"}]
@@ -195,9 +182,7 @@ class CardModelIO:
 
     @classmethod
     def read_bundle_file(cls, bundle_path: Path | str) -> tuple[bool, dict[str, Any] | None, str]:
-        """
-        Lit et extrait les métadonnées et gabarits d'une archive .afmodel.
-        """
+        """Lit et extrait les métadonnées et gabarits d'une archive .afmodel."""
         path = Path(bundle_path)
         if not path.exists():
             return False, None, f"Le fichier '{path}' est introuvable."
@@ -212,12 +197,10 @@ class CardModelIO:
                 manifest_raw = zf.read("manifest.json").decode("utf-8")
                 manifest = json.loads(manifest_raw)
 
-                # Lecture du CSS
                 css_style = ""
                 if "style.css" in file_list:
                     css_style = zf.read("style.css").decode("utf-8")
 
-                # Lecture des templates
                 templates = []
                 if "templates.json" in file_list:
                     templates_raw = zf.read("templates.json").decode("utf-8")
@@ -227,7 +210,6 @@ class CardModelIO:
                     back = zf.read("back.html").decode("utf-8")
                     templates = [{"name": "Carte 1", "qfmt": front, "afmt": back}]
 
-                # Lecture des cartes démos
                 demo_cards = []
                 if "demo_cards.json" in file_list:
                     demos_raw = zf.read("demo_cards.json").decode("utf-8")
@@ -250,9 +232,7 @@ class CardModelIO:
 
     @classmethod
     def read_model_file(cls, file_path: Path | str) -> tuple[bool, dict[str, Any] | None, str]:
-        """
-        Détecte automatiquement l'extension et charge le modèle depuis un fichier .afmodel ou .json.
-        """
+        """Détecte automatiquement l'extension et charge le modèle depuis un fichier .afmodel ou .json."""
         p = Path(file_path)
         if p.suffix.lower() == BUNDLE_EXTENSION or zipfile.is_zipfile(p):
             return cls.read_bundle_file(p)
@@ -271,10 +251,7 @@ class CardModelIO:
         new_name: str | None = None,
         on_conflict: str = "error",
     ) -> tuple[NoteTypeModel, bool]:
-        """
-        Enregistre les données du modèle en base SQLite Peewee avec validation structurelle
-        et gestion explicite des collisions (error, rename, overwrite).
-        """
+        """Enregistre les données du modèle en base SQLite Peewee avec validation structurelle et gestion explicite des collisions (error, rename, overwrite)."""
         from ankiforge.services.cards.note_type_service import NoteTypeService
 
         name = (new_name or model_data.get("name", "")).strip()
@@ -290,7 +267,6 @@ class CardModelIO:
         css_style = model_data.get("css_style", "")
         description = str(model_data.get("description", "") or model_data.get("metadata", {}).get("description", "") or "").strip()
 
-        # Résolution de la politique de conflit
         if overwrite_existing is True:
             conflict_policy = "overwrite"
         elif overwrite_existing is False:
@@ -331,9 +307,7 @@ class CardModelIO:
 
     @classmethod
     def get_starter_pack_models(cls) -> list[dict[str, Any]]:
-        """
-        Retourne la collection des 4 modèles communautaires préconfigurés (Starter Pack).
-        """
+        """Retourne la collection des 4 modèles communautaires préconfigurés (Starter Pack)."""
         return [
             {
                 "id": "medical_qcm",

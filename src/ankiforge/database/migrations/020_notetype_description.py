@@ -1,3 +1,5 @@
+"""Migration 020 : ajout du champ description (directives IA) à notetypemodel."""
+
 import logging
 
 import peewee as pw

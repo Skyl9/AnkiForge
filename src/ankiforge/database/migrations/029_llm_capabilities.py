@@ -1,3 +1,5 @@
+"""Migration 029 : capacités LLM (vision, thinking, json, vitesse, tier, tâches) et backfill depuis le catalogue."""
+
 import json
 import logging
 

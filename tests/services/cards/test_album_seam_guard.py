@@ -1,5 +1,4 @@
-"""
-Test de garde : **qui a le droit de lire le fichier image d'une planche ?**
+"""Test de garde : **qui a le droit de lire le fichier image d'une planche ?**.
 
 `DocumentPageModel.rotation` est persisté (ADR 0011). Avant la couture, neuf
 consommateurs le lisaient et un seul l'honorait — le reste produisait des planches
@@ -66,9 +65,7 @@ def _iter_source_files() -> list[Path]:
 
 
 def _reads_media_filename(tree: ast.AST) -> bool:
-    """
-    Détecte l'accès à `.media.filename` — l'expression qui précède l'ouverture
-    du fichier d'une planche.
+    """Détecte l'accès à `.media.filename` — l'expression qui précède l'ouverture du fichier d'une planche.
 
     On cherche l'attribut `filename` dont la valeur porte un attribut `media`
     (n'importe quel objet : `page.media`, `self.page.media`, `chunk.media`...).
@@ -82,8 +79,7 @@ def _reads_media_filename(tree: ast.AST) -> bool:
 
 
 def test_no_module_outside_the_whitelist_reads_the_planche_file() -> None:
-    """
-    Aucun module hors liste blanche ne résout le fichier image d'une planche.
+    """Aucun module hors liste blanche ne résout le fichier image d'une planche.
 
     Un neuvième consommateur fourvoyé serait à une ligne : ce test est ce qui
     l'empêche d'exister.
@@ -116,8 +112,7 @@ def test_the_whitelist_still_points_at_existing_files() -> None:
 
 
 def _names_a_page(node: ast.AST, page_holders: frozenset[str]) -> bool:
-    """
-    L'expression portant `.rotation` désigne-t-elle une page ?
+    """L'expression portant `.rotation` désigne-t-elle une page ?
 
     Varier la forme (`self._page`, `pages[0]`, `p`) était la faille de la première
     version de cette règle : elle visait quatre noms exacts, donc une fuite par
@@ -152,8 +147,7 @@ def _names_a_page(node: ast.AST, page_holders: frozenset[str]) -> bool:
 
 
 def test_no_module_outside_the_whitelist_reads_the_rotation() -> None:
-    """
-    Aucun module hors de la couture ne lit la rotation d'une planche.
+    """Aucun module hors de la couture ne lit la rotation d'une planche.
 
     L'orientation affichée vient de `AlbumService.render_page_image` ; relire
     `page.rotation` ailleurs est la double implémentation que la couture remplace.
@@ -185,8 +179,7 @@ def test_no_module_outside_the_whitelist_reads_the_rotation() -> None:
 
 
 def test_the_rotation_reader_is_the_seam_and_the_cache_keys_on_it() -> None:
-    """
-    La couture lit la rotation pour rendre ; le cache la lit pour composer sa clé.
+    """La couture lit la rotation pour rendre ; le cache la lit pour composer sa clé.
 
     Le cache de vignettes consulte `page.rotation` sans produire d'image — c'est ce qui
     rend l'entrée juste : pivoter une planche change sa clé, donc son entrée, donc

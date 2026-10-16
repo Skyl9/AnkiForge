@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour la Machine à Remonter le Temps (Time Machine) et le Diff.
-"""
+"""Tests unitaires pour la Machine à Remonter le Temps (Time Machine) et le Diff."""
 
 import json
 import uuid

@@ -83,7 +83,6 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
     ]
 
     try:
-        # Vérification si la table personas existe
         cursor = database.execute_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='personas'")
         if not cursor.fetchone():
             return
@@ -92,7 +91,6 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
             cursor = database.execute_sql("SELECT id FROM personas WHERE name = ?", (agent["name"],))
             row = cursor.fetchone()
             if row:
-                # Mise à jour du persona existant avec son typage MCP et ses outils autorisés
                 database.execute_sql(
                     "UPDATE personas SET persona_type = ?, allowed_tools = ?, description = ?, "
                     "system_prompt = CASE WHEN system_prompt IS NULL OR TRIM(system_prompt) = '' "
@@ -100,7 +98,6 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
                     (agent["persona_type"], agent["allowed_tools"], agent["description"], agent["system_prompt"], row[0]),
                 )
             else:
-                # Insertion d'un nouvel agent dédié
                 database.execute_sql(
                     "INSERT INTO personas (name, description, system_prompt, output_format, persona_type, allowed_tools) VALUES (?, ?, ?, 'json', ?, ?)",
                     (agent["name"], agent["description"], agent["system_prompt"], agent["persona_type"], agent["allowed_tools"]),

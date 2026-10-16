@@ -1,5 +1,5 @@
-"""
-Service de Notifications Système et Alertes d'Arrière-Plan pour AnkiForge.
+"""Service de Notifications Système et Alertes d'Arrière-Plan pour AnkiForge.
+
 Permet d'émettre des notifications de bureau natives (via QSystemTrayIcon)
 ou d'activer un signal de repli visuel (QApplication.alert dock/taskbar)
 lorsqu'une tâche se termine alors qu'AnkiForge n'est pas au premier plan.
@@ -32,8 +32,8 @@ class NotificationMode(enum.StrEnum):
 
 
 class SystemNotificationService:
-    """
-    Gestionnaire unifié des notifications système et alertes de focus.
+    """Gestionnaire unifié des notifications système et alertes de focus.
+
     Gère la détection de la fenêtre en arrière-plan, la préférence utilisateur,
     l'émission native et le repli gracieux sur rebond dock / clignotement barre des tâches.
     """
@@ -59,8 +59,8 @@ class SystemNotificationService:
         self.last_alert_widget = None
 
     def is_window_active(self, host_window: QWidget | None) -> bool:
-        """
-        Détermine si la fenêtre spécifiée est active au premier plan de l'OS.
+        """Détermine si la fenêtre spécifiée est active au premier plan de l'OS.
+
         Retourne False si host_window est None, masquée, minimisée ou si une
         autre application de l'OS détient actuellement le focus clavier.
         """
@@ -132,8 +132,7 @@ class SystemNotificationService:
         title: str,
         message: str,
     ) -> bool:
-        """
-        Émet une notification système ou une alerte OS si la fenêtre est en arrière-plan.
+        """Émet une notification système ou une alerte OS si la fenêtre est en arrière-plan.
 
         Retourne:
             bool: True si une action de notification ou alerte a été traitée, False sinon.

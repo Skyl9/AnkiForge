@@ -1,6 +1,4 @@
-"""
-Repository for Note, Card, NoteType, and Version models.
-"""
+"""Dépôt des modèles Note, Card, NoteType et Version."""
 
 from __future__ import annotations
 
@@ -25,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 class NoteRepository(BaseRepository):
-    """Data access repository for notes, cards, and note types."""
+    """Dépôt d'accès aux données des notes, des cartes et des types de note."""
 
     def get_note_by_id(self, note_id: int) -> NoteModel | None:
-        """Retrieve a note by its primary key ID."""
+        """Retourne une note par sa clé primaire."""
         try:
             return NoteModel.get_or_none(NoteModel.id == note_id)
         except Exception as e:
@@ -36,7 +34,7 @@ class NoteRepository(BaseRepository):
             return None
 
     def get_note_by_guid(self, guid: str) -> NoteModel | None:
-        """Retrieve a note by its GUID."""
+        """Retourne une note par son GUID."""
         try:
             return NoteModel.get_or_none(NoteModel.guid == guid)
         except Exception as e:
@@ -44,26 +42,26 @@ class NoteRepository(BaseRepository):
             return None
 
     def get_all_notes(self, limit: int | None = None, offset: int = 0) -> list[NoteModel]:
-        """Retrieve all notes, ordered by ID."""
+        """Retourne toutes les notes, triées par ID."""
         query = NoteModel.select().order_by(NoteModel.id.asc())
         if limit is not None:
             query = query.limit(limit).offset(offset)
         return list(query)
 
     def get_notes_by_deck(self, deck_id: int) -> list[NoteModel]:
-        """Retrieve all notes containing cards placed in a specific deck."""
+        """Retourne toutes les notes contenant des cartes placées dans un paquet donné."""
         return list(NoteModel.select().join(CardModel).where(CardModel.deck == deck_id).distinct().order_by(NoteModel.id.asc()))
 
     def get_notes_by_model(self, model_id: int) -> list[NoteModel]:
-        """Retrieve notes associated with a specific NoteTypeModel."""
+        """Retourne les notes associées à un NoteTypeModel donné."""
         return list(NoteModel.select().where(NoteModel.note_type == model_id).order_by(NoteModel.id.asc()))
 
     def get_all_note_types(self) -> list[NoteTypeModel]:
-        """Retrieve all note types (card templates)."""
+        """Retourne tous les types de note (modèles de cartes)."""
         return list(NoteTypeModel.select().order_by(NoteTypeModel.name.asc()))
 
     def get_note_type_by_id(self, model_id: int) -> NoteTypeModel | None:
-        """Retrieve a note type by ID."""
+        """Retourne un type de note par son ID."""
         try:
             return NoteTypeModel.get_or_none(NoteTypeModel.id == model_id)
         except Exception as e:
@@ -71,7 +69,7 @@ class NoteRepository(BaseRepository):
             return None
 
     def get_note_type_by_name(self, name: str) -> NoteTypeModel | None:
-        """Retrieve a note type by its name."""
+        """Retourne un type de note par son nom."""
         try:
             return NoteTypeModel.get_or_none(NoteTypeModel.name == name)
         except Exception as e:
@@ -86,7 +84,7 @@ class NoteRepository(BaseRepository):
         css_style: str = "",
         description: str = "",
     ) -> NoteTypeModel:
-        """Create a new note type."""
+        """Crée un nouveau type de note."""
         fields_str = json.dumps(fields_schema) if isinstance(fields_schema, list) else fields_schema
         templates_str = json.dumps(templates) if isinstance(templates, list) else templates
 
@@ -107,7 +105,7 @@ class NoteRepository(BaseRepository):
         status: str = "new",
         source: str = "ai",
     ) -> NoteModel:
-        """Create a note, its initial active version, and the corresponding card."""
+        """Crée une note, sa version active initiale et la carte correspondante."""
         tags_str = serialize_note_tags(tags)
 
         with self.atomic():
@@ -138,7 +136,7 @@ class NoteRepository(BaseRepository):
         tags: list[str] | None = None,
         source: str = "manual",
     ) -> NoteModel | None:
-        """Create a new version for the note and optionally update tags."""
+        """Crée une nouvelle version de la note et met éventuellement à jour les tags."""
         note = self.get_note_by_id(note_id)
         if not note:
             return None
@@ -153,7 +151,7 @@ class NoteRepository(BaseRepository):
             return note
 
     def update_note_tags(self, note_id: int, tags: list[str]) -> bool:
-        """Update tags for a note."""
+        """Met à jour les tags d'une note."""
         note = self.get_note_by_id(note_id)
         if not note:
             return False
@@ -164,7 +162,7 @@ class NoteRepository(BaseRepository):
         return True
 
     def delete_note(self, note_id: int) -> bool:
-        """Delete a note and its associated cards and versions."""
+        """Supprime une note ainsi que ses cartes et versions associées."""
         note = self.get_note_by_id(note_id)
         if not note:
             return False
@@ -174,27 +172,27 @@ class NoteRepository(BaseRepository):
             return True
 
     def get_active_version(self, note: NoteModel) -> NoteVersionModel | None:
-        """Retrieve the currently active version of a note."""
+        """Retourne la version actuellement active d'une note."""
         return NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
 
     def get_versions(self, note: NoteModel) -> list[NoteVersionModel]:
-        """Retrieve all versions of a note ordered descending."""
+        """Retourne toutes les versions d'une note, triées par ordre décroissant."""
         return list(NoteVersionModel.select().where(NoteVersionModel.note == note).order_by(NoteVersionModel.version_number.desc()))
 
     def get_cards_by_note(self, note_id: int) -> list[CardModel]:
-        """Retrieve all cards belonging to a specific note."""
+        """Retourne toutes les cartes appartenant à une note donnée."""
         return list(CardModel.select().where(CardModel.note == note_id))
 
     def get_cards_by_deck(self, deck_id: int) -> list[CardModel]:
-        """Retrieve all cards belonging to a specific deck."""
+        """Retourne toutes les cartes appartenant à un paquet donné."""
         return list(CardModel.select().where(CardModel.deck == deck_id))
 
     def count_notes(self) -> int:
-        """Count total notes in database."""
+        """Compte le nombre total de notes en base de données."""
         return int(NoteModel.select().count())
 
     def count_cards(self) -> int:
-        """Count total cards in database."""
+        """Compte le nombre total de cartes en base de données."""
         return int(CardModel.select().count())
 
     def set_card_flag(self, card_id: int, flag: int) -> bool:
@@ -350,7 +348,7 @@ class NoteRepository(BaseRepository):
         return list(db_query.order_by(NoteModel.id.asc()).limit(limit))
 
     def get_all_tags(self) -> list[str]:
-        """Extract all unique tags from notes."""
+        """Extrait tous les tags uniques des notes."""
         tags_set: set[str] = set()
         for note in NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False)):
             if note.tags:

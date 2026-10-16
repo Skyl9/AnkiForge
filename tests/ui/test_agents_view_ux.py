@@ -158,8 +158,7 @@ def test_agents_view_prompt_buttons_height_and_density(qtbot):
 
 
 def test_agents_view_scope_filter_chips_and_alignment(qtbot):
-    """Vérifie que les filtres de portée sont des FilterChipButton avec icônes Phosphor (sans émojis),
-    et que la barre de recherche et le bouton 'Nouvel Agent' sont alignés verticalement à 30px."""
+    """Vérifie que les filtres de portée sont des FilterChipButton avec icônes Phosphor (sans émojis), et que la barre de recherche et le bouton 'Nouvel Agent' sont alignés verticalement à 30px."""
     from ankiforge.ui.components import FilterChipButton
     from ankiforge.ui.style_engine import JETBRAINS_LIGHT
 
@@ -232,8 +231,7 @@ def test_agents_view_scope_filter_chips_and_alignment(qtbot):
 
 
 def test_agents_view_tools_permissions_buttons_and_alignment(qtbot):
-    """Vérifie l'alignement et la densité compacte des boutons 'Tout Cocher' / 'Tout Décocher'
-    et de la liste déroulante des presets d'outils."""
+    """Vérifie l'alignement et la densité compacte des boutons 'Tout Cocher' / 'Tout Décocher' et de la liste déroulante des presets d'outils."""
     from ankiforge.ui.components import SecondaryButton
 
     view = AgentsView()
@@ -262,8 +260,7 @@ def test_agents_view_tools_permissions_buttons_and_alignment(qtbot):
 
 
 def test_agents_view_no_dashed_border_and_no_child_cascade(qtbot):
-    """Vérifie que la bordure pointillée est supprimée et qu'aucun enfant de engine_info_card
-    n'hérite d'une bordure en cascade."""
+    """Vérifie que la bordure pointillée est supprimée et qu'aucun enfant de engine_info_card n'hérite d'une bordure en cascade."""
     from ankiforge.ui.style_engine import JETBRAINS_LIGHT
 
     view = AgentsView()

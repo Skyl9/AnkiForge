@@ -67,8 +67,7 @@ def _clean_header_text(header_line: str) -> str:
 
 
 class AppDocumentationService:
-    """
-    Gestionnaire centralisé de la base de connaissances interne de l'application.
+    """Gestionnaire centralisé de la base de connaissances interne de l'application.
 
     Parse l'arborescence Zensical (`zensical.toml`) et les pages Markdown (`docs/`),
     puis indexe les sections dans une table SQLite FTS5 en mémoire pour une recherche
@@ -114,8 +113,8 @@ class AppDocumentationService:
         return conn
 
     def _parse_zensical_nav(self) -> dict[str, tuple[str, str]]:
-        """
-        Extrait l'arborescence de navigation définie dans `zensical.toml`.
+        """Extrait l'arborescence de navigation définie dans `zensical.toml`.
+
         Retourne un dictionnaire { 'rel_path.md': ('Titre de la Page', 'Catégorie') }.
         """
         meta: dict[str, tuple[str, str]] = {}
@@ -314,8 +313,7 @@ class AppDocumentationService:
         return " ".join(f'"{tok}"*' for tok in tokens)
 
     def search(self, query: str, category: str = "", limit: int = 5) -> list[DocSearchResult]:
-        """
-        Recherche des passages pertinents dans la documentation Zensical via FTS5 BM25.
+        """Recherche des passages pertinents dans la documentation Zensical via FTS5 BM25.
 
         Args:
             query: Termes recherchés.
@@ -382,8 +380,7 @@ class AppDocumentationService:
                 return []
 
     def get_page_content(self, doc_path: str, section_anchor: str = "") -> str | None:
-        """
-        Récupère le contenu Markdown complet d'une page ou d'une section spécifique.
+        """Récupère le contenu Markdown complet d'une page ou d'une section spécifique.
 
         Args:
             doc_path: Chemin relatif ou partiel de la page (ex: 'features/consultant_mcp.md').
@@ -443,9 +440,7 @@ class AppDocumentationService:
         return [t for t in self._topics_cache if norm_cat in t.category.lower()]
 
     def get_feature_quick_help(self, feature_name: str) -> str:
-        """
-        Génère une fiche synthétique pour une fonctionnalité clé ou via recherche sémantique.
-        """
+        """Génère une fiche synthétique pour une fonctionnalité clé ou via recherche sémantique."""
         self.ensure_indexed()
         norm_feat = feature_name.strip().lower()
 

@@ -1,3 +1,5 @@
+"""Migration 040 : tables batch_runs et batch_tasks pour la file de traitement par lots."""
+
 import datetime
 import logging
 

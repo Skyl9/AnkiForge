@@ -1,5 +1,5 @@
-"""
-Tests unitaires et d'interface graphique (PySide6 / pytest-qt) pour SettingsModal et ses 5 onglets.
+"""Tests unitaires et d'interface graphique (PySide6 / pytest-qt) pour SettingsModal et ses 5 onglets.
+
 Vérifie la création, le basculement d'onglets, la persistance des préférences, les actions réelles de maintenance,
 la validation des clés API, les règles de formats/fusion Anki hors-ligne et la réactivité au thème clair/sombre.
 """

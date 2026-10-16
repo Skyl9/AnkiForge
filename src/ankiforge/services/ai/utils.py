@@ -1,3 +1,5 @@
+"""Utilitaires transverses du moteur IA (télémétrie, prompts, parsing JSON et erreurs)."""
+
 import ast
 import contextvars
 import dataclasses
@@ -122,18 +124,17 @@ def log_token_usage(
     persona_id: int | None = None,
     ab_run_id: str | None = None,
 ) -> None:
-    """
-    Enregistre la consommation de jetons (tokens) en base de données et calcule le coût estimé.
+    """Enregistre la consommation de jetons (tokens) en base de données et calcule le coût estimé.
 
     Args:
-        provider (str): Nom du fournisseur d'IA (ex: 'openai', 'gemini').
-        model_id (str): Identifiant du modèle utilisé.
-        prompt_tokens (int): Nombre de jetons envoyés en entrée.
-        completion_tokens (int): Nombre de jetons générés en sortie.
-        task_type (str): Type de tâche IA pour répartition dans le suivi.
-        pipeline_id (int | None): Pipeline DAG émetteur (défaut: contexte de télémétrie).
-        persona_id (int | None): Persona/agent émetteur (défaut: contexte de télémétrie).
-        ab_run_id (str | None): Identifiant d'exécution du test A/B (défaut: contexte de télémétrie).
+        provider: Nom du fournisseur d'IA (ex: 'openai', 'gemini').
+        model_id: Identifiant du modèle utilisé.
+        prompt_tokens: Nombre de jetons envoyés en entrée.
+        completion_tokens: Nombre de jetons générés en sortie.
+        task_type: Type de tâche IA pour répartition dans le suivi.
+        pipeline_id: Pipeline DAG émetteur (défaut: contexte de télémétrie).
+        persona_id: Persona/agent émetteur (défaut: contexte de télémétrie).
+        ab_run_id: Identifiant d'exécution du test A/B (défaut: contexte de télémétrie).
     """
     eff_pipeline = pipeline_id if pipeline_id is not None else _telemetry_pipeline_id.get()
     eff_persona = persona_id if persona_id is not None else _telemetry_persona_id.get()
@@ -163,8 +164,8 @@ T = TypeVar("T")
 
 
 class AIReponseParser:
-    """
-    Classe utilitaire pour nettoyer, parser et valider les réponses JSON des LLMs.
+    """Classe utilitaire pour nettoyer, parser et valider les réponses JSON des LLMs.
+
     Utilise les dataclasses Python pour une validation rigoureuse des structures.
     """
 
@@ -287,8 +288,8 @@ class AIReponseParser:
 
     @classmethod
     def parse(cls, response_text: str, target_model: type[T] | None = None) -> T | Any:
-        """
-        Nettoie et convertit la réponse de l'IA en objet Python avec résilience / self-healing.
+        """Nettoie et convertit la réponse de l'IA en objet Python avec résilience / self-healing.
+
         Si une dataclass (target_model) est fournie, le JSON sera validé et instancié.
         Sinon, retourne un dictionnaire ou une liste native.
         """
@@ -396,15 +397,14 @@ class AIReponseParser:
 
 
 def format_system_prompt(system_prompt_template: str, fields_schema_json: str | None) -> str:
-    """
-    Remplit dynamiquement un prompt système Jinja2 avec les champs Anki cibles.
+    """Remplit dynamiquement un prompt système Jinja2 avec les champs Anki cibles.
 
     Args:
-        system_prompt_template (str): Le prompt système brut contenant les variables Jinja2.
-        fields_schema_json (str | None): Le schéma JSON des champs du modèle de note.
+        system_prompt_template: Le prompt système brut contenant les variables Jinja2.
+        fields_schema_json: Le schéma JSON des champs du modèle de note.
 
     Returns:
-        str: Le prompt système final prêt à être envoyé à l'IA.
+        Le prompt système final prêt à être envoyé à l'IA.
     """
     fields = json.loads(fields_schema_json) if fields_schema_json else ["Front", "Back"]
     fields_str = '", "'.join(fields)
@@ -421,9 +421,7 @@ def format_system_prompt(system_prompt_template: str, fields_schema_json: str | 
 
 
 def format_available_card_models_prompt(models: list[Any] | None = None) -> str:
-    """
-    Génère un bloc de directives sémantiques et de schémas JSON pour la balise {{ available_card_models }}.
-    """
+    """Génère un bloc de directives sémantiques et de schémas JSON pour la balise {{ available_card_models }}."""
     if not models:
         try:
             from ankiforge.database.models import NoteTypeModel
@@ -509,9 +507,8 @@ def normalize_card_fields(cards: list[dict[str, Any]], expected_fields: list[str
 
 
 def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
-    """
-    Extrait universellement une liste de dictionnaires représentant des cartes / notes
-    depuis n'importe quelle structure via validation Pydantic et auto-réparation (Self-Healing).
+    """Extrait universellement une liste de dictionnaires représentant des cartes / notes depuis n'importe quelle structure via validation Pydantic et auto-réparation (Self-Healing).
+
     Supporte les formats multi-modèles structurés {"model": "...", "fields": {...}}.
     """
     try:
@@ -553,10 +550,7 @@ def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
 
 
 def get_human_readable_api_error(error: Exception) -> str:
-    """
-    Traduit les erreurs techniques d'API (OpenAI, Gemini, requêtes locales)
-    en messages compréhensibles et orientés action pour l'utilisateur.
-    """
+    """Traduit les erreurs techniques d'API (OpenAI, Gemini, requêtes locales) en messages compréhensibles et orientés action pour l'utilisateur."""
     error_str = str(error).lower()
 
     # 1. Erreurs de Quotas et Surcharge (429)

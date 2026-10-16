@@ -1,6 +1,4 @@
-"""
-Unit tests for VectorManager persistent embedding cache.
-"""
+"""Unit tests for VectorManager persistent embedding cache."""
 
 from __future__ import annotations
 

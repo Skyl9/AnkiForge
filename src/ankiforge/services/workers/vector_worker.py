@@ -1,3 +1,5 @@
+"""Worker QThread d'indexation vectorielle RAG d'un document."""
+
 import logging
 import time
 
@@ -10,6 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class VectorWorker(QThread):
+    """Indexe un document dans l'index vectoriel RAG en tâche de fond.
+
+    Émet ``finished_indexing`` avec le nom de la collection (chaîne vide si le
+    document n'a rien à indexer), ou ``error_occurred`` en cas d'échec.
+    """
+
     finished_indexing = Signal(str)  # Renvoie le nom de la collection
     error_occurred = Signal(str)
 
@@ -19,6 +27,7 @@ class VectorWorker(QThread):
         self.manager = VectorManager()
 
     def run(self) -> None:
+        """Indexe le document via le VectorManager et publie le nom de collection résultant."""
         t0 = time.perf_counter()
         try:
             document = DocumentModel.get_by_id(self.document_id)

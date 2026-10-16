@@ -1,3 +1,5 @@
+"""Migration 015 : création de la table persona_folders et rattachement des personas à un dossier."""
+
 import datetime
 
 import peewee as pw

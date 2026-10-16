@@ -1,3 +1,5 @@
+"""Résolution des chemins de ressources et de données d'AnkiForge selon l'environnement d'exécution."""
+
 import logging
 import os
 import sys
@@ -9,12 +11,12 @@ APP_NAME = "ankiforge"
 
 
 def get_project_root() -> Path:
-    """
-    Localise dynamiquement la racine du projet ou du bundle sur le disque.
+    """Localise dynamiquement la racine du projet ou du bundle sur le disque.
+
     Ne lève jamais d'exception pour garantir le démarrage en binaire autonome.
 
     Returns:
-        Path: Chemin absolu vers la racine du projet ou du bundle.
+        Chemin absolu vers la racine du projet ou du bundle.
     """
     # 1. PyInstaller
     if hasattr(sys, "_MEIPASS"):
@@ -43,15 +45,13 @@ def get_project_root() -> Path:
 
 
 def get_resource_path(*subpaths: str) -> Path:
-    """
-    Localise un fichier de ressource (icône SVG, traduction .qm, prompt Jinja2, extension C)
-    de manière robuste selon le mode d'exécution (Dev, Nuitka, PyInstaller, macOS App Bundle).
+    """Localise un fichier de ressource (icône SVG, traduction .qm, prompt Jinja2, extension C) de manière robuste selon le mode d'exécution (Dev, Nuitka, PyInstaller, macOS App Bundle).
 
     Args:
         *subpaths: Segments du chemin relatif (ex: "src", "ressources", "icons", "logo.svg").
 
     Returns:
-        Path: Le chemin absolu vers la ressource existante ou candidate.
+        Le chemin absolu vers la ressource existante ou candidate.
     """
     rel = Path(*subpaths)
     candidates: list[Path] = []
@@ -95,7 +95,6 @@ def get_resource_path(*subpaths: str) -> Path:
     except Exception as e:
         logger.debug("Résolution ressource package impossible: %s", e)
 
-    # Renvoie la première candidate existante
     for c in candidates:
         if c.exists():
             return c
@@ -105,17 +104,17 @@ def get_resource_path(*subpaths: str) -> Path:
 
 
 def get_app_data_dir() -> Path:
-    """
-    Retourne le chemin vers le dossier de données persistant de l'application selon l'environnement actif :
+    """Retourne le chemin vers le dossier de données persistant de l'application selon l'environnement actif.
+
     - Production : ~/.ankiforge (ou ANKIFORGE_DATA_DIR)
     - Développement : ~/.ankiforge-dev (ou ANKIFORGE_DATA_DIR)
-    - Test : ~/.ankiforge-test (ou ANKIFORGE_DATA_DIR)
+    - Test : ~/.ankiforge-test (ou ANKIFORGE_DATA_DIR).
 
     Garantit que le dossier existe sur le disque avant de le retourner.
     Conforme à la règle 9 de GEMINI.md.
 
     Returns:
-        Path: Objet Path représentant le dossier de données.
+        Objet Path représentant le dossier de données.
     """
     custom_dir = os.environ.get("ANKIFORGE_DATA_DIR")
     if custom_dir:
@@ -136,8 +135,8 @@ def get_app_data_dir() -> Path:
 
 
 def get_themes_dir() -> Path:
-    """
-    Retourne le chemin vers le répertoire de la bibliothèque globale de thèmes JSON (~/.ankiforge/themes).
+    """Retourne le chemin vers le répertoire de la bibliothèque globale de thèmes JSON (~/.ankiforge/themes).
+
     Garantit l'existence du dossier sur le disque.
     Conforme à l'ADR 0005.
     """
@@ -147,8 +146,8 @@ def get_themes_dir() -> Path:
 
 
 def get_tools_search_dirs() -> list[Path]:
-    """
-    Retourne la liste ordonnée des répertoires de recherche d'outils et modèles d'IA déportés (Piper TTS, Kokoro, Marker).
+    """Retourne la liste ordonnée des répertoires de recherche d'outils et modèles d'IA déportés (Piper TTS, Kokoro, Marker).
+
     En mode développement, cherche d'abord dans ~/.ankiforge-dev/tools, puis en repli dans ~/.ankiforge/tools
     pour éviter d'avoir à re-télécharger les modèles volumineux (300 Mo+).
     En mode test, on n'ajoute pas le repli ~/.ankiforge/tools afin de garantir l'isolation des tests.
@@ -217,8 +216,8 @@ def ensure_media_decompressed(path: Path) -> Path:
 
 
 def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
-    """
-    Résout le chemin absolu d'un média physique de façon robuste et bidirectionnelle.
+    """Résout le chemin absolu d'un média physique de façon robuste et bidirectionnelle.
+
     1. Recherche directe dans le profil actif, le profil par défaut et le dossier global.
     2. En cas d'échec, interroge MediaModel pour résoudre les correspondances entre nom d'origine
        (ex: CM entier.pdf, _page_1.jpeg) et nom de stockage haché (ex: 33c6d32...pdf).
@@ -282,8 +281,8 @@ def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
 
 
 def get_docs_path() -> Path:
-    """
-    Localise le répertoire de documentation de l'application (`docs/`).
+    """Localise le répertoire de documentation de l'application (`docs/`).
+
     Compatible mode développement, tests et packaging standalone Nuitka/PyInstaller.
     """
     root = get_project_root()
@@ -299,8 +298,8 @@ def get_docs_path() -> Path:
 
 
 def get_zensical_config_path() -> Path:
-    """
-    Localise le fichier de configuration de documentation `zensical.toml`.
+    """Localise le fichier de configuration de documentation `zensical.toml`.
+
     Compatible mode développement, tests et packaging standalone.
     """
     root = get_project_root()

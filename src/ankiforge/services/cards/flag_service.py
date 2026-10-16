@@ -1,5 +1,5 @@
-"""
-Service de gestion et de personnalisation des drapeaux Anki par profil.
+"""Service de gestion et de personnalisation des drapeaux Anki par profil.
+
 Permet d'associer un libellé métier personnalisé à chaque couleur de drapeau (1 à 7)
 et maintient la compatibilité avec les valeurs numériques Anki.
 """
@@ -78,8 +78,8 @@ class FlagService:
 
     @classmethod
     def get_flag_labels(cls) -> dict[int, str]:
-        """
-        Renvoie la table complète des 8 libellés (0..7) pour le profil actif.
+        """Renvoie la table complète des 8 libellés (0..7) pour le profil actif.
+
         Drapeau 0 correspond à 'Aucun'.
         Les drapeaux 1..7 utilisent le libellé personnalisé s'il existe et est non vide,
         ou le nom par défaut de DEFAULT_FLAG_NAMES sinon.
@@ -116,8 +116,8 @@ class FlagService:
 
     @classmethod
     def set_flag_labels(cls, labels: dict[int, str]) -> None:
-        """
-        Enregistre les libellés personnalisés pour le profil actif et émet FlagLabelsUpdatedEvent.
+        """Enregistre les libellés personnalisés pour le profil actif et émet FlagLabelsUpdatedEvent.
+
         Seuls les drapeaux 1..7 sont modifiables. Une chaîne vide réinitialise le drapeau au nom par défaut.
         """
         current_saved: dict[str, str] = {}
@@ -154,11 +154,7 @@ class FlagService:
 
     @classmethod
     def get_flag_search_map(cls) -> dict[str, int]:
-        """
-        Renvoie la table de correspondance complète pour la recherche de drapeaux,
-        combinant les alias par défaut (DEFAULT_FLAG_SEARCH_MAP)
-        et les libellés personnalisés en minuscules.
-        """
+        """Renvoie la table de correspondance complète pour la recherche de drapeaux, combinant les alias par défaut (DEFAULT_FLAG_SEARCH_MAP) et les libellés personnalisés en minuscules."""
         search_map = dict(DEFAULT_FLAG_SEARCH_MAP)
         labels = cls.get_flag_labels()
 

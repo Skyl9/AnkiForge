@@ -22,10 +22,7 @@ def test_backup_database_skips_if_no_db(tmp_path: Path):
 
 
 def test_backup_database_creates_and_rotates(tmp_path: Path):
-    """
-    Vérifie que la sauvegarde copie bien le fichier et supprime les
-    sauvegardes les plus anciennes pour respecter la limite imposée.
-    """
+    """Vérifie que la sauvegarde copie bien le fichier et supprime les sauvegardes les plus anciennes pour respecter la limite imposée."""
     # 1. Préparation de l'environnement de test (fichiers temporaires)
     fake_db = tmp_path / "ankiforge.db"
     fake_db.write_text("fake sqlite data")
@@ -61,8 +58,7 @@ def test_backup_database_creates_and_rotates(tmp_path: Path):
 
 
 def test_backup_database_closes_all_sqlite_connections(tmp_path: Path, monkeypatch):
-    """Régression Windows : les connexions ouvertes par la sauvegarde doivent être fermées
-    pour ne pas retenir un verrou de fichier sur la base source ou la copie."""
+    """Régression Windows : les connexions ouvertes par la sauvegarde doivent être fermées pour ne pas retenir un verrou de fichier sur la base source ou la copie."""
     fake_db = tmp_path / "ankiforge.db"
     seed = sqlite3.connect(str(fake_db))
     seed.execute("CREATE TABLE t (id int);")

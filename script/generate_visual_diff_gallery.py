@@ -1,7 +1,7 @@
-"""
-Script de génération des galeries de comparaison visuelle :
+"""Script de génération des galeries de comparaison visuelle.
+
 1. Dark Mode : Baseline (39bcf3d4) vs Current Dark (JetBrains Dark)
-2. Light Mode : Baseline (39bcf3d4) vs Current Light (JetBrains Light)
+2. Light Mode : Baseline (39bcf3d4) vs Current Light (JetBrains Light).
 """
 
 import os

@@ -303,7 +303,6 @@ class UpdateCheckerWorker(QRunnable):
             if parsed_version is not None:
                 candidates.append((parsed_version, clean_tag, r))
 
-        # Enregistrement du timestamp de vérification
         now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
         settings.setValue(SETTINGS_KEY_LAST_CHECK, now_ts)
 

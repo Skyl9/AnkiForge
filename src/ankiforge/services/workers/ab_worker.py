@@ -1,3 +1,5 @@
+"""Worker QThread d'exécution d'un test A/B entre deux configurations d'IA."""
+
 import logging
 import time
 from typing import Any
@@ -8,8 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class AbWorker(QThread):
-    """
-    Thread exécutant un test A/B entre deux configurations d'IA.
+    """Thread exécutant un test A/B entre deux configurations d'IA.
 
     Permet de comparer les réponses de deux modèles ou deux prompts différents
     sur un même texte source, de manière asynchrone pour ne pas figer l'interface.
@@ -30,15 +31,14 @@ class AbWorker(QThread):
         prompts_b: list[str],
         source_text: str,
     ):
-        """
-        Initialise le worker de test A/B.
+        """Initialise le worker de test A/B.
 
         Args:
-            provider_a (Any): Fournisseur IA pour le sujet A.
-            provider_b (Any): Fournisseur IA pour le sujet B.
-            prompts_a (list[str]): Liste des prompts système (1 prompt = Agent, >1 = Pipeline) pour A.
-            prompts_b (list[str]): Liste des prompts système pour B.
-            source_text (str): Le texte utilisateur initial.
+            provider_a: Fournisseur IA pour le sujet A.
+            provider_b: Fournisseur IA pour le sujet B.
+            prompts_a: Liste des prompts système (1 prompt = Agent, >1 = Pipeline) pour A.
+            prompts_b: Liste des prompts système pour B.
+            source_text: Le texte utilisateur initial.
         """
         super().__init__()
         self.provider_a = provider_a

@@ -78,7 +78,7 @@ def _find_current_macos_app_bundle() -> Path:
 
 
 def is_standalone_app() -> bool:
-    """Détecte de manière fiable si l'application s'exécute en binaire autonome gelé
+    """Détecte de manière fiable si l'application s'exécute en binaire autonome gelé.
 
     (Nuitka, PyInstaller, macOS App Bundle, Linux AppImage, Windows EXE).
     Retourne False en environnement de développement source (Python / venv / IDE).
@@ -351,7 +351,7 @@ def apply_update_and_restart(update_file: Path) -> tuple[bool, str]:
     Protège rigoureusement l'environnement de développement et applique le confinement.
 
     Returns:
-        tuple[bool, str]: (Succès du déclenchement, Message d'information)
+        (Succès du déclenchement, Message d'information)
     """
     try:
         validated_file = validate_update_file_confinement(update_file)

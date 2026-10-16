@@ -1,3 +1,5 @@
+"""État de contexte partagé voyageant d'étape en étape dans le DAG d'orchestration IA."""
+
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -7,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PipelineRunState:
-    """
-    Objet de Contexte (State) partagé voyageant d'étape en étape dans le DAG (Moteur d'Orchestration IA).
+    """Objet de Contexte (State) partagé voyageant d'étape en étape dans le DAG (Moteur d'Orchestration IA).
+
     Chaque étape lit et enrichit cet état de façon dynamique.
     """
 

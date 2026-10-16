@@ -1,5 +1,5 @@
-"""
-Contrat d'API Publique (AnkiForgeAPI) et points d'ancrage typés pour les addons AnkiForge.
+"""Contrat d'API Publique (AnkiForgeAPI) et points d'ancrage typés pour les addons AnkiForge.
+
 Assure une séparation stricte entre les extensions et le cœur de l'application (Nuitka-Safe).
 """
 
@@ -35,9 +35,7 @@ class UIHooksAPI:
         shortcut: str = "",
         group: str = "custom",
     ) -> None:
-        """
-        Ajoute une action rapide / bouton d'outil dans la barre d'édition de notes.
-        """
+        """Ajoute une action rapide / bouton d'outil dans la barre d'édition de notes."""
         scoped_id = f"{self.addon_id}:{action_id}"
         self._registered_editor_actions.append(
             {
@@ -60,9 +58,7 @@ class UIHooksAPI:
         icon_name: str,
         widget_factory: Callable[[], Any],
     ) -> None:
-        """
-        Enregistre une vue personnalisée qui peut être injectée dans la navigation AnkiForge.
-        """
+        """Enregistre une vue personnalisée qui peut être injectée dans la navigation AnkiForge."""
         scoped_id = f"{self.addon_id}:{view_id}"
         self._registered_custom_views.append(
             {
@@ -114,9 +110,11 @@ class UIHooksAPI:
         self.notify_warning(message, title=title)
 
     def get_registered_editor_actions(self) -> list[dict[str, Any]]:
+        """Retourne la liste des actions d'éditeur enregistrées."""
         return list(self._registered_editor_actions)
 
     def get_registered_custom_views(self) -> list[dict[str, Any]]:
+        """Retourne la liste des vues personnalisées enregistrées."""
         return list(self._registered_custom_views)
 
 
@@ -131,9 +129,7 @@ class PipelineHooksAPI:
         self.addon_id = addon_id
 
     def register_step_type(self, step_type_name: str, executor_callable: Callable[..., Any]) -> None:
-        """
-        Enregistre un nouveau type d'étape exécutable par le PipelineOrchestrator.
-        """
+        """Enregistre un nouveau type d'étape exécutable par le PipelineOrchestrator."""
         step_type = step_type_name.strip().upper()
         PipelineHooksAPI._step_registry[step_type] = executor_callable
         PipelineHooksAPI._step_addon_map[step_type] = self.addon_id
@@ -141,6 +137,7 @@ class PipelineHooksAPI:
 
     @classmethod
     def get_registered_steps(cls) -> dict[str, Callable[..., Any]]:
+        """Retourne une copie du registre des types d'étapes enregistrés."""
         return dict(cls._step_registry)
 
     @classmethod
@@ -167,9 +164,7 @@ class MCPHooksAPI:
         description: str = "",
         parameters_schema: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Enregistre un outil déterministe invocable par le Consultant IA / agent ReAct.
-        """
+        """Enregistre un outil déterministe invocable par le Consultant IA / agent ReAct."""
         tool_name = name.strip()
         doc = description or (handler.__doc__ or "Outil fourni par un addon AnkiForge").strip()
         MCPHooksAPI._tools_registry[tool_name] = {
@@ -183,6 +178,7 @@ class MCPHooksAPI:
 
     @classmethod
     def get_registered_tools(cls) -> dict[str, dict[str, Any]]:
+        """Retourne une copie du registre des outils MCP enregistrés."""
         return dict(cls._tools_registry)
 
     @classmethod
@@ -220,24 +216,31 @@ class EventBusAPI:
 
     # Raccourcis typés
     def on_note_created(self, handler: Callable[[Any], Any]) -> Callable[[Any], Any]:
+        """Abonne un callback à l'événement de création de note."""
         return self.on("note_created", handler)
 
     def on_note_saved(self, handler: Callable[[Any], Any]) -> Callable[[Any], Any]:
+        """Abonne un callback à l'événement d'enregistrement de note."""
         return self.on("note_saved", handler)
 
     def on_note_deleted(self, handler: Callable[[Any], Any]) -> Callable[[Any], Any]:
+        """Abonne un callback à l'événement de suppression de note."""
         return self.on("note_deleted", handler)
 
     def on_deck_imported(self, handler: Callable[[str, int], Any]) -> Callable[[str, int], Any]:
+        """Abonne un callback à l'événement d'import de deck."""
         return self.on("deck_imported", handler)
 
     def on_export_apkg(self, handler: Callable[[str, int], Any]) -> Callable[[str, int], Any]:
+        """Abonne un callback à l'événement d'export vers un paquet .apkg."""
         return self.on("export_apkg", handler)
 
     def on_pipeline_started(self, handler: Callable[[Any], Any]) -> Callable[[Any], Any]:
+        """Abonne un callback à l'événement de démarrage de pipeline."""
         return self.on("pipeline_started", handler)
 
     def on_pipeline_finished(self, handler: Callable[[Any], Any]) -> Callable[[Any], Any]:
+        """Abonne un callback à l'événement de fin de pipeline."""
         return self.on("pipeline_finished", handler)
 
     def unregister_all(self) -> None:
@@ -291,9 +294,9 @@ class AddonConfigAPI:
 
 
 class AnkiForgeAPI:
-    """
-    Façade principale injectée dans chaque addon au démarrage :
-    def init_addon(api: AnkiForgeAPI) -> None
+    """Façade principale injectée dans chaque addon au démarrage.
+
+    def init_addon(api: AnkiForgeAPI) -> None.
     """
 
     def __init__(self, manifest: AddonManifest, addon_folder: Path) -> None:

@@ -1,5 +1,5 @@
-"""
-Test de non-régression pour l'exportation Anki avec drapeaux personnalisés (Critère d'acceptation 4) :
+"""Test de non-régression pour l'exportation Anki avec drapeaux personnalisés (Critère d'acceptation 4).
+
 Vérifie que même si les libellés de drapeaux sont personnalisés dans le profil actif,
 la valeur entière native Anki (1..7) est fidèlement préservée dans la table cards de l'archive .apkg.
 """

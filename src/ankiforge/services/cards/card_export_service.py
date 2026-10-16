@@ -1,5 +1,5 @@
-"""
-Service d'exportation rapide des cartes et notes en texte, JSON, JSONL et Markdown.
+"""Service d'exportation rapide des cartes et notes en texte, JSON, JSONL et Markdown.
+
 Permet l'analyse hors-ligne rapide (doublons, champs vides, tags, traçabilité RAG)
 sans nécessiter l'ouverture d'un fichier .apkg dans Anki Desktop.
 """
@@ -23,17 +23,14 @@ logger = logging.getLogger(__name__)
 
 
 class CardExportService:
-    """
-    Gestionnaire d'extraction et de sérialisation des cartes au format JSON, JSONL, Texte ou Markdown.
-    """
+    """Gestionnaire d'extraction et de sérialisation des cartes au format JSON, JSONL, Texte ou Markdown."""
 
     def extract_export_data(
         self,
         notes: Sequence[NoteModel | int],
         include_ids: bool = True,
     ) -> list[dict[str, Any]]:
-        """
-        Extrait les données structurées des notes spécifiées pour l'export.
+        """Extrait les données structurées des notes spécifiées pour l'export.
 
         Args:
             notes: Séquence d'instances NoteModel ou d'identifiants de note.
@@ -41,7 +38,7 @@ class CardExportService:
                          Si False, produit une structure déterministe / anonymisée.
 
         Returns:
-            list[dict[str, Any]]: Liste ordonnée de dictionnaires représentant chaque carte.
+            Liste ordonnée de dictionnaires représentant chaque carte.
         """
         resolved_notes: list[NoteModel] = []
         for item in notes:
@@ -55,10 +52,8 @@ class CardExportService:
         results: list[dict[str, Any]] = []
 
         for note in resolved_notes:
-            # 1. Résolution du type de note et du gabarit
             model_name = note.note_type.name if note.note_type else "Inconnu"
 
-            # 2. Résolution du contenu actif (champs)
             fields_dict: dict[str, str] = {}
             active_version = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
             if active_version and active_version.content:
@@ -69,16 +64,13 @@ class CardExportService:
                 except (json.JSONDecodeError, TypeError) as err:
                     logger.debug("Erreur décodage JSON pour la note #%s: %s", getattr(note, "id", "?"), err)
 
-            # 3. Résolution des informations de carte (deck, flags, suspend)
             first_card = note.cards.first()
             deck_name = first_card.deck.name if first_card and first_card.deck else "Par défaut"
             card_flags = int(getattr(first_card, "flags", 0) or 0) if first_card else 0
             is_suspended = bool(getattr(first_card, "is_suspended", False)) if first_card else False
 
-            # 4. Tags normalisés
             tags_list = parse_note_tags(note.tags)
 
-            # 5. Provenance : tags et liens RAG DocumentChunkLinkModel
             prov_tags = [t for t in tags_list if t.startswith(("doc:", "source:", "section:", "page:", "chunk:"))]
             linked_sources: list[dict[str, Any]] = []
 
@@ -133,9 +125,7 @@ class CardExportService:
         return "\n".join(lines) + ("\n" if lines else "")
 
     def format_text(self, data: list[dict[str, Any]]) -> str:
-        """
-        Sérialise les cartes en format texte lisible humain, une carte par bloc délimité.
-        """
+        """Sérialise les cartes en format texte lisible humain, une carte par bloc délimité."""
         blocks: list[str] = []
         for idx, card in enumerate(data, 1):
             lines: list[str] = []
@@ -149,7 +139,6 @@ class CardExportService:
             tags_str = ", ".join(card.get("tags", [])) if card.get("tags") else "Aucun"
             lines.append(f"Tags : {tags_str}")
 
-            # Provenance
             prov = card.get("provenance", {})
             prov_tags = prov.get("tags", [])
             sources = prov.get("sources", [])
@@ -170,7 +159,6 @@ class CardExportService:
 
             lines.append("-" * 80)
 
-            # Champs de la note
             fields = card.get("fields", {})
             if fields:
                 for fname, fval in fields.items():
@@ -187,9 +175,7 @@ class CardExportService:
         return "\n\n".join(blocks)
 
     def format_markdown(self, data: list[dict[str, Any]]) -> str:
-        """
-        Sérialise les cartes en format Markdown structuré.
-        """
+        """Sérialise les cartes en format Markdown structuré."""
         blocks: list[str] = []
         for idx, card in enumerate(data, 1):
             lines: list[str] = []
@@ -242,8 +228,7 @@ class CardExportService:
         format_type: str = "json",
         include_ids: bool = True,
     ) -> int:
-        """
-        Exporte une collection de notes vers un fichier unique.
+        """Exporte une collection de notes vers un fichier unique.
 
         Args:
             notes: Notes à exporter.
@@ -252,7 +237,7 @@ class CardExportService:
             include_ids: Si True, inclut les identifiants techniques.
 
         Returns:
-            int: Nombre de cartes exportées.
+            Nombre de cartes exportées.
         """
         data = self.extract_export_data(notes, include_ids=include_ids)
         fmt = format_type.lower().strip()
@@ -279,8 +264,7 @@ class CardExportService:
         format_type: str = "json",
         include_ids: bool = True,
     ) -> int:
-        """
-        Exporte les notes sous forme d'un dossier avec un fichier par carte.
+        """Exporte les notes sous forme d'un dossier avec un fichier par carte.
 
         Args:
             notes: Notes à exporter.
@@ -289,7 +273,7 @@ class CardExportService:
             include_ids: Si True, inclut les identifiants techniques.
 
         Returns:
-            int: Nombre de cartes exportées.
+            Nombre de cartes exportées.
         """
         data = self.extract_export_data(notes, include_ids=include_ids)
         out_dir = Path(output_dir)

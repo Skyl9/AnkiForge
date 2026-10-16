@@ -1,5 +1,5 @@
-"""
-Tests d'interface headless pour CrashReportDialog.
+"""Tests d'interface headless pour CrashReportDialog.
+
 Vérifie le caractère non-bloquant (non-modal), l'affichage de l'aperçu,
 la copie dans le presse-papier, l'exportation, l'ouverture GitHub Issues,
 et la persistance de l'acquittement et des préférences.

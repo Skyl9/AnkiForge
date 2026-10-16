@@ -1,7 +1,4 @@
-"""
-Tests UI headless pour la barre d'aperçu responsive dans DocumentPreviewWidget,
-DocumentScopeWidget et BatchSliceComposerDialog sur petits écrans (1280px, 1024px, 960px).
-"""
+"""Tests UI headless pour la barre d'aperçu responsive dans DocumentPreviewWidget, DocumentScopeWidget et BatchSliceComposerDialog sur petits écrans (1280px, 1024px, 960px)."""
 
 from __future__ import annotations
 

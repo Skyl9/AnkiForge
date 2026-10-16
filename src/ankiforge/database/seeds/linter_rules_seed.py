@@ -1,4 +1,6 @@
 # ruff: noqa: E501
+"""Amorçage des règles d'audit Wozniak personnalisables par défaut."""
+
 import json
 import logging
 

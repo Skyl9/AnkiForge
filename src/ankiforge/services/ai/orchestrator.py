@@ -1,3 +1,5 @@
+"""Moteur d'orchestration DAG IA pilotant les pipelines d'étapes LLM, RAG et outils."""
+
 import concurrent.futures
 import contextvars
 import inspect
@@ -78,8 +80,8 @@ class PipelineWorkerSignals(QObject):
 
 
 class PipelineOrchestrator(QRunnable):
-    """
-    Cœur du Moteur d'Orchestration en Graphe Orienté Acyclique (DAG).
+    """Cœur du Moteur d'Orchestration en Graphe Orienté Acyclique (DAG).
+
     Exécute les étapes du pipeline de manière asynchrone (QRunnable / QThreadPool)
     avec support du RAG, Map-Reduce, outils Python et points d'arrêt pour validation humaine.
     """
@@ -260,7 +262,6 @@ class PipelineOrchestrator(QRunnable):
             first_step = min(steps, key=lambda s: int(getattr(s, "step_order", 0)))
             current_step = first_step
 
-        # Initialisation de la persistance en BDD
         run_record: PipelineRunModel | None = None
         if self.persist_state and self.pipeline_id is not None:
             try:
@@ -327,7 +328,6 @@ class PipelineOrchestrator(QRunnable):
                 self.state.current_step_id = current_step.id
                 self.state.current_step_order = step_order
 
-                # Mise à jour de persistance
                 if run_record is not None:
                     try:
                         run_record.current_step_order = step_order
@@ -400,7 +400,6 @@ class PipelineOrchestrator(QRunnable):
                     self.signals.cancelled.emit()
                     return
 
-                # Log de l'étape dans l'historique de l'état
                 status_str = "SUCCESS" if step_succeeded else "FAILED"
                 step_thought = self.state.get_variable(f"thought_step_{step_order}")
                 self.state.log_step_execution(
@@ -413,7 +412,6 @@ class PipelineOrchestrator(QRunnable):
                     thought=str(step_thought) if step_thought else None,
                 )
 
-                # Persistance de l'état après exécution de l'étape
                 if run_record is not None:
                     try:
                         run_record.status = "paused" if self.state.is_paused_for_human else "running"
@@ -708,7 +706,6 @@ class PipelineOrchestrator(QRunnable):
                 preview = preview[:157] + "..."
             logger.info("[REASONING] Étape %d (%d caractères) : %s", step.step_order, len(step_thought), preview)
 
-        # Calcul et enregistrement des tokens consommés
         input_len = len(str(multimodal_input)) if use_vision else len(str(clean_input))
         p_tokens = max(1, (len(rendered_sys) + input_len) // 4)
         c_tokens = max(1, len(str(response_text)) // 4)
@@ -725,7 +722,6 @@ class PipelineOrchestrator(QRunnable):
                     f"Détail : {e}. Réessayez, augmentez max_tokens ou choisissez un modèle plus fiable en JSON."
                 ) from e
 
-        # Mise à jour des variables de l'état partagé
         out_var = cfg.get("output_variable")
         if out_var:
             self.state.set_variable(out_var, parsed_output)
@@ -806,9 +802,10 @@ class PipelineOrchestrator(QRunnable):
         self.state.set_variable("last_output", "\n\n".join(retrieved))
 
     def _execute_map_reduce(self, step: PipelineStepModel) -> None:
-        """
-        Découpe une liste d'éléments (chunks de documents, liste de cartes ou texte brut découpé selon split_mode)
-        et applique la Persona sur chaque lot (batch_size) en parallèle (Map) puis fusionne (Reduce).
+        """Découpe une liste d'éléments (chunks de documents, liste de cartes ou texte brut) en lots et applique la Persona.
+
+        Le découpage suit `split_mode` ; la Persona est appliquée en parallèle sur chaque lot
+        (`batch_size`, Map), puis les résultats sont fusionnés (Reduce).
         """
         step_cfg: dict[str, Any] = {}
         if step.config_data:
@@ -1069,8 +1066,8 @@ class PipelineOrchestrator(QRunnable):
         self.state.set_variable(f"result_tool_{step.step_order}", result)
 
     def _execute_audio_tts(self, step: PipelineStepModel) -> None:
-        """
-        Exécute la synthèse vocale sur les cartes générées (AUDIO_TTS).
+        """Exécute la synthèse vocale sur les cartes générées (AUDIO_TTS).
+
         Lit chaque carte, synthétise l'audio pour le champ source désigné,
         et injecte la balise Anki [sound:xxx.mp3] dans le champ cible.
         """
@@ -1136,7 +1133,6 @@ class PipelineOrchestrator(QRunnable):
                 else:
                     new_target_val = sound_tag
 
-                # Mettre à jour fields_dict et card
                 fields_dict[target_field] = new_target_val
                 if isinstance(raw_fields, dict):
                     raw_fields[target_field] = new_target_val

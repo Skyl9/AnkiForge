@@ -1,6 +1,4 @@
-"""
-Script de test interactif pour le toggle de la sidebar.
-"""
+"""Script de test interactif pour le toggle de la sidebar."""
 
 import os
 

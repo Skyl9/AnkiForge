@@ -1,3 +1,5 @@
+"""Gestion des catégories de traitement Vision et de leur compatibilité avec les modèles."""
+
 import json
 import logging
 from dataclasses import asdict, dataclass
@@ -11,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class ImageDataType:
-    """
-    Représente la nature de ce qu'une image contient (CONTEXT.md:56).
+    """Représente la nature de ce qu'une image contient (CONTEXT.md:56).
 
     L'utilisateur le choisit lui-même dans une liste fermée (table, pseudocode, schéma,
     photo, logo, texte imprimé). Il n'est ni déduit, ni proposé, ni deviné.
@@ -103,8 +104,7 @@ def get_image_data_type(type_id: str) -> ImageDataType | None:
 
 
 def is_engine_compatible_with_type(engine: Any, data_type: ImageDataType | str) -> bool:
-    """
-    Détermine si un moteur de vision est adapté à un type de donnée d'image (CONTEXT.md:58).
+    """Détermine si un moteur de vision est adapté à un type de donnée d'image (CONTEXT.md:58).
 
     La compatibilité est pilotée par les capacités déclarées au catalogue ou sur
     le modèle, et non par une table de correspondance cachée :
@@ -381,9 +381,7 @@ class VisionCategoryService:
 
     @classmethod
     def category_declares_vision(cls, category: VisionCategory) -> bool | None:
-        """
-        La compatibilité Vision **déclarée** par le moteur d'une catégorie, ou `None`
-        si elle n'a pas pu être établie.
+        """La compatibilité Vision **déclarée** par le moteur d'une catégorie, ou `None` si elle n'a pas pu être établie.
 
         Suit exactement la politique de `ui.components.vision_capability` : la valeur
         lue sur la configuration du moteur fait seule autorité, et le catalogue n'est
@@ -402,8 +400,8 @@ class VisionCategoryService:
 
     @classmethod
     def resolve_provider_for_category(cls, category: VisionCategory) -> LLMProvider | str:
-        """
-        Instancie le LLMProvider correspondant à la catégorie, ou retourne 'native' pour l'OCR matériel.
+        """Instancie le LLMProvider correspondant à la catégorie, ou retourne 'native' pour l'OCR matériel.
+
         Injecte automatiquement la clé API stockée pour ce fournisseur.
         """
         if category.provider == "native":

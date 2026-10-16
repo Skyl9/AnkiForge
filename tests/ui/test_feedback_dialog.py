@@ -1,5 +1,5 @@
-"""
-Tests d'interface headless pour FeedbackDialog.
+"""Tests d'interface headless pour FeedbackDialog.
+
 Vérifie l'instanciation, la bascule d'onglets, la validation des champs,
 le tiroir de diagnostic et les actions (Copier, Exporter, GitHub Issues).
 """

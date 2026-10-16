@@ -128,8 +128,7 @@ def test_clean_heading_title() -> None:
 
 
 def test_clean_heading_title_strips_page_markers_from_chunk_titles() -> None:
-    """P1 — Les balises de page HTML ne doivent jamais apparaître dans les titres de chunks
-    ni de parties (affichage document + sélection), sans toucher au contenu brut du chunk."""
+    """P1 — Les balises de page HTML ne doivent jamais apparaître dans les titres de chunks ni de parties (affichage document + sélection), sans toucher au contenu brut du chunk."""
     md_marker = "\n".join(
         [
             "{0}------------------------------------------------",

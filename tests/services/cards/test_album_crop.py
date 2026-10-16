@@ -61,10 +61,7 @@ def test_set_and_remove_page_crop(tmp_path: Path):
 
 
 def test_render_page_image_with_crop_and_reversibility(tmp_path: Path):
-    """
-    Vérifie que la couture de lecture rend fidèlement la zone recadrée et
-    restitue l'image pleine lors du retrait du recadrage.
-    """
+    """Vérifie que la couture de lecture rend fidèlement la zone recadrée et restitue l'image pleine lors du retrait du recadrage."""
     service = AlbumService()
     img_path = _create_test_image(tmp_path / "render_crop.png", width=100, height=80)
     doc = service.create_album_from_images("Render Crop Test", [img_path], sort_mode="none")
@@ -113,8 +110,8 @@ def test_crop_never_alters_source_file(tmp_path: Path):
 
 
 def test_rotation_does_not_displace_crop_rect(tmp_path: Path):
-    """
-    CRITÈRE MAJEUR : Le rectangle est stocké sur l'image source, jamais sur la planche.
+    """CRITÈRE MAJEUR : Le rectangle est stocké sur l'image source, jamais sur la planche.
+
     La rotation de la planche ne déplace pas le rect source.
     """
     service = AlbumService()

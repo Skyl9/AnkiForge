@@ -1,6 +1,4 @@
-"""
-Point d'entrée et runner CLI pour le serveur MCP d'AnkiForge en mode headless.
-"""
+"""Point d'entrée et runner CLI pour le serveur MCP d'AnkiForge en mode headless."""
 
 from __future__ import annotations
 
@@ -23,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def resolve_target_profile(profile_name: str | None = None) -> str:
-    """
-    Résout le profil utilisateur cible pour l'exécution du serveur MCP.
+    """Résout le profil utilisateur cible pour l'exécution du serveur MCP.
 
     Ordre de priorité :
     1. Nom passé explicitement (ex. via CLI `--profile`)
@@ -70,8 +67,7 @@ def run_mcp_server_cli(
     data_dir: Path | None = None,
     rotate_token: bool = False,
 ) -> int:
-    """
-    Démarre et maintient le serveur MCP en mode console headless bloquant au premier plan.
+    """Démarre et maintient le serveur MCP en mode console headless bloquant au premier plan.
 
     Intercepte les signaux SIGINT (Ctrl+C) et SIGTERM pour déclencher un arrêt
     propre du daemon, la fermeture des sessions clientes et la déconnexion BDD.
@@ -85,7 +81,7 @@ def run_mcp_server_cli(
         rotate_token: Force le renouvellement du jeton Bearer au démarrage si True.
 
     Returns:
-        int: Code de sortie (0 en cas d'arrêt propre, code d'erreur > 0 sinon).
+        Code de sortie (0 en cas d'arrêt propre, code d'erreur > 0 sinon).
     """
     target_profile = resolve_target_profile(profile_name)
     pm = ProfileManager()

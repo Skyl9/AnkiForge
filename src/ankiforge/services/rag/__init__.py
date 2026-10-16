@@ -1,5 +1,5 @@
-"""
-Package des services RAG (Retrieval-Augmented Generation) d'AnkiForge.
+"""Package des services RAG (Retrieval-Augmented Generation) d'AnkiForge.
+
 Fournit le moteur d'indexation vectorielle dense FAISS, l'indexation lexicale sparse BM25
 et le fusionneur par rang réciproque (Reciprocal Rank Fusion - RRF).
 """

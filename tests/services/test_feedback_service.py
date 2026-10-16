@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour FeedbackService et SystemDiagnosticInfo.
+"""Tests unitaires pour FeedbackService et SystemDiagnosticInfo.
+
 Vérifie la collecte de diagnostics, la sanitisation des secrets, le formatage Markdown et la génération d'URL.
 """
 

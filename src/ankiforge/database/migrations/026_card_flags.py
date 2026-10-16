@@ -1,3 +1,5 @@
+"""Migration 026 : ajout de la colonne flags à cardmodel."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

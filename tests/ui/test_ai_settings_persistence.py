@@ -1,5 +1,5 @@
-"""
-Tests unitaires et d'intégration de la persistance de tous les toggles et options IA.
+"""Tests unitaires et d'intégration de la persistance de tous les toggles et options IA.
+
 Vérifie le cycle complet de sauvegarde, restauration et prise en compte par le backend
 (SettingsService, AIEnginesTab, CreationView, BatchView, WozniakTab, DelimitationDialog, ABTestsView).
 """

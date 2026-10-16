@@ -1,3 +1,5 @@
+"""Migration 004 : création de la table ai_cache pour la mise en cache persistante des réponses IA."""
+
 import datetime
 
 import peewee as pw

@@ -1,7 +1,4 @@
-"""
-Tests unitaires PySide6 / pytest-qt pour la vue d'Édition avec Progressive Disclosure,
-navigation compacte par ruban, IntelliSense et nettoyage des balises HTML.
-"""
+"""Tests unitaires PySide6 / pytest-qt pour la vue d'Édition avec Progressive Disclosure, navigation compacte par ruban, IntelliSense et nettoyage des balises HTML."""
 
 import json
 import uuid

@@ -1,3 +1,5 @@
+"""Worker QRunnable d'extraction du contenu d'une vidéo YouTube."""
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -41,6 +43,7 @@ class YouTubeWorker(QRunnable):
         return self._is_cancelled
 
     def run(self) -> None:
+        """Extrait le contenu de la vidéo en arrière-plan et publie résultat, erreur ou annulation."""
         logger.info("Démarrage de l'extraction YouTube pour : %s", self.url)
         try:
             if self.check_cancel():

@@ -1,5 +1,4 @@
-"""
-Module de Compaction Dynamique de Contexte pour le Consultant IA.
+"""Module de Compaction Dynamique de Contexte pour le Consultant IA.
 
 Gère :
 - L'estimation précise de tokens (In-Flight et Post-Task).
@@ -22,8 +21,8 @@ class ContextCompactor:
 
     @staticmethod
     def estimate_tokens(content: str | list[dict[str, Any]] | dict[str, Any]) -> int:
-        """
-        Estime le nombre de tokens d'un texte, d'un dictionnaire ou d'une liste de messages.
+        """Estime le nombre de tokens d'un texte, d'un dictionnaire ou d'une liste de messages.
+
         Heuristique optimisée pour le français/anglais et le JSON (~1 token pour 3.5 caractères).
         """
         if not content:
@@ -51,8 +50,8 @@ class ContextCompactor:
         keep_last_turns: int = 3,
         max_tool_chars: int = 400,
     ) -> list[dict[str, Any]]:
-        """
-        Condense les anciens messages et retours d'outils volumineux pendant une tâche.
+        """Condense les anciens messages et retours d'outils volumineux pendant une tâche.
+
         Préserve :
           1. Le message 'system' initial.
           2. Le scratchpad de travail (si présent).
@@ -119,8 +118,8 @@ class ContextCompactor:
         task_summary: str = "",
         context_data: dict[str, Any] | None = None,
     ) -> tuple[str, list[str]]:
-        """
-        Résume une session post-tâche achevée et génère 2 à 3 suggestions d'actions suivantes proactives.
+        """Résume une session post-tâche achevée et génère 2 à 3 suggestions d'actions suivantes proactives.
+
         Renvoie (recap_markdown, list_next_steps).
         """
         all_text = " ".join(str(m.get("content", "")) for m in messages)

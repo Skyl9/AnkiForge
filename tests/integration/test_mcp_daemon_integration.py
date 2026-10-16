@@ -25,8 +25,7 @@ pytestmark = pytest.mark.integration
 
 
 def test_find_available_port_never_probes_past_the_valid_range(monkeypatch):
-    """
-    La sonde ne doit jamais dépasser 65535, quoi que soit le port de départ.
+    """La sonde ne doit jamais dépasser 65535, quoi que soit le port de départ.
 
     Le port de départ venait d'un port éphémère attribué par l'OS : selon le port attribué,
     la sonde levait `OverflowError` ou passait. On vérifie donc les ports réellement
@@ -121,8 +120,7 @@ def test_mcp_server_daemon_lifecycle(tmp_path):
 
 @contextmanager
 def capture_uvicorn_logs():
-    """
-    Collecte les enregistrements du logger `uvicorn` pendant le bloc.
+    """Collecte les enregistrements du logger `uvicorn` pendant le bloc.
 
     Le logger `uvicorn` est configuré avec `propagate = False` (LOGGING_CONFIG d'Uvicorn) :
     ses enregistrements n'atteignent jamais le logger racine, donc ni `caplog` ni `ankiforge.log`
@@ -325,9 +323,8 @@ def test_mcp_server_daemon_real_tools_over_sse(tmp_path):
 
 
 def test_mcp_streamable_http_post_initialize_returns_200_not_405(tmp_path):
-    """
-    Vérifie qu'un appel POST initialize sur /mcp retourne 200 (Streamable HTTP MCP 2.x standard)
-    et non 405 Method Not Allowed (qui se produisait lorsque seul GET /sse était exposé).
+    """Vérifie qu'un appel POST initialize sur /mcp retourne 200 (Streamable HTTP MCP 2.x standard) et non 405 Method Not Allowed (qui se produisait lorsque seul GET /sse était exposé).
+
     Vérifie également que BearerAuthMiddleware protège l'endpoint /mcp.
     """
     dummy_mcp = MCPServer("InitTestServer")
@@ -386,10 +383,7 @@ def test_mcp_streamable_http_post_initialize_returns_200_not_405(tmp_path):
 
 
 def test_mcp_server_daemon_dual_stack_streamable_http_and_sse(tmp_path):
-    """
-    Vérifie le fonctionnement dual-stack : Streamable HTTP (/mcp) et SSE legacy (/sse)
-    sont tous les deux opérationnels et permettent d'exécuter des outils MCP avec session client.
-    """
+    """Vérifie le fonctionnement dual-stack : Streamable HTTP (/mcp) et SSE legacy (/sse) sont tous les deux opérationnels et permettent d'exécuter des outils MCP avec session client."""
     dummy_mcp = MCPServer("DualStackServer")
 
     @dummy_mcp.tool()

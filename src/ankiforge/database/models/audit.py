@@ -1,3 +1,5 @@
+"""Modèles Peewee de l'audit des cartes : règles du linter et enregistrements d'audit."""
+
 import datetime
 import logging
 
@@ -16,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class LinterRuleModel(BaseModel):
-    """
-    Définit une règle d'audit personnalisable par l'utilisateur.
+    """Définit une règle d'audit personnalisable par l'utilisateur.
+
     Ces règles seront injectées dynamiquement dans le prompt du Linter.
     """
 
@@ -41,8 +43,8 @@ class LinterRuleModel(BaseModel):
 
 
 class AuditRecordModel(BaseModel):
-    """
-    Stocke le résultat de l'audit IA pour une version SPÉCIFIQUE d'une note.
+    """Stocke le résultat de l'audit IA pour une version SPÉCIFIQUE d'une note.
+
     Permet le 'Soft Analysis' (ne pas ré-auditer ce qui l'a déjà été).
     """
 

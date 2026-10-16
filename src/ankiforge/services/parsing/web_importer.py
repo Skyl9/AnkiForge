@@ -123,6 +123,7 @@ class WebImportResult:
 
     @property
     def ok(self) -> bool:
+        """Indique si le contenu extrait est non vide."""
         return bool(self.content.strip())
 
 

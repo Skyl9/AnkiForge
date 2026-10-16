@@ -1,6 +1,4 @@
-"""
-Unit tests for icon loader (Phosphor SVG icons and AnkiForge logo).
-"""
+"""Unit tests for icon loader (Phosphor SVG icons and AnkiForge logo)."""
 
 from __future__ import annotations
 

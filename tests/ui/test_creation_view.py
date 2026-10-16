@@ -492,7 +492,7 @@ def test_creation_view_generation_logs_flow(qtbot: Any, mock_db: Any) -> None:
 
 
 def test_validate_and_reject_card_feedback(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
-    """Vérifie que la validation et le rejet de cartes ne déclenchent pas de toast unitaire
+    """Vérifie que la validation et le rejet de cartes ne déclenchent pas de toast unitaire.
 
     et mettent à jour le badge d'état in-situ dans FlashcardPreview.
     """

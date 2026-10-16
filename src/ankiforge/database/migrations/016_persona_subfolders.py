@@ -1,3 +1,5 @@
+"""Migration 016 : champ parent auto-référent sur persona_folders pour les sous-dossiers."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

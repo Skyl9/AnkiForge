@@ -1,5 +1,5 @@
-"""
-Tests de sécurité anti-XSS pour KaTeXEditor et SafeWebEnginePage.
+"""Tests de sécurité anti-XSS pour KaTeXEditor et SafeWebEnginePage.
+
 Vérifie la neutralisation des balises <script>, des gestionnaires d'événements inline,
 et l'interception silencieuse des boîtes alert(), confirm() et prompt().
 """

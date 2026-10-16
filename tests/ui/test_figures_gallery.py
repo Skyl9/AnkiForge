@@ -1,5 +1,4 @@
-"""
-Tests headless du widget « Figures » de l'Inspecteur.
+"""Tests headless du widget « Figures » de l'Inspecteur.
 
 Le widget ne fait que deux choses : lire la couture visuelle et émettre un désir d'occlusion.
 Ces tests verrouillent la lecture (portée, tri-state) et l'émission, jamais le rendu d'une

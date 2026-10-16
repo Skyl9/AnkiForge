@@ -1,6 +1,4 @@
-"""
-Tests d'interface pour ActivityChartWidget (QPainter 7 jours).
-"""
+"""Tests d'interface pour ActivityChartWidget (QPainter 7 jours)."""
 
 import pytest
 

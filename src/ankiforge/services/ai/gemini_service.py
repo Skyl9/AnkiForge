@@ -1,3 +1,5 @@
+"""Fournisseur LLM Google Gemini adossé au SDK officiel `google-genai`."""
+
 import base64
 import logging
 from collections.abc import Iterator
@@ -29,8 +31,7 @@ def _is_retryable_gemini_error(exc: BaseException) -> bool:
 
 
 class GeminiService(LLMProvider):
-    """
-    Service d'intégration pour l'API Google Gemini.
+    """Service d'intégration pour l'API Google Gemini.
 
     Gère l'authentification et la communication avec les modèles Gemini via le SDK officiel
     de Google. Supporte les fonctionnalités multimodales (vision).
@@ -44,15 +45,14 @@ class GeminiService(LLMProvider):
         timeout: float = 600.0,
         default_temperature: float = 0.2,
     ):
-        """
-        Initialise le client Gemini.
+        """Initialise le client Gemini.
 
         Args:
-            api_key (str): Clé API Google AI Studio.
-            model_name (str): Nom du modèle Gemini à utiliser.
-            max_tokens (int): Nombre maximal de tokens de sortie.
-            timeout (float): Délai maximal (secondes) par requête réseau.
-            default_temperature (float): Température par défaut du modèle.
+            api_key: Clé API Google AI Studio.
+            model_name: Nom du modèle Gemini à utiliser.
+            max_tokens: Nombre maximal de tokens de sortie.
+            timeout: Délai maximal (secondes) par requête réseau.
+            default_temperature: Température par défaut du modèle.
 
         Raises:
             ValueError: Si aucune clé API n'est disponible.
@@ -83,9 +83,7 @@ class GeminiService(LLMProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> LLMResult:
-        """
-        Génère une réponse structurée avec LLMResult incluant la chaîne de pensée de Gemini.
-        """
+        """Génère une réponse structurée avec LLMResult incluant la chaîne de pensée de Gemini."""
         effective_max = max_tokens or self.max_tokens
         effective_temp = temperature if temperature is not None else getattr(self, "default_temperature", 0.2)
         config = types.GenerateContentConfig(
@@ -188,10 +186,7 @@ class GeminiService(LLMProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """
-        Génère un flux de streaming normalisé émettant des thought_delta et text_delta
-        pour Google Gemini (2.0 / 2.5 Thinking).
-        """
+        """Génère un flux de streaming normalisé émettant des thought_delta et text_delta pour Google Gemini (2.0 / 2.5 Thinking)."""
         effective_max = max_tokens or self.max_tokens
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,

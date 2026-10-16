@@ -1,3 +1,5 @@
+"""Migration 019 : création de la table persona_versions pour l'historique des personas."""
+
 import datetime
 
 import peewee as pw

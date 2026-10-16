@@ -1,5 +1,5 @@
-"""
-Tests d'intégration pour l'étape DAG AUDIO_TTS dans PipelineOrchestrator.
+"""Tests d'intégration pour l'étape DAG AUDIO_TTS dans PipelineOrchestrator.
+
 Vérifie l'enrichissement par lot des cartes mémoires (mode append et replace_field).
 """
 

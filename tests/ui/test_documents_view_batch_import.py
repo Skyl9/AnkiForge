@@ -549,7 +549,7 @@ def test_batch_summary_message(ok: int, failed: int, expected: str) -> None:
 
 
 def test_batch_document_finished_refreshes_tree_incrementally_preserving_selection(qtbot, tmp_path) -> None:
-    """Chaque document terminé apparaît immédiatement dans l'arbre sans attendre la fin du lot,
+    """Chaque document terminé apparaît immédiatement dans l'arbre sans attendre la fin du lot,.
 
     et la sélection reste fixée sur le premier document ingéré.
     """
@@ -585,7 +585,7 @@ def test_batch_document_finished_refreshes_tree_incrementally_preserving_selecti
 
 
 def test_batch_pdf_creates_provisional_doc_at_started_and_updates_at_finished(qtbot, tmp_path) -> None:
-    """Un PDF du lot dispose d'une fiche provisoire dès document_started (analyse en cours),
+    """Un PDF du lot dispose d'une fiche provisoire dès document_started (analyse en cours),.
 
     puis est mis à jour à document_finished avec son contenu extrait et ses chunks.
     """

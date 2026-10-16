@@ -1,5 +1,5 @@
-"""
-Gestionnaire central de cycle de vie des extensions AnkiForge (PluginManager).
+"""Gestionnaire central de cycle de vie des extensions AnkiForge (PluginManager).
+
 Gère la découverte dynamique, le vendoring sys.path, l'isolation try/catch,
 le Safe Mode et la compatibilité Nuitka.
 """
@@ -62,9 +62,7 @@ def check_version_compatibility(
 
 
 class PluginManager:
-    """
-    Gestionnaire centralisé pour la découverte, le chargement et la gestion des addons AnkiForge.
-    """
+    """Gestionnaire centralisé pour la découverte, le chargement et la gestion des addons AnkiForge."""
 
     _instance: PluginManager | None = None
 
@@ -102,6 +100,7 @@ class PluginManager:
 
     @property
     def is_safe_mode(self) -> bool:
+        """Indique si le mode sans échec (safe mode) est actif."""
         return self._safe_mode
 
     def _load_meta(self) -> None:
@@ -126,9 +125,7 @@ class PluginManager:
             logger.error("Erreur d'enregistrement de %s : %s", self.meta_file, e)
 
     def discover_addons(self) -> list[AddonInfo]:
-        """
-        Scanne le dossier ~/.ankiforge/addons/ pour découvrir tous les addons valides.
-        """
+        """Scanne le dossier ~/.ankiforge/addons/ pour découvrir tous les addons valides."""
         old_addons = self._addons.copy()
         self._addons.clear()
         if not self.addons_dir.exists():
@@ -232,9 +229,7 @@ class PluginManager:
         return list(self._addons.values())
 
     def check_safe_mode_trigger(self) -> bool:
-        """
-        Vérifie si le Safe Mode doit être déclenché (flag CLI ou touche Shift maintenue sous Qt).
-        """
+        """Vérifie si le Safe Mode doit être déclenché (flag CLI ou touche Shift maintenue sous Qt)."""
         if "--safe-mode" in sys.argv:
             return True
 
@@ -254,9 +249,7 @@ class PluginManager:
         return False
 
     def load_all_addons(self, safe_mode: bool | None = None) -> dict[str, bool]:
-        """
-        Découvre et initialise tous les addons activés.
-        """
+        """Découvre et initialise tous les addons activés."""
         if safe_mode is not None:
             self._safe_mode = safe_mode
         elif not self._safe_mode:
@@ -286,9 +279,7 @@ class PluginManager:
         return results
 
     def load_addon(self, addon_id: str) -> bool:
-        """
-        Charge et initialise un addon spécifique avec isolation try/catch et vendoring sys.path.
-        """
+        """Charge et initialise un addon spécifique avec isolation try/catch et vendoring sys.path."""
         info = self._addons.get(addon_id)
         if not info:
             logger.warning("Addon introuvable : %s", addon_id)
@@ -378,9 +369,7 @@ class PluginManager:
             return False
 
     def unload_addon(self, addon_id: str) -> bool:
-        """
-        Désenregistre les écouteurs et décharge un addon en mémoire.
-        """
+        """Désenregistre les écouteurs et décharge un addon en mémoire."""
         if addon_id in self._apis:
             api = self._apis.pop(addon_id)
             api.events.unregister_all()
@@ -428,8 +417,8 @@ class PluginManager:
         return False
 
     def install_addon_from_zip(self, zip_path: str | Path) -> tuple[bool, str]:
-        """
-        Installe un addon depuis une archive .zip.
+        """Installe un addon depuis une archive .zip.
+
         L'archive doit contenir manifest.json soit à la racine, soit dans un unique dossier racine.
         """
         zip_file = Path(zip_path)

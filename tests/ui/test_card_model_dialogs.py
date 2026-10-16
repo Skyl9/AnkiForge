@@ -1,5 +1,5 @@
-"""
-Tests UI pytest-qt pour les dialogues de modèles de cartes :
+"""Tests UI pytest-qt pour les dialogues de modèles de cartes.
+
 ModelExportDialog, ModelImportDialog et StarterPackDialog.
 """
 

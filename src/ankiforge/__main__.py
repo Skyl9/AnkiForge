@@ -1,3 +1,9 @@
+"""Point d'entrée de l'application AnkiForge : analyse de la ligne de commande, initialisation de l'environnement et lancement de l'IHM.
+
+Ce module assure l'ordre d'initialisation critique : préparation des chemins macOS/Nuitka, certificats SSL,
+logging asynchrone, verrou de profil, migrations de base de données, puis ouverture de la fenêtre principale.
+"""
+
 import os
 import sys
 from pathlib import Path
@@ -55,8 +61,8 @@ _installed_translator: QTranslator | None = None
 
 
 def parse_cli_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
-    """
-    Analyse les drapeaux en ligne de commande passés à AnkiForge.
+    """Analyse les drapeaux en ligne de commande passés à AnkiForge.
+
     Supporte les options standard, de test, et d'exécution du serveur MCP headless.
     """
     parser = argparse.ArgumentParser(add_help=False)
@@ -76,6 +82,11 @@ def parse_cli_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, l
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Lance AnkiForge : analyse les arguments, prépare l'environnement puis ouvre l'interface.
+
+    Args:
+        argv: Arguments de ligne de commande ; ``sys.argv[1:]`` est utilisé si omis.
+    """
     global _installed_translator
 
     known_args, _ = parse_cli_args(argv)

@@ -1,6 +1,4 @@
-"""
-Tests unitaires et d'intégration pour le pont RAG et les citations déterministes du Consultant IA (MCP-ADV-03).
-"""
+"""Tests unitaires et d'intégration pour le pont RAG et les citations déterministes du Consultant IA (MCP-ADV-03)."""
 
 import json
 from unittest.mock import patch

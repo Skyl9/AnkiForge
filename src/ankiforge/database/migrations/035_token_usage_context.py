@@ -1,3 +1,5 @@
+"""Migration 035 : rattachement de la consommation de tokens au pipeline, persona et run A/B."""
+
 import logging
 
 import peewee as pw

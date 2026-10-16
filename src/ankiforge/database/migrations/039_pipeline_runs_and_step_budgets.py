@@ -1,3 +1,5 @@
+"""Migration 039 : table pipeline_runs pour la persistance et la reprise des runs DAG."""
+
 import datetime
 import logging
 

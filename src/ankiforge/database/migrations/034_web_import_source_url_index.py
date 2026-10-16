@@ -1,3 +1,5 @@
+"""Migration 034 : index sur documentmodel.source_url pour le dédoublonnage des imports web."""
+
 import logging
 
 import peewee as pw

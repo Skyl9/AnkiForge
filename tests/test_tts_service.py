@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour le service de synthèse vocale (TTSService) et TextNormalizer.
+"""Tests unitaires pour le service de synthèse vocale (TTSService) et TextNormalizer.
+
 Couvre le nettoyage HTML/Cloze, le cache MD5, les providers et la déduplication média.
 """
 

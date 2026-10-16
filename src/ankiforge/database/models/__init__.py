@@ -1,5 +1,5 @@
-"""
-Package des modèles Peewee d'AnkiForge.
+"""Package des modèles Peewee d'AnkiForge.
+
 Re-exporte l'ensemble des schémas de données, de la connexion et des fonctions d'initialisation
 pour assurer une parfaite rétrocompatibilité.
 """

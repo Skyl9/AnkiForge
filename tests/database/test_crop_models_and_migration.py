@@ -50,8 +50,8 @@ def test_document_page_crop_box_property():
 
 
 def test_migration_idempotence_and_self_healing_for_crop_and_bounding_box():
-    """
-    Vérifie l'idempotence des colonnes bounding_box (document_chunks) et crop_data (document_pages).
+    """Vérifie l'idempotence des colonnes bounding_box (document_chunks) et crop_data (document_pages).
+
     La migration post-migration dans migration.py doit auto-guérir ces colonnes sans erreur si elles sont absentes.
     """
     from ankiforge.database.migration import run_migrations

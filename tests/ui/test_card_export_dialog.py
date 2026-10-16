@@ -1,5 +1,5 @@
-"""
-Tests d'interface graphique pour CardExportDialog (Export rapide en texte ou JSON).
+"""Tests d'interface graphique pour CardExportDialog (Export rapide en texte ou JSON).
+
 Valide l'initialisation, le choix de portée, le basculement de formats et le déclenchement de l'export.
 """
 

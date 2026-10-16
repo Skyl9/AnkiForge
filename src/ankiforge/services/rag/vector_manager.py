@@ -1,5 +1,5 @@
-"""
-Gestionnaire d'Indexation et de Recherche RAG Hybride (FAISS Dense + BM25 Sparse + RRF).
+"""Gestionnaire d'Indexation et de Recherche RAG Hybride (FAISS Dense + BM25 Sparse + RRF).
+
 Fournit une recherche sémantique et lexicale 100% locale, sans fuite de données,
 et compatible avec les contraintes d'exécutable autonome Nuitka.
 
@@ -42,8 +42,8 @@ logger = logging.getLogger(__name__)
 
 
 class VectorManager:
-    """
-    Gestionnaire d'Indexation et de Recherche RAG Hybride avec FAISS et BM25 100% local.
+    """Gestionnaire d'Indexation et de Recherche RAG Hybride avec FAISS et BM25 100% local.
+
     S'appuie sur Peewee DocumentChunkModel pour le stockage des métadonnées et EmbeddingCacheModel pour le cache.
     """
 
@@ -69,8 +69,8 @@ class VectorManager:
         return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
 
     def _get_embeddings(self, texts: list[str]) -> np.ndarray:
-        """
-        Récupère les embeddings pour une liste de textes avec vérification de cache persistant.
+        """Récupère les embeddings pour une liste de textes avec vérification de cache persistant.
+
         Pour tout texte déjà en base (EmbeddingCacheModel), le vecteur est immédiatement rechargé.
         Les nouveaux textes sont calculés puis enregistrés dans le cache.
         Retourne un tableau numpy float32 (compatible avec les API FAISS).
@@ -85,7 +85,6 @@ class VectorManager:
         miss_indices: list[int] = []
         miss_texts: list[str] = []
 
-        # 1. Vérification dans le cache Peewee
         try:
             cached_records = list(EmbeddingCacheModel.select().where((EmbeddingCacheModel.text_hash.in_(hashes)) & (EmbeddingCacheModel.model_id == self.embedding_model)))
             cache_map = {r.text_hash: json.loads(r.embedding_json) for r in cached_records}
@@ -100,7 +99,6 @@ class VectorManager:
             miss_indices = list(range(len(texts)))
             miss_texts = list(texts)
 
-        # 2. Calcul pour les textes manquants
         if miss_texts:
             new_embeddings: list[list[float]] = []
             if self.client:
@@ -123,7 +121,6 @@ class VectorManager:
                         vec = vec / norm
                     new_embeddings.append(vec.tolist())
 
-            # 3. Stockage des nouveaux embeddings dans le cache Peewee
             try:
                 with db.atomic():
                     for idx_in_miss, orig_idx in enumerate(miss_indices):
@@ -212,10 +209,7 @@ class VectorManager:
         return stats
 
     def index_document(self, document: DocumentModel) -> bool:
-        """
-        Découpe un DocumentModel en DocumentChunkModel (s'ils n'existent pas encore),
-        construit l'index binaire FAISS (Dense) ET l'index lexical BM25 (Sparse).
-        """
+        """Découpe un DocumentModel en DocumentChunkModel (s'ils n'existent pas encore), construit l'index binaire FAISS (Dense) ET l'index lexical BM25 (Sparse)."""
         try:
             chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == document).order_by(DocumentChunkModel.chunk_index))
 
@@ -384,7 +378,6 @@ class VectorManager:
         map_path = doc_dir / "chunk_ids.json"
         bm25_path = doc_dir / "bm25_index.json"
 
-        # Fallback si aucun index n'existe du tout
         if not index_path.exists() and not bm25_path.exists():
             logger.info("Index RAG inexistant pour le document %d, recherche directe en base de données.", document_id)
             return self._db_fallback_search(document_id, query, top_k)

@@ -1,5 +1,4 @@
-"""
-Moteur IA Autonome pour le Consultant AnkiForge.
+"""Moteur IA Autonome pour le Consultant AnkiForge.
 
 - Boucle autonome d'outils avec streaming granularisé (Token-by-Token, Outils).
 - Outils de diagnostic et contrôle qualité (Linter Wozniak, Similarité Levenshtein, Smart Coverage).
@@ -96,10 +95,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
 
 
 def robust_json_loads(text: Any) -> Any:
-    r"""
-    Décode une chaîne JSON de manière ultra-résistante face aux anti-slashs LaTeX
-    non échappés (ex: \Sigma, \delta, \frac, \alpha, \[, \], etc.) et aux retours chariots bruts.
-    """
+    r"""Décode une chaîne JSON de manière ultra-résistante face aux anti-slashs LaTeX non échappés (ex: \Sigma, \delta, \frac, \alpha, \[, \], etc.) et aux retours chariots bruts."""
     if not isinstance(text, str):
         return text
 
@@ -243,16 +239,14 @@ def _open_readonly_sqlite() -> sqlite3.Connection | None:
 
 
 class ConsultantToolRegistry:
-    """
-    Exécuteur d'outils in-process sécurisé pour le Consultant IA.
+    """Exécuteur d'outils in-process sécurisé pour le Consultant IA.
+
     Les modifications de cartes sont proposées sous forme de Staged Diffs avec validation humaine (Garde-Fou).
     """
 
     @staticmethod
     def audit_deck_wozniak(deck_name: str) -> str:
-        """
-        Effectue un audit de qualité Wozniak complet sur un paquet (20 règles de formulation, atomicité, interférences).
-        """
+        """Effectue un audit de qualité Wozniak complet sur un paquet (20 règles de formulation, atomicité, interférences)."""
         try:
             deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
             if not deck:
@@ -289,9 +283,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def audit_card_wozniak(note_id: int) -> str:
-        """
-        Analyse chirurgicale d'une carte spécifique au regard des 20 règles de Piotr Wozniak.
-        """
+        """Analyse chirurgicale d'une carte spécifique au regard des 20 règles de Piotr Wozniak."""
         try:
             note = NoteModel.get_or_none(NoteModel.id == note_id)
             if not note:
@@ -347,9 +339,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def find_duplicate_cards(deck_name: str = "", threshold: float = 0.75) -> str:
-        """
-        Détecte les cartes doublons ou quasi-doublons dans un paquet via l'extension C Levenshtein.
-        """
+        """Détecte les cartes doublons ou quasi-doublons dans un paquet via l'extension C Levenshtein."""
         try:
             query = NoteModel.select().join(CardModel).distinct()
             if deck_name:
@@ -451,8 +441,8 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def propose_card_refactor(note_id: int, new_fields_json: str, explanation: str = "") -> str:
-        """
-        Garde-fou : Propose une modification de carte sous forme de Diff sans l'écrire immédiatement en BDD.
+        """Garde-fou : Propose une modification de carte sous forme de Diff sans l'écrire immédiatement en BDD.
+
         L'utilisateur visualisera le diff et validera l'application dans l'inspecteur.
         """
         try:
@@ -530,9 +520,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def propose_card_split(note_id: int, new_cards_json: str, explanation: str = "") -> str:
-        """
-        Garde-fou : Propose de scinder une carte dense en plusieurs cartes atomiques sans écriture directe.
-        """
+        """Garde-fou : Propose de scinder une carte dense en plusieurs cartes atomiques sans écriture directe."""
         try:
             note = NoteModel.get_or_none(NoteModel.id == note_id)
             if not note:
@@ -584,10 +572,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def preview_and_apply_patch(patch_id: str) -> str:
-        """
-        Valide et applique un patch chirurgical en attente (Two-Phase Commit)
-        après vérification optimiste de l'intégrité de version.
-        """
+        """Valide et applique un patch chirurgical en attente (Two-Phase Commit) après vérification optimiste de l'intégrité de version."""
         from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 
         result = StagedPatchRegistry.apply_staged_patch(patch_id.strip())
@@ -602,8 +587,8 @@ class ConsultantToolRegistry:
         patch_data_json: str = "{}",
         explanation: str = "",
     ) -> str:
-        """
-        Applique un diff ou une modification validée en base SQLite avec rollback versionné.
+        """Applique un diff ou une modification validée en base SQLite avec rollback versionné.
+
         Prend en charge les types : 'card', 'split', 'model', 'css'.
         """
         try:
@@ -1045,9 +1030,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def propose_css_tune(note_type_name: str, css_snippet: str, selector: str = "") -> str:
-        """
-        Garde-fou : Propose un ajustement CSS pour un modèle de carte sans modification directe en BDD.
-        """
+        """Garde-fou : Propose un ajustement CSS pour un modèle de carte sans modification directe en BDD."""
         try:
             nt = NoteTypeModel.get_or_none(NoteTypeModel.name == note_type_name.strip())
             if not nt:
@@ -1231,12 +1214,12 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def diagnose_deck_weaknesses(deck_name: str) -> str:
-        """
-        Effectue un audit chirurgical approfondi d'un paquet de cartes pour détecter les faiblesses :
+        """Effectue un audit chirurgical approfondi d'un paquet de cartes pour détecter les faiblesses suivantes.
+
         - Cartes sangsues (lapses >= 4) et instabilité SRS
         - Surcharge textuelle (> 200 car. ou > 30 mots)
         - Densité excessive d'occlusions (> 5 clozes)
-        - Violations des règles de formulation de Piotr Wozniak
+        - Violations des règles de formulation de Piotr Wozniak.
         """
         try:
             deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
@@ -1394,8 +1377,8 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def list_card_models_manifest() -> str:
-        """
-        Dresse la cartographie complète des modèles de notes (NoteTypeModel) de la collection :
+        """Dresse la cartographie complète des modèles de notes (NoteTypeModel) de la collection.
+
         champs requis (fields_schema), templates Jinja2/HTML Recto/Verso, CSS effectif et volumétrie.
         """
         try:
@@ -1451,10 +1434,10 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def refactor_cards_by_criteria(query: str, instruction: str = "") -> str:
-        """
-        Extrait un échantillon condensé de cartes (max 15) selon une requête ciblée
-        (recherche plein-texte, 'deck:Nom', 'tag:Nom', 'sangsues' / 'leeches', 'verbeux' / 'verbose')
-        et guide le Consultant IA vers la formulation de StagedPatches via propose_card_refactor ou propose_card_split.
+        """Extrait un échantillon condensé de cartes (max 15) selon une requête ciblée (recherche plein-texte, 'deck:Nom', 'tag:Nom', 'sangsues' / 'leeches', 'verbeux' / 'verbose').
+
+        Guide le Consultant IA vers la formulation de StagedPatches via propose_card_refactor ou
+        propose_card_split.
         """
         try:
             q_clean = query.strip()
@@ -1736,10 +1719,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def search_knowledge_context(query: str, max_chunks: int = 5) -> str:
-        """
-        Interroge la bibliothèque documentaire locale via RAGService (FAISS / BM25 / RRF)
-        et extrait les passages les plus pertinents avec citations normalisées et tags déterministes.
-        """
+        """Interroge la bibliothèque documentaire locale via RAGService (FAISS / BM25 / RRF) et extrait les passages les plus pertinents avec citations normalisées et tags déterministes."""
         try:
             from ankiforge.services.ai.rag_service import RAGService
             from ankiforge.utils.tags import build_provenance_tags, clean_source_slug
@@ -2397,10 +2377,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def list_albums(limit: int = 50, offset: int = 0, folder_name: str = "") -> str:
-        """
-        Liste les albums d'images et livres scannés enregistrés dans la collection
-        (titre, nombre de planches, dossier, répartition des statuts d'analyse).
-        """
+        """Liste les albums d'images et livres scannés enregistrés dans la collection (titre, nombre de planches, dossier, répartition des statuts d'analyse)."""
         try:
             eff_limit = max(1, min(int(limit), 200))
             eff_offset = max(0, int(offset))
@@ -2459,10 +2436,7 @@ class ConsultantToolRegistry:
         offset: int = 0,
         include_ocr_text: bool = True,
     ) -> str:
-        """
-        Consulte la liste ordonnée des planches / pages d'un album avec leurs métadonnées
-        (numéro, rotation, recadrage, statut, texte OCR ou extrait, fichier média).
-        """
+        """Consulte la liste ordonnée des planches / pages d'un album avec leurs métadonnées (numéro, rotation, recadrage, statut, texte OCR ou extrait, fichier média)."""
         try:
             eff_limit = max(1, min(int(limit), 200))
             eff_offset = max(0, int(offset))
@@ -2535,10 +2509,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def list_pipelines(limit: int = 50, offset: int = 0) -> str:
-        """
-        Liste les pipelines DAG configurés dans AnkiForge avec leurs étapes ordonnées,
-        leurs comportements de branchement et le statut de leur dernière exécution.
-        """
+        """Liste les pipelines DAG configurés dans AnkiForge avec leurs étapes ordonnées, leurs comportements de branchement et le statut de leur dernière exécution."""
         try:
             eff_limit = max(1, min(int(limit), 200))
             eff_offset = max(0, int(offset))
@@ -2617,10 +2588,7 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def get_pipeline_run(run_id: int = 0, pipeline_id: int = 0) -> str:
-        """
-        Consulte l'état détaillé d'une exécution de pipeline DAG
-        (statut, étape courante, tokens consommés, étapes achevées, erreurs, variables clés).
-        """
+        """Consulte l'état détaillé d'une exécution de pipeline DAG (statut, étape courante, tokens consommés, étapes achevées, erreurs, variables clés)."""
         try:
             run: PipelineRunModel | None = None
             if run_id and int(run_id) > 0:
@@ -3364,8 +3332,8 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
 
 
 def extract_tool_call_from_text(content_text: str) -> tuple[bool, str, dict[str, Any]]:
-    """
-    Extrait de manière robuste un appel d'outil explicite formaté en JSON ou en action ReAct.
+    """Extrait de manière robuste un appel d'outil explicite formaté en JSON ou en action ReAct.
+
     Ne doit PAS intercepter les simples propositions de cartes destinées à l'utilisateur.
     """
     if not content_text:
@@ -3418,9 +3386,7 @@ def extract_tool_call_from_text(content_text: str) -> tuple[bool, str, dict[str,
 
 
 class ConsultantEngine:
-    """
-    Moteur IA autonome pour le Consultant AnkiForge avec exécution d'outils de qualité et garde-fous de diffs.
-    """
+    """Moteur IA autonome pour le Consultant AnkiForge avec exécution d'outils de qualité et garde-fous de diffs."""
 
     def __init__(
         self,
@@ -3439,8 +3405,8 @@ class ConsultantEngine:
                 logger.warning("Erreur lors de la création du provider IA : %s", e)
 
     def _get_allowed_tool_names(self) -> set[str] | None:
-        """
-        Détermine l'ensemble des outils autorisés pour l'agent actif.
+        """Détermine l'ensemble des outils autorisés pour l'agent actif.
+
         Renvoie None si l'agent a un accès universel (* ou vide).
         """
         if not self.persona:
@@ -3745,9 +3711,7 @@ class ConsultantEngine:
         history: list[dict[str, Any]] | None = None,
         cancel_event: threading.Event | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
-        """
-        Générateur asynchrone exécutant l'agent avec streaming fluide token-by-token et mémoire multi-tours.
-        """
+        """Générateur asynchrone exécutant l'agent avec streaming fluide token-by-token et mémoire multi-tours."""
         # Filtrage des outils autorisés pour l'agent
         active_tools: list[dict[str, Any]] = [t for t in DEFAULT_CONSULTANT_TOOLS if self._is_tool_allowed(t["function"]["name"])]
 
@@ -3784,7 +3748,6 @@ class ConsultantEngine:
         final_answer = ""
         tool_call_history: list[str] = []
 
-        # Configuration des budgets temps réel
         token_budget = int(SettingsService.get("ai/consultant_token_budget", 50000) or 50000)
         cost_budget = float(SettingsService.get("ai/consultant_cost_budget", 0.50) or 0.50)
         total_prompt_tokens = 0

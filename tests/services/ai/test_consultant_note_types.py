@@ -1,7 +1,4 @@
-"""
-Tests unitaires pour la consultation, la refactorisation et l'analyse
-des modèles de cartes (Note Types, champs dynamiques, CSS, templates) par le Consultant IA.
-"""
+"""Tests unitaires pour la consultation, la refactorisation et l'analyse des modèles de cartes (Note Types, champs dynamiques, CSS, templates) par le Consultant IA."""
 
 from __future__ import annotations
 

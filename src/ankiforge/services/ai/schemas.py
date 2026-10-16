@@ -1,6 +1,6 @@
-"""
-Pydantic Schemas and Self-Healing Validation Engine for AnkiForge AI Outputs.
-Provides strict type contracts, sanitization and automated self-healing.
+"""Schémas Pydantic et moteur de validation auto-réparateur des sorties IA d'AnkiForge.
+
+Fournit des contrats de types stricts, une sanitisation et une auto-réparation automatisée.
 """
 
 from __future__ import annotations
@@ -141,8 +141,8 @@ class SelfHealingValidator:
         raw_output: Any,
         schema_cls: type[T],
     ) -> T:
-        """
-        Valide une sortie brute contre un schéma Pydantic avec nettoyage automatique.
+        """Valide une sortie brute contre un schéma Pydantic avec nettoyage automatique.
+
         Lève ValidationError si irréparable.
         """
         if isinstance(raw_output, schema_cls):

@@ -59,6 +59,7 @@ class UrlImportWorker(QThread):
         return self._is_cancelled
 
     def run(self) -> None:
+        """Analyse séquentiellement les URLs du lot et publie chaque résultat sur les signaux."""
         from ankiforge.services.parsing.web_importer import WebImporter
 
         importer = WebImporter()

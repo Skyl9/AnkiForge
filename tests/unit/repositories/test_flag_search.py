@@ -1,5 +1,5 @@
-"""
-Tests de recherche de cartes et notes par drapeaux (libellés standards et personnalisés).
+"""Tests de recherche de cartes et notes par drapeaux (libellés standards et personnalisés).
+
 Vérifie la syntaxe flag:X, -flag:X avec quotes et libellés multi-mots.
 """
 

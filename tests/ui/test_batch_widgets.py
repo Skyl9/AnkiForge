@@ -1,5 +1,4 @@
-"""Tests des widgets de l'Atelier de Production (BatchQueueTable)
-et des chemins d'auto-validation du BatchWorker (legacy + scope snapshots)."""
+"""Tests des widgets de l'Atelier de Production (BatchQueueTable) et des chemins d'auto-validation du BatchWorker (legacy + scope snapshots)."""
 
 import json
 from typing import Any

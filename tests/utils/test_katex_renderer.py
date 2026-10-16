@@ -1,11 +1,11 @@
-"""
-Tests complets pour le moteur de rendu KaTeX et la gestion des balises mathématiques :
+"""Tests complets pour le moteur de rendu KaTeX et la gestion des balises mathématiques.
+
 - Résolution locale des assets KaTeX et structure du script injecté
 - Pré-traitement et assainissement des blocs mathématiques (_preprocess_math_blocks)
 - Conversion des balises math historiques Anki ([latex], [math], [$], [45808])
 - Préservation et transformation des clozes imbriqués dans les formules mathématiques
 - Surlignage syntaxique sans rupture sur les parenthèses de fonctions (f(x), sin(x))
-- Rendu réel dans Qt WebEngine (SafeWebEngineView / headless)
+- Rendu réel dans Qt WebEngine (SafeWebEngineView / headless).
 """
 
 from __future__ import annotations

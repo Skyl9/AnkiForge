@@ -214,7 +214,7 @@ def verify_binary_against_manifest(binary_path: Path | str, manifest_text: str) 
         manifest_text: Contenu texte du manifeste d'intégrité (ex: checksums.txt).
 
     Returns:
-        tuple[bool, str]: (Succès, Message explicatif pour l'UI ou les logs)
+        (Succès, Message explicatif pour l'UI ou les logs)
     """
     path = Path(binary_path)
     filename = path.name

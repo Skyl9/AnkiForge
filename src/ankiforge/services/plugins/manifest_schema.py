@@ -1,6 +1,4 @@
-"""
-Schémas de validation et modèles de données pour les addons AnkiForge.
-"""
+"""Schémas de validation et modèles de données pour les addons AnkiForge."""
 
 from __future__ import annotations
 
@@ -24,9 +22,7 @@ class AddonStatus(StrEnum):
 
 
 class AddonManifest(BaseModel):
-    """
-    Schéma de validation strict pour le fichier manifest.json d'un addon.
-    """
+    """Schéma de validation strict pour le fichier manifest.json d'un addon."""
 
     id: str = Field(..., description="Identifiant unique en minuscules (ex: elevenlabs_tts)")
     name: str = Field(..., description="Nom d'affichage lisible pour l'humain")
@@ -42,6 +38,7 @@ class AddonManifest(BaseModel):
     @field_validator("id")
     @classmethod
     def validate_addon_id(cls, v: str) -> str:
+        """Valide l'identifiant d'addon et le normalise en minuscules."""
         v = v.strip()
         if not re.match(r"^[a-zA-Z0-9_-]+$", v):
             raise ValueError(f"L'identifiant d'addon '{v}' est invalide. Utilisez uniquement des lettres, chiffres, tirets et underscores.")
@@ -50,9 +47,7 @@ class AddonManifest(BaseModel):
 
 @dataclass
 class AddonInfo:
-    """
-    Représente les métadonnées et l'état d'exécution d'un addon chargé en mémoire.
-    """
+    """Représente les métadonnées et l'état d'exécution d'un addon chargé en mémoire."""
 
     manifest: AddonManifest
     folder_path: Path
@@ -65,20 +60,25 @@ class AddonInfo:
 
     @property
     def id(self) -> str:
+        """Retourne l'identifiant de l'addon."""
         return self.manifest.id
 
     @property
     def name(self) -> str:
+        """Retourne le nom d'affichage de l'addon."""
         return self.manifest.name
 
     @property
     def version(self) -> str:
+        """Retourne la version de l'addon."""
         return self.manifest.version
 
     @property
     def author(self) -> str:
+        """Retourne l'auteur de l'addon."""
         return self.manifest.author
 
     @property
     def description(self) -> str:
+        """Retourne la description courte de l'addon."""
         return self.manifest.description

@@ -1,3 +1,5 @@
+"""Modèles Peewee des tâches système, des paramètres utilisateur et du cache IA."""
+
 import datetime
 import json
 import logging
@@ -17,10 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class JobModel(BaseModel):
-    """
-    Table de suivi des tâches de fond (Parsing PDF, Batch IA long, etc.)
-    Permet la reprise après crash.
-    """
+    """Table de suivi des tâches de fond (Parsing PDF, Batch IA long, etc.) Permet la reprise après crash."""
 
     job_type = CharField()
     target = CharField()
@@ -32,13 +31,14 @@ class JobModel(BaseModel):
     updated_at = DateTimeField(default=datetime.datetime.now)
 
     def save(self, *args: Any, **kwargs: Any) -> int:
+        """Persiste la tâche système en rafraîchissant l'horodatage updated_at."""
         self.updated_at = datetime.datetime.now()
         return int(super().save(*args, **kwargs))
 
 
 class SettingModel(BaseModel):
-    """
-    Stocke les paramètres et préférences utilisateur du profil en base de données SQLite.
+    """Stocke les paramètres et préférences utilisateur du profil en base de données SQLite.
+
     Fournit des méthodes utilitaires avec sérialisation/désérialisation JSON automatique.
     """
 
@@ -115,7 +115,7 @@ class SettingModel(BaseModel):
 
 
 class AICacheModel(BaseModel):
-    """Stocke le cache des appels de complétion d'IA pour économiser les coûts et le réseau"""
+    """Stocke le cache des appels de complétion d'IA pour économiser les coûts et le réseau."""
 
     prompt_hash = CharField(index=True)
     system_prompt_hash = CharField()

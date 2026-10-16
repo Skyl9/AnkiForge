@@ -1,7 +1,4 @@
-"""
-Tests de validation pour la personnalisation des règles d'audit Wozniak,
-la création de catégories personnalisées, et la normalisation universelle des propositions IA.
-"""
+"""Tests de validation pour la personnalisation des règles d'audit Wozniak, la création de catégories personnalisées, et la normalisation universelle des propositions IA."""
 
 import json
 

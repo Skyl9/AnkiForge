@@ -1,3 +1,5 @@
+"""Migration 007 : tables du linter modulaire et de la persistance des audits de cartes."""
+
 import datetime
 
 import peewee as pw

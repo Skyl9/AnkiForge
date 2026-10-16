@@ -30,12 +30,12 @@ class NoteTypeService:
 
     @classmethod
     def validate_structure(cls, model_data: dict[str, Any]) -> tuple[bool, list[str]]:
-        """
-        Valide la structure complète d'un type de note :
+        """Valide la structure complète d'un type de note.
+
         - Nom non vide
         - Au moins un champ, noms uniques (insensible à la casse) et non vides
         - Gabarits complets (nom, qfmt, afmt non vides)
-        - Gabarits référençant des champs existants
+        - Gabarits référençant des champs existants.
         """
         errors: list[str] = []
         name = str(model_data.get("name", "")).strip()
@@ -96,8 +96,7 @@ class NoteTypeService:
         target_fields: list[str],
         mapping_champs: dict[str, str] | None = None,
     ) -> dict[str, str]:
-        """
-        Remappe les données de champs d'une note source vers les champs cibles d'un nouveau type de note.
+        """Remappe les données de champs d'une note source vers les champs cibles d'un nouveau type de note.
 
         Ordre de priorité :
         1. Surcharge explicite via `mapping_champs` (source -> cible ou cible -> source).
@@ -174,7 +173,6 @@ class NoteTypeService:
         if nt_by_name:
             return nt_by_name
 
-        # Recherche insensible à la casse
         for candidate in NoteTypeModel.select():
             if candidate.name.lower() == name_str.lower():
                 return candidate
@@ -188,8 +186,7 @@ class NoteTypeService:
         target_model: NoteTypeModel | str | int,
         mapping_champs: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        """
-        Migre un lot de notes vers un autre type de note.
+        """Migre un lot de notes vers un autre type de note.
 
         Garanties :
         - Transaction unique (atomicité totale : tout ou rien).
@@ -209,7 +206,6 @@ class NoteTypeService:
 
         target_nt = cls.resolve_target_model(target_model)
 
-        # Extraction des champs cibles
         target_fields: list[str] = ["Front", "Back"]
         if target_nt.fields_schema:
             try:
@@ -219,7 +215,6 @@ class NoteTypeService:
             except Exception:
                 target_fields = ["Front", "Back"]
 
-        # Extraction du nombre de gabarits cibles
         target_tmpl_count = 0
         if target_nt.templates:
             try:
@@ -259,7 +254,6 @@ class NoteTypeService:
         # Exécution atomique
         with db.atomic():
             for note in notes_to_migrate:
-                # Récupération du contenu actif actuel
                 active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
                 current_data: dict[str, Any] = {}
                 if active_v and active_v.content:
@@ -272,7 +266,6 @@ class NoteTypeService:
 
                 mapped_data = cls.remap_fields(current_data, target_fields, mapping_champs=mapping_champs)
 
-                # Mise à jour du type de note et création d'une nouvelle version
                 note.note_type = target_nt
                 note.save()
                 note.add_version(mapped_data, source="note_type_change")
@@ -300,8 +293,7 @@ class NoteTypeService:
         limit: int = 50,
         offset: int = 0,
     ) -> dict[str, Any]:
-        """
-        Audite la conformité structurelle des notes rattachées à un type de note.
+        """Audite la conformité structurelle des notes rattachées à un type de note.
 
         Règles supportées (vocabulaire fermé) :
         - empty_fields : Champs obligatoires vides ou note totalement vide.
@@ -320,7 +312,6 @@ class NoteTypeService:
 
         target_nt = cls.resolve_target_model(note_type_name)
 
-        # Extraction des champs du modèle
         declared_fields: list[str] = ["Front", "Back"]
         if target_nt.fields_schema:
             try:
@@ -330,7 +321,6 @@ class NoteTypeService:
             except Exception:
                 declared_fields = ["Front", "Back"]
 
-        # Extraction des gabarits
         templates: list[dict[str, Any]] = []
         if target_nt.templates:
             try:
@@ -365,7 +355,6 @@ class NoteTypeService:
                 if f.lower() not in used_fields_lower:
                     model_template_mismatches.append(f"Champ déclaré '{f}' inutilisé dans les gabarits")
 
-        # Sélection paginée des notes
         query = NoteModel.select().where(NoteModel.note_type == target_nt).order_by(NoteModel.id.asc())
         total_notes = query.count()
         eff_limit = max(1, min(limit, 100))
@@ -491,8 +480,8 @@ class NoteTypeService:
         template_index: int | None = None,
         is_dark_mode: bool = False,
     ) -> dict[str, Any]:
-        """
-        Rend le recto, le verso et le CSS d'une note réelle en simulant le rendu Anki officiel.
+        """Rend le recto, le verso et le CSS d'une note réelle en simulant le rendu Anki officiel.
+
         Supporte les surcharges optionnelles de champs et de gabarit.
         """
         from ankiforge.utils.anki_renderer import render_anki_card
@@ -505,7 +494,6 @@ class NoteTypeService:
         if not nt:
             raise ValueError(f"Type de note manquant pour la note #{note_id}.")
 
-        # Récupération du contenu actif
         active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
         fields_data: dict[str, Any] = {}
         if active_v and active_v.content:
@@ -516,7 +504,6 @@ class NoteTypeService:
             except Exception:
                 fields_data = {"Front": active_v.content}
 
-        # Application des surcharges si fournies
         if fields_json:
             try:
                 overrides = json.loads(fields_json) if isinstance(fields_json, str) else fields_json
@@ -525,7 +512,6 @@ class NoteTypeService:
             except Exception as e:
                 logger.warning("Échec du parsing de fields_json dans preview_card_render : %s", e)
 
-        # Extraction des gabarits
         templates: list[dict[str, Any]] = []
         if nt.templates:
             try:
@@ -545,7 +531,6 @@ class NoteTypeService:
         tmpl_name = str(tmpl.get("name", f"Carte {idx + 1}"))
         css_style = nt.css_style or ""
 
-        # Rendu Recto
         front_html = render_anki_card(
             raw_html=qfmt,
             css=css_style,
@@ -555,7 +540,6 @@ class NoteTypeService:
             template_index=idx,
         )
 
-        # Rendu Verso (avec transmission de front_html pour {{FrontSide}})
         back_html = render_anki_card(
             raw_html=afmt,
             css=css_style,

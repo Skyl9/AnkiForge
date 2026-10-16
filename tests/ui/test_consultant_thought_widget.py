@@ -1,5 +1,5 @@
-"""
-Tests unitaires et d'interface headless pour MCP-ADV-04 :
+"""Tests unitaires et d'interface headless pour MCP-ADV-04.
+
 Streaming Extended Thinking et Repli Automatique (ThoughtStepWidget, ConsultantWorker, ConsultantView).
 """
 

@@ -1,5 +1,5 @@
-"""
-Worker asynchrone pour la détection IA des légendes et zones de masquage (Image Occlusion).
+"""Worker asynchrone pour la détection IA des légendes et zones de masquage (Image Occlusion).
+
 Exécute l'inférence de vision en arrière-plan sans bloquer l'interface graphique Qt.
 """
 
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class ImageOcclusionDetectionWorker(QThread):
-    """
-    Worker d'arrière-plan pour la détection des légendes via le modèle de vision.
+    """Worker d'arrière-plan pour la détection des légendes via le modèle de vision.
+
     Émet des signaux pour informer l'interface du résultat ou des erreurs.
     """
 

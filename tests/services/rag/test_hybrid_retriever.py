@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour HybridRAGRetriever et l'algorithme Reciprocal Rank Fusion (RRF).
+"""Tests unitaires pour HybridRAGRetriever et l'algorithme Reciprocal Rank Fusion (RRF).
+
 Valide le calcul mathématique RRF, les pondérations configurables et la fusion dense/sparse.
 """
 

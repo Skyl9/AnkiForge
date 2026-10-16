@@ -71,11 +71,13 @@ class ProfileContentTransfer:
 
     @staticmethod
     def list_personas(profile_name: str, profiles_dir: Path | None = None) -> list[str]:
+        """Retourne la liste ordonnée des noms d'agents du profil source."""
         with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx(ProfileContentTransfer._source_models):
             return [str(p.name) for p in PersonaModel.select().order_by(PersonaModel.name.asc())]
 
     @staticmethod
     def list_pipelines(profile_name: str, profiles_dir: Path | None = None) -> list[str]:
+        """Retourne la liste ordonnée des noms de pipelines du profil source."""
         with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx(ProfileContentTransfer._source_models):
             return [str(p.name) for p in PipelineModel.select().order_by(PipelineModel.name.asc())]
 
@@ -132,8 +134,8 @@ class ProfileContentTransfer:
         update_existing_notes: bool = False,
         profiles_dir: Path | None = None,
     ) -> TransferReport:
-        """
-        Transfère notes, cartes, modèles de cartes et médias d'un profil source vers un profil cible.
+        """Transfère notes, cartes, modèles de cartes et médias d'un profil source vers un profil cible.
+
         Préserve strictement les GUIDs des notes et déduplique les fichiers médias par MD5.
         """
         notes_payload, media_files = ProfileContentTransfer._extract_notes_data(
@@ -538,6 +540,11 @@ class ProfileContentTransfer:
         persona_name: str,
         profiles_dir: Path | None = None,
     ) -> PersonaModel:
+        """Importe un agent du profil source vers le profil actif.
+
+        Raises:
+            ValueError: Si aucun agent ne porte ce nom dans le profil source.
+        """
         with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx(ProfileContentTransfer._source_models):
             source = PersonaModel.get_or_none(PersonaModel.name == persona_name)
             if source is None:
@@ -552,6 +559,11 @@ class ProfileContentTransfer:
         pipeline_name: str,
         profiles_dir: Path | None = None,
     ) -> PipelineModel:
+        """Importe un pipeline et ses agents du profil source vers le profil actif.
+
+        Raises:
+            ValueError: Si aucun pipeline ne porte ce nom dans le profil source.
+        """
         with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx(ProfileContentTransfer._source_models):
             source = PipelineModel.get_or_none(PipelineModel.name == pipeline_name)
             if source is None:

@@ -1,3 +1,9 @@
+"""Service LLM flexible basé sur le SDK OpenAI, pour les fournisseurs compatibles et locaux.
+
+Il couvre OpenAI, Groq, OpenRouter, OpenCode et les serveurs compatibles (Ollama, LM Studio),
+avec normalisation des échanges, extraction du raisonnement (CoT) et suivi de l'usage de jetons.
+"""
+
 import json
 import logging
 import os
@@ -276,8 +282,7 @@ def _resolve_generation_timeout_seconds() -> float:
 
 
 class OpenAICompatibleProvider(LLMProvider):
-    """
-    Service générique pour les APIs compatibles avec le standard OpenAI.
+    """Service générique pour les APIs compatibles avec le standard OpenAI.
 
     Gère les appels vers Ollama, Groq, OpenRouter ou toute autre plateforme
     exposant un endpoint compatible ChatCompletion.
@@ -297,20 +302,19 @@ class OpenAICompatibleProvider(LLMProvider):
         default_temperature: float = 0.2,
         supports_json: bool = True,
     ):
-        """
-        Initialise le client OpenAI avec l'URL de base et le modèle cible.
+        """Initialise le client OpenAI avec l'URL de base et le modèle cible.
 
         Args:
-            base_url (str): URL de l'endpoint API.
-            model_name (str): Nom du modèle à invoquer (ex: 'llama3').
-            api_key (str | None): Clé API nécessaire. Par défaut "dummy_key".
-            max_tokens (int): Nombre maximal de tokens de réponse.
-            timeout (float): Délai maximal (secondes) par requête réseau.
-            max_retries (int): Nombre de tentatives automatiques du SDK OpenAI.
-            provider_name_override (str | None): Nom du fournisseur explicite (indépendant de l'URL).
-            default_headers (dict[str, str] | None): En-têtes HTTP globaux du client (ex: HTTP-Referer OpenRouter).
-            default_temperature (float): Température de créativité par défaut du modèle.
-            supports_json (bool): Indique si le modèle supporte le mode objet JSON natif.
+            base_url: URL de l'endpoint API.
+            model_name: Nom du modèle à invoquer (ex: 'llama3').
+            api_key: Clé API nécessaire. Par défaut "dummy_key".
+            max_tokens: Nombre maximal de tokens de réponse.
+            timeout: Délai maximal (secondes) par requête réseau.
+            max_retries: Nombre de tentatives automatiques du SDK OpenAI.
+            provider_name_override: Nom du fournisseur explicite (indépendant de l'URL).
+            default_headers: En-têtes HTTP globaux du client (ex: HTTP-Referer OpenRouter).
+            default_temperature: Température de créativité par défaut du modèle.
+            supports_json: Indique si le modèle supporte le mode objet JSON natif.
         """
         self.base_url = base_url
         self.provider_name_override = provider_name_override
@@ -434,18 +438,17 @@ class OpenAICompatibleProvider(LLMProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> LLMResult:
-        """
-        Envoie une requête de génération à l'API et retourne un LLMResult structuré.
+        """Envoie une requête de génération à l'API et retourne un LLMResult structuré.
 
         Args:
-            system_prompt (str): Instructions système définissant le comportement de l'IA.
-            user_prompt (str | list[dict[str, Any]]): Contenu de l'utilisateur (texte ou multimodal).
-            response_format (str): Format de réponse attendu ("json" ou "text").
-            max_tokens (int | None): Plafond optionnel de tokens à générer.
-            temperature (float | None): Température de créativité (défaut 0.2).
+            system_prompt: Instructions système définissant le comportement de l'IA.
+            user_prompt: Contenu de l'utilisateur (texte ou multimodal).
+            response_format: Format de réponse attendu ("json" ou "text").
+            max_tokens: Plafond optionnel de tokens à générer.
+            temperature: Température de créativité (défaut 0.2).
 
         Returns:
-            LLMResult: Résultat structuré incluant contenu textuel purifié et raisonnement extrait.
+            Résultat structuré incluant contenu textuel purifié et raisonnement extrait.
 
         Raises:
             RuntimeError: En cas d'échec de la communication avec l'API.
@@ -635,10 +638,7 @@ class OpenAICompatibleProvider(LLMProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """
-        Génère un flux de streaming normalisé émettant des thought_delta et text_delta
-        pour OpenAI, DeepSeek, Ollama et modèles de raisonnement compatibles.
-        """
+        """Génère un flux de streaming normalisé émettant des thought_delta et text_delta pour OpenAI, DeepSeek, Ollama et modèles de raisonnement compatibles."""
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -697,9 +697,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
 
 class OllamaProvider(OpenAICompatibleProvider):
-    """
-    Fournisseur d'IA locale 100% gratuit utilisant Ollama.
-    """
+    """Fournisseur d'IA locale 100% gratuit utilisant Ollama."""
 
     def __init__(
         self,
@@ -709,15 +707,14 @@ class OllamaProvider(OpenAICompatibleProvider):
         default_temperature: float = 0.2,
         supports_json: bool = True,
     ):
-        """
-        Initialise le service Ollama sur l'URL locale configurée (repli localhost).
+        """Initialise le service Ollama sur l'URL locale configurée (repli localhost).
 
         Args:
-            model_name (str): Nom du modèle local à utiliser.
-            max_tokens (int): Nombre maximal de tokens de réponse.
-            timeout (float): Délai maximal (secondes) par requête réseau.
-            default_temperature (float): Température par défaut du modèle.
-            supports_json (bool): Support du mode json_object.
+            model_name: Nom du modèle local à utiliser.
+            max_tokens: Nombre maximal de tokens de réponse.
+            timeout: Délai maximal (secondes) par requête réseau.
+            default_temperature: Température par défaut du modèle.
+            supports_json: Support du mode json_object.
         """
         super().__init__(
             base_url=f"{_ollama_base_url()}/v1",
@@ -732,15 +729,15 @@ class OllamaProvider(OpenAICompatibleProvider):
 
     @property
     def provider_name(self) -> str:
+        """Nom canonique du fournisseur Ollama."""
         return "ollama"
 
     @staticmethod
     def get_available_models() -> list[str]:
-        """
-        Récupère dynamiquement la liste des modèles installés localement.
+        """Récupère dynamiquement la liste des modèles installés localement.
 
         Returns:
-            list[str]: Liste des noms des modèles disponibles sur Ollama.
+            Liste des noms des modèles disponibles sur Ollama.
         """
         try:
             # Appel à l'API locale d'Ollama (timeout court pour ne pas bloquer l'UI si Ollama est éteint)
@@ -754,9 +751,7 @@ class OllamaProvider(OpenAICompatibleProvider):
 
 
 class GroqProvider(OpenAICompatibleProvider):
-    """
-    Fournisseur Cloud haute performance utilisant l'infrastructure Groq.
-    """
+    """Fournisseur Cloud haute performance utilisant l'infrastructure Groq."""
 
     def __init__(
         self,
@@ -767,16 +762,15 @@ class GroqProvider(OpenAICompatibleProvider):
         default_temperature: float = 0.2,
         supports_json: bool = True,
     ):
-        """
-        Initialise le client Groq.
+        """Initialise le client Groq.
 
         Args:
-            api_key (str | None): Clé API Groq. Cherchée dans l'environnement par défaut.
-            model_name (str): Modèle à utiliser sur Groq.
-            max_tokens (int): Nombre maximal de tokens de réponse.
-            timeout (float): Délai maximal (secondes) par requête réseau.
-            default_temperature (float): Température par défaut du modèle.
-            supports_json (bool): Support du mode json_object.
+            api_key: Clé API Groq. Cherchée dans l'environnement par défaut.
+            model_name: Modèle à utiliser sur Groq.
+            max_tokens: Nombre maximal de tokens de réponse.
+            timeout: Délai maximal (secondes) par requête réseau.
+            default_temperature: Température par défaut du modèle.
+            supports_json: Support du mode json_object.
 
         Raises:
             ValueError: Si aucune clé API n'est fournie ou trouvée.
@@ -797,13 +791,12 @@ class GroqProvider(OpenAICompatibleProvider):
 
     @property
     def provider_name(self) -> str:
+        """Nom canonique du fournisseur Groq."""
         return "groq"
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
-    """
-    Fournisseur d'accès multi-IA via la plateforme OpenRouter.
-    """
+    """Fournisseur d'accès multi-IA via la plateforme OpenRouter."""
 
     def __init__(
         self,
@@ -815,17 +808,16 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         default_temperature: float = 0.2,
         supports_json: bool = True,
     ):
-        """
-        Initialise le client OpenRouter.
+        """Initialise le client OpenRouter.
 
         Args:
-            api_key (str | None): Clé API OpenRouter.
-            model_name (str): Modèle cible disponible sur OpenRouter.
-            base_url (str | None): URL de la passerelle (défaut : openrouter/base_url ou https://openrouter.ai/api/v1).
-            max_tokens (int): Nombre maximal de tokens de réponse.
-            timeout (float): Délai maximal (secondes) par requête réseau.
-            default_temperature (float): Température par défaut du modèle.
-            supports_json (bool): Support du mode json_object.
+            api_key: Clé API OpenRouter.
+            model_name: Modèle cible disponible sur OpenRouter.
+            base_url: URL de la passerelle (défaut : openrouter/base_url ou https://openrouter.ai/api/v1).
+            max_tokens: Nombre maximal de tokens de réponse.
+            timeout: Délai maximal (secondes) par requête réseau.
+            default_temperature: Température par défaut du modèle.
+            supports_json: Support du mode json_object.
 
         Raises:
             ValueError: Si la clé API est absente.
@@ -856,13 +848,12 @@ class OpenRouterProvider(OpenAICompatibleProvider):
 
     @property
     def provider_name(self) -> str:
+        """Nom canonique du fournisseur OpenRouter."""
         return "openrouter"
 
 
 class OpenCodeProvider(OpenAICompatibleProvider):
-    """
-    Fournisseur d'accès aux modèles d'IA via la passerelle OpenCode (OpenCode Zen / passerelle locale).
-    """
+    """Fournisseur d'accès aux modèles d'IA via la passerelle OpenCode (OpenCode Zen / passerelle locale)."""
 
     def __init__(
         self,
@@ -874,17 +865,16 @@ class OpenCodeProvider(OpenAICompatibleProvider):
         default_temperature: float = 0.2,
         supports_json: bool = True,
     ):
-        """
-        Initialise le client OpenCode.
+        """Initialise le client OpenCode.
 
         Args:
-            api_key (str | None): Clé API OpenCode (ou variable OPENCODE_API_KEY).
-            model_name (str): Modèle cible (ex: 'deepseek-v4-flash', 'gemini-3.5-flash-lite').
-            base_url (str | None): URL de la passerelle (défaut : opencode/base_url ou https://opencode.ai/zen/v1).
-            max_tokens (int): Plafond maximal de tokens.
-            timeout (float): Délai maximal par requête réseau.
-            default_temperature (float): Température par défaut du modèle.
-            supports_json (bool): Support du mode json_object.
+            api_key: Clé API OpenCode (ou variable OPENCODE_API_KEY).
+            model_name: Modèle cible (ex: 'deepseek-v4-flash', 'gemini-3.5-flash-lite').
+            base_url: URL de la passerelle (défaut : opencode/base_url ou https://opencode.ai/zen/v1).
+            max_tokens: Plafond maximal de tokens.
+            timeout: Délai maximal par requête réseau.
+            default_temperature: Température par défaut du modèle.
+            supports_json: Support du mode json_object.
 
         Raises:
             ValueError: Si la clé API est absente.
@@ -914,13 +904,12 @@ class OpenCodeProvider(OpenAICompatibleProvider):
 
     @property
     def provider_name(self) -> str:
+        """Nom canonique du fournisseur OpenCode."""
         return "opencode"
 
 
 class AnthropicProvider(LLMProvider):
-    """
-    Fournisseur pour les modèles Anthropic (Claude 3.5, Claude 3.7 Sonnet avec Thinking Mode, etc.).
-    """
+    """Fournisseur pour les modèles Anthropic (Claude 3.5, Claude 3.7 Sonnet avec Thinking Mode, etc.)."""
 
     def __init__(
         self,
@@ -946,6 +935,7 @@ class AnthropicProvider(LLMProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> LLMResult:
+        """Génère une réponse via l'API Messages d'Anthropic (texte ou multimodal, Thinking Mode optionnel)."""
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
@@ -1072,10 +1062,7 @@ class AnthropicProvider(LLMProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """
-        Génère un flux de streaming normalisé émettant des thought_delta et text_delta
-        pour Anthropic Claude 3.7 Thinking Mode.
-        """
+        """Génère un flux de streaming normalisé émettant des thought_delta et text_delta pour Anthropic Claude 3.7 Thinking Mode."""
         headers = {
             "x-api-key": self.api_key or "",
             "anthropic-version": "2023-06-01",
@@ -1156,17 +1143,15 @@ class AnthropicProvider(LLMProvider):
 
 
 class AIManager:
-    """
-    Orchestrateur central gérant le chargement et la configuration de l'IA active.
+    """Orchestrateur central gérant le chargement et la configuration de l'IA active.
+
     Récupère les paramètres depuis la base de données SQLite.
     L'instanciation physique du fournisseur est paresseuse (lazy) pour éviter toute
     sollicitation intempestive du trousseau OS au démarrage de l'application.
     """
 
     def __init__(self) -> None:
-        """
-        Initialise le gestionnaire sans interroger prématurément le trousseau de clés.
-        """
+        """Initialise le gestionnaire sans interroger prématurément le trousseau de clés."""
         self._provider: LLMProvider | None = None
         self.current_config: LLMConfigModel | None = None
         self.current_model: str = ""
@@ -1188,8 +1173,8 @@ class AIManager:
 
     @staticmethod
     def create_provider_from_config(config: LLMConfigModel) -> LLMProvider:
-        """
-        Crée un fournisseur d'IA à partir d'un objet de configuration en base de données.
+        """Crée un fournisseur d'IA à partir d'un objet de configuration en base de données.
+
         Injecte l'api_key, max_tokens, default_temperature et supports_json.
         La clé est chargée depuis le trousseau OS (keyring) en priorité, puis depuis la BDD (stockage historique).
         """
@@ -1221,9 +1206,7 @@ class AIManager:
         default_temperature: float = 0.2,
         supports_json: bool = True,
     ) -> LLMProvider:
-        """
-        Instancie un fournisseur d'IA à partir de données brutes (Thread-safe).
-        """
+        """Instancie un fournisseur d'IA à partir de données brutes (Thread-safe)."""
         p_name = provider_name.lower()
         key = api_key or ""
         if not key:
@@ -1334,9 +1317,7 @@ class AIManager:
         return MockProvider()
 
     def reload_provider(self) -> None:
-        """
-        Recharge l'IA active depuis la base de données (sélectionne le modèle par défaut ou le premier par sort_order).
-        """
+        """Recharge l'IA active depuis la base de données (sélectionne le modèle par défaut ou le premier par sort_order)."""
         try:
             from ankiforge.database.models import LLMConfigModel
             from ankiforge.services.settings_service import SettingsService

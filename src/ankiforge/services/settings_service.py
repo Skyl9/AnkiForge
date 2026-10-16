@@ -1,5 +1,5 @@
-"""
-Service de Gestion des Paramètres et Préférences Utilisateur pour AnkiForge.
+"""Service de Gestion des Paramètres et Préférences Utilisateur pour AnkiForge.
+
 Persiste les réglages dans la BDD SQLite du profil via Peewee (SettingModel),
 avec synchronisation transparente et fallback sur QSettings.
 """
@@ -27,9 +27,7 @@ class SettingsService:
 
     @staticmethod
     def get(key: str, default: Any = None, category: str | None = None) -> Any:
-        """
-        Récupère la valeur d'un paramètre depuis la BDD Peewee (avec repli sur QSettings si non défini).
-        """
+        """Récupère la valeur d'un paramètre depuis la BDD Peewee (avec repli sur QSettings si non défini)."""
         try:
             val = SettingModel.get_value(key, default=None)
             if val is not None:
@@ -37,7 +35,6 @@ class SettingsService:
         except Exception as e:
             logger.debug("Lecture SettingModel '%s' échouée: %s", key, e)
 
-        # Fallback sur QSettings
         try:
             q_settings = get_app_qsettings()
             if q_settings.contains(key):
@@ -49,8 +46,7 @@ class SettingsService:
 
     @staticmethod
     def set(key: str, value: Any, category: str = "general", sync_qsettings: bool = True) -> None:
-        """
-        Enregistre un paramètre en BDD Peewee et synchronise optionnellement QSettings.
+        """Enregistre un paramètre en BDD Peewee et synchronise optionnellement QSettings.
 
         Si la valeur est déjà identique en BDD, aucune écriture (BDD ou QSettings)
         n'est effectuée : on évite des UPDATEs inutiles et coûteux.

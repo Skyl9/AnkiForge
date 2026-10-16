@@ -1,5 +1,5 @@
-"""
-Bus d'événements découplé et typé pour AnkiForge.
+"""Bus d'événements découplé et typé pour AnkiForge.
+
 Permet aux addons et au cœur de l'application de communiquer sans dépendance circulaire.
 """
 

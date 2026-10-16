@@ -1,3 +1,5 @@
+"""Migration 021 : index composites de performance pour éliminer les requêtes N+1."""
+
 import logging
 
 import peewee as pw

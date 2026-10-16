@@ -1,6 +1,4 @@
-"""
-Unit tests for DashboardViewModel.
-"""
+"""Unit tests for DashboardViewModel."""
 
 from __future__ import annotations
 

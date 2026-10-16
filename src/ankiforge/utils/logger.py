@@ -1,5 +1,5 @@
-"""
-Système de Logging Asynchrone, Sécurisé et Haute Performance d'AnkiForge.
+"""Système de Logging Asynchrone, Sécurisé et Haute Performance d'AnkiForge.
+
 Conforme à la Règle 19 de GEMINI.md.
 
 Caractéristiques :
@@ -69,6 +69,14 @@ class SecretRedactionFilter(logging.Filter):
     """Filtre de logging interceptant et masquant les secrets avant tout traitement."""
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """Masque les secrets contenus dans le message et les arguments de l'enregistrement.
+
+        Args:
+            record: Enregistrement de log à assainir.
+
+        Returns:
+            Toujours True afin de laisser passer l'enregistrement assaini.
+        """
         if isinstance(record.msg, str):
             record.msg = redact_secrets(record.msg)
 
@@ -91,13 +99,19 @@ class ContextInjectionFilter(logging.Filter):
     """Enrichit chaque enregistrement de log avec le profil actif et le thread d'exécution."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        # Profil actif
+        """Injecte le profil actif et le nom court du thread dans l'enregistrement.
+
+        Args:
+            record: Enregistrement de log à enrichir.
+
+        Returns:
+            Toujours True afin de laisser passer l'enregistrement enrichi.
+        """
         try:
             record.profile_name = get_active_profile() or "default"
         except Exception:
             record.profile_name = "default"
 
-        # Nom court du thread
         t_name = threading.current_thread().name
         if t_name == "MainThread":
             short_t = "Main"
@@ -113,9 +127,9 @@ class ContextInjectionFilter(logging.Filter):
 
 
 class AnkiForgeLogFormatter(logging.Formatter):
-    """
-    Formatteur de logs standard d'AnkiForge avec horodatage milliseconde et contexte enrichi.
-    Exemple : [2026-08-27 19:45:00.123] [INFO   ] [default:Main] [ankiforge.utils.paths:42] Message
+    """Formatteur de logs standard d'AnkiForge avec horodatage milliseconde et contexte enrichi.
+
+    Exemple : [2026-08-27 19:45:00.123] [INFO   ] [default:Main] [ankiforge.utils.paths:42] Message.
     """
 
     DEFAULT_FORMAT = "[%(asctime)s.%(msecs)03d] [%(levelname)-7s] [%(profile_name)s:%(thread_short_name)s] [%(name)s:%(lineno)d] %(message)s"
@@ -136,6 +150,14 @@ class AnkiForgeLogFormatter(logging.Formatter):
         self.use_colors = use_colors
 
     def format(self, record: logging.LogRecord) -> str:
+        """Formate l'enregistrement et applique une ultime sanitisation des secrets.
+
+        Args:
+            record: Enregistrement de log à formater.
+
+        Returns:
+            Ligne de log mise en forme et assainie.
+        """
         # S'assurer que les attributs injectés existent toujours
         if not hasattr(record, "profile_name"):
             record.profile_name = "default"
@@ -154,8 +176,8 @@ class AnkiForgeLogFormatter(logging.Formatter):
 
 
 class RingBufferHandler(logging.Handler):
-    """
-    Buffer circulaire en mémoire conservant les derniers enregistrements de log.
+    """Buffer circulaire en mémoire conservant les derniers enregistrements de log.
+
     Permet la consultation instantanée dans l'IHM (terminal de log, modale de diagnostic)
     sans aucune opération d'E/S sur disque.
     """
@@ -168,6 +190,11 @@ class RingBufferHandler(logging.Handler):
         self._callbacks: list[Callable[[str, int], None]] = []
 
     def emit(self, record: logging.LogRecord) -> None:
+        """Ajoute l'enregistrement au buffer circulaire et notifie les callbacks abonnés.
+
+        Args:
+            record: Enregistrement de log à stocker.
+        """
         with self._lock:
             self._buffer.append(record)
             msg_formatted = self.format(record)
@@ -182,6 +209,11 @@ class RingBufferHandler(logging.Handler):
                 self._callbacks.append(callback)
 
     def remove_callback(self, callback: Callable[[str, int], None]) -> None:
+        """Retire un callback précédemment enregistré.
+
+        Args:
+            callback: Callback à désenregistrer.
+        """
         with self._lock:
             if callback in self._callbacks:
                 self._callbacks.remove(callback)
@@ -209,6 +241,7 @@ class RingBufferHandler(logging.Handler):
         return matched
 
     def clear(self) -> None:
+        """Vide le buffer circulaire de tous ses enregistrements."""
         with self._lock:
             self._buffer.clear()
 
@@ -233,8 +266,7 @@ def setup_logging(
     backup_count: int = 5,  # 5 archives (Plafond 50 Mo)
     log_dir: Path | None = None,
 ) -> QueueListener | None:
-    """
-    Initialise le pipeline de logging asynchrone global d'AnkiForge.
+    """Initialise le pipeline de logging asynchrone global d'AnkiForge.
 
     - En mode Développement : niveau DEBUG par défaut, console colorée.
     - En mode Production : niveau INFO par défaut.
@@ -335,10 +367,7 @@ def shutdown_logging() -> None:
 
 
 def install_crash_handlers(log_dir: Path | None = None) -> None:
-    """
-    Installe les hooks globaux pour intercepter les exceptions non gérées
-    sur le thread principal et les threads secondaires, avec écriture d'un crash.log dédié.
-    """
+    """Installe les hooks globaux pour intercepter les exceptions non gérées sur le thread principal et les threads secondaires, avec écriture d'un crash.log dédié."""
     target_dir = log_dir if log_dir is not None else get_app_data_dir() / "logs"
     target_dir.mkdir(parents=True, exist_ok=True)
     crash_file = target_dir / "crash.log"
@@ -390,10 +419,7 @@ def log_and_notify_error(
     title: str = "Erreur",
     duration_ms: int = 5000,
 ) -> None:
-    """
-    Gestionnaire d'erreurs unifié : enregistre l'exception dans les logs avec traçabilité et
-    affiche un toast d'alerte non-bloquant à l'utilisateur au lieu d'une boîte modale intrusive.
-    """
+    """Gestionnaire d'erreurs unifié : enregistre l'exception dans les logs avec traçabilité et affiche un toast d'alerte non-bloquant à l'utilisateur au lieu d'une boîte modale intrusive."""
     import traceback
 
     msg = str(error)

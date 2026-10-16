@@ -1,6 +1,4 @@
-"""
-Unit tests for central typed AppEventBus.
-"""
+"""Unit tests for central typed AppEventBus."""
 
 from __future__ import annotations
 

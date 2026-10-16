@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour les types d'options et l'assemblage de prompt de transcription d'album.
-"""
+"""Tests unitaires pour les types d'options et l'assemblage de prompt de transcription d'album."""
 
 import pytest
 

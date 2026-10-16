@@ -1,3 +1,9 @@
+"""Gestion des médias AnkiForge : import, hachage, déduplication et formatage HTML.
+
+Centralise l'ajout des images aux profils, la détection des doublons par empreinte MD5
+et la transformation des références en balises HTML exploitables par les cartes.
+"""
+
 import hashlib
 import logging
 import mimetypes
@@ -88,8 +94,8 @@ class MediaManager:
         return media
 
     def process_extracted_folder(self, source_folder: str, markdown_content: str) -> str:
-        """
-        1. Trouve toutes les images dans le dossier source (généré par Marker).
+        """1. Trouve toutes les images dans le dossier source (généré par Marker).
+
         2. Les copie dans data/media/ en les renommant avec leur hash MD5.
         3. Remplace les liens Markdown bruts par des balises HTML <img> compatibles Anki.
 
@@ -104,14 +110,11 @@ class MediaManager:
 
         from ankiforge.database.models import MediaModel
 
-        # 1. Traitement des fichiers images
         for file in source_path.iterdir():
             if file.is_file() and file.suffix.lower() in [".jpeg", ".jpg", ".png", ".webp", ".gif"]:
-                # Calcul du nouveau nom (Hash + Extension)
                 file_hash = self._calculate_md5(str(file))
                 new_filename = f"{file_hash}{file.suffix.lower()}"
 
-                # Chemin final dans data/media/
                 destination_path = self.media_dir / new_filename
 
                 # Copie du fichier s'il n'existe pas déjà (évite les doublons parfaits)
@@ -130,24 +133,19 @@ class MediaManager:
                     },
                 )
 
-                # On enregistre la correspondance
                 image_mapping[file.name] = new_filename
 
         logger.info("Traitement du dossier extrait terminé : %d image(s) archivée(s)", len(image_mapping))
 
-        # 2. Remplacement dans le texte Markdown
         # Marker génère généralement des liens comme ça : ![Description](_page_1_Figure_2.jpeg)
         modified_markdown = markdown_content
 
         for old_name, new_name in image_mapping.items():
-            # Création de la balise HTML Anki-friendly
             html_img_tag = f'<img src="{new_name}">'
 
-            # Recherche du pattern Markdown spécifique à cette image
             # Ex: ![N'importe quelle description](old_name)
             pattern = r"!\[.*?\]\(" + str(re.escape(old_name)) + r"\)"
 
-            # Remplacement dans le texte
             modified_markdown = re.sub(pattern, html_img_tag, modified_markdown)
 
             # Remplacement de sécurité au cas où l'image serait citée simplement par son nom
@@ -157,21 +155,18 @@ class MediaManager:
         return modified_markdown
 
     def clean_orphaned_media(self) -> int:
-        """
-        Supprime physiquement les fichiers médias qui ne sont plus utilisés.
+        """Supprime physiquement les fichiers médias qui ne sont plus utilisés.
 
         Analyse toutes les versions de notes en base de données pour identifier
         les images référencées et nettoie les fichiers orphelins sur le disque.
 
         Returns:
-            int: Le nombre de fichiers supprimés.
+            Le nombre de fichiers supprimés.
         """
         from ankiforge.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel, MediaModel, NoteVersionModel
 
-        # 1. Lister tous les médias réellement utilisés en base
         used_media = set()
 
-        # On itère sur toutes les versions de notes (actives et inactives)
         for version in NoteVersionModel.select(NoteVersionModel.content):
             if not version.content:
                 continue
@@ -207,13 +202,12 @@ class MediaManager:
             )
             return int(deleted_db)
 
-        # 2. Comparer avec les fichiers physiques et supprimer les orphelins
         deleted_count = 0
         if self.media_dir.exists():
             for file_path in self.media_dir.iterdir():
                 if file_path.is_file() and file_path.name not in used_media:
                     try:
-                        file_path.unlink()  # Supprime le fichier du disque
+                        file_path.unlink()
                         MediaModel.delete().where(MediaModel.filename == file_path.name).execute()
                         deleted_count += 1
                         logger.debug("Média orphelin supprimé : %s", file_path.name)
@@ -224,7 +218,6 @@ class MediaManager:
                             err,
                         )
 
-        # 3. Supprimer les éventuels enregistrements orphelins résiduels en base de données
         if used_media:
             deleted_count += MediaModel.delete().where(~(MediaModel.filename.in_(used_media))).execute()
         else:
@@ -236,8 +229,7 @@ class MediaManager:
     clean_orphan_media = clean_orphaned_media
 
     def purge_tts_audio_cache(self, only_orphans: bool = False) -> tuple[int, int]:
-        """
-        Purger les fichiers de cache audio TTS générés (commençant par 'tts_').
+        """Purger les fichiers de cache audio TTS générés (commençant par 'tts_').
 
         Args:
             only_orphans: Si True, ne supprime que les fichiers audio TTS qui ne sont
@@ -245,7 +237,7 @@ class MediaManager:
                 audio TTS pour libérer de l'espace disque.
 
         Returns:
-            tuple[int, int]: (nombre_fichiers_supprimes, octets_libérés)
+            (nombre_fichiers_supprimes, octets_libérés)
         """
         from ankiforge.database.models import MediaModel, NoteVersionModel
 
@@ -291,8 +283,8 @@ class MediaManager:
         return deleted_count, freed_bytes
 
     def decompress_all_zstd_media(self, profile_name: str | None = None) -> int:
-        """
-        Scanne le dossier médias et décompresse en place tous les fichiers restants au format Zstandard.
+        """Scanne le dossier médias et décompresse en place tous les fichiers restants au format Zstandard.
+
         Retourne le nombre de fichiers décompressés.
         """
         import zstandard as zstd

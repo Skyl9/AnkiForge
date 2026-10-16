@@ -1,3 +1,5 @@
+"""Modèles Peewee du RAG : dossiers, documents, fragments et liens note-fragment."""
+
 import datetime
 import json
 from typing import Any
@@ -69,10 +71,7 @@ class DocumentPageModel(BaseModel):
 
     @property
     def crop_box(self) -> tuple[int, int, int, int] | None:
-        """
-        Retourne le rectangle de recadrage (x, y, w, h) dans le repère natif de l'image source,
-        ou None si la planche n'est pas recadrée ou en cas de JSON corrompu.
-        """
+        """Retourne le rectangle de recadrage (x, y, w, h) dans le repère natif de l'image source, ou None si la planche n'est pas recadrée ou en cas de JSON corrompu."""
         if not self.crop_data:
             return None
         try:
@@ -89,8 +88,8 @@ class DocumentPageModel(BaseModel):
 
 
 class DocumentChunkModel(BaseModel):
-    """
-    Un morceau de texte (paragraphe, sous-section ou page) issu d'un DocumentModel.
+    """Un morceau de texte (paragraphe, sous-section ou page) issu d'un DocumentModel.
+
     Permet le suivi fin de la couverture de cours et l'indexation RAG.
     """
 
@@ -128,8 +127,8 @@ class DocumentChunkModel(BaseModel):
 
 
 class NoteChunkLinkModel(BaseModel):
-    """
-    Liaison de traçabilité entre une Note Anki (NoteModel) et son fragment source (DocumentChunkModel).
+    """Liaison de traçabilité entre une Note Anki (NoteModel) et son fragment source (DocumentChunkModel).
+
     Permet le calcul de complétion de cours et l'audit anti-hallucination.
 
     `chunk_id` est la désignation **précise** (instantanée), tandis que le tag `section:` est
@@ -158,8 +157,8 @@ class NoteChunkLinkModel(BaseModel):
 
 
 class EmbeddingCacheModel(BaseModel):
-    """
-    Cache persistant d'embeddings vectoriels (dense vectors).
+    """Cache persistant d'embeddings vectoriels (dense vectors).
+
     Associe le hash SHA256 du texte et le model_id au vecteur sérialisé (JSON list de floats).
     Permet une ré-indexation RAG instantanée à coût 0 et calcul 0.
     """

@@ -1,3 +1,5 @@
+"""Passerelle vers la bibliothèque C native de distance de Levenshtein, avec repli Python transparent."""
+
 import ctypes
 import logging
 import platform
@@ -22,8 +24,7 @@ C_MATCHER_LOADED = False
 
 
 def init_c_matcher(custom_path: Path | None = None) -> bool:
-    """
-    Initialise la librairie C native Levenshtein.
+    """Initialise la librairie C native Levenshtein.
 
     Si la librairie est absente ou si son chargement échoue, émet un avertissement explicite
     et bascule sur le repli pur Python difflib (performances réduites).
@@ -60,18 +61,17 @@ C_MATCHER_LOADED = init_c_matcher()
 
 
 def get_similarity(text1: str, text2: str) -> float:
-    """
-    Calcule le taux de similarité sémantique entre deux textes.
+    """Calcule le taux de similarité sémantique entre deux textes.
 
     Tente d'utiliser l'extension C ultra-rapide (Levenshtein) si compilée,
     sinon utilise difflib en Python pur comme solution de secours.
 
     Args:
-        text1 (str): Premier texte à comparer.
-        text2 (str): Second texte à comparer.
+        text1: Premier texte à comparer.
+        text2: Second texte à comparer.
 
     Returns:
-        float: Indice de similarité entre 0.0 (totalement différent) et 1.0 (identique).
+        Indice de similarité entre 0.0 (totalement différent) et 1.0 (identique).
     """
     if C_MATCHER_LOADED and _matcher_lib is not None:
         try:
@@ -97,7 +97,7 @@ def levenshtein_distance(text1: str, text2: str) -> int:
         text2: Seconde chaîne.
 
     Returns:
-        int: Nombre minimal d'insertions, suppressions ou substitutions.
+        Nombre minimal d'insertions, suppressions ou substitutions.
     """
     if text1 == text2:
         return 0

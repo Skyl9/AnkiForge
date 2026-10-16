@@ -1,3 +1,5 @@
+"""Migration 018 : création de la table settings pour les paramètres et préférences utilisateur."""
+
 import datetime
 
 import peewee as pw

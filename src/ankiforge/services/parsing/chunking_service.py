@@ -1,3 +1,5 @@
+"""Découpage sémantique des documents en fragments et arborescence de titres."""
+
 import hashlib
 import json
 import logging
@@ -155,16 +157,16 @@ class ChunkingService:
         Sinon (Markdown brut, Web, texte), le découpage s'effectue par section logique (Titre + Corps).
 
         Args:
-            content (str): Le contenu Markdown brut du document.
-            file_type (str | None): Extension/type du fichier ('pdf', 'pptx', 'md', etc.).
-            strategy (str | None): Stratégie optionnelle ('markdown_ast', etc.).
-            declared_addresses (Iterable[RegionAddress | str] | None): Adresses de région **neutralisées** par
+            content: Le contenu Markdown brut du document.
+            file_type: Extension/type du fichier ('pdf', 'pptx', 'md', etc.).
+            strategy: Stratégie optionnelle ('markdown_ast', etc.).
+            declared_addresses: Adresses de région **neutralisées** par
                 l'utilisateur. Elles sont réévaluées à chaque extraction : la neutralisation est
                 une règle attachée au document, jamais un drapeau mémorisé sur un fragment dont
                 l'identifiant est réattribué à la réingestion suivante.
 
         Returns:
-            list[dict[str, Any]]: Liste des fragments avec :
+            Liste des fragments avec :
             - index: int
             - content: str (texte complet de la page ou de la section)
             - page_number: int | None
@@ -214,8 +216,7 @@ class ChunkingService:
 
     @classmethod
     def _clean_heading_text(cls, text: str) -> str:
-        """Nettoie un titre de heading : retire les balises HTML (dont les spans de page Marker),
-        les commentaires, les résidus de balisage gras/italique, les liens et les délimiteurs Markdown.
+        """Nettoie un titre de heading : retire les balises HTML (dont les spans de page Marker), les commentaires, les résidus de balisage gras/italique, les liens et les délimiteurs Markdown.
 
         Délègue le gros du travail au sanitizer canonique ``MarkdownStructurer.clean_heading_title``
         afin de garantir un affichage lisible des chapitres et une sélection fiable.
@@ -589,7 +590,7 @@ class ChunkingService:
         nœuds de sélection et ne sont jamais comptées dans le corps du titre précédent.
 
         Returns:
-            list[HeadingTreeNode]: Liste des nœuds racines (H1) contenant leurs enfants récursifs (H2, H3).
+            Liste des nœuds racines (H1) contenant leurs enfants récursifs (H2, H3).
         """
         if not content or not content.strip():
             return []
@@ -845,6 +846,7 @@ class HeadingTreeNode:
         self.children: list[HeadingTreeNode] = children if children is not None else []
 
     def to_dict(self) -> dict[str, Any]:
+        """Sérialise le nœud et ses enfants en dictionnaire."""
         return {
             "title": self.title,
             "level": self.level,

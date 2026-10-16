@@ -1,5 +1,4 @@
-"""
-Tests de l'estampillage de provenance documentaire des cartes batch.
+"""Tests de l'estampillage de provenance documentaire des cartes batch.
 
 Une partie du Batch Slice Composer agrège N fragments de source : la provenance
 exposée à la résolution fine doit alors être *explicitement* multi-blocs

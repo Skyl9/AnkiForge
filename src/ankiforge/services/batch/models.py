@@ -1,4 +1,4 @@
-"""Qt-free, immutable data contracts used by the Batch workflow."""
+"""Contrats de données immuables et sans dépendance Qt utilisés par le flux Batch."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ from typing import Any, Literal
 
 
 class BatchTaskStatus(StrEnum):
+    """Statuts du cycle de vie d'une tâche de traitement par lots."""
+
     QUEUED = "queued"
     RUNNING = "running"
     REVIEW = "review"
@@ -22,7 +24,7 @@ class BatchTaskStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class BatchSourceBlock:
-    """A user-readable page or Markdown section in a frozen scope."""
+    """Page ou section Markdown lisible par l'utilisateur au sein d'une portée figée."""
 
     kind: Literal["page", "section", "document"]
     label: str
@@ -41,6 +43,7 @@ class BatchSourceBlock:
             object.__setattr__(self, "source_hash", content_hash(self.content))
 
     def as_dict(self) -> dict[str, Any]:
+        """Sérialise le bloc source en dictionnaire prêt pour la persistance."""
         return {
             "kind": self.kind,
             "label": self.label,
@@ -56,7 +59,7 @@ class BatchSourceBlock:
 
 @dataclass(frozen=True, slots=True)
 class BatchScopeSnapshot:
-    """Immutable source selection used as one Batch execution unit."""
+    """Sélection de sources immuable servant d'unité d'exécution Batch."""
 
     document_id: int
     document_title: str
@@ -80,12 +83,13 @@ class BatchScopeSnapshot:
 
     @property
     def is_empty(self) -> bool:
+        """Indique si la sélection ne porte aucun contenu exploitable."""
         return not self.content.strip() or not self.blocks
 
 
 @dataclass(frozen=True, slots=True)
 class BatchGenerationConfig:
-    """Generation settings captured when a queue row is created."""
+    """Paramètres de génération figés lors de la création d'une ligne de file d'attente."""
 
     pipeline_id: int
     pipeline_name: str
@@ -104,6 +108,7 @@ class BatchGenerationConfig:
     strict_source_grounding: bool = True
 
     def identity_payload(self) -> dict[str, Any]:
+        """Retourne la charge utile servant à calculer l'empreinte d'identité de la configuration."""
         return {
             "pipeline_id": self.pipeline_id,
             "llm_id": self.llm_id,
@@ -122,7 +127,7 @@ class BatchGenerationConfig:
 
 @dataclass(slots=True)
 class BatchTaskSnapshot:
-    """Mutable session state around immutable scope and configuration snapshots."""
+    """État de session mutable autour des snapshots immuables de portée et de configuration."""
 
     task_id: str
     scope: BatchScopeSnapshot
@@ -135,6 +140,7 @@ class BatchTaskSnapshot:
 
     @classmethod
     def create(cls, scope: BatchScopeSnapshot, config: BatchGenerationConfig, task_index: int | None = None) -> BatchTaskSnapshot:
+        """Construit une tâche dont l'identifiant dérive des empreintes de portée et de configuration."""
         identity = stable_hash({"scope": scope.scope_hash, "config": config.identity_payload()})
         return cls(task_id=identity, scope=scope, config=config, task_index=task_index)
 
@@ -178,9 +184,11 @@ class BatchTaskSnapshot:
 
 
 def content_hash(content: str) -> str:
+    """Calcule l'empreinte SHA-256 du contenu textuel fourni."""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def stable_hash(value: Any) -> str:
+    """Calcule une empreinte SHA-256 déterministe d'une valeur sérialisable en JSON."""
     serialized = json.dumps(value, ensure_ascii=True, sort_keys=True, default=str, separators=(",", ":"))
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()

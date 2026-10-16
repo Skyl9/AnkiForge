@@ -1,3 +1,5 @@
+"""Migration 042 : palier de résolution sur note_chunk_links pour la traçabilité des rattachements."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

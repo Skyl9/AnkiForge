@@ -1,3 +1,5 @@
+"""Serveur MCP in-process exposant l'outillage de consultation, d'audit et de mutation."""
+
 import hashlib
 import json
 import logging
@@ -90,7 +92,6 @@ def _compute_guide_version_hash() -> str:
 
 _GUIDE_VERSION_HASH: str = _compute_guide_version_hash()
 
-# Initialisation du serveur MCP AnkiForge
 mcp = MCPServer("AnkiForge")
 get_mcp_activity_tracker().attach_to_server(mcp)
 

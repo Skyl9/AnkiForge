@@ -1,6 +1,4 @@
-"""
-Tests unitaires et UI pour DeckSelectWindow et CreateDeckDialog.
-"""
+"""Tests unitaires et UI pour DeckSelectWindow et CreateDeckDialog."""
 
 import types
 import uuid

@@ -1,3 +1,5 @@
+"""Base Peewee commune, résolution du chemin SQLite et cycle de connexion."""
+
 import logging
 import uuid
 from pathlib import Path
@@ -15,7 +17,6 @@ def get_default_db_path() -> Path:
     return get_app_data_dir() / "ankiforge.db"
 
 
-# Chemin par défaut de la base de données SQLite du profil
 DEFAULT_DB_PATH = get_default_db_path()
 DB_PATH = DEFAULT_DB_PATH
 

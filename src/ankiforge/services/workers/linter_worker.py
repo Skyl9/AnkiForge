@@ -1,5 +1,5 @@
-"""
-Worker asynchrone pour l'Audit et le Linter Wozniak AnkiForge.
+"""Worker asynchrone pour l'Audit et le Linter Wozniak AnkiForge.
+
 Orchestre l'analyse par lots des cartes en arrière-plan et gère la persistance de l'audit en base.
 """
 
@@ -24,9 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class LinterWorker(QThread):
-    """
-    Worker d'analyse des cartes du paquet selon les règles d'audit Wozniak et personnalisées.
-    """
+    """Worker d'analyse des cartes du paquet selon les règles d'audit Wozniak et personnalisées."""
 
     finished_processing = Signal(list)  # Renvoie la liste des dicts de résultats
     error_occurred = Signal(str)
@@ -99,6 +97,7 @@ Retourne UNIQUEMENT le tableau JSON valide, sans texte d'introduction ni de conc
         return prompt
 
     def run(self) -> None:
+        """Analyse les notes par lots selon les règles Wozniak et persiste l'audit en base."""
         try:
             self.progress_update.emit("Initialisation de l'agent linter...")
             from ankiforge.database.models import LLMConfigModel

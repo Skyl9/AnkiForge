@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour AlbumOCRWorker avec options de transcription et suivi des échecs.
-"""
+"""Tests unitaires pour AlbumOCRWorker avec options de transcription et suivi des échecs."""
 
 from unittest.mock import MagicMock
 

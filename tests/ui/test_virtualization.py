@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour l'architecture Model/View et la virtualisation haute performance (60 FPS) d'AnkiForge.
+"""Tests unitaires pour l'architecture Model/View et la virtualisation haute performance (60 FPS) d'AnkiForge.
+
 Valide BasePaginatedPeeweeModel, NoteVirtualTableModel, VirtualChunkListModel, VirtualTableView,
 VirtualListView et les délégués graphiques vectoriels QStyledItemDelegate.
 """

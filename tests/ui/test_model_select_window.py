@@ -1,6 +1,4 @@
-"""
-Tests unitaires et UI pour ModelSelectWindow.
-"""
+"""Tests unitaires et UI pour ModelSelectWindow."""
 
 import uuid
 from typing import Any

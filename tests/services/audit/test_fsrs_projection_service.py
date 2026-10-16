@@ -1,6 +1,4 @@
-"""
-Tests de FsrsProjectionService : stabilité estimée, rétention projetée et charge d'équilibre.
-"""
+"""Tests de FsrsProjectionService : stabilité estimée, rétention projetée et charge d'équilibre."""
 
 from __future__ import annotations
 

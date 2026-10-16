@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Script utilitaire d'alignement intelligent et de synchronisation des documents et médias.
+"""Script utilitaire d'alignement intelligent et de synchronisation des documents et médias.
+
 Permet :
 1. De copier des documents de cours d'un profil source vers un profil cible (ex: default -> Environnement_de_travail_math_Ensimag).
 2. D'exécuter l'alignement automatique des fiches Anki avec les fragments des cours (NoteChunkLinkModel).

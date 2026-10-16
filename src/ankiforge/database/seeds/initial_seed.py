@@ -1,3 +1,5 @@
+"""Amorçage des données d'usine : personas, configurations LLM, pipelines et types de notes."""
+
 import json
 import logging
 from pathlib import Path
@@ -19,8 +21,8 @@ def _repair_empty_prompt(persona: PersonaModel, prompt: str) -> None:
 
 
 def seed_initial_data() -> None:
-    """
-    Peuple la base avec les données métier initiales (Modèles, Prompts, Personas, Pipelines).
+    """Peuple la base avec les données métier initiales (Modèles, Prompts, Personas, Pipelines).
+
     Utilise get_or_create pour être idempotent et permettre les mises à jour sans purger la BDD.
 
     L'ensemble du seed est propagé dans UNE transaction (audit "writes-outside-atomic") : un échec

@@ -1,3 +1,9 @@
+"""Détection et résolution des doublons sémantiques entre les notes d'un paquet Anki.
+
+Combine un filtrage rapide (longueur, similarité Jaccard) et une comparaison précise
+via la distance de Levenshtein accélérée en C.
+"""
+
 import json
 import logging
 import re
@@ -11,14 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 def strip_html(text: str | None) -> str:
-    """
-    Supprime les balises HTML et nettoie le texte pour l'analyse comparative.
+    """Supprime les balises HTML et nettoie le texte pour l'analyse comparative.
 
     Args:
-        text (str | None): Le texte brut contenant potentiellement du HTML.
+        text: Le texte brut contenant potentiellement du HTML.
 
     Returns:
-        str: Le texte nettoyé, sans balises, entités HTML ou sauts de ligne superflus.
+        Le texte nettoyé, sans balises, entités HTML ou sauts de ligne superflus.
     """
     if not text:
         return ""
@@ -27,8 +32,7 @@ def strip_html(text: str | None) -> str:
 
 
 class DuplicateManager:
-    """
-    Service de détection intelligente de doublons sémantiques.
+    """Service de détection intelligente de doublons sémantiques.
 
     Utilise une approche multi-niveaux : filtrage rapide par longueur et mots-clés (Jaccard),
     puis comparaison précise via l'algorithme de Levenshtein (en C) pour identifier
@@ -37,14 +41,13 @@ class DuplicateManager:
 
     @staticmethod
     def find_duplicates(deck_id: int) -> list[tuple[NoteModel, dict[str, Any], NoteModel, dict[str, Any], float]]:
-        """
-        Recherche les doublons au sein d'un paquet et de ses sous-paquets.
+        """Recherche les doublons au sein d'un paquet et de ses sous-paquets.
 
         Args:
-            deck_id (int): ID du paquet racine pour la recherche.
+            deck_id: ID du paquet racine pour la recherche.
 
         Returns:
-            list: Liste de tuples contenant les paires de notes en conflit et leur contenu.
+            Liste de tuples contenant les paires de notes en conflit et leur contenu.
         """
         conflicts = []
 

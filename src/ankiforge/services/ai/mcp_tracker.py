@@ -1,5 +1,4 @@
-"""
-Gestionnaire de télémétrie en temps réel pour le serveur MCP d'AnkiForge.
+"""Gestionnaire de télémétrie en temps réel pour le serveur MCP d'AnkiForge.
 
 Fournit un tampon circulaire en mémoire pour l'historique des invocations d'outils,
 assure le masquage systématique des secrets et clés d'API (via SecretRedactionFilter),
@@ -109,8 +108,7 @@ class MCPActivitySignals(QObject):
 
 
 class MCPActivityTracker:
-    """
-    Gestionnaire thread-safe de la télémétrie des appels d'outils MCP.
+    """Gestionnaire thread-safe de la télémétrie des appels d'outils MCP.
 
     Conserve un tampon circulaire (deque) des N derniers appels et émet des
     signaux Qt lors du démarrage, du succès, de l'échec ou de la purge.
@@ -126,6 +124,7 @@ class MCPActivityTracker:
 
     @property
     def total_calls(self) -> int:
+        """Nombre total d'invocations d'outils MCP enregistrées."""
         with self._lock:
             return self._total_calls
 
@@ -175,7 +174,6 @@ class MCPActivityTracker:
         """Enregistre le succès de l'invocation avec son résultat et sa durée."""
         now = datetime.now()
 
-        # Formatage textuel du résultat
         if hasattr(result, "content") and result.content:
             text_parts: list[str] = []
             for item in result.content:
@@ -267,8 +265,7 @@ class MCPActivityTracker:
             logger.debug("Exception émission history_cleared : %s", e)
 
     def attach_to_server(self, mcp_server: MCPServer) -> None:
-        """
-        Intercepte automatiquement les appels d'outils du MCPServer sans modifier son code.
+        """Intercepte automatiquement les appels d'outils du MCPServer sans modifier son code.
 
         Enveloppe la méthode call_tool() de l'instance pour enregistrer
         systématiquement les temps d'exécution, statuts et arguments.
@@ -286,7 +283,6 @@ class MCPActivityTracker:
             t0 = time.perf_counter()
             call_id = self.start_tracking(name, arguments)
             try:
-                # Appelle la méthode d'origine
                 result = await orig_call_tool(name, arguments, context=context)
                 duration_ms = (time.perf_counter() - t0) * 1000.0
 

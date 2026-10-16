@@ -1,10 +1,10 @@
-"""
-Tests unitaires et d'intégration pour FlagService :
+"""Tests unitaires et d'intégration pour FlagService.
+
 - Récupération des libellés par défaut (fallback DesignTokens.FLAG_NAMES)
 - Définition et persistance des libellés personnalisés par profil via SettingsService / SettingModel
 - Récupération unitaire par get_flag_name()
 - Génération de la table de recherche unifiée get_flag_search_map()
-- Émission de FlagLabelsUpdatedEvent sur l'EventBus
+- Émission de FlagLabelsUpdatedEvent sur l'EventBus.
 """
 
 from __future__ import annotations

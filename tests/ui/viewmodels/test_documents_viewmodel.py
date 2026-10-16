@@ -1,6 +1,4 @@
-"""
-Unit tests for DocumentsViewModel.
-"""
+"""Unit tests for DocumentsViewModel."""
 
 from __future__ import annotations
 

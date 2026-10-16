@@ -1,6 +1,4 @@
-"""
-Worker asynchrone pour l'analyse préliminaire et l'importation de collections Anki (.apkg, .colpkg, .txt).
-"""
+"""Worker asynchrone pour l'analyse préliminaire et l'importation de collections Anki (.apkg, .colpkg, .txt)."""
 
 from __future__ import annotations
 
@@ -17,9 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ImportCardsWorker(QThread):
-    """
-    Worker d'analyse et d'importation en arrière-plan avec rapports de progression.
-    """
+    """Worker d'analyse et d'importation en arrière-plan avec rapports de progression."""
 
     progress = Signal(str)
     analysis_ready = Signal(object)  # ImportAnalysisResult

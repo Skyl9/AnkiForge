@@ -1,6 +1,4 @@
-"""
-Unit tests for PipelineViewModel.
-"""
+"""Unit tests for PipelineViewModel."""
 
 from __future__ import annotations
 

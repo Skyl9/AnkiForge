@@ -1,12 +1,12 @@
-"""
-Gestion des Environnements d'Exécution d'AnkiForge (Développement vs Production vs Test).
+"""Gestion des Environnements d'Exécution d'AnkiForge (Développement vs Production vs Test).
+
 Garantit le cloisonnement strict :
 - Base de données SQLite et profils
 - Fichiers multimédias et sauvegardes
 - Paramètres système QSettings
 - Fichiers de journalisation (logs) et rapports de crash
 - Index vectoriels FAISS et cache
-- Configuration de l'Auto-Updater
+- Configuration de l'Auto-Updater.
 """
 
 from __future__ import annotations
@@ -69,8 +69,8 @@ def set_environment(env: AppEnvironment | str) -> None:
 
 
 def get_current_environment() -> AppEnvironment:
-    """
-    Détermine l'environnement d'exécution actif selon la hiérarchie de priorité :
+    """Détermine l'environnement d'exécution actif selon la hiérarchie de priorité.
+
     1. État forcé en mémoire via set_environment().
     2. Variable d'environnement explicite ANKIFORGE_ENV (development | production | testing).
     3. Environnement pytest actif (PYTEST_CURRENT_TEST ou 'pytest' dans sys.modules).
@@ -169,8 +169,8 @@ def get_settings_app_name() -> str:
 
 
 def get_app_qsettings(scope: str | None = None) -> QSettings:
-    """
-    Instancie et retourne un objet QSettings configuré pour l'environnement actif.
+    """Instancie et retourne un objet QSettings configuré pour l'environnement actif.
+
     Permet d'isoler hermétiquement les préférences OS entre Dev, Prod et Test.
     """
     from PySide6.QtCore import QSettings
@@ -183,12 +183,10 @@ def get_app_qsettings(scope: str | None = None) -> QSettings:
 
 
 def clone_production_data_to_development(copy_media: bool = True) -> tuple[int, int]:
-    """
-    Copie de manière sécurisée les profils et bases SQLite de production (~/.ankiforge/profiles/)
-    vers l'environnement de développement (~/.ankiforge-dev/profiles/).
+    """Copie de manière sécurisée les profils et bases SQLite de production (~/.ankiforge/profiles/) vers l'environnement de développement (~/.ankiforge-dev/profiles/).
 
     Returns:
-        tuple[int, int]: (nombre de profils clonés, nombre de fichiers médias copiés).
+        (nombre de profils clonés, nombre de fichiers médias copiés).
     """
     prod_dir = Path.home() / ".ankiforge" / "profiles"
     dev_dir = Path.home() / ".ankiforge-dev" / "profiles"

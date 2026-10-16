@@ -1,3 +1,9 @@
+"""Résolution déterministe des médias visuels associés à un fragment pour la charge utile RAG.
+
+Sélectionne, encode et ordonne les images conformes transmises aux modèles de vision,
+dans la limite de capacité du fournisseur (ADR 0018).
+"""
+
 from __future__ import annotations
 
 import base64
@@ -23,8 +29,8 @@ DEFAULT_MAX_VISION_IMAGES = 50
 
 
 def get_max_vision_images_for_provider(provider: str) -> int:
-    """
-    Retourne le nombre maximal d'images supporté en un seul appel par le fournisseur d'IA.
+    """Retourne le nombre maximal d'images supporté en un seul appel par le fournisseur d'IA.
+
     Anthropic plafonne à 20 images par requête, les autres bénéficient d'un plafond de sécurité de 50.
     """
     if str(provider).strip().lower() == "anthropic":
@@ -33,8 +39,7 @@ def get_max_vision_images_for_provider(provider: str) -> int:
 
 
 class VisualPayloadResolver:
-    """
-    Couture unique de résolution visuelle de fragment (ADR 0018).
+    """Couture unique de résolution visuelle de fragment (ADR 0018).
 
     Résout de façon déterministe les images conformes associées à un fragment ou une portée,
     en appliquant fidèlement la rotation durable des planches d'album (ADR 0011) et en unifiant
@@ -59,8 +64,7 @@ class VisualPayloadResolver:
         page_numbers: Sequence[int] | None = None,
         media_dir: Path | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Résout et encode en Base64 les images correspondant au document ou fragment fourni.
+        """Résout et encode en Base64 les images correspondant au document ou fragment fourni.
 
         Args:
             document_id: ID du document source si connu.
@@ -69,7 +73,7 @@ class VisualPayloadResolver:
             media_dir: Dossier des médias pour la résolution des fichiers physiques.
 
         Returns:
-            list[dict[str, Any]]: Liste d'objets `{"type": "image_url", "image_url": {"url": "data:..."}}`.
+            Liste d'objets `{"type": "image_url", "image_url": {"url": "data:..."}}`.
         """
         effective_media_dir = media_dir or self.media_dir
         resolved_images: list[dict[str, Any]] = []
@@ -163,8 +167,7 @@ class VisualPayloadResolver:
         document_id: int,
         heading_path: str | None = None,
     ) -> list[DocumentChunkModel]:
-        """
-        Liste, **sans les encoder**, les fragments porteurs d'une figure d'un document.
+        """Liste, **sans les encoder**, les fragments porteurs d'une figure d'un document.
 
         C'est la seule source de vérité pour « quelles illustrations ce document
         contient-il ? ». Elle applique le même critère que :meth:`resolve_visual_images`
@@ -178,7 +181,7 @@ class VisualPayloadResolver:
                 document.
 
         Returns:
-            list[DocumentChunkModel]: Les fragments en périmètre, ordonnés par position
+            Les fragments en périmètre, ordonnés par position
             (index de fragment, puis id). Vide si le document est non indexé ou sans figure.
         """
         query = (
@@ -191,8 +194,7 @@ class VisualPayloadResolver:
         return list(query)
 
     def figure_media_path(self, chunk: DocumentChunkModel, media_dir: Path | None = None) -> Path | None:
-        """
-        Chemin physique de la figure portée par un fragment, ou ``None`` si le fichier manque.
+        """Chemin physique de la figure portée par un fragment, ou ``None`` si le fichier manque.
 
         Le nom de fichier vient de la clé média du fragment, jamais d'une convention
         reconstruite côté appelant : une seule règle de localisation, comme pour l'encodage.

@@ -68,10 +68,7 @@ def album_with_transcription(mock_db, tmp_path):
 
 
 def test_album_transcription_reaches_generation_prompt(qtbot, album_with_transcription, mock_db):
-    """
-    Repro : vérifie que lorsqu'un utilisateur navigue vers CreationView depuis un album transcrit
-    et clique sur Générer, le prompt envoyé au LLM contient effectivement le texte OCR extrait.
-    """
+    """Repro : vérifie que lorsqu'un utilisateur navigue vers CreationView depuis un album transcrit et clique sur Générer, le prompt envoyé au LLM contient effectivement le texte OCR extrait."""
     doc, pages = album_with_transcription
     deck = DeckModel.create(name="Default")
     nt = NoteTypeModel.create(
@@ -120,11 +117,7 @@ def test_album_transcription_reaches_generation_prompt(qtbot, album_with_transcr
 
 
 def test_album_tab_reloads_after_subsequent_ocr(qtbot, mock_db):
-    """
-    Repro Bug : Si un album a été ouvert dans CreationView AVANT la transcription OCR,
-    puis transcrit dans DocumentsView, le retour dans CreationView doit recharger le texte OCR
-    dans l'éditeur au lieu de conserver l'ancien texte '_Planche non transcrite...'.
-    """
+    """Repro Bug : rouvrir un album transcrit après coup doit recharger le texte OCR dans l'éditeur."""
     media = MediaModel.create(filename="p1.png", media_type="image", original_name="p1.png", checksum="chk1", mime_type="image/png")
     doc = DocumentModel.create(title="Album Cardio", file_type="album", total_pages=1, content="")
     page = DocumentPageModel.create(document=doc, media=media, page_number=1, ocr_text="", status="ready")
@@ -163,11 +156,7 @@ def test_album_tab_reloads_after_subsequent_ocr(qtbot, mock_db):
 
 
 def test_untranscribed_album_blocks_generation_with_clear_message(qtbot, mock_db):
-    """
-    Critère d'acceptation 3 : Si le texte extrait est vide (OCR non fait),
-    un message clair invite à transcrire avant génération au lieu d'expédier
-    du placeholder au LLM.
-    """
+    """Critère d'acceptation 3 : Si le texte extrait est vide (OCR non fait), un message clair invite à transcrire avant génération au lieu d'expédier du placeholder au LLM."""
     media = MediaModel.create(filename="p1.png", media_type="image", original_name="p1.png", checksum="chk1", mime_type="image/png")
     doc = DocumentModel.create(title="Album Non Transcrit", file_type="album", total_pages=1, content="")
     DocumentPageModel.create(document=doc, media=media, page_number=1, ocr_text="", status="ready")
@@ -203,10 +192,7 @@ def test_untranscribed_album_blocks_generation_with_clear_message(qtbot, mock_db
 
 
 def test_album_vision_mode_sends_images_and_ignores_ocr_text(qtbot, mock_db, tmp_path):
-    """
-    Directive Vision : En Mode Vision, l'extraction de texte OCR est ignorée,
-    et le pipeline envoie directement les images des planches sélectionnées en base64 au VLM.
-    """
+    """Directive Vision : En Mode Vision, l'extraction de texte OCR est ignorée, et le pipeline envoie directement les images des planches sélectionnées en base64 au VLM."""
     from PIL import Image
 
     from ankiforge.utils.paths import get_media_dir
@@ -276,10 +262,7 @@ def test_album_vision_mode_sends_images_and_ignores_ocr_text(qtbot, mock_db, tmp
 
 
 def test_segment_inspector_displays_album_planches(qtbot, mock_db):
-    """
-    Hypothèse 2 : SegmentInspectorWidget doit afficher les planches de l'album
-    avec leurs titres, tokens et cases à cocher au lieu d'afficher 0 fragment.
-    """
+    """Hypothèse 2 : SegmentInspectorWidget doit afficher les planches de l'album avec leurs titres, tokens et cases à cocher au lieu d'afficher 0 fragment."""
     from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 
     media1 = MediaModel.create(filename="p1.png", media_type="image", original_name="p1.png", checksum="chk1", mime_type="image/png")
@@ -307,10 +290,7 @@ def test_segment_inspector_displays_album_planches(qtbot, mock_db):
 
 
 def test_album_vision_mode_synergy_ocr_and_image(qtbot, mock_db, tmp_path):
-    """
-    ADR 0018 : En Mode Vision, quand la planche a une transcription OCR,
-    le prompt multimodal transmet à la fois le texte extrait ET la planche en haute fidélité.
-    """
+    """ADR 0018 : En Mode Vision, quand la planche a une transcription OCR, le prompt multimodal transmet à la fois le texte extrait ET la planche en haute fidélité."""
     from PIL import Image
 
     from ankiforge.database.models import LLMConfigModel
@@ -369,10 +349,7 @@ def test_album_vision_mode_synergy_ocr_and_image(qtbot, mock_db, tmp_path):
 
 
 def test_album_vision_mode_anthropic_limit_blocked(qtbot, mock_db, tmp_path, monkeypatch):
-    """
-    ADR 0018 : Si plus de 20 planches sont sélectionnées avec un modèle Anthropic,
-    la génération est bloquée avec une invitation à utiliser la Batch Factory.
-    """
+    """ADR 0018 : Si plus de 20 planches sont sélectionnées avec un modèle Anthropic, la génération est bloquée avec une invitation à utiliser la Batch Factory."""
     from ankiforge.database.models import LLMConfigModel
 
     engine = LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic", model_id="claude-3-5-sonnet", supports_vision=True)

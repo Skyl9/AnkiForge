@@ -12,9 +12,8 @@ pytestmark = pytest.mark.ui
 
 @pytest.fixture
 def mock_media_dir(tmp_path):
-    """
-    Détourne la fonction get_media_dir() pour qu'elle pointe
-    vers un dossier temporaire géré par pytest (tmp_path).
+    """Détourne la fonction get_media_dir() pour qu'elle pointe vers un dossier temporaire géré par pytest (tmp_path).
+
     Cela évite de créer de fausses images dans les vrais dossiers de l'utilisateur !
     """
     with patch("ankiforge.ui.widgets.drop_image_text_edit.get_media_dir", return_value=tmp_path):

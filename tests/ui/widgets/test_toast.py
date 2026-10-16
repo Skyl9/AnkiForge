@@ -1,6 +1,4 @@
-"""
-Unit tests for Toast and ToastManager floating notification system.
-"""
+"""Unit tests for Toast and ToastManager floating notification system."""
 
 from __future__ import annotations
 

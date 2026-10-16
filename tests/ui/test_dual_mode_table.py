@@ -1,7 +1,4 @@
-"""
-Tests unitaires et d'intégration pour le mode d'affichage Dual (Notes vs Cartes)
-dans NoteVirtualTableModel et EditionView.
-"""
+"""Tests unitaires et d'intégration pour le mode d'affichage Dual (Notes vs Cartes) dans NoteVirtualTableModel et EditionView."""
 
 from __future__ import annotations
 

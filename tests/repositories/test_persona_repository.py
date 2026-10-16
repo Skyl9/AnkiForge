@@ -1,6 +1,4 @@
-"""
-Unit tests for PersonaRepository.
-"""
+"""Unit tests for PersonaRepository."""
 
 from __future__ import annotations
 
@@ -56,8 +54,7 @@ def test_persona_repository_crud() -> None:
 
 
 def test_create_llm_config_backfills_capabilities_from_the_catalog() -> None:
-    """Sans valeur imposée, la ligne hérite du catalogue : un moteur multimodal ne doit pas
-    rester « texte seul » sous le seul effet du défaut SQLite `supports_vision = False`."""
+    """Sans valeur imposée, la ligne hérite du catalogue : un moteur multimodal ne doit pas rester « texte seul » sous le seul effet du défaut SQLite `supports_vision = False`."""
     repo = PersonaRepository()
 
     vision = repo.create_llm_config(display_name="Backfill Vision", provider="openai", model_id="gpt-4o")

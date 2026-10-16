@@ -1,7 +1,4 @@
-r"""
-Tests unitaires pour robust_json_loads afin de garantir le support parfait
-des formules LaTeX (anti-slashs simples non échappés \Sigma, \delta, \frac, \beta, \text, \[, \], etc.).
-"""
+r"""Tests unitaires pour robust_json_loads afin de garantir le support parfait des formules LaTeX (anti-slashs simples non échappés \Sigma, \delta, \frac, \beta, \text, \[, \], etc.)."""
 
 from __future__ import annotations
 

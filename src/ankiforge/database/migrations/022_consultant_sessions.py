@@ -1,3 +1,5 @@
+"""Migration 022 : tables consultant_sessions et consultant_messages pour la persistance des discussions."""
+
 import datetime
 import logging
 

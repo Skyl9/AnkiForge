@@ -1,6 +1,4 @@
-"""
-Adresses de région : l'identité durable d'une portion de document qu'on **écarte** ou qu'on
-**neutralise** (ADR 0010).
+"""Adresses de région : l'identité durable d'une portion de document qu'on **écarte** ou qu'on **neutralise** (ADR 0010).
 
 Un fragment de document est un artefact de découpage : son identifiant est réattribué à chaque
 réingestion. Ce qui survit au découpage, c'est son *adresse* — un couple

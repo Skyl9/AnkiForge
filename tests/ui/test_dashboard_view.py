@@ -1,6 +1,4 @@
-"""
-Tests d'interface pour DashboardView (Cockpit Global, KPIs, diagnostics et macro-activités).
-"""
+"""Tests d'interface pour DashboardView (Cockpit Global, KPIs, diagnostics et macro-activités)."""
 
 from unittest.mock import MagicMock, patch
 

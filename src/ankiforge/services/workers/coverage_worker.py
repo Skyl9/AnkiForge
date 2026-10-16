@@ -1,3 +1,5 @@
+"""Worker QThread de structuration documentaire et d'indexation RAG d'un document."""
+
 import logging
 
 from PySide6.QtCore import QObject, QThread, Signal
@@ -10,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class CoverageWorker(QThread):
-    """
-    Worker asynchrone pour la structuration documentaire et l'indexation RAG.
+    """Worker asynchrone pour la structuration documentaire et l'indexation RAG.
+
     Découpe un document en sections/pages (DocumentChunkModel) et construit son index FAISS.
     Prend en charge le RAG Visuel (VisualRAGService) pour les albums et documents à base de pages.
     Délègue la logique métier à reindex_service.reindex_document (Qt-free et testable).
@@ -39,6 +41,11 @@ class CoverageWorker(QThread):
         self._activity = activity if activity is not None else ReindexActivityService.get_instance()
 
     def run(self) -> None:
+        """Structure et indexe le document en arrière-plan, puis publie sa progression.
+
+        Notifie le hub d'activité de la passe du document ; une exception clôt toujours
+        la passe dans le ``finally`` pour ne pas laisser le bandeau actif.
+        """
         logger.info("CoverageWorker démarré pour le document ID=%d", self.document_id)
         documents = 0
         fragments = 0

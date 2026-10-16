@@ -1,3 +1,5 @@
+"""Découpage de texte en morceaux respectant les blocs protégés (code Markdown, LaTeX)."""
+
 import logging
 import re
 
@@ -49,20 +51,19 @@ def _find_best_split(text: str, start: int, max_end: int, protected_intervals: l
 
 
 def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: int = 1000) -> list[str]:
-    """
-    Divise un texte massif en morceaux (chunks) gérables par les LLM.
+    """Divise un texte massif en morceaux (chunks) gérables par les LLM.
 
     Le découpage est "intelligent" car il protège l'intégrité des formules LaTeX
     et des blocs de code Markdown pour éviter de scinder une équation au milieu.
 
     Args:
-        text (str): Le contenu complet du document.
-        strategy (str): 'Sémantique (Titres)', 'Chevauchement (Overlap)' ou 'Aucun'.
-        max_chars (int): Taille maximale cible de chaque morceau.
-        overlap (int): Nombre de caractères de chevauchement entre deux morceaux.
+        text: Le contenu complet du document.
+        strategy: 'Sémantique (Titres)', 'Chevauchement (Overlap)' ou 'Aucun'.
+        max_chars: Taille maximale cible de chaque morceau.
+        overlap: Nombre de caractères de chevauchement entre deux morceaux.
 
     Returns:
-        list[str]: Liste des morceaux de texte prêts pour l'IA.
+        Liste des morceaux de texte prêts pour l'IA.
     """
     if strategy == "Aucun (Document entier)" or len(text) <= max_chars:
         return [text]
@@ -93,7 +94,6 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
         for chunk in semantic_chunks:
             if len(chunk) > max_chars:
                 logger.debug("Chapitre trop long (%d car.), sous-découpage activé.", len(chunk))
-                # Appel récursif !
                 sub_chunks = smart_chunk_text(chunk, "Chevauchement (Overlap)", max_chars, overlap)
                 chunks.extend(sub_chunks)
             else:

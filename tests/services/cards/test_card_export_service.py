@@ -1,5 +1,5 @@
-"""
-Tests pour CardExportService (Export des cartes en texte ou JSON pour analyse rapide).
+"""Tests pour CardExportService (Export des cartes en texte ou JSON pour analyse rapide).
+
 Valide la sérialisation, les formats (JSON, JSONL, Texte, Markdown),
 l'inclusion de la provenance et le golden file déterministe.
 """

@@ -1,3 +1,5 @@
+"""Application des migrations peewee_migrate sur la base SQLite active."""
+
 import logging
 import sqlite3
 from pathlib import Path
@@ -35,7 +37,7 @@ def get_migrations_dir() -> Path:
 
 
 def run_migrations() -> None:
-    """Évalue la version de la base de données et exécute les migrations nécessaires
+    """Évalue la version de la base de données et exécute les migrations nécessaires.
 
     en utilisant peewee-migrate.
     """
@@ -219,7 +221,6 @@ def run_migrations() -> None:
         except Exception as fk_err:
             logger.debug("Remarque sur PRAGMA foreign_keys = OFF : %s", fk_err)
 
-        # Exécute toutes les migrations en attente
         router.run()
 
         # Vérification post-migration : s'assurer que personas possède llm_config_id

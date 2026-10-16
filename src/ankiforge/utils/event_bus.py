@@ -1,6 +1,6 @@
-"""
-Central typed event bus for AnkiForge.
-Provides decoupled, publish-subscribe messaging across the application lifecycle.
+"""Bus d'événements typé central pour AnkiForge.
+
+Assure une communication découplée de type publication/abonnement tout au long du cycle de vie de l'application.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class AppEvent:
-    """Base class for all typed application events."""
+    """Classe de base de tous les événements applicatifs typés."""
 
     timestamp: datetime = field(default_factory=datetime.now)
 
@@ -31,12 +31,16 @@ class AppEvent:
 # Deck Events
 @dataclass(frozen=True)
 class DeckCreatedEvent(AppEvent):
+    """Événement émis à la création d'un paquet."""
+
     deck_id: int = 0
     deck_name: str = ""
 
 
 @dataclass(frozen=True)
 class DeckRenamedEvent(AppEvent):
+    """Événement émis lors du renommage d'un paquet."""
+
     deck_id: int = 0
     old_name: str = ""
     new_name: str = ""
@@ -44,6 +48,8 @@ class DeckRenamedEvent(AppEvent):
 
 @dataclass(frozen=True)
 class DeckDeletedEvent(AppEvent):
+    """Événement émis à la suppression d'un paquet."""
+
     deck_id: int = 0
     deck_name: str = ""
 
@@ -51,6 +57,8 @@ class DeckDeletedEvent(AppEvent):
 # Note & Card Events
 @dataclass(frozen=True)
 class NoteCreatedEvent(AppEvent):
+    """Événement émis à la création d'une note."""
+
     note_id: int = 0
     deck_name: str = ""
     tags: list[str] = field(default_factory=list)
@@ -58,17 +66,23 @@ class NoteCreatedEvent(AppEvent):
 
 @dataclass(frozen=True)
 class NoteUpdatedEvent(AppEvent):
+    """Événement émis à la mise à jour d'une note."""
+
     note_id: int = 0
     version_number: int = 1
 
 
 @dataclass(frozen=True)
 class NoteDeletedEvent(AppEvent):
+    """Événement émis à la suppression d'une note."""
+
     note_id: int = 0
 
 
 @dataclass(frozen=True)
 class CardCreatedEvent(AppEvent):
+    """Événement émis à la création d'une carte."""
+
     card_id: int = 0
     note_id: int = 0
     deck_name: str = ""
@@ -76,23 +90,31 @@ class CardCreatedEvent(AppEvent):
 
 @dataclass(frozen=True)
 class CardUpdatedEvent(AppEvent):
+    """Événement émis à la mise à jour d'une carte."""
+
     card_id: int = 0
     note_id: int = 0
 
 
 @dataclass(frozen=True)
 class CardDeletedEvent(AppEvent):
+    """Événement émis à la suppression d'une carte."""
+
     card_id: int = 0
 
 
 # Profile & Theme Events
 @dataclass(frozen=True)
 class ProfileSwitchedEvent(AppEvent):
+    """Événement émis lors du changement de profil utilisateur."""
+
     profile_name: str = ""
 
 
 @dataclass(frozen=True)
 class ThemeChangedEvent(AppEvent):
+    """Événement émis lors du changement de thème ou de disposition d'interface."""
+
     theme_name: str = ""
     layout_name: str = ""
 
@@ -100,29 +122,39 @@ class ThemeChangedEvent(AppEvent):
 # Flag Events
 @dataclass(frozen=True)
 class FlagLabelsUpdatedEvent(AppEvent):
+    """Événement émis lors de la mise à jour des libellés de drapeaux personnalisés."""
+
     labels: dict[int, str] = field(default_factory=dict)
 
 
 # Pipeline Events
 @dataclass(frozen=True)
 class PipelineCreatedEvent(AppEvent):
+    """Événement émis à la création d'un pipeline IA."""
+
     pipeline_id: int = 0
     pipeline_name: str = ""
 
 
 @dataclass(frozen=True)
 class PipelineUpdatedEvent(AppEvent):
+    """Événement émis à la mise à jour d'un pipeline IA."""
+
     pipeline_id: int = 0
     pipeline_name: str = ""
 
 
 @dataclass(frozen=True)
 class PipelineDeletedEvent(AppEvent):
+    """Événement émis à la suppression d'un pipeline IA."""
+
     pipeline_id: int = 0
 
 
 @dataclass(frozen=True)
 class PipelineRunStartedEvent(AppEvent):
+    """Événement émis au démarrage de l'exécution d'un pipeline IA."""
+
     pipeline_id: int = 0
     pipeline_name: str = ""
     run_id: str = ""
@@ -130,6 +162,8 @@ class PipelineRunStartedEvent(AppEvent):
 
 @dataclass(frozen=True)
 class PipelineRunFinishedEvent(AppEvent):
+    """Événement émis à la fin de l'exécution d'un pipeline IA."""
+
     pipeline_id: int = 0
     pipeline_name: str = ""
     success: bool = True
@@ -140,6 +174,8 @@ class PipelineRunFinishedEvent(AppEvent):
 # Document & RAG Events
 @dataclass(frozen=True)
 class DocumentAddedEvent(AppEvent):
+    """Événement émis à l'ajout d'un document source."""
+
     doc_id: int = 0
     title: str = ""
     doc_type: str = "text"
@@ -147,23 +183,31 @@ class DocumentAddedEvent(AppEvent):
 
 @dataclass(frozen=True)
 class DocumentUpdatedEvent(AppEvent):
+    """Événement émis à la mise à jour d'un document source."""
+
     doc_id: int = 0
     title: str = ""
 
 
 @dataclass(frozen=True)
 class DocumentDeletedEvent(AppEvent):
+    """Événement émis à la suppression d'un document source."""
+
     doc_id: int = 0
 
 
 @dataclass(frozen=True)
 class DocumentIndexedEvent(AppEvent):
+    """Événement émis lorsque l'indexation vectorielle d'un document est terminée."""
+
     doc_id: int = 0
     chunks_count: int = 0
 
 
 @dataclass(frozen=True)
 class CoverageSyncedEvent(AppEvent):
+    """Événement émis lors de la synchronisation de la couverture documentaire."""
+
     doc_id: int | None = None
     scope: str = "document"  # "document" | "all"
 
@@ -171,11 +215,15 @@ class CoverageSyncedEvent(AppEvent):
 # Audit & Linter Events
 @dataclass(frozen=True)
 class AuditStartedEvent(AppEvent):
+    """Événement émis au démarrage d'un audit de qualité des notes."""
+
     deck_id: int | None = None
 
 
 @dataclass(frozen=True)
 class AuditCompletedEvent(AppEvent):
+    """Événement émis à l'achèvement d'un audit de qualité des notes."""
+
     total_notes: int = 0
     anomalies_count: int = 0
     deck_id: int | None = None
@@ -183,6 +231,8 @@ class AuditCompletedEvent(AppEvent):
 
 @dataclass(frozen=True)
 class LinterRuleToggledEvent(AppEvent):
+    """Événement émis lors de l'activation ou de la désactivation d'une règle du linter."""
+
     rule_id: int = 0
     is_active: bool = True
 
@@ -190,24 +240,32 @@ class LinterRuleToggledEvent(AppEvent):
 # Persona Events
 @dataclass(frozen=True)
 class PersonaCreatedEvent(AppEvent):
+    """Événement émis à la création d'une persona."""
+
     persona_id: int = 0
     name: str = ""
 
 
 @dataclass(frozen=True)
 class PersonaUpdatedEvent(AppEvent):
+    """Événement émis à la mise à jour d'une persona."""
+
     persona_id: int = 0
     name: str = ""
 
 
 @dataclass(frozen=True)
 class PersonaDeletedEvent(AppEvent):
+    """Événement émis à la suppression d'une persona."""
+
     persona_id: int = 0
 
 
 # Setting Events
 @dataclass(frozen=True)
 class SettingChangedEvent(AppEvent):
+    """Événement émis lors de la modification d'un paramètre applicatif."""
+
     key: str = ""
     value: Any = None
 
@@ -215,6 +273,8 @@ class SettingChangedEvent(AppEvent):
 # Consultant AI Events
 @dataclass(frozen=True)
 class OpenConsultantRequestedEvent(AppEvent):
+    """Événement émis pour demander l'ouverture du consultant IA avec un contexte donné."""
+
     context_item: str = ""
     initial_prompt: str = ""
 
@@ -222,6 +282,8 @@ class OpenConsultantRequestedEvent(AppEvent):
 # Feedback & Support Events
 @dataclass(frozen=True)
 class OpenFeedbackRequestedEvent(AppEvent):
+    """Événement émis pour demander l'ouverture du formulaire de retour utilisateur."""
+
     tab: str = "bug"  # "bug" ou "feature"
     initial_title: str = ""
     context_error: str = ""
@@ -293,15 +355,15 @@ _EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
 
 
 def _event_name(event_type: type[AppEvent]) -> str:
-    """Return the stable snake_case name used by legacy addon APIs."""
+    """Retourne le nom stable en snake_case utilisé par les API des addons historiques."""
     name = event_type.__name__.removesuffix("Event")
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
 class AppEventBus:
-    """
-    Centralized event bus supporting both strongly typed events and string names.
-    Thread-safe and exception-isolated.
+    """Bus d'événements centralisé supportant à la fois les événements fortement typés et les noms sous forme de chaîne.
+
+    Sûr vis-à-vis des threads et isolé des exceptions.
     """
 
     _instance: AppEventBus | None = None
@@ -313,7 +375,7 @@ class AppEventBus:
 
     @classmethod
     def get_instance(cls) -> AppEventBus:
-        """Singleton accessor for the event bus."""
+        """Accesseur singleton du bus d'événements."""
         with cls._lock:
             if cls._instance is None:
                 cls._instance = AppEventBus()
@@ -321,14 +383,14 @@ class AppEventBus:
 
     @classmethod
     def reset_instance(cls) -> None:
-        """Reset singleton instance (useful for test isolation)."""
+        """Réinitialise l'instance singleton (utile pour l'isolation des tests)."""
         with cls._lock:
             cls._instance = None
 
     def subscribe(self, event_type: type[E] | str, handler: Callable[[E], Any] | EventHandler | None = None) -> Any:
-        """
-        Subscribe a callback handler to a specific event type or string key.
-        Can be used as a decorator when handler is omitted.
+        """Abonne un gestionnaire de callback à un type d'événement ou à une clé sous forme de chaîne.
+
+        Peut être utilisé comme décorateur lorsque handler est omis.
         """
         if handler is None:
 
@@ -348,7 +410,7 @@ class AppEventBus:
         return handler
 
     def unsubscribe(self, event_type: type[E] | str, handler: EventHandler) -> bool:
-        """Unsubscribe a callback handler from an event type or string key."""
+        """Désabonne un gestionnaire de callback d'un type d'événement ou d'une clé sous forme de chaîne."""
         key: type[AppEvent] | str = event_type.lower().strip() if isinstance(event_type, str) else event_type
 
         with self._rw_lock:
@@ -358,9 +420,9 @@ class AppEventBus:
         return False
 
     def publish(self, event: AppEvent | str, *args: Any, **kwargs: Any) -> list[Any]:
-        """
-        Publish an event to all subscribed listeners.
-        Catches and logs exceptions for individual handlers to avoid cascading failures.
+        """Publie un événement auprès de tous les listeners abonnés.
+
+        Intercepte et journalise les exceptions de chaque gestionnaire afin d'éviter les défaillances en cascade.
         """
         results: list[Any] = []
         matching_handlers: list[EventHandler] = []
@@ -408,16 +470,19 @@ class AppEventBus:
 
     # Backward compatibility aliases for legacy plugins
     def on(self, event_name: str, handler: EventHandler | None = None) -> Any:
+        """Alias de compatibilité ascendante pour ``subscribe()``."""
         return self.subscribe(event_name, handler)
 
     def off(self, event_name: str, handler: EventHandler) -> bool:
+        """Alias de compatibilité ascendante pour ``unsubscribe()``."""
         return self.unsubscribe(event_name, handler)
 
     def emit(self, event_name: str, *args: Any, **kwargs: Any) -> list[Any]:
+        """Alias de compatibilité ascendante pour ``publish()``."""
         return self.publish(event_name, *args, **kwargs)
 
     def clear(self, event_type: type[E] | str | None = None) -> None:
-        """Clear listeners for a specific event type or all events."""
+        """Supprime les listeners d'un type d'événement précis ou de tous les événements."""
         with self._rw_lock:
             if event_type is None:
                 self._listeners.clear()
@@ -426,7 +491,7 @@ class AppEventBus:
                 self._listeners.pop(key, None)
 
     def listener_count(self, event_type: type[E] | str) -> int:
-        """Return the number of registered listeners for an event."""
+        """Retourne le nombre de listeners enregistrés pour un événement."""
         key = event_type.lower().strip() if isinstance(event_type, str) else event_type
         with self._rw_lock:
             return len(self._listeners.get(key, []))

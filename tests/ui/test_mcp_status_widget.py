@@ -1,5 +1,4 @@
-"""
-Tests unitaires et d'interface graphique headless (pytest-qt) pour MCPStatusWidget et l'intégration MCP dans la GUI.
+"""Tests unitaires et d'interface graphique headless (pytest-qt) pour MCPStatusWidget et l'intégration MCP dans la GUI.
 
 Vérifie :
 - L'affichage et la transition des états visuels du badge (#MCPStatusBadge)

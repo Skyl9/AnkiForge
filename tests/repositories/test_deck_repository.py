@@ -1,6 +1,4 @@
-"""
-Unit tests for DeckRepository.
-"""
+"""Unit tests for DeckRepository."""
 
 from __future__ import annotations
 
@@ -102,8 +100,7 @@ def test_deck_repository_get_or_create_hierarchical() -> None:
 
 
 def test_get_or_create_hierarchical_repairs_parent_link() -> None:
-    """Un paquet créé à plat (ex: 'A::B' sans parent) doit être rattaché à son parent
-    lors d'un appel hiérarchique ultérieur, sans dupliquer."""
+    """Un paquet créé à plat (ex: 'A::B' sans parent) doit être rattaché à son parent lors d'un appel hiérarchique ultérieur, sans dupliquer."""
     repo = DeckRepository()
 
     flat = repo.create_deck("Sciences::Physique")

@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour la pagination des outils du Consultant IA et MCP.
+"""Tests unitaires pour la pagination des outils du Consultant IA et MCP.
+
 Vérifie le respect des arguments `limit` et `offset` sur query_peewee, find_cards_by_content,
 et get_cards_by_deck_or_tag, ainsi que la conformité des schémas DEFAULT_CONSULTANT_TOOLS.
 """

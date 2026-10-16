@@ -1,5 +1,4 @@
-"""
-Catalogue et registre des spécifications et capacités des modèles LLM pour AnkiForge.
+"""Catalogue et registre des spécifications et capacités des modèles LLM pour AnkiForge.
 
 Fournit une base de connaissances exhaustive des capacités réelles (Vision, Thinking,
 Contexte, Vitesse, Coût, Recommandations) et l'auto-détection pour les modèles locaux Ollama.
@@ -668,8 +667,8 @@ class ModelCatalog:
 
     @classmethod
     def detect_ollama_model_capabilities(cls, base_url: str, model_name: str) -> ModelSpec:
-        """
-        Interroge l'API Ollama locale POST /api/show pour inspecter les capacités réelles.
+        """Interroge l'API Ollama locale POST /api/show pour inspecter les capacités réelles.
+
         Détecte la vision (projecteur CLIP), la réflexion (<think>) et la fenêtre de contexte.
         """
         url = f"{base_url.rstrip('/')}/api/show"

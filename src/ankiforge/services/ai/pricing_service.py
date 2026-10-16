@@ -1,3 +1,5 @@
+"""Estimation des coûts d'exécution des pipelines IA à partir des tarifs des modèles."""
+
 import logging
 from typing import Any
 
@@ -9,16 +11,15 @@ def estimate_run_cost(
     completion_tokens: int,
     config: Any | None = None,
 ) -> tuple[int, float]:
-    """
-    Estime le coût réel (USD) d'un run A/B à partir d'une configuration LLM.
+    """Estime le coût réel (USD) d'un run A/B à partir d'une configuration LLM.
 
     Args:
-        prompt_tokens (int): Nombre de tokens d'entrée consommés.
-        completion_tokens (int): Nombre de tokens de sortie consommés.
+        prompt_tokens: Nombre de tokens d'entrée consommés.
+        completion_tokens: Nombre de tokens de sortie consommés.
         config: Objet LLMConfigModel (ou None pour un coût local/mock à 0).
 
     Returns:
-        tuple[int, float]: (tokens_total, cout_estime_usd)
+        (tokens_total, cout_estime_usd)
     """
     total_tokens = max(0, int(prompt_tokens)) + max(0, int(completion_tokens))
     if config is None:

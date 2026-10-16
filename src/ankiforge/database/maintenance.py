@@ -40,8 +40,8 @@ def execute_clean_shutdown(
     profile_name: str | None = None,
     clean_orphan_media: bool = False,
 ) -> dict[str, Any]:
-    """
-    Exécute la séquence de maintenance à la fermeture propre :
+    """Exécute la séquence de maintenance à la fermeture propre.
+
     1. Checkpoint WAL TRUNCATE + optimize SQLite (< 100ms).
     2. Nettoyage conditionnel des médias orphelins (si clean_orphan_media=True).
     3. Libération de tous les verrous de profil.

@@ -1,6 +1,5 @@
-"""
-Tests unitaires pour la traçabilité par tags, la réconciliation déterministe
-et le calcul coarse-grained de couverture documentaire (Pages & Sections).
+"""Tests unitaires pour la traçabilité par tags, la réconciliation déterministe et le calcul coarse-grained de couverture documentaire (Pages & Sections).
+
 Conforme aux Règles 2, 8, 19 et 20 de GEMINI.md.
 """
 

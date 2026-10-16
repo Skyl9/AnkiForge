@@ -1,5 +1,5 @@
-"""
-Indexation lexicale locale BM25 (Okapi BM25) pour le RAG Hybride d'AnkiForge.
+"""Indexation lexicale locale BM25 (Okapi BM25) pour le RAG Hybride d'AnkiForge.
+
 Implémentation pure Python déterministe, ultra-légère et sans dépendance C lourde,
 optimisée pour Nuitka et compatible multi-plateformes.
 """
@@ -223,9 +223,7 @@ _TOKEN_PATTERN = re.compile(r"(?u)[a-zA-Z0-9][a-zA-Z0-9_\-\+\#\.]*")
 
 
 def normalize_text(text: str) -> str:
-    """
-    Normalise le texte en supprimant les accents (NFKD) et en passant en minuscules.
-    """
+    """Normalise le texte en supprimant les accents (NFKD) et en passant en minuscules."""
     if not text:
         return ""
     normalized = unicodedata.normalize("NFKD", text)
@@ -235,9 +233,7 @@ def normalize_text(text: str) -> str:
 
 
 def tokenize(text: str, stop_words: set[str] | None = None) -> list[str]:
-    """
-    Tokenise un texte en conservant les termes techniques et en filtrant les stop-words.
-    """
+    """Tokenise un texte en conservant les termes techniques et en filtrant les stop-words."""
     if not text:
         return []
 
@@ -255,8 +251,7 @@ def tokenize(text: str, stop_words: set[str] | None = None) -> list[str]:
 
 
 class BM25OkapiIndex:
-    """
-    Index lexical BM25 Okapi optimisé.
+    """Index lexical BM25 Okapi optimisé.
 
     Formule de score standard Okapi BM25 :
     score(D, Q) = sum_{q in Q} IDF(q) * (f(q, D) * (k1 + 1)) / (f(q, D) + k1 * (1 - b + b * (|D| / avgdl)))
@@ -291,9 +286,7 @@ class BM25OkapiIndex:
         self.idf_cache: dict[str, float] = {}
 
     def fit(self, corpus: dict[int, str]) -> BM25OkapiIndex:
-        """
-        Construit l'index BM25 à partir d'un dictionnaire {doc_id: text}.
-        """
+        """Construit l'index BM25 à partir d'un dictionnaire {doc_id: text}."""
         self.doc_ids = []
         self.doc_lengths = {}
         self.doc_term_freqs = {}
@@ -312,14 +305,12 @@ class BM25OkapiIndex:
             term_counts = Counter(tokens)
             self.doc_term_freqs[doc_id] = dict(term_counts)
 
-            # Mise à jour des document frequencies
             for token in term_counts:
                 self.doc_freqs[token] = self.doc_freqs.get(token, 0) + 1
 
         self.total_docs = len(self.doc_ids)
         self.avg_doc_len = (total_length / self.total_docs) if self.total_docs > 0 else 0.0
 
-        # Précalcul des scores IDF
         for token, df in self.doc_freqs.items():
             # Formule Okapi BM25 avec lissage standard (+1.0 pour éviter les scores négatifs)
             idf = math.log(((self.total_docs - df + 0.5) / (df + 0.5)) + 1.0)
@@ -334,9 +325,7 @@ class BM25OkapiIndex:
         return self
 
     def score_document(self, query_tokens: list[str], doc_id: int) -> float:
-        """
-        Calcule le score BM25 pour un document spécifique donné une liste de tokens de requête.
-        """
+        """Calcule le score BM25 pour un document spécifique donné une liste de tokens de requête."""
         if doc_id not in self.doc_term_freqs or self.avg_doc_len == 0.0:
             return 0.0
 
@@ -353,7 +342,6 @@ class BM25OkapiIndex:
             tf = term_freqs[q_token]
             idf = self.idf_cache.get(q_token, 0.0)
 
-            # Formule BM25 par terme
             numerator = tf * (self.k1 + 1.0)
             denominator = tf + self.k1 * len_norm
             score += idf * (numerator / denominator)
@@ -361,8 +349,8 @@ class BM25OkapiIndex:
         return score
 
     def search(self, query: str, top_k: int = 10) -> list[tuple[int, float]]:
-        """
-        Recherche les `top_k` documents les plus pertinents pour la requête.
+        """Recherche les `top_k` documents les plus pertinents pour la requête.
+
         Retourne une liste triée de tuples (doc_id, bm25_score).
         """
         if not query or self.total_docs == 0:
@@ -389,7 +377,6 @@ class BM25OkapiIndex:
             if s > 0.0:
                 scores.append((doc_id, s))
 
-        # Tri décroissant par score BM25
         scores.sort(key=lambda x: x[1], reverse=True)
         return scores[:top_k]
 

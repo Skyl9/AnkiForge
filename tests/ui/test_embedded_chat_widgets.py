@@ -1,5 +1,5 @@
-"""
-Tests headless PySide6 pour MCP-ADV-05 : EmbeddedCardTableWidget et EmbeddedCardPreviewWidget.
+"""Tests headless PySide6 pour MCP-ADV-05 : EmbeddedCardTableWidget et EmbeddedCardPreviewWidget.
+
 Vérifie l'insertion dans le layout de chat, la mise à jour des données, le basculement en mode figé,
 la propagation des signaux et la conformité des thèmes DesignTokens.
 """

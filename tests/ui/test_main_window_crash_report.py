@@ -1,6 +1,4 @@
-"""
-Tests d'intégration UI headless pour la détection et l'affichage des crash reports dans MainWindow.
-"""
+"""Tests d'intégration UI headless pour la détection et l'affichage des crash reports dans MainWindow."""
 
 from __future__ import annotations
 

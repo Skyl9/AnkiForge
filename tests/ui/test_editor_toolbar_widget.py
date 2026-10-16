@@ -1,6 +1,4 @@
-"""
-Tests unitaires et UI pour EditorToolbarWidget et ToolbarCustomizeDialog.
-"""
+"""Tests unitaires et UI pour EditorToolbarWidget et ToolbarCustomizeDialog."""
 
 from typing import Any
 

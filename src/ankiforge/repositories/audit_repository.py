@@ -1,6 +1,4 @@
-"""
-Repository for Linter rules, audit records, and ignored duplicates.
-"""
+"""Dépôt des règles de linter, des enregistrements d'audit et des doublons ignorés."""
 
 from __future__ import annotations
 
@@ -21,14 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 class AuditRepository(BaseRepository):
-    """Data access repository for Wozniak linter rules, audit results, and duplicate tracking."""
+    """Dépôt d'accès aux données des règles de linter Wozniak, des résultats d'audit et du suivi des doublons."""
 
     def get_all_rules(self) -> list[LinterRuleModel]:
-        """Retrieve all linter rules sorted by category and name."""
+        """Retourne toutes les règles de linter triées par catégorie et par nom."""
         return list(LinterRuleModel.select().order_by(LinterRuleModel.category.asc(), LinterRuleModel.name.asc()))
 
     def get_active_rules(self) -> list[LinterRuleModel]:
-        """Retrieve only currently active linter rules."""
+        """Retourne uniquement les règles de linter actuellement actives."""
         return list(
             LinterRuleModel.select()
             .where(LinterRuleModel.is_active == True)  # noqa: E712
@@ -36,7 +34,7 @@ class AuditRepository(BaseRepository):
         )
 
     def get_rule_by_id(self, rule_id: int) -> LinterRuleModel | None:
-        """Retrieve a linter rule by its ID."""
+        """Retourne une règle de linter par son ID."""
         try:
             return LinterRuleModel.get_or_none(LinterRuleModel.id == rule_id)
         except Exception as e:
@@ -44,7 +42,7 @@ class AuditRepository(BaseRepository):
             return None
 
     def get_rule_by_name(self, name: str) -> LinterRuleModel | None:
-        """Retrieve a linter rule by its unique name."""
+        """Retourne une règle de linter par son nom unique."""
         try:
             return LinterRuleModel.get_or_none(LinterRuleModel.name == name)
         except Exception as e:
@@ -64,7 +62,7 @@ class AuditRepository(BaseRepository):
         example_bad: str | None = None,
         example_good: str | None = None,
     ) -> LinterRuleModel:
-        """Create a new custom linter rule."""
+        """Crée une nouvelle règle de linter personnalisée."""
         with self.atomic():
             return LinterRuleModel.create(
                 name=name,
@@ -80,7 +78,7 @@ class AuditRepository(BaseRepository):
             )
 
     def update_rule(self, rule_id: int, **kwargs: Any) -> LinterRuleModel | None:
-        """Update fields of an existing linter rule."""
+        """Met à jour les champs d'une règle de linter existante."""
         rule = self.get_rule_by_id(rule_id)
         if not rule:
             return None
@@ -93,7 +91,7 @@ class AuditRepository(BaseRepository):
             return rule
 
     def toggle_rule(self, rule_id: int, is_active: bool) -> bool:
-        """Toggle active status of a linter rule."""
+        """Bascule le statut actif d'une règle de linter."""
         rule = self.get_rule_by_id(rule_id)
         if not rule:
             return False
@@ -104,7 +102,7 @@ class AuditRepository(BaseRepository):
             return True
 
     def delete_rule(self, rule_id: int) -> bool:
-        """Delete a linter rule."""
+        """Supprime une règle de linter."""
         rule = self.get_rule_by_id(rule_id)
         if not rule:
             return False
@@ -119,7 +117,7 @@ class AuditRepository(BaseRepository):
         note_id: int | None = None,
         is_compliant: bool | None = None,
     ) -> list[AuditRecordModel]:
-        """Query audit records filtered optionally by deck, note, or compliance status."""
+        """Interroge les enregistrements d'audit filtrés éventuellement par paquet, note ou statut de conformité."""
         query = AuditRecordModel.select(AuditRecordModel, NoteModel, NoteVersionModel).join(NoteModel).join(NoteVersionModel)
 
         if deck_id is not None:
@@ -142,7 +140,7 @@ class AuditRepository(BaseRepository):
         reason: str | None = None,
         suggestion: str | None = None,
     ) -> AuditRecordModel:
-        """Persist or update an audit record for a note version."""
+        """Persiste ou met à jour un enregistrement d'audit pour une version de note."""
         with self.atomic():
             record, _ = AuditRecordModel.get_or_create(
                 note=note,
@@ -163,7 +161,7 @@ class AuditRepository(BaseRepository):
             return record
 
     def clear_audit_records(self, deck_id: int | None = None) -> int:
-        """Delete audit records optionally scoped to a deck."""
+        """Supprime les enregistrements d'audit, éventuellement limités à un paquet."""
         with self.atomic():
             if deck_id is not None:
                 note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.deck == deck_id)]
@@ -173,17 +171,17 @@ class AuditRepository(BaseRepository):
             return int(deleted)
 
     def get_ignored_duplicates(self) -> list[IgnoredDuplicateModel]:
-        """Retrieve all recorded ignored duplicate pairs."""
+        """Retourne tous les couples de doublons ignorés enregistrés."""
         return list(IgnoredDuplicateModel.select())
 
     def is_duplicate_ignored(self, note_a_id: int, note_b_id: int) -> bool:
-        """Check if a pair of notes was marked as ignored duplicates."""
+        """Vérifie si un couple de notes a été marqué comme doublons ignorés."""
         min_id = min(note_a_id, note_b_id)
         max_id = max(note_a_id, note_b_id)
         return IgnoredDuplicateModel.select().where((IgnoredDuplicateModel.note_a == min_id) & (IgnoredDuplicateModel.note_b == max_id)).exists()
 
     def ignore_duplicate(self, note_a_id: int, note_b_id: int) -> IgnoredDuplicateModel:
-        """Record a pair of notes as ignored duplicates."""
+        """Enregistre un couple de notes comme doublons ignorés."""
         min_id = min(note_a_id, note_b_id)
         max_id = max(note_a_id, note_b_id)
         with self.atomic():

@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour le découplage du type de donnée d'image et du moteur de vision.
+"""Tests unitaires pour le découplage du type de donnée d'image et du moteur de vision.
+
 Conforme aux spécifications de CONTEXT.md:56-59 et au ticket Feature.
 """
 
@@ -91,8 +91,8 @@ def test_engine_compatibility_hardware_ocr_only_compatible_with_printed_text() -
 
 
 def test_token_budget_follows_model_never_type() -> None:
-    """
-    Le budget de tokens est une propriété du moteur, jamais du contenu (critère 4).
+    """Le budget de tokens est une propriété du moteur, jamais du contenu (critère 4).
+
     Un modèle avec thinking (Claude 3.7) conserve son budget, tandis qu'un modèle
     sans thinking (Gemini Flash) a un budget de 0, quel que soit le type d'image.
     """

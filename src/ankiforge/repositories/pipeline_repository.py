@@ -1,6 +1,4 @@
-"""
-Repository for DAG Pipelines, Pipeline Steps, and Python Tools.
-"""
+"""Dépôt des pipelines DAG, des étapes de pipeline et des outils Python."""
 
 from __future__ import annotations
 
@@ -20,14 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineRepository(BaseRepository):
-    """Data access repository for DAG pipelines and deterministic Python tools."""
+    """Dépôt d'accès aux données des pipelines DAG et des outils Python déterministes."""
 
     def get_all_pipelines(self) -> list[PipelineModel]:
-        """Retrieve all pipelines ordered alphabetically."""
+        """Retourne tous les pipelines triés par ordre alphabétique."""
         return list(PipelineModel.select().order_by(PipelineModel.name.asc()))
 
     def get_pipeline_by_id(self, pipeline_id: int) -> PipelineModel | None:
-        """Retrieve a pipeline by its ID."""
+        """Retourne un pipeline par son ID."""
         try:
             return PipelineModel.get_or_none(PipelineModel.id == pipeline_id)
         except Exception as e:
@@ -35,7 +33,7 @@ class PipelineRepository(BaseRepository):
             return None
 
     def get_pipeline_by_name(self, name: str) -> PipelineModel | None:
-        """Retrieve a pipeline by its name."""
+        """Retourne un pipeline par son nom."""
         try:
             return PipelineModel.get_or_none(PipelineModel.name == name)
         except Exception as e:
@@ -43,12 +41,12 @@ class PipelineRepository(BaseRepository):
             return None
 
     def create_pipeline(self, name: str, description: str = "") -> PipelineModel:
-        """Create a new empty pipeline."""
+        """Crée un nouveau pipeline vide."""
         with self.atomic():
             return PipelineModel.create(name=name, description=description)
 
     def update_pipeline(self, pipeline_id: int, **kwargs: Any) -> PipelineModel | None:
-        """Update fields of an existing pipeline."""
+        """Met à jour les champs d'un pipeline existant."""
         pipeline = self.get_pipeline_by_id(pipeline_id)
         if not pipeline:
             return None
@@ -61,7 +59,7 @@ class PipelineRepository(BaseRepository):
             return pipeline
 
     def delete_pipeline(self, pipeline_id: int) -> bool:
-        """Delete a pipeline and cascade delete all its steps."""
+        """Supprime un pipeline et propage la suppression en cascade à toutes ses étapes."""
         pipeline = self.get_pipeline_by_id(pipeline_id)
         if not pipeline:
             return False
@@ -71,7 +69,7 @@ class PipelineRepository(BaseRepository):
             return True
 
     def duplicate_pipeline(self, pipeline_id: int, new_name: str) -> PipelineModel | None:
-        """Duplicate an existing pipeline with all its steps and transitions."""
+        """Duplique un pipeline existant avec toutes ses étapes et transitions."""
         src_pipeline = self.get_pipeline_by_id(pipeline_id)
         if not src_pipeline:
             return None
@@ -110,7 +108,7 @@ class PipelineRepository(BaseRepository):
             return new_pipeline
 
     def get_steps_for_pipeline(self, pipeline_id: int) -> list[PipelineStepModel]:
-        """Retrieve steps for a pipeline ordered by step_order."""
+        """Retourne les étapes d'un pipeline triées par step_order."""
         return list(PipelineStepModel.select().where(PipelineStepModel.pipeline == pipeline_id).order_by(PipelineStepModel.step_order.asc()))
 
     def create_step(
@@ -122,7 +120,7 @@ class PipelineRepository(BaseRepository):
         failure_behavior: str = "stop",
         config_data: str | dict[str, Any] = "{}",
     ) -> PipelineStepModel:
-        """Create and append a new step to a pipeline."""
+        """Crée et ajoute une nouvelle étape à un pipeline."""
         config_str = json.dumps(config_data) if isinstance(config_data, dict) else config_data
         with self.atomic():
             return PipelineStepModel.create(
@@ -135,7 +133,7 @@ class PipelineRepository(BaseRepository):
             )
 
     def update_step(self, step_id: int, **kwargs: Any) -> PipelineStepModel | None:
-        """Update properties of a pipeline step."""
+        """Met à jour les propriétés d'une étape de pipeline."""
         try:
             step = PipelineStepModel.get_or_none(PipelineStepModel.id == step_id)
         except Exception:
@@ -155,7 +153,7 @@ class PipelineRepository(BaseRepository):
             return step
 
     def delete_step(self, step_id: int) -> bool:
-        """Delete a step and re-index following steps."""
+        """Supprime une étape et réindexe les étapes suivantes."""
         try:
             step = PipelineStepModel.get_or_none(PipelineStepModel.id == step_id)
         except Exception:
@@ -176,7 +174,7 @@ class PipelineRepository(BaseRepository):
             return True
 
     def reorder_steps(self, pipeline_id: int, step_ids_order: list[int]) -> None:
-        """Reorder steps according to a list of step IDs."""
+        """Réordonne les étapes selon une liste d'IDs d'étapes."""
         with self.atomic():
             # Step 1: assign temporary negative orders to prevent UNIQUE constraint conflict
             for idx, step_id in enumerate(step_ids_order, start=1):
@@ -186,11 +184,11 @@ class PipelineRepository(BaseRepository):
                 PipelineStepModel.update(step_order=new_order).where((PipelineStepModel.id == step_id) & (PipelineStepModel.pipeline == pipeline_id)).execute()
 
     def get_all_python_tools(self) -> list[PythonToolModel]:
-        """Retrieve all python tools."""
+        """Retourne tous les outils Python."""
         return list(PythonToolModel.select().order_by(PythonToolModel.display_name.asc()))
 
     def get_python_tool_by_id(self, tool_id: int) -> PythonToolModel | None:
-        """Retrieve a python tool by ID."""
+        """Retourne un outil Python par son ID."""
         try:
             return PythonToolModel.get_or_none(PythonToolModel.id == tool_id)
         except Exception as e:
@@ -198,7 +196,7 @@ class PipelineRepository(BaseRepository):
             return None
 
     def get_python_tool_by_name(self, name: str) -> PythonToolModel | None:
-        """Retrieve a python tool by unique name identifier."""
+        """Retourne un outil Python par son identifiant de nom unique."""
         try:
             return PythonToolModel.get_or_none(PythonToolModel.name == name)
         except Exception as e:
@@ -213,7 +211,7 @@ class PipelineRepository(BaseRepository):
         description: str | None = None,
         is_builtin: bool = False,
     ) -> PythonToolModel:
-        """Create a new Python tool definition."""
+        """Crée une nouvelle définition d'outil Python."""
         with self.atomic():
             return PythonToolModel.create(
                 name=name,
@@ -224,7 +222,7 @@ class PipelineRepository(BaseRepository):
             )
 
     def update_python_tool(self, tool_id: int, **kwargs: Any) -> PythonToolModel | None:
-        """Update an existing Python tool."""
+        """Met à jour un outil Python existant."""
         tool = self.get_python_tool_by_id(tool_id)
         if not tool:
             return None
@@ -237,7 +235,7 @@ class PipelineRepository(BaseRepository):
             return tool
 
     def delete_python_tool(self, tool_id: int) -> bool:
-        """Delete a Python tool."""
+        """Supprime un outil Python."""
         tool = self.get_python_tool_by_id(tool_id)
         if not tool:
             return False

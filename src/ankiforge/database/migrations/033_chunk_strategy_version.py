@@ -1,3 +1,5 @@
+"""Migration 033 : version de stratégie de découpage sur documentmodel pour la re-indexation."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

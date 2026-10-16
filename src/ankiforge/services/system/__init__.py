@@ -1,6 +1,4 @@
-"""
-Services système transverses pour AnkiForge.
-"""
+"""Services système transverses pour AnkiForge."""
 
 from ankiforge.services.system.notification_service import (
     NotificationMode,

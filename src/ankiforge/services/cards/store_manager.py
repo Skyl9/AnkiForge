@@ -1,5 +1,5 @@
-"""
-Gestionnaire de persistance et curation de notes pour AnkiForge.
+"""Gestionnaire de persistance et curation de notes pour AnkiForge.
+
 Fournit les utilitaires d'approbation, suppression et délégation d'importation vers ImportManager.
 """
 

@@ -1,5 +1,5 @@
-"""
-Service de feedback et de diagnostic pour AnkiForge.
+"""Service de feedback et de diagnostic pour AnkiForge.
+
 Gère la collecte des informations système anonymisées, la sanitisation des données sensibles,
 le formatage Markdown pour GitHub Issues et l'exportation de rapports.
 """
@@ -133,8 +133,8 @@ class FeedbackService:
 
     @staticmethod
     def collect_diagnostics(log_limit: int = 50) -> SystemDiagnosticInfo:
-        """
-        Collecte les informations système et d'environnement de manière non bloquante et sécurisée.
+        """Collecte les informations système et d'environnement de manière non bloquante et sécurisée.
+
         Toutes les données sensibles (clés d'API, tokens) sont masquées via redact_secrets.
         """
         v_info = get_version_info()
@@ -146,7 +146,6 @@ class FeedbackService:
         diag.os_platform = f"{platform.platform()} ({platform.machine()})"
         diag.python_version = platform.python_version()
 
-        # Qt & PySide6
         with contextlib.suppress(Exception):
             import PySide6
             from PySide6.QtCore import qVersion
@@ -154,11 +153,9 @@ class FeedbackService:
             diag.pyside_version = PySide6.__version__
             diag.qt_version = qVersion()
 
-        # Profil actif
         with contextlib.suppress(Exception):
             diag.active_profile = get_active_profile() or "default"
 
-        # Thème & Layout
         with contextlib.suppress(Exception):
             from ankiforge.ui.layouts.layout_manager import LayoutManager
             from ankiforge.ui.style_engine import get_style_engine
@@ -168,7 +165,6 @@ class FeedbackService:
             diag.active_theme = engine.resolve_appearance(engine.get_appearance_preference(diag.active_profile), layout_id=saved_layout_id).id
             diag.active_layout = saved_layout_id
 
-        # Résolution d'écran
         with contextlib.suppress(Exception):
             from PySide6.QtWidgets import QApplication
 
@@ -179,7 +175,6 @@ class FeedbackService:
                     size = screen.size()
                     diag.screen_resolution = f"{size.width()}x{size.height()} @ {screen.devicePixelRatio():.1f}x"
 
-        # SQLite
         diag.sqlite_version = sqlite3.sqlite_version
 
         # Moteur IA configuré (sans clés !)
@@ -195,7 +190,6 @@ class FeedbackService:
             raw_logs = ring.get_records(limit=log_limit)
             diag.recent_logs = [redact_secrets(line) for line in raw_logs]
 
-        # Crash log récent si existant
         with contextlib.suppress(Exception):
             crash_path = get_app_data_dir() / "logs" / "crash.log"
             if crash_path.exists():
@@ -277,8 +271,8 @@ class FeedbackService:
 
     @classmethod
     def build_github_issue_url(cls, title: str, body: str, label: str = "bug") -> str:
-        """
-        Construit l'URL complète pré-remplie pour créer une issue GitHub.
+        """Construit l'URL complète pré-remplie pour créer une issue GitHub.
+
         Si le corps dépasse 3 500 caractères, tronque poliment les logs pour respecter
         la limite d'URL des navigateurs tout en prévenant l'utilisateur.
         """

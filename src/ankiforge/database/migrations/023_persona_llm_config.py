@@ -1,3 +1,5 @@
+"""Migration 023 : ajout de la clé étrangère llm_config_id à la table personas."""
+
 from peewee_migrate import Migrator
 
 

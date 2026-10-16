@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour MetricsService (calcul des KPIs, agrégation 7 jours et diagnostics).
-"""
+"""Tests unitaires pour MetricsService (calcul des KPIs, agrégation 7 jours et diagnostics)."""
 
 from datetime import datetime, timedelta
 

@@ -1,3 +1,5 @@
+"""Migration 014 : ajout du champ persona_type à personas."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

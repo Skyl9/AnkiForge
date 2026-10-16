@@ -1,5 +1,4 @@
-"""
-Migration 037 : intégrité référentielle (ON DELETE) et matérialisation des index canoniques du modèle.
+"""Migration 037 : intégrité référentielle (ON DELETE) et matérialisation des index canoniques du modèle.
 
 Rétablit l'alignement modèle Peewee <-> DDL SQLite réel constaté par l'audit "Database & ORM"
 (audits/raw/schema-dump-*.txt, fk-missing-cascade-*.txt, missing-indexes-*.txt) :
@@ -56,8 +55,8 @@ def _index_sqls(database: pw.Database, table: str) -> list[str]:
 
 
 def _rebuild(database: pw.Database, table: str, transform) -> bool:
-    """
-    Reconstruit une table si son DDL diffère du ciblé (retourne True si réellement reconstruite).
+    """Reconstruit une table si son DDL diffère du ciblé (retourne True si réellement reconstruite).
+
     Préserve les ids et les index nommés. PRAGMA foreign_keys doit être OFF auparavant.
     """
     old_sql = _table_sql(database, table)

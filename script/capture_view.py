@@ -1,5 +1,5 @@
-"""
-Capture d'écran autonome d'AnkiForge pour inspection visuelle et validation UI.
+"""Capture d'écran autonome d'AnkiForge pour inspection visuelle et validation UI.
+
 Usage :
     uv run python script/capture_view.py --view creation --output temp/screens/creation.png
     uv run python script/capture_view.py --all --output temp/screens/
@@ -172,8 +172,8 @@ def generate_layout_thumbnails(
     thumb_height: int = 300,
     view_name: str = "dashboard",
 ) -> list[Path]:
-    """
-    Génère les miniatures statiques des layouts d'AnkiForge pour la modale des paramètres.
+    """Génère les miniatures statiques des layouts d'AnkiForge pour la modale des paramètres.
+
     Enregistre les fichiers PNG sous src/ankiforge/resources/layouts/<layout_id>.png.
     Ne modifie ni le thème ni le layout du profil utilisateur réel.
     """

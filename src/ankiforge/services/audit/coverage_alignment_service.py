@@ -1,5 +1,4 @@
-"""
-Service de réconciliation déterministe et de traçabilité entre documents sources et fiches Anki.
+"""Service de réconciliation déterministe et de traçabilité entre documents sources et fiches Anki.
 
 Établit les correspondances NoteModel <-> DocumentChunkModel (NoteChunkLinkModel)
 exclusivement à partir des tags de traçabilité (doc:<id>, source:<slug>, page:<num>, section:<slug>).
@@ -178,8 +177,7 @@ class CoverageAlignmentService:
 
     @classmethod
     def sync_coverage_from_tags(cls, doc_id: int | None = None) -> dict[str, Any]:
-        """
-        Synchronise de manière déterministe les liaisons NoteModel <-> DocumentChunkModel à partir des tags des notes.
+        """Synchronise de manière déterministe les liaisons NoteModel <-> DocumentChunkModel à partir des tags des notes.
 
         Réconciliation et **auto-réparation** : elle délègue chaque décision de rattachement à
         :meth:`resolve_attachment` — le même resolver que la création de carte — puis réécrit
@@ -201,7 +199,7 @@ class CoverageAlignmentService:
             doc_id: Optionnel. Si spécifié, restreint la réconciliation à ce document.
 
         Returns:
-            dict[str, Any]: Rapport ``matched_notes`` / ``newly_linked`` / ``unlinked_notes`` /
+            Rapport ``matched_notes`` / ``newly_linked`` / ``unlinked_notes`` /
             ``repaired_notes`` / ``resolution_breakdown`` (répartition par palier) et métriques
             de couverture.
         """
@@ -383,7 +381,7 @@ class CoverageAlignmentService:
         inrattachables.
 
         Returns:
-            bool: ``True`` si les tags ont effectivement été modifiés (et persistés).
+            ``True`` si les tags ont effectivement été modifiés (et persistés).
         """
         overrides: dict[str, str | int | None] = {
             "section": section_key(chunk.heading_path) or None,
@@ -457,7 +455,7 @@ class CoverageAlignmentService:
                 même si des liens existants sont présents (utile lors du retrait de tags de provenance).
 
         Returns:
-            list[NoteChunkLinkModel]: Liste des liens de fragments valides pour cette note.
+            Liste des liens de fragments valides pour cette note.
         """
         tags = getattr(note, "tags", "") or ""
         existing_links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note))
@@ -565,7 +563,7 @@ class CoverageAlignmentService:
             source_chunk_id: Le fragment porteur de la figure.
 
         Returns:
-            int: Le nombre de notes rattachées (``0`` si le fragment est introuvable).
+            Le nombre de notes rattachées (``0`` si le fragment est introuvable).
         """
         if not notes:
             return 0
@@ -628,8 +626,7 @@ class CoverageAlignmentService:
         min_overlap: int = 2,
         clear_existing: bool = False,
     ) -> dict[str, Any]:
-        """
-        Réconcilie les fiches existantes de la base de données avec les fragments d'un document.
+        """Réconcilie les fiches existantes de la base de données avec les fragments d'un document.
 
         Effectue une synchronisation déterministe par tags (doc:<id>, source:<slug>, page:<num>, section:<slug>).
         Les paramètres deck_id et min_overlap sont conservés pour la compatibilité des appelants mais sans effet :
@@ -642,7 +639,7 @@ class CoverageAlignmentService:
             clear_existing: Si True, supprime tous les liens existants du document avant réconciliation.
 
         Returns:
-            dict[str, Any]: Rapport statistique de réconciliation et de couverture.
+            Rapport statistique de réconciliation et de couverture.
         """
         doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
         if not doc:
@@ -1253,7 +1250,7 @@ class CoverageAlignmentService:
             doc_id: ID du document dont les liens de couverture doivent être affinés.
 
         Returns:
-            dict[str, Any]: rapport ``reassigned`` / ``false_gaps_resolved`` / ``new_gaps`` /
+            Rapport ``reassigned`` / ``false_gaps_resolved`` / ``new_gaps`` /
             ``kept_on_parent`` / ``details`` et couverture avant-après.
         """
         doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
@@ -1411,8 +1408,8 @@ class CoverageAlignmentService:
         target_profile: str,
         doc_id: int,
     ) -> DocumentModel | None:
-        """
-        Copie un DocumentModel et ses chunks d'un profil source vers le profil cible.
+        """Copie un DocumentModel et ses chunks d'un profil source vers le profil cible.
+
         Copie également les fichiers physiques associés (original_media).
         """
         import sqlite3

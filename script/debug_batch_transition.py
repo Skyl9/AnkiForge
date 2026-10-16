@@ -1,6 +1,4 @@
-"""
-Script de capture de transition sombre vers clair pour Batch Factory.
-"""
+"""Script de capture de transition sombre vers clair pour Batch Factory."""
 
 import os
 

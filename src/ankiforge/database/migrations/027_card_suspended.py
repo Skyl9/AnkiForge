@@ -1,3 +1,5 @@
+"""Migration 027 : ajout de la colonne is_suspended à cardmodel."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

@@ -1,5 +1,5 @@
-"""
-Tests unitaires et d'intégration pour l'export et l'import de thèmes JSON (ADR 0005 & 0006).
+"""Tests unitaires et d'intégration pour l'export et l'import de thèmes JSON (ADR 0005 & 0006).
+
 Couvre :
 - Sérialisation et conteneur de Famille (version, dark, light)
 - Exclusion des jetons d'exécution et des jetons dérivés vides
@@ -12,7 +12,7 @@ Couvre :
 - Renommage sur collision (suffixe numérique) sans écrasement
 - Réécriture de l'identifiant de Variante et Famille dérivé du nom de fichier
 - Balayage du répertoire au démarrage de StyleEngine et survie au redémarrage
-- Intégration UI dans GeneralTab (boutons importer/exporter, sélection)
+- Intégration UI dans GeneralTab (boutons importer/exporter, sélection).
 """
 
 import json

@@ -1,5 +1,4 @@
-"""
-Service Daemon persistant pour le serveur MCP d'AnkiForge.
+"""Service Daemon persistant pour le serveur MCP d'AnkiForge.
 
 Héberge un point de terminaison HTTP/SSE sur localhost (127.0.0.1) dans un thread
 de travail d'arrière-plan, sécurisé par authentification Bearer.
@@ -34,8 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 def close_active_connections(server: uvicorn.Server) -> int:
-    """
-    Rupture immédiate des connexions encore ouvertes afin de libérer les sessions SSE.
+    """Rupture immédiate des connexions encore ouvertes afin de libérer les sessions SSE.
 
     Le `shutdown()` gracieux de Uvicorn ne fait, pour une réponse en cours, que désactiver le
     keep-alive : un flux SSE ne se termine donc que si le client se déconnecte de lui-même, et
@@ -50,7 +48,7 @@ def close_active_connections(server: uvicorn.Server) -> int:
     Doit être appelé depuis le thread de l'event loop du serveur.
 
     Returns:
-        int: nombre de connexions avortées.
+        Nombre de connexions avortées.
     """
     closed = 0
     for connection in list(server.server_state.connections):
@@ -65,8 +63,7 @@ def close_active_connections(server: uvicorn.Server) -> int:
 
 
 def drain_pending_tasks(loop: asyncio.AbstractEventLoop) -> None:
-    """
-    Annule puis absorbe les tâches résiduelles de l'event loop en fin de service.
+    """Annule puis absorbe les tâches résiduelles de l'event loop en fin de service.
 
     `asyncio.CancelledError` hérite de `BaseException` et non d'`Exception` : elle doit être
     interceptée explicitement, faute de quoi elle remonterait dans la trace du thread de travail.
@@ -101,8 +98,8 @@ def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
 
 
 def find_available_port(start_port: int = 8765, max_attempts: int = 100, host: str = "127.0.0.1") -> int:
-    """
-    Sonde séquentiellement les ports à partir de start_port jusqu'à trouver un port libre.
+    """Sonde séquentiellement les ports à partir de start_port jusqu'à trouver un port libre.
+
     Lève un RuntimeError si aucun port n'est libre après max_attempts tentatives.
     """
     # La plage est bornée à 65535 : sans cela, un port de départ élevé — un port
@@ -122,8 +119,8 @@ def generate_auth_token() -> str:
 
 
 def load_auth_token(path: Path) -> str | None:
-    """
-    Lit et valide le jeton Bearer persisté sur le disque.
+    """Lit et valide le jeton Bearer persisté sur le disque.
+
     Retourne la chaîne du jeton si elle existe et mesure au moins 16 caractères, None sinon.
     """
     if not path.is_file():
@@ -139,9 +136,7 @@ def load_auth_token(path: Path) -> str | None:
 
 
 def save_auth_token(token: str, path: Path) -> None:
-    """
-    Sauvegarde le jeton Bearer sur le disque avec des permissions restreintes 0600 (lecture/écriture propriétaire).
-    """
+    """Sauvegarde le jeton Bearer sur le disque avec des permissions restreintes 0600 (lecture/écriture propriétaire)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
     with open(fd, "w", encoding="utf-8") as f:
@@ -157,8 +152,7 @@ def get_or_create_auth_token(
     port: int | None = None,
     host: str = "127.0.0.1",
 ) -> str:
-    """
-    Retourne le jeton Bearer persistant ou en crée un nouveau si nécessaire.
+    """Retourne le jeton Bearer persistant ou en crée un nouveau si nécessaire.
 
     Si rotate=False :
     1. Réutilise le jeton stocké dans token_file s'il existe et est valide.
@@ -199,10 +193,7 @@ def rotate_auth_token(
     port: int | None = None,
     host: str = "127.0.0.1",
 ) -> str:
-    """
-    Force le renouvellement du jeton Bearer MCP, persiste la nouvelle valeur dans token_file (0600)
-    et synchronise le fichier d'état state_file s'il existe (0600).
-    """
+    """Force le renouvellement du jeton Bearer MCP, persiste la nouvelle valeur dans token_file (0600) et synchronise le fichier d'état state_file s'il existe (0600)."""
     if port is None and state_file is not None and state_file.is_file():
         st = read_daemon_state(state_file)
         if st and isinstance(st.get("port"), int):
@@ -259,9 +250,7 @@ def sync_mcp_client_config(
     host: str = "127.0.0.1",
     config_paths: list[Path] | None = None,
 ) -> bool:
-    """
-    Met à jour en place les fichiers de configuration des clients MCP externes
-    (ex. ~/.gemini/config/mcp_config.json ou Claude Desktop) si l'entrée "ankiforge" est présente.
+    """Met à jour en place les fichiers de configuration des clients MCP externes (ex. ~/.gemini/config/mcp_config.json ou Claude Desktop) si l'entrée "ankiforge" est présente.
 
     Args:
         token: Nouveau jeton Bearer d'authentification.
@@ -270,7 +259,7 @@ def sync_mcp_client_config(
         config_paths: Chemins spécifiques à mettre à jour, ou détection automatique si None.
 
     Returns:
-        bool: True si au moins un fichier de configuration a été mis à jour avec succès, False sinon.
+        True si au moins un fichier de configuration a été mis à jour avec succès, False sinon.
     """
     candidates = config_paths if config_paths is not None else get_known_mcp_client_config_paths()
     any_updated = False
@@ -291,14 +280,12 @@ def sync_mcp_client_config(
             if not isinstance(anki_entry, dict):
                 continue
 
-            # Mise à jour des headers
             headers = anki_entry.get("headers")
             if not isinstance(headers, dict):
                 headers = {}
                 anki_entry["headers"] = headers
             headers["Authorization"] = f"Bearer {token}"
 
-            # Mise à jour éventuelle de l'URL
             if port is not None:
                 anki_entry["url"] = f"http://{host}:{port}/mcp"
 
@@ -371,8 +358,8 @@ def read_daemon_state(state_file: Path) -> dict[str, Any] | None:
 
 
 def cleanup_daemon_state(token_file: Path, state_file: Path, mark_stopped: bool = True, delete_token: bool = False) -> None:
-    """
-    Marque ou supprime le fichier d'état lors de l'arrêt du daemon.
+    """Marque ou supprime le fichier d'état lors de l'arrêt du daemon.
+
     Le jeton Bearer (token_file) est conservé sur le disque pour assurer la stabilité
     entre les redémarrages, sauf si delete_token=True est explicitement spécifié.
     """
@@ -400,8 +387,8 @@ def cleanup_daemon_state(token_file: Path, state_file: Path, mark_stopped: bool 
 
 
 class BearerAuthMiddleware:
-    """
-    Middleware ASGI d'authentification Bearer pour sécuriser les endpoints HTTP/SSE du daemon MCP.
+    """Middleware ASGI d'authentification Bearer pour sécuriser les endpoints HTTP/SSE du daemon MCP.
+
     Rejette toute requête non authentifiée ou avec un jeton invalide avec un code 401 Unauthorized.
     """
 
@@ -410,6 +397,7 @@ class BearerAuthMiddleware:
         self.token = token
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Valide l'en-tête `Authorization` des requêtes HTTP avant de déléguer à l'application ASGI."""
         if scope["type"] == "http":
             headers = dict(scope.get("headers", []))
             raw_auth = headers.get(b"authorization", b"")
@@ -449,8 +437,7 @@ class MCPServerSignals(QObject):
 
 
 class MCPServerDaemon:
-    """
-    Gestionnaire de cycle de vie du serveur MCP AnkiForge en arrière-plan.
+    """Gestionnaire de cycle de vie du serveur MCP AnkiForge en arrière-plan.
 
     Démarre une application Starlette / Uvicorn SSE sur 127.0.0.1 dans un thread
     de travail dédié, avec repli de port automatique, authentification Bearer
@@ -543,12 +530,12 @@ class MCPServerDaemon:
         return self._data_dir / "mcp_server.json"
 
     def start(self, timeout: float = 5.0) -> bool:
-        """
-        Démarre le serveur MCP de manière asynchrone dans un thread de travail d'arrière-plan.
+        """Démarre le serveur MCP de manière asynchrone dans un thread de travail d'arrière-plan.
+
         Attends jusqu'à `timeout` secondes que le serveur Uvicorn soit prêt à recevoir des requêtes.
 
         Returns:
-            bool: True si le serveur a démarré avec succès, False sinon.
+            True si le serveur a démarré avec succès, False sinon.
         """
         with self._lock:
             if self.is_running:
@@ -677,9 +664,7 @@ class MCPServerDaemon:
             return False
 
     def stop(self, timeout: float = 5.0) -> None:
-        """
-        Arrête proprement le daemon MCP, ferme les sessions clientes actives et met à jour l'état.
-        """
+        """Arrête proprement le daemon MCP, ferme les sessions clientes actives et met à jour l'état."""
         with self._lock:
             was_running = self._is_running
             if not self._is_running and (self._thread is None or not self._thread.is_alive()):
@@ -743,10 +728,7 @@ class MCPServerDaemon:
             logger.info("Daemon MCP arrêté avec succès.")
 
     def rotate_token(self) -> str:
-        """
-        Régénère le jeton Bearer, met à jour le stockage sur disque (0600), synchronise
-        le fichier d'état et applique immédiatement le nouveau jeton sur le middleware actif.
-        """
+        """Régénère le jeton Bearer, met à jour le stockage sur disque (0600), synchronise le fichier d'état et applique immédiatement le nouveau jeton sur le middleware actif."""
         with self._lock:
             new_token = rotate_auth_token(
                 token_file=self.token_file,

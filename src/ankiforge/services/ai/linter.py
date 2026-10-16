@@ -1,5 +1,5 @@
-"""
-Moteur de Linter IA Wozniak, Diagnostic des Sources & Suivi Financier Jetons / FSRS pour AnkiForge.
+"""Moteur de Linter IA Wozniak, Diagnostic des Sources & Suivi Financier Jetons / FSRS pour AnkiForge.
+
 Raccordement dynamique à la base de données Peewee ORM (NoteModel, DeckModel, NoteVersionModel).
 """
 
@@ -17,8 +17,8 @@ def normalize_linter_suggestion(
     original_content: dict[str, Any] | None = None,
     rule_name: str = "",
 ) -> dict[str, str]:
-    """
-    Normalise universellement toute suggestion de correction émise par l'IA ou le cache.
+    """Normalise universellement toute suggestion de correction émise par l'IA ou le cache.
+
     Garantit la présence systématique des 5 champs clés : NoteType, Recto, Verso, Champ Annexe Extra, Tags.
     """
     if isinstance(raw_sug, str):
@@ -86,10 +86,7 @@ class WozniakLinterEngine:
 
     @staticmethod
     def audit_deck(deck_id: int | None = None, enable_cloze_audit: bool = True) -> dict[str, Any]:
-        """
-        Analyse dynamiquement les notes du paquet sélectionné (ou toutes les notes)
-        et retourne un rapport d'audit structuré par catégorie.
-        """
+        """Analyse dynamiquement les notes du paquet sélectionné (ou toutes les notes) et retourne un rapport d'audit structuré par catégorie."""
         notes_with_version = []
         try:
             from ankiforge.database.models import CardModel

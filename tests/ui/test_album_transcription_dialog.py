@@ -1,6 +1,4 @@
-"""
-Tests UI pour le dialogue dédié AlbumTranscriptionDialog.
-"""
+"""Tests UI pour le dialogue dédié AlbumTranscriptionDialog."""
 
 import pytest
 from PySide6.QtCore import Qt

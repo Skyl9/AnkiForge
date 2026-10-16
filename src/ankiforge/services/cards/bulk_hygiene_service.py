@@ -171,12 +171,10 @@ def clean_field_html(
         # Math LaTeX
         s = re.sub(r"(\\\[[\s\S]*?\\\]|\\\(.*?\\\)|\$\$[\s\S]*?\$\$|(?<!\\)\$(?!\s).*?(?<!\s)\$)", lambda m: _sub_token(m.group(0)), s)
 
-        # Nettoyer les balises
         s = re.sub(r"<[^>]+>", "", s)
         s = s.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
         s = re.sub(r"[ \t]+", " ", s).strip()
 
-        # Restaurer les tokens
         for k, v in placeholders.items():
             s = s.replace(k, v)
         return s
@@ -206,7 +204,6 @@ def clean_field_html(
 
     s = re.sub(r"""\s*\bclass\s*=\s*(["']).*?\1""", _clean_class_attr, s, flags=re.IGNORECASE)
 
-    # Supprimer balises <font>
     s = re.sub(r"</?font\b[^>]*>", "", s, flags=re.IGNORECASE)
 
     # Déballer les spans vides ou devenus sans attributs <span >...</span>
@@ -216,7 +213,6 @@ def clean_field_html(
         if s == prev:
             break
 
-    # Supprimer les conteneurs devenus vides
     for _ in range(3):
         prev = s
         s = re.sub(r"<(p|div|span|b|i|u|strong|em)\b[^>]*>\s*</\1>", "", s, flags=re.IGNORECASE)
@@ -225,7 +221,6 @@ def clean_field_html(
         if s == prev:
             break
 
-    # Nettoyer les sauts de ligne multiples
     s = re.sub(r"(<br\s*/?>\s*){3,}", "<br><br>", s, flags=re.IGNORECASE)
 
     return s.strip()
@@ -435,7 +430,6 @@ class BulkHygieneService:
         if not name_clean:
             return {"status": "error", "message": "Nom de modèle invalide."}
 
-        # Suppression de tous les modèles inutilisés
         if name_clean in ("all_unused", "*"):
             all_types = list(NoteTypeModel.select())
             unused: list[NoteTypeModel] = []
@@ -476,7 +470,6 @@ class BulkHygieneService:
                 "message": f"{len(deleted_names)} modèle(s) inutilisé(s) supprimé(s) avec succès.",
             }
 
-        # Suppression d'un modèle spécifique
         target_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == name_clean)
         if not target_nt and name_clean.isdigit():
             target_nt = NoteTypeModel.get_or_none(NoteTypeModel.id == int(name_clean))
@@ -723,7 +716,7 @@ class BulkHygieneService:
             include_levenshtein: Indique si la détection par distance de Levenshtein doit être exécutée.
 
         Returns:
-            TagClustersReport: Rapport détaillé des grappes trouvées.
+            Rapport détaillé des grappes trouvées.
         """
         target_note_ids: set[int] | None = None
 
@@ -872,7 +865,7 @@ class BulkHygieneService:
             deck_id: Identifiant optionnel d'un paquet à restreindre.
 
         Returns:
-            TagMergeResult: Rapport d'exécution.
+            Rapport d'exécution.
         """
         if not merges:
             return TagMergeResult(success=True)

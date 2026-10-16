@@ -1,5 +1,4 @@
-"""
-Surcharge locale de persona : un prompt propre à une étape de pipeline.
+"""Surcharge locale de persona : un prompt propre à une étape de pipeline.
 
 Une surcharge est un **réglage du pipeline**, pas une version d'agent. Elle vit dans
 la `config_data` de l'étape, n'est jamais journalisée dans `PersonaVersionModel`, et

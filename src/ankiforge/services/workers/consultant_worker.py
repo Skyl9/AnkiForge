@@ -1,5 +1,5 @@
-"""
-Worker asynchrone pour le Consultant IA AnkiForge.
+"""Worker asynchrone pour le Consultant IA AnkiForge.
+
 Orchestre l'exécution en arrière-plan du moteur ReAct avec streaming temps réel et interruption.
 """
 
@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class ConsultantWorker(QThread):
-    """
-    Expert IA interactif pour l'analyse de collection et le diagnostic.
+    """Expert IA interactif pour l'analyse de collection et le diagnostic.
+
     Utilise ConsultantEngine pour la boucle ReAct avec streaming fluide et support de l'interruption (Stop).
     """
 
@@ -62,6 +62,7 @@ class ConsultantWorker(QThread):
         self._cancel_event.set()
 
     def is_cancelled(self) -> bool:
+        """Indique si une interruption a été demandée."""
         return self._cancel_event.is_set()
 
     def run(self) -> None:
@@ -72,7 +73,6 @@ class ConsultantWorker(QThread):
         try:
             self.progress.emit("Initialisation de l'assistant...")
 
-            # Construction du prompt augmenté
             if self.context_data and (self.context_data.get("documents") or self.context_data.get("paquets")):
                 context_str = json.dumps(self.context_data, ensure_ascii=False, indent=2)
                 full_prompt = f"Contexte actuel des documents et paquets attachés :\n```json\n{context_str}\n```\n\nRequête de l'utilisateur :\n{self.instruction}"

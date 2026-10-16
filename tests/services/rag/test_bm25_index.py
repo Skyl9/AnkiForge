@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour l'index lexical BM25 Okapi pur Python (src/ankiforge/services/rag/bm25_index.py).
+"""Tests unitaires pour l'index lexical BM25 Okapi pur Python (src/ankiforge/services/rag/bm25_index.py).
+
 Valide la tokenisation multi-langue, la préservation des acronymes, le calcul IDF,
 la formule de score Okapi BM25 et la persistance JSON.
 """

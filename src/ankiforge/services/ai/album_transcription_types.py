@@ -1,6 +1,4 @@
-"""
-Types et formateur de prompt pour la transcription d'albums.
-"""
+"""Types et formateur de prompt pour la transcription d'albums."""
 
 from __future__ import annotations
 
@@ -37,8 +35,7 @@ class AlbumTranscriptionOptions:
 
 
 def parse_page_ranges(range_str: str, max_page: int) -> set[int]:
-    """
-    Parse une chaîne d'intervalles (ex: "1-3, 5, 8-10") et renvoie l'ensemble des numéros de pages valides.
+    """Parse une chaîne d'intervalles (ex: "1-3, 5, 8-10") et renvoie l'ensemble des numéros de pages valides.
 
     Les numéros hors bornes [1, max_page] sont ignorés.
     """
@@ -71,9 +68,7 @@ def parse_page_ranges(range_str: str, max_page: int) -> set[int]:
 
 
 def build_album_transcription_prompt(options: AlbumTranscriptionOptions, base_instructions: str = "") -> str:
-    """
-    Assemble le prompt multimodal complet à partir des directives de formatage et instructions personnalisées.
-    """
+    """Assemble le prompt multimodal complet à partir des directives de formatage et instructions personnalisées."""
     directives: list[str] = ["Transcris fidèlement et intégralement le contenu textuel et conceptuel de cette planche au format Markdown propre."]
 
     from ankiforge.services.ai.vision_category_service import get_image_data_type

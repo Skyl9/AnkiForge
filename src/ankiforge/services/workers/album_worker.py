@@ -1,6 +1,4 @@
-"""
-Worker asynchrone pour la transcription OCR et l'analyse visuelle par lot des pages d'albums.
-"""
+"""Worker asynchrone pour la transcription OCR et l'analyse visuelle par lot des pages d'albums."""
 
 from __future__ import annotations
 
@@ -20,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class AlbumOCRWorker(QThread):
-    """
-    Worker d'arrière-plan pour la transcription OCR d'un album ou d'une sélection de pages.
+    """Worker d'arrière-plan pour la transcription OCR d'un album ou d'une sélection de pages.
+
     Émet des signaux de progression pour l'interface sans bloquer l'Event Loop Qt.
     """
 
@@ -190,8 +188,7 @@ class AlbumOCRWorker(QThread):
 
 
 class AlbumPDFWorker(QThread):
-    """
-    Worker d'arrière-plan pour la compilation PDF d'un album.
+    """Worker d'arrière-plan pour la compilation PDF d'un album.
 
     La compilation ouvre chaque planche en pleine résolution : sur 200 planches, la faire
     sur le thread GUI gèle l'interface. La forme des signaux reprend celle
@@ -222,6 +219,7 @@ class AlbumPDFWorker(QThread):
         self._is_cancelled = True
 
     def run(self) -> None:
+        """Compile l'album en PDF en arrière-plan et publie fin, annulation ou erreur."""
         logger.info("Démarrage d'AlbumPDFWorker pour l'album ID %d -> %s", self.document_id, self.output_path)
         try:
             result = self.album_service.compile_album_to_pdf(

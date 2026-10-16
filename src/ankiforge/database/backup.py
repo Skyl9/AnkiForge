@@ -1,3 +1,5 @@
+"""Sauvegarde, restauration et contrôle d'intégrité des bases SQLite par profil."""
+
 import contextlib
 import datetime
 import logging
@@ -30,8 +32,8 @@ def check_db_integrity(db_path: Path) -> bool:
 
 
 def backup_database(keep_last: int = 5) -> None:
-    """
-    Crée une copie de sécurité atomique de la base de données SQLite (compatible WAL mode).
+    """Crée une copie de sécurité atomique de la base de données SQLite (compatible WAL mode).
+
     Conserve uniquement les `keep_last` fichiers les plus récents.
     """
     pm = ProfileManager()
@@ -45,7 +47,6 @@ def backup_database(keep_last: int = 5) -> None:
     backup_dir = pm.PROFILES_DIR / active_profile / "backups"
     backup_dir.mkdir(exist_ok=True, parents=True)
 
-    # Création du nom de fichier avec horodatage
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_file = backup_dir / f"ankiforge_backup_{timestamp}.db"
 
@@ -90,8 +91,8 @@ def backup_database(keep_last: int = 5) -> None:
 
 
 def restore_latest_valid_backup(profile_name: str) -> bool:
-    """
-    Restaure la sauvegarde la plus récente et saine pour un profil donné en cas de corruption SQLite.
+    """Restaure la sauvegarde la plus récente et saine pour un profil donné en cas de corruption SQLite.
+
     Isole automatiquement la base corrompue sous un nom horodaté 'ankiforge_corrupt_<timestamp>.db'.
     """
     pm = ProfileManager()
@@ -141,6 +142,8 @@ def restore_latest_valid_backup(profile_name: str) -> bool:
 
 
 class BackupInfo(NamedTuple):
+    """Métadonnées d'une sauvegarde de profil : fichier, date de création, taille et validité."""
+
     filename: str
     filepath: Path
     created_at: datetime.datetime
@@ -150,8 +153,8 @@ class BackupInfo(NamedTuple):
 
 
 def list_profile_backups(profile_name: str | None = None) -> list[BackupInfo]:
-    """
-    Liste toutes les sauvegardes disponibles pour un profil, classées de la plus récente à la plus ancienne.
+    """Liste toutes les sauvegardes disponibles pour un profil, classées de la plus récente à la plus ancienne.
+
     Vérifie l'intégrité physique SQLite de chaque sauvegarde.
     """
     pm = ProfileManager()
@@ -192,8 +195,8 @@ def list_profile_backups(profile_name: str | None = None) -> list[BackupInfo]:
 
 
 def create_prerestore_backup(profile_name: str | None = None) -> Path | None:
-    """
-    Crée un instantané de sécurité pré-restauration de la base actuelle.
+    """Crée un instantané de sécurité pré-restauration de la base actuelle.
+
     Exclu de la rotation standard pour garantir un retour arrière immédiat.
     """
     pm = ProfileManager()
@@ -233,8 +236,8 @@ def restore_granular_backup(
     backup_filename_or_path: str | Path,
     create_safety_snapshot: bool = True,
 ) -> bool:
-    """
-    Restaure une sauvegarde spécifique pour un profil donné.
+    """Restaure une sauvegarde spécifique pour un profil donné.
+
     Vérifie l'intégrité, crée un snapshot pré-restauration de sécurité,
     nettoie les fichiers WAL/SHM résiduels et remplace la base active.
     """

@@ -1,3 +1,5 @@
+"""Modèles Peewee des decks, notes, versions de notes, cartes et médias Anki."""
+
 import datetime
 import json
 import logging
@@ -20,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class DeckModel(BaseModel):
-    """Représente un paquet Anki et sa hiérarchie (Subdecks)"""
+    """Représente un paquet Anki et sa hiérarchie (Subdecks)."""
 
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (did)
     # CASCADE choisi volontairement : un sous-deck et toutes ses cartes (via le FK carte->deck)
@@ -33,7 +35,7 @@ class DeckModel(BaseModel):
 
 
 class NoteTypeModel(BaseModel):
-    """Représente le TYPE de note (Basic, Cloze...)"""
+    """Représente le TYPE de note (Basic, Cloze...)."""
 
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (mid)
     name = CharField(unique=True)
@@ -64,8 +66,8 @@ class NoteModel(BaseModel):
 
     @db.atomic()
     def add_version(self, new_content_dict: dict, source: str = "manual") -> "NoteVersionModel":
-        """
-        Crée une nouvelle version de la note (comme un git commit).
+        """Crée une nouvelle version de la note (comme un git commit).
+
         Désactive l'ancienne version active.
         """
         current_active = NoteVersionModel.get_or_none(note=self, is_active=True)
@@ -92,6 +94,7 @@ class NoteModel(BaseModel):
         return new_version
 
     def delete_instance(self, *args: Any, **kwargs: Any) -> Any:
+        """Supprime la note en purgeant au préalable son entrée d'index FTS5."""
         try:
             from ankiforge.services.search.fts_service import FTSService
 
@@ -102,10 +105,7 @@ class NoteModel(BaseModel):
 
     @classmethod
     def purge_old_versions(cls, keep_last: int = 15) -> int:
-        """
-        Nettoie la base de données en ne conservant que les N dernières versions
-        pour chaque note. Retourne le nombre de versions supprimées.
-        """
+        """Nettoie la base de données en ne conservant que les N dernières versions pour chaque note. Retourne le nombre de versions supprimées."""
         deleted_count = 0
 
         with db.atomic():
@@ -140,7 +140,7 @@ class NoteVersionModel(BaseModel):
 
 
 class MediaModel(BaseModel):
-    """Représente un fichier média physique géré par ankiforge"""
+    """Représente un fichier média physique géré par ankiforge."""
 
     filename = CharField(unique=True)  # Nom unique généré (ex: sha256.png)
     original_name = CharField()  # Nom d'origine (ex: schema.png)
@@ -153,7 +153,7 @@ class MediaModel(BaseModel):
 
 
 class NoteVersionMediaModel(BaseModel):
-    """Table de liaison entre une version de note et ses médias associés"""
+    """Table de liaison entre une version de note et ses médias associés."""
 
     note_version = ForeignKeyField(NoteVersionModel, backref="medias", on_delete="CASCADE")
     # RESTRICT intentionnel : un média référencé par au moins une version de note ne doit jamais
@@ -166,7 +166,7 @@ class NoteVersionMediaModel(BaseModel):
 
 
 class CardModel(BaseModel):
-    """La carte physique générée par la Note et rangée dans un Deck"""
+    """La carte physique générée par la Note et rangée dans un Deck."""
 
     note_id: Any
     deck_id: Any

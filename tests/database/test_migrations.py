@@ -16,10 +16,7 @@ MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__
 
 @pytest.mark.integration
 def test_run_migrations_idempotency(mock_db):
-    """
-    Vérifie que run_migrations ne plante pas, crée la table migratehistory,
-    falsifie les migrations sur une base legacy, et est idempotent.
-    """
+    """Vérifie que run_migrations ne plante pas, crée la table migratehistory, falsifie les migrations sur une base legacy, et est idempotent."""
     # mock_db crée déjà les tables métier, donc on simule un environnement legacy.
     # On supprime migratehistory si elle existe pour simuler un vieil utilisateur
     if db.table_exists("migratehistory"):
@@ -235,8 +232,7 @@ def test_migration_044_realigns_a_capability_inferred_by_the_029(mock_db):
 
 
 def test_migration_044_withdraws_a_vision_claim_the_catalog_contradicts(mock_db):
-    """L'inverse, tout aussi grave : une Vision affirmée sur un modèle texte part en payload
-    multimodal vers une API qui le refuse — l'échec visible, en pleine génération."""
+    """L'inverse, tout aussi grave : une Vision affirmée sur un modèle texte part en payload multimodal vers une API qui le refuse — l'échec visible, en pleine génération."""
     run_migrations()
 
     overstated = LLMConfigModel.create(display_name="o1-mini 044", provider="openai", model_id="o1-mini", supports_vision=True)

@@ -1,3 +1,9 @@
+"""Fondations de l'abstraction des fournisseurs LLM (interface, résultat structuré et mock).
+
+Ce module définit le contrat commun (`LLMProvider`), le conteneur `LLMResult` et un fournisseur
+simulé déterministe utilisé par les tests.
+"""
+
 import inspect
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -14,8 +20,7 @@ class LLMResult:
 
 
 class LLMProvider:
-    """
-    Classe de base définissant le contrat pour tous les fournisseurs d'IA.
+    """Classe de base définissant le contrat pour tous les fournisseurs d'IA.
 
     Permet à chaque implémentation de fournir soit ``generate_response`` (avec support
     de la chaîne de pensée / CoT), soit ``generate`` (texte brut rétrocompatible).
@@ -31,9 +36,7 @@ class LLMProvider:
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> LLMResult:
-        """
-        Génère une réponse complète incluant la chaîne de pensée (thought/CoT) si disponible.
-        """
+        """Génère une réponse complète incluant la chaîne de pensée (thought/CoT) si disponible."""
         if type(self).generate is LLMProvider.generate:
             raise NotImplementedError(f"{type(self).__name__} doit implémenter soit generate_response soit generate")
 
@@ -67,18 +70,17 @@ class LLMProvider:
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
-        """
-        Génère une réponse textuelle brute (délègue par défaut vers generate_response).
+        """Génère une réponse textuelle brute (délègue par défaut vers generate_response).
 
         Args:
-            system_prompt (str): Instructions de base pour l'IA (le "rôle").
-            user_prompt (str | list[dict[str, Any]]): Le message de l'utilisateur ou un payload multimodal.
-            response_format (str): Le format attendu ("json" ou "text"). Par défaut "json".
-            max_tokens (int | None): Plafond maximal de tokens à générer (optionnel).
-            temperature (float | None): Température de créativité (optionnel, fournisseur défaut sinon).
+            system_prompt: Instructions de base pour l'IA (le "rôle").
+            user_prompt: Le message de l'utilisateur ou un payload multimodal.
+            response_format: Le format attendu ("json" ou "text"). Par défaut "json".
+            max_tokens: Plafond maximal de tokens à générer (optionnel).
+            temperature: Température de créativité (optionnel, fournisseur défaut sinon).
 
         Returns:
-            str: La réponse brute générée par l'IA.
+            La réponse brute générée par l'IA.
 
         Raises:
             RuntimeError: Si l'appel à l'API échoue.
@@ -99,11 +101,11 @@ class LLMProvider:
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """
-        Génère un flux de streaming normalisé émettant distinctement :
+        """Génère un flux de streaming normalisé émettant distinctement les événements suivants.
+
         - {"type": "thought_delta", "delta": str}
         - {"type": "text_delta", "delta": str}
-        - {"type": "finish", "content": str, "thought": str | None}
+        - {"type": "finish", "content": str, "thought": str | None}.
         """
         res = self.generate_response(
             system_prompt=system_prompt,
@@ -120,8 +122,7 @@ class LLMProvider:
 
 
 class MockProvider(LLMProvider):
-    """
-    Implémentation de test (Mock) pour simuler une IA sans appel réseau.
+    """Implémentation de test (Mock) pour simuler une IA sans appel réseau.
 
     Utilisée pour le développement, les tests unitaires ou comme solution de repli
     en cas de panne des services cloud.
@@ -135,18 +136,17 @@ class MockProvider(LLMProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
-        """
-        Simule une réponse JSON ou textuelle immédiate.
+        """Simule une réponse JSON ou textuelle immédiate.
 
         Args:
-            system_prompt (str): Instructions ignorées par le mock.
-            user_prompt (str | list[dict[str, Any]]): Message ignoré par le mock.
-            response_format (str): Définit si le mock renvoie du JSON simulé ou du texte.
-            max_tokens (int | None): Limite de tokens (ignorée par le mock).
-            temperature (float | None): Température (ignorée par le mock).
+            system_prompt: Instructions ignorées par le mock.
+            user_prompt: Message ignoré par le mock.
+            response_format: Définit si le mock renvoie du JSON simulé ou du texte.
+            max_tokens: Limite de tokens (ignorée par le mock).
+            temperature: Température (ignorée par le mock).
 
         Returns:
-            str: Une réponse factice prédéfinie.
+            Une réponse factice prédéfinie.
         """
         if response_format == "text":
             return "Ceci est une réponse simulée en texte libre."

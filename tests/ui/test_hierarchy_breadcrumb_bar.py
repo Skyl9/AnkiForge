@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour le composant HierarchyBreadcrumbBar (fil d'Ariane prévisionnel interactif).
-"""
+"""Tests unitaires pour le composant HierarchyBreadcrumbBar (fil d'Ariane prévisionnel interactif)."""
 
 from __future__ import annotations
 

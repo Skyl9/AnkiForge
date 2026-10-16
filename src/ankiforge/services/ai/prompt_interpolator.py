@@ -1,6 +1,4 @@
-"""
-Service d'interpolation et de résolution de prompts Jinja2 pour l'orchestration de pipelines.
-"""
+"""Service d'interpolation et de résolution de prompts Jinja2 pour l'orchestration de pipelines."""
 
 from __future__ import annotations
 
@@ -59,10 +57,7 @@ class PipelinePromptInterpolator:
         all_steps: list[dict[str, Any]] | None = None,
         custom_overrides: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Construit un contexte Jinja2 complet et réaliste, parfaitement aligné sur
-        PipelineOrchestrator._render_prompt_template.
-        """
+        """Construit un contexte Jinja2 complet et réaliste, parfaitement aligné sur PipelineOrchestrator._render_prompt_template."""
         state = PipelineRunState(initial_prompt=cls.DEFAULT_INITIAL_PROMPT)
         state.set_variable("text_source", cls.DEFAULT_TEXT_SOURCE)
         state.set_variable("last_output", "5 cartes générées avec succès.")
@@ -133,9 +128,7 @@ class PipelinePromptInterpolator:
         all_steps: list[dict[str, Any]] | None = None,
         custom_overrides: dict[str, Any] | None = None,
     ) -> InterpolationResult:
-        """
-        Résout le prompt d'une étape (système et entrée utilisateur) avec toutes ses variables.
-        """
+        """Résout le prompt d'une étape (système et entrée utilisateur) avec toutes ses variables."""
         stype = step_data.get("type", "LLM_PROMPT")
         cfg = step_data.get("config", {})
         persona = step_data.get("persona")

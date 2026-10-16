@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour le service d'import/export de modèles de cartes (CardModelIO).
-"""
+"""Tests unitaires pour le service d'import/export de modèles de cartes (CardModelIO)."""
 
 import json
 from pathlib import Path

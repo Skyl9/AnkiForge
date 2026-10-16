@@ -1,5 +1,4 @@
-"""
-Module d'initialisation et de sécurisation des certificats SSL/TLS d'AnkiForge.
+"""Module d'initialisation et de sécurisation des certificats SSL/TLS d'AnkiForge.
 
 Assure la disponibilité permanente des certificats racines d'autorité (CA)
 pour httpx, requests, aiohttp et google-genai, que l'application s'exécute
@@ -19,11 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def find_valid_ca_bundle() -> Path | None:
-    """
-    Recherche un bundle de certificats CA valide et existant sur le système de fichiers.
+    """Recherche un bundle de certificats CA valide et existant sur le système de fichiers.
 
     Returns:
-        Path | None: Le chemin absolu vers le bundle cacert.pem ou certificat système valide.
+        Le chemin absolu vers le bundle cacert.pem ou certificat système valide.
     """
     candidates: list[Path] = []
 
@@ -110,14 +108,13 @@ def pin_ca_bundle_to_requests(bundle_path: Path) -> None:
 
 
 def setup_ssl_certificates() -> str | None:
-    """
-    Configure automatiquement l'environnement SSL (SSL_CERT_FILE) et épingle le bundle
-    de certificats validé dans certifi/requests pour garantir que toutes les connexions
-    HTTPS (Gemini, OpenAI, Groq, Releases GitHub, Ollama) fonctionnent de manière fiable
-    sans lever de FileNotFoundError sous Nuitka.
+    """Configure l'environnement SSL et épingle le bundle de certificats validé dans certifi/requests.
+
+    Garantit que toutes les connexions HTTPS (Gemini, OpenAI, Groq, Releases GitHub, Ollama)
+    fonctionnent de manière fiable sans lever de FileNotFoundError sous Nuitka.
 
     Returns:
-        str | None: Le chemin vers le fichier de certificats configuré, ou None si non trouvé.
+        Le chemin vers le fichier de certificats configuré, ou None si non trouvé.
     """
     bundle_path = find_valid_ca_bundle()
     if bundle_path:

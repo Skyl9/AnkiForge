@@ -1,5 +1,5 @@
-"""
-Façade de Service RAG (Retrieval-Augmented Generation) pour l'orchestrateur DAG et l'UI.
+"""Façade de Service RAG (Retrieval-Augmented Generation) pour l'orchestrateur DAG et l'UI.
+
 Délègue l'indexation matricielle et la recherche hybride à VectorManager (FAISS + BM25 + RRF).
 """
 
@@ -20,9 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class RAGService:
-    """
-    Façade de Service RAG Hybride pour l'ensemble d'AnkiForge.
-    """
+    """Façade de Service RAG Hybride pour l'ensemble d'AnkiForge."""
 
     def __init__(self, llm_config: LLMConfigModel | None = None) -> None:
         self.vector_manager = VectorManager(llm_config=llm_config)
@@ -50,11 +48,11 @@ class RAGService:
         w_sparse: float = DEFAULT_WEIGHT_SPARSE,
         rrf_k: int = DEFAULT_RRF_K,
     ) -> list[dict[str, Any]]:
-        """
-        Recherche sémantique, lexicale ou hybride (RRF) dans un document.
+        """Recherche sémantique, lexicale ou hybride (RRF) dans un document.
+
         - mode="hybrid" : FAISS + BM25 combinés par Reciprocal Rank Fusion
         - mode="dense"  : FAISS vectoriel sémantique pur
-        - mode="sparse" : BM25 lexical exact pur
+        - mode="sparse" : BM25 lexical exact pur.
         """
         try:
             doc_id_int = int(doc_id)

@@ -1,7 +1,4 @@
-"""
-Tests de la plaque de vignettes (ticket S1) : cache LRU, plafonnement avant
-transformation, et orientation venue de la couture.
-"""
+"""Tests de la plaque de vignettes (ticket S1) : cache LRU, plafonnement avant transformation, et orientation venue de la couture."""
 
 from __future__ import annotations
 
@@ -52,11 +49,7 @@ def test_size_bucket_never_returns_less_than_requested():
 
 
 def test_cache_key_includes_the_rotation(album_page):
-    """
-    La rotation fait partie de la clé : pivoter invalide l'entrée de sa propre clé,
-    sans qu'aucune invalidation manuelle soit nécessaire — donc sans qu'aucune puisse
-    être oubliée.
-    """
+    """La rotation fait partie de la clé : pivoter invalide l'entrée de sa propre clé, sans qu'aucune invalidation manuelle soit nécessaire — donc sans qu'aucune puisse être oubliée."""
     page, _service = album_page
     before = ThumbnailCache.key_for(page, 180)
 
@@ -94,8 +87,7 @@ def test_cache_evicts_least_recently_used():
 
 
 def test_thumbnail_is_capped_before_display(qtbot, album_page):
-    """
-    La vignette servie tient dans la taille demandée.
+    """La vignette servie tient dans la taille demandée.
 
     Une planche A4 à 300 dpi ferait 2500×3500 px : la grille ne doit jamais charger cela
     sur le thread GUI. On vérifie le plafond, pas seulement que « ça marche ».
@@ -126,8 +118,7 @@ def test_thumbnail_is_capped_before_display(qtbot, album_page):
 
 
 def test_thumbnail_honours_the_planche_rotation(qtbot, album_page):
-    """
-    L'orientation de la vignette vient de la couture, pas d'une transformation locale.
+    """L'orientation de la vignette vient de la couture, pas d'une transformation locale.
 
     Une planche paysage doit être servie en portrait une fois pivotée à 90°.
     """
@@ -205,8 +196,7 @@ def test_rotating_produces_a_new_cache_entry(qtbot, album_page):
 
 
 def test_rotating_a_multi_page_album_never_renders_on_the_gui_thread(qtbot, tmp_path):
-    """
-    Un album de N planches ne rend **aucune** vignette sur le thread GUI.
+    """Un album de N planches ne rend **aucune** vignette sur le thread GUI.
 
     « Tourner 90° freeze l'image » venait de là : la grille décodait chaque planche en
     pleine résolution, sur le thread qui dessine la fenêtre. On vérifie la propriété qui

@@ -207,8 +207,7 @@ def test_update_checker_nightly_channel() -> None:
 
 
 def test_update_checker_nightly_no_false_alarm_when_build_date_missing() -> None:
-    """BUG 3 : Vérifie que l'absence de build_date dans _version.py ne génère pas
-    de fausse alerte de mise à jour nightly à chaque démarrage."""
+    """BUG 3 : Vérifie que l'absence de build_date dans _version.py ne génère pas de fausse alerte de mise à jour nightly à chaque démarrage."""
     worker = UpdateCheckerWorker(current_version="1.0.5", channel="nightly", force=True)
 
     fake_response = MagicMock()

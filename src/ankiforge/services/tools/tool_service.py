@@ -282,8 +282,8 @@ class ToolService:
 
     @classmethod
     def execute_tool(cls, tool_name: str, state: PipelineRunState, args: dict[str, Any] | None = None) -> Any:
-        """
-        Exécute un outil par son nom sur l'état du pipeline.
+        """Exécute un outil par son nom sur l'état du pipeline.
+
         Cherche d'abord dans les fonctions natives, puis dans les scripts personnalisés de la base SQLite.
         """
         # 1. Appel direct si fonction native déclarée

@@ -1,6 +1,4 @@
-"""
-Tests unitaires et d'intégration pour les outils MCP d'accès aux albums et de gestion des pipelines DAG.
-"""
+"""Tests unitaires et d'intégration pour les outils MCP d'accès aux albums et de gestion des pipelines DAG."""
 
 from __future__ import annotations
 

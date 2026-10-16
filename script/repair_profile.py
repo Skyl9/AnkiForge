@@ -1,5 +1,5 @@
-"""
-Script utilitaire de réparation et restauration d'un profil AnkiForge.
+"""Script utilitaire de réparation et restauration d'un profil AnkiForge.
+
 Restaure les NoteTypes (templates, schémas de champs, CSS), extrait l'intégralité
 des fichiers médias via décompression Zstandard par flux, et remappe les contenus
 de notes (de Field_1...Field_N vers les vrais noms de champs Anki).
@@ -41,9 +41,7 @@ def repair_profile(
     colpkg_path: Path,
     env: str = "prod",
 ) -> dict[str, int]:
-    """
-    Répare un profil AnkiForge corrompu à partir de son fichier .colpkg d'origine.
-    """
+    """Répare un profil AnkiForge corrompu à partir de son fichier .colpkg d'origine."""
     if not colpkg_path.exists():
         raise FileNotFoundError(f"Fichier collection introuvable : {colpkg_path}")
 

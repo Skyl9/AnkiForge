@@ -1,6 +1,4 @@
-"""
-Tests UI (pytest-qt headless) pour les fonctionnalités audio & TTS dans NoteFieldEditorWidget.
-"""
+"""Tests UI (pytest-qt headless) pour les fonctionnalités audio & TTS dans NoteFieldEditorWidget."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch

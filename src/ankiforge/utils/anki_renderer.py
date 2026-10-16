@@ -1,3 +1,5 @@
+"""Rendu et assainissement des modèles de cartes Anki (champs, médias, mathématiques KaTeX)."""
+
 import logging
 import re
 from collections.abc import Mapping
@@ -15,16 +17,15 @@ class AnkiFields(dict[str, Any]):
 
 
 def get_max_cloze_index(fields_dict: dict) -> int:
-    """
-    Identifie l'index de trou de complétion (cloze) le plus élevé dans une note.
+    """Identifie l'index de trou de complétion (cloze) le plus élevé dans une note.
 
     Parcourt tous les champs pour trouver des motifs de type {{c1::...}}, {{c2::...}}, etc.
 
     Args:
-        fields_dict (dict): Dictionnaire des champs de la note.
+        fields_dict: Dictionnaire des champs de la note.
 
     Returns:
-        int: L'index maximum trouvé (ex: 3 pour c3). Retourne 0 si aucun n'est trouvé.
+        L'index maximum trouvé (ex: 3 pour c3). Retourne 0 si aucun n'est trouvé.
     """
     max_idx = 0
     pattern = re.compile(r"\{\{c(\d+)::", re.IGNORECASE)
@@ -169,8 +170,8 @@ def _process_front_side(html: str, front_html: str, safe_fields: dict[str, str])
 
 
 def _preprocess_math_blocks(html: str) -> str:
-    """
-    Normalise et prépare les blocs mathématiques pour KaTeX :
+    """Normalise et prépare les blocs mathématiques pour KaTeX.
+
     - Convertit les balises Anki historiques [latex]...[/latex], [math]...[/math], [$]...[/$], [$$]...[/$$].
     - Nettoie les balises parasites (<br>, &nbsp;, &amp;, etc.) à l'intérieur des délimiteurs mathématiques.
     - Transforme les clozes imbriqués (<span class='cloze'>...</span>) en macro KaTeX \\htmlClass{cloze}{...}
@@ -204,6 +205,11 @@ def _preprocess_math_blocks(html: str) -> str:
 
 
 def get_mathjax_script() -> str:
+    """Génère le script et les feuilles de style KaTeX à injecter dans le HTML d'une carte.
+
+    Returns:
+        Balises HTML complètes, ou chaîne vide si le bundle KaTeX local est introuvable.
+    """
     css_res = get_resource_path("resources", "katex", "katex.min.css")
     js_res = get_resource_path("resources", "katex", "katex.min.js")
     auto_render_res = get_resource_path("resources", "katex", "auto-render.min.js")
@@ -254,8 +260,8 @@ def get_mathjax_script() -> str:
 
 
 def _process_media_references(html: str) -> str:
-    """
-    Résout et réécrit les balises de médias dans le HTML d'une carte Anki :
+    """Résout et réécrit les balises de médias dans le HTML d'une carte Anki.
+
     - <img src="..."> : résout le chemin physique réel avec resolve_media_path (support des noms hachés,
       cross-profils, et décompression Zstandard automatique). Si l'image est résolue, utilise son URL
       locale absolue (file://...) pour garantir que WebEngine la charge sans ambiguïté.
@@ -320,23 +326,22 @@ def render_anki_card(
     is_dark_mode: bool = False,
     template_index: int = 0,
 ) -> str:
-    """
-    Simule le rendu HTML d'une carte Anki.
+    """Simule le rendu HTML d'une carte Anki.
 
     Gère les remplacements de champs, les sections conditionnelles, les trous de complétion
     (cloze deletion), le mode nuit et l'injection de MathJax/KaTeX pour le rendu LaTeX.
 
     Args:
-        raw_html (str): Le template HTML brut (Recto ou Verso).
-        css (str): Les styles CSS du modèle de note.
-        fields_dict (AnkiFields): Les données de la note (champs -> contenu).
-        is_recto (bool): Si True, affiche le recto. Sinon le verso.
-        front_html (str): Le contenu rendu du recto (nécessaire pour {{FrontSide}} au verso).
-        is_dark_mode (bool): Active les styles de mode nuit.
-        template_index (int): L'index de la carte physique (pour les notes à plusieurs cartes).
+        raw_html: Le template HTML brut (Recto ou Verso).
+        css: Les styles CSS du modèle de note.
+        fields_dict: Les données de la note (champs -> contenu).
+        is_recto: Si True, affiche le recto. Sinon le verso.
+        front_html: Le contenu rendu du recto (nécessaire pour {{FrontSide}} au verso).
+        is_dark_mode: Active les styles de mode nuit.
+        template_index: L'index de la carte physique (pour les notes à plusieurs cartes).
 
     Returns:
-        str: Le code HTML complet, prêt à être affiché dans un QWebEngineView.
+        Le code HTML complet, prêt à être affiché dans un QWebEngineView.
     """
     logger.debug(
         "Rendu de carte Anki (recto=%s, dark_mode=%s, template_index=%d, %d champs)",

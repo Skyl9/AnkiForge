@@ -81,7 +81,7 @@ class AudioParser:
             check_cancel: Callback optionnel de vérification d'annulation.
 
         Returns:
-            str: Le texte Markdown complet paginé et horodaté.
+            Le texte Markdown complet paginé et horodaté.
 
         Raises:
             FileNotFoundError: Si le fichier audio n'existe pas.

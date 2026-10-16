@@ -1,6 +1,4 @@
-"""
-Repository for Deck models and subdeck hierarchy management.
-"""
+"""Dépôt pour les modèles de paquets et la gestion de la hiérarchie des sous-paquets."""
 
 from __future__ import annotations
 
@@ -14,14 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 class DeckRepository(BaseRepository):
-    """Data access repository for Anki decks and subdeck hierarchies."""
+    """Dépôt d'accès aux données des paquets Anki et de leurs sous-paquets hiérarchiques."""
 
     def get_all_decks(self) -> list[DeckModel]:
-        """Retrieve all decks ordered alphabetically by name."""
+        """Retourne tous les paquets triés par ordre alphabétique sur le nom."""
         return list(DeckModel.select().order_by(DeckModel.name.asc()))
 
     def get_deck_by_id(self, deck_id: int) -> DeckModel | None:
-        """Retrieve a deck by its primary key ID."""
+        """Récupère un paquet par sa clé primaire."""
         try:
             return DeckModel.get_or_none(DeckModel.id == deck_id)
         except Exception as e:
@@ -29,7 +27,7 @@ class DeckRepository(BaseRepository):
             return None
 
     def get_deck_by_name(self, name: str) -> DeckModel | None:
-        """Retrieve a deck by its exact name."""
+        """Retourne un paquet par son nom exact."""
         try:
             return DeckModel.get_or_none(DeckModel.name == name)
         except Exception as e:
@@ -37,17 +35,14 @@ class DeckRepository(BaseRepository):
             return None
 
     def get_or_create_deck(self, name: str, description: str = "") -> DeckModel:
-        """Retrieve an existing deck or create a new one."""
+        """Récupère un paquet existant ou en crée un nouveau."""
         existing = self.get_deck_by_name(name)
         if existing:
             return existing
         return self.create_deck(name=name, description=description)
 
     def get_or_create_deck_hierarchical(self, name: str, description: str = "") -> DeckModel:
-        """
-        Retrieve or create a deck, ensuring all parent decks in the 'Parent::Child'
-        hierarchy are created and properly linked via parent_deck.
-        """
+        """Retourne ou crée un paquet, en créant et reliant tous les paquets parents de la hiérarchie « Parent::Enfant » via parent_deck."""
         parts = split_hierarchy(name) or ["Par défaut"]
 
         current_deck: DeckModel | None = None
@@ -82,7 +77,7 @@ class DeckRepository(BaseRepository):
         description: str = "",
         parent_deck: DeckModel | None = None,
     ) -> DeckModel:
-        """Create a new deck."""
+        """Crée un nouveau paquet."""
         with self.atomic():
             return DeckModel.create(
                 name=name,
@@ -91,7 +86,7 @@ class DeckRepository(BaseRepository):
             )
 
     def rename_deck(self, deck_id: int, new_name: str) -> DeckModel | None:
-        """Rename an existing deck and update subdeck prefixes if necessary."""
+        """Renomme un paquet existant et met à jour les préfixes de ses sous-paquets si nécessaire."""
         deck = self.get_deck_by_id(deck_id)
         if not deck:
             return None
@@ -112,7 +107,7 @@ class DeckRepository(BaseRepository):
             return deck
 
     def delete_deck(self, deck_id: int) -> bool:
-        """Delete a deck and cascade deletion to subdecks and cards."""
+        """Supprime un paquet en cascade sur ses sous-paquets et ses cartes."""
         deck = self.get_deck_by_id(deck_id)
         if not deck:
             return False
@@ -129,9 +124,9 @@ class DeckRepository(BaseRepository):
             return True
 
     def get_descendant_decks(self, deck_name: str) -> list[DeckModel]:
-        """Retrieve a deck and all its subdecks based on hierarchy prefix."""
+        """Retourne un paquet et tous ses sous-paquets d'après leur préfixe hiérarchique."""
         return list(DeckModel.select().where((DeckModel.name == deck_name) | (DeckModel.name.startswith(descendants_prefix(deck_name)))))
 
     def get_card_count(self, deck_id: int) -> int:
-        """Return total number of cards placed in a specific deck."""
+        """Retourne le nombre total de cartes rattachées à un paquet donné."""
         return int(CardModel.select().where(CardModel.deck == deck_id).count())

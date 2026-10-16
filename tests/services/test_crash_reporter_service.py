@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour CrashReporterService.
+"""Tests unitaires pour CrashReporterService.
+
 Vérifie le parsing de crash.log, la détection des crashs non acquittés,
 la redaction des secrets sur le payload généré, l'URL GitHub et les préférences.
 """

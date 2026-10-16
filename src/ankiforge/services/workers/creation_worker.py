@@ -1,3 +1,5 @@
+"""Worker QThread de génération de flashcards via un pipeline d'agents IA."""
+
 import json
 import logging
 from dataclasses import dataclass
@@ -14,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CreationTaskPayload:
-    """
-    Conteneur de données brutes pour une tâche de génération unique.
+    """Conteneur de données brutes pour une tâche de génération unique.
+
     Évite les accès directs à la base de données dans le thread secondaire.
     """
 
@@ -29,8 +31,7 @@ class CreationTaskPayload:
 
 
 class CreationWorker(QThread):
-    """
-    Moteur asynchrone de génération de flashcards.
+    """Moteur asynchrone de génération de flashcards.
 
     Gère le passage successif du texte source à travers une chaîne d'agents IA (pipeline).
     Supporte la vision, le nettoyage de JSON et le reformatage des champs selon le modèle Anki.
@@ -43,12 +44,11 @@ class CreationWorker(QThread):
     cancelled = Signal()
 
     def __init__(self, ai_provider: Any, payload: CreationTaskPayload) -> None:
-        """
-        Initialise le worker de génération unique.
+        """Initialise le worker de génération unique.
 
         Args:
-            ai_provider (Any): Le fournisseur IA actif.
-            payload (CreationTaskPayload): Les données préparées de la tâche.
+            ai_provider: Le fournisseur IA actif.
+            payload: Les données préparées de la tâche.
         """
         super().__init__()
         self.ai_provider = ai_provider
@@ -61,14 +61,13 @@ class CreationWorker(QThread):
 
     @staticmethod
     def _clean_json(raw_text: str) -> str:
-        """
-        Nettoie le texte pour isoler le JSON (supprime les blocs markdown).
+        """Nettoie le texte pour isoler le JSON (supprime les blocs markdown).
 
         Args:
-            raw_text (str): Texte brut de l'IA.
+            raw_text: Texte brut de l'IA.
 
         Returns:
-            str: JSON prêt pour le parsing.
+            JSON prêt pour le parsing.
         """
         clean = raw_text.strip()
         if clean.startswith("```json"):

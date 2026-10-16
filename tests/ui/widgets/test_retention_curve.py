@@ -1,5 +1,4 @@
-"""
-Tests d'interface pour RetentionCurveWidget (courbe d'oubli projetée, QPainter).
+"""Tests d'interface pour RetentionCurveWidget (courbe d'oubli projetée, QPainter).
 
 Le widget est piloté par la sortie de ``FsrsProjectionService`` : aucune donnée
 n'est fabriquée côté UI, et l'absence de projection exploitable affiche un état

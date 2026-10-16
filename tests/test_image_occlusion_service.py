@@ -1,9 +1,9 @@
-"""
-Tests unitaires pour ImageOcclusionService :
+"""Tests unitaires pour ImageOcclusionService.
+
 - Parsing JSON multimodal des coordonnées normalisées
 - Génération SVG des masques (modes hide_all et hide_one, recto et verso)
 - Persistance du modèle NoteType et création des NoteModel/CardModel
-- Intégration avec ExportManager pour la vérification du paquet APKG
+- Intégration avec ExportManager pour la vérification du paquet APKG.
 """
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+"""Migration 036 : création de la table embedding_cache et rattrapage des index manquants."""
+
 import datetime
 import logging
 

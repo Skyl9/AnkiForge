@@ -1,5 +1,4 @@
-"""
-Projection de rétention et charge à l'équilibre, dérivées du seul intervalle courant.
+"""Projection de rétention et charge à l'équilibre, dérivées du seul intervalle courant.
 
 La Forge ne stocke ni la stabilité calculée par Anki, ni les dates d'échéance, ni
 d'historique de révision. La projection s'appuie donc exclusivement sur l'intervalle

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Testeur Graphique Interactif (GUI Qt) du Moteur DAG d'AnkiForge.
+"""Testeur Graphique Interactif (GUI Qt) du Moteur DAG d'AnkiForge.
+
 Interface PySide6 autonome permettant de visualiser en temps réel l'exécution
 des étapes du DAG, les barres de progression Map-Reduce, la modale de validation
 humaine interactive et le tableau des flashcards générées.

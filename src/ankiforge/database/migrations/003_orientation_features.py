@@ -1,3 +1,5 @@
+"""Migration 003 : champs de synchro bidirectionnelle Anki, pipelines conditionnels et modèle des médias."""
+
 import datetime
 
 import peewee as pw

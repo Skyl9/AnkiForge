@@ -1,7 +1,4 @@
-"""
-Tests unitaires et d'intégration pour le rendu des cartes, la préservation des médias
-et l'éradication des faux positifs 'CARTE INVALIDE'.
-"""
+"""Tests unitaires et d'intégration pour le rendu des cartes, la préservation des médias et l'éradication des faux positifs 'CARTE INVALIDE'."""
 
 from __future__ import annotations
 

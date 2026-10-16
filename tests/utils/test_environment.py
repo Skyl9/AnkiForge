@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour le module ankiforge.utils.environment et le cloisonnement Dev/Prod/Test.
-"""
+"""Tests unitaires pour le module ankiforge.utils.environment et le cloisonnement Dev/Prod/Test."""
 
 from __future__ import annotations
 

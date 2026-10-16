@@ -1,5 +1,5 @@
-"""
-Tests unitaires pour le suivi du budget tokens & coûts en temps réel du Consultant IA.
+"""Tests unitaires pour le suivi du budget tokens & coûts en temps réel du Consultant IA.
+
 Vérifie le calcul des tokens réels et du coût USD (pricing_service), l'émission des signaux de budget,
 et l'interruption préventive automatique au seuil de 80%.
 """

@@ -48,6 +48,7 @@ class MigrationReindexWorker(QThread):
         self._activity.report_fragments(processed, total)
 
     def run(self) -> None:
+        """Re-structure chaque document stale en arrière-plan, avec annulation coopérative entre documents."""
         total = len(self._process_docs)
         processed = 0
         fragments = 0

@@ -1,3 +1,5 @@
+"""Migration 017 : catégories, labels et style visuel des règles d'audit Linter."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

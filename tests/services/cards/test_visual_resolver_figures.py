@@ -1,5 +1,4 @@
-"""
-Tests de la couture de listing des figures (`VisualPayloadResolver`).
+"""Tests de la couture de listing des figures (`VisualPayloadResolver`).
 
 La couture ne se contente pas de résoudre des images : elle doit aussi **dire quelles
 figures existent**, sans les encoder. Ces tests verrouillent cette seconde responsabilité,

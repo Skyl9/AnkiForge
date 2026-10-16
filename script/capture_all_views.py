@@ -1,6 +1,4 @@
-"""
-Script automatisé pour capturer les 11 vues de l'application AnkiForge avec un thème forcé.
-"""
+"""Script automatisé pour capturer les 11 vues de l'application AnkiForge avec un thème forcé."""
 
 import os
 import sys

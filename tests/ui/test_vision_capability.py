@@ -1,5 +1,4 @@
-"""
-Tests de l'indicateur de compatibilité Vision du moteur IA sélectionné.
+"""Tests de l'indicateur de compatibilité Vision du moteur IA sélectionné.
 
 Couvre la politique partagée (`resolve_vision_support` / `effective_vision` / `vision_tooltip`),
 le badge, puis sa synchronisation réelle dans le Studio de Création et la Batch Factory.
@@ -343,8 +342,7 @@ _MULTIMODAL_MODELS = [("openai", "gpt-4o"), ("gemini", "gemini-3.5-flash-lite"),
 
 @pytest.mark.parametrize(("provider", "model_id"), _TEXT_ONLY_MODELS)
 def test_a_text_only_model_added_by_the_user_greys_out_both_views(qtbot: Any, mock_db: Any, provider: str, model_id: str) -> None:
-    """Critère d'acceptation, de bout en bout : le moteur est créé comme par l'application,
-    puis les deux vues doivent refuser la Vision et l'annoncer."""
+    """Critère d'acceptation, de bout en bout : le moteur est créé comme par l'application, puis les deux vues doivent refuser la Vision et l'annoncer."""
     uid = uuid.uuid4().hex[:6]
     engine = _add_engine_through_the_writer(f"Texte {uid}", model_id, provider)
     assert engine.supports_vision is False, "la politique d'écriture a accordé la Vision à un modèle texte"

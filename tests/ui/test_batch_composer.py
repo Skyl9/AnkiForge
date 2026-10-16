@@ -1,5 +1,4 @@
-"""Tests de la modale fusionnée de composition d'un lot (BatchSliceComposerDialog)
-et de son widget embarqué AutoSliceWidget."""
+"""Tests de la modale fusionnée de composition d'un lot (BatchSliceComposerDialog) et de son widget embarqué AutoSliceWidget."""
 
 from typing import Any
 

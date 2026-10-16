@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour la TopBar d'AnkiForge, en particulier la capsule des dépenses IA.
-"""
+"""Tests unitaires pour la TopBar d'AnkiForge, en particulier la capsule des dépenses IA."""
 
 import pytest
 from PySide6.QtWidgets import QFrame

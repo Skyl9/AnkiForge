@@ -1,6 +1,4 @@
-"""
-Tests UI d'intégration pour le flux de transcription et le retry dans AlbumViewerWidget.
-"""
+"""Tests UI d'intégration pour le flux de transcription et le retry dans AlbumViewerWidget."""
 
 import pytest
 

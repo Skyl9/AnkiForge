@@ -1,3 +1,5 @@
+"""Gestion des profils isolés (une base SQLite et un dossier médias par profil)."""
+
 import logging
 import shutil
 from pathlib import Path
@@ -75,7 +77,7 @@ class ProfileManager(metaclass=_ProfileManagerMeta):
         return sorted(p.name for p in self.profiles_dir.iterdir() if p.is_dir())
 
     def create_profile(self, name: str) -> Path:
-        """Crée ~/.ankiforge[-dev]/profiles/<name>/ankiforge.db + media/"""
+        """Crée ~/.ankiforge[-dev]/profiles/<name>/ankiforge.db + media/."""
         logger.info("Création d'un nouveau profil utilisateur : '%s'", name)
         profile_dir = self.profiles_dir / name
         profile_dir.mkdir(parents=True, exist_ok=True)
@@ -93,7 +95,7 @@ class ProfileManager(metaclass=_ProfileManagerMeta):
             shutil.rmtree(profile_dir)
 
     def get_db_path(self, profile_name: str) -> Path:
-        """Retourne ~/.ankiforge[-dev]/profiles/<profile_name>/ankiforge.db"""
+        """Retourne ~/.ankiforge[-dev]/profiles/<profile_name>/ankiforge.db."""
         return self.profiles_dir / profile_name / "ankiforge.db"
 
     def get_media_dir(self, profile_name: str) -> Path:

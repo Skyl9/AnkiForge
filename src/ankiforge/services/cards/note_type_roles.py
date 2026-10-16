@@ -1,5 +1,4 @@
-"""
-Catalogue et définitions des archétypes de rôles IA pour les types de note (NoteTypeModel).
+"""Catalogue et définitions des archétypes de rôles IA pour les types de note (NoteTypeModel).
 
 Ce module fournit un catalogue structuré d'archétypes de types de note pour guider l'utilisateur
 dans la configuration du champ « Rôle IA » (description sémantique) consommé par l'orchestrateur
@@ -28,8 +27,7 @@ class NoteTypeRoleArchetype:
 
 
 def get_standard_role_archetypes() -> list[NoteTypeRoleArchetype]:
-    """
-    Retourne la liste ordonnée des 6 archétypes canoniques de rôles IA pour les types de note.
+    """Retourne la liste ordonnée des 6 archétypes canoniques de rôles IA pour les types de note.
 
     Les chaînes destinées à l'affichage utilisateur sont traduites via tr() à l'exécution
     pour respecter ADR 0013 (aucune constante figée à l'import).
@@ -112,10 +110,10 @@ def generate_markdown_table(
     rows: list[dict[str, str]],
     headers: list[str] | None = None,
 ) -> str:
-    """
-    Construit un tableau Markdown normalisé à partir d'une liste de dictionnaires de lignes.
+    """Construit un tableau Markdown normalisé à partir d'une liste de dictionnaires de lignes.
+
     Par défaut, les colonnes sont :
-    ["Concept / Cas d'usage", "Directive sémantique pour l'IA", "Champs cibles"]
+    ["Concept / Cas d'usage", "Directive sémantique pour l'IA", "Champs cibles"].
     """
     if headers is None:
         headers = [
@@ -140,9 +138,10 @@ def generate_markdown_table(
 
 
 def parse_markdown_table(md_text: str) -> tuple[list[str], list[dict[str, str]]]:
-    """
-    Parse un tableau Markdown et extrait les en-têtes ainsi que les lignes sous forme de dictionnaires.
-    Retourne (en-têtes, lignes).
+    """Parse un tableau Markdown et extrait les en-têtes ainsi que les lignes sous forme de dictionnaires.
+
+    Returns:
+        Les en-têtes de colonnes et les lignes du tableau converties en dictionnaires.
     """
     if not is_markdown_table(md_text):
         return [], []
@@ -177,10 +176,7 @@ def parse_markdown_table(md_text: str) -> tuple[list[str], list[dict[str, str]]]
 
 
 def get_table_creation_templates() -> list[dict[str, str]]:
-    """
-    Fournit un ensemble de briques / règles types suggérées pour assister la création
-    d'un tableau sémantique personnalisé.
-    """
+    """Fournit un ensemble de briques / règles types suggérées pour assister la création d'un tableau sémantique personnalisé."""
     return [
         {
             "concept": tr("Définition & Concept clé"),
@@ -219,8 +215,7 @@ def map_archetype_fields_to_note_model(
     suggested_fields: list[str],
     model_fields: list[str],
 ) -> list[str]:
-    """
-    Associe les champs suggérés d'un archétype aux champs réels du type de note.
+    """Associe les champs suggérés d'un archétype aux champs réels du type de note.
 
     Priorité :
     1. Correspondance exacte insensible à la casse
@@ -288,10 +283,7 @@ def create_table_rows_for_archetype(
     archetype: NoteTypeRoleArchetype,
     model_fields: list[str] | None = None,
 ) -> list[dict[str, str]]:
-    """
-    Construit les lignes de données d'un tableau sémantique pour un archétype donné,
-    en appliquant l'appariement sur les champs réels du modèle s'ils sont fournis.
-    """
+    """Construit les lignes de données d'un tableau sémantique pour un archétype donné, en appliquant l'appariement sur les champs réels du modèle s'ils sont fournis."""
     fields = map_archetype_fields_to_note_model(archetype.suggested_fields, model_fields) if model_fields else list(archetype.suggested_fields)
 
     return [

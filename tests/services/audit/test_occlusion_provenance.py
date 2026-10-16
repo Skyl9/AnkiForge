@@ -1,5 +1,4 @@
-"""
-Tests du rattachement des occlusions à leur source (ADR 0023).
+"""Tests du rattachement des occlusions à leur source (ADR 0023).
 
 La provenance d'une carte d'occlusion est **possédée par l'appelant** : une figure connaît son
 fragment, donc le rattachement est résolu au palier ``exact`` et non déduit d'une section ou

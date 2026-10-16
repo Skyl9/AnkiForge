@@ -476,7 +476,6 @@ class EpubParser:
             strip=["script", "style"],
         )
 
-        # Nettoyage des lignes vides consécutives
         cleaned_md = re.sub(r"\n{3,}", "\n\n", md_text).strip()
 
         # 6. S'assurer qu'un titre de niveau 1 (# Titre) commence le chapitre

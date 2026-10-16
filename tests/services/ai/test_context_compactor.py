@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour le service ContextCompactor (Compaction dynamique et Next Steps).
-"""
+"""Tests unitaires pour le service ContextCompactor (Compaction dynamique et Next Steps)."""
 
 import pytest
 

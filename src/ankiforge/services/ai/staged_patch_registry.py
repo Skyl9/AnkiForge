@@ -104,8 +104,8 @@ class StagedPatchRegistry:
 
     @classmethod
     def apply_staged_patch(cls, patch_id: str) -> dict[str, Any]:
-        """
-        Applique un patch en attente avec validation optimiste de concurrence.
+        """Applique un patch en attente avec validation optimiste de concurrence.
+
         Retourne un dictionnaire avec le statut ('applied', 'conflict', ou 'error').
         """
         patch = cls.get_patch(patch_id)

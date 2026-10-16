@@ -1,6 +1,4 @@
-"""
-Tests d'interface graphique (PySide6 / pytest-qt) pour le gestionnaire d'addons et l'onglet Extensions.
-"""
+"""Tests d'interface graphique (PySide6 / pytest-qt) pour le gestionnaire d'addons et l'onglet Extensions."""
 
 import json
 import shutil

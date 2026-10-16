@@ -1,3 +1,5 @@
+"""Modèles Peewee de la consommation de tokens et des métriques LLM."""
+
 from __future__ import annotations
 
 import datetime

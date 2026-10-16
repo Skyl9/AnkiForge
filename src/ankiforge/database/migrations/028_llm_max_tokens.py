@@ -1,3 +1,5 @@
+"""Migration 028 : max_tokens et sort_order sur llm_configs, mise en avant de gemini-3.5-flash-lite."""
+
 import logging
 
 import peewee as pw

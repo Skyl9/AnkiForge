@@ -1,6 +1,4 @@
-"""
-Unit tests for EditionViewModel.
-"""
+"""Unit tests for EditionViewModel."""
 
 from __future__ import annotations
 

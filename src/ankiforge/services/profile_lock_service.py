@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 class LockInfo(NamedTuple):
+    """Métadonnées du processus détenteur d'un verrou de profil."""
+
     pid: int
     hostname: str
     appname: str
@@ -60,8 +62,8 @@ class ProfileLockService:
 
     @classmethod
     def is_locked(cls, profile_name: str, profiles_dir: Path | None = None) -> tuple[bool, LockInfo | None]:
-        """
-        Vérifie si le profil est verrouillé par un processus actif.
+        """Vérifie si le profil est verrouillé par un processus actif.
+
         Si un verrou orphelin (stale lock avec PID inactif) est détecté, le nettoie et retourne (False, None).
         """
         lock_path = cls.get_lock_file_path(profile_name, profiles_dir)
@@ -90,8 +92,8 @@ class ProfileLockService:
 
     @classmethod
     def acquire_lock(cls, profile_name: str, profiles_dir: Path | None = None) -> tuple[bool, LockInfo | None]:
-        """
-        Tente d'acquérir le verrou exclusif sur le profil.
+        """Tente d'acquérir le verrou exclusif sur le profil.
+
         Retourne (True, None) si le verrou est acquis.
         Retourne (False, lock_info) si le profil est déjà verrouillé par un processus vivant.
         """

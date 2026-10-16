@@ -1,7 +1,4 @@
-"""
-Tests unitaires et UI pour le bandeau de traçabilité documentaire (DocumentSourceBadge)
-et son intégration responsive au sein de la vue d'Édition (EditionView).
-"""
+"""Tests unitaires et UI pour le bandeau de traçabilité documentaire (DocumentSourceBadge) et son intégration responsive au sein de la vue d'Édition (EditionView)."""
 
 from __future__ import annotations
 

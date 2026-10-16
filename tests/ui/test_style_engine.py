@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour le Moteur de Style Centralisé (StyleEngine) d'AnkiForge.
-"""
+"""Tests unitaires pour le Moteur de Style Centralisé (StyleEngine) d'AnkiForge."""
 
 import dataclasses
 import re
@@ -478,9 +476,7 @@ def test_all_builtin_themes_compilation_and_application(qtbot):
 
 
 def test_checkbox_indicator_has_svg_icons_and_separate_radio_rule() -> None:
-    """Vérifie que QCheckBox::indicator:checked possède l'icône SVG check_white.svg,
-    que QCheckBox::indicator:indeterminate possède dash_white.svg,
-    et que QRadioButton n'hérite pas de cette coche."""
+    """Vérifie que QCheckBox::indicator:checked possède l'icône SVG check_white.svg, que QCheckBox::indicator:indeterminate possède dash_white.svg, et que QRadioButton n'hérite pas de cette coche."""
     engine = get_style_engine()
     qss = engine.generate_stylesheet(JETBRAINS_DARK)
 

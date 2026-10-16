@@ -1,6 +1,4 @@
-"""
-Service de calcul des métriques métier, de télémétrie et des diagnostics proactifs pour AnkiForge.
-"""
+"""Service de calcul des métriques métier, de télémétrie et des diagnostics proactifs pour AnkiForge."""
 
 import logging
 from datetime import datetime, time, timedelta

@@ -1,4 +1,4 @@
-"""AnkiForge - Advanced AI-driven Anki Card Forge & Studio."""
+"""AnkiForge : générateur de cartes Anki assisté par IA."""
 
 import sys
 from pathlib import Path

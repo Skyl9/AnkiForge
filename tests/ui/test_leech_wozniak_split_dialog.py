@@ -1,6 +1,4 @@
-"""
-Tests UI headless pour LeechWozniakSplitDialog (dialogue modal d'inspection et de scission atomique).
-"""
+"""Tests UI headless pour LeechWozniakSplitDialog (dialogue modal d'inspection et de scission atomique)."""
 
 from __future__ import annotations
 

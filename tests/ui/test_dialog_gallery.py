@@ -1,5 +1,5 @@
-"""
-Tests unitaires et d'interface graphique pour la Galerie de Test des Boîtes de Dialogue en Mode Dev.
+"""Tests unitaires et d'interface graphique pour la Galerie de Test des Boîtes de Dialogue en Mode Dev.
+
 Vérifie l'instanciation, le filtrage de recherche, l'intégration dans DeveloperTab et SettingsModal,
 ainsi que l'isolation stricte par rapport à la base de données réelle (zéro écriture SQLite).
 """

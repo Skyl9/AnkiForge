@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour le service de versioning des Personas / Agents IA (PersonaVersionService).
-"""
+"""Tests unitaires pour le service de versioning des Personas / Agents IA (PersonaVersionService)."""
 
 import json
 

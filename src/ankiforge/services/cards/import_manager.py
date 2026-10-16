@@ -1,5 +1,5 @@
-"""
-Service d'Importation, Analyse Déterministe et Gestion des Conflits pour AnkiForge.
+"""Service d'Importation, Analyse Déterministe et Gestion des Conflits pour AnkiForge.
+
 Supporte les archives .apkg, .colpkg (Zstandard collection.anki21b, SQLite collection.anki2)
 et les fichiers texte tabulés (.txt).
 Applique la Règle 11 : Détection stricte des conflits de contenu uniquement si la note locale
@@ -334,8 +334,8 @@ class ImportManager:
         return diffs
 
     def analyze_archive(self, file_path: str | Path, progress_callback: Callable[[str], None] | None = None) -> ImportAnalysisResult:
-        """
-        Analyse une archive (.apkg, .colpkg ou .txt) sans modifier la base de données.
+        """Analyse une archive (.apkg, .colpkg ou .txt) sans modifier la base de données.
+
         Identifie les nouvelles notes, les mises à jour silencieuses et les conflits stricts.
         """
         path = Path(file_path)
@@ -929,8 +929,8 @@ class ImportManager:
         target_deck_id: int | None = None,
         progress_callback: Callable[[str], None] | None = None,
     ) -> dict[str, int]:
-        """
-        Effectue l'écriture finale en base de données de manière atomique.
+        """Effectue l'écriture finale en base de données de manière atomique.
+
         Applique les créations, mises à jour silencieuses et résolutions de conflits arbitrées.
         """
         resolutions = conflict_resolutions or {}

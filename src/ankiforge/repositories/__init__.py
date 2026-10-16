@@ -1,6 +1,6 @@
-"""
-Package for AnkiForge Repositories (Data Access Layer).
-Encapsulates Peewee ORM queries and ensures transaction isolation.
+"""Paquet des dépôts d'AnkiForge (couche d'accès aux données).
+
+Encapsule les requêtes Peewee ORM et garantit l'isolation des transactions.
 """
 
 from __future__ import annotations

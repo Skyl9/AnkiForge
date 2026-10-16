@@ -1,3 +1,5 @@
+"""Migration 041 : table staged_patches des patchs chirurgicaux en attente de validation."""
+
 import datetime
 import logging
 

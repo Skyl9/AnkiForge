@@ -1,6 +1,4 @@
-"""
-Tests unitaires et d'intégration CLI pour le mode serveur MCP headless d'AnkiForge (MCP-02).
-"""
+"""Tests unitaires et d'intégration CLI pour le mode serveur MCP headless d'AnkiForge (MCP-02)."""
 
 from __future__ import annotations
 

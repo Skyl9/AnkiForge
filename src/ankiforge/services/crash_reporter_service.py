@@ -1,5 +1,5 @@
-"""
-Service de diagnostic et de gestion des rapports de crash (Crash Reporter).
+"""Service de diagnostic et de gestion des rapports de crash (Crash Reporter).
+
 Parse les fichiers crash.log, détecte les incidents non encore proposés à l'utilisateur,
 applique la sanitisation stricte des secrets (SecretRedactionFilter / redact_secrets),
 génère les rapports Markdown et construit les URL de transmission GitHub Issues.
@@ -55,8 +55,8 @@ class CrashReporterService:
 
     @staticmethod
     def parse_crash_log_content(content: str, log_file: Path | None = None) -> list[CrashReport]:
-        """
-        Parse l'intégralité d'un contenu de crash.log et retourne la liste des CrashReport ordonnés.
+        """Parse l'intégralité d'un contenu de crash.log et retourne la liste des CrashReport ordonnés.
+
         Gère les séparateurs '====' et extrait les métadonnées de chaque incident.
         """
         if not content or not content.strip():
@@ -73,14 +73,12 @@ class CrashReporterService:
                 i += 1
                 continue
 
-            # Vérifier si ce bloc contient l'en-tête "CRASH REPORT"
             header_match = _RE_CRASH_HEADER.search(part)
             if header_match:
                 ts = header_match.group("timestamp") or ""
                 os_plat = header_match.group("platform").strip()
                 py_ver = header_match.group("python").strip()
 
-                # Recherche du profil actif
                 prof_match = _RE_PROFILE_LINE.search(part)
                 prof = prof_match.group("profile").strip() if prof_match else "default"
 
@@ -96,7 +94,6 @@ class CrashReporterService:
                         i += 1  # Avancer pour consommer le traceback
 
                 if not tb:
-                    # Extraire le traceback contenu dans le même bloc
                     lines = part.splitlines()
                     tb_lines: list[str] = []
                     found_prof = False
@@ -162,8 +159,8 @@ class CrashReporterService:
 
     @classmethod
     def has_pending_crash(cls, log_dir: Path | None = None) -> bool:
-        """
-        Détermine si un crash récent n'a pas encore été proposé/acquitté par l'utilisateur.
+        """Détermine si un crash récent n'a pas encore été proposé/acquitté par l'utilisateur.
+
         Respecte la préférence utilisateur (retourne False si désactivé).
         """
         if not cls.is_prompt_enabled():
@@ -190,8 +187,8 @@ class CrashReporterService:
         crash: CrashReport,
         diagnostic_info: SystemDiagnosticInfo | None = None,
     ) -> str:
-        """
-        Génère un rapport Markdown complet et prêt à l'envoi.
+        """Génère un rapport Markdown complet et prêt à l'envoi.
+
         Applique systématiquement la sanitisation des secrets sur l'ensemble du payload.
         """
         now_utc = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
@@ -242,10 +239,7 @@ class CrashReporterService:
         crash: CrashReport,
         diagnostic_info: SystemDiagnosticInfo | None = None,
     ) -> str:
-        """
-        Construit une URL GitHub Issues pré-remplie avec le titre de l'exception
-        et le rapport d'incident complet.
-        """
+        """Construit une URL GitHub Issues pré-remplie avec le titre de l'exception et le rapport d'incident complet."""
         # Extraire le message de la dernière exception levée pour un titre pertinent
         title = "Arrêt inattendu de l'application"
         matches = list(_RE_EXCEPTION_LINE.finditer(crash.traceback))

@@ -1,5 +1,4 @@
-"""
-Tests d'invariant du rattachement carte ➔ fragment.
+"""Tests d'invariant du rattachement carte ➔ fragment.
 
 Ces tests ne vérifient pas un cas d'écran mais la propriété qui, tant qu'elle a manqué,
 a produit des cartes « hors couverture » sans que rien ne le signale : **une réingestion

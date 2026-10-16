@@ -1,3 +1,5 @@
+"""Migration 002 : ajout des colonnes de tarification des prompts et complétions à llm_configs."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

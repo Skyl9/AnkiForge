@@ -1,5 +1,4 @@
-"""
-Tests unitaires pour SegmentInspectorWidget.
+"""Tests unitaires pour SegmentInspectorWidget.
 
 Couverture :
 - Instanciation sans document

@@ -1,6 +1,4 @@
-"""
-Tests UI headless pour le panneau de diagnostic des cartes sangsues dans AITokensSrsTab.
-"""
+"""Tests UI headless pour le panneau de diagnostic des cartes sangsues dans AITokensSrsTab."""
 
 from __future__ import annotations
 

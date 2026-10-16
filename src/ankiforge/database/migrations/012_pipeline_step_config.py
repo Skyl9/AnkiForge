@@ -1,3 +1,5 @@
+"""Migration 012 : ajout du champ config_data aux étapes de pipeline."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

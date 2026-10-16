@@ -1,3 +1,5 @@
+"""Worker QThread d'extraction du texte brut d'un document local ou d'une URL."""
+
 import logging
 import pathlib
 import time
@@ -32,8 +34,7 @@ def derive_document_title(source: str) -> str:
 
 
 class DocumentWorker(QThread):
-    """
-    Worker d'analyse de document source.
+    """Worker d'analyse de document source.
 
     Gère l'extraction initiale du texte brut d'un document local ou d'une URL
     en utilisant les différents parseurs disponibles.
@@ -50,13 +51,12 @@ class DocumentWorker(QThread):
         doc_id_to_update: int | None = None,
         marker_options: MarkerOptions | None = None,
     ) -> None:
-        """
-        Initialise le worker d'extraction.
+        """Initialise le worker d'extraction.
 
         Args:
-            file_path (str): Chemin vers le fichier ou URL de la page web.
-            doc_id_to_update (int | None): Identifiant du document existant à mettre à jour.
-            marker_options (MarkerOptions | None): Options d'extraction Marker OCR pour les PDF.
+            file_path: Chemin vers le fichier ou URL de la page web.
+            doc_id_to_update: Identifiant du document existant à mettre à jour.
+            marker_options: Options d'extraction Marker OCR pour les PDF.
         """
         super().__init__()
         self.file_path = file_path

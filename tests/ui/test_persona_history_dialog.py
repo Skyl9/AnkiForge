@@ -1,6 +1,4 @@
-"""
-Tests d'interface graphique (pytest-qt) pour la modale PersonaHistoryDialog.
-"""
+"""Tests d'interface graphique (pytest-qt) pour la modale PersonaHistoryDialog."""
 
 from unittest.mock import patch
 

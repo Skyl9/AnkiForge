@@ -1,5 +1,5 @@
-"""
-Script de capture offscreen pour la modale Paramètres (SettingsModal).
+"""Script de capture offscreen pour la modale Paramètres (SettingsModal).
+
 Génère des captures pour tous les onglets (Général, Moteurs IA, Anki & Synchro, Stockage & Maintenance, Extensions)
 en mode sombre et clair.
 """

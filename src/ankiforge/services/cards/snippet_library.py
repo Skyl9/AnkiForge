@@ -1,5 +1,5 @@
-"""
-Bibliothèque de Snippets Modulaires et Résolveur de Conflits CSS pour l'Atelier de Modèles de Cartes.
+"""Bibliothèque de Snippets Modulaires et Résolveur de Conflits CSS pour l'Atelier de Modèles de Cartes.
+
 Pilier 3 d'AnkiForge : Composants réutilisables HTML/CSS, détection AST/Regex et arbitrage de collisions.
 """
 
@@ -38,6 +38,7 @@ class SnippetLibrary:
 
     @classmethod
     def get_builtin_snippets(cls) -> list[SnippetItem]:
+        """Retourne le catalogue des snippets HTML/CSS prédéfinis."""
         return [
             # --- 1. CALLOUTS & REMARQUES ---
             SnippetItem(
@@ -386,7 +387,6 @@ class SnippetLibrary:
                 result.append(custom_dict.pop(b.id))
             else:
                 result.append(b)
-        # Ajout des nouveaux snippets personnalisés
         result.extend(custom_dict.values())
         return result
 
@@ -396,7 +396,6 @@ class SnippetLibrary:
         snippet.is_custom = True
         customs = cls.get_custom_snippets()
 
-        # Vérifier si déjà présent
         found = False
         for idx, s in enumerate(customs):
             if s.id == snippet.id:
@@ -465,6 +464,7 @@ class SnippetLibrary:
 
     @classmethod
     def get_categories(cls) -> list[str]:
+        """Retourne la liste ordonnée et dédupliquée des catégories de snippets."""
         snippets = cls.get_all_snippets()
         categories: list[str] = []
         for s in snippets:
@@ -474,10 +474,12 @@ class SnippetLibrary:
 
     @classmethod
     def get_by_category(cls, category: str) -> list[SnippetItem]:
+        """Retourne les snippets appartenant à une catégorie donnée."""
         return [s for s in cls.get_all_snippets() if s.category == category]
 
     @classmethod
     def get_by_id(cls, snippet_id: str) -> SnippetItem | None:
+        """Retourne le snippet correspondant à l'identifiant, ou None s'il est absent."""
         for s in cls.get_all_snippets():
             if s.id == snippet_id:
                 return s

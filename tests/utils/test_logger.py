@@ -1,5 +1,5 @@
-"""
-Tests unitaires et d'intégration pour le module de logging asynchrone (src/ankiforge/utils/logger.py).
+"""Tests unitaires et d'intégration pour le module de logging asynchrone (src/ankiforge/utils/logger.py).
+
 Valide la sanitisation des secrets, l'injection de contexte, le formattage,
 le buffer circulaire RingBuffer, le pipeline asynchrone QueueHandler et les gestionnaires de crash.
 """

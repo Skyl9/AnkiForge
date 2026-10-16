@@ -1,3 +1,5 @@
+"""Service d'extraction OCR des images et documents via moteurs natifs ou distants."""
+
 import base64
 import hashlib
 import logging
@@ -42,8 +44,7 @@ LOSSY_SAVE_OPTIONS: dict[str, dict[str, object]] = {
 
 
 def save_rendered_page(image: Image.Image, target: str | Path, suffix: str) -> None:
-    """
-    Écrit une planche rendue dans le format déduit de son suffixe d'origine.
+    """Écrit une planche rendue dans le format déduit de son suffixe d'origine.
 
     Point unique de la matérialisation d'une planche : l'OCR, le RAG visuel et l'occlusion
     passent tous par ici, donc aucun ne peut réencoder un scan en qualité réduite pendant
@@ -162,8 +163,8 @@ def get_swift_ocr_hash() -> str:
 
 
 def build_multimodal_payload(prompt: str, image_paths: Sequence[str | Path]) -> list[dict[str, Any]]:
-    """
-    Construit un payload multimodal conforme au format standard (OpenAI-style).
+    """Construit un payload multimodal conforme au format standard (OpenAI-style).
+
     Encode les images en Base64 avec détection automatique du type MIME.
     """
     payload: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
@@ -196,8 +197,8 @@ def build_multimodal_payload(prompt: str, image_paths: Sequence[str | Path]) -> 
 
 
 class OCRService:
-    """
-    Service central de transcription OCR et d'analyse visuelle par catégories.
+    """Service central de transcription OCR et d'analyse visuelle par catégories.
+
     Gère l'accélération matérielle macOS (Apple Vision) et le repli multiplateforme
     sur les modèles de vision (VLM : Qwen2.5-VL, Claude 3.7, Gemini 2.5).
     """
@@ -223,8 +224,8 @@ class OCRService:
             logger.debug("Erreur lors du nettoyage des anciens binaires Apple Vision : %s", e)
 
     def is_apple_vision_available(self) -> bool:
-        """
-        Vérifie si le framework Apple Vision est exploitable sur la machine courante.
+        """Vérifie si le framework Apple Vision est exploitable sur la machine courante.
+
         Conditionné à macOS (darwin) et à la présence du binaire compilé ou du compilateur Swift.
         """
         if sys.platform != "darwin":
@@ -342,8 +343,7 @@ class OCRService:
         category_id: str | None = None,
         **kwargs: Any,
     ) -> str:
-        """
-        Transcrit une image en appliquant le modèle d'IA sélectionné et le type de données.
+        """Transcrit une image en appliquant le modèle d'IA sélectionné et le type de données.
 
         Accepte directement model_id / provider ainsi qu'un ImageDataType,
         tout en préservant la compatibilité avec l'ancienne indirection category_id.
@@ -490,8 +490,7 @@ class OCRService:
         category_id: str | None = None,
         **kwargs: Any,
     ) -> DocumentPageModel:
-        """
-        Transcrit une DocumentPageModel, met à jour son champ ocr_text et son statut en base SQLite.
+        """Transcrit une DocumentPageModel, met à jour son champ ocr_text et son statut en base SQLite.
 
         La planche est rendue par la couture (ADR 0011).
         """

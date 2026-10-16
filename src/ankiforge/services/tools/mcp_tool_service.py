@@ -50,8 +50,8 @@ class MCPToolService:
         description: str,
         python_code: str,
     ) -> dict[str, Any]:
-        """
-        Permet au Consultant IA de concevoir ou mettre à jour un outil Python réutilisable.
+        """Permet au Consultant IA de concevoir ou mettre à jour un outil Python réutilisable.
+
         Le script doit contenir 'def run(state):'.
         """
         # Vérification syntaxique préalable

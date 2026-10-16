@@ -1,3 +1,5 @@
+"""Extraction et encodage des images (Markdown et HTML) pour le traitement Vision des documents."""
+
 import base64
 import logging
 import mimetypes
@@ -15,8 +17,8 @@ MD_IMAGE_REGEX = re.compile(r"!\[.*?\]\((.*?)\)")
 
 
 def strip_image_tags(text: str) -> str:
-    """
-    Supprime toutes les balises images (Markdown et HTML) d'un texte.
+    """Supprime toutes les balises images (Markdown et HTML) d'un texte.
+
     Utilisé quand l'utilisateur désactive la fonction Vision pour économiser des tokens.
     """
     # 1. Nettoyage Markdown
@@ -51,20 +53,19 @@ def prepare_multimodal_payload(
     media_dir: Path,
     extra_images: Sequence[dict[str, Any] | Path | str] | None = None,
 ) -> list[dict[str, Any]]:
-    """
-    Prépare un payload compatible avec les APIs de vision (OpenAI, Gemini).
+    """Prépare un payload compatible avec les APIs de vision (OpenAI, Gemini).
 
     Extrait les images citées dans le texte et intègre les images additionnelles
     fournies (ex: planches d'album sélectionnées), les convertit en base64
     et construit une structure de message multimodal.
 
     Args:
-        text (str): Texte source contenant des balises images.
-        media_dir (Path): Dossier racine où sont stockés les fichiers physiques.
+        text: Texte source contenant des balises images.
+        media_dir: Dossier racine où sont stockés les fichiers physiques.
         extra_images: Images explicites additionnelles (dict image_url ou chemins).
 
     Returns:
-        list[dict[str, Any]]: Une liste d'objets (texte + images base64) pour le fournisseur IA.
+        Une liste d'objets (texte + images base64) pour le fournisseur IA.
     """
     images_found: list[str] = []
 
@@ -107,7 +108,6 @@ def prepare_multimodal_payload(
         base64_str = _encode_image_base64(full_path)
 
         if base64_str:
-            # Déduction du type MIME (image/jpeg, image/png...)
             mime_type, _ = mimetypes.guess_type(str(full_path))
             if not mime_type:
                 mime_type = "image/jpeg"  # Fallback par défaut

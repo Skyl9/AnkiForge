@@ -1,7 +1,4 @@
-"""
-Module de Recherche RAG Hybride combinant FAISS (Dense Retrieval) et BM25 (Sparse Retrieval)
-avec fusion par rang réciproque (Reciprocal Rank Fusion - RRF).
-"""
+"""Module de Recherche RAG Hybride combinant FAISS (Dense Retrieval) et BM25 (Sparse Retrieval) avec fusion par rang réciproque (Reciprocal Rank Fusion - RRF)."""
 
 from __future__ import annotations
 
@@ -59,9 +56,7 @@ class RRFScoreBreakdown:
 
 
 class HybridRAGRetriever:
-    """
-    Moteur de fusion et de classement hybride Dense (FAISS) + Sparse (BM25) avec RRF.
-    """
+    """Moteur de fusion et de classement hybride Dense (FAISS) + Sparse (BM25) avec RRF."""
 
     @staticmethod
     def compute_rrf_score(
@@ -69,8 +64,8 @@ class HybridRAGRetriever:
         weight: float = 1.0,
         k: int = DEFAULT_RRF_K,
     ) -> float:
-        """
-        Calcule la contribution au score RRF pour un rang donné (1-indexé).
+        """Calcule la contribution au score RRF pour un rang donné (1-indexé).
+
         Si rank est None (document absent de ce canal), retourne 0.0.
         """
         if rank is None or rank <= 0:
@@ -87,8 +82,7 @@ class HybridRAGRetriever:
         w_sparse: float = DEFAULT_WEIGHT_SPARSE,
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
-        """
-        Fusionne les listes de résultats Dense (FAISS) et Sparse (BM25) par Reciprocal Rank Fusion.
+        """Fusionne les listes de résultats Dense (FAISS) et Sparse (BM25) par Reciprocal Rank Fusion.
 
         dense_results : liste triée de (chunk_id, distance_or_score)
         sparse_results : liste triée de (chunk_id, bm25_score)
@@ -107,7 +101,6 @@ class HybridRAGRetriever:
         for idx, (cid, score) in enumerate(sparse_results):
             sparse_map[cid] = (idx + 1, float(score))
 
-        # 3. Union de tous les chunk_ids
         all_chunk_ids = set(dense_map.keys()).union(sparse_map.keys())
         if not all_chunk_ids:
             return []
@@ -154,7 +147,6 @@ class HybridRAGRetriever:
                 }
             )
 
-        # 5. Tri décroissant par score RRF
         combined_scores.sort(key=lambda x: x["rrf_score"], reverse=True)
         top_candidates = combined_scores[:top_k]
 

@@ -1,3 +1,5 @@
+"""Migration 030 : table virtuelle FTS5 note_fts et index de performance associés."""
+
 import html
 import json
 import logging
@@ -92,7 +94,6 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
 
     # 3. Backfill initial de note_fts à partir des versions actives des notes existantes
     try:
-        # Vérifier si note_fts et notemodel existent
         cursor = database.execute_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='note_fts';")
         if not cursor.fetchone():
             return
@@ -100,7 +101,6 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
         if not (database.table_exists("notemodel") and database.table_exists("noteversionmodel")):
             return
 
-        # Requête pour récupérer les notes avec leur version active et leur premier deck_id
         sql = """
             SELECT n.id, n.tags, nv.content, c.deck_id
             FROM notemodel n
@@ -121,9 +121,7 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
 
                 insert_records.append((n_id, deck_id, fields_text, tags_text))
 
-            # Supprimer les éventuelles entrées préexistantes
             database.execute_sql("DELETE FROM note_fts;")
-            # Insertion par batch
             for rec in insert_records:
                 database.execute_sql(
                     "INSERT INTO note_fts (note_id, deck_id, fields_text, tags) VALUES (?, ?, ?, ?);",

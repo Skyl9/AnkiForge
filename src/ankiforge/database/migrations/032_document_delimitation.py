@@ -1,3 +1,5 @@
+"""Migration 032 : délimitation de portée (start_page, end_page, excluded_headings) sur documentmodel."""
+
 import peewee as pw
 from peewee_migrate import Migrator
 

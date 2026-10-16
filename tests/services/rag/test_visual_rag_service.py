@@ -35,8 +35,7 @@ class FakeVisionProvider(LLMProvider):
 
 @pytest.fixture
 def test_album_doc(mock_db, tmp_path):
-    """
-    Crée un album de test avec 2 pages associées à des médias réels.
+    """Crée un album de test avec 2 pages associées à des médias réels.
 
     Les images sont de **vraies** planches lisibles : depuis la couture (ADR 0011), la
     planche est décodée puis rendue avant d'atteindre le modèle. Un fichier PNG factice
@@ -128,8 +127,7 @@ def test_prepare_visual_chunks_album(test_album_doc):
 
 @pytest.mark.integration
 def test_prepare_visual_chunks_recomputes_a_single_page(test_album_doc):
-    """
-    Une planche peut être recalculée seule, sans recalcul de l'album entier.
+    """Une planche peut être recalculée seule, sans recalcul de l'album entier.
 
     C'est la condition pour que la rotation d'une planche ne condamne pas l'index à
     être reconstruit en entier — le seul choix restant étant de laisser la planche
@@ -167,8 +165,7 @@ def test_prepare_visual_chunks_recomputes_a_single_page(test_album_doc):
 
 @pytest.mark.integration
 def test_prepare_visual_chunks_describes_the_rotated_planche(tmp_path):
-    """
-    La description dense décrit la planche **dans son orientation**.
+    """La description dense décrit la planche **dans son orientation**.
 
     Décrire l'orientation opposée produit un fragment qui répond à la mauvaise question
     et se retrouve indexé comme s'il était exact.

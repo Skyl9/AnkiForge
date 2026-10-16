@@ -1,6 +1,4 @@
-"""
-Migration 038 : FK manquantes sur le versionnage IA, neutralisation des CASCADE sur FK nullables,
-purge de la colonne legacy `facet_id` et suppression d'un index dupliqué.
+"""Migration 038 : FK manquantes sur le versionnage IA, neutralisation des CASCADE sur FK nullables, purge de la colonne legacy `facet_id` et suppression d'un index dupliqué.
 
 Aligne le DDL SQLite réel sur les modèles Peewee (source de vérité) après l'audit "Database & ORM"
 (audits/raw/fk-missing-cascade-*.txt, schema-dump-*.txt) :
@@ -60,8 +58,8 @@ def _index_sqls(database: pw.Database, table: str) -> list[str]:
 
 
 def _rebuild(database: pw.Database, table: str, transform, *, insert_columns: list[str] | None = None, insert_values: list[str] | None = None) -> bool:
-    """
-    Reconstruit une table si son DDL diffère du ciblé (retourne True si réellement reconstruite).
+    """Reconstruit une table si son DDL diffère du ciblé (retourne True si réellement reconstruite).
+
     Préserve les ids et les index nommés. PRAGMA foreign_keys doit être OFF auparavant.
     `insert_columns`/`insert_values` permettent de projeter/synthesizer des colonnes quand la
     structure source diffère de la cible (ex: purge d'une colonne, réintroduction avec NULL).

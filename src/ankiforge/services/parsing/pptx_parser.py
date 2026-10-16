@@ -47,7 +47,7 @@ class PptxParser:
             check_cancel: Callback optionnel pour vérifier l'annulation utilisateur.
 
         Returns:
-            str: Le texte Markdown complet avec délimiteurs <!-- PAGE: N --> et [SPLIT].
+            Le texte Markdown complet avec délimiteurs <!-- PAGE: N --> et [SPLIT].
 
         Raises:
             FileNotFoundError: Si le fichier PPTX n'existe pas.
@@ -202,7 +202,6 @@ class PptxParser:
             return ""
 
         num_cols = max(len(r) for r in rows_data)
-        # Normaliser les longueurs des lignes
         for r in rows_data:
             while len(r) < num_cols:
                 r.append("")

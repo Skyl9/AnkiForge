@@ -120,8 +120,7 @@ def test_create_album_validation(tmp_path: Path):
 
 
 def _create_witness_image(path: Path, width: int = 120, height: int = 60) -> Path:
-    """
-    Image témoin : un rectangle bleu dans le coin haut-gauche sur fond blanc.
+    """Image témoin : un rectangle bleu dans le coin haut-gauche sur fond blanc.
 
     La position du témoin permet d'affirmer *où* se trouve la matière après
     rotation, là où un simple contrôle de dimensions prouverait seulement que
@@ -136,8 +135,7 @@ def _create_witness_image(path: Path, width: int = 120, height: int = 60) -> Pat
 
 
 def _touched_corner(img: Image.Image) -> str:
-    """
-    Renvoie le coin portant la matière colorée, témoin de l'orientation.
+    """Renvoie le coin portant la matière colorée, témoin de l'orientation.
 
     On discrimine par la composante **rouge** : le témoin bleu vaut 0 là où le fond blanc
     vaut 255, alors que la composante bleue vaudrait 255 dans les deux cas.
@@ -169,10 +167,7 @@ def test_rotate_page(tmp_path: Path):
 
 
 def test_render_page_image_honours_rotation(tmp_path: Path):
-    """
-    La couture rend la planche à l'orientation de la page : le témoin suit la rotation,
-    et non seulement les dimensions.
-    """
+    """La couture rend la planche à l'orientation de la page : le témoin suit la rotation, et non seulement les dimensions."""
     service = AlbumService()
     img = _create_witness_image(tmp_path / "witness.png")
     doc = service.create_album_from_images("Witness", [img], sort_mode="none")
@@ -207,11 +202,7 @@ def test_render_page_image_honours_rotation(tmp_path: Path):
 
 
 def test_render_page_image_never_rewrites_the_file(tmp_path: Path):
-    """
-    Une rotation est une règle, pas une réécriture : le fichier image sur disque garde
-    son empreinte. Deux planches pouvant partager un même fichier (déduplication MD5),
-    l'écrire à la lecture aurait aussi fait pivoter la planche voisine.
-    """
+    """Une rotation est une règle, pas une réécriture : le fichier image sur disque garde son empreinte, même partagé entre planches (déduplication MD5)."""
     service = AlbumService()
     img = _create_witness_image(tmp_path / "immutable.png")
     doc = service.create_album_from_images("Immutable", [img], sort_mode="none")
@@ -228,10 +219,7 @@ def test_render_page_image_never_rewrites_the_file(tmp_path: Path):
 
 
 def test_rotate_page_invalidates_derived_state(tmp_path: Path):
-    """
-    Changer l'orientation périme l'état dérivé : la transcription servie jusqu'alors
-    décrit une planche dans une orientation qui n'est plus celle de la planche.
-    """
+    """Changer l'orientation périme l'état dérivé : la transcription servie jusqu'alors décrit une planche dans une orientation qui n'est plus celle de la planche."""
     service = AlbumService()
     img = _create_witness_image(tmp_path / "derived.png")
     doc = service.create_album_from_images("Derived", [img], sort_mode="none")

@@ -1,6 +1,4 @@
-"""
-Tests unitaires pour CoverageAlignmentService et la résolution bidirectionnelle des médias.
-"""
+"""Tests unitaires pour CoverageAlignmentService et la résolution bidirectionnelle des médias."""
 
 import json
 import uuid

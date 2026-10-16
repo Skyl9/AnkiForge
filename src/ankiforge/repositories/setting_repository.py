@@ -1,6 +1,4 @@
-"""
-Repository for Application Settings, Token Usage Telemetry, and AI Cache.
-"""
+"""Dépôt des paramètres applicatifs, de la télémétrie d'usage des tokens et du cache IA."""
 
 from __future__ import annotations
 
@@ -21,36 +19,36 @@ logger = logging.getLogger(__name__)
 
 
 class SettingRepository(BaseRepository):
-    """Data access repository for application configuration, AI cache, and token telemetry."""
+    """Dépôt d'accès aux données de la configuration applicative, du cache IA et de la télémétrie des tokens."""
 
     def get_setting(self, key: str, default: Any = None) -> Any:
-        """Retrieve a setting value by its key."""
+        """Retourne la valeur d'un paramètre par sa clé."""
         return SettingModel.get_value(key, default=default)
 
     def set_setting(self, key: str, value: Any, category: str = "general") -> SettingModel:
-        """Persist or update a setting value."""
+        """Persiste ou met à jour la valeur d'un paramètre."""
         with self.atomic():
             return SettingModel.set_value(key, value, category=category)
 
     def get_settings_by_category(self, category: str) -> dict[str, Any]:
-        """Retrieve all settings in a category as key-value pairs."""
+        """Retourne tous les paramètres d'une catégorie sous forme de paires clé-valeur."""
         return SettingModel.get_category(category)
 
     def get_all_settings(self) -> dict[str, Any]:
-        """Retrieve all application settings."""
+        """Retourne tous les paramètres applicatifs."""
         settings: dict[str, Any] = {}
         for record in SettingModel.select():
             settings[record.key] = SettingModel.get_value(record.key)
         return settings
 
     def delete_setting(self, key: str) -> bool:
-        """Delete a setting entry."""
+        """Supprime une entrée de paramètre."""
         with self.atomic():
             deleted = SettingModel.delete().where(SettingModel.key == key).execute()
             return bool(deleted > 0)
 
     def get_token_usage_records(self, limit: int = 100) -> list[TokenUsageModel]:
-        """Retrieve recent token usage logs."""
+        """Retourne les journaux récents d'usage des tokens."""
         return list(TokenUsageModel.select().order_by(TokenUsageModel.created_at.desc()).limit(limit))
 
     def record_token_usage(
@@ -65,7 +63,7 @@ class SettingRepository(BaseRepository):
         persona_id: int | None = None,
         ab_run_id: str | None = None,
     ) -> TokenUsageModel:
-        """Record token consumption and estimated cost, linked to its execution context."""
+        """Enregistre la consommation de tokens et le coût estimé, liés à leur contexte d'exécution."""
         total = prompt_tokens + completion_tokens
         with self.atomic():
             return TokenUsageModel.create(
@@ -82,7 +80,7 @@ class SettingRepository(BaseRepository):
             )
 
     def get_usage_for_ab_run(self, ab_run_id: str) -> dict[str, Any]:
-        """Aggregate measured token consumption and cost for a given A/B run branch."""
+        """Agrège la consommation de tokens et le coût mesurés pour une branche d'exécution A/B donnée."""
         query = (
             TokenUsageModel.select(
                 fn.SUM(TokenUsageModel.total_tokens).alias("total_tokens"),
@@ -102,7 +100,7 @@ class SettingRepository(BaseRepository):
         }
 
     def get_total_token_usage_stats(self) -> dict[str, Any]:
-        """Calculate aggregate telemetry metrics for tokens and costs."""
+        """Calcule les métriques de télémétrie agrégées des tokens et des coûts."""
         query = (
             TokenUsageModel.select(
                 fn.SUM(TokenUsageModel.total_tokens).alias("total_tokens"),
@@ -139,7 +137,7 @@ class SettingRepository(BaseRepository):
         model_id: str = "",
         temperature: float = 0.7,
     ) -> str | None:
-        """Look up response from AI query cache."""
+        """Recherche une réponse dans le cache de requêtes IA."""
         try:
             record = AICacheModel.get_or_none(
                 AICacheModel.prompt_hash == prompt_hash,
@@ -160,7 +158,7 @@ class SettingRepository(BaseRepository):
         temperature: float,
         response_content: str,
     ) -> AICacheModel:
-        """Store an AI response in cache."""
+        """Stocke une réponse IA dans le cache."""
         with self.atomic():
             record, _ = AICacheModel.get_or_create(
                 prompt_hash=prompt_hash,
@@ -175,10 +173,10 @@ class SettingRepository(BaseRepository):
             return record
 
     def clear_ai_cache(self) -> int:
-        """Clear all entries from the AI cache."""
+        """Vide le cache IA de toutes ses entrées."""
         with self.atomic():
             return int(AICacheModel.delete().execute())
 
     def get_pending_jobs(self) -> list[JobModel]:
-        """Retrieve pending background jobs."""
+        """Retourne les tâches d'arrière-plan en attente."""
         return list(JobModel.select().where(JobModel.status == "pending"))

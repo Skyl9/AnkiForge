@@ -1,5 +1,5 @@
-"""
-Service de RAG Visuel (Visual RAG) et d'Indexation Sémantique Dense.
+"""Service de RAG Visuel (Visual RAG) et d'Indexation Sémantique Dense.
+
 Permet d'indexer et d'interroger directement des albums d'images, planches anatomiques,
 schémas complexes et diaporamas sans dépendance lourde locale (approche VLM Dense Indexing).
 """
@@ -62,8 +62,8 @@ class VisualRAGService:
         image_path: str | Path,
         provider_override: LLMProvider | None = None,
     ) -> str:
-        """
-        Génère une description sémantique visuelle dense d'une image/page via VLM.
+        """Génère une description sémantique visuelle dense d'une image/page via VLM.
+
         Utilise en priorité la catégorie 'visual_rag' configurée par l'utilisateur.
         En cas d'échec ou d'absence d'API, retourne une description minimale basée sur le fichier.
         """
@@ -87,10 +87,10 @@ class VisualRAGService:
         return f"[Image : {p.name}] - Planche visuelle importée. Configurez une clé d'API Vision pour la description sémantique automatique."
 
     def _describe_page(self, page: DocumentPageModel, provider_override: LLMProvider | None) -> str:
-        """
-        Décrit la planche **par la couture** (ADR 0011) : la description dense doit
-        décrire la planche telle que l'utilisateur la voit, sinon le fragment indexé
-        répond à la mauvaise question tout en paraissant exact.
+        """Décrit la planche **par la couture** (ADR 0011).
+
+        La description dense doit décrire la planche telle que l'utilisateur la voit,
+        sinon le fragment indexé répond à la mauvaise question tout en paraissant exact.
 
         La couture rend une image en mémoire ; on la materialise dans un fichier
         éphémère parce que c'est le chemin que parlent déjà les transducteurs.
@@ -134,8 +134,8 @@ class VisualRAGService:
         progress_callback: Callable[[int, int, str], None] | None = None,
         page_numbers: Sequence[int] | None = None,
     ) -> list[DocumentChunkModel]:
-        """
-        Génère ou met à jour les DocumentChunkModel pour chaque page d'un album ou document visuel.
+        """Génère ou met à jour les DocumentChunkModel pour chaque page d'un album ou document visuel.
+
         Chaque chunk conserve la référence vers le MediaModel de la page, le numéro de page,
         et la description visuelle dense.
 
@@ -164,10 +164,8 @@ class VisualRAGService:
                 if progress_callback:
                     progress_callback(idx + 1, total_pages, f"Analyse sémantique de la page {page_num}/{total_pages}...")
 
-                # 1. Vérifier si un chunk existe déjà pour cette page
                 existing_chunk = DocumentChunkModel.select().where((DocumentChunkModel.document == document) & (DocumentChunkModel.page_number == page_num)).first()
 
-                # 2. Déterminer si le texte dense doit être généré
                 has_dense_content = bool(existing_chunk and existing_chunk.content and len(existing_chunk.content.strip()) > 40)
                 chunk_content = ""
 
@@ -178,7 +176,6 @@ class VisualRAGService:
                     # La planche est décrite dans son orientation propre, par la couture.
                     dense_desc = self._describe_page(page, provider_override=provider_override)
 
-                    # Combiner avec l'OCR textuel préalable si existant
                     text_parts: list[str] = []
                     if page.ocr_text and page.ocr_text.strip():
                         text_parts.append(f"#### Texte & Transcription :\n{page.ocr_text.strip()}")
@@ -210,7 +207,6 @@ class VisualRAGService:
                             bounding_box=page.crop_data,
                         )
 
-                    # Met à jour ocr_text de la page si vide
                     if not page.ocr_text or not page.ocr_text.strip():
                         page.ocr_text = dense_desc
                         page.save()
@@ -251,8 +247,8 @@ class VisualRAGService:
         provider_override: LLMProvider | None = None,
         progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> bool:
-        """
-        Indexation complète d'un document visuel/album :
+        """Indexation complète d'un document visuel/album.
+
         1. Préparation des chunks avec descriptions denses VLM et liens MediaModel.
         2. Construction des index FAISS (Dense) et BM25 (Sparse) via VectorManager.
         """

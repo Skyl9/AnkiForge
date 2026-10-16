@@ -1,3 +1,5 @@
+"""Modèles Peewee des pipelines DAG, étapes, exécutions et outils Python."""
+
 import datetime
 import logging
 from typing import Any
@@ -56,6 +58,7 @@ class PipelineRunModel(BaseModel):
     updated_at = DateTimeField(default=datetime.datetime.now)
 
     def save(self, *args: Any, **kwargs: Any) -> int:
+        """Persiste l'exécution en rafraîchissant l'horodatage updated_at."""
         self.updated_at = datetime.datetime.now()
         return int(super().save(*args, **kwargs))
 

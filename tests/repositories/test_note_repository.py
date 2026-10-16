@@ -1,6 +1,4 @@
-"""
-Unit tests for NoteRepository.
-"""
+"""Unit tests for NoteRepository."""
 
 from __future__ import annotations
 

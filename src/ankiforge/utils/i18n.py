@@ -1,5 +1,4 @@
-"""
-Amorçage de l'internationalisation d'AnkiForge (mécanique Qt Linguist).
+"""Amorçage de l'internationalisation d'AnkiForge (mécanique Qt Linguist).
 
 Ce module est **l'unique couture** de la traduction runtime :
 
@@ -101,7 +100,7 @@ def normalize_language(value: object, default: str = SOURCE_LANGUAGE) -> str:
         default: Code renvoyé quand ``value`` ne contient aucune lettre.
 
     Returns:
-        str: Code de langue en minuscules, ``default`` si rien n'est exploitable.
+        Code de langue en minuscules, ``default`` si rien n'est exploitable.
     """
     if value is None:
         return default
@@ -134,7 +133,7 @@ def translations_dir() -> Path:
     cassé ``database/seeds/initial_seed.py``.
 
     Returns:
-        Path: Le dossier cible, existant ou non (le dossier peut être absent d'un bundle
+        Le dossier cible, existant ou non (le dossier peut être absent d'un bundle
         minimal : l'appelant doit tolérer l'absence, jamais la casser).
     """
     return get_resource_path(*TRANSLATIONS_RELPATH)
@@ -149,7 +148,7 @@ def catalog_path(language: str, *, suffix: str = ".qm", directory: Path | None =
         directory: Dossier des catalogues ; par défaut : :func:`translations_dir`.
 
     Returns:
-        Path: Le chemin du catalogue (existant ou non).
+        Le chemin du catalogue (existant ou non).
     """
     base = directory if directory is not None else translations_dir()
     return base / f"{CATALOG_STEM}_{normalize_language(language)}{suffix}"
@@ -202,7 +201,7 @@ def install_translator(app: QApplication, language: object = None, *, directory:
         directory: Dossier des catalogues ; par défaut : :func:`translations_dir`.
 
     Returns:
-        QTranslator | None: Le traducteur installé, ou ``None`` si le repli français
+        Le traducteur installé, ou ``None`` si le repli français
         s'applique. L'appelant doit conserver la référence : Qt ne propage pas la
         propriété Python du ``QTranslator`` installé.
     """
@@ -244,7 +243,7 @@ def preferred_language() -> str:
     la langue source est alors servie.
 
     Returns:
-        str: Code de langue normalisé.
+        Code de langue normalisé.
     """
     try:
         from ankiforge.services.settings_service import SettingsService
@@ -280,7 +279,7 @@ def tr(text: str, *values: object) -> str:
             numérotés. Absents, ``text`` est renvoyé traduit tel quel.
 
     Returns:
-        str: Le texte traduit (et substitué si besoin), ou ``text`` lui-même si aucun
+        Le texte traduit (et substitué si besoin), ou ``text`` lui-même si aucun
         catalogue ne l'a traduit — jamais une chaîne vide.
     """
     translated = QCoreApplication.translate("", text)

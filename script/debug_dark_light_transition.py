@@ -1,6 +1,4 @@
-"""
-Script de reproduction et capture des problèmes lors du passage sombre -> clair.
-"""
+"""Script de reproduction et capture des problèmes lors du passage sombre -> clair."""
 
 import os
 
