@@ -38,6 +38,9 @@ from ankiforge.ui.views.consultant_view.widgets.mcp_telemetry_widget import MCPT
 from ankiforge.ui.views.consultant_view.widgets.mcp_tool_catalog_widget import (
     MCPToolCatalogWidget,
 )
+from ankiforge.ui.views.consultant_view.widgets.mcp_workspace_guide_widget import (
+    MCPWorkspaceGuideWidget,
+)
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
 from ankiforge.utils.i18n import tr
@@ -413,6 +416,7 @@ class MCPServerDashboardWidget(QWidget):
         self.sub_tab_bar.add_tab("garde_fou", self.tr("Garde-Fou & Validation"), icon_name="ph.shield-check")
         self.sub_tab_bar.add_tab("catalogue", self.tr("Catalogue d'Outils"), icon_name="ph.wrench")
         self.sub_tab_bar.add_tab("telemetrie", self.tr("Activité"), icon_name="ph.chart-bar")
+        self.sub_tab_bar.add_tab("workspaces", self.tr("Guides & Workspaces"), icon_name="ph.robot")
         self.sub_tab_bar.tab_index_changed.connect(self._on_sub_tab_changed)
 
         tab_layout.addWidget(self.sub_tab_bar)
@@ -460,6 +464,10 @@ class MCPServerDashboardWidget(QWidget):
         self.telemetry_widget.count_changed.connect(self._on_telemetry_count_changed)
         self.stacked_widget.addWidget(self.telemetry_widget)
 
+        # Sous-onglet 4 : Amorçage in-app des workspaces et guides méthodologiques (Tranche 4)
+        self.workspace_guide_widget = MCPWorkspaceGuideWidget(parent=self)
+        self.stacked_widget.addWidget(self.workspace_guide_widget)
+
         outer_layout.addWidget(self.stacked_widget, 1)
 
     def _on_sub_tab_changed(self, index: int) -> None:
@@ -467,6 +475,8 @@ class MCPServerDashboardWidget(QWidget):
         self.stacked_widget.setCurrentIndex(index)
         if index == 1 and hasattr(self, "garde_fou_widget"):
             self.garde_fou_widget.reload_pending_patches()
+        elif index == 4 and hasattr(self, "workspace_guide_widget"):
+            self.workspace_guide_widget.reload_personas()
 
     def _on_telemetry_count_changed(self, count: int) -> None:
         """Actualise dynamiquement l'intitulé et le badge du sous-onglet Activité."""
@@ -562,6 +572,8 @@ class MCPServerDashboardWidget(QWidget):
             self.catalog_widget.refresh_theme(profile)
         if hasattr(self, "telemetry_widget") and hasattr(self.telemetry_widget, "refresh_theme"):
             self.telemetry_widget.refresh_theme(profile)
+        if hasattr(self, "workspace_guide_widget") and hasattr(self.workspace_guide_widget, "refresh_theme"):
+            self.workspace_guide_widget.refresh_theme(profile)
 
 
 __all__ = [
@@ -569,4 +581,5 @@ __all__ = [
     "MCPActivityDetailDialog",
     "MCPCatalogPlaceholderWidget",
     "MCPToolCatalogWidget",
+    "MCPWorkspaceGuideWidget",
 ]

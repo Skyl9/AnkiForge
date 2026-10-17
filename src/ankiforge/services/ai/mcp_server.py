@@ -121,6 +121,7 @@ _GUIDE_AGENT_FILENAMES: dict[str, str] = {
     "gemini": "GEMINI.md",
     "cursor": ".cursorrules",
     "generic": "ANKIFORGE_GUIDE.md",
+    "agy": "GEMINI.md",
 }
 # Environnement Jinja2 sandboxé dédié au rendu des guides d'amorçage (inclut les fichiers).
 _GUIDE_ENV = SandboxedEnvironment(
@@ -1304,6 +1305,8 @@ def prompt_run_with_agent(agent_name: str, task: str) -> str:
 
 def _normalise_agent_type(agent_type: str) -> str:
     value = (agent_type or "generic").strip().lower()
+    if value == "agy":
+        return "gemini"
     return value if value in _GUIDE_AGENT_FILENAMES else "generic"
 
 

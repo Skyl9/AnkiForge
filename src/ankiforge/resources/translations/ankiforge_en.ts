@@ -2626,7 +2626,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+55"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+58"/>
         <source>Détail de l&apos;appel MCP : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2658,7 +2658,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+373"/>
+        <location line="+380"/>
         <source>Activité (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2936,6 +2936,41 @@ Gabarits : %3</source>
     <message>
         <location line="+21"/>
         <source>Nom d&apos;outil &apos;%1&apos; copié.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_workspace_guide_widget.py" line="+349"/>
+        <source>Erreur lors de la génération de l&apos;aperçu : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+48"/>
+        <source>Guide &apos;%1&apos; généré avec succès dans : %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Échec de l&apos;amorçage : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Fichier non trouvé : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Guide désynchronisé (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Intégrité SHA-256 validée (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+59"/>
+        <source>%1 outils autorisés</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13781,7 +13816,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-431"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-438"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13858,23 +13893,28 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+67"/>
+        <location line="+74"/>
         <source>Garde-Fou &amp; Validation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-66"/>
+        <location line="-73"/>
         <source>Catalogue d&apos;Outils</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+58"/>
+        <location line="+65"/>
         <source>Activité</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="-64"/>
+        <source>Guides &amp; Workspaces</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+104"/>
         <source>Nouvelle proposition de refactorisation reçue</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14248,6 +14288,189 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <message>
         <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+10"/>
         <source>Signature JSON copiée dans le presse-papiers.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>MCPWorkspaceGuideWidget</name>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_workspace_guide_widget.py" line="-380"/>
+        <source>Amorçage de Workspace Agent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Générez les adaptateurs d&apos;instructions personnalisés et vérifiez l&apos;intégrité de vos guides.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Type d&apos;agent &amp; format cible :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Claude Code / Desktop (CLAUDE.md)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Google Gemini (GEMINI.md)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Cursor / Windsurf (.cursorrules)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Antigravity CLI (GEMINI.md)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Universel / Générique (ANKIFORGE_GUIDE.md)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Répertoire de travail cible :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>ex: ~/mon-projet ou /chemin/vers/workspace</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Parcourir...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Inclure le catalogue exhaustif des 58 outils</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Amorcer le workspace</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Vérifier la version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>État du guide sur disque :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Non vérifié</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Personas MCP &amp; Agents Dédiés</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Actualiser</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Sélectionnez un agent pour inspecter sa consigne.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Prompt système (Consigne IA) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>Guide Méthodologique Compilé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Copier le Markdown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Rafraîchir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>Sélectionner le répertoire cible du workspace</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Veuillez sélectionner un répertoire cible pour amorcer le workspace.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+31"/>
+        <source>Non défini</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Renseignez un dossier cible.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Absent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Obsolète</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>À jour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Guide méthodologique copié dans le presse-papiers.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>(Aucune persona configurée)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Aucune persona IA configurée dans la collection.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>(Aucune description)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Accès universel à tous les outils</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
