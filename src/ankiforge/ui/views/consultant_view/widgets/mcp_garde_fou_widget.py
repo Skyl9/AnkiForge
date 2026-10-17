@@ -554,3 +554,8 @@ class MCPGardeFouWidget(QWidget):
             """)
         if hasattr(self, "diff_viewer") and hasattr(self.diff_viewer, "refresh_theme"):
             self.diff_viewer.refresh_theme(profile)
+
+    def cleanup(self) -> None:
+        """Arrête les chargements Chromium et libère les ressources WebEngine."""
+        if hasattr(self, "diff_viewer") and hasattr(self.diff_viewer, "cleanup"):
+            self.diff_viewer.cleanup()

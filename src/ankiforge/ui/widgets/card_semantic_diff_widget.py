@@ -13,13 +13,14 @@ import logging
 import re
 from typing import Any
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
     QScrollArea,
+    QSplitter,
     QTabWidget,
     QTextBrowser,
     QVBoxLayout,
@@ -28,8 +29,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import NoteTypeModel, StagedPatchModel
 from ankiforge.services.ai.consultant_engine import robust_json_loads
-from ankiforge.ui.components import Badge
-from ankiforge.ui.components.inputs import StyledComboBox
+from ankiforge.ui.components import Badge, IconButton, SecondaryButton, StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.utils.i18n import tr
@@ -388,15 +388,199 @@ class CardSemanticDiffWidget(QWidget):
 
         self.tab_widget.addTab(self.diff_tab, load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_SECONDARY), tr("Comparaison champ par champ"))
 
-        # ── 2. Onglet Aperçu Live Anki ────────────────────────
+        # ── 2. Onglet Aperçu Comparatif Anki (Dédoublé) ───────
         self.preview_tab = QWidget()
         preview_layout = QVBoxLayout(self.preview_tab)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
+        preview_layout.setContentsMargins(6, 6, 6, 6)
+        preview_layout.setSpacing(6)
 
-        self.preview_widget = CardPreviewWidget(parent=self.preview_tab, show_header=True)
-        preview_layout.addWidget(self.preview_widget)
+        # Barre supérieure de commandes partagée
+        self.preview_toolbar = QFrame()
+        self.preview_toolbar.setObjectName("preview_toolbar")
+        self.preview_toolbar.setStyleSheet(f"""
+            QFrame#preview_toolbar {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 2px 6px;
+            }}
+        """)
+        toolbar_layout = QHBoxLayout(self.preview_toolbar)
+        toolbar_layout.setContentsMargins(6, 4, 6, 4)
+        toolbar_layout.setSpacing(8)
 
-        self.tab_widget.addTab(self.preview_tab, load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_SECONDARY), tr("Aperçu Anki Live"))
+        lbl_toolbar = QLabel(tr("Aperçu dédoublé"))
+        lbl_toolbar.setStyleSheet(f"""
+            font-size: 11px;
+            font-weight: 700;
+            color: {DesignTokens.TEXT_MUTED};
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        """)
+        toolbar_layout.addWidget(lbl_toolbar)
+
+        # Sélecteur partagé de gabarit multi-cartes
+        self.shared_card_selector = StyledComboBox()
+        self.shared_card_selector.setMinimumWidth(120)
+        self.shared_card_selector.setFixedHeight(24)
+        self.shared_card_selector.currentIndexChanged.connect(self._on_shared_card_selected)
+        self.shared_card_selector.hide()
+        toolbar_layout.addWidget(self.shared_card_selector)
+
+        toolbar_layout.addStretch()
+
+        # Sélecteur d'appareil partagé
+        device_container = QWidget()
+        device_layout = QHBoxLayout(device_container)
+        device_layout.setContentsMargins(0, 0, 0, 0)
+        device_layout.setSpacing(2)
+
+        self._shared_device_mode = "desktop"
+        self.btn_device_desktop = IconButton("monitor", tooltip=tr("Mode Bureau (100% largeur)"), size=20)
+        self.btn_device_desktop.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;")
+        self.btn_device_desktop.clicked.connect(lambda: self._on_shared_device_mode("desktop"))
+
+        self.btn_device_tablet = IconButton("device-tablet", tooltip=tr("Mode Tablette (768px)"), size=20)
+        self.btn_device_tablet.setStyleSheet("background-color: transparent; border-radius: 4px;")
+        self.btn_device_tablet.clicked.connect(lambda: self._on_shared_device_mode("tablet"))
+
+        self.btn_device_mobile = IconButton("device-mobile", tooltip=tr("Mode Mobile (375px)"), size=20)
+        self.btn_device_mobile.setStyleSheet("background-color: transparent; border-radius: 4px;")
+        self.btn_device_mobile.clicked.connect(lambda: self._on_shared_device_mode("mobile"))
+
+        device_layout.addWidget(self.btn_device_desktop)
+        device_layout.addWidget(self.btn_device_tablet)
+        device_layout.addWidget(self.btn_device_mobile)
+        toolbar_layout.addWidget(device_container)
+
+        # Bascule de thème partagée
+        self.btn_shared_theme = IconButton("sun", tooltip=tr("Basculer le thème"), size=20)
+        self.btn_shared_theme.clicked.connect(self._on_shared_toggle_theme)
+        toolbar_layout.addWidget(self.btn_shared_theme)
+
+        # Bascule Recto/Verso partagée
+        self.btn_shared_toggle_side = SecondaryButton(tr("Voir Verso"))
+        self.btn_shared_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_shared_toggle_side.setFixedHeight(24)
+        self.btn_shared_toggle_side.setStyleSheet("""
+            QPushButton {
+                padding: 1px 8px;
+                font-size: 11px;
+                font-weight: 600;
+            }
+        """)
+        self.btn_shared_toggle_side.clicked.connect(self._on_shared_toggle_side)
+        toolbar_layout.addWidget(self.btn_shared_toggle_side)
+
+        preview_layout.addWidget(self.preview_toolbar)
+
+        # Splitter horizontal pour les deux cartes côte-à-côte
+        self.preview_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.preview_splitter.setChildrenCollapsible(False)
+
+        # --- Panneau Gauche : Carte Originale (BDD) ---
+        self.orig_card_frame = QFrame()
+        self.orig_card_frame.setObjectName("orig_card_frame")
+        self.orig_card_frame.setStyleSheet(f"""
+            QFrame#orig_card_frame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        orig_card_layout = QVBoxLayout(self.orig_card_frame)
+        orig_card_layout.setContentsMargins(0, 0, 0, 0)
+        orig_card_layout.setSpacing(0)
+
+        orig_header = QFrame()
+        orig_header.setObjectName("orig_preview_header")
+        orig_header.setStyleSheet(f"""
+            QFrame#orig_preview_header {{
+                background-color: {DesignTokens.BG_INPUT};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top-left-radius: {DesignTokens.RADIUS_SM}px;
+                border-top-right-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        orig_header_layout = QHBoxLayout(orig_header)
+        orig_header_layout.setContentsMargins(8, 4, 8, 4)
+        orig_header_layout.setSpacing(6)
+
+        orig_badge = Badge(tr("Originale (BDD)"), variant="neutral")
+        orig_header_layout.addWidget(orig_badge)
+
+        self.lbl_orig_preview_words = QLabel()
+        self.lbl_orig_preview_words.setStyleSheet(f"""
+            font-size: 10px;
+            color: {DesignTokens.TEXT_MUTED};
+            font-family: {DesignTokens.FONT_CODE};
+        """)
+        orig_header_layout.addWidget(self.lbl_orig_preview_words)
+        orig_header_layout.addStretch()
+
+        orig_card_layout.addWidget(orig_header)
+
+        self.preview_orig = CardPreviewWidget(parent=self.orig_card_frame, show_header=False)
+        self.preview_orig.controls_container.hide()
+        orig_card_layout.addWidget(self.preview_orig, 1)
+
+        self.preview_splitter.addWidget(self.orig_card_frame)
+
+        # --- Panneau Droit : Carte Proposée (Agent MCP) ---
+        self.mod_card_frame = QFrame()
+        self.mod_card_frame.setObjectName("mod_card_frame")
+        self.mod_card_frame.setStyleSheet(f"""
+            QFrame#mod_card_frame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        mod_card_layout = QVBoxLayout(self.mod_card_frame)
+        mod_card_layout.setContentsMargins(0, 0, 0, 0)
+        mod_card_layout.setSpacing(0)
+
+        mod_header = QFrame()
+        mod_header.setObjectName("mod_preview_header")
+        mod_header.setStyleSheet(f"""
+            QFrame#mod_preview_header {{
+                background-color: {DesignTokens.BG_INPUT};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top-left-radius: {DesignTokens.RADIUS_SM}px;
+                border-top-right-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        mod_header_layout = QHBoxLayout(mod_header)
+        mod_header_layout.setContentsMargins(8, 4, 8, 4)
+        mod_header_layout.setSpacing(6)
+
+        mod_badge = Badge(tr("✨ Proposée (Agent MCP)"), variant="success")
+        mod_header_layout.addWidget(mod_badge)
+
+        self.lbl_mod_preview_words = QLabel()
+        self.lbl_mod_preview_words.setStyleSheet(f"""
+            font-size: 10px;
+            color: {DesignTokens.TEXT_MUTED};
+            font-family: {DesignTokens.FONT_CODE};
+        """)
+        mod_header_layout.addWidget(self.lbl_mod_preview_words)
+        mod_header_layout.addStretch()
+
+        mod_card_layout.addWidget(mod_header)
+
+        self.preview_mod = CardPreviewWidget(parent=self.mod_card_frame, show_header=False)
+        self.preview_mod.controls_container.hide()
+        mod_card_layout.addWidget(self.preview_mod, 1)
+
+        # Rétrocompatibilité : self.preview_widget pointe vers la carte modifiée
+        self.preview_widget = self.preview_mod
+
+        self.preview_splitter.addWidget(self.mod_card_frame)
+        self.preview_splitter.setSizes([500, 500])
+
+        preview_layout.addWidget(self.preview_splitter, 1)
+
+        self.tab_widget.addTab(self.preview_tab, load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_SECONDARY), tr("Aperçu Anki Dédoublé"))
         self.tab_widget.currentChanged.connect(self._on_tab_changed)
 
         main_layout.addWidget(self.tab_widget)
@@ -566,6 +750,15 @@ class CardSemanticDiffWidget(QWidget):
             res[f_name] = row.current_modified_value
         return res
 
+    def get_original_fields_dict(self) -> dict[str, str]:
+        """Retourne les champs de la note originale (Base active BDD)."""
+        res: dict[str, str] = {}
+        if isinstance(self._original, dict):
+            for k, v in self._original.items():
+                if not k.startswith("_"):
+                    res[k] = str(v) if v is not None else ""
+        return res
+
     def get_fields_dict(self) -> dict[str, str]:
         """Retourne les champs de la carte actuellement inspectée pour le rendu Anki."""
         res: dict[str, str] = {}
@@ -574,12 +767,122 @@ class CardSemanticDiffWidget(QWidget):
         return res
 
     def _refresh_preview(self) -> None:
-        """Met à jour l'instance interne de CardPreviewWidget."""
-        fields = self.get_fields_dict()
-        self.preview_widget.update_preview(note_type=self._note_type, fields_dict=fields)
+        """Met à jour les deux instances internes de CardPreviewWidget (Originale vs Modifiée)."""
+        orig_fields = self.get_original_fields_dict()
+        mod_fields = self.get_fields_dict()
+
+        if hasattr(self, "preview_orig") and hasattr(self, "preview_mod"):
+            # Synchronise l'orientation recto/verso
+            self.preview_orig.is_recto = self.preview_mod.is_recto
+            self.preview_orig._sync_toggle_side()
+            self._sync_shared_toggle_side_button()
+
+            self.preview_orig.update_preview(note_type=self._note_type, fields_dict=orig_fields)
+            self.preview_mod.update_preview(note_type=self._note_type, fields_dict=mod_fields)
+
+        orig_words = sum(len(v.split()) for v in orig_fields.values())
+        mod_words = sum(len(v.split()) for v in mod_fields.values())
+        if hasattr(self, "lbl_orig_preview_words"):
+            self.lbl_orig_preview_words.setText(tr("%1 mots", orig_words))
+        if hasattr(self, "lbl_mod_preview_words"):
+            self.lbl_mod_preview_words.setText(tr("%1 mots", mod_words))
+
+        self._sync_shared_card_selector()
+
+    def _sync_shared_card_selector(self) -> None:
+        """Met à jour le sélecteur partagé de gabarit si le modèle de note en compte plusieurs."""
+        if not hasattr(self, "shared_card_selector"):
+            return
+
+        templates: list[Any] = []
+        if self._note_type and self._note_type.templates:
+            try:
+                templates = json.loads(self._note_type.templates) if isinstance(self._note_type.templates, str) else self._note_type.templates
+            except Exception:
+                templates = []
+        if not isinstance(templates, list):
+            templates = []
+
+        if len(templates) > 1:
+            self.shared_card_selector.blockSignals(True)
+            self.shared_card_selector.clear()
+            for idx, tmpl in enumerate(templates):
+                name = tmpl.get("name", tr("Carte %1", idx + 1)) if isinstance(tmpl, dict) else tr("Carte %1", idx + 1)
+                self.shared_card_selector.addItem(name)
+            if hasattr(self, "preview_mod"):
+                curr_idx = self.preview_mod.current_template_index
+                if 0 <= curr_idx < self.shared_card_selector.count():
+                    self.shared_card_selector.setCurrentIndex(curr_idx)
+            self.shared_card_selector.blockSignals(False)
+            self.shared_card_selector.show()
+        else:
+            self.shared_card_selector.hide()
+
+    def _on_shared_card_selected(self, index: int) -> None:
+        """Sélectionne le même gabarit (template) sur les deux cartes en parallèle."""
+        if hasattr(self, "preview_orig"):
+            self.preview_orig.set_selected_template_index(index)
+        if hasattr(self, "preview_mod"):
+            self.preview_mod.set_selected_template_index(index)
+
+    def _on_shared_toggle_side(self) -> None:
+        """Bascule simultanément le Recto/Verso des deux cartes (Originale et Proposée)."""
+        if hasattr(self, "preview_orig"):
+            self.preview_orig.flip_card()
+        if hasattr(self, "preview_mod"):
+            self.preview_mod.flip_card()
+        self._sync_shared_toggle_side_button()
+
+    def _sync_shared_toggle_side_button(self) -> None:
+        """Met à jour le texte et l'icône du bouton partagé Recto/Verso."""
+        if not hasattr(self, "btn_shared_toggle_side") or not hasattr(self, "preview_mod"):
+            return
+        if self.preview_mod.is_recto:
+            self.btn_shared_toggle_side.setText(tr("Voir Verso"))
+            self.btn_shared_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        else:
+            self.btn_shared_toggle_side.setText(tr("Masquer Verso"))
+            self.btn_shared_toggle_side.setIcon(load_phosphor_icon("ph.eye-slash", color=DesignTokens.TEXT_PRIMARY))
+
+    def _on_shared_toggle_theme(self) -> None:
+        """Bascule simultanément le thème (sombre/clair) des deux cartes."""
+        if hasattr(self, "preview_orig"):
+            self.preview_orig._toggle_theme()
+        if hasattr(self, "preview_mod"):
+            self.preview_mod._toggle_theme()
+            icon_name = "sun" if self.preview_mod._is_preview_dark else "moon"
+            if hasattr(self, "btn_shared_theme"):
+                self.btn_shared_theme.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+
+    def _on_shared_device_mode(self, mode: str) -> None:
+        """Applique le mode d'affichage appareil simultanément aux deux cartes."""
+        self._shared_device_mode = mode
+        if hasattr(self, "preview_orig"):
+            self.preview_orig.set_device_mode(mode)
+        if hasattr(self, "preview_mod"):
+            self.preview_mod.set_device_mode(mode)
+
+        inactive_style = "background-color: transparent; border-radius: 4px;"
+        active_style = f"background-color: {DesignTokens.BG_HOVER}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;"
+
+        if hasattr(self, "btn_device_desktop"):
+            self.btn_device_desktop.setStyleSheet(active_style if mode == "desktop" else inactive_style)
+        if hasattr(self, "btn_device_tablet"):
+            self.btn_device_tablet.setStyleSheet(active_style if mode == "tablet" else inactive_style)
+        if hasattr(self, "btn_device_mobile"):
+            self.btn_device_mobile.setStyleSheet(active_style if mode == "mobile" else inactive_style)
 
     def refresh_theme(self, profile: Any) -> None:
         """Rafraîchit les styles et l'aperçu rendu selon le thème actif."""
-        if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "refresh_theme"):
-            self.preview_widget.refresh_theme(profile)
+        if hasattr(self, "preview_orig") and hasattr(self.preview_orig, "refresh_theme"):
+            self.preview_orig.refresh_theme(profile)
+        if hasattr(self, "preview_mod") and hasattr(self.preview_mod, "refresh_theme"):
+            self.preview_mod.refresh_theme(profile)
         self._refresh_preview()
+
+    def cleanup(self) -> None:
+        """Arrête les chargements Chromium et libère les ressources WebEngine."""
+        if hasattr(self, "preview_orig") and hasattr(self.preview_orig, "cleanup"):
+            self.preview_orig.cleanup()
+        if hasattr(self, "preview_mod") and hasattr(self.preview_mod, "cleanup"):
+            self.preview_mod.cleanup()

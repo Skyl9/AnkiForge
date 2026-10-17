@@ -3147,6 +3147,8 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+26"/>
         <location line="+3"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+511"/>
+        <location line="+2"/>
         <source>%1 mots</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3982,7 +3984,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-122"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-635"/>
         <location line="+117"/>
         <source>Modifié</source>
         <translation type="unfinished"></translation>
@@ -4008,13 +4010,64 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+23"/>
+        <source>Aperçu dédoublé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Mode Bureau (100% largeur)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Mode Tablette (768px)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Mode Mobile (375px)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location line="+10"/>
-        <source>Aperçu Anki Live</source>
+        <source>Basculer le thème</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <location line="+379"/>
+        <source>Voir Verso</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-332"/>
+        <source>Originale (BDD)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+48"/>
+        <source>✨ Proposée (Agent MCP)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
+        <source>Aperçu Anki Dédoublé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+47"/>
         <source>Carte atomique %1 sur %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+180"/>
+        <source>Carte %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>Masquer Verso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

@@ -137,7 +137,7 @@ def test_card_semantic_diff_widget_polymorphic_split(qtbot):
 
 
 def test_card_semantic_diff_widget_preview_update(qtbot):
-    """Vérifie la mise à jour de l'onglet Aperçu Live."""
+    """Vérifie la mise à jour dédoublée de l'onglet Aperçu (Originale vs Modifiée)."""
     widget = CardSemanticDiffWidget()
     qtbot.addWidget(widget)
 
@@ -148,4 +148,42 @@ def test_card_semantic_diff_widget_preview_update(qtbot):
     widget.set_diff(orig, mod, note_type=nt)
     widget.tab_widget.setCurrentIndex(1)  # Bascule sur l'onglet Aperçu
 
+    # Vérification des deux cartes côte-à-côte
+    assert widget.preview_orig.current_fields.get("Front") == "Q1"
+    assert widget.preview_mod.current_fields.get("Front") == "Q2"
     assert widget.preview_widget.current_fields.get("Front") == "Q2"
+
+
+def test_card_semantic_diff_widget_dual_preview_sync(qtbot):
+    """Vérifie la synchronisation des commandes partagées (Recto/Verso, appareil, cleanup)."""
+    widget = CardSemanticDiffWidget()
+    qtbot.addWidget(widget)
+
+    nt = NoteTypeModel(name="TestNT", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    orig = {"Front": "Orig Front", "Back": "Orig Back"}
+    mod = {"Front": "Mod Front", "Back": "Mod Back"}
+
+    widget.set_diff(orig, mod, note_type=nt)
+
+    # Initialement recto
+    assert widget.preview_orig.is_recto is True
+    assert widget.preview_mod.is_recto is True
+
+    # Bascule Recto/Verso partagée
+    widget._on_shared_toggle_side()
+    assert widget.preview_orig.is_recto is False
+    assert widget.preview_mod.is_recto is False
+
+    # Deuxième bascule -> retour au recto
+    widget._on_shared_toggle_side()
+    assert widget.preview_orig.is_recto is True
+    assert widget.preview_mod.is_recto is True
+
+    # Bascule appareil partagée
+    widget._on_shared_device_mode("mobile")
+    assert widget._shared_device_mode == "mobile"
+    assert widget.preview_orig._device_mode == "mobile"
+    assert widget.preview_mod._device_mode == "mobile"
+
+    # Libération propre sans exception
+    widget.cleanup()
