@@ -1064,6 +1064,8 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+3"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+153"/>
+        <location line="+117"/>
         <source>Identique</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1488,7 +1490,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+341"/>
+        <location line="+349"/>
         <source>Un pipeline DAG « %1 » n&apos;a pas été terminé lors de la session précédente (interrompu à l&apos;étape %2).
 
 Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
@@ -2462,7 +2464,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+101"/>
+        <location line="+106"/>
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+169"/>
         <source>&quot;%1&quot;</source>
         <translation type="unfinished"></translation>
@@ -2563,6 +2565,8 @@ Gabarits : %3</source>
     <message>
         <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+7"/>
         <location line="+194"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-109"/>
+        <location line="+114"/>
         <source>%1 ➔ %2 mots</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2624,7 +2628,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+52"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+55"/>
         <source>Détail de l&apos;appel MCP : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2635,32 +2639,47 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+851"/>
+        <location line="+988"/>
         <location line="+46"/>
         <source>%1 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-897"/>
-        <location line="+851"/>
+        <location line="-1034"/>
+        <location line="+988"/>
         <location line="+46"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+33"/>
         <source>%1 s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-896"/>
+        <location line="-1033"/>
         <source>Durée d&apos;exécution : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+290"/>
-        <location line="+330"/>
+        <location line="+349"/>
+        <location line="+376"/>
         <source>Port : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="-105"/>
+        <source>🛡️ Garde-Fou &amp; Validation (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Nouvelle proposition de refactorisation reçue (#%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Nouvelle proposition reçue (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+100"/>
         <source>URL Streamable HTTP copiée : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2675,13 +2694,93 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+180"/>
+        <location line="+212"/>
         <source>%1 appel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+0"/>
         <source>%1 appels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+166"/>
+        <source>PROPOSITIONS EN ATTENTE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Filtrer les propositions...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Tout appliquer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Tout rejeter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+62"/>
+        <source>Aucune proposition en attente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Toutes les propositions d&apos;agents MCP ont été validées ou rejetées.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Copier le feedback</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Copie une synthèse pour le terminal CLI de l&apos;agent externe</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Rejeter la proposition</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Appliquer la modification</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+110"/>
+        <source>Patch %1 appliqué avec succès !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Échec lors de l&apos;application du patch.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Patch %1 rejeté.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>%1 proposition(s) appliquée(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>%1 proposition(s) rejetée(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Synthèse de feedback copiée dans le presse-papier</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3880,6 +3979,42 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location filename="../../ui/widgets/batch_edit_dialog.py" line="+31"/>
         <source>Agent : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-122"/>
+        <location line="+117"/>
+        <source>Modifié</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-77"/>
+        <source>⏮️ Base active (BDD)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+42"/>
+        <source>✨ Proposition Agent MCP (Éditable)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+127"/>
+        <source>🔀 Carte atomique :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Comparaison champ par champ</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Aperçu Anki Live</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+47"/>
+        <source>Carte atomique %1 sur %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8147,7 +8282,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ConsultantView</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1345"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1350"/>
         <source>Afficher/Masquer l&apos;historique des discussions</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8195,13 +8330,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+25"/>
         <location line="+1"/>
         <location line="+1"/>
-        <location line="+523"/>
+        <location line="+528"/>
         <location line="+366"/>
         <source>0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-820"/>
+        <location line="-825"/>
         <location line="+209"/>
         <source>Discussion renommée.</source>
         <translation type="unfinished"></translation>
@@ -8254,7 +8389,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+89"/>
+        <location line="+94"/>
         <source>Élément retiré du contexte.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8512,7 +8647,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ContextPillBadge</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1642"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1647"/>
         <source>Cliquer pour retirer du contexte</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13432,7 +13567,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-938"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-1075"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13490,7 +13625,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPServerDashboardWidget</name>
     <message>
-        <location line="+102"/>
+        <location line="+98"/>
+        <source>🔌 Supervision &amp; Configuration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+443"/>
+        <source>🛡️ Garde-Fou &amp; Validation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-381"/>
         <source>Serveur MCP Local (Model Context Protocol)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13598,23 +13744,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+16"/>
-        <location line="+293"/>
+        <location line="+339"/>
         <source>Collez ce bloc dans votre fichier claude_desktop_config.json :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-253"/>
+        <location line="-299"/>
         <source>ACTIVITÉ DES OUTILS EN TEMPS RÉEL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+451"/>
+        <location line="+529"/>
         <source>0 appel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-446"/>
+        <location line="-524"/>
         <source>Vider l&apos;historique</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13654,18 +13800,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+115"/>
+        <location line="+97"/>
+        <source>Nouvelle proposition de refactorisation reçue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+64"/>
         <source>Actif</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+204"/>
+        <location line="+236"/>
         <source>Erreur</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-201"/>
+        <location line="-233"/>
         <source>Mutation...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13705,7 +13856,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+62"/>
+        <location line="+94"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13816,12 +13967,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-742"/>
+        <location filename="../../ui/main_window.py" line="-749"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+38"/>
+        <location line="+45"/>
         <source>Reprise de Pipeline DAG</source>
         <translation type="unfinished"></translation>
     </message>

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QScrollArea,
     QSizePolicy,
+    QStackedWidget,
     QTabBar,
     QTableWidget,
     QTableWidgetItem,
@@ -36,7 +37,9 @@ from ankiforge.services.ai.mcp_tracker import MCPActivityRecord, get_mcp_activit
 from ankiforge.ui.components.badges import Badge, StatusBadge
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -183,6 +186,7 @@ class MCPServerDashboardWidget(QWidget):
     restart_requested = Signal()
     rotate_token_requested = Signal()
     open_preferences_requested = Signal()
+    _patch_staged_received = Signal(dict)
 
     def __init__(
         self,
@@ -201,12 +205,19 @@ class MCPServerDashboardWidget(QWidget):
         self._token_visible = False
         self._active_snippet_key = "claude"
         self.pending_request: dict[str, Any] | None = None
+        self._last_notified_patch_id: str | None = None
 
         if self._token is None:
             self._load_token_from_disk()
 
         self._setup_ui()
         self.set_status(initial_status, port=initial_port, token=self._token)
+
+        self._patch_staged_received.connect(self.on_patch_staged)
+        event_bus.subscribe(MCPPatchStagedEvent, self._on_mcp_patch_staged_event)
+
+        # Initialisation dynamique de la file du Garde-Fou
+        self.garde_fou_widget.reload_pending_patches()
 
         self._tracker = get_mcp_activity_tracker()
         self._tracker.signals.activity_started.connect(self._on_activity_started)
@@ -252,11 +263,62 @@ class MCPServerDashboardWidget(QWidget):
         outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.setSpacing(0)
 
+        # ── Barre de sous-onglets supérieure ──────────────────────────────
+        tab_container = QWidget()
+        tab_layout = QHBoxLayout(tab_container)
+        tab_layout.setContentsMargins(16, 8, 16, 0)
+        tab_layout.setSpacing(0)
+
+        self.sub_tab_bar = QTabBar()
+        self.sub_tab_bar.setObjectName("mcp_sub_tab_bar")
+        self.sub_tab_bar.setDrawBase(False)
+        self.sub_tab_bar.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sub_tab_bar.addTab(self.tr("🔌 Supervision & Configuration"))
+        self.sub_tab_bar.addTab(self.tr("🛡️ Garde-Fou & Validation"))
+        self.sub_tab_bar.setStyleSheet(f"""
+            QTabBar#mcp_sub_tab_bar {{
+                background-color: transparent;
+                font-size: 12px;
+            }}
+            QTabBar#mcp_sub_tab_bar::tab {{
+                background-color: transparent;
+                color: {DesignTokens.TEXT_SECONDARY};
+                padding: 6px 14px;
+                border: none;
+                border-bottom: 2px solid transparent;
+                margin-right: 4px;
+                font-weight: 500;
+            }}
+            QTabBar#mcp_sub_tab_bar::tab:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {DesignTokens.BG_HOVER};
+                border-radius: 4px 4px 0 0;
+            }}
+            QTabBar#mcp_sub_tab_bar::tab:selected {{
+                color: {DesignTokens.ACCENT_PRIMARY};
+                border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                font-weight: 600;
+            }}
+        """)
+        self.sub_tab_bar.currentChanged.connect(self._on_sub_tab_changed)
+        tab_layout.addWidget(self.sub_tab_bar)
+        tab_layout.addStretch()
+        outer_layout.addWidget(tab_container)
+
+        tab_separator = QFrame()
+        tab_separator.setFixedHeight(1)
+        tab_separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
+        outer_layout.addWidget(tab_separator)
+
+        # ── Empilement des vues ───────────────────────────────────────────
+        self.stacked_widget = QStackedWidget(self)
+
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet("background: transparent;")
+        self.scroll_supervision = scroll
 
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -637,9 +699,55 @@ class MCPServerDashboardWidget(QWidget):
         layout.addStretch()
 
         scroll.setWidget(container)
-        outer_layout.addWidget(scroll)
+        self.stacked_widget.addWidget(self.scroll_supervision)
+
+        self.garde_fou_widget = MCPGardeFouWidget(self)
+        self.garde_fou_widget.queue_updated.connect(self._on_queue_updated)
+        self.stacked_widget.addWidget(self.garde_fou_widget)
+
+        outer_layout.addWidget(self.stacked_widget, 1)
 
         self._refresh_snippet_view()
+
+    def _on_sub_tab_changed(self, index: int) -> None:
+        """Bascule entre la vue Supervision et la vue Garde-Fou."""
+        self.stacked_widget.setCurrentIndex(index)
+        if index == 1 and hasattr(self, "garde_fou_widget"):
+            self.garde_fou_widget.reload_pending_patches()
+
+    def _on_queue_updated(self, count: int) -> None:
+        """Actualise dynamiquement l'intitulé et le badge du sous-onglet Garde-Fou."""
+        text = tr("🛡️ Garde-Fou & Validation (%1)", count) if count > 0 else self.tr("🛡️ Garde-Fou & Validation")
+        self.sub_tab_bar.setTabText(1, text)
+
+    def _on_mcp_patch_staged_event(self, event: MCPPatchStagedEvent) -> None:
+        data = {
+            "patch_id": event.patch_id,
+            "patch_type": event.patch_type,
+            "note_id": event.target_id,
+            "title": event.title or str(event.details.get("title", "")),
+        }
+        self._patch_staged_received.emit(data)
+
+    def on_patch_staged(self, data: dict[str, Any]) -> None:
+        """Traite l'arrivée d'une proposition de patch staged par un agent MCP."""
+        patch_id = str(data.get("patch_id", ""))
+        is_duplicate = bool(patch_id and patch_id == self._last_notified_patch_id)
+        self._last_notified_patch_id = patch_id
+
+        if hasattr(self, "garde_fou_widget"):
+            self.garde_fou_widget.reload_pending_patches()
+
+        if not is_duplicate:
+            note_id = data.get("note_id")
+            title = data.get("title")
+            if note_id:
+                msg = tr("Nouvelle proposition de refactorisation reçue (#%1)", note_id)
+            elif title:
+                msg = tr("Nouvelle proposition reçue (%1)", title)
+            else:
+                msg = self.tr("Nouvelle proposition de refactorisation reçue")
+            show_toast(self, msg, level="info")
 
     def _create_card(self, object_name: str) -> QFrame:
         card = QFrame()
@@ -856,6 +964,38 @@ class MCPServerDashboardWidget(QWidget):
         accent_primary = getattr(profile, "accent_primary", DesignTokens.ACCENT_PRIMARY)
 
         card_style_tpl = "QFrame#{name} {{ background-color: {bg}; border: 1px solid {border}; border-radius: 8px; }} QFrame#{name} QLabel {{ border: none; background: transparent; }}"
+
+        if hasattr(self, "sub_tab_bar"):
+            text_sec = getattr(profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
+            bg_hov = getattr(profile, "bg_hover", DesignTokens.BG_HOVER)
+            self.sub_tab_bar.setStyleSheet(f"""
+                QTabBar#mcp_sub_tab_bar {{
+                    background-color: transparent;
+                    font-size: 12px;
+                }}
+                QTabBar#mcp_sub_tab_bar::tab {{
+                    background-color: transparent;
+                    color: {text_sec};
+                    padding: 6px 14px;
+                    border: none;
+                    border-bottom: 2px solid transparent;
+                    margin-right: 4px;
+                    font-weight: 500;
+                }}
+                QTabBar#mcp_sub_tab_bar::tab:hover {{
+                    color: {text_primary};
+                    background-color: {bg_hov};
+                    border-radius: 4px 4px 0 0;
+                }}
+                QTabBar#mcp_sub_tab_bar::tab:selected {{
+                    color: {accent_primary};
+                    border-bottom: 2px solid {accent_primary};
+                    font-weight: 600;
+                }}
+            """)
+
+        if hasattr(self, "garde_fou_widget") and hasattr(self.garde_fou_widget, "refresh_theme"):
+            self.garde_fou_widget.refresh_theme(profile)
 
         if hasattr(self, "card_lifecycle"):
             self.card_lifecycle.setStyleSheet(card_style_tpl.format(name="mcp_card_lifecycle", bg=bg_panel, border=border_color))

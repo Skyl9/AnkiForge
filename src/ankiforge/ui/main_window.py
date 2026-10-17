@@ -345,6 +345,7 @@ class MainWindow(QMainWindow):
 
         self.mcp_daemon = MCPServerDaemon(base_port=port, host="127.0.0.1")
         self.mcp_daemon.signals.mcp_data_mutated.connect(self._on_mcp_data_mutated)
+        self.mcp_daemon.signals.mcp_patch_staged.connect(self._on_mcp_patch_staged)
 
         ok = self.mcp_daemon.start()
         if ok and self.mcp_daemon.port:
@@ -420,6 +421,13 @@ class MainWindow(QMainWindow):
 
         self._refresh_nav_badges()
         self.mcp_data_mutated.emit(mutation)
+
+    def _on_mcp_patch_staged(self, data: dict[str, Any]) -> None:
+        """Relaye la notification d'une proposition staged vers le tableau de bord MCP."""
+        logger.info("Proposition de patch MCP staged reçue : %s", data.get("patch_id"))
+        consultant_view = self._view_widgets.get("consultant")
+        if consultant_view and hasattr(consultant_view, "mcp_dashboard"):
+            consultant_view.mcp_dashboard.on_patch_staged(data)
 
     def _check_uncompleted_pipeline_runs(self) -> None:
         """Détecte les runs de pipelines inachevés ou interrompus lors d'une session précédente et propose la reprise."""

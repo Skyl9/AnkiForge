@@ -277,3 +277,141 @@ def test_mcp_activity_detail_dialog(qtbot) -> None:
     copied_text = clipboard.text()
     assert "propose_card_refactor" in copied_text
     assert "call1234" in copied_text
+
+
+def test_mcp_dashboard_sub_tabs_navigation(qtbot) -> None:
+    """Vérifie la navigation et la synchronisation des sous-onglets Supervision et Garde-Fou."""
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    assert hasattr(widget, "sub_tab_bar")
+    assert hasattr(widget, "stacked_widget")
+    assert hasattr(widget, "garde_fou_widget")
+    assert widget.sub_tab_bar.count() == 2
+
+    # Onglet initial : 0 (Supervision)
+    assert widget.sub_tab_bar.currentIndex() == 0
+    assert widget.stacked_widget.currentIndex() == 0
+    assert "Supervision" in widget.sub_tab_bar.tabText(0)
+    assert "Garde-Fou" in widget.sub_tab_bar.tabText(1)
+
+    # Bascule vers Garde-Fou (1)
+    widget.sub_tab_bar.setCurrentIndex(1)
+    assert widget.stacked_widget.currentIndex() == 1
+
+    # Retour vers Supervision (0)
+    widget.sub_tab_bar.setCurrentIndex(0)
+    assert widget.stacked_widget.currentIndex() == 0
+
+
+def test_mcp_dashboard_patch_staged_notification_and_badge(qtbot, monkeypatch) -> None:
+    """Vérifie l'actualisation dynamique du badge et l'affichage d'un toast discret sans redirection forcée."""
+    from ankiforge.database.models import StagedPatchModel
+    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+    StagedPatchModel.delete().execute()
+
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    # S'assurer qu'on démarre sur l'onglet Supervision
+    widget.sub_tab_bar.setCurrentIndex(0)
+    assert widget.sub_tab_bar.currentIndex() == 0
+    assert widget.stacked_widget.currentIndex() == 0
+
+    # Création d'un patch staged en BDD
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=101,
+        diff_payload={"title": "Refactorisation de la note #101", "original": {"Front": "Q1"}, "modified": {"Front": "Q1 modifiée"}},
+    )
+    patch_id = patch.patch_id
+
+    # Simulation d'arrivée de patch
+    widget.on_patch_staged({"patch_id": patch_id, "note_id": 101, "title": "Refactorisation de la note #101"})
+    qtbot.wait(50)
+
+    # 1. Pas de bascule forcée
+    assert widget.sub_tab_bar.currentIndex() == 0
+    assert widget.stacked_widget.currentIndex() == 0
+
+    # 2. Le texte de l'onglet 1 contient le compte (1)
+    assert "(1)" in widget.sub_tab_bar.tabText(1)
+
+    # Nettoyage
+    StagedPatchModel.delete().execute()
+
+
+def test_mcp_dashboard_event_bus_relay(qtbot) -> None:
+    """Vérifie que MCPPatchStagedEvent sur l'EventBus met à jour le dashboard de manière thread-safe."""
+    from PySide6.QtWidgets import QApplication
+
+    from ankiforge.database.models import StagedPatchModel
+    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+
+    StagedPatchModel.delete().execute()
+
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=202,
+        diff_payload={"title": "Scission de la note #202", "original": {"Front": "Q2"}, "modified": {"Front": "Q2 modifiée"}},
+    )
+    patch_id = patch.patch_id
+
+    # Émission via l'EventBus
+    event_bus.publish(
+        MCPPatchStagedEvent(
+            patch_id=patch_id,
+            patch_type="card",
+            target_id=202,
+            title="Scission de la note #202",
+        )
+    )
+
+    # Laisser le temps à Qt de dépiler le signal inter-thread
+    qtbot.waitUntil(lambda: "(1)" in widget.sub_tab_bar.tabText(1), timeout=1500)
+    QApplication.processEvents()
+
+    assert "(1)" in widget.sub_tab_bar.tabText(1)
+
+    # Nettoyage
+    StagedPatchModel.delete().execute()
+
+
+def test_mcp_dashboard_auto_selection_on_empty_queue(qtbot) -> None:
+    """Vérifie que si la file était vide et l'utilisateur sur l'onglet Garde-Fou, le premier patch est sélectionné."""
+    from ankiforge.database.models import StagedPatchModel
+    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+    StagedPatchModel.delete().execute()
+
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    # L'utilisateur se place sur l'onglet Garde-Fou
+    widget.sub_tab_bar.setCurrentIndex(1)
+    assert widget.stacked_widget.currentIndex() == 1
+    assert widget.garde_fou_widget.patch_list.count() == 0
+
+    # Création d'un patch
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=303,
+        diff_payload={"title": "Atomisation note #303", "original": {"Front": "Q3"}, "modified": {"Front": "Q3 atomique"}},
+    )
+    patch_id = patch.patch_id
+
+    widget.on_patch_staged({"patch_id": patch_id, "note_id": 303, "title": "Atomisation note #303"})
+    qtbot.wait(50)
+
+    # Vérification que le patch a été automatiquement sélectionné
+    assert widget.garde_fou_widget.patch_list.count() == 1
+    assert widget.garde_fou_widget.current_patch_id == patch_id
+    assert widget.garde_fou_widget.detail_stack.currentIndex() == 1
+
+    # Nettoyage
+    StagedPatchModel.delete().execute()

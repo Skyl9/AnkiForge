@@ -1012,7 +1012,9 @@ class ConsultantView(QWidget):
 
         added = self.workspace_inspector.add_patch_to_queue(item)
         if activate_tab:
-            self._activate_workspace_tab()
+            active_idx = getattr(self.chat_panel.tabs_bar, "active_tab_idx", -1) if hasattr(self, "chat_panel") else -1
+            if active_idx != 0:
+                self._activate_workspace_tab()
         return added
 
     def _reload_pending_patches(self) -> None:
@@ -1033,9 +1035,12 @@ class ConsultantView(QWidget):
             logger.warning("Rechargement des patchs en attente impossible : %s", err)
             return
 
-        # La bascule d'onglet n'a lieu que si de nouvelles propositions ont réellement rejoint la file.
+        # La bascule d'onglet n'a lieu que si de nouvelles propositions ont réellement rejoint la file
+        # ET que l'utilisateur n'est pas sur l'onglet Serveur MCP (priorité autonomie MCP, ADR 0029).
         if reloaded:
-            self._activate_workspace_tab()
+            active_idx = getattr(self.chat_panel.tabs_bar, "active_tab_idx", -1) if hasattr(self, "chat_panel") else -1
+            if active_idx != 0:
+                self._activate_workspace_tab()
 
     @Slot(dict)
     def _on_diff_inspect_requested(self, patch_data: dict[str, Any]) -> None:
