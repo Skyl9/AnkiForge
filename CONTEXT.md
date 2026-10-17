@@ -200,6 +200,14 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : inspecteur consultant, onglet diff, panneau de chat
 - **Comparateur sémantique de note (ou Diff sémantique de note)** : composant visuel présentant les modifications d'une note champ par champ avec deux colonnes synchronisées, surlignage mot à mot intra-ligne (*word-level diff*) et prévisualisation Anki en direct, sans exposition de syntaxe JSON brute.
   _Avoid_ : diff JSON, inspecteur textuel brut, raw diff viewer
+- **Cockpit de connexion MCP (ou Supervision MCP)** : surface opérationnelle de pilotage direct du serveur MCP local agencée en deux colonnes sans défilement, réunissant le cycle de vie du démon, les adresses des points de terminaison (Streamable HTTP, SSE), le jeton Bearer et la génération de snippets de configuration client prêts à copier.
+  _Avoid_ : panneau serveur, config mcp, page mcp, onglet settings
+- **Catalogue interactif des outils MCP** : surface d'exploration des 58 outils exposés par le serveur MCP d'AnkiForge, organisés par domaine fonctionnel, permettant de rechercher et d'inspecter les schémas JSON, paramètres obligatoires et facultatifs, descriptions et règles de garde-fous.
+  _Avoid_ : liste des outils, registre des fonctions, menu outils
+- **Télémétrie d'activité MCP** : espace de supervision en temps réel des invocations d'outils par les agents externes, présentant les métriques d'exécution (durée, statut, fréquence) et un inspecteur maître-détail d'arguments et de retours JSON sans blocage modal.
+  _Avoid_ : logs MCP, journal d'appels, historique brut
+- **Espace Guides & Workspaces MCP** : interface d'amorçage et de suivi des environnements de travail d'agents, permettant de générer les adaptateurs méthodologiques (`init_agent_workspace`), d'auditer la dérive de version des guides (`check_guide_version`) et de visualiser les personas MCP configurées.
+  _Avoid_ : setup agents, dossier guides, onboarding mcp
 
 
 ## Profils, Sauvegardes & Durcissement
