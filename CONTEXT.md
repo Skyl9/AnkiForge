@@ -179,6 +179,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Tranche de refactoring** : étape livrable qui extrait et teste une responsabilité d’une vue sans modifier le comportement observable des autres parcours.
 - **Bandeau d'activité global** : indicateur d'avancement unique et persistant, hébergé **hors** des dispositions enfichables (au niveau de la fenêtre), de sorte qu'une passe de réindexation reste visible quel que soit l'écran actif. C'est un composant transversal, jamais un widget de vue.
   _Avoid_ : barre de statut, barre de progression globale, footer, overlay
+- **Contenu d'onglet Paramètres adaptatif** : règle de mise en page selon laquelle le contenu des onglets de la modale Paramètres se comprime pour tenir dans la zone disponible **sans jamais imposer de barre de défilement horizontale ni tronquer un libellé**, de la largeur minimale du modal (820px) jusqu'à l'infini. Les grilles denses (miniatures de layouts, métriques de stockage) se replient en une seule colonne sous leur seuil de lisibilité. Le conteneur (modale, redimensionnable) reste fixe : c'est le contenu qui s'adapte, jamais l'inverse.
+  _Avoid_ : largeur minimale rigide, setFixedWidth, sidebar élargie, conteneur adaptatif
 
 ## Protocole MCP & Agents externes
 
@@ -287,5 +289,13 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : backend TTS, driver audio, moteur vocal
 - **Sidecar vocal local** : exécutable ou runner déporté autonome placé hors du bundle applicatif dans `~/.ankiforge/tools/tts/` (ex: Piper, Kokoro), évitant d'alourdir le binaire Nuitka et s'exécutant en processus isolé.
   _Avoid_ : binaire interne, dépendance embarquée, plugin TTS
+
+## Paramètres de l'application & Drapeaux Anki
+
+- **Modale de paramètres (SettingsModal)** : surface de configuration du profil utilisateur organisée en onglets thématiques, protégée contre les fermetures intempestives (neutralisation d'autoDefault, interception de la touche Entrée, sauvegarde explicite en place et raccourci global `Ctrl+S` / `Cmd+S`).
+  _Avoid_ : fenêtre settings, popup préférences, dialogue options
+- **Libellé de drapeau (Flag label)** : nom personnalisé attribué à l'un des 7 drapeaux colorés d'Anki (indices 1 à 7) pour le profil actif. Un libellé non défini ou vide applique un repli automatique strict vers la désignation native du jeton Anki (`DesignTokens.FLAG_NAMES`).
+  _Avoid_ : tag couleur, nom de couleur, drapeau custom
+
 
 
