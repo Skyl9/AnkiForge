@@ -113,3 +113,31 @@ class TestBuildConfiguration:
             assert install_cmd[1] == "-id"
             assert install_cmd[2] == "@rpath/_rsbridge.so"
             assert install_cmd[3] == str(fake_so)
+
+    def test_nuitka_config_includes_xml_package(self) -> None:
+        """Vérifie que nuitka_config.json inclut le package stdlib xml pour les dépendances non compilées."""
+        config_path = PROJECT_ROOT / "build_script" / "nuitka_config.json"
+        with open(config_path, encoding="utf-8") as f:
+            config = json.load(f)
+
+        include_packages = config.get("common", {}).get("include_packages", [])
+        assert "xml" in include_packages, (
+            "Le package standard 'xml' doit être inclus dans common.include_packages pour garantir la disponibilité de xml.etree pour les dépendances runtime non compilées (markdown, defusedxml)."
+        )
+
+    def test_build_nuitka_command_generates_include_xml(self) -> None:
+        """Vérifie que build_nuitka_command génère le drapeau --include-package=xml."""
+        from script.build_standalone import build_nuitka_command, load_config
+
+        config = load_config()
+        cmd = build_nuitka_command(config, target_os="darwin", jobs=2, version="1.3.0")
+
+        assert "--include-package=xml" in cmd, "Flag --include-package=xml manquant dans la commande Nuitka"
+
+    def test_copy_runtime_dependencies_copies_stdlib_xml(self, tmp_path: Path) -> None:
+        """Vérifie que copy_runtime_dependencies.py copie le package standard xml en secours."""
+        from script.copy_runtime_dependencies import copy_runtime_deps
+
+        with patch("pathlib.Path.iterdir", return_value=[]):
+            copy_runtime_deps(tmp_path)
+        assert (tmp_path / "xml").exists(), "Le package standard 'xml' doit être copié dans le dossier cible du bundle"

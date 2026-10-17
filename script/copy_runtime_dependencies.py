@@ -89,6 +89,25 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
         except Exception as err:
             print(f"[WARNING] Erreur lors de la copie de {item.name}: {err}")
 
+    # S'assurer que le package standard xml est copié pour les dépendances non compilées (markdown, defusedxml)
+    py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    xml_stdlib_candidates = [
+        pathlib.Path(sys.base_prefix) / "lib" / py_ver / "xml",
+        pathlib.Path(sys.prefix) / "lib" / py_ver / "xml",
+        pathlib.Path(sys.base_prefix) / "Lib" / "xml",
+        pathlib.Path(sys.prefix) / "Lib" / "xml",
+    ]
+    dest_xml = dist_info_target_dir / "xml"
+    if not dest_xml.exists():
+        for cand in xml_stdlib_candidates:
+            if cand.exists() and cand.is_dir():
+                try:
+                    shutil.copytree(cand, dest_xml, dirs_exist_ok=True)
+                    copied_count += 1
+                    break
+                except Exception as err:
+                    print(f"[WARNING] Erreur lors de la copie du package stdlib xml: {err}")
+
     # Élagage des plugins Qt inutilisés par AnkiForge pour alléger le bundle (-50 à -80 Mo)
     # Note : Le plugin 'multimedia' est conservé pour la lecture audio et le TTS via QtMultimedia.
     unused_qt_plugins = {

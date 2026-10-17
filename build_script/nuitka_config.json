@@ -13,6 +13,7 @@
       "anyio",
       "sniffio",
       "urllib",
+      "xml",
       "edge_tts",
       "aiohttp",
       "certifi"

@@ -29,6 +29,26 @@ if sys.platform == "darwin":
     except (OSError, ValueError):
         pass
 
+import xml
+import xml.etree.ElementTree  # nosec B405  # import statique pour forcer Nuitka à lier xml.etree dans le bundle C
+
+# Raccordement de secours du package standard xml pour les dépendances non compilées (markdown, defusedxml)
+for _xml_cand in (
+    Path(sys.executable).parent.parent / "Resources" / "xml",
+    Path(sys.executable).parent / "xml",
+):
+    if _xml_cand.exists():
+        if hasattr(xml, "__path__") and str(_xml_cand) not in xml.__path__:
+            xml.__path__.append(str(_xml_cand))
+        if (
+            hasattr(xml, "__spec__")
+            and xml.__spec__
+            and hasattr(xml.__spec__, "submodule_search_locations")
+            and xml.__spec__.submodule_search_locations is not None
+            and str(_xml_cand) not in xml.__spec__.submodule_search_locations
+        ):
+            xml.__spec__.submodule_search_locations.append(str(_xml_cand))
+
 from ankiforge.utils.ssl_certificates import setup_ssl_certificates
 
 # Initialisation précoce des certificats racines SSL (évite FileNotFoundError sous Nuitka/macOS)
