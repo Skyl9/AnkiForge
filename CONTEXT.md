@@ -196,6 +196,11 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : vérification de deck, filtre de paquet, validation de cible
 - **Amorçage d'agent (Init)** : opération par laquelle un agent externe demande au serveur MCP de générer un fichier d'instructions méthodologiques dans son répertoire de travail, afin de maximiser ses compétences pour piloter AnkiForge. Le fichier produit est un adaptateur d'instructions au format attendu par le client (`GEMINI.md`, `CLAUDE.md`, `ANKIFORGE_GUIDE.md`, etc.), contenant les workflows d'usage, le catalogue des outils MCP et les garde-fous anticipatifs.
   _Avoid_ : bootstrap, setup, onboarding, workspace init, init workspace
+- **Garde-Fou MCP (ou Espace de Validation MCP)** : sous-onglet dédié et autonome au sein de l'onglet Serveur MCP, centralisant l'examen, la comparaison haute fidélité et l'arbitrage (validation, retouche directe, rejet) des patchs chirurgicaux émis par des agents externes sans redirection vers le Consultant IA in-app.
+  _Avoid_ : inspecteur consultant, onglet diff, panneau de chat
+- **Comparateur sémantique de note (ou Diff sémantique de note)** : composant visuel présentant les modifications d'une note champ par champ avec deux colonnes synchronisées, surlignage mot à mot intra-ligne (*word-level diff*) et prévisualisation Anki en direct, sans exposition de syntaxe JSON brute.
+  _Avoid_ : diff JSON, inspecteur textuel brut, raw diff viewer
+
 
 ## Profils, Sauvegardes & Durcissement
 

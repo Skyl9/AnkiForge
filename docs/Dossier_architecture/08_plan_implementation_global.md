@@ -44,9 +44,11 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
   - **Navigation Synchronisée & Import Forge :** Navigation synchrone optionnelle (A ↔ B) et bouton *Importer dans la Forge* en 1-clic générant les `NoteModel`, `NoteVersionModel` et `CardModel` en SQLite.
 
 ## 6. Vue Consultant IA & MCP (`consultant_view.py`)
-* **État Actuel :** ✅ **Moteur Autonome ReAct, Outils In-Process MCP & Blocs Interactifs.**
+* **État Actuel :** ✅ **Moteur Autonome ReAct, Outils In-Process MCP, Garde-Fou Two-Phase Commit & Diff Sémantique.**
   - **Moteur ReAct Multi-Étapes :** Boucle (*Thought ➔ Action ➔ Observation ➔ Response*) avec émission structurée d'événements et détection automatique des tool calls natifs et JSON manuels.
   - **Registre d'Outils In-Process & MCP :** Interrogation SQL sécurisée en lecture seule (`query_peewee`), calcul de statistiques SRS et cartes sangsues (`get_deck_stats`), recherche de cartes (`get_cards_by_deck_or_tag`), proposition d'ajustement CSS avec aperçu (`propose_css_tune`) et exécution d'outils Python déterministes (`execute_python_tool`).
+  - **Garde-Fou & Validation Two-Phase Commit (`MCPGardeFouWidget`) :** Intégration en sous-onglet direct du Dashboard MCP (`Supervision & Configuration` vs `Garde-Fou & Validation`), file d'attente de propositions (`StagedPatchRegistry`, `StagedPatchModel`), notification événementielle non-intrusive (`mcp_patch_staged`, `MCPPatchStagedEvent`), badge dynamique et sélection automatique.
+  - **Comparateur Sémantique de Cartes (`CardSemanticDiffWidget`) :** Double colonne BDD vs Agent MCP avec diff intra-ligne au mot près, édition directe réactive synchronisée, prévisualisation Anki live (`CardPreviewWidget`) et gestion polymorphique (refactorisation, scission atomique, création de note).
   - **Widgets Visuels Riches :** `ThoughtStepWidget` (cartouche repliable de raisonnement), `ToolCallWidget` (carte d'appel d'outil avec inspection du JSON d'entrée et observation retournée) et `ChatMessageWidget` (avec détection automatique de CSS et cartes avec boutons d'application/import en 1-clic).
   - **Quick Prompts & Filtre Personas :** Suggestions rapides en capsules arrondies et filtrage ciblé des personas de type `mcp` et `universal`.
 

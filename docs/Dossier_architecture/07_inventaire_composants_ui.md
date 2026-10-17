@@ -34,8 +34,10 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
   * `note_editor_widget.py` : Éditeur complet de notes avec gestion multi-champs dynamique.
   * `cloze_manager.py` : Outil de création rapide d'occlusions (Cloze deletion `{{c1::...}}`).
   * `drop_image_text_edit.py` : Zone de texte enrichie avec gestion du drag & drop d'images vers le `MediaManager`.
-* **Visualisation & Rendu :**
+* **Visualisation, Diff & Rendu :**
   * `card_preview_widget.py` & `safe_web_preview.py` : Moteur de rendu WebEngine fidèle au comportement d'Anki officiel.
+  * `card_semantic_diff_widget.py` : Comparateur sémantique de cartes champ par champ (diff intra-ligne au mot près, édition directe réactive, onglet Anki Live).
+  * `mcp_garde_fou_widget.py` : Sous-onglet Garde-Fou & Validation MCP en disposition Maître-Détail (filtrage, actions de lot, two-phase commit).
   * `donut_chart.py` : Graphiques circulaires pour les statistiques de répartition.
   * `retention_curve.py` : Courbe d'oubli projetée (data-driven, dérivée de l'intervalle, ADR 0020) et charge à l'équilibre, rendue en QPainter.
 * **Navigation & Commandes :**
