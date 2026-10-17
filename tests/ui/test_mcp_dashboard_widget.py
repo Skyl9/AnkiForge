@@ -190,12 +190,15 @@ def test_mcp_dashboard_segmented_tab_bar_integration(qtbot) -> None:
     # 1. Le sous-onglet est bien une instance de SegmentedTabBar
     assert isinstance(widget.sub_tab_bar, SegmentedTabBar)
     assert widget.sub_tab_bar.variant == "subtab"
-    assert widget.sub_tab_bar.count() == 2
+    assert widget.sub_tab_bar.count() == 4
 
-    # 2. Le cockpit de supervision est bien instancié sans défilement imposé
+    # 2. Les sous-onglets sont bien instanciés dans le QStackedWidget
     assert hasattr(widget, "supervision_widget")
+    assert hasattr(widget, "telemetry_widget")
     assert widget.stacked_widget.widget(0) is widget.supervision_widget
     assert widget.stacked_widget.widget(1) is widget.garde_fou_widget
+    assert widget.stacked_widget.widget(2) is widget.catalog_widget
+    assert widget.stacked_widget.widget(3) is widget.telemetry_widget
 
 
 def test_mcp_activity_detail_dialog(qtbot) -> None:
@@ -238,28 +241,73 @@ def test_mcp_activity_detail_dialog(qtbot) -> None:
 
 
 def test_mcp_dashboard_sub_tabs_navigation(qtbot) -> None:
-    """Vérifie la navigation et la synchronisation des sous-onglets Supervision et Garde-Fou."""
+    """Vérifie la navigation et la synchronisation des 4 sous-onglets du tableau de bord."""
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
     qtbot.addWidget(widget)
 
     assert hasattr(widget, "sub_tab_bar")
     assert hasattr(widget, "stacked_widget")
     assert hasattr(widget, "garde_fou_widget")
-    assert widget.sub_tab_bar.count() == 2
+    assert hasattr(widget, "telemetry_widget")
+    assert widget.sub_tab_bar.count() == 4
 
     # Onglet initial : 0 (Supervision)
     assert widget.sub_tab_bar.currentIndex() == 0
     assert widget.stacked_widget.currentIndex() == 0
     assert "Supervision" in widget.sub_tab_bar.tabText(0)
     assert "Garde-Fou" in widget.sub_tab_bar.tabText(1)
+    assert "Catalogue" in widget.sub_tab_bar.tabText(2)
+    assert "Activité" in widget.sub_tab_bar.tabText(3)
+
+    # Bascule vers Télémétrie (3)
+    widget.sub_tab_bar.setCurrentIndex(3)
+    assert widget.stacked_widget.currentIndex() == 3
 
     # Bascule vers Garde-Fou (1)
     widget.sub_tab_bar.setCurrentIndex(1)
     assert widget.stacked_widget.currentIndex() == 1
 
+    # Bascule vers Catalogue (2)
+    widget.sub_tab_bar.setCurrentIndex(2)
+    assert widget.stacked_widget.currentIndex() == 2
+
     # Retour vers Supervision (0)
     widget.sub_tab_bar.setCurrentIndex(0)
     assert widget.stacked_widget.currentIndex() == 0
+
+
+def test_mcp_dashboard_telemetry_badge_dynamic_update(qtbot) -> None:
+    """Vérifie l'actualisation dynamique du badge et du libellé Activité (N) sur le sous-onglet."""
+    from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
+
+    tracker = get_mcp_activity_tracker()
+    tracker.clear_history()
+
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    # État initial : Activité sans badge ou count 0
+    assert "Activité" in widget.sub_tab_bar.tabText(3)
+    assert "(0)" not in widget.sub_tab_bar.tabText(3)
+
+    # Démarrage d'un appel
+    _ = tracker.start_tracking("propose_card_refactor", {"note_id": 12})
+    qtbot.wait(40)
+
+    assert "(1)" in widget.sub_tab_bar.tabText(3)
+    assert widget.sub_tab_bar.tab_badge("telemetrie") == "1"
+
+    # Deuxième appel
+    _ = tracker.start_tracking("list_decks", {})
+    qtbot.wait(40)
+    assert "(2)" in widget.sub_tab_bar.tabText(3)
+    assert widget.sub_tab_bar.tab_badge("telemetrie") == "2"
+
+    # Vidage de l'historique
+    tracker.clear_history()
+    qtbot.wait(40)
+    assert "(2)" not in widget.sub_tab_bar.tabText(3)
+    assert widget.sub_tab_bar.tab_badge("telemetrie") == ""
 
 
 def test_mcp_dashboard_patch_staged_notification_and_badge(qtbot, monkeypatch) -> None:

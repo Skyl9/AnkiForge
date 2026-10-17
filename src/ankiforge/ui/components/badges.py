@@ -95,6 +95,10 @@ class StatusBadge(QWidget):
 
         self._apply_style()
 
+    def text(self) -> str:
+        """Retourne le libellé textuel du badge de statut."""
+        return self.badge_text
+
     def set_status(self, text: str, icon_name: str, variant: str) -> None:
         self.badge_text = text
         self.icon_name = icon_name

@@ -2626,7 +2626,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+51"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+52"/>
         <source>Détail de l&apos;appel MCP : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2637,11 +2637,17 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_telemetry_widget.py" line="+568"/>
+        <location line="+19"/>
+        <location line="+114"/>
         <source>%1 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+0"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_telemetry_widget.py" line="-133"/>
+        <location line="+19"/>
+        <location line="+114"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+33"/>
         <source>%1 s</source>
         <translation type="unfinished"></translation>
@@ -2652,7 +2658,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+326"/>
+        <location line="+368"/>
+        <source>Activité (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
         <source>Garde-Fou &amp; Validation (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2765,6 +2776,41 @@ Gabarits : %3</source>
     <message>
         <location line="+90"/>
         <source>Contexte ciblé : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_telemetry_widget.py" line="-485"/>
+        <source>TOTAL DES APPELS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>TAUX DE SUCCÈS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>DURÉE MOYENNE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+423"/>
+        <source>%1 erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>%1 erreurs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+44"/>
+        <source>Déclenché à %1 · En cours d&apos;exécution...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Déclenché à %1 · Durée : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13610,7 +13656,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-377"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-426"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13666,20 +13712,44 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>MCPCatalogPlaceholderWidget</name>
+    <message>
+        <location line="+19"/>
+        <source>Catalogue d&apos;Outils MCP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Exploration interactive des 58 outils du serveur MCP (Tranche 3 en cours d&apos;intégration).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>MCPServerDashboardWidget</name>
     <message>
-        <location line="+203"/>
+        <location line="+209"/>
         <source>Supervision &amp; Configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+44"/>
+        <location line="+62"/>
         <source>Garde-Fou &amp; Validation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="-61"/>
+        <source>Catalogue d&apos;Outils</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+53"/>
+        <source>Activité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+40"/>
         <source>Nouvelle proposition de refactorisation reçue</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13913,6 +13983,138 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <message>
         <location line="+27"/>
         <source>Prompt copié dans le presse-papiers pour votre agent externe !</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>MCPTelemetryWidget</name>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_telemetry_widget.py" line="-476"/>
+        <location line="+413"/>
+        <source>0 erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-402"/>
+        <location line="+403"/>
+        <location line="+18"/>
+        <source>par appel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-415"/>
+        <source>Vider l&apos;historique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Rechercher un outil ou paramètre...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>Tous</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+144"/>
+        <location line="+103"/>
+        <location line="+158"/>
+        <source>Succès</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-404"/>
+        <source>Erreurs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Horodatage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Outil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Statut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Durée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Arguments résumés</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+84"/>
+        <source>Aucun appel sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Sélectionnez une ligne dans la table d&apos;activité pour inspecter ses paramètres JSON et son résultat en temps réel sans popup bloquante.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Copier le JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Paramètres d&apos;appel (Arguments JSON) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <location line="+255"/>
+        <source>Observation / Résultat retourné :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-179"/>
+        <location line="+158"/>
+        <source>Erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-156"/>
+        <location line="+158"/>
+        <source>En cours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-61"/>
+        <source>Historique de télémétrie réinitialisé.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+76"/>
+        <source>Message d&apos;erreur :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>(aucun message d&apos;erreur)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>(aucun contenu retourné)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Détail de l&apos;appel copié dans le presse-papiers.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -17134,7 +17336,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TagButton</name>
     <message>
-        <location filename="../../ui/components/badges.py" line="+178"/>
+        <location filename="../../ui/components/badges.py" line="+182"/>
         <source>×</source>
         <translation type="unfinished"></translation>
     </message>

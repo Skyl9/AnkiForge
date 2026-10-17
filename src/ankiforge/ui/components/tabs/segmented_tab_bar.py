@@ -338,6 +338,11 @@ class SegmentedTabBar(QWidget):
         if btn:
             btn.set_badge(badge_text)
 
+    def tab_badge(self, tab_id: str) -> str:
+        """Retourne le badge d'un onglet."""
+        btn = self._tabs_by_id.get(tab_id)
+        return btn.badge_text if btn else ""
+
     def set_tab_enabled(self, tab_id: str, enabled: bool) -> None:
         """Active ou désactive un onglet."""
         btn = self._tabs_by_id.get(tab_id)

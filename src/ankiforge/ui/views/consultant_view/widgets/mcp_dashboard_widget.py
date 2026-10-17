@@ -12,7 +12,7 @@ import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
@@ -34,6 +34,7 @@ from ankiforge.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_supervision_widget import MCPSupervisionWidget
+from ankiforge.ui.views.consultant_view.widgets.mcp_telemetry_widget import MCPTelemetryWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
 from ankiforge.utils.i18n import tr
@@ -174,6 +175,36 @@ class MCPActivityDetailDialog(QDialog):
             show_toast(self, self.tr("Détail de l'appel copié dans le presse-papiers."))
 
 
+class MCPCatalogPlaceholderWidget(QWidget):
+    """Placeholder temporaire pour le sous-onglet Catalogue d'Outils MCP (Tranche 3)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("MCPCatalogPlaceholderWidget")
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(10)
+
+        icon = QLabel(self)
+        icon.setPixmap(load_phosphor_icon("ph.wrench", color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setStyleSheet("border: none; background: transparent; opacity: 0.7;")
+        layout.addWidget(icon)
+
+        title = QLabel(self.tr("Catalogue d'Outils MCP"), self)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: 700; border: none;")
+        layout.addWidget(title)
+
+        desc = QLabel(
+            self.tr("Exploration interactive des 58 outils du serveur MCP (Tranche 3 en cours d'intégration)."),
+            self,
+        )
+        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none;")
+        layout.addWidget(desc)
+
+
 class MCPServerDashboardWidget(QWidget):
     """Tableau de bord opérationnel du serveur MCP local avec SegmentedTabBar."""
 
@@ -211,6 +242,7 @@ class MCPServerDashboardWidget(QWidget):
 
         # Initialisation dynamique de la file du Garde-Fou
         self.garde_fou_widget.reload_pending_patches()
+        self._on_telemetry_count_changed(len(self.telemetry_widget._records))
 
     @property
     def current_status(self) -> str:
@@ -376,6 +408,8 @@ class MCPServerDashboardWidget(QWidget):
         self.sub_tab_bar.setObjectName("mcp_sub_tab_bar")
         self.sub_tab_bar.add_tab("supervision", self.tr("Supervision & Configuration"), icon_name="ph.sliders")
         self.sub_tab_bar.add_tab("garde_fou", self.tr("Garde-Fou & Validation"), icon_name="ph.shield-check")
+        self.sub_tab_bar.add_tab("catalogue", self.tr("Catalogue d'Outils"), icon_name="ph.wrench")
+        self.sub_tab_bar.add_tab("telemetrie", self.tr("Activité"), icon_name="ph.chart-bar")
         self.sub_tab_bar.tab_index_changed.connect(self._on_sub_tab_changed)
 
         tab_layout.addWidget(self.sub_tab_bar)
@@ -409,13 +443,29 @@ class MCPServerDashboardWidget(QWidget):
         self.garde_fou_widget.queue_updated.connect(self._on_queue_updated)
         self.stacked_widget.addWidget(self.garde_fou_widget)
 
+        # Sous-onglet 2 : Catalogue d'Outils (Placeholder Tranche 3)
+        self.catalog_widget = MCPCatalogPlaceholderWidget(self)
+        self.stacked_widget.addWidget(self.catalog_widget)
+
+        # Sous-onglet 3 : Télémétrie d'Activité en direct (Tranche 2)
+        self.telemetry_widget = MCPTelemetryWidget(parent=self)
+        self.telemetry_widget.count_changed.connect(self._on_telemetry_count_changed)
+        self.stacked_widget.addWidget(self.telemetry_widget)
+
         outer_layout.addWidget(self.stacked_widget, 1)
 
     def _on_sub_tab_changed(self, index: int) -> None:
-        """Bascule entre la vue Supervision et la vue Garde-Fou."""
+        """Bascule entre les sous-onglets du tableau de bord."""
         self.stacked_widget.setCurrentIndex(index)
         if index == 1 and hasattr(self, "garde_fou_widget"):
             self.garde_fou_widget.reload_pending_patches()
+
+    def _on_telemetry_count_changed(self, count: int) -> None:
+        """Actualise dynamiquement l'intitulé et le badge du sous-onglet Activité."""
+        text = tr("Activité (%1)", count) if count > 0 else self.tr("Activité")
+        self.sub_tab_bar.set_tab_text("telemetrie", text)
+        badge_val = str(count) if count > 0 else ""
+        self.sub_tab_bar.set_tab_badge("telemetrie", badge_val)
 
     def _on_queue_updated(self, count: int) -> None:
         """Actualise dynamiquement l'intitulé et le badge du sous-onglet Garde-Fou."""
@@ -500,6 +550,8 @@ class MCPServerDashboardWidget(QWidget):
             self.supervision_widget.refresh_theme(profile)
         if hasattr(self, "garde_fou_widget") and hasattr(self.garde_fou_widget, "refresh_theme"):
             self.garde_fou_widget.refresh_theme(profile)
+        if hasattr(self, "telemetry_widget") and hasattr(self.telemetry_widget, "refresh_theme"):
+            self.telemetry_widget.refresh_theme(profile)
 
 
-__all__ = ["MCPServerDashboardWidget", "MCPActivityDetailDialog"]
+__all__ = ["MCPServerDashboardWidget", "MCPActivityDetailDialog", "MCPCatalogPlaceholderWidget"]
