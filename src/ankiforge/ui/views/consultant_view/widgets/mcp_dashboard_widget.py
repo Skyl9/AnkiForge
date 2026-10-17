@@ -273,8 +273,8 @@ class MCPServerDashboardWidget(QWidget):
         self.sub_tab_bar.setObjectName("mcp_sub_tab_bar")
         self.sub_tab_bar.setDrawBase(False)
         self.sub_tab_bar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.sub_tab_bar.addTab(self.tr("🔌 Supervision & Configuration"))
-        self.sub_tab_bar.addTab(self.tr("🛡️ Garde-Fou & Validation"))
+        self.sub_tab_bar.addTab(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_SECONDARY), self.tr("Supervision & Configuration"))
+        self.sub_tab_bar.addTab(load_phosphor_icon("ph.shield-check", color=DesignTokens.TEXT_SECONDARY), self.tr("Garde-Fou & Validation"))
         self.sub_tab_bar.setStyleSheet(f"""
             QTabBar#mcp_sub_tab_bar {{
                 background-color: transparent;
@@ -717,8 +717,10 @@ class MCPServerDashboardWidget(QWidget):
 
     def _on_queue_updated(self, count: int) -> None:
         """Actualise dynamiquement l'intitulé et le badge du sous-onglet Garde-Fou."""
-        text = tr("🛡️ Garde-Fou & Validation (%1)", count) if count > 0 else self.tr("🛡️ Garde-Fou & Validation")
+        text = tr("Garde-Fou & Validation (%1)", count) if count > 0 else self.tr("Garde-Fou & Validation")
         self.sub_tab_bar.setTabText(1, text)
+        icon_color = DesignTokens.COLOR_RED if count > 0 else DesignTokens.TEXT_SECONDARY
+        self.sub_tab_bar.setTabIcon(1, load_phosphor_icon("ph.shield-check", color=icon_color))
 
     def _on_mcp_patch_staged_event(self, event: MCPPatchStagedEvent) -> None:
         data = {

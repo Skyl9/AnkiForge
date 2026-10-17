@@ -203,14 +203,28 @@ class MCPGardeFouWidget(QWidget):
         batch_row.setSpacing(6)
 
         self.btn_apply_all = SecondaryButton(tr("Tout appliquer"))
-        self.btn_apply_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.TEXT_SECONDARY))
-        self.btn_apply_all.setFixedHeight(24)
+        self.btn_apply_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
+        self.btn_apply_all.setFixedHeight(32)
+        self.btn_apply_all.setStyleSheet("""
+            QPushButton {
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            }
+        """)
         self.btn_apply_all.clicked.connect(self._apply_all_patches)
         batch_row.addWidget(self.btn_apply_all)
 
         self.btn_reject_all = SecondaryButton(tr("Tout rejeter"))
-        self.btn_reject_all.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_SECONDARY))
-        self.btn_reject_all.setFixedHeight(24)
+        self.btn_reject_all.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.COLOR_RED))
+        self.btn_reject_all.setFixedHeight(32)
+        self.btn_reject_all.setStyleSheet("""
+            QPushButton {
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            }
+        """)
         self.btn_reject_all.clicked.connect(self._reject_all_patches)
         batch_row.addWidget(self.btn_reject_all)
 

@@ -1065,7 +1065,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     <message>
         <location line="+3"/>
         <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+153"/>
-        <location line="+117"/>
+        <location line="+137"/>
         <source>Identique</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2565,8 +2565,6 @@ Gabarits : %3</source>
     <message>
         <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+7"/>
         <location line="+194"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-109"/>
-        <location line="+114"/>
         <source>%1 ➔ %2 mots</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2639,37 +2637,37 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+988"/>
+        <location line="+990"/>
         <location line="+46"/>
         <source>%1 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1034"/>
-        <location line="+988"/>
+        <location line="-1036"/>
+        <location line="+990"/>
         <location line="+46"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+33"/>
         <source>%1 s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1033"/>
+        <location line="-1035"/>
         <source>Durée d&apos;exécution : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+349"/>
-        <location line="+376"/>
+        <location line="+378"/>
         <source>Port : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-105"/>
-        <source>🛡️ Garde-Fou &amp; Validation (%1)</source>
+        <location line="-107"/>
+        <source>Garde-Fou &amp; Validation (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+27"/>
         <source>Nouvelle proposition de refactorisation reçue (#%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2719,12 +2717,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+13"/>
         <source>Tout rejeter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+62"/>
+        <location line="+69"/>
         <source>Aucune proposition en attente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3147,7 +3145,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+26"/>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+511"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+532"/>
         <location line="+2"/>
         <source>%1 mots</source>
         <translation type="unfinished"></translation>
@@ -3984,24 +3982,30 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-635"/>
-        <location line="+117"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-671"/>
+        <location line="+137"/>
         <source>Modifié</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-77"/>
-        <source>⏮️ Base active (BDD)</source>
+        <location line="-129"/>
+        <location line="+134"/>
+        <source>%1 → %2 mots</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+42"/>
-        <source>✨ Proposition Agent MCP (Éditable)</source>
+        <location line="-94"/>
+        <source>Base active (BDD)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+127"/>
-        <source>🔀 Carte atomique :</source>
+        <location line="+52"/>
+        <source>Proposition Agent MCP (Éditable)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+133"/>
+        <source>Carte atomique :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4010,7 +4014,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+27"/>
         <source>Aperçu dédoublé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4036,18 +4040,18 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+379"/>
+        <location line="+387"/>
         <source>Voir Verso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-332"/>
+        <location line="-336"/>
         <source>Originale (BDD)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+48"/>
-        <source>✨ Proposée (Agent MCP)</source>
+        <location line="+52"/>
+        <source>Proposée (Agent MCP)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13620,7 +13624,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-1075"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-1077"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13679,13 +13683,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <name>MCPServerDashboardWidget</name>
     <message>
         <location line="+98"/>
-        <source>🔌 Supervision &amp; Configuration</source>
+        <source>Supervision &amp; Configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
         <location line="+443"/>
-        <source>🛡️ Garde-Fou &amp; Validation</source>
+        <source>Garde-Fou &amp; Validation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13797,23 +13801,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+16"/>
-        <location line="+339"/>
+        <location line="+341"/>
         <source>Collez ce bloc dans votre fichier claude_desktop_config.json :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-299"/>
+        <location line="-301"/>
         <source>ACTIVITÉ DES OUTILS EN TEMPS RÉEL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+529"/>
+        <location line="+531"/>
         <source>0 appel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-524"/>
+        <location line="-526"/>
         <source>Vider l&apos;historique</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13853,7 +13857,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+97"/>
+        <location line="+99"/>
         <source>Nouvelle proposition de refactorisation reçue</source>
         <translation type="unfinished"></translation>
     </message>

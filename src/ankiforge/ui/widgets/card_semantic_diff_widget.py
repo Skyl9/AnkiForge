@@ -158,7 +158,7 @@ class FieldSemanticDiffRow(QFrame):
         # Compteur comparatif de mots
         orig_words = len(self._orig_val.split()) if self._orig_val else 0
         mod_words = len(self._mod_val.split()) if self._mod_val else 0
-        self.lbl_words = QLabel(tr("%1 ➔ %2 mots", orig_words, mod_words))
+        self.lbl_words = QLabel(tr("%1 → %2 mots", orig_words, mod_words))
         self.lbl_words.setStyleSheet(f"""
             font-size: 10px;
             color: {DesignTokens.TEXT_MUTED};
@@ -187,10 +187,18 @@ class FieldSemanticDiffRow(QFrame):
             }}
         """)
         left_layout = QVBoxLayout(left_col)
-        left_layout.setContentsMargins(6, 6, 6, 6)
+        left_layout.setContentsMargins(8, 6, 8, 6)
         left_layout.setSpacing(4)
 
-        lbl_left = QLabel(tr("⏮️ Base active (BDD)"))
+        left_header = QHBoxLayout()
+        left_header.setContentsMargins(0, 0, 0, 0)
+        left_header.setSpacing(6)
+
+        left_icon = QLabel()
+        left_icon.setPixmap(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_RED).pixmap(14, 14))
+        left_header.addWidget(left_icon)
+
+        lbl_left = QLabel(tr("Base active (BDD)"))
         lbl_left.setStyleSheet(f"""
             font-size: 10px;
             font-weight: 600;
@@ -198,7 +206,9 @@ class FieldSemanticDiffRow(QFrame):
             border: none;
             background: transparent;
         """)
-        left_layout.addWidget(lbl_left)
+        left_header.addWidget(lbl_left)
+        left_header.addStretch()
+        left_layout.addLayout(left_header)
 
         self.orig_browser = QTextBrowser()
         self.orig_browser.setMinimumHeight(60)
@@ -229,10 +239,18 @@ class FieldSemanticDiffRow(QFrame):
             }}
         """)
         right_layout = QVBoxLayout(right_col)
-        right_layout.setContentsMargins(6, 6, 6, 6)
+        right_layout.setContentsMargins(8, 6, 8, 6)
         right_layout.setSpacing(4)
 
-        lbl_right = QLabel(tr("✨ Proposition Agent MCP (Éditable)"))
+        right_header = QHBoxLayout()
+        right_header.setContentsMargins(0, 0, 0, 0)
+        right_header.setSpacing(6)
+
+        right_icon = QLabel()
+        right_icon.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
+        right_header.addWidget(right_icon)
+
+        lbl_right = QLabel(tr("Proposition Agent MCP (Éditable)"))
         lbl_right.setStyleSheet(f"""
             font-size: 10px;
             font-weight: 600;
@@ -240,7 +258,9 @@ class FieldSemanticDiffRow(QFrame):
             border: none;
             background: transparent;
         """)
-        right_layout.addWidget(lbl_right)
+        right_header.addWidget(lbl_right)
+        right_header.addStretch()
+        right_layout.addLayout(right_header)
 
         self.mod_editor = QPlainTextEdit()
         self.mod_editor.setMinimumHeight(60)
@@ -272,7 +292,7 @@ class FieldSemanticDiffRow(QFrame):
 
         orig_words = len(self._orig_val.split()) if self._orig_val else 0
         mod_words = len(new_text.split()) if new_text else 0
-        self.lbl_words.setText(tr("%1 ➔ %2 mots", orig_words, mod_words))
+        self.lbl_words.setText(tr("%1 → %2 mots", orig_words, mod_words))
 
         # Rafraîchit le diff visuel de la colonne gauche
         self.orig_browser.setHtml(compute_field_word_diff_html(self._orig_val, new_text))
@@ -359,7 +379,11 @@ class CardSemanticDiffWidget(QWidget):
         split_layout.setContentsMargins(0, 0, 0, 0)
         split_layout.setSpacing(8)
 
-        lbl_split = QLabel(tr("🔀 Carte atomique :"))
+        split_icon = QLabel()
+        split_icon.setPixmap(load_phosphor_icon("ph.arrows-split", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        split_layout.addWidget(split_icon)
+
+        lbl_split = QLabel(tr("Carte atomique :"))
         lbl_split.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.ACCENT_PRIMARY};")
         split_layout.addWidget(lbl_split)
 
@@ -402,12 +426,16 @@ class CardSemanticDiffWidget(QWidget):
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 2px 6px;
+                padding: 4px 8px;
             }}
         """)
         toolbar_layout = QHBoxLayout(self.preview_toolbar)
         toolbar_layout.setContentsMargins(6, 4, 6, 4)
         toolbar_layout.setSpacing(8)
+
+        icon_toolbar = QLabel()
+        icon_toolbar.setPixmap(load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        toolbar_layout.addWidget(icon_toolbar)
 
         lbl_toolbar = QLabel(tr("Aperçu dédoublé"))
         lbl_toolbar.setStyleSheet(f"""
@@ -422,7 +450,7 @@ class CardSemanticDiffWidget(QWidget):
         # Sélecteur partagé de gabarit multi-cartes
         self.shared_card_selector = StyledComboBox()
         self.shared_card_selector.setMinimumWidth(120)
-        self.shared_card_selector.setFixedHeight(24)
+        self.shared_card_selector.setFixedHeight(26)
         self.shared_card_selector.currentIndexChanged.connect(self._on_shared_card_selected)
         self.shared_card_selector.hide()
         toolbar_layout.addWidget(self.shared_card_selector)
@@ -436,15 +464,15 @@ class CardSemanticDiffWidget(QWidget):
         device_layout.setSpacing(2)
 
         self._shared_device_mode = "desktop"
-        self.btn_device_desktop = IconButton("monitor", tooltip=tr("Mode Bureau (100% largeur)"), size=20)
+        self.btn_device_desktop = IconButton("monitor", tooltip=tr("Mode Bureau (100% largeur)"), size=24)
         self.btn_device_desktop.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;")
         self.btn_device_desktop.clicked.connect(lambda: self._on_shared_device_mode("desktop"))
 
-        self.btn_device_tablet = IconButton("device-tablet", tooltip=tr("Mode Tablette (768px)"), size=20)
+        self.btn_device_tablet = IconButton("ph.device-tablet", tooltip=tr("Mode Tablette (768px)"), size=24)
         self.btn_device_tablet.setStyleSheet("background-color: transparent; border-radius: 4px;")
         self.btn_device_tablet.clicked.connect(lambda: self._on_shared_device_mode("tablet"))
 
-        self.btn_device_mobile = IconButton("device-mobile", tooltip=tr("Mode Mobile (375px)"), size=20)
+        self.btn_device_mobile = IconButton("ph.device-mobile", tooltip=tr("Mode Mobile (375px)"), size=24)
         self.btn_device_mobile.setStyleSheet("background-color: transparent; border-radius: 4px;")
         self.btn_device_mobile.clicked.connect(lambda: self._on_shared_device_mode("mobile"))
 
@@ -454,17 +482,17 @@ class CardSemanticDiffWidget(QWidget):
         toolbar_layout.addWidget(device_container)
 
         # Bascule de thème partagée
-        self.btn_shared_theme = IconButton("sun", tooltip=tr("Basculer le thème"), size=20)
+        self.btn_shared_theme = IconButton("ph.sun", tooltip=tr("Basculer le thème"), size=24)
         self.btn_shared_theme.clicked.connect(self._on_shared_toggle_theme)
         toolbar_layout.addWidget(self.btn_shared_theme)
 
         # Bascule Recto/Verso partagée
         self.btn_shared_toggle_side = SecondaryButton(tr("Voir Verso"))
         self.btn_shared_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_shared_toggle_side.setFixedHeight(24)
+        self.btn_shared_toggle_side.setFixedHeight(28)
         self.btn_shared_toggle_side.setStyleSheet("""
             QPushButton {
-                padding: 1px 8px;
+                padding: 2px 10px;
                 font-size: 11px;
                 font-weight: 600;
             }
@@ -503,8 +531,12 @@ class CardSemanticDiffWidget(QWidget):
             }}
         """)
         orig_header_layout = QHBoxLayout(orig_header)
-        orig_header_layout.setContentsMargins(8, 4, 8, 4)
+        orig_header_layout.setContentsMargins(8, 6, 8, 6)
         orig_header_layout.setSpacing(6)
+
+        orig_icon = QLabel()
+        orig_icon.setPixmap(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_RED).pixmap(14, 14))
+        orig_header_layout.addWidget(orig_icon)
 
         orig_badge = Badge(tr("Originale (BDD)"), variant="neutral")
         orig_header_layout.addWidget(orig_badge)
@@ -551,10 +583,14 @@ class CardSemanticDiffWidget(QWidget):
             }}
         """)
         mod_header_layout = QHBoxLayout(mod_header)
-        mod_header_layout.setContentsMargins(8, 4, 8, 4)
+        mod_header_layout.setContentsMargins(8, 6, 8, 6)
         mod_header_layout.setSpacing(6)
 
-        mod_badge = Badge(tr("✨ Proposée (Agent MCP)"), variant="success")
+        mod_icon = QLabel()
+        mod_icon.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
+        mod_header_layout.addWidget(mod_icon)
+
+        mod_badge = Badge(tr("Proposée (Agent MCP)"), variant="success")
         mod_header_layout.addWidget(mod_badge)
 
         self.lbl_mod_preview_words = QLabel()
