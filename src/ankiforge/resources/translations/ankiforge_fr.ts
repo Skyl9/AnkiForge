@@ -2626,7 +2626,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+55"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+51"/>
         <source>Détail de l&apos;appel MCP : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2637,68 +2637,33 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+990"/>
-        <location line="+46"/>
         <source>%1 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1036"/>
-        <location line="+990"/>
-        <location line="+46"/>
+        <location line="+0"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+33"/>
         <source>%1 s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1035"/>
+        <location line="+1"/>
         <source>Durée d&apos;exécution : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+349"/>
-        <location line="+378"/>
-        <source>Port : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-107"/>
+        <location line="+326"/>
         <source>Garde-Fou &amp; Validation (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+29"/>
         <source>Nouvelle proposition de refactorisation reçue (#%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Nouvelle proposition reçue (%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+100"/>
-        <source>URL Streamable HTTP copiée : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>URL SSE copiée : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+90"/>
-        <source>Contexte ciblé : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+212"/>
-        <source>%1 appel</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>%1 appels</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2779,6 +2744,27 @@ Gabarits : %3</source>
     <message>
         <location line="+20"/>
         <source>Synthèse de feedback copiée dans le presse-papier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_supervision_widget.py" line="+247"/>
+        <location line="+239"/>
+        <source>Port : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>URL Streamable HTTP copiée : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>URL SSE copiée : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+90"/>
+        <source>Contexte ciblé : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13624,7 +13610,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-1077"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-377"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13682,244 +13668,19 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPServerDashboardWidget</name>
     <message>
-        <location line="+98"/>
+        <location line="+203"/>
         <source>Supervision &amp; Configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+443"/>
+        <location line="+44"/>
         <source>Garde-Fou &amp; Validation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-381"/>
-        <source>Serveur MCP Local (Model Context Protocol)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Préférences</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>Exposez les outils d&apos;AnkiForge à vos agents autonomes externes (Claude Code, Antigravity CLI, Cursor). Le raisonnement et les coûts d&apos;API sont entièrement pris en charge par votre agent sans surcoût dans AnkiForge.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+38"/>
-        <source>Demande d&apos;assistance contextuelle prête pour votre agent externe</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Ignorer cette demande</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+29"/>
-        <source>Copier le prompt pour mon agent (CLI / Claude)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+17"/>
-        <source>État du serveur :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Inactif</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
-        <source>Protocole : Streamable HTTP 2.x + SSE</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Démarrer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Arrêter</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Redémarrer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Renouveler le jeton</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
-        <source>CONNEXION &amp; SÉCURITÉ</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
-        <source>Endpoint Streamable HTTP (Standard MCP) :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
-        <location line="+17"/>
-        <location line="+21"/>
-        <source>Copier</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-29"/>
-        <source>Endpoint SSE (Legacy) :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+17"/>
-        <source>Jeton Bearer (256-bit) :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
-        <source>Afficher/Masquer le jeton</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+19"/>
-        <source>CONFIGURATIONS CLIENTS PRÊTES À L&apos;EMPLOI</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Copier la configuration</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+16"/>
-        <location line="+341"/>
-        <source>Collez ce bloc dans votre fichier claude_desktop_config.json :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-301"/>
-        <source>ACTIVITÉ DES OUTILS EN TEMPS RÉEL</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <location line="+531"/>
-        <source>0 appel</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-526"/>
-        <source>Vider l&apos;historique</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
-        <source>Historique en direct des invocations d&apos;outils par vos agents externes. Cliquez sur une ligne pour inspecter les arguments et la réponse.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Aucune activité enregistrée. Les appels d&apos;outils de vos agents externes (Claude, Cursor, CLI) apparaîtront ici en temps réel.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Horodatage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Outil</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Statut</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Durée</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Arguments résumés</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+99"/>
+        <location line="+33"/>
         <source>Nouvelle proposition de refactorisation reçue</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+64"/>
-        <source>Actif</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <location line="+236"/>
-        <source>Erreur</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-233"/>
-        <source>Mutation...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Arrêté</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+40"/>
-        <source>Jeton Bearer copié dans le presse-papiers.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+55"/>
-        <source>Collez ce bloc dans ~/.gemini/antigravity-cli/mcp/ankiforge.json :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Ajoutez ce serveur dans les paramètres MCP de Cursor (.cursor/mcp.json) :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Commande cURL de test d&apos;interrogation du serveur MCP :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Configuration client MCP copiée dans le presse-papiers.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+27"/>
-        <source>Prompt copié dans le presse-papiers pour votre agent externe !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+94"/>
-        <source>Succès</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>En cours</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -13985,6 +13746,173 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <source>Voulez-vous générer un nouveau jeton Bearer pour le serveur MCP ?
 
 Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mis à jour avec le nouveau jeton.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>MCPSupervisionWidget</name>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_supervision_widget.py" line="-480"/>
+        <source>Serveur MCP Local (Model Context Protocol)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Préférences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Exposez les outils d&apos;AnkiForge à vos agents autonomes externes (Claude Code, Antigravity CLI, Cursor). Le raisonnement et les coûts d&apos;API sont entièrement pris en charge par votre agent sans surcoût dans AnkiForge.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Demande d&apos;assistance contextuelle prête pour votre agent externe</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Ignorer cette demande</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+29"/>
+        <source>Copier le prompt pour mon agent (CLI / Claude)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>PILOTAGE OPÉRATIONNEL DU DÉMON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>État :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+239"/>
+        <source>Arrêté</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-232"/>
+        <source>Protocole : Streamable HTTP 2.x + SSE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Démarrer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Arrêter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Redémarrer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Renouveler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>CONNEXION &amp; SÉCURITÉ</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Streamable HTTP :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <location line="+17"/>
+        <location line="+21"/>
+        <source>Copier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-29"/>
+        <source>Endpoint SSE :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Jeton Bearer :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Afficher/Masquer le jeton</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>CONFIGURATIONS CLIENTS PRÊTES À L&apos;EMPLOI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Copier la configuration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <location line="+193"/>
+        <source>Collez ce bloc dans votre fichier claude_desktop_config.json :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-103"/>
+        <source>Actif</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Mutation...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+43"/>
+        <source>Jeton Bearer copié dans le presse-papiers.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+55"/>
+        <source>Collez ce bloc dans ~/.gemini/antigravity-cli/mcp/ankiforge.json :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ajoutez ce serveur dans les paramètres MCP de Cursor (.cursor/mcp.json) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Commande cURL de test d&apos;interrogation du serveur MCP :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Configuration client MCP copiée dans le presse-papiers.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Prompt copié dans le presse-papiers pour votre agent externe !</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

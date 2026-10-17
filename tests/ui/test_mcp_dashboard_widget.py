@@ -172,7 +172,7 @@ def test_mcp_dashboard_widget_no_border_cascade_on_children(qtbot) -> None:
 
     # 4. Vérification après rafraîchissement de thème
     widget.refresh_theme(JETBRAINS_LIGHT)
-    for card_name in ("mcp_card_lifecycle", "mcp_card_endpoints", "mcp_card_snippets", "mcp_card_activity"):
+    for card_name in ("mcp_card_lifecycle", "mcp_card_endpoints", "mcp_card_snippets"):
         card = getattr(widget, card_name.replace("mcp_", ""))
         style = card.styleSheet()
         assert f"#{card_name}" in style
@@ -180,64 +180,22 @@ def test_mcp_dashboard_widget_no_border_cascade_on_children(qtbot) -> None:
         assert "background: transparent" in style
 
 
-def test_mcp_dashboard_activity_empty_state_and_live_updates(qtbot) -> None:
-    """Vérifie l'état vide par défaut puis les mises à jour réactives de l'historique d'activité."""
-    from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker, reset_mcp_activity_tracker
-
-    reset_mcp_activity_tracker()
-    tracker = get_mcp_activity_tracker()
+def test_mcp_dashboard_segmented_tab_bar_integration(qtbot) -> None:
+    """Vérifie l'intégration du composant officiel SegmentedTabBar en mode subtab."""
+    from ankiforge.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
 
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
     qtbot.addWidget(widget)
-    widget.show()
 
-    # 1. État vide
-    assert widget.table_activity.isHidden()
-    assert not widget.lbl_empty_activity.isHidden()
-    assert "0 appel" in widget.badge_activity_count.text()
-    assert not widget.btn_clear_activity.isEnabled()
+    # 1. Le sous-onglet est bien une instance de SegmentedTabBar
+    assert isinstance(widget.sub_tab_bar, SegmentedTabBar)
+    assert widget.sub_tab_bar.variant == "subtab"
+    assert widget.sub_tab_bar.count() == 2
 
-    # 2. Démarrage d'un appel
-    cid = tracker.start_tracking("audit_deck_wozniak", {"deck_name": "Grammaire"})
-    qtbot.wait(100)
-
-    assert not widget.table_activity.isHidden()
-    assert widget.lbl_empty_activity.isHidden()
-    assert widget.table_activity.rowCount() == 1
-    assert "1 appel" in widget.badge_activity_count.text()
-    assert widget.btn_clear_activity.isEnabled()
-
-    # Vérifie le contenu de la première ligne
-    assert widget.table_activity.item(0, 1).text() == "audit_deck_wozniak"
-    assert "Grammaire" in widget.table_activity.item(0, 4).text()
-    assert widget.table_activity.item(0, 3).text() == "—"
-
-    # 3. Fin avec succès
-    tracker.record_success(cid, "Audit terminé sans anomalie", duration_ms=42.5)
-    qtbot.wait(50)
-
-    assert widget.table_activity.rowCount() == 1
-    assert "42.5 ms" in widget.table_activity.item(0, 3).text()
-
-    # 4. Deuxième appel avec erreur
-    cid2 = tracker.start_tracking("find_duplicate_cards", {"threshold": 0.9})
-    qtbot.wait(50)
-    assert widget.table_activity.rowCount() == 2
-    assert "2 appels" in widget.badge_activity_count.text()
-
-    tracker.record_error(cid2, "Erreur connexion DB", duration_ms=15.0)
-    qtbot.wait(50)
-    assert "15.0 ms" in widget.table_activity.item(0, 3).text()
-
-    # 5. Vidage de l'historique
-    widget.btn_clear_activity.click()
-    qtbot.wait(50)
-
-    assert widget.table_activity.rowCount() == 0
-    assert widget.table_activity.isHidden()
-    assert not widget.lbl_empty_activity.isHidden()
-    assert "0 appel" in widget.badge_activity_count.text()
-    assert not widget.btn_clear_activity.isEnabled()
+    # 2. Le cockpit de supervision est bien instancié sans défilement imposé
+    assert hasattr(widget, "supervision_widget")
+    assert widget.stacked_widget.widget(0) is widget.supervision_widget
+    assert widget.stacked_widget.widget(1) is widget.garde_fou_widget
 
 
 def test_mcp_activity_detail_dialog(qtbot) -> None:

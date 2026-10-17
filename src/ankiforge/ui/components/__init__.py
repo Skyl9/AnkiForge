@@ -42,7 +42,14 @@ from .persona_select_window import PersonaSelectWindow
 from .pipeline_select_window import PipelineSelectWindow
 from .sidebar import ClickableLabel, Sidebar, SidebarItem
 from .tables import CicdTable, StyledTableWidget, VirtualTableView
-from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
+from .tabs import (
+    IdeTabBar,
+    PillTabBar,
+    SegmentedTabBar,
+    SegmentedTabButton,
+    SettingsTabBar,
+    SubTabButton,
+)
 from .tag_select_window import TagSelectWindow
 from .title_bar import GlobalTitleBar
 from .topbar import TopBar
@@ -70,6 +77,9 @@ __all__ = [
     "IdeTabBar",
     "PillTabBar",
     "SettingsTabBar",
+    "SegmentedTabBar",
+    "SegmentedTabButton",
+    "SubTabButton",
     "StyledLineEdit",
     "StyledTextEdit",
     "GlowLineEdit",

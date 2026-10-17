@@ -179,6 +179,19 @@ class SegmentedTabButton(QPushButton):
                     }}
                 """)
 
+    def set_text(self, text: str) -> None:
+        """Met à jour le libellé texte de l'onglet."""
+        self.raw_text = text
+        self._update_display()
+
+    def set_icon(self, icon: Any) -> None:
+        """Met à jour l'icône de l'onglet."""
+        if isinstance(icon, str):
+            self.icon_name = icon
+            self._apply_style(self.isChecked())
+        elif hasattr(icon, "pixmap") or hasattr(icon, "isNull"):
+            self.setIcon(icon)
+
     def resizeEvent(self, event: Any) -> None:
         super().resizeEvent(event)
         if self._badge_label is not None and self.badge_text:
@@ -190,18 +203,25 @@ class SegmentedTabBar(QWidget):
 
     tab_changed = Signal(str)  # tab_id
     tab_index_changed = Signal(int)  # index
+    currentChanged = tab_index_changed
 
-    def __init__(self, variant: str = "subtab", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        variant: str = "subtab",
+        parent: QWidget | None = None,
+        mode: str | None = None,
+    ) -> None:
         super().__init__(parent)
-        self.variant = variant
+        actual_variant = mode if mode is not None else variant
+        self.variant = actual_variant
         self._tabs: list[SegmentedTabButton] = []
         self._tabs_by_id: dict[str, SegmentedTabButton] = {}
 
         self.layout_h = QHBoxLayout(self)
         self.layout_h.setContentsMargins(0, 0, 0, 0)
-        self.layout_h.setSpacing(4 if variant == "subtab" else 2)
+        self.layout_h.setSpacing(4 if self.variant == "subtab" else 2)
 
-        if variant == "segmented":
+        if self.variant == "segmented":
             self.setStyleSheet(f"""
                 SegmentedTabBar {{
                     background-color: {DesignTokens.BG_INPUT};
@@ -266,6 +286,51 @@ class SegmentedTabBar(QWidget):
             if btn.isChecked():
                 return i
         return -1
+
+    def currentIndex(self) -> int:
+        """Alias compatible QTabBar pour get_active_index."""
+        return self.get_active_index()
+
+    def setCurrentIndex(self, index: int) -> None:
+        """Alias compatible QTabBar pour set_active_tab."""
+        self.set_active_tab(index)
+
+    def tabText(self, index: int) -> str:
+        """Retourne le texte de l'onglet à l'index donné, incluant le badge le cas échéant."""
+        if 0 <= index < len(self._tabs):
+            btn = self._tabs[index]
+            if btn.badge_text:
+                return f"{btn.raw_text} ({btn.badge_text})"
+            return btn.raw_text
+        return ""
+
+    def setTabText(self, index: int, text: str) -> None:
+        """Met à jour le texte de l'onglet à l'index donné."""
+        if 0 <= index < len(self._tabs):
+            self._tabs[index].set_text(text)
+
+    def set_tab_text(self, tab_id_or_index: str | int, text: str) -> None:
+        """Met à jour le texte de l'onglet par identifiant ou index."""
+        if isinstance(tab_id_or_index, int):
+            self.setTabText(tab_id_or_index, text)
+        else:
+            btn = self._tabs_by_id.get(tab_id_or_index)
+            if btn:
+                btn.set_text(text)
+
+    def setTabIcon(self, index: int, icon: Any) -> None:
+        """Met à jour l'icône de l'onglet à l'index donné."""
+        if 0 <= index < len(self._tabs):
+            self._tabs[index].set_icon(icon)
+
+    def set_tab_icon(self, tab_id_or_index: str | int, icon: Any) -> None:
+        """Met à jour l'icône de l'onglet par identifiant ou index."""
+        if isinstance(tab_id_or_index, int):
+            self.setTabIcon(tab_id_or_index, icon)
+        else:
+            btn = self._tabs_by_id.get(tab_id_or_index)
+            if btn:
+                btn.set_icon(icon)
 
     def set_tab_badge(self, tab_id: str, badge_text: str) -> None:
         """Met à jour le badge d'un onglet."""

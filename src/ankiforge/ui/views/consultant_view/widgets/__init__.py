@@ -8,6 +8,7 @@ from ankiforge.ui.views.consultant_view.widgets.embedded_card_table_widget impor
 from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import InlineDiffCardWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import MCPServerDashboardWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
+from ankiforge.ui.views.consultant_view.widgets.mcp_supervision_widget import MCPSupervisionWidget
 from ankiforge.ui.views.consultant_view.widgets.mention_completer import MentionCompleter
 from ankiforge.ui.views.consultant_view.widgets.session_sidebar import ConsultantSessionSidebar
 from ankiforge.ui.views.consultant_view.widgets.thought_step_widget import ThoughtStepWidget
@@ -24,6 +25,7 @@ __all__ = [
     "InlineDiffCardWidget",
     "MCPGardeFouWidget",
     "MCPServerDashboardWidget",
+    "MCPSupervisionWidget",
     "MentionCompleter",
     "ThoughtStepWidget",
     "ToolCallWidget",
