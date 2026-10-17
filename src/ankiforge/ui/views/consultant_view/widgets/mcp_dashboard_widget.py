@@ -35,6 +35,9 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_supervision_widget import MCPSupervisionWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_telemetry_widget import MCPTelemetryWidget
+from ankiforge.ui.views.consultant_view.widgets.mcp_tool_catalog_widget import (
+    MCPToolCatalogWidget,
+)
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
 from ankiforge.utils.i18n import tr
@@ -443,9 +446,14 @@ class MCPServerDashboardWidget(QWidget):
         self.garde_fou_widget.queue_updated.connect(self._on_queue_updated)
         self.stacked_widget.addWidget(self.garde_fou_widget)
 
-        # Sous-onglet 2 : Catalogue d'Outils (Placeholder Tranche 3)
-        self.catalog_widget = MCPCatalogPlaceholderWidget(self)
+        # Sous-onglet 2 : Catalogue interactif des 58 outils MCP
+        self.catalog_widget = MCPToolCatalogWidget(parent=self)
         self.stacked_widget.addWidget(self.catalog_widget)
+
+        # Initialisation du badge du Catalogue
+        catalog_count = len(self.catalog_widget._tools)
+        if catalog_count > 0:
+            self.sub_tab_bar.set_tab_badge("catalogue", str(catalog_count))
 
         # Sous-onglet 3 : Télémétrie d'Activité en direct (Tranche 2)
         self.telemetry_widget = MCPTelemetryWidget(parent=self)
@@ -550,8 +558,15 @@ class MCPServerDashboardWidget(QWidget):
             self.supervision_widget.refresh_theme(profile)
         if hasattr(self, "garde_fou_widget") and hasattr(self.garde_fou_widget, "refresh_theme"):
             self.garde_fou_widget.refresh_theme(profile)
+        if hasattr(self, "catalog_widget") and hasattr(self.catalog_widget, "refresh_theme"):
+            self.catalog_widget.refresh_theme(profile)
         if hasattr(self, "telemetry_widget") and hasattr(self.telemetry_widget, "refresh_theme"):
             self.telemetry_widget.refresh_theme(profile)
 
 
-__all__ = ["MCPServerDashboardWidget", "MCPActivityDetailDialog", "MCPCatalogPlaceholderWidget"]
+__all__ = [
+    "MCPServerDashboardWidget",
+    "MCPActivityDetailDialog",
+    "MCPCatalogPlaceholderWidget",
+    "MCPToolCatalogWidget",
+]

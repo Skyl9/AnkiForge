@@ -2626,7 +2626,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+52"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+55"/>
         <source>Détail de l&apos;appel MCP : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2658,7 +2658,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+368"/>
+        <location line="+373"/>
         <source>Activité (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2811,6 +2811,131 @@ Gabarits : %3</source>
     <message>
         <location line="+2"/>
         <source>Déclenché à %1 · Durée : %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+281"/>
+        <source>(Aucune description fournie)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+146"/>
+        <source>Rechercher un outil (nom, description, paramètre)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+49"/>
+        <source>Tous (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+46"/>
+        <source>OUTILS DISPONIBLES</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+69"/>
+        <source>Sélectionnez un outil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Choisissez un outil dans le volet gauche pour inspecter sa description, ses paramètres et ses garde-fous.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+67"/>
+        <source>Copier le nom</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>DESCRIPTION DE LA FONCTION :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>GARDE-FOUS &amp; SÉCURITÉ</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>PARAMÈTRES D&apos;APPEL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>(Cet outil ne requiert aucun paramètre d&apos;entrée)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Nom</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Requis ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Description / Valeur par défaut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>SIGNATURE D&apos;APPEL JSON :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Copier la signature JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+76"/>
+        <source>%1 outils disponibles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>%1 / %2 outils</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+61"/>
+        <source>PARAMÈTRES D&apos;APPEL (0)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>PARAMÈTRES D&apos;APPEL (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+49"/>
+        <source>Requis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Optionnel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>(défaut: %1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Nom d&apos;outil &apos;%1&apos; copié.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13656,7 +13781,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-426"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-431"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13733,18 +13858,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+62"/>
+        <location line="+67"/>
         <source>Garde-Fou &amp; Validation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-61"/>
+        <location line="-66"/>
         <source>Catalogue d&apos;Outils</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+53"/>
+        <location line="+58"/>
         <source>Activité</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14115,6 +14240,14 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <message>
         <location line="+16"/>
         <source>Détail de l&apos;appel copié dans le presse-papiers.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>MCPToolCatalogWidget</name>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+10"/>
+        <source>Signature JSON copiée dans le presse-papiers.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
