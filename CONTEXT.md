@@ -279,4 +279,13 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Contrôle de dérive des instructions (Instruction Drift Check)** : étape déterministe intégrée à la porte de vérification canonique (`script/verify.py`) et au pre-push, vérifiant sans régénération que chaque adaptateur est strictement isomorphe à sa projection canonique, avec correction automatique sous `--fix`.
   _Avoid_ : linter de doc, sync check, contrôle markdown
 
+## Synthèse Vocale (TTS) & Multimédia Audio
+
+- **Synthèse vocale (TTS)** : génération d'extraits audio prononçant le contenu textuel d'une carte (recto/verso) selon un moteur (in-process, sidecar local autonome ou moteur système OS).
+  _Avoid_ : text-to-speech brut, voix IA, audio flashcard
+- **Fournisseur TTS (TTS Provider)** : abstraction modulaire découplée (`TTSProvider`) pilotant un moteur vocal spécifique (`EdgeTTSProvider`, `PiperSidecarProvider`, `KokoroSidecarProvider`, `SystemSpeechProvider`).
+  _Avoid_ : backend TTS, driver audio, moteur vocal
+- **Sidecar vocal local** : exécutable ou runner déporté autonome placé hors du bundle applicatif dans `~/.ankiforge/tools/tts/` (ex: Piper, Kokoro), évitant d'alourdir le binaire Nuitka et s'exécutant en processus isolé.
+  _Avoid_ : binaire interne, dépendance embarquée, plugin TTS
+
 
