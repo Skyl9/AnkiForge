@@ -190,15 +190,17 @@ def test_mcp_dashboard_segmented_tab_bar_integration(qtbot) -> None:
     # 1. Le sous-onglet est bien une instance de SegmentedTabBar
     assert isinstance(widget.sub_tab_bar, SegmentedTabBar)
     assert widget.sub_tab_bar.variant == "subtab"
-    assert widget.sub_tab_bar.count() == 4
+    assert widget.sub_tab_bar.count() == 5
 
     # 2. Les sous-onglets sont bien instanciés dans le QStackedWidget
     assert hasattr(widget, "supervision_widget")
     assert hasattr(widget, "telemetry_widget")
+    assert hasattr(widget, "workspace_guide_widget")
     assert widget.stacked_widget.widget(0) is widget.supervision_widget
     assert widget.stacked_widget.widget(1) is widget.garde_fou_widget
     assert widget.stacked_widget.widget(2) is widget.catalog_widget
     assert widget.stacked_widget.widget(3) is widget.telemetry_widget
+    assert widget.stacked_widget.widget(4) is widget.workspace_guide_widget
 
 
 def test_mcp_activity_detail_dialog(qtbot) -> None:
@@ -249,7 +251,8 @@ def test_mcp_dashboard_sub_tabs_navigation(qtbot) -> None:
     assert hasattr(widget, "stacked_widget")
     assert hasattr(widget, "garde_fou_widget")
     assert hasattr(widget, "telemetry_widget")
-    assert widget.sub_tab_bar.count() == 4
+    assert hasattr(widget, "workspace_guide_widget")
+    assert widget.sub_tab_bar.count() == 5
 
     # Onglet initial : 0 (Supervision)
     assert widget.sub_tab_bar.currentIndex() == 0
@@ -258,10 +261,15 @@ def test_mcp_dashboard_sub_tabs_navigation(qtbot) -> None:
     assert "Garde-Fou" in widget.sub_tab_bar.tabText(1)
     assert "Catalogue" in widget.sub_tab_bar.tabText(2)
     assert "Activité" in widget.sub_tab_bar.tabText(3)
+    assert "Guides" in widget.sub_tab_bar.tabText(4)
 
     # Bascule vers Télémétrie (3)
     widget.sub_tab_bar.setCurrentIndex(3)
     assert widget.stacked_widget.currentIndex() == 3
+
+    # Bascule vers Workspaces (4)
+    widget.sub_tab_bar.setCurrentIndex(4)
+    assert widget.stacked_widget.currentIndex() == 4
 
     # Bascule vers Garde-Fou (1)
     widget.sub_tab_bar.setCurrentIndex(1)
