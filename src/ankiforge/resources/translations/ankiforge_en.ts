@@ -2814,22 +2814,22 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+281"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+284"/>
         <source>(Aucune description fournie)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+146"/>
+        <location line="+147"/>
         <source>Rechercher un outil (nom, description, paramètre)...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+49"/>
+        <location line="+74"/>
         <source>Tous (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+50"/>
         <source>OUTILS DISPONIBLES</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2889,7 +2889,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+34"/>
+        <location line="+35"/>
         <source>SIGNATURE D&apos;APPEL JSON :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2919,7 +2919,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+49"/>
+        <location line="+50"/>
         <source>Requis</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2929,7 +2929,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+16"/>
         <source>(défaut: %1)</source>
         <translation type="unfinished"></translation>
     </message>

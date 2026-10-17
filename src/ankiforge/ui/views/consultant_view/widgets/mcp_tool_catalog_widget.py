@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPlainTextEdit,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTableWidget,
@@ -35,8 +36,10 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import (
+    COMPACT_BUTTON_HEIGHT,
     FilterChipButton,
     SecondaryButton,
+    apply_compact_style,
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
@@ -367,6 +370,7 @@ class MCPToolListRowWidget(QWidget):
         top_row.addWidget(self.lbl_name, 1)
 
         self.badge = Badge(self.tool.domain_label, variant=self.tool.domain_badge_variant)
+        self.badge.setMinimumWidth(self.badge.sizeHint().width())
         top_row.addWidget(self.badge)
         layout.addLayout(top_row)
 
@@ -455,17 +459,42 @@ class MCPToolCatalogWidget(QWidget):
         chips_scroll = QScrollArea(self)
         chips_scroll.setObjectName("mcp_catalog_chips_scroll")
         chips_scroll.setWidgetResizable(True)
-        chips_scroll.setFixedHeight(38)
+        chips_scroll.setFixedHeight(46)
         chips_scroll.setFrameShape(QFrame.Shape.NoFrame)
         chips_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         chips_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        chips_scroll.setStyleSheet("QScrollArea#mcp_catalog_chips_scroll { background: transparent; border: none; }")
+        chips_scroll.setStyleSheet(f"""
+            QScrollArea#mcp_catalog_chips_scroll {{
+                background: transparent;
+                border: none;
+            }}
+            QScrollArea#mcp_catalog_chips_scroll QScrollBar:horizontal {{
+                height: 4px;
+                background: transparent;
+                margin: 0px;
+            }}
+            QScrollArea#mcp_catalog_chips_scroll QScrollBar::handle:horizontal {{
+                background-color: {DesignTokens.BORDER_COLOR};
+                border-radius: 2px;
+                min-width: 24px;
+            }}
+            QScrollArea#mcp_catalog_chips_scroll QScrollBar::handle:horizontal:hover {{
+                background-color: {DesignTokens.TEXT_MUTED};
+            }}
+            QScrollArea#mcp_catalog_chips_scroll QScrollBar::add-line:horizontal,
+            QScrollArea#mcp_catalog_chips_scroll QScrollBar::sub-line:horizontal {{
+                width: 0px;
+                height: 0px;
+                border: none;
+            }}
+        """)
 
         chips_container = QWidget(chips_scroll)
         chips_container.setStyleSheet("background: transparent;")
         chips_layout = QHBoxLayout(chips_container)
-        chips_layout.setContentsMargins(0, 0, 0, 0)
+        chips_layout.setContentsMargins(2, 2, 2, 6)
         chips_layout.setSpacing(6)
+        chips_layout.setSizeConstraint(QHBoxLayout.SizeConstraint.SetMinAndMaxSize)
 
         self._chip_group = QButtonGroup(self)
         self._chip_group.setExclusive(True)
@@ -477,6 +506,8 @@ class MCPToolCatalogWidget(QWidget):
             icon_name="ph.wrench",
             parent=chips_container,
         )
+        self.chip_all.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self.chip_all.setMinimumWidth(self.chip_all.sizeHint().width() + 6)
         self.chip_all.setChecked(True)
         self.chip_all.clicked.connect(lambda: self._on_domain_chip_clicked(None))
         self._chip_group.addButton(self.chip_all)
@@ -491,6 +522,8 @@ class MCPToolCatalogWidget(QWidget):
                 icon_name=meta["icon"],
                 parent=chips_container,
             )
+            chip.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+            chip.setMinimumWidth(chip.sizeHint().width() + 6)
             chip.clicked.connect(lambda _, dk=domain_key: self._on_domain_chip_clicked(dk))
             self._chip_group.addButton(chip)
             chips_layout.addWidget(chip)
@@ -663,7 +696,7 @@ class MCPToolCatalogWidget(QWidget):
 
         self.btn_copy_tool_name = SecondaryButton(tr("Copier le nom"), parent=container)
         self.btn_copy_tool_name.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_copy_tool_name.setFixedHeight(28)
+        apply_compact_style(self.btn_copy_tool_name, height=COMPACT_BUTTON_HEIGHT)
         self.btn_copy_tool_name.clicked.connect(self._copy_tool_name)
         header_box.addWidget(self.btn_copy_tool_name)
 
@@ -756,10 +789,11 @@ class MCPToolCatalogWidget(QWidget):
         self.params_table.verticalHeader().setVisible(False)
         self.params_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.params_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.params_table.horizontalHeader().setStretchLastSection(True)
         self.params_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.params_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.params_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.params_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self.params_table.setColumnWidth(2, 95)
+        self.params_table.horizontalHeader().setStretchLastSection(True)
         self.params_table.setStyleSheet(f"""
             QTableWidget#mcp_catalog_params_table {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -791,7 +825,7 @@ class MCPToolCatalogWidget(QWidget):
 
         self.btn_copy_json_signature = SecondaryButton(tr("Copier la signature JSON"), parent=container)
         self.btn_copy_json_signature.setIcon(load_phosphor_icon("ph.code", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_copy_json_signature.setFixedHeight(26)
+        apply_compact_style(self.btn_copy_json_signature, height=COMPACT_BUTTON_HEIGHT)
         self.btn_copy_json_signature.clicked.connect(self._copy_json_signature)
         sig_header.addWidget(self.btn_copy_json_signature)
         layout.addLayout(sig_header)
@@ -853,7 +887,7 @@ class MCPToolCatalogWidget(QWidget):
         for tool in self._filtered_tools:
             item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, tool)
-            item.setSizeHint(QSize(0, 48))
+            item.setSizeHint(QSize(0, 52))
 
             row_widget = MCPToolListRowWidget(tool)
             self.tool_list.addItem(item)
@@ -962,6 +996,7 @@ class MCPToolCatalogWidget(QWidget):
 
     def _populate_params_table(self, props: dict[str, Any], required_list: list[str]) -> None:
         """Remplit le tableau des paramètres avec les types et les badges."""
+        self.params_table.clearContents()
         self.params_table.setRowCount(len(props))
 
         for row, (p_name, p_info) in enumerate(props.items()):
@@ -981,10 +1016,16 @@ class MCPToolCatalogWidget(QWidget):
 
             # 3. Requis ?
             is_req = p_name in required_list
-            badge_text = tr("Requis") if is_req else tr("Optionnel")
-            badge_variant = "danger" if is_req else "neutral"
-            badge = Badge(badge_text, variant=badge_variant)
-            self.params_table.setCellWidget(row, 2, badge)
+            item_req = QTableWidgetItem(tr("Requis") if is_req else tr("Optionnel"))
+            item_req.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            font_req = QFont(DesignTokens.FONT_MAIN, 10)
+            font_req.setBold(is_req)
+            item_req.setFont(font_req)
+            if is_req:
+                item_req.setForeground(Qt.GlobalColor.red)
+            else:
+                item_req.setForeground(Qt.GlobalColor.gray)
+            self.params_table.setItem(row, 2, item_req)
 
             # 4. Description et valeur par défaut
             desc_parts: list[str] = []
@@ -997,10 +1038,10 @@ class MCPToolCatalogWidget(QWidget):
             item_desc = QTableWidgetItem(desc_text)
             self.params_table.setItem(row, 3, item_desc)
 
-            self.params_table.setRowHeight(row, 28)
+            self.params_table.setRowHeight(row, 32)
 
         # Ajustement de la hauteur du tableau
-        table_height = min(180, 30 + len(props) * 28)
+        table_height = min(240, 36 + len(props) * 32)
         self.params_table.setFixedHeight(table_height)
 
     # ── Actions Utilisateur ──────────────────────────────────────────────────

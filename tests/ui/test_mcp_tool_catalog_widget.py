@@ -249,6 +249,11 @@ def test_mcp_tool_catalog_parameters_table(qtbot: Any, dummy_tools: list[DummyTo
     assert "fields" in param_names
     assert "description" in param_names
 
+    # Vérification que la colonne Requis ? est bien renseignée
+    req_labels = [item.text() for r in range(3) if (item := widget.params_table.item(r, 2)) is not None]
+    assert "Requis" in req_labels
+    assert "Optionnel" in req_labels
+
 
 def test_mcp_tool_catalog_safeguards_display(qtbot: Any, dummy_tools: list[DummyTool]) -> None:
     """Vérifie la mise en évidence des avertissements et garde-fous associés à l'outil."""
@@ -298,3 +303,28 @@ def test_mcp_dashboard_widget_integration_catalog_tab(qtbot: Any) -> None:
     assert dashboard.stacked_widget.currentIndex() == 2
     assert dashboard.stacked_widget.currentWidget() == dashboard.catalog_widget
     assert dashboard.catalog_widget.tool_list.count() == 58
+
+
+def test_mcp_tool_catalog_buttons_and_chips_geometry(qtbot: Any, dummy_tools: list[DummyTool]) -> None:
+    """Vérifie que les boutons d'action et les puces de filtre ont des hauteurs et densités valides sans rognage."""
+    from ankiforge.ui.components.buttons import COMPACT_BUTTON_HEIGHT
+
+    widget = MCPToolCatalogWidget(raw_tools=dummy_tools)
+    qtbot.addWidget(widget)
+
+    # 1. Boutons d'action : densité compacte et hauteur 32px
+    assert widget.btn_copy_tool_name.property("density") == "compact"
+    assert widget.btn_copy_tool_name.height() == COMPACT_BUTTON_HEIGHT or widget.btn_copy_tool_name.maximumHeight() == COMPACT_BUTTON_HEIGHT
+
+    assert widget.btn_copy_json_signature.property("density") == "compact"
+    assert widget.btn_copy_json_signature.height() == COMPACT_BUTTON_HEIGHT or widget.btn_copy_json_signature.maximumHeight() == COMPACT_BUTTON_HEIGHT
+
+    # 2. Ruban de puces : hauteur réservée de 46px (évite le rognage avec scrollbar)
+    chips_scroll = widget.findChild(type(widget.detail_scroll), "mcp_catalog_chips_scroll")
+    assert chips_scroll is not None
+    assert chips_scroll.maximumHeight() == 46
+
+    # 3. Puces de filtres : largeur minimale garantie non nulle
+    assert widget.chip_all.minimumWidth() > 0
+    for chip in widget.domain_chips.values():
+        assert chip.minimumWidth() > 0
