@@ -258,12 +258,18 @@ class TestSegmentedTabBar:
 
         btn = tab_bar.add_tab("errors", "Erreurs", "ph.warning", badge_text="3")
         assert btn.badge_text == "3"
+        hint_with_badge_3 = btn.sizeHint().width()
 
-        tab_bar.set_tab_badge("errors", "5")
-        assert btn.badge_text == "5"
+        tab_bar.set_tab_badge("errors", "58")
+        assert btn.badge_text == "58"
+        hint_with_badge_58 = btn.sizeHint().width()
+        assert hint_with_badge_58 >= hint_with_badge_3
 
         tab_bar.set_tab_badge("errors", "")
         assert btn.badge_text == ""
+        hint_without_badge = btn.sizeHint().width()
+        # La taille avec badge réserve au moins 20px supplémentaires pour éviter tout rognage
+        assert hint_with_badge_58 > hint_without_badge + 15
 
         tab_bar.set_tab_enabled("errors", False)
         assert not btn.isEnabled()

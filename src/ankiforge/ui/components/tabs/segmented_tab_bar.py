@@ -69,6 +69,7 @@ class SegmentedTabButton(QPushButton):
                 self._badge_label = QLabel(self)
                 self._badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self._badge_label.setFixedHeight(16)
+                self._badge_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
             self._update_badge_style()
 
     def _update_badge_style(self) -> None:
@@ -90,6 +91,25 @@ class SegmentedTabButton(QPushButton):
         """)
         self._badge_label.adjustSize()
 
+    def _badge_width(self) -> int:
+        """Retourne la largeur effective du badge label pour réserver l'espacement."""
+        if not self.badge_text or self._badge_label is None or self._badge_label.isHidden():
+            return 0
+        self._badge_label.adjustSize()
+        return max(self._badge_label.sizeHint().width(), self._badge_label.width(), 16)
+
+    def sizeHint(self) -> QSize:
+        """Calcule la taille optimale de l'onglet en réservant l'espace du badge."""
+        hint = super().sizeHint()
+        bw = self._badge_width()
+        if bw > 0:
+            hint.setWidth(hint.width() + bw + 10)
+        return hint
+
+    def minimumSizeHint(self) -> QSize:
+        """Retourne la taille minimale requise."""
+        return self.sizeHint()
+
     def set_badge(self, text: str) -> None:
         """Met à jour le texte du badge."""
         self.badge_text = text
@@ -98,11 +118,19 @@ class SegmentedTabButton(QPushButton):
                 self._badge_label = QLabel(self)
                 self._badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self._badge_label.setFixedHeight(16)
+                self._badge_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
             self._update_badge_style()
             self._badge_label.show()
         elif self._badge_label is not None:
             self._badge_label.hide()
         self._update_display()
+        self.updateGeometry()
+        if self._badge_label is not None and text and not self._badge_label.isHidden():
+            self._badge_label.adjustSize()
+            badge_w = self._badge_label.width()
+            badge_h = self._badge_label.height()
+            self._badge_label.move(self.width() - badge_w - 8, (self.height() - badge_h) // 2)
+            self._badge_label.raise_()
 
     def _update_display(self) -> None:
         suffix = f"  {self.badge_text}" if self.badge_text and self._badge_label is None else ""
@@ -119,7 +147,11 @@ class SegmentedTabButton(QPushButton):
             icon_color = DesignTokens.ACCENT_PRIMARY if active else DesignTokens.TEXT_MUTED
             self.setIcon(load_phosphor_icon(self.icon_name, color=icon_color))
 
+        bw = self._badge_width()
+
         if self.variant == "segmented":
+            base_pad = 12
+            right_pad = (bw + 14) if bw > 0 else base_pad
             if active:
                 self.setStyleSheet(f"""
                     QPushButton {{
@@ -127,7 +159,7 @@ class SegmentedTabButton(QPushButton):
                         color: {DesignTokens.TEXT_ON_ACCENT};
                         border: none;
                         border-radius: {DesignTokens.RADIUS_SM}px;
-                        padding: 0 12px;
+                        padding: 0 {right_pad}px 0 {base_pad}px;
                         font-size: 12px;
                         font-weight: 600;
                     }}
@@ -139,7 +171,7 @@ class SegmentedTabButton(QPushButton):
                         color: {DesignTokens.TEXT_SECONDARY};
                         border: none;
                         border-radius: {DesignTokens.RADIUS_SM}px;
-                        padding: 0 12px;
+                        padding: 0 {right_pad}px 0 {base_pad}px;
                         font-size: 12px;
                         font-weight: 500;
                     }}
@@ -150,6 +182,8 @@ class SegmentedTabButton(QPushButton):
                 """)
         else:
             # Mode "subtab" par défaut (souligné accent style IDE)
+            base_pad = 14
+            right_pad = (bw + 16) if bw > 0 else base_pad
             if active:
                 self.setStyleSheet(f"""
                     QPushButton {{
@@ -158,7 +192,7 @@ class SegmentedTabButton(QPushButton):
                         border: 1px solid {DesignTokens.BORDER_COLOR};
                         border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
                         border-radius: {DesignTokens.RADIUS_SM}px;
-                        padding: 2px 14px;
+                        padding: 2px {right_pad}px 2px {base_pad}px;
                         font-size: 11.5px;
                         font-weight: bold;
                     }}
@@ -170,7 +204,7 @@ class SegmentedTabButton(QPushButton):
                         color: {DesignTokens.TEXT_SECONDARY};
                         border: 1px solid transparent;
                         border-radius: {DesignTokens.RADIUS_SM}px;
-                        padding: 2px 14px;
+                        padding: 2px {right_pad}px 2px {base_pad}px;
                         font-size: 11.5px;
                     }}
                     QPushButton:hover {{
@@ -183,6 +217,7 @@ class SegmentedTabButton(QPushButton):
         """Met à jour le libellé texte de l'onglet."""
         self.raw_text = text
         self._update_display()
+        self.updateGeometry()
 
     def set_icon(self, icon: Any) -> None:
         """Met à jour l'icône de l'onglet."""
@@ -194,8 +229,12 @@ class SegmentedTabButton(QPushButton):
 
     def resizeEvent(self, event: Any) -> None:
         super().resizeEvent(event)
-        if self._badge_label is not None and self.badge_text:
-            self._badge_label.move(self.width() - self._badge_label.width() - 6, (self.height() - self._badge_label.height()) // 2)
+        if self._badge_label is not None and self.badge_text and not self._badge_label.isHidden():
+            self._badge_label.adjustSize()
+            badge_w = self._badge_label.width()
+            badge_h = self._badge_label.height()
+            self._badge_label.move(self.width() - badge_w - 8, (self.height() - badge_h) // 2)
+            self._badge_label.raise_()
 
 
 class SegmentedTabBar(QWidget):
@@ -390,6 +429,7 @@ class SegmentedTabBar(QWidget):
             """)
         for btn in self._tabs:
             btn._apply_style(btn.isChecked())
+            btn._update_badge_style()
 
 
 class SubTabButton(SegmentedTabButton):
