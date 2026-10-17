@@ -21,7 +21,7 @@ import sys
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.services.settings_service import SettingsService
@@ -300,6 +300,12 @@ class PiperSidecarProvider(TTSProvider):
 
     id = "piper"
     display_name = "Piper TTS (Local Hors-Ligne Standalone)"
+    _functional_cache: ClassVar[tuple[bool, str] | None] = None
+
+    @classmethod
+    def clear_functional_cache(cls) -> None:
+        """Invalide le cache de détection fonctionnelle."""
+        cls._functional_cache = None
 
     @staticmethod
     def get_piper_executable() -> Path | None:
@@ -345,11 +351,15 @@ class PiperSidecarProvider(TTSProvider):
         return voices_dir
 
     @classmethod
-    def is_functional(cls) -> tuple[bool, str]:
-        """Vérifie que le binaire piper existe ET s'exécute sans erreur de dépendance dynamique."""
+    def is_functional(cls, force_refresh: bool = False) -> tuple[bool, str]:
+        """Vérifie que le binaire piper existe ET s'exécute sans erreur de dépendance dynamique (avec mise en cache)."""
+        if not force_refresh and cls._functional_cache is not None:
+            return cls._functional_cache
+
         exe = cls.get_piper_executable()
         if not exe:
-            return False, "Binaire Piper introuvable."
+            cls._functional_cache = (False, "Binaire Piper introuvable.")
+            return cls._functional_cache
         try:
             res = subprocess.run(
                 [str(exe), "--version"],
@@ -359,13 +369,17 @@ class PiperSidecarProvider(TTSProvider):
                 cwd=str(exe.parent),
             )  # nosec B603  # argv fixe [exe, "--version"], binaire vérifié SHA-256, aucun shell
             if res.returncode == 0:
-                return True, "Opérationnel"
+                cls._functional_cache = (True, "Opérationnel")
+                return cls._functional_cache
             err = res.stderr.decode("utf-8", errors="ignore").strip()
             if "Library not loaded" in err or "libespeak-ng" in err:
-                return False, "Dépendance système requise (libespeak-ng)"
-            return False, f"Erreur ({res.returncode}) : {err}"
+                cls._functional_cache = (False, "Dépendance système requise (libespeak-ng)")
+                return cls._functional_cache
+            cls._functional_cache = (False, f"Erreur ({res.returncode}) : {err}")
+            return cls._functional_cache
         except Exception as e:
-            return False, str(e)
+            cls._functional_cache = (False, str(e))
+            return cls._functional_cache
 
     def is_available(self) -> bool:
         """Vérifie la présence et le bon fonctionnement du binaire piper."""
@@ -461,6 +475,12 @@ class KokoroSidecarProvider(TTSProvider):
 
     id = "kokoro"
     display_name = "Kokoro-82M (Runner Local Déporté)"
+    _functional_cache: ClassVar[tuple[bool, str] | None] = None
+
+    @classmethod
+    def clear_functional_cache(cls) -> None:
+        """Invalide le cache de détection fonctionnelle."""
+        cls._functional_cache = None
 
     DEFAULT_VOICES: list[dict[str, str]] = [
         {"id": "af_heart", "name": "Kokoro - Heart (US Female)", "lang": "en-US"},
@@ -517,11 +537,15 @@ class KokoroSidecarProvider(TTSProvider):
         return None
 
     @classmethod
-    def is_functional(cls) -> tuple[bool, str]:
-        """Vérifie que le runner Kokoro existe et peut répondre à une sonde (--version)."""
+    def is_functional(cls, force_refresh: bool = False) -> tuple[bool, str]:
+        """Vérifie que le runner Kokoro existe et peut répondre à une sonde (--version) (avec mise en cache)."""
+        if not force_refresh and cls._functional_cache is not None:
+            return cls._functional_cache
+
         cmd = cls.get_kokoro_command()
         if not cmd:
-            return False, "Runner Kokoro introuvable (aucun script run.py ou binaire kokoro)."
+            cls._functional_cache = (False, "Runner Kokoro introuvable (aucun script run.py ou binaire kokoro).")
+            return cls._functional_cache
         try:
             cwd_target = Path(cmd[-1]).parent if len(cmd) > 1 else Path(cmd[0]).parent
             res = subprocess.run(
@@ -532,11 +556,14 @@ class KokoroSidecarProvider(TTSProvider):
                 cwd=str(cwd_target),
             )  # nosec B603
             if res.returncode == 0:
-                return True, "Opérationnel"
+                cls._functional_cache = (True, "Opérationnel")
+                return cls._functional_cache
             err = res.stderr.decode("utf-8", errors="ignore").strip() or res.stdout.decode("utf-8", errors="ignore").strip()
-            return False, f"Erreur ({res.returncode}) : {err}"
+            cls._functional_cache = (False, f"Erreur ({res.returncode}) : {err}")
+            return cls._functional_cache
         except Exception as e:
-            return False, str(e)
+            cls._functional_cache = (False, str(e))
+            return cls._functional_cache
 
     def is_available(self) -> bool:
         """Vérifie la présence et le bon fonctionnement du runner Kokoro."""
@@ -686,6 +713,7 @@ if __name__ == "__main__":
         if progress_callback:
             progress_callback("Runner Kokoro-82M installé et prêt à l'emploi !")
 
+        cls.clear_functional_cache()
         return True
 
 
@@ -1056,6 +1084,7 @@ class TTSService:
 
             if progress_callback:
                 progress_callback("Piper installé avec succès !")
+            PiperSidecarProvider.clear_functional_cache()
             return True
 
         except Exception as e:

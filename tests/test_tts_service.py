@@ -315,3 +315,49 @@ def test_tts_service_purge_audio_cache(tmp_path: Path) -> None:
     assert not tts1.exists()
     assert not tts2.exists()
     assert image.exists()  # L'image est préservée
+
+
+def test_sidecar_providers_functional_cache() -> None:
+    """Vérifie que PiperSidecarProvider et KokoroSidecarProvider mettent en cache le résultat de is_functional."""
+    from unittest.mock import patch
+
+    from ankiforge.services.cards.tts_service import KokoroSidecarProvider, PiperSidecarProvider
+
+    PiperSidecarProvider.clear_functional_cache()
+    KokoroSidecarProvider.clear_functional_cache()
+
+    with patch.object(PiperSidecarProvider, "get_piper_executable", return_value=Path("/bin/piper")), patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        # Premier appel : exécute subprocess.run
+        ok1, msg1 = PiperSidecarProvider.is_functional()
+        assert ok1 is True
+        assert mock_run.call_count == 1
+
+        # Second appel : résultat mis en cache, pas de subprocess.run
+        ok2, msg2 = PiperSidecarProvider.is_functional()
+        assert ok2 is True
+        assert mock_run.call_count == 1
+
+        # Forcer le rafraîchissement
+        ok3, msg3 = PiperSidecarProvider.is_functional(force_refresh=True)
+        assert ok3 is True
+        assert mock_run.call_count == 2
+
+        # Invalidation du cache
+        PiperSidecarProvider.clear_functional_cache()
+        PiperSidecarProvider.is_functional()
+        assert mock_run.call_count == 3
+
+    with patch.object(KokoroSidecarProvider, "get_kokoro_command", return_value=["python", "run.py"]), patch("subprocess.run") as mock_run_k:
+        mock_run_k.return_value = MagicMock(returncode=0)
+
+        ok_k1, _ = KokoroSidecarProvider.is_functional()
+        assert ok_k1 is True
+        assert mock_run_k.call_count == 1
+
+        ok_k2, _ = KokoroSidecarProvider.is_functional()
+        assert ok_k2 is True
+        assert mock_run_k.call_count == 1
+
+        KokoroSidecarProvider.clear_functional_cache()

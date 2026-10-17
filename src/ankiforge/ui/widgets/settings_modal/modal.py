@@ -558,8 +558,9 @@ class SettingsModal(QDialog):
             self.nav_btns[index].setChecked(True)
             self._ensure_tab_loaded(index)
             self.stacked_widget.setCurrentIndex(index)
-            self.raise_()
-            self.activateWindow()
+            if not self.isActiveWindow():
+                self.raise_()
+                self.activateWindow()
 
 
 # Aliases de compatibilité

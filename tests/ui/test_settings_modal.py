@@ -721,6 +721,11 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
     tab = TTSSettingsTab()
     qtbot.addWidget(tab)
 
+    # Vérification lazy initialization du player (Ticket Latence & Bump)
+    assert tab._player is None
+    tab._ensure_player_initialized()
+    assert tab._player is not None
+
     # Vérification contraintes de largeur et politique d'ascenseur (Ticket 5)
     from PySide6.QtCore import Qt
 
@@ -761,6 +766,29 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
         assert tab.content_widget.sizeHint().width() <= 650
         assert "Inopérationnel" in tab.lbl_piper_status.text()
         assert "[Errno 86]" in tab.lbl_piper_status.toolTip()
+
+
+def test_tts_settings_tab_collapsible_sections_sync(qtbot):
+    """Vérifie que les sections Piper et Kokoro se déplient/replient selon le moteur actif."""
+    tab = TTSSettingsTab()
+    qtbot.addWidget(tab)
+
+    # Par défaut (edge-tts), Piper et Kokoro doivent être repliés
+    tab.cb_engine.setCurrentIndex(tab.cb_engine.findData("edge-tts"))
+    assert tab.sec_piper.is_collapsed()
+    assert tab.sec_kokoro.is_collapsed()
+
+    # Si Piper sélectionné -> sec_piper dépliée, sec_kokoro repliée
+    tab.cb_engine.addItem("Piper", "piper")
+    tab.cb_engine.setCurrentIndex(tab.cb_engine.findData("piper"))
+    assert not tab.sec_piper.is_collapsed()
+    assert tab.sec_kokoro.is_collapsed()
+
+    # Si Kokoro sélectionné -> sec_kokoro dépliée, sec_piper repliée
+    tab.cb_engine.addItem("Kokoro", "kokoro")
+    tab.cb_engine.setCurrentIndex(tab.cb_engine.findData("kokoro"))
+    assert tab.sec_piper.is_collapsed()
+    assert not tab.sec_kokoro.is_collapsed()
 
 
 def test_tts_settings_tab_kokoro_integration(qtbot):
@@ -1059,6 +1087,22 @@ def test_settings_modal_ai_tab_activation_and_visibility(qtbot):
         assert badge.parent() is not None
     assert ai_tab.badge_ollama_status.parent() is not None
     qtbot.wait(50)
+
+
+def test_settings_modal_select_tab_activation_guard(qtbot):
+    """Vérifie que select_tab n'invoque activateWindow que si la fenêtre n'est pas déjà active."""
+    modal = SettingsModal()
+    qtbot.addWidget(modal)
+
+    with patch.object(modal, "isActiveWindow", return_value=True), patch.object(modal, "activateWindow") as mock_act, patch.object(modal, "raise_") as mock_raise:
+        modal.select_tab(0)
+        mock_act.assert_not_called()
+        mock_raise.assert_not_called()
+
+    with patch.object(modal, "isActiveWindow", return_value=False), patch.object(modal, "activateWindow") as mock_act2, patch.object(modal, "raise_") as mock_raise2:
+        modal.select_tab(0)
+        mock_act2.assert_called_once()
+        mock_raise2.assert_called_once()
 
 
 def test_settings_nav_buttons_style(qtbot):

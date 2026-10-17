@@ -1759,7 +1759,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     <message>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+468"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+398"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+471"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5011,24 +5011,24 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-151"/>
-        <location line="+47"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-189"/>
+        <location line="+40"/>
         <source>Emplacement : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+67"/>
+        <location line="+108"/>
         <source>Dépendance manquante ou non fonctionnelle :
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+43"/>
         <source>Erreur de chargement des voix : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+139"/>
+        <location line="+197"/>
         <source>Lecture audio en cours sur &apos;%1&apos;...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17464,7 +17464,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TTSSettingsTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-463"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-552"/>
         <source>CONFIGURATION DU MOTEUR VOCAL</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17514,27 +17514,33 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+5"/>
         <source>Statut de Piper CLI :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+36"/>
+        <location line="+35"/>
         <source>MOTEUR LOCAL KOKORO-82M (OPTIONNEL)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+5"/>
         <source>Statut du Runner Kokoro :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+19"/>
         <source>Kokoro-82M est un modèle local compact haute fidélité. Le runner s&apos;exécute en processus déporté via ~/.ankiforge/tools/tts/kokoro/run.py ou un binaire &apos;kokoro&apos; dans le PATH.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+46"/>
+        <location line="+17"/>
+        <source>Kokoro-82M (Runner Local Déporté)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-7"/>
         <source>Edge-TTS (Voix Neuronales Cloud Gratuit)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17549,18 +17555,13 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Kokoro-82M (Runner Local Déporté)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
-        <location line="+20"/>
+        <location line="+36"/>
+        <location line="+24"/>
         <source>● Installé et opérationnel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-17"/>
+        <location line="-21"/>
         <location line="+6"/>
         <source> Réinstaller Piper CLI (1-Clic)</source>
         <translation type="unfinished"></translation>
@@ -17581,7 +17582,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+14"/>
         <source> Kokoro déjà installé et prêt</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17606,17 +17607,20 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="+30"/>
         <source>Le moteur Kokoro-82M n&apos;est pas opérationnel sur cette machine. Repli automatique sur Edge-TTS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+48"/>
+        <location line="+30"/>
+        <location line="+29"/>
+        <location line="+34"/>
+        <location line="+3"/>
         <source>Sortie audio système par défaut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+51"/>
         <source> Arrêter la lecture</source>
         <translation type="unfinished"></translation>
     </message>
