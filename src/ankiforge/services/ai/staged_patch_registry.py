@@ -86,6 +86,13 @@ class StagedPatchRegistry:
             )
 
         logger.info("Patch en attente créé : %s (type: %s, cible: %s)", p_id, patch_type, target_id)
+        cls._notify_staged_patch(
+            patch_id=p_id,
+            patch_type=patch_type,
+            target_id=target_id,
+            title=str(payload.get("title") or f"Proposition — {patch_type} #{target_id}"),
+            details=payload,
+        )
         return patch
 
     @classmethod
@@ -615,6 +622,28 @@ class StagedPatchRegistry:
         }
 
     @classmethod
+    def sync_direct_edit(cls, patch_id: str, new_modified: Any) -> bool:
+        """Met à jour le contenu proposé (modified) dans le diff_payload d'un patch en attente."""
+        patch = cls.get_patch(patch_id)
+        if not patch or patch.status != "pending":
+            return False
+
+        data = staged_payload_of(patch)
+        if not data:
+            return False
+
+        if data.get("modified") == new_modified:
+            return True
+
+        data["modified"] = new_modified
+        with db.atomic():
+            patch.diff_payload = json.dumps(data, ensure_ascii=False)
+            patch.save()
+
+        logger.info("Patch %s synchronisé avec l'édition directe utilisateur.", patch_id)
+        return True
+
+    @classmethod
     def _notify_mutation(cls, mutation_type: str, target_id: int, details: dict[str, Any]) -> None:
         """Déclenche la notification sur le bus d'événements si disponible."""
         try:
@@ -623,3 +652,36 @@ class StagedPatchRegistry:
             _notify_mcp_mutation({"type": mutation_type, "target_id": target_id, **details})
         except Exception as e:
             logger.debug("Erreur notification mutation patch : %s", e)
+
+    @classmethod
+    def _notify_staged_patch(cls, patch_id: str, patch_type: str, target_id: int, title: str, details: dict[str, Any]) -> None:
+        """Déclenche la notification de création de patch staged sur le bus d'événements et vers MCP."""
+        try:
+            from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+
+            event_bus.publish(
+                MCPPatchStagedEvent(
+                    patch_id=patch_id,
+                    patch_type=patch_type,
+                    target_id=target_id,
+                    title=title,
+                    details=details,
+                )
+            )
+        except Exception as e:
+            logger.debug("Erreur publication event_bus MCPPatchStagedEvent : %s", e)
+
+        try:
+            from ankiforge.services.ai.mcp_server import _notify_mcp_patch_staged
+
+            _notify_mcp_patch_staged(
+                {
+                    "patch_id": patch_id,
+                    "patch_type": patch_type,
+                    "target_id": target_id,
+                    "title": title,
+                    **details,
+                }
+            )
+        except Exception as e:
+            logger.debug("Erreur notification listeners MCP patch staged : %s", e)

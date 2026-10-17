@@ -1109,7 +1109,14 @@ class PipelineOrchestrator(QRunnable):
             # Extraire le texte du champ source (au niveau racine ou dans card["fields"])
             raw_fields = card.get("fields")
             fields_dict: dict[str, Any] = raw_fields if isinstance(raw_fields, dict) else card
-            text_to_speak = str(fields_dict.get(source_field, fields_dict.get(source_field.lower(), "")))
+            # Recherche parmi les champs sources configurés (supporte une liste séparée par des virgules)
+            candidate_sources = [s.strip() for s in source_field.split(",") if s.strip()]
+            text_to_speak = ""
+            for src_name in candidate_sources:
+                candidate_val = str(fields_dict.get(src_name, fields_dict.get(src_name.lower(), ""))).strip()
+                if candidate_val:
+                    text_to_speak = candidate_val
+                    break
 
             if not text_to_speak.strip():
                 continue

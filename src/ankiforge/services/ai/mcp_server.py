@@ -17,12 +17,22 @@ from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
-__all__ = ["mcp", "register_mutation_listener", "run_server", "unregister_mutation_listener"]
+__all__ = [
+    "mcp",
+    "register_mutation_listener",
+    "register_staged_patch_listener",
+    "run_server",
+    "unregister_mutation_listener",
+    "unregister_staged_patch_listener",
+]
 
 logger = logging.getLogger(__name__)
 
 # Écouteurs de mutations externes appliquées via les outils MCP
 _mutation_listeners: list[Callable[[dict[str, Any]], None]] = []
+
+# Écouteurs de propositions de patchs en attente (Two-Phase Commit)
+_staged_patch_listeners: list[Callable[[dict[str, Any]], None]] = []
 
 
 def register_mutation_listener(callback: Callable[[dict[str, Any]], None]) -> None:
@@ -35,6 +45,18 @@ def unregister_mutation_listener(callback: Callable[[dict[str, Any]], None]) -> 
     """Retire un écouteur de mutation."""
     if callback in _mutation_listeners:
         _mutation_listeners.remove(callback)
+
+
+def register_staged_patch_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Enregistre un écouteur de proposition de patch en attente via MCP."""
+    if callback not in _staged_patch_listeners:
+        _staged_patch_listeners.append(callback)
+
+
+def unregister_staged_patch_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Retire un écouteur de proposition de patch."""
+    if callback in _staged_patch_listeners:
+        _staged_patch_listeners.remove(callback)
 
 
 def _notify_mcp_mutation(data: dict[str, Any]) -> None:
@@ -58,6 +80,35 @@ def _notify_mcp_mutation(data: dict[str, Any]) -> None:
             listener(data)
         except Exception as e:
             logger.warning("Erreur dans l'écouteur de mutation MCP : %s", e)
+
+
+def _notify_mcp_patch_staged(data: dict[str, Any]) -> None:
+    """Notifie les écouteurs enregistrés et le bus d'événements lors de la création d'un patch staged."""
+    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+
+    p_id = str(data.get("patch_id", ""))
+    p_type = str(data.get("type") or data.get("patch_type") or "card")
+    t_id = int(data.get("note_id") or data.get("target_id") or 0)
+    title = str(data.get("title") or f"Proposition — {p_type} #{t_id}")
+
+    try:
+        event_bus.publish(
+            MCPPatchStagedEvent(
+                patch_id=p_id,
+                patch_type=p_type,
+                target_id=t_id,
+                title=title,
+                details=data,
+            )
+        )
+    except Exception as e:
+        logger.debug("Erreur publication event_bus MCPPatchStagedEvent : %s", e)
+
+    for listener in list(_staged_patch_listeners):
+        try:
+            listener(data)
+        except Exception as e:
+            logger.warning("Erreur dans l'écouteur de patch staged MCP : %s", e)
 
 
 # Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.

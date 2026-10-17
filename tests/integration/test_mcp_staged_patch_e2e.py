@@ -38,6 +38,8 @@ def test_mcp_proposal_reaches_workspace_inspector_and_applies(qtbot, tmp_path):
     )
 
     daemon = MCPServerDaemon(mcp_server=mcp, base_port=9850, data_dir=tmp_path)
+    emitted_staged_signals: list[dict] = []
+    daemon.signals.mcp_patch_staged.connect(emitted_staged_signals.append)
     assert daemon.start(timeout=5.0) is True
 
     async def _propose_via_client() -> dict:
@@ -67,9 +69,15 @@ def test_mcp_proposal_reaches_workspace_inspector_and_applies(qtbot, tmp_path):
     finally:
         daemon.stop(timeout=5.0)
 
+    from PySide6.QtWidgets import QApplication
+
+    QApplication.processEvents()
+
     # 2. La proposition est persistée « pending » et son payload est complet
     assert staged_payload.get("status") == "staged_diff"
     patch_id = staged_payload["patch_id"]
+    assert len(emitted_staged_signals) == 1
+    assert emitted_staged_signals[0]["patch_id"] == patch_id
     pending_rows = list(StagedPatchRegistry.list_pending())
     assert [row.patch_id for row in pending_rows] == [patch_id]
     assert StagedPatchModel.get(StagedPatchModel.patch_id == patch_id).status == "pending"

@@ -432,6 +432,7 @@ class MCPServerSignals(QObject):
     """Signaux Qt émis par le daemon MCP pour notifier l'interface graphique."""
 
     mcp_data_mutated = Signal(dict)
+    mcp_patch_staged = Signal(dict)
     server_started = Signal(int)
     server_stopped = Signal()
 
@@ -457,6 +458,7 @@ class MCPServerDaemon:
 
         self.signals = MCPServerSignals()
         self.mcp_data_mutated = self.signals.mcp_data_mutated
+        self.mcp_patch_staged = self.signals.mcp_patch_staged
 
         self._mcp_server = mcp_server
         if self._mcp_server is not None:
@@ -484,6 +486,13 @@ class MCPServerDaemon:
             self.signals.mcp_data_mutated.emit(data)
         except Exception as e:
             logger.debug("Exception émission mcp_data_mutated : %s", e)
+
+    def _on_staged_patch_received(self, data: dict[str, Any]) -> None:
+        """Relaye la proposition de patch staged vers les écouteurs Qt via Signal."""
+        try:
+            self.signals.mcp_patch_staged.emit(data)
+        except Exception as e:
+            logger.debug("Exception émission mcp_patch_staged : %s", e)
 
     @property
     def is_running(self) -> bool:
@@ -638,9 +647,10 @@ class MCPServerDaemon:
                         sse_url=self.sse_url,
                     )
 
-                    from ankiforge.services.ai.mcp_server import register_mutation_listener
+                    from ankiforge.services.ai.mcp_server import register_mutation_listener, register_staged_patch_listener
 
                     register_mutation_listener(self._on_mutation_received)
+                    register_staged_patch_listener(self._on_staged_patch_received)
                     self.signals.server_started.emit(port)
 
                     try:
@@ -676,9 +686,10 @@ class MCPServerDaemon:
 
             logger.info("Arrêt du daemon MCP AnkiForge en cours...")
 
-            from ankiforge.services.ai.mcp_server import unregister_mutation_listener
+            from ankiforge.services.ai.mcp_server import unregister_mutation_listener, unregister_staged_patch_listener
 
             unregister_mutation_listener(self._on_mutation_received)
+            unregister_staged_patch_listener(self._on_staged_patch_received)
 
             # 1. Signalisation d'arrêt à Uvicorn AVANT toute fermeture de connexion : le serveur
             #    doit pouvoir envoyer l'événement `lifespan.shutdown` puis fermer ses sockets.

@@ -49,6 +49,39 @@ def tool_clean_html_latex(state: PipelineRunState, args: dict[str, Any] | None =
                 for field, val in card.items():
                     if isinstance(val, str):
                         card[field] = _clean_text(val)
+
+                # Auto-réparation déterministe pour Vocabulaire_japonais (formatage canonique : Japonais en kana pur, Kanji en composé complet)
+                model_name = str(card.get("model") or "").lower()
+                if "vocabulaire" in model_name or "Japonais" in card:
+                    jap_key = "Japonais" if "Japonais" in card else "japonais"
+                    kanji_key = "Kanji" if "Kanji" in card else "kanji"
+                    jap_val = str(card.get(jap_key, "")).strip()
+                    kanji_val = str(card.get(kanji_key, "")).strip()
+
+                    # 1. Traitement des parenthèses ex: "夏休み (なつやすみ)"
+                    match = re.search(r"^(.*?)\s*[\(（]([^\)）]+)[\)）]", jap_val)
+                    if match:
+                        written_part = match.group(1).strip()
+                        kana_part = match.group(2).strip()
+                        if any("\u4e00" <= c <= "\u9fff" for c in written_part):
+                            card[jap_key] = kana_part
+                            if not kanji_val or kanji_val in written_part:
+                                card[kanji_key] = written_part
+                        else:
+                            card[jap_key] = kana_part or written_part
+                            if kanji_val == card[jap_key]:
+                                card[kanji_key] = ""
+                    else:
+                        # 2. Si Japonais contient des kanji sans parenthèse mais que Kanji contient du kana
+                        if any("\u4e00" <= c <= "\u9fff" for c in jap_val) and kanji_val and not any("\u4e00" <= c <= "\u9fff" for c in kanji_val):
+                            card[jap_key] = kanji_val
+                            card[kanji_key] = jap_val
+
+                    # 3. Si le champ Kanji ne contient aucun caractère kanji réel (ex: pure kana), le vider
+                    cur_k = str(card.get(kanji_key, "")).strip()
+                    if cur_k and not any("\u4e00" <= c <= "\u9fff" for c in cur_k):
+                        card[kanji_key] = ""
+
                 cleaned_count += 1
         state.set_variable("generated_cards", cards)
         logger.info("[Tool:clean_html_latex] %d cartes nettoyées et harmonisées.", cleaned_count)
@@ -85,13 +118,20 @@ def tool_deduplicate_levenshtein(state: PipelineRunState, args: dict[str, Any] |
     unique_cards: list[dict] = []
     removed_count = 0
 
+    def _get_card_front(c: dict[str, Any]) -> str:
+        for k in ("Front", "front", "Recto", "recto", "Question", "question", "Japonais", "japonais", "Kanji", "kanji"):
+            if k in c and c[k]:
+                return str(c[k])
+        non_meta = [v for k, v in c.items() if str(k).lower() not in ("model", "note_type", "status", "tags", "chunk_id", "section") and v]
+        return str(non_meta[0]) if non_meta else ""
+
     for card in cards:
         if not isinstance(card, dict):
             continue
-        front = str(card.get("Front") or card.get("front") or card.get("recto") or list(card.values())[0] if card else "")
+        front = _get_card_front(card)
         is_dup = False
         for seen in unique_cards:
-            seen_front = str(seen.get("Front") or seen.get("front") or seen.get("recto") or list(seen.values())[0] if seen else "")
+            seen_front = _get_card_front(seen)
             sim = _similarity_ratio(front, seen_front)
             if sim >= threshold:
                 is_dup = True

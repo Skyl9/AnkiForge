@@ -334,3 +334,92 @@ def test_staged_patch_note_type_change(sample_data):
     # Note migrée sur le modèle cible
     reloaded_note = NoteModel.get_by_id(note.id)
     assert reloaded_note.note_type.id == nt_target.id
+
+
+def test_sync_direct_edit_updates_payload_before_apply(sample_data):
+    """Vérifie que sync_direct_edit modifie le payload du patch en attente et que l'application prend en compte la retouche."""
+    note = sample_data["note"]
+    v1 = sample_data["v1"]
+
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note.id,
+        original_version_id=v1.id,
+        diff_payload={
+            "original": {"Front": "Question 1", "Back": "Réponse brute"},
+            "modified": {"Front": "Question 1", "Back": "Réponse proposée par IA"},
+            "explanation": "Refactor initial",
+        },
+    )
+
+    # Retouche utilisateur en direct (correction avant validation)
+    retouche_utilisateur = {"Front": "Question 1 raffinée", "Back": "Réponse validée et corrigée"}
+    ok = StagedPatchRegistry.sync_direct_edit(patch.patch_id, retouche_utilisateur)
+    assert ok is True
+
+    # Vérification que le patch en BDD a bien été mis à jour
+    reloaded_patch = StagedPatchRegistry.get_patch(patch.patch_id)
+    assert reloaded_patch is not None
+    payload = json.loads(reloaded_patch.diff_payload)
+    assert payload["modified"] == retouche_utilisateur
+
+    # Application du patch : la note doit contenir la version retouchée
+    result = StagedPatchRegistry.apply_staged_patch(patch.patch_id)
+    assert result["status"] == "applied"
+
+    active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+    assert active_v is not None
+    active_content = json.loads(active_v.content)
+    assert active_content == retouche_utilisateur
+
+
+def test_sync_direct_edit_fails_on_nonexistent_or_closed_patch(sample_data):
+    """Vérifie que sync_direct_edit renvoie False pour un patch inconnu ou déjà clos."""
+    note = sample_data["note"]
+    assert StagedPatchRegistry.sync_direct_edit("patch_inconnu_999", {"Front": "X"}) is False
+
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note.id,
+        diff_payload={"original": {}, "modified": {}},
+    )
+    StagedPatchRegistry.reject_staged_patch(patch.patch_id)
+
+    assert StagedPatchRegistry.sync_direct_edit(patch.patch_id, {"Front": "Y"}) is False
+
+
+def test_create_patch_emits_event_bus_and_mcp_listener(sample_data):
+    """Vérifie que create_patch notifie à la fois event_bus et les écouteurs MCP enregistrés."""
+    from ankiforge.services.ai.mcp_server import register_staged_patch_listener, unregister_staged_patch_listener
+    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+
+    bus_events: list[MCPPatchStagedEvent] = []
+    mcp_events: list[dict] = []
+
+    def on_bus_event(ev: MCPPatchStagedEvent) -> None:
+        bus_events.append(ev)
+
+    def on_mcp_event(data: dict) -> None:
+        mcp_events.append(data)
+
+    event_bus.subscribe(MCPPatchStagedEvent, on_bus_event)
+    register_staged_patch_listener(on_mcp_event)
+
+    try:
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="card",
+            target_id=sample_data["note"].id,
+            diff_payload={"title": "Test Notification Live", "original": {}, "modified": {}},
+        )
+
+        assert len(bus_events) >= 1
+        assert any(e.patch_id == patch.patch_id for e in bus_events)
+        matching_bus = next(e for e in bus_events if e.patch_id == patch.patch_id)
+        assert matching_bus.patch_type == "card"
+        assert matching_bus.target_id == sample_data["note"].id
+
+        assert len(mcp_events) >= 1
+        assert any(d.get("patch_id") == patch.patch_id for d in mcp_events)
+    finally:
+        event_bus.unsubscribe(MCPPatchStagedEvent, on_bus_event)
+        unregister_staged_patch_listener(on_mcp_event)

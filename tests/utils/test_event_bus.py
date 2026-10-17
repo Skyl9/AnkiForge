@@ -20,6 +20,8 @@ from ankiforge.utils.event_bus import (
     DocumentIndexedEvent,
     DocumentUpdatedEvent,
     LinterRuleToggledEvent,
+    MCPDataMutatedEvent,
+    MCPPatchStagedEvent,
     NoteCreatedEvent,
     NoteDeletedEvent,
     NoteUpdatedEvent,
@@ -196,8 +198,35 @@ def test_all_typed_events_instantiation() -> None:
         PersonaUpdatedEvent(persona_id=1, name="p"),
         PersonaDeletedEvent(persona_id=1),
         SettingChangedEvent(key="k", value="v"),
+        MCPPatchStagedEvent(patch_id="patch_123", patch_type="card", target_id=42, title="Refactor #42"),
+        MCPDataMutatedEvent(mutation_type="note_update", target_id=42, target_name="Basique", details={}),
     ]
 
     for ev in events:
         assert isinstance(ev, AppEvent)
         assert ev.timestamp is not None
+
+
+def test_mcp_patch_staged_event_publish_subscribe() -> None:
+    bus = AppEventBus()
+    received: list[MCPPatchStagedEvent] = []
+
+    def on_staged(event: MCPPatchStagedEvent) -> None:
+        received.append(event)
+
+    bus.subscribe(MCPPatchStagedEvent, on_staged)
+    ev = MCPPatchStagedEvent(
+        patch_id="patch_abc",
+        patch_type="card",
+        target_id=10,
+        title="Proposition Refactor",
+        details={"note_id": 10},
+    )
+    bus.publish(ev)
+
+    assert len(received) == 1
+    assert received[0].patch_id == "patch_abc"
+    assert received[0].patch_type == "card"
+    assert received[0].target_id == 10
+    assert received[0].title == "Proposition Refactor"
+    assert received[0].details == {"note_id": 10}

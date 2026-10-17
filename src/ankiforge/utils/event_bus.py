@@ -300,6 +300,17 @@ class MCPDataMutatedEvent(AppEvent):
     details: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class MCPPatchStagedEvent(AppEvent):
+    """Événement émis lors de la proposition d'un patch en attente par un agent MCP (Two-Phase Commit)."""
+
+    patch_id: str = ""
+    patch_type: str = ""  # "card", "split", "note_create", "batch_note_create", "model", "css"
+    target_id: int = 0
+    title: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+
+
 # LLM Model Catalog Events
 @dataclass(frozen=True)
 class LLMModelsChangedEvent(AppEvent):
@@ -348,6 +359,7 @@ _EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
     "setting_changed": SettingChangedEvent,
     "flag_labels_updated": FlagLabelsUpdatedEvent,
     "mcp_data_mutated": MCPDataMutatedEvent,
+    "mcp_patch_staged": MCPPatchStagedEvent,
     "llm_models_changed": LLMModelsChangedEvent,
     "open_consultant_requested": OpenConsultantRequestedEvent,
     "open_feedback_requested": OpenFeedbackRequestedEvent,

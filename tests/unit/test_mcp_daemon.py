@@ -17,6 +17,8 @@ from starlette.testclient import TestClient
 
 from ankiforge.services.ai.mcp_daemon import (
     BearerAuthMiddleware,
+    MCPServerDaemon,
+    MCPServerSignals,
     cleanup_daemon_state,
     drain_pending_tasks,
     generate_auth_token,
@@ -377,3 +379,31 @@ def test_get_known_mcp_client_config_paths() -> None:
     """Vérifie que la liste des chemins de clients connus inclut le config Antigravity."""
     paths = get_known_mcp_client_config_paths()
     assert any(".gemini" in str(p) for p in paths)
+
+
+@pytest.mark.unit
+def test_mcp_signals_has_patch_staged_signal() -> None:
+    """Vérifie que MCPServerSignals expose mcp_patch_staged et émet correctement."""
+    signals = MCPServerSignals()
+    received: list[dict[str, Any]] = []
+
+    signals.mcp_patch_staged.connect(received.append)
+    test_payload = {"patch_id": "patch_xyz", "type": "card", "target_id": 99}
+    signals.mcp_patch_staged.emit(test_payload)
+
+    assert len(received) == 1
+    assert received[0] == test_payload
+
+
+@pytest.mark.unit
+def test_mcp_daemon_relays_staged_patch() -> None:
+    """Vérifie que MCPServerDaemon relaie un patch staged vers son signal Qt mcp_patch_staged."""
+    daemon = MCPServerDaemon(base_port=8888)
+    received: list[dict[str, Any]] = []
+
+    daemon.signals.mcp_patch_staged.connect(received.append)
+    sample_patch = {"patch_id": "patch_456", "type": "card", "target_id": 12}
+    daemon._on_staged_patch_received(sample_patch)
+
+    assert len(received) == 1
+    assert received[0]["patch_id"] == "patch_456"
