@@ -1,12 +1,13 @@
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -65,6 +66,7 @@ class SettingsModal(QDialog):
         self._support_tab: Any = None
         self._dev_tab: DeveloperTab | None = None
         self._tabs: list[QWidget | None] = []
+        self._wired_line_edits: set[int] = set()
 
         self.setWindowTitle(self.tr("Paramètres AnkiForge"))
         self.setMinimumSize(820, 560)
@@ -160,7 +162,18 @@ class SettingsModal(QDialog):
         if current_theme and hasattr(tab, "refresh_theme"):
             tab.refresh_theme(current_theme)
 
+        self._connect_tab_line_edits(tab)
+
         return tab
+
+    def _connect_tab_line_edits(self, widget: QWidget) -> None:
+        """Connecte le signal returnPressed de tous les QLineEdit enfants à _save_all."""
+        for le in widget.findChildren(QLineEdit):
+            widget_id = id(le)
+            if widget_id in self._wired_line_edits:
+                continue
+            le.returnPressed.connect(self._save_all)
+            self._wired_line_edits.add(widget_id)
 
     @property
     def ai_tab(self) -> Any:
@@ -291,6 +304,17 @@ class SettingsModal(QDialog):
         self.focus_changed.emit(False)
         super().closeEvent(event)
 
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self._save_all()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def accept(self) -> None:
+        """Surcharge préventive : QDialog.accept() ne doit jamais fermer sans sauvegarder."""
+        self._save_all()
+
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -319,6 +343,7 @@ class SettingsModal(QDialog):
         header_layout.addStretch()
 
         self.btn_close = IconButton("ph.x", tooltip=self.tr("Fermer la fenêtre (Échap)"), size=26)
+        self.btn_close.setAutoDefault(False)
         self.btn_close.clicked.connect(self.close)
         header_layout.addWidget(self.btn_close)
 
@@ -357,6 +382,7 @@ class SettingsModal(QDialog):
 
         for title, icon_name, idx in tabs_info:
             btn = SettingsNavButton(title, icon_name, idx)
+            btn.setAutoDefault(False)
             btn.clicked.connect(lambda _, i=idx: self.select_tab(i))
             self.nav_btn_group.addButton(btn, idx)
             sidebar_layout.addWidget(btn)
@@ -386,7 +412,7 @@ class SettingsModal(QDialog):
         footer_layout.setContentsMargins(16, 10, 16, 10)
         footer_layout.setSpacing(10)
 
-        self.lbl_shortcut = QLabel(self.tr("⌨️ Échap pour fermer"))
+        self.lbl_shortcut = QLabel(self.tr("⌨️ Ctrl+S pour enregistrer • Échap pour fermer"))
         self.lbl_shortcut.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         footer_layout.addWidget(self.lbl_shortcut)
 
@@ -398,11 +424,14 @@ class SettingsModal(QDialog):
         footer_layout.addStretch()
 
         self.btn_cancel = SecondaryButton("Annuler")
+        self.btn_cancel.setAutoDefault(False)
         self.btn_cancel.setFixedHeight(30)
         self.btn_cancel.clicked.connect(self.close)
         footer_layout.addWidget(self.btn_cancel)
 
         self.btn_save_all = PrimaryButton("Enregistrer les paramètres")
+        self.btn_save_all.setAutoDefault(False)
+        self.btn_save_all.setDefault(False)
         self.btn_save_all.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_all.setFixedHeight(30)
         self.btn_save_all.setMinimumWidth(200)
@@ -417,6 +446,13 @@ class SettingsModal(QDialog):
         # Raccourci Échap pour fermer
         shortcut_esc = QShortcut(QKeySequence("Escape"), self)
         shortcut_esc.activated.connect(self.close)
+
+        # Raccourci standard Ctrl+S / Cmd+S pour enregistrer
+        shortcut_save = QShortcut(QKeySequence.StandardKey.Save, self)
+        shortcut_save.activated.connect(self._save_all)
+
+        # Connecter returnPressed des champs de saisie du premier onglet
+        self._connect_tab_line_edits(self.general_tab)
 
     def _connect_signals(self) -> None:
         from ankiforge.ui.style_engine import get_style_engine

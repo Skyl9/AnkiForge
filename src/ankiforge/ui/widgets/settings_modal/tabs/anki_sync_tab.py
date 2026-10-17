@@ -233,6 +233,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         btn_open_anki.setFixedHeight(28)
         btn_open_anki.clicked.connect(self._open_anki_dir)
         row_dir.addWidget(btn_open_anki)
+        dir_layout.addLayout(row_dir)
 
         row_hint = QHBoxLayout()
         row_hint.setSpacing(6)
@@ -329,6 +330,14 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         flags_dict = {i: self.flag_inputs[i].text().strip() for i in range(1, 8)}
         FlagService.set_flag_labels(flags_dict)
         self._initial_flags = tuple(self.flag_inputs[i].text().strip() for i in range(1, 8))
+        self._initial = (
+            self.cb_conflict_policy.currentData(),
+            self.chk_silent_merge.isChecked(),
+            self.cb_compression.currentData(),
+            self.cb_default_deck.currentData(),
+            int(self.cb_max_import_size.currentData() or 0),
+            self.le_anki_dir.text().strip(),
+        )
 
     def has_pending_changes(self) -> bool:
         """True si un paramètre de formats/fusion Anki diffère de sa valeur chargée."""

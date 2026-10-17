@@ -617,7 +617,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/crash_report_dialog.py" line="+145"/>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+315"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+339"/>
         <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4713,7 +4713,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+187"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+199"/>
         <source>✓ Paramètres sauvegardés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4815,7 +4815,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="+282"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="+283"/>
         <source>Drapeau %1 :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7034,7 +7034,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AnkiSyncTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="-213"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="-214"/>
         <source>RÈGLES DE FUSION &amp; CONFLITS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7119,7 +7119,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+11"/>
         <source>Permet de repérer facilement vos profils et fichiers .anki2 / .colpkg sans dépendance réseau.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16673,8 +16673,8 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SettingsModal</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="-435"/>
-        <location line="+241"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="-469"/>
+        <location line="+263"/>
         <source>Paramètres AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16684,12 +16684,12 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+68"/>
-        <source>⌨️ Échap pour fermer</source>
+        <location line="+70"/>
+        <source>⌨️ Ctrl+S pour enregistrer • Échap pour fermer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+67"/>
+        <location line="+77"/>
         <source>✓ Aucun paramètre modifié</source>
         <translation type="unfinished"></translation>
     </message>
