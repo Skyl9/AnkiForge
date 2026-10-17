@@ -182,6 +182,27 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Contenu d'onglet Paramètres adaptatif** : règle de mise en page selon laquelle le contenu des onglets de la modale Paramètres se comprime pour tenir dans la zone disponible **sans jamais imposer de barre de défilement horizontale ni tronquer un libellé**, de la largeur minimale du modal (820px) jusqu'à l'infini. Les grilles denses (miniatures de layouts, métriques de stockage) se replient en une seule colonne sous leur seuil de lisibilité. Le conteneur (modale, redimensionnable) reste fixe : c'est le contenu qui s'adapte, jamais l'inverse.
   _Avoid_ : largeur minimale rigide, setFixedWidth, sidebar élargie, conteneur adaptatif
 
+## Clavier & Raccourcis
+
+- **Raccourci clavier (shortcut)** : association déclarée entre une Séquence et une action nommée du Catalogue de raccourcis, à une Portée donnée. Un raccourci n'existe jamais sous la forme d'un `QShortcut` isolé dans une vue.
+  _Avoid_ : hotkey, keybind, touche raccourcie
+- **Catalogue de raccourcis (registre)** : déclaration exhaustive et unique des raccourcis de l'application (`src/ankiforge/ui/shortcuts/`), source de vérité de tout binding, de tout libellé affiché et de la page de référence documentaire générée.
+  _Avoid_ : table de raccourcis, config clavier, keymap
+- **Séquence** : combinaison physique de touches (`QKeySequence`) déclenchant un raccourci, distincte de l'action qu'elle sert — une même séquence peut porter des actions différentes selon la Portée.
+  _Avoid_ : touche, combo, binding
+- **Portée de raccourci** : niveau de résolution hiérarchique d'un raccourci — **Dialogue > Widget > Vue > Application** — où la portée la plus spécifique active l'emporte ; les bindings d'une vue masquée sont inactifs.
+  _Avoid_ : contexte de raccourci, priorité clavier, niveau
+- **Surcharge de raccourci** : séquence personnalisée substituée par l'utilisateur à la séquence par défaut d'une action, persistée dans les paramètres du profil (`SettingsService`) et réinitialisable.
+  _Avoid_ : remap, keymap utilisateur, personnalisation clavier
+- **Séquence réservée** : séquence de la liste noire, non remappable, protégeant l'édition de texte (`Ctrl+C`/`X`/`V`/`Z`/`Y`/`A` dans les champs, `Ctrl+W`, `Ctrl+Q`).
+  _Avoid_ : raccourci système, raccourci protégé, touche interdite
+- **Touche nue** : séquence d'une seule touche (`E`, `Espace`, `V`, `R`, `Suppr`, `Retour`, `!`), admise **uniquement** en portée Widget sur une liste ou une table focalisée.
+  _Avoid_ : raccourci simple, touche seule, raccourci direct
+- **Règle du texte prioritaire** : toute saisie de texte focalisée absorbe les touches nues et les séquences d'édition avant toute résolution de raccourci.
+  _Avoid_ : garde de champ, exception de saisie, priorité du focus
+- **Routeur d'action primaire** : définition unique de portée Application (`Ctrl+S`, `Ctrl+Entrée`) qui délègue l'exécution à l'action principale de la vue active, supprimant toute redondance locale.
+  _Avoid_ : handler global, dispatcher clavier, action par défaut
+
 ## Protocole MCP & Agents externes
 
 - **Serveur MCP persistant** : service d'arrière-plan exposant l'outillage interne d'AnkiForge (audits, inspection, mutations de cartes) à des agents tiers via le protocole standardisé MCP.
