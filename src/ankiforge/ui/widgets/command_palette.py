@@ -182,6 +182,13 @@ class CommandPalette(QDialog):
             get_shortcut_sequence(ShortcutId.APP_SETTINGS),
             tr("Système"),
         )
+        self.register_command(
+            "action.shortcuts",
+            tr("Personnaliser les raccourcis"),
+            "key",
+            "",
+            tr("Système"),
+        )
         if is_development():
             self.register_command(
                 "action.dialog_gallery",
@@ -279,6 +286,8 @@ class CommandPalette(QDialog):
                 action_name = command_id.replace("action.", "")
                 if action_name == "settings":
                     self.view_requested.emit("settings")
+                elif action_name == "shortcuts":
+                    self.view_requested.emit("shortcuts")
                 elif action_name == "tour":
                     self.view_requested.emit("tour")
             else:

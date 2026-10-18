@@ -633,7 +633,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/crash_report_dialog.py" line="+141"/>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+347"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+370"/>
         <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1564,7 +1564,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+323"/>
+        <location line="+326"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -1572,7 +1572,7 @@ Voulez-vous vraiment %2 ? Ce travail sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+221"/>
+        <location line="+223"/>
         <source>Impossible de basculer vers l&apos;espace « %1 » : il est actuellement ouvert par une autre instance%2.
 
 L&apos;accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.</source>
@@ -2488,6 +2488,31 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     <message>
         <location line="+1"/>
         <source>Réindente et nettoie le code HTML ou CSS dans l&apos;éditeur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+74"/>
+        <source>La séquence de touches ne peut pas être vide.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>La séquence &apos;%1&apos; est réservée par le système (édition de texte) et ne peut pas être assignée.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>La touche nue &apos;%1&apos; ne peut être assignée qu&apos;à des actions en portée Widget (portée actuelle : %2).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Conflit intra-portée : la séquence &apos;%1&apos; est déjà assignée à &apos;%2&apos; en portée Application.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Conflit intra-portée : la séquence &apos;%1&apos; est déjà assignée à &apos;%2&apos; dans la section &apos;%3&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5458,11 +5483,17 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+3"/>
+        <location line="+7"/>
         <source>Système</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="-3"/>
+        <source>Personnaliser les raccourcis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
         <source>Galerie des Boîtes de Dialogue (Dev)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5913,7 +5944,12 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+191"/>
+        <location filename="../../ui/widgets/settings_modal/dialogs/shortcut_capture_dialog.py" line="+133"/>
+        <source>Catégorie : %1 • Portée : %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+194"/>
         <source>✓ Paramètres sauvegardés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9614,7 +9650,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CommandPalette</name>
     <message>
-        <location filename="../../ui/widgets/command_palette.py" line="-175"/>
+        <location filename="../../ui/widgets/command_palette.py" line="-182"/>
         <source>Rechercher cartes, paquets, vues ou commandes...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14608,6 +14644,95 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>KeyboardTab</name>
+    <message>
+        <location filename="../../ui/widgets/settings_modal/tabs/keyboard_tab.py" line="+102"/>
+        <source>Personnalisation des Raccourcis Clavier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Documentation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Ouvrir la page de référence des raccourcis clavier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Réinitialiser tout</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Restaurer tous les raccourcis à leurs valeurs d&apos;origine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Consultez et réassignez les actions du clavier. Les conflits sont automatiquement prévenus.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Rechercher une action ou un raccourci...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Toutes les catégories</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Action</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Catégorie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Portée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Raccourci</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>État</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Actions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+90"/>
+        <source>Personnalisé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <location line="+21"/>
+        <source>Défaut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-6"/>
+        <source>Modifier</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>LayoutThumbnailCard</name>
     <message>
         <location filename="../../ui/widgets/settings_modal/components/layout_grid_selector.py" line="+158"/>
@@ -15595,7 +15720,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-797"/>
+        <location filename="../../ui/main_window.py" line="-802"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15605,12 +15730,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+489"/>
+        <location line="+492"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+141"/>
+        <location line="+143"/>
         <source>Aucun incident n&apos;est enregistré dans crash.log.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17748,8 +17873,8 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SettingsModal</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="-469"/>
-        <location line="+271"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="-493"/>
+        <location line="+292"/>
         <source>Paramètres AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17759,7 +17884,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+70"/>
+        <location line="+71"/>
         <source>⌨️ Ctrl+S pour enregistrer • Échap pour fermer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17769,8 +17894,56 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+57"/>
+        <location line="+59"/>
         <source>Application des tokens et du design system...</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ShortcutCaptureDialog</name>
+    <message>
+        <location filename="../../ui/widgets/settings_modal/dialogs/shortcut_capture_dialog.py" line="-30"/>
+        <source>Modifier le raccourci</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+42"/>
+        <source>Appuyez sur la combinaison de touches souhaitée au clavier...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Aucune touche</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Défaut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Restaurer la valeur par défaut du catalogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Valider</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>✓ Combinaison valide</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+56"/>
+        <source>Maintenez et appuyez sur une touche...</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -806,6 +806,9 @@ class MainWindow(QMainWindow):
         if view_id == "settings":
             self._open_settings_modal()
             return
+        if view_id == "shortcuts":
+            self.open_settings(initial_tab=7)
+            return
         if view_id == "tour":
             self.start_tour_guide()
             return
@@ -999,6 +1002,8 @@ class MainWindow(QMainWindow):
             self._open_export_dialog()
         elif command_id == "action.settings":
             self._open_settings_modal()
+        elif command_id == "action.shortcuts":
+            self.open_settings(initial_tab=7)
         elif command_id == "action.tour":
             self.start_tour_guide()
         elif command_id == "action.feedback":
