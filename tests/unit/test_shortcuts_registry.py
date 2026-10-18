@@ -211,3 +211,46 @@ def test_edition_shortcuts_catalog_integrity() -> None:
     assert catalog[ShortcutId.EDITION_EDIT_NOTE_BARE].default_sequence == "E"
     assert catalog[ShortcutId.EDITION_EDIT_NOTE_BARE].scope == ShortcutScope.WIDGET
     assert catalog[ShortcutId.EDITION_EDIT_NOTE_BARE].allow_bare_key is True
+
+
+def test_t4_shortcuts_catalog_integrity() -> None:
+    """Vérifie l'intégrité déclarative des raccourcis Documents, Analyse et Modèles (T4)."""
+    t4_ids = [
+        ShortcutId.DOCUMENTS_IMPORT_FILE,
+        ShortcutId.DOCUMENTS_NEW_ALBUM,
+        ShortcutId.DOCUMENTS_DELIMIT_SCOPE,
+        ShortcutId.DOCUMENTS_VECTORIZE,
+        ShortcutId.DOCUMENTS_TOGGLE_COVERAGE,
+        ShortcutId.ANALYSIS_REINDEX,
+        ShortcutId.ANALYSIS_ALIGN_SOURCES,
+        ShortcutId.ANALYSIS_FORGE_FRAGMENT,
+        ShortcutId.MODELS_NEW_TYPE,
+        ShortcutId.MODELS_DUPLICATE,
+        ShortcutId.MODELS_IMPORT_JSON,
+        ShortcutId.MODELS_EXPORT_JSON,
+    ]
+
+    catalog = SHORTCUT_CATALOG
+    for sc_id in t4_ids:
+        assert sc_id in catalog, f"Raccourci T4 manquant au catalogue : {sc_id}"
+        defn = catalog[sc_id]
+        assert defn.scope == ShortcutScope.VUE
+        assert len(defn.default_sequence) > 0
+        assert len(defn.title) > 0
+        assert len(defn.description) > 0
+
+    # Vérifications des assignations de séquences
+    assert catalog[ShortcutId.DOCUMENTS_IMPORT_FILE].default_sequence == "Ctrl+O"
+    assert catalog[ShortcutId.DOCUMENTS_NEW_ALBUM].default_sequence == "Ctrl+N"
+    assert catalog[ShortcutId.DOCUMENTS_DELIMIT_SCOPE].default_sequence == "Ctrl+Alt+P"
+    assert catalog[ShortcutId.DOCUMENTS_VECTORIZE].default_sequence == "Ctrl+Alt+R"
+    assert catalog[ShortcutId.DOCUMENTS_TOGGLE_COVERAGE].default_sequence == "Ctrl+Alt+C"
+
+    assert catalog[ShortcutId.ANALYSIS_REINDEX].default_sequence == "Ctrl+Alt+R"
+    assert catalog[ShortcutId.ANALYSIS_ALIGN_SOURCES].default_sequence == "Ctrl+Alt+A"
+    assert catalog[ShortcutId.ANALYSIS_FORGE_FRAGMENT].default_sequence == "Ctrl+Alt+F"
+
+    assert catalog[ShortcutId.MODELS_NEW_TYPE].default_sequence == "Ctrl+N"
+    assert catalog[ShortcutId.MODELS_DUPLICATE].default_sequence == "Ctrl+Shift+D"
+    assert catalog[ShortcutId.MODELS_IMPORT_JSON].default_sequence == "Ctrl+Alt+O"
+    assert catalog[ShortcutId.MODELS_EXPORT_JSON].default_sequence == "Ctrl+Alt+E"

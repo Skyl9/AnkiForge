@@ -1855,3 +1855,51 @@ class AISourcesDiagnosticTab(QWidget):
         panel.request_navigation.connect(self.request_navigation)
         self.page_inspector.layout().addWidget(panel)
         self.stack.setCurrentIndex(1)
+
+    def _get_current_inspector_panel(self) -> DocumentInspectorPanel | None:
+        """Récupère l'inspecteur de document actuellement affiché si actif."""
+        if self.stack.currentIndex() == 1 and self.page_inspector.layout().count():
+            item = self.page_inspector.layout().itemAt(0)
+            if item is not None:
+                w = item.widget()
+                if isinstance(w, DocumentInspectorPanel):
+                    return w
+        return None
+
+    def reindex_active_source(self) -> None:
+        """Réindexe la source active (inspecteur ou grille)."""
+        inspector = self._get_current_inspector_panel()
+        if inspector:
+            inspector._on_reindex_faiss()
+            return
+        if self._doc_cards:
+            doc_id = self._doc_cards[0].data.get("doc_id")
+            if doc_id:
+                self._on_card_reindex_requested(doc_id)
+
+    def align_sources(self) -> None:
+        """Aligne les cartes avec les sources (inspecteur ou global)."""
+        inspector = self._get_current_inspector_panel()
+        if inspector:
+            inspector._on_align_cards()
+            return
+        self._on_align_all_sources()
+
+    def forge_targeted_fragment(self) -> None:
+        """Forge le fragment ciblé dans l'inspecteur ou la première section orpheline."""
+        inspector = self._get_current_inspector_panel()
+        if inspector:
+            current = inspector.chapters_tree.currentItem()
+            chunk_id = current.data(0, _ROLE_CHUNK_ID) if current is not None else None
+            if chunk_id:
+                inspector._on_forge_chunk(chunk_id)
+                return
+            if inspector.doc and inspector.doc.chunks:
+                first_chunk = inspector.doc.chunks.first()
+                if first_chunk:
+                    inspector._on_forge_chunk(first_chunk.id)
+                    return
+        if self._doc_cards:
+            doc_id = self._doc_cards[0].data.get("doc_id")
+            if doc_id:
+                self._on_card_forge_orphan_requested(doc_id)

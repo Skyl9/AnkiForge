@@ -1106,7 +1106,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location line="+26"/>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+476"/>
         <location filename="../../ui/views/creation_view/view.py" line="+211"/>
-        <location filename="../../ui/views/documents_view/view.py" line="+1601"/>
+        <location filename="../../ui/views/documents_view/view.py" line="+1664"/>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
@@ -2076,6 +2076,126 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+8"/>
+        <source>Importer un document</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ouvre l&apos;explorateur pour importer un fichier ou cours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Nouvel album…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Crée un nouvel album documentaire d&apos;images</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Délimiter la portée…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ouvre la boîte de délimitation de portée du document</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Vectoriser dans le RAG</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Lance l&apos;indexation vectorielle du document actif pour la recherche sémantique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Afficher / masquer la couverture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bascule l&apos;affichage du panneau d&apos;inspection de couverture et de structure</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Réindexer les sources</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Réindexe la matière ou le document ciblé dans l&apos;analyse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Aligner les sources</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Synchronise et aligne les cartes Anki aux sections sources</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Forger le fragment ciblé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ouvre le Studio de Création sur la section orpheline ciblée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Nouveau type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Crée un nouveau modèle de carte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Dupliquer le type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Duplique le modèle de carte actuellement sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Importer un type de note (JSON)…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Importe une définition de type de note depuis un fichier JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Exporter le type de note (JSON)…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Exporte le modèle de carte sélectionné au format JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/views/ab_tests_view/view.py" line="-887"/>
         <source>Rendu Visuel</source>
         <translation type="unfinished"></translation>
@@ -2478,8 +2598,8 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+286"/>
         <location line="+3"/>
         <location line="+1"/>
-        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+127"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1071"/>
+        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1138"/>
         <location filename="../../ui/views/edition_view/view.py" line="+743"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -2538,7 +2658,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+206"/>
+        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+10"/>
+        <source>Lancer l&apos;audit de conformité Wozniak sur le paquet sélectionné (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+202"/>
         <source>Paquet actif : %1 • Prêt pour l&apos;audit</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2856,7 +2981,32 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-646"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-930"/>
+        <source>Créer un nouveau type de note Anki (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+57"/>
+        <source>Dupliquer le type de note sélectionné (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Importer un type de note (.afmodel ou .json) (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>Exporter le type de note (JSON) (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Enregistrer le type de note (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+175"/>
         <source>Style CSS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2871,7 +3021,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+251"/>
+        <location line="+77"/>
+        <source>Rafraîchir la prévisualisation (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+178"/>
         <source>Type de note : %1
 Type : %2
 Gabarits : %3</source>
@@ -4020,7 +4175,17 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-681"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-895"/>
+        <source>Importer un document (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Créer un Album d&apos;images (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+191"/>
         <source>Markdown</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4030,7 +4195,32 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+533"/>
+        <location line="+6"/>
+        <source>Enregistrer les modifications textuelles du document (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+99"/>
+        <source>Sélectionner les pages et chapitres utiles avant la forge et le RAG (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Indexer ce document pour la recherche sémantique IA (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+67"/>
+        <source>Afficher / Masquer l&apos;inspecteur (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+139"/>
+        <source>Envoyer cette section dans le Studio de Création pour générer des cartes (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+215"/>
         <source>Document renommé en « %1 »</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6780,7 +6970,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AIWozniakLinterTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="-481"/>
+        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="-487"/>
         <source>Audit Wozniak</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6790,12 +6980,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Lancer l&apos;audit de conformité Wozniak sur le paquet sélectionné</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
+        <location line="+14"/>
         <source>Score : --</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8767,17 +8952,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1174"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1191"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>Créer un nouveau type de note Anki</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+39"/>
+        <location line="+49"/>
         <source>Aucun type de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8792,36 +8972,26 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
-        <source>Dupliquer le type de note sélectionné</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Importer un type de note (.afmodel ou .json)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <location line="+1076"/>
+        <location line="+13"/>
+        <location line="+1082"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1012"/>
+        <location line="-1016"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+482"/>
+        <location line="+486"/>
         <location line="+2"/>
         <location line="+2"/>
         <source>Front, Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-485"/>
+        <location line="-489"/>
         <source>ex: Front, Back, Audio...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8934,17 +9104,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+415"/>
+        <location line="+419"/>
         <source>Données d&apos;exemple automatiques</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-411"/>
-        <source>Rafraîchir la prévisualisation</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
+        <location line="-408"/>
         <source>Masquer l&apos;aperçu en direct</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11473,33 +11638,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2594"/>
-        <source>Importer un fichier local (PDF, Markdown, Texte, .apkg)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2601"/>
         <source>Importer depuis le Web / YouTube</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
-        <source>Créer un Album d&apos;images</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
+        <location line="+10"/>
         <source>Nouveau dossier</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+1849"/>
+        <location line="+1859"/>
         <source>Supprimer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1845"/>
+        <location line="-1855"/>
         <source>Importer des documents depuis un autre profil</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11554,12 +11709,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>Enregistrer les modifications textuelles du document (Ctrl+S)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
+        <location line="+18"/>
         <source>Options du document</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11604,51 +11754,36 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>Sélectionner les pages et chapitres utiles avant la forge et le RAG</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
+        <location line="+16"/>
         <source>Extraction Deep Learning PDF vers Markdown KaTeX via Marker</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
-        <source>Indexer ce document pour la recherche sémantique IA (FAISS &amp; BM25)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location line="+15"/>
         <source>Recherche sémantique instantanée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+59"/>
-        <source>Afficher / Masquer l&apos;inspecteur</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+37"/>
-        <location line="+1645"/>
+        <location line="+100"/>
+        <location line="+1648"/>
         <location line="+21"/>
         <source>Couverture : 0%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1662"/>
+        <location line="-1665"/>
         <source>Ouvrir le diagnostic complet du document dans Analyse &amp; Audit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+25"/>
-        <location line="+1619"/>
+        <location line="+1622"/>
         <location line="+21"/>
         <source>0 sections analysées • 0 cartes liées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1634"/>
+        <location line="-1637"/>
         <source>Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11673,12 +11808,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+52"/>
-        <source>Envoyer cette section dans le Studio de Création pour générer des cartes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+13"/>
+        <location line="+68"/>
         <source>Recherche Sémantique FAISS</source>
         <translation type="unfinished"></translation>
     </message>

@@ -48,6 +48,12 @@ from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
 from ankiforge.ui.dialogs.note_type_role_guide_dialog import NoteTypeRoleGuideDialog
 from ankiforge.ui.dialogs.starter_pack_dialog import StarterPackDialog
+from ankiforge.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    ShortcutScope,
+    get_shortcut_sequence,
+)
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.card_models_view.utils import extract_css_classes
 from ankiforge.ui.views.card_models_view.widgets import (
@@ -98,10 +104,19 @@ def generate_preview_mock_fields(raw_fields: list[str]) -> dict[str, str]:
 class CardModelsView(QWidget):
     """Vue Card Models (Atelier de Modèles de Cartes) — Conforme Pilier 3 d'AnkiForge."""
 
-    def __init__(self, ai_manager: Any | None = None, profile_name: str | None = None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any | None = None,
+        profile_name: str | None = None,
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self._current_model: NoteTypeModel | None = None
         self._templates_list: list[dict[str, Any]] = []
         self._current_template_idx: int = 0
@@ -120,7 +135,42 @@ class CardModelsView(QWidget):
 
         self._setup_ui()
         self._connect_signals()
+        self._setup_shortcuts()
         self.refresh_data()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé aux modèles de cartes."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de CardModelsView via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        vue_bindings = {
+            ShortcutId.MODELS_NEW_TYPE: lambda: self._on_new_model(),
+            ShortcutId.MODELS_DUPLICATE: lambda: self._on_duplicate_model(),
+            ShortcutId.MODELS_IMPORT_JSON: lambda: self._on_import_json(),
+            ShortcutId.MODELS_EXPORT_JSON: lambda: self._on_export_json(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def save(self) -> None:
+        """Enregistre le modèle de carte en cours d'édition (routeur Ctrl+S)."""
+        self._on_save_model()
+
+    def run_primary_action(self) -> None:
+        """Rafraîchit l'aperçu du modèle (action primaire Ctrl+Entrée)."""
+        self._update_preview(immediate=True)
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -153,7 +203,10 @@ class CardModelsView(QWidget):
         self.model_search_input.textChanged.connect(self._filter_models_list)
         search_row.addWidget(self.model_search_input, 1)
 
-        self.btn_new = PrimaryButton("Nouveau", tooltip=self.tr("Créer un nouveau type de note Anki"))
+        self.btn_new = PrimaryButton(
+            "Nouveau",
+            tooltip=tr("Créer un nouveau type de note Anki (%1)", get_shortcut_sequence(ShortcutId.MODELS_NEW_TYPE)),
+        )
         self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
         apply_compact_style(self.btn_new, height=28)
         search_row.addWidget(self.btn_new)
@@ -207,8 +260,16 @@ class CardModelsView(QWidget):
         self.btn_starter_pack.setToolTip(self.tr("Explorer et installer les types de note communautaires (Starter Pack)"))
         list_toolbar.addWidget(self.btn_starter_pack, 1)
 
-        self.btn_duplicate = IconButton("ph.copy", tooltip=self.tr("Dupliquer le type de note sélectionné"), size=24)
-        self.btn_import_json = IconButton("ph.download-simple", tooltip=self.tr("Importer un type de note (.afmodel ou .json)"), size=24)
+        self.btn_duplicate = IconButton(
+            "ph.copy",
+            tooltip=tr("Dupliquer le type de note sélectionné (%1)", get_shortcut_sequence(ShortcutId.MODELS_DUPLICATE)),
+            size=24,
+        )
+        self.btn_import_json = IconButton(
+            "ph.download-simple",
+            tooltip=tr("Importer un type de note (.afmodel ou .json) (%1)", get_shortcut_sequence(ShortcutId.MODELS_IMPORT_JSON)),
+            size=24,
+        )
         self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer le type de note"), size=24)
 
         list_toolbar.addWidget(self.btn_duplicate)
@@ -246,8 +307,10 @@ class CardModelsView(QWidget):
         self.model_type_badge = self.top_action_bar.model_type_badge
         self.template_count_badge = self.top_action_bar.template_count_badge
         self.btn_export_json = self.top_action_bar.btn_export_json
+        self.btn_export_json.setToolTip(tr("Exporter le type de note (JSON) (%1)", get_shortcut_sequence(ShortcutId.MODELS_EXPORT_JSON)))
         self.btn_refresh = self.top_action_bar.btn_refresh
         self.btn_save = self.top_action_bar.btn_save
+        self.btn_save.setToolTip(tr("Enregistrer le type de note (%1)", get_shortcut_sequence(ShortcutId.APP_SAVE)))
 
         editor_layout.addWidget(self.top_action_bar)
 
@@ -499,7 +562,11 @@ class CardModelsView(QWidget):
         self.note_witness_combo.currentIndexChanged.connect(self._on_witness_note_changed)
         preview_header.addWidget(self.note_witness_combo, 1)
 
-        self.btn_preview_refresh = IconButton("ph.arrows-clockwise", tooltip=self.tr("Rafraîchir la prévisualisation"), size=22)
+        self.btn_preview_refresh = IconButton(
+            "ph.arrows-clockwise",
+            tooltip=tr("Rafraîchir la prévisualisation (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)),
+            size=22,
+        )
         preview_header.addWidget(self.btn_preview_refresh)
 
         self.btn_close_preview = IconButton("ph.x", tooltip=self.tr("Masquer l'aperçu en direct"), size=22)

@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ankiforge.ui.components.panels import IdePanel
+from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.analysis_view.tabs import (
     AIDuplicatesMergeTab,
@@ -19,10 +20,19 @@ class AnalysisView(QWidget):
 
     request_navigation = Signal(str, object)
 
-    def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any | None = None,
+        profile_name: str = "default",
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         layout = QVBoxLayout(self)
@@ -46,6 +56,56 @@ class AnalysisView(QWidget):
 
         layout.addWidget(self.main_panel)
         self.main_panel.set_active_tab(0)
+        self._setup_shortcuts()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé à la vue Analyse & Audit."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de la vue Analyse via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        vue_bindings = {
+            ShortcutId.ANALYSIS_REINDEX: lambda: self._on_reindex_sources(),
+            ShortcutId.ANALYSIS_ALIGN_SOURCES: lambda: self._on_align_sources(),
+            ShortcutId.ANALYSIS_FORGE_FRAGMENT: lambda: self._on_forge_fragment(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def _on_run_analysis(self) -> None:
+        """Déclenche l'audit de conformité Wozniak."""
+        if hasattr(self, "tab_wozniak") and self.tab_wozniak is not None:
+            self.tab_wozniak.refresh_audit(force=True)
+
+    def _on_reindex_sources(self) -> None:
+        """Réindexe les sources ou la matière ciblée."""
+        if hasattr(self, "tab_sources") and self.tab_sources is not None:
+            self.tab_sources.reindex_active_source()
+
+    def _on_align_sources(self) -> None:
+        """Synchronise et aligne les cartes Anki aux sections sources."""
+        if hasattr(self, "tab_sources") and self.tab_sources is not None:
+            self.tab_sources.align_sources()
+
+    def _on_forge_fragment(self) -> None:
+        """Forge le fragment ou la section ciblée dans le Studio."""
+        if hasattr(self, "tab_sources") and self.tab_sources is not None:
+            self.tab_sources.forge_targeted_fragment()
+
+    def run_primary_action(self) -> None:
+        """Action primaire d'analyse (Ctrl+Entrée)."""
+        self._on_run_analysis()
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les onglets et composants lors d'un switch de thème."""

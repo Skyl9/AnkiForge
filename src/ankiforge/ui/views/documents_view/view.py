@@ -63,6 +63,12 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.dialogs.url_import_dialog import UrlImportDialog
 from ankiforge.ui.dispatch import run_on_owner_thread
+from ankiforge.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    ShortcutScope,
+    get_shortcut_sequence,
+)
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.viewmodels.documents_viewmodel import DocumentsViewModel
 from ankiforge.ui.views.documents_view.dialogs import (
@@ -131,10 +137,14 @@ class DocumentsView(FileDropMixin, QWidget):
         profile_name: str | None = None,
         parent: QWidget | None = None,
         doc_repo: DocumentRepository | None = None,
+        shortcut_manager: ShortcutManager | None = None,
     ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self.doc_repo = doc_repo or DocumentRepository()
         self.view_model = DocumentsViewModel(doc_repo=self.doc_repo, bus=event_bus, parent=self)
         self._current_doc_id: int | None = None
@@ -167,7 +177,43 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self._setup_ui()
         self._connect_signals()
+        self._setup_shortcuts()
         self.refresh_data()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé au hub documentaire."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de DocumentsView via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        vue_bindings = {
+            ShortcutId.DOCUMENTS_IMPORT_FILE: lambda: self._on_import_file(),
+            ShortcutId.DOCUMENTS_NEW_ALBUM: lambda: self._on_new_album(),
+            ShortcutId.DOCUMENTS_DELIMIT_SCOPE: lambda: self._on_open_delimitation_dialog(),
+            ShortcutId.DOCUMENTS_VECTORIZE: lambda: self._on_vectorize_rag(),
+            ShortcutId.DOCUMENTS_TOGGLE_COVERAGE: lambda: self._toggle_coverage_panel(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def save(self) -> None:
+        """Enregistre les modifications textuelles du document actif (routeur Ctrl+S)."""
+        self._on_save_document()
+
+    def run_primary_action(self) -> None:
+        """Forge le chapitre ou la section sélectionnée (action primaire Ctrl+Entrée)."""
+        self._on_forge_selected_chapter()
 
     def _setup_ui(self) -> None:
         self.setAcceptDrops(True)
@@ -192,7 +238,10 @@ class DocumentsView(FileDropMixin, QWidget):
         explorer_toolbar = QHBoxLayout()
         explorer_toolbar.setSpacing(6)
 
-        self.btn_import = SecondaryButton("Importer", tooltip=self.tr("Importer un fichier local (PDF, Markdown, Texte, .apkg)"))
+        self.btn_import = SecondaryButton(
+            "Importer",
+            tooltip=tr("Importer un document (%1)", get_shortcut_sequence(ShortcutId.DOCUMENTS_IMPORT_FILE)),
+        )
         self.btn_import.setIcon(load_phosphor_icon("ph.upload-simple", color=DesignTokens.TEXT_PRIMARY))
         self.btn_import.setMinimumWidth(96)
         self.btn_import.setFixedHeight(30)
@@ -202,7 +251,11 @@ class DocumentsView(FileDropMixin, QWidget):
         self.btn_import_url = IconButton("ph.link", tooltip=self.tr("Importer depuis le Web / YouTube"), size=24)
         self.btn_import_url.clicked.connect(self._on_import_url)
 
-        self.btn_new_album = IconButton("ph.images", tooltip=self.tr("Créer un Album d'images"), size=24)
+        self.btn_new_album = IconButton(
+            "ph.images",
+            tooltip=tr("Créer un Album d'images (%1)", get_shortcut_sequence(ShortcutId.DOCUMENTS_NEW_ALBUM)),
+            size=24,
+        )
         self.btn_new_album.clicked.connect(self._on_new_album)
 
         self.btn_new_folder = IconButton("ph.folder-plus", tooltip=self.tr("Nouveau dossier"), size=24)
@@ -403,7 +456,10 @@ class DocumentsView(FileDropMixin, QWidget):
         apply_pill_style(self.rag_status_pill, DesignTokens.TEXT_MUTED)
         row1.addWidget(self.rag_status_pill)
 
-        self.btn_save = PrimaryButton("Sauvegarder", tooltip=self.tr("Enregistrer les modifications textuelles du document (Ctrl+S)"))
+        self.btn_save = PrimaryButton(
+            "Sauvegarder",
+            tooltip=tr("Enregistrer les modifications textuelles du document (%1)", get_shortcut_sequence(ShortcutId.APP_SAVE)),
+        )
         self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save.setFixedHeight(28)
         self.btn_save.setStyleSheet("font-size: 11px; padding: 4px 10px;")
@@ -501,7 +557,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.btn_delimit = SecondaryButton("Délimiter les pages")
         self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color=DesignTokens.SYNTAX_TAG))
-        self.btn_delimit.setToolTip(self.tr("Sélectionner les pages et chapitres utiles avant la forge et le RAG"))
+        self.btn_delimit.setToolTip(tr("Sélectionner les pages et chapitres utiles avant la forge et le RAG (%1)", get_shortcut_sequence(ShortcutId.DOCUMENTS_DELIMIT_SCOPE)))
         self.btn_delimit.setFixedHeight(26)
         self.btn_delimit.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_delimit.clicked.connect(self._on_open_delimitation_dialog)
@@ -518,7 +574,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.btn_rag = SecondaryButton("Indexer (RAG)")
         self.btn_rag.setIcon(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_GREEN))
-        self.btn_rag.setToolTip(self.tr("Indexer ce document pour la recherche sémantique IA (FAISS & BM25)"))
+        self.btn_rag.setToolTip(tr("Indexer ce document pour la recherche sémantique IA (%1)", get_shortcut_sequence(ShortcutId.DOCUMENTS_VECTORIZE)))
         self.btn_rag.setFixedHeight(26)
         self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_rag.clicked.connect(self._on_vectorize_rag)
@@ -583,7 +639,11 @@ class DocumentsView(FileDropMixin, QWidget):
         self.editor_stack.addWidget(self.album_viewer)
 
         self.editor_panel.add_tab("Éditeur", self.editor_stack, "ph.file-text", closable=False)
-        self.btn_toggle_coverage = IconButton("ph.sidebar-simple", tooltip=self.tr("Afficher / Masquer l'inspecteur"), size=24)
+        self.btn_toggle_coverage = IconButton(
+            "ph.sidebar-simple",
+            tooltip=tr("Afficher / Masquer l'inspecteur (%1)", get_shortcut_sequence(ShortcutId.DOCUMENTS_TOGGLE_COVERAGE)),
+            size=24,
+        )
         self.btn_toggle_coverage.clicked.connect(self._toggle_coverage_panel)
         self.editor_panel.add_header_widget(self.btn_toggle_coverage)
         self.main_splitter.addWidget(self.editor_panel)
@@ -718,7 +778,10 @@ class DocumentsView(FileDropMixin, QWidget):
         cov_layout.addWidget(self.chapters_list, 1)
         self.chapters_list.itemClicked.connect(self._on_chapter_clicked)
 
-        self.btn_forge_chapter = PrimaryButton("Forger la section", tooltip=self.tr("Envoyer cette section dans le Studio de Création pour générer des cartes"))
+        self.btn_forge_chapter = PrimaryButton(
+            "Forger la section",
+            tooltip=tr("Envoyer cette section dans le Studio de Création pour générer des cartes (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)),
+        )
         self.btn_forge_chapter.setIcon(load_on_accent_icon("ph.lightning"))
         self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
         cov_layout.addWidget(self.btn_forge_chapter)

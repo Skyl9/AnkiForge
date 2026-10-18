@@ -38,6 +38,7 @@ from ankiforge.ui.components.linter_widgets import (
     WozniakHubWidget,
     WozniakKpiCard,
 )
+from ankiforge.ui.shortcuts import ShortcutId, get_shortcut_sequence
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
@@ -131,7 +132,13 @@ class AIWozniakLinterTab(QWidget):
         self.btn_rules.setIcon(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_PRIMARY))
         self.btn_rules.clicked.connect(self.open_rules_dialog)
 
-        self.btn_analyze = PrimaryButton("Lancer l'audit", tooltip=self.tr("Lancer l'audit de conformité Wozniak sur le paquet sélectionné"))
+        self.btn_analyze = PrimaryButton(
+            "Lancer l'audit",
+            tooltip=tr(
+                "Lancer l'audit de conformité Wozniak sur le paquet sélectionné (%1)",
+                get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY),
+            ),
+        )
         self.btn_analyze.setIcon(load_on_accent_icon("ph.arrows-clockwise"))
         self.btn_analyze.clicked.connect(lambda checked=False: self.refresh_audit(force=True))
 

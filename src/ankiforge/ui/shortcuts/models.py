@@ -29,6 +29,8 @@ class ShortcutCategory(StrEnum):
     EDITION = "Édition"
     STUDIO = "Studio & Batch"
     DOCUMENTS = "Documents"
+    ANALYSE = "Analyse & Audit"
+    MODELES = "Types de Note"
     PIPELINES = "Pipelines & Agents"
     OUTILLAGE = "Outillage & Debug"
     DIALOGUE = "Dialogues"
@@ -119,6 +121,24 @@ class ShortcutId(StrEnum):
     REVIEW_NEXT_CARD = "review.next_card"
     REVIEW_PREV_TASK = "review.prev_task"
     REVIEW_NEXT_TASK = "review.next_task"
+
+    # Documents (T4)
+    DOCUMENTS_IMPORT_FILE = "documents.import_file"
+    DOCUMENTS_NEW_ALBUM = "documents.new_album"
+    DOCUMENTS_DELIMIT_SCOPE = "documents.delimit_scope"
+    DOCUMENTS_VECTORIZE = "documents.vectorize"
+    DOCUMENTS_TOGGLE_COVERAGE = "documents.toggle_coverage"
+
+    # Analyse & Audit IA (T4)
+    ANALYSIS_REINDEX = "analysis.reindex"
+    ANALYSIS_ALIGN_SOURCES = "analysis.align_sources"
+    ANALYSIS_FORGE_FRAGMENT = "analysis.forge_fragment"
+
+    # Modèles de cartes (T4)
+    MODELS_NEW_TYPE = "models.new_type"
+    MODELS_DUPLICATE = "models.duplicate"
+    MODELS_IMPORT_JSON = "models.import_json"
+    MODELS_EXPORT_JSON = "models.export_json"
 
 
 #: Séquences protégées (liste noire non remappable protégeant la saisie de texte et l'OS).
