@@ -115,11 +115,12 @@ def test_pre_push_hook_passes_on_success(tmp_path: Path) -> None:
 
 
 def test_verify_script_step_definitions() -> None:
-    """Le script canonique doit définir les 6 étapes dans l'ordre strict requis avec timeouts."""
+    """Le script canonique doit définir les 7 étapes dans l'ordre strict requis avec timeouts."""
     from script.verify import CANONICAL_STEPS
 
     expected_steps = [
         ("instructions-drift", ["python", "script/sync_agent_instructions.py", "--check"]),
+        ("shortcuts-drift", ["python", "script/check_shortcuts_drift.py", "--check"]),
         ("ruff-check", ["ruff", "check", "."]),
         ("ruff-format", ["ruff", "format", "--check", "."]),
         ("mypy", ["mypy", "src/ankiforge"]),
@@ -127,7 +128,7 @@ def test_verify_script_step_definitions() -> None:
         ("pytest-fast", ["pytest", "-m", "not slow", "--max-worker-restart=0"]),
     ]
 
-    assert len(CANONICAL_STEPS) == len(expected_steps), f"Attendu 6 étapes canoniques, reçu {len(CANONICAL_STEPS)}"
+    assert len(CANONICAL_STEPS) == len(expected_steps), f"Attendu 7 étapes canoniques, reçu {len(CANONICAL_STEPS)}"
 
     for i, (expected_name, expected_cmd) in enumerate(expected_steps):
         step = CANONICAL_STEPS[i]
@@ -601,8 +602,8 @@ def test_skip_step_via_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exit_code == 0
     assert "bandit" not in invoked_steps
     assert "pytest-fast" not in invoked_steps
-    # Les 4 étapes restantes doivent avoir été exécutées
-    assert len(invoked_steps) == 4
+    # Les 5 étapes restantes doivent avoir été exécutées (7 étapes au total - 2 sautées)
+    assert len(invoked_steps) == 5
 
 
 def test_timeout_override_propagated(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -708,7 +709,9 @@ def test_apply_auto_fix_includes_sync_instructions(monkeypatch: pytest.MonkeyPat
     exit_code = apply_auto_fix(quiet=True)
     assert exit_code == 0
 
-    # Vérifier que sync_agent_instructions.py a été invoqué en premier
-    assert len(executed_commands) == 3
+    # Vérifier que sync_agent_instructions.py et check_shortcuts_drift.py ont été invoqués
+    assert len(executed_commands) == 4
     assert any("sync_agent_instructions.py" in str(arg) for arg in executed_commands[0])
     assert "--write" in executed_commands[0]
+    assert any("check_shortcuts_drift.py" in str(arg) for arg in executed_commands[1])
+    assert "--fix" in executed_commands[1]

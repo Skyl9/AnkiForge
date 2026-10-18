@@ -92,6 +92,12 @@ CANONICAL_STEPS: list[VerificationStep] = [
         timeout=15.0,
     ),
     VerificationStep(
+        name="shortcuts-drift",
+        command=["python", "script/check_shortcuts_drift.py", "--check"],
+        description="Contrôle de synchronisation de la documentation des raccourcis clavier",
+        timeout=15.0,
+    ),
+    VerificationStep(
         name="ruff-check",
         command=["ruff", "check", "."],
         description="Linting et conformité des règles de code (Ruff)",
@@ -331,9 +337,9 @@ def run_single_step(
 
 
 def apply_auto_fix(cwd: Path = REPO_ROOT, quiet: bool = False) -> int:
-    """Applique les corrections automatiques (synchronisation instructions, Ruff lint et format)."""
+    """Applique les corrections automatiques (synchronisation instructions, documentation raccourcis, Ruff lint et format)."""
     if not quiet:
-        print("🛠️  Application automatique des corrections (instructions agents, Ruff lint --fix + format)...")
+        print("🛠️  Application automatique des corrections (instructions agents, doc raccourcis, Ruff lint --fix + format)...")
 
     # 1. Synchronisation déterministe des adaptateurs d'instructions agents
     cmd_sync_instructions = build_full_command(["python", "script/sync_agent_instructions.py", "--write"])
@@ -341,7 +347,13 @@ def apply_auto_fix(cwd: Path = REPO_ROOT, quiet: bool = False) -> int:
     if res_sync.returncode != 0:
         return res_sync.returncode
 
-    # 2. Ruff check --fix
+    # 2. Régénération déterministe de la documentation des raccourcis clavier
+    cmd_sync_shortcuts = build_full_command(["python", "script/check_shortcuts_drift.py", "--fix"])
+    res_shortcuts = subprocess.run(cmd_sync_shortcuts, cwd=cwd, check=False)
+    if res_shortcuts.returncode != 0:
+        return res_shortcuts.returncode
+
+    # 3. Ruff check --fix
     cmd_lint_fix = build_full_command(["ruff", "check", "--fix", "."])
     res_lint = subprocess.run(cmd_lint_fix, cwd=cwd, check=False)
     if res_lint.returncode != 0:
