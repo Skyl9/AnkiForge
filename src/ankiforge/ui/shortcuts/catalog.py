@@ -880,8 +880,17 @@ def get_shortcut_definition(shortcut_id: ShortcutId) -> ShortcutDefinition:
 
 def get_shortcut_sequence(shortcut_id: ShortcutId, settings_service: Any = None) -> str:
     """Récupère la séquence effective d'un raccourci (en tenant compte d'une éventuelle surcharge)."""
-    if settings_service is not None and hasattr(settings_service, "get_shortcut_override"):
-        override = settings_service.get_shortcut_override(shortcut_id.value)
+    svc = settings_service
+    if svc is None:
+        try:
+            from ankiforge.services.settings_service import SettingsService
+
+            svc = SettingsService
+        except Exception:
+            svc = None
+
+    if svc is not None and hasattr(svc, "get_shortcut_override"):
+        override = svc.get_shortcut_override(shortcut_id.value)
         if isinstance(override, str) and override.strip():
             return override.strip()
 
@@ -892,6 +901,76 @@ def get_shortcut_sequence(shortcut_id: ShortcutId, settings_service: Any = None)
 def get_shortcut_label(shortcut_id: ShortcutId) -> str:
     """Renvoie le libellé traduit du raccourci."""
     return get_shortcut_definition(shortcut_id).title
+
+
+def validate_shortcut_override(
+    shortcut_id: ShortcutId,
+    new_sequence: str,
+    current_overrides: dict[str, str] | None = None,
+) -> tuple[bool, str]:
+    """Valide si une nouvelle séquence peut être attribuée à un raccourci.
+
+    Contrôle :
+    1. Interdiction des séquences réservées système (Ctrl+C, Ctrl+X, Ctrl+V, etc.)
+    2. Touches nues autorisées uniquement en portée WIDGET
+    3. Conflits intra-portée explicites (Application globale, même catégorie de vue/dialogue).
+
+    Returns:
+        Un tuple (est_valide, message_explication).
+    """
+    clean_seq = new_sequence.strip()
+    if not clean_seq:
+        return False, tr("La séquence de touches ne peut pas être vide.")
+
+    # 1. Liste noire réservée
+    if is_reserved_sequence(clean_seq):
+        return False, tr(
+            "La séquence '%1' est réservée par le système (édition de texte) et ne peut pas être assignée.",
+            clean_seq,
+        )
+
+    definition = get_shortcut_definition(shortcut_id)
+
+    # 2. Touches nues (une seule touche sans modificateurs)
+    is_bare = definition.allow_bare_key or (len(clean_seq) == 1 and not any(mod in clean_seq for mod in ("Ctrl", "Alt", "Shift", "Meta")))
+    if is_bare and definition.scope != ShortcutScope.WIDGET:
+        return False, tr(
+            "La touche nue '%1' ne peut être assignée qu'à des actions en portée Widget (portée actuelle : %2).",
+            clean_seq,
+            definition.scope.name,
+        )
+
+    # 3. Conflits intra-portée
+    catalog = get_shortcut_catalog()
+    norm_candidate = clean_seq.upper()
+
+    for other_id, other_def in catalog.items():
+        if other_id == shortcut_id:
+            continue
+
+        other_seq = other_def.default_sequence
+        if current_overrides and other_id.value in current_overrides:
+            other_seq = current_overrides[other_id.value]
+
+        if other_seq.strip().upper() == norm_candidate:
+            # Collision en portée APPLICATION
+            if definition.scope == ShortcutScope.APPLICATION and other_def.scope == ShortcutScope.APPLICATION:
+                return False, tr(
+                    "Conflit intra-portée : la séquence '%1' est déjà assignée à '%2' en portée Application.",
+                    clean_seq,
+                    other_def.title,
+                )
+
+            # Collision dans la même portée et même catégorie
+            if definition.scope == other_def.scope and definition.category == other_def.category:
+                return False, tr(
+                    "Conflit intra-portée : la séquence '%1' est déjà assignée à '%2' dans la section '%3'.",
+                    clean_seq,
+                    other_def.title,
+                    definition.category.value,
+                )
+
+    return True, ""
 
 
 def validate_catalog(catalog: dict[ShortcutId, ShortcutDefinition] | None = None) -> None:

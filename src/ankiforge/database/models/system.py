@@ -113,6 +113,28 @@ class SettingModel(BaseModel):
         for k, v in settings_dict.items():
             cls.set_value(k, v, category=category)
 
+    @classmethod
+    @db.atomic()
+    def delete_value(cls, key: str) -> bool:
+        """Supprime un paramètre de la BDD."""
+        try:
+            deleted = cls.delete().where(cls.key == key).execute()
+            return bool(deleted > 0)
+        except Exception as e:
+            logger.debug("Remarque sur la suppression du paramètre '%s': %s", key, e)
+            return False
+
+    @classmethod
+    @db.atomic()
+    def delete_category(cls, category: str) -> int:
+        """Supprime tous les paramètres d'une catégorie."""
+        try:
+            deleted = cls.delete().where(cls.category == category).execute()
+            return int(deleted)
+        except Exception as e:
+            logger.debug("Remarque sur la suppression de la catégorie '%s': %s", category, e)
+            return 0
+
 
 class AICacheModel(BaseModel):
     """Stocke le cache des appels de complétion d'IA pour économiser les coûts et le réseau."""

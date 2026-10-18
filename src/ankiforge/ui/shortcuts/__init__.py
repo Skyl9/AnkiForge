@@ -7,6 +7,7 @@ from ankiforge.ui.shortcuts.catalog import (
     get_shortcut_label,
     get_shortcut_sequence,
     validate_catalog,
+    validate_shortcut_override,
 )
 from ankiforge.ui.shortcuts.manager import (
     ShortcutManager,
@@ -36,4 +37,5 @@ __all__ = [
     "is_reserved_sequence",
     "is_text_input_focused",
     "validate_catalog",
+    "validate_shortcut_override",
 ]
