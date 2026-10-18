@@ -189,6 +189,13 @@ class CommandPalette(QDialog):
             "",
             tr("Système"),
         )
+        self.register_command(
+            "action.shortcuts_doc",
+            tr("Documentation des raccourcis clavier"),
+            "book-open",
+            "",
+            tr("Aide"),
+        )
         if is_development():
             self.register_command(
                 "action.dialog_gallery",
@@ -288,6 +295,8 @@ class CommandPalette(QDialog):
                     self.view_requested.emit("settings")
                 elif action_name == "shortcuts":
                     self.view_requested.emit("shortcuts")
+                elif action_name == "shortcuts_doc":
+                    self.view_requested.emit("shortcuts_doc")
                 elif action_name == "tour":
                     self.view_requested.emit("tour")
             else:

@@ -48,7 +48,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
-DOC_SHORTCUTS_URL = "https://ankiforge.readthedocs.io/fr/latest/reference/raccourcis/"
+DOC_SHORTCUTS_URL = "https://skyl9.github.io/AnkiForge/guides/raccourcis_clavier/"
 
 
 class KeyboardTab(SettingsDirtyMixin, QWidget):

@@ -184,3 +184,43 @@ def test_main_window_view_navigation_shortcuts(qtbot, mock_db) -> None:
         prev_sc = [rec.shortcut for rec in window.shortcut_manager._bindings if rec.id == ShortcutId.NAV_PREV_VIEW][0]
         prev_sc.activated.emit()
         assert window._current_view_id == nav_ids[0]
+
+
+def test_palette_and_keyboard_tab_open_shortcuts_doc(qtbot, mock_db) -> None:
+    """Vérifie que la palette et l'onglet Clavier renvoient vers la page de référence."""
+    from ankiforge.ui.widgets.command_palette import CommandPalette
+    from ankiforge.ui.widgets.settings_modal.tabs.keyboard_tab import (
+        DOC_SHORTCUTS_URL,
+        KeyboardTab,
+    )
+
+    # 1. Palette de commandes : présence et déclenchement de shortcuts_doc
+    palette = CommandPalette()
+    qtbot.addWidget(palette)
+
+    doc_cmds = [cmd for cmd in palette.commands if cmd["id"] == "action.shortcuts_doc"]
+    assert len(doc_cmds) == 1, "La commande action.shortcuts_doc doit être enregistrée dans la palette"
+
+    with patch("PySide6.QtGui.QDesktopServices.openUrl") as mock_open_url, patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+        window = MainWindow(ai_manager=None)
+        qtbot.addWidget(window)
+
+        # Test de routage MainWindow sur action.shortcuts_doc
+        window._on_command_selected("action.shortcuts_doc")
+        assert mock_open_url.call_count == 1
+        called_url = mock_open_url.call_args[0][0].toString()
+        assert called_url == DOC_SHORTCUTS_URL
+
+        # Test de _on_view_selected sur shortcuts_doc
+        window._on_view_selected("shortcuts_doc")
+        assert mock_open_url.call_count == 2
+
+    # 2. Onglet Clavier : clic sur le bouton Documentation
+    tab = KeyboardTab()
+    qtbot.addWidget(tab)
+
+    with patch("PySide6.QtGui.QDesktopServices.openUrl") as mock_open_url:
+        tab.btn_doc.click()
+        assert mock_open_url.call_count == 1
+        called_url = mock_open_url.call_args[0][0].toString()
+        assert called_url == DOC_SHORTCUTS_URL

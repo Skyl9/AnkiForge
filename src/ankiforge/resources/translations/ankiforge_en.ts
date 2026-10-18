@@ -1564,7 +1564,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+326"/>
+        <location line="+331"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -1572,7 +1572,7 @@ Voulez-vous vraiment %2 ? Ce travail sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+223"/>
+        <location line="+227"/>
         <source>Impossible de basculer vers l&apos;espace « %1 » : il est actuellement ouvert par une autre instance%2.
 
 L&apos;accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.</source>
@@ -5463,11 +5463,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <location line="+3"/>
         <location line="+7"/>
         <location line="+7"/>
+        <location line="+21"/>
         <source>Aide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-10"/>
+        <location line="-31"/>
         <source>Signaler un bug ou proposer une idée</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5490,6 +5491,11 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="-3"/>
         <source>Personnaliser les raccourcis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Documentation des raccourcis clavier</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -9650,7 +9656,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CommandPalette</name>
     <message>
-        <location filename="../../ui/widgets/command_palette.py" line="-182"/>
+        <location filename="../../ui/widgets/command_palette.py" line="-189"/>
         <source>Rechercher cartes, paquets, vues ou commandes...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15720,7 +15726,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-802"/>
+        <location filename="../../ui/main_window.py" line="-811"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15730,12 +15736,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+492"/>
+        <location line="+497"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+143"/>
+        <location line="+147"/>
         <source>Aucun incident n&apos;est enregistré dans crash.log.</source>
         <translation type="unfinished"></translation>
     </message>
