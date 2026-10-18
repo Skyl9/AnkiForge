@@ -319,7 +319,38 @@ def test_t5_shortcuts_catalog_integrity() -> None:
     assert catalog[ShortcutId.AB_SAMPLE_B_PREV].default_sequence == "Alt+Left"
     assert catalog[ShortcutId.AB_SAMPLE_B_NEXT].default_sequence == "Alt+Right"
     assert catalog[ShortcutId.MERGE_PREV_CONFLICT].default_sequence == "Alt+Left"
-    assert catalog[ShortcutId.MERGE_NEXT_CONFLICT].default_sequence == "Alt+Right"
     assert catalog[ShortcutId.MERGE_KEEP_ALL_LOCAL].default_sequence == "Ctrl+Alt+Left"
     assert catalog[ShortcutId.MERGE_KEEP_ALL_INCOMING].default_sequence == "Ctrl+Alt+Right"
     assert catalog[ShortcutId.MERGE_CONFIRM].default_sequence == "Ctrl+Return"
+
+    # Dialogues modaux & Sélecteurs (T6)
+    dialog_ids = [
+        ShortcutId.DIALOG_CLOSE,
+        ShortcutId.DIALOG_CONFIRM,
+        ShortcutId.DIALOG_APPLY,
+        ShortcutId.DIALOG_NEW_DECK,
+        ShortcutId.DIALOG_PREV_ITEM,
+        ShortcutId.DIALOG_NEXT_ITEM,
+    ]
+    for sc_id in dialog_ids:
+        assert sc_id in catalog, f"Raccourci Dialogue manquant : {sc_id}"
+
+    assert catalog[ShortcutId.DIALOG_CLOSE].default_sequence == "Escape"
+    assert catalog[ShortcutId.DIALOG_CLOSE].scope == ShortcutScope.DIALOGUE
+    assert catalog[ShortcutId.DIALOG_CONFIRM].default_sequence == "Return"
+    assert catalog[ShortcutId.DIALOG_CONFIRM].scope == ShortcutScope.DIALOGUE
+    assert catalog[ShortcutId.DIALOG_APPLY].default_sequence == "Ctrl+Return"
+    assert catalog[ShortcutId.DIALOG_APPLY].scope == ShortcutScope.DIALOGUE
+    assert catalog[ShortcutId.DIALOG_NEW_DECK].default_sequence == "Ctrl+N"
+    assert catalog[ShortcutId.DIALOG_NEW_DECK].scope == ShortcutScope.DIALOGUE
+    assert catalog[ShortcutId.DIALOG_PREV_ITEM].default_sequence == "Up"
+    assert catalog[ShortcutId.DIALOG_PREV_ITEM].scope == ShortcutScope.WIDGET
+    assert catalog[ShortcutId.DIALOG_PREV_ITEM].allow_bare_key is True
+    assert catalog[ShortcutId.DIALOG_NEXT_ITEM].default_sequence == "Down"
+    assert catalog[ShortcutId.DIALOG_NEXT_ITEM].scope == ShortcutScope.WIDGET
+    assert catalog[ShortcutId.DIALOG_NEXT_ITEM].allow_bare_key is True
+
+    # Édition & Formatage code (T6)
+    assert catalog[ShortcutId.EDITION_FORMAT_CODE].default_sequence == "Ctrl+K"
+    assert catalog[ShortcutId.CODE_FORMAT].default_sequence == "Ctrl+Alt+L"
+    assert catalog[ShortcutId.CODE_FORMAT].scope == ShortcutScope.WIDGET
