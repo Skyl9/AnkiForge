@@ -9,10 +9,10 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QGridLayout,
-    QHBoxLayout,
     QHeaderView,
     QLabel,
     QMessageBox,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -100,20 +100,23 @@ class StorageMaintenanceTab(QWidget):
         from ankiforge.utils.environment import get_environment_display_name
 
         self.lbl_sec_stat = QLabel(tr("STOCKAGE & BDD — ENVIRONNEMENT : %1 (%2)", get_environment_display_name().upper(), get_app_data_dir()))
+        self.lbl_sec_stat.setWordWrap(True)
+        self.lbl_sec_stat.setMinimumWidth(0)
         self.lbl_sec_stat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_stat)
 
-        metrics_grid = QGridLayout()
-        metrics_grid.setSpacing(10)
+        self.metrics_grid = QGridLayout()
+        self.metrics_grid.setSpacing(10)
 
         self.c_db = StorageMetricCard(tr("Base de données SQLite"), "0 Ko", "ph.database", "WAL Actif • 0 notes")
         self.c_media = StorageMetricCard(tr("Stockage Médias"), "0 Mo", "ph.images", "0 fichiers médias")
         self.c_tm = StorageMetricCard(tr("Time Machine"), "0 versions", "ph.clock-counter-clockwise", "Historique actif")
 
-        metrics_grid.addWidget(self.c_db, 0, 0)
-        metrics_grid.addWidget(self.c_media, 0, 1)
-        metrics_grid.addWidget(self.c_tm, 0, 2)
-        layout.addLayout(metrics_grid)
+        self._metric_cards = [self.c_db, self.c_media, self.c_tm]
+        self._metrics_columns = 1
+        for idx, card in enumerate(self._metric_cards):
+            self.metrics_grid.addWidget(card, idx, 0)
+        layout.addLayout(self.metrics_grid)
 
         # ── SECTION 2 : ACTIONS D'ENTRETIEN RÉELLES ──────────────────────────
         self.lbl_sec_act = QLabel(self.tr("ACTIONS D'ENTRETIEN ET D'OPTIMISATION"))
@@ -125,50 +128,44 @@ class StorageMaintenanceTab(QWidget):
         act_layout.setContentsMargins(14, 12, 14, 12)
         act_layout.setSpacing(10)
 
-        row_actions1 = QHBoxLayout()
-        row_actions1.setSpacing(10)
-
         self.btn_vacuum = SecondaryButton("Optimiser la base de données (VACUUM)")
         self.btn_vacuum.setIcon(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW))
         self.btn_vacuum.clicked.connect(self._run_vacuum)
-        row_actions1.addWidget(self.btn_vacuum, 1)
 
         self.btn_clean_media = SecondaryButton("Nettoyer les images orphelines")
         self.btn_clean_media.setIcon(load_phosphor_icon("ph.broom", color=DesignTokens.COLOR_BLUE))
         self.btn_clean_media.clicked.connect(self._clean_orphan_media)
-        row_actions1.addWidget(self.btn_clean_media, 1)
-
-        act_layout.addLayout(row_actions1)
-
-        row_actions2 = QHBoxLayout()
-        row_actions2.setSpacing(10)
 
         self.btn_purge_history = DangerButton(tr("Purger l'historique (> 30 jours)"), ghost=True)
         self.btn_purge_history.setIcon(load_phosphor_icon("ph.clock-counter-clockwise", color=DesignTokens.COLOR_RED))
         self.btn_purge_history.clicked.connect(self._purge_history)
-        row_actions2.addWidget(self.btn_purge_history, 1)
 
         self.btn_clear_cache = SecondaryButton("Vider les fichiers temporaires et cache")
         self.btn_clear_cache.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.TEXT_MUTED))
         self.btn_clear_cache.clicked.connect(self._clear_cache)
-        row_actions2.addWidget(self.btn_clear_cache, 1)
-
-        act_layout.addLayout(row_actions2)
-
-        row_actions3 = QHBoxLayout()
-        row_actions3.setSpacing(10)
 
         self.btn_purge_tts = SecondaryButton("Purger le cache audio TTS")
         self.btn_purge_tts.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.COLOR_PURPLE))
         self.btn_purge_tts.clicked.connect(self._purge_tts_cache)
-        row_actions3.addWidget(self.btn_purge_tts, 1)
 
         self.btn_transfer = SecondaryButton("Transférer du contenu inter-profils...")
         self.btn_transfer.setIcon(load_phosphor_icon("ph.arrows-left-right", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_transfer.clicked.connect(self._open_profile_transfer)
-        row_actions3.addWidget(self.btn_transfer, 1)
 
-        act_layout.addLayout(row_actions3)
+        self._action_buttons = [
+            self.btn_vacuum,
+            self.btn_clean_media,
+            self.btn_purge_history,
+            self.btn_clear_cache,
+            self.btn_purge_tts,
+            self.btn_transfer,
+        ]
+        self.actions_grid = QGridLayout()
+        self.actions_grid.setSpacing(10)
+        self._actions_columns = 1
+        for idx, btn in enumerate(self._action_buttons):
+            self.actions_grid.addWidget(btn, idx, 0)
+        act_layout.addLayout(self.actions_grid)
 
         from ankiforge.utils.environment import get_app_qsettings
 
@@ -178,6 +175,7 @@ class StorageMaintenanceTab(QWidget):
         self.chk_clean_media_on_exit = QCheckBox(self.tr("Nettoyer automatiquement les médias orphelins à la fermeture de l'application"))
         self.chk_clean_media_on_exit.setChecked(bool(clean_on_exit))
         self.chk_clean_media_on_exit.toggled.connect(self._on_clean_media_on_exit_toggled)
+        self.chk_clean_media_on_exit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.chk_clean_media_on_exit.setStyleSheet(f"""
             QCheckBox {{
                 color: {DesignTokens.TEXT_SECONDARY};
@@ -214,22 +212,23 @@ class StorageMaintenanceTab(QWidget):
         bku_layout.setContentsMargins(14, 12, 14, 12)
         bku_layout.setSpacing(8)
 
-        top_bku_row = QHBoxLayout()
         self.btn_snapshot = PrimaryButton("Créer un instantané immédiat (Backup)")
         self.btn_snapshot.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_snapshot.setFixedHeight(28)
         self.btn_snapshot.clicked.connect(self._create_snapshot)
-        top_bku_row.addWidget(self.btn_snapshot)
-
-        top_bku_row.addStretch()
 
         self.btn_open_backup_folder = SecondaryButton("Ouvrir le dossier des sauvegardes")
         self.btn_open_backup_folder.setIcon(load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_PRIMARY))
         self.btn_open_backup_folder.setFixedHeight(28)
         self.btn_open_backup_folder.clicked.connect(self._open_backup_folder)
-        top_bku_row.addWidget(self.btn_open_backup_folder)
 
-        bku_layout.addLayout(top_bku_row)
+        self._bku_buttons = [self.btn_snapshot, self.btn_open_backup_folder]
+        self.top_bku_layout = QGridLayout()
+        self.top_bku_layout.setSpacing(10)
+        self._bku_columns = 1
+        for idx, btn in enumerate(self._bku_buttons):
+            self.top_bku_layout.addWidget(btn, idx, 0)
+        bku_layout.addLayout(self.top_bku_layout)
 
         self.lbl_recent_backups = QLabel(self.tr("Historique des sauvegardes de sécurité"))
         self.lbl_recent_backups.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
@@ -274,6 +273,48 @@ class StorageMaintenanceTab(QWidget):
 
         self.scroll.setWidget(self.content_widget)
         root_layout.addWidget(self.scroll)
+
+    def resizeEvent(self, event: Any) -> None:
+        super().resizeEvent(event)
+        w = event.size().width()
+        if w > 0:
+            target_metrics_cols = 1 if w < 700 else 3
+            if target_metrics_cols != self._metrics_columns:
+                self._relayout_metrics(target_metrics_cols)
+
+            target_act_cols = 1 if w < 700 else 2
+            if target_act_cols != self._actions_columns:
+                self._relayout_actions(target_act_cols)
+
+            target_bku_cols = 1 if w < 700 else 2
+            if target_bku_cols != self._bku_columns:
+                self._relayout_backup_buttons(target_bku_cols)
+
+    def _relayout_metrics(self, cols: int) -> None:
+        self._metrics_columns = cols
+        for idx, card in enumerate(self._metric_cards):
+            self.metrics_grid.removeWidget(card)
+            if cols == 1:
+                self.metrics_grid.addWidget(card, idx, 0)
+            else:
+                self.metrics_grid.addWidget(card, 0, idx)
+
+    def _relayout_actions(self, cols: int) -> None:
+        self._actions_columns = cols
+        for idx, btn in enumerate(self._action_buttons):
+            self.actions_grid.removeWidget(btn)
+            row = idx // cols
+            col = idx % cols
+            self.actions_grid.addWidget(btn, row, col)
+
+    def _relayout_backup_buttons(self, cols: int) -> None:
+        self._bku_columns = cols
+        for idx, btn in enumerate(self._bku_buttons):
+            self.top_bku_layout.removeWidget(btn)
+            if cols == 1:
+                self.top_bku_layout.addWidget(btn, idx, 0)
+            else:
+                self.top_bku_layout.addWidget(btn, 0, idx)
 
     def refresh_metrics(self) -> None:
         """Calcule les vraies valeurs sur le disque et en base SQLite."""

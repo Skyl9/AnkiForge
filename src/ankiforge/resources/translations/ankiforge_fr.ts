@@ -262,8 +262,8 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+804"/>
         <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+742"/>
         <location line="+10"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+728"/>
-        <location line="+295"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+745"/>
+        <location line="+298"/>
         <source>%1%%</source>
         <translation type="unfinished"></translation>
     </message>
@@ -433,7 +433,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location line="+108"/>
         <location filename="../../ui/views/agents_view/view.py" line="+581"/>
         <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="+172"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-801"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-822"/>
         <source>%1 :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -475,7 +475,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location filename="../../ui/components/snippet_drawer.py" line="+346"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+268"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+289"/>
         <source>Supprimer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4723,7 +4723,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-319"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-316"/>
         <source>Streaming des réponses</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4743,12 +4743,12 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+61"/>
+        <location line="+55"/>
         <source>Options avancées de génération &amp; RAG</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+25"/>
         <source>Veuillez saisir une clé %1.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4820,7 +4820,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/developer_tab.py" line="+315"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/developer_tab.py" line="+331"/>
         <source>Dernier test : CrashReportDialog exécuté (code %1).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4850,7 +4850,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="+179"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="+185"/>
         <source>Famille par défaut du layout (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4860,12 +4860,12 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+215"/>
+        <location line="+225"/>
         <source>(%1) · %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+127"/>
+        <location line="+131"/>
         <source>Version v%1 disponible !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4928,7 +4928,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+9"/>
         <source>Base de données SQLite</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4943,12 +4943,12 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+26"/>
         <source>Purger l&apos;historique (&gt; 30 jours)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+179"/>
+        <location line="+227"/>
         <source>Historique : %1 sauvegarde%2 disponible%3.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5460,7 +5460,7 @@ Une nouvelle version sera automatiquement créée.</source>
 <context>
     <name>AIEnginesTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1063"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1084"/>
         <source>CLÉS API DES FOURNISSEURS CLOUD</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5471,12 +5471,12 @@ Une nouvelle version sera automatiquement créée.</source>
     </message>
     <message>
         <location line="+55"/>
-        <location line="+529"/>
+        <location line="+550"/>
         <source>Format valide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-518"/>
+        <location line="-539"/>
         <source>SERVEURS LOCAUX &amp; PASSERELLES D&apos;ACCÈS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5486,12 +5486,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+27"/>
         <source>Passerelle OpenCode :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+8"/>
         <source>https://opencode.ai/zen/v1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5501,7 +5501,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+8"/>
         <source>https://openrouter.ai/api/v1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5516,22 +5516,22 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+12"/>
         <source>Port d&apos;écoute :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+17"/>
         <source>Régénère un nouveau jeton Bearer 256 bits pour sécuriser le serveur MCP.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+11"/>
         <source>Onglet par défaut :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+7"/>
         <source>Serveur MCP (recommandé)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5541,12 +5541,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+9"/>
         <source>Demandes contextuelles :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+7"/>
         <source>Serveur MCP (bandeau prêt à copier)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5556,12 +5556,22 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+11"/>
         <source>CATALOGUE DES MOTEURS &amp; MODÈLES</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+24"/>
+        <source>Explorer le catalogue &amp; comparateur...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Ajouter un modèle ▾</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
         <source>Depuis le catalogue officiel...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5571,7 +5581,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+6"/>
+        <source>Presets rapides populaires</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>Google Gemini 3.5 Flash Lite</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5601,12 +5616,17 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+6"/>
+        <source>Modifier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>Modifier les paramètres du moteur IA sélectionné</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+11"/>
         <source>PRÉFÉRENCES IA GLOBALES</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5616,7 +5636,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="+21"/>
         <source>Température :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5626,12 +5646,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+17"/>
         <source>Plafond Max Tokens :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <location line="+21"/>
         <source>4 096 tokens</source>
         <translation type="unfinished"></translation>
@@ -5663,12 +5683,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+7"/>
         <source>Budget Réflexion (CoT) :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Désactivé (0)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5693,12 +5713,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+7"/>
         <source>Budget Tokens Consultant :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>10 000 tokens</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5728,12 +5748,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+7"/>
         <source>Budget Coût Consultant (USD) :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>0.10 $</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5768,7 +5788,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+7"/>
         <source>Protection Budget Consultant :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5783,7 +5803,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+51"/>
+        <location line="+47"/>
         <source>Chunks RAG (Top-K) :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5803,7 +5823,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+38"/>
+        <location line="+41"/>
         <source>Clé vide</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9826,7 +9846,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DeveloperTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/developer_tab.py" line="-259"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/developer_tab.py" line="-275"/>
         <source>Cockpit Runtime &amp; Environnement</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9836,7 +9856,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+10"/>
         <source>MODE DÉVELOPPEMENT</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9866,7 +9886,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+34"/>
+        <location line="+37"/>
         <source>Galerie de Test des Boîtes de Dialogue</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9876,12 +9896,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+10"/>
         <source>Ouvrir la Galerie Plein Écran</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+13"/>
         <source>Rapport de Crash</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9941,17 +9961,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+45"/>
+        <location line="+50"/>
         <source>Lancer le test</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+13"/>
         <source>Prêt : aucun dialogue ouvert pour le moment.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+45"/>
         <source>[Galerie Dev] Test visuel Feedback</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12589,17 +12609,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>GeneralTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-811"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-830"/>
         <source>APPARENCE &amp; INTERFACE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+23"/>
         <source>Disposition de l&apos;interface (Layout) :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+17"/>
         <source>Mode Sombre (Dark)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12619,7 +12639,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+16"/>
         <source>Importer une famille de thème au format JSON...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12639,12 +12659,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+31"/>
         <source>Langue de l&apos;interface :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>CI/CD (Tableau de bord industriel)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12674,7 +12694,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+15"/>
         <source>Parcourir et sélectionner le dossier</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12694,7 +12714,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+26"/>
         <source>Espace de travail de démarrage :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12704,7 +12724,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+17"/>
         <source>Notifications système complètes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12734,7 +12754,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+21"/>
         <source>Canal Stable (Recommandé)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12749,7 +12769,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+9"/>
         <source>Toutes les 4 heures (Recommandé)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12779,7 +12799,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+22"/>
         <source>Retours &amp; Suggestions :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13525,7 +13545,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>LayoutThumbnailCard</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/components/layout_grid_selector.py" line="+108"/>
+        <location filename="../../ui/widgets/settings_modal/components/layout_grid_selector.py" line="+158"/>
         <source>Aperçu indisponible</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17297,22 +17317,22 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>StorageMaintenanceTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="-360"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="-398"/>
         <source>ACTIONS D&apos;ENTRETIEN ET D&apos;OPTIMISATION</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+59"/>
+        <location line="+53"/>
         <source>Nettoyer automatiquement les médias orphelins à la fermeture de l&apos;application</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+31"/>
         <source>SAUVEGARDES DE SÉCURITÉ DU PROFIL (INSTANTANÉS)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+27"/>
         <source>Historique des sauvegardes de sécurité</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17342,7 +17362,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+88"/>
+        <location line="+130"/>
         <source>Aucune sauvegarde enregistrée dans ce profil.</source>
         <translation type="unfinished"></translation>
     </message>

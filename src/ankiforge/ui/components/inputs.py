@@ -396,6 +396,7 @@ class OptionToggleRow(QWidget):
         super().__init__(parent)
         self.setObjectName("optionToggleRow")
         self.setFixedHeight(32)
+        self.setMinimumWidth(0)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.icon_name = icon_name
         self._checked: bool = checked
@@ -411,6 +412,7 @@ class OptionToggleRow(QWidget):
             layout.addWidget(self.icon_lbl)
 
         self.title_lbl = QLabel(title)
+        self.title_lbl.setMinimumWidth(0)
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
         layout.addWidget(self.title_lbl, 1)
 

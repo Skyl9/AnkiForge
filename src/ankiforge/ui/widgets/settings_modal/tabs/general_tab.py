@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -78,9 +79,10 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         def add_setting_row(parent_layout: QVBoxLayout, label_str: str, widget: QWidget) -> QLabel:
             row = QHBoxLayout()
             lbl = QLabel(label_str)
+            lbl.setWordWrap(True)
+            lbl.setMinimumWidth(0)
             lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
-            row.addWidget(lbl)
-            row.addStretch()
+            row.addWidget(lbl, 1)
             row.addWidget(widget)
             parent_layout.addLayout(row)
             return lbl
@@ -89,6 +91,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # 1. Disposition de l'interface (Layout) : Grille de miniatures
         self.lbl_layout_title = QLabel(self.tr("Disposition de l'interface (Layout) :"))
+        self.lbl_layout_title.setWordWrap(True)
+        self.lbl_layout_title.setMinimumWidth(0)
         self.lbl_layout_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         card_app_layout.addWidget(self.lbl_layout_title)
 
@@ -100,7 +104,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # 2. Mode d'Apparence (Source du Mode : manuel sombre / manuel clair / système)
         self.cb_mode = StyledComboBox()
-        self.cb_mode.setMinimumWidth(260)
+        self.cb_mode.setMinimumWidth(0)
+        self.cb_mode.setMaximumWidth(320)
         self.cb_mode.setFixedHeight(30)
         self.cb_mode.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.ACCENT_PRIMARY), self.tr("Mode Sombre (Dark)"), "dark")
         self.cb_mode.addItem(load_phosphor_icon("ph.sun", color=DesignTokens.COLOR_YELLOW), self.tr("Mode Clair (Light)"), "light")
@@ -118,7 +123,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # 3. Famille de Thèmes (12 Familles bivalentes) — axe indépendant du Mode
         self.cb_theme = StyledComboBox()
-        self.cb_theme.setMinimumWidth(200)
+        self.cb_theme.setMinimumWidth(0)
+        self.cb_theme.setMaximumWidth(260)
         self.cb_theme.setFixedHeight(30)
 
         theme_box = QWidget()
@@ -248,7 +254,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         # toucher au code. Le libellé est un endonyme (« Français », « English ») et n'est
         # donc pas traduit ; le code ISO est conservé en ``userData``.
         self.cb_lang = StyledComboBox()
-        self.cb_lang.setMinimumWidth(260)
+        self.cb_lang.setMinimumWidth(0)
+        self.cb_lang.setMaximumWidth(320)
         self.cb_lang.setFixedHeight(30)
         lang_icon = load_phosphor_icon("ph.translate", color=DesignTokens.TEXT_PRIMARY)
         for code in available_languages():
@@ -259,7 +266,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # 5. Style Studio de Création
         self.cb_batch_style = StyledComboBox()
-        self.cb_batch_style.setMinimumWidth(260)
+        self.cb_batch_style.setMinimumWidth(0)
+        self.cb_batch_style.setMaximumWidth(320)
         self.cb_batch_style.setFixedHeight(30)
         self.cb_batch_style.addItem(load_phosphor_icon("ph.gauge", color=DesignTokens.TEXT_PRIMARY), self.tr("CI/CD (Tableau de bord industriel)"))
         self.cb_batch_style.addItem(load_phosphor_icon("ph.kanban", color=DesignTokens.TEXT_PRIMARY), self.tr("Kanban (Flux de tâches)"))
@@ -281,11 +289,14 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         exp_row = QHBoxLayout()
         self.lbl_exp_dir = QLabel(self.tr("Dossier d'exportation par défaut :"))
+        self.lbl_exp_dir.setWordWrap(True)
+        self.lbl_exp_dir.setMinimumWidth(0)
         self.lbl_exp_dir.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         exp_row.addWidget(self.lbl_exp_dir)
 
         default_export = str(Path.home() / "AnkiForge" / "Exports")
         self.le_export = StyledLineEdit()
+        self.le_export.setMinimumWidth(0)
         self.le_export.setFixedHeight(30)
         self.le_export.setText(str(SettingsService.get("app/export_path", default_export)))
         exp_row.addWidget(self.le_export, 1)
@@ -330,11 +341,13 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.chk_auto_startup.setChecked(auto_open_val)
         self.chk_auto_startup.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.chk_auto_startup.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        self.chk_auto_startup.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         card_startup_layout.addWidget(self.chk_auto_startup)
 
         # 2. Sélecteur de profil par défaut
         self.cb_default_profile = StyledComboBox()
-        self.cb_default_profile.setMinimumWidth(260)
+        self.cb_default_profile.setMinimumWidth(0)
+        self.cb_default_profile.setMaximumWidth(320)
         self.cb_default_profile.setFixedHeight(30)
 
         pm = ProfileManager()
@@ -369,7 +382,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         saved_notif_mode = str(SettingsService.get(SystemNotificationService.SETTINGS_KEY, NotificationMode.SYSTEM.value))
 
         self.cb_notif_mode = StyledComboBox()
-        self.cb_notif_mode.setMinimumWidth(260)
+        self.cb_notif_mode.setMinimumWidth(0)
+        self.cb_notif_mode.setMaximumWidth(320)
         self.cb_notif_mode.setFixedHeight(30)
         self.cb_notif_mode.addItem(load_phosphor_icon("bell", color=DesignTokens.ACCENT_PRIMARY), self.tr("Notifications système complètes"), NotificationMode.SYSTEM.value)
         self.cb_notif_mode.addItem(load_phosphor_icon("app-window", color=DesignTokens.ACCENT_PRIMARY), self.tr("Alerte barre des tâches / Dock uniquement"), NotificationMode.DOCK_ONLY.value)
@@ -400,6 +414,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         # 1. Version et informations système
         version_row = QHBoxLayout()
         lbl_v_title = QLabel(self.tr("Version d'AnkiForge :"))
+        lbl_v_title.setWordWrap(True)
+        lbl_v_title.setMinimumWidth(0)
         lbl_v_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         self.rows_labels.append(lbl_v_title)
         version_row.addWidget(lbl_v_title)
@@ -415,7 +431,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         # 2. Canal de mise à jour (Stable vs Nightly)
         self.cb_update_channel = StyledComboBox()
-        self.cb_update_channel.setMinimumWidth(260)
+        self.cb_update_channel.setMinimumWidth(0)
+        self.cb_update_channel.setMaximumWidth(320)
         self.cb_update_channel.setFixedHeight(30)
         self.cb_update_channel.addItem(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN), self.tr("Canal Stable (Recommandé)"), "stable")
         self.cb_update_channel.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.COLOR_YELLOW), self.tr("Canal Nightly (Bêta / Edge)"), "nightly")
@@ -431,7 +448,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         from ankiforge.services.update_checker import get_check_interval_seconds
 
         self.cb_check_interval = StyledComboBox()
-        self.cb_check_interval.setMinimumWidth(260)
+        self.cb_check_interval.setMinimumWidth(0)
+        self.cb_check_interval.setMaximumWidth(320)
         self.cb_check_interval.setFixedHeight(30)
         self.cb_check_interval.addItem(load_phosphor_icon("ph.clock", color=DesignTokens.TEXT_PRIMARY), self.tr("Toutes les 4 heures (Recommandé)"), 14400)
         self.cb_check_interval.addItem(load_phosphor_icon("ph.calendar", color=DesignTokens.TEXT_PRIMARY), self.tr("Quotidien (Toutes les 24 heures)"), 86400)
@@ -448,6 +466,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         # 4. Action de recherche manuelle
         check_row = QHBoxLayout()
         lbl_check_title = QLabel(self.tr("Recherche de mises à jour :"))
+        lbl_check_title.setWordWrap(True)
+        lbl_check_title.setMinimumWidth(0)
         lbl_check_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         self.rows_labels.append(lbl_check_title)
         check_row.addWidget(lbl_check_title)

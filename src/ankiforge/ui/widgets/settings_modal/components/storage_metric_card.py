@@ -1,7 +1,7 @@
 from typing import Any
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -15,6 +15,8 @@ class StorageMetricCard(QFrame):
         self.icon_name = icon_name
         self.setObjectName("StorageMetricCard")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)
@@ -22,9 +24,10 @@ class StorageMetricCard(QFrame):
 
         top_row = QHBoxLayout()
         self.lbl_title = QLabel(title)
+        self.lbl_title.setWordWrap(True)
+        self.lbl_title.setMinimumWidth(0)
         self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; text-transform: uppercase;")
-        top_row.addWidget(self.lbl_title)
-        top_row.addStretch()
+        top_row.addWidget(self.lbl_title, 1)
 
         self.lbl_icon = QLabel()
         self.lbl_icon.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
@@ -32,14 +35,21 @@ class StorageMetricCard(QFrame):
         layout.addLayout(top_row)
 
         self.lbl_val = QLabel(value)
+        self.lbl_val.setWordWrap(True)
+        self.lbl_val.setMinimumWidth(0)
         self.lbl_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 18px; font-weight: bold; font-family: '{DesignTokens.FONT_CODE}';")
         layout.addWidget(self.lbl_val)
 
         self.lbl_sub = QLabel(subtitle)
+        self.lbl_sub.setWordWrap(True)
+        self.lbl_sub.setMinimumWidth(0)
         self.lbl_sub.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px;")
         layout.addWidget(self.lbl_sub)
 
         self._apply_style()
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(0, 0)
 
     def update_metric(self, value: str, subtitle: str = "") -> None:
         self.lbl_val.setText(value)

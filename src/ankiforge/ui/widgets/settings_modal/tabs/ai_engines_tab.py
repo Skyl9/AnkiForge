@@ -174,7 +174,6 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.scroll = QScrollArea(self)
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         self.content_widget = QWidget()
@@ -220,7 +219,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             row.addWidget(icon_lbl)
 
             lbl = QLabel(tr("%1 :", p_name))
-            lbl.setMinimumWidth(85)
+            lbl.setMinimumWidth(0)
             lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
             row.addWidget(lbl)
             self.lbl_provider_labels.append(lbl)
@@ -270,14 +269,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         lbl_ol_icon.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
         row_ol.addWidget(lbl_ol_icon)
         self.lbl_ol_url = QLabel(self.tr("Ollama Local :"))
-        self.lbl_ol_url.setMinimumWidth(130)
+        self.lbl_ol_url.setWordWrap(True)
+        self.lbl_ol_url.setMinimumWidth(0)
         self.lbl_ol_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_ol.addWidget(self.lbl_ol_url)
         self.le_ollama_url = StyledLineEdit()
+        self.le_ollama_url.setMinimumWidth(0)
         self.le_ollama_url.setFixedHeight(28)
         self.le_ollama_url.setText(str(SettingsService.get("ollama/url", "http://localhost:11434")))
         row_ol.addWidget(self.le_ollama_url, 1)
         self.btn_scan_ollama = SecondaryButton("Scanner les modèles")
+        self.btn_scan_ollama.setMinimumWidth(0)
         self.btn_scan_ollama.setFixedHeight(28)
         self.btn_scan_ollama.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.COLOR_GREEN))
         self.btn_scan_ollama.clicked.connect(self._scan_ollama)
@@ -294,10 +296,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         lbl_oc_icon.setPixmap(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
         row_oc.addWidget(lbl_oc_icon)
         self.lbl_oc_url = QLabel(self.tr("Passerelle OpenCode :"))
-        self.lbl_oc_url.setMinimumWidth(130)
+        self.lbl_oc_url.setWordWrap(True)
+        self.lbl_oc_url.setMinimumWidth(0)
         self.lbl_oc_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_oc.addWidget(self.lbl_oc_url)
         self.le_opencode_url = StyledLineEdit()
+        self.le_opencode_url.setMinimumWidth(0)
         self.le_opencode_url.setFixedHeight(28)
         self.le_opencode_url.setPlaceholderText(self.tr("https://opencode.ai/zen/v1"))
         self.le_opencode_url.setText(str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1"))
@@ -311,10 +315,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         lbl_or_icon.setPixmap(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
         row_or.addWidget(lbl_or_icon)
         self.lbl_or_url = QLabel(self.tr("API OpenRouter :"))
-        self.lbl_or_url.setMinimumWidth(130)
+        self.lbl_or_url.setWordWrap(True)
+        self.lbl_or_url.setMinimumWidth(0)
         self.lbl_or_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         row_or.addWidget(self.lbl_or_url)
         self.le_openrouter_url = StyledLineEdit()
+        self.le_openrouter_url.setMinimumWidth(0)
         self.le_openrouter_url.setFixedHeight(28)
         self.le_openrouter_url.setPlaceholderText(self.tr("https://openrouter.ai/api/v1"))
         self.le_openrouter_url.setText(str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1"))
@@ -333,12 +339,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         mcp_layout.setContentsMargins(14, 10, 14, 10)
         mcp_layout.setSpacing(8)
 
-        row_mcp = QHBoxLayout()
-        row_mcp.setSpacing(10)
+        row_mcp_top = QHBoxLayout()
+        row_mcp_top.setSpacing(10)
 
         lbl_mcp_icon = QLabel()
         lbl_mcp_icon.setPixmap(load_phosphor_icon("ph.plugs-connected", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
-        row_mcp.addWidget(lbl_mcp_icon)
+        row_mcp_top.addWidget(lbl_mcp_icon)
 
         from ankiforge.utils.environment import get_app_qsettings
 
@@ -348,40 +354,49 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         self.chk_mcp_enabled = QCheckBox(self.tr("Activer le serveur MCP en arrière-plan"))
         self.chk_mcp_enabled.setChecked(mcp_enabled_val)
+        self.chk_mcp_enabled.setMinimumWidth(0)
+        self.chk_mcp_enabled.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.chk_mcp_enabled.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
-        row_mcp.addWidget(self.chk_mcp_enabled)
+        row_mcp_top.addWidget(self.chk_mcp_enabled, 1)
 
-        row_mcp.addStretch()
+        mcp_layout.addLayout(row_mcp_top)
+
+        row_mcp_params = QHBoxLayout()
+        row_mcp_params.setSpacing(10)
 
         self.lbl_mcp_port = QLabel(self.tr("Port d'écoute :"))
+        self.lbl_mcp_port.setMinimumWidth(0)
         self.lbl_mcp_port.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        row_mcp.addWidget(self.lbl_mcp_port)
+        row_mcp_params.addWidget(self.lbl_mcp_port)
 
         self.spin_mcp_port = QSpinBox()
         self.spin_mcp_port.setRange(1024, 65535)
         self.spin_mcp_port.setValue(mcp_port_val if 1024 <= mcp_port_val <= 65535 else 8765)
         self.spin_mcp_port.setFixedHeight(28)
-        self.spin_mcp_port.setMinimumWidth(80)
-        row_mcp.addWidget(self.spin_mcp_port)
+        self.spin_mcp_port.setMinimumWidth(70)
+        row_mcp_params.addWidget(self.spin_mcp_port)
+
+        row_mcp_params.addStretch()
 
         self.btn_rotate_mcp_token = SecondaryButton("Renouveler le jeton")
+        self.btn_rotate_mcp_token.setMinimumWidth(0)
         self.btn_rotate_mcp_token.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
         self.btn_rotate_mcp_token.setToolTip(self.tr("Régénère un nouveau jeton Bearer 256 bits pour sécuriser le serveur MCP."))
         self.btn_rotate_mcp_token.clicked.connect(self._on_rotate_mcp_token)
-        row_mcp.addWidget(self.btn_rotate_mcp_token)
+        row_mcp_params.addWidget(self.btn_rotate_mcp_token)
 
-        mcp_layout.addLayout(row_mcp)
+        mcp_layout.addLayout(row_mcp_params)
 
-        # Ligne Préférences de navigation et demandes contextuelles MCP & Agents
-        row_prefs = QHBoxLayout()
-        row_prefs.setSpacing(12)
-
+        # Lignes Préférences de navigation et demandes contextuelles MCP & Agents
         consultant_default_tab_val = q_settings.value("consultant/default_tab", "mcp", type=str)
         consultant_target_val = q_settings.value("consultant/external_prompt_target", "mcp", type=str)
 
+        row_pref1 = QHBoxLayout()
         self.lbl_consultant_default_tab = QLabel(self.tr("Onglet par défaut :"))
+        self.lbl_consultant_default_tab.setWordWrap(True)
+        self.lbl_consultant_default_tab.setMinimumWidth(0)
         self.lbl_consultant_default_tab.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        row_prefs.addWidget(self.lbl_consultant_default_tab)
+        row_pref1.addWidget(self.lbl_consultant_default_tab, 1)
 
         self.cb_consultant_default_tab = StyledComboBox()
         self.cb_consultant_default_tab.addItem(self.tr("Serveur MCP (recommandé)"), "mcp")
@@ -389,13 +404,16 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         idx_tab = 0 if consultant_default_tab_val == "mcp" else 1
         self.cb_consultant_default_tab.setCurrentIndex(idx_tab)
         self.cb_consultant_default_tab.setFixedHeight(28)
-        row_prefs.addWidget(self.cb_consultant_default_tab)
+        self.cb_consultant_default_tab.setMinimumWidth(0)
+        row_pref1.addWidget(self.cb_consultant_default_tab)
+        mcp_layout.addLayout(row_pref1)
 
-        row_prefs.addSpacing(16)
-
+        row_pref2 = QHBoxLayout()
         self.lbl_consultant_prompt_target = QLabel(self.tr("Demandes contextuelles :"))
+        self.lbl_consultant_prompt_target.setWordWrap(True)
+        self.lbl_consultant_prompt_target.setMinimumWidth(0)
         self.lbl_consultant_prompt_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        row_prefs.addWidget(self.lbl_consultant_prompt_target)
+        row_pref2.addWidget(self.lbl_consultant_prompt_target, 1)
 
         self.cb_consultant_prompt_target = StyledComboBox()
         self.cb_consultant_prompt_target.addItem(self.tr("Serveur MCP (bandeau prêt à copier)"), "mcp")
@@ -403,10 +421,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         idx_target = 0 if consultant_target_val == "mcp" else 1
         self.cb_consultant_prompt_target.setCurrentIndex(idx_target)
         self.cb_consultant_prompt_target.setFixedHeight(28)
-        row_prefs.addWidget(self.cb_consultant_prompt_target)
-
-        row_prefs.addStretch()
-        mcp_layout.addLayout(row_prefs)
+        self.cb_consultant_prompt_target.setMinimumWidth(0)
+        row_pref2.addWidget(self.cb_consultant_prompt_target)
+        mcp_layout.addLayout(row_pref2)
 
         layout.addWidget(self.card_mcp)
 
@@ -424,18 +441,24 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.table_engines.itemChanged.connect(self._on_table_item_changed)
         self.table_engines.itemDoubleClicked.connect(lambda _: self._edit_selected_engine())
         self.table_engines.setMinimumHeight(160)
+        self.table_engines.setMinimumWidth(0)
         layout.addWidget(self.table_engines)
 
-        # Barre d'outils Catalogue compacte et unifiée
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(8)
+        # Barre d'outils Catalogue compacte et réactive
+        self.toolbar_widget = QWidget()
+        self.toolbar_widget.setMinimumWidth(0)
+        self.toolbar_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.toolbar_vlayout = QVBoxLayout(self.toolbar_widget)
+        self.toolbar_vlayout.setContentsMargins(0, 0, 0, 0)
+        self.toolbar_vlayout.setSpacing(6)
 
-        self.btn_browse_catalog = PrimaryButton("Explorer le catalogue & comparateur...")
+        self.btn_browse_catalog = PrimaryButton(self.tr("Explorer le catalogue & comparateur..."))
+        self.btn_browse_catalog.setMinimumWidth(0)
         self.btn_browse_catalog.setIcon(load_on_accent_icon("ph.sparkle"))
         self.btn_browse_catalog.clicked.connect(self._open_catalog_dialog)
-        toolbar.addWidget(self.btn_browse_catalog)
 
-        self.btn_add_menu = SecondaryButton("Ajouter un modèle ▾")
+        self.btn_add_menu = SecondaryButton(self.tr("Ajouter un modèle ▾"))
+        self.btn_add_menu.setMinimumWidth(0)
         self.btn_add_menu.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.TEXT_PRIMARY))
 
         self.menu_add = QMenu(self)
@@ -450,7 +473,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         self.menu_add.addSeparator()
 
-        presets_menu = self.menu_add.addMenu("Presets rapides populaires")
+        presets_menu = self.menu_add.addMenu(self.tr("Presets rapides populaires"))
 
         act_gemini = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE), self.tr("Google Gemini 3.5 Flash Lite"), self)
         act_gemini.triggered.connect(lambda: self._quick_add_engine("Google Gemini 3.5 Flash Lite", "gemini", "gemini-3.5-flash-lite", True, max_tokens=65536, sort_order=0))
@@ -477,22 +500,19 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         presets_menu.addAction(act_openrouter)
 
         self.btn_add_menu.setMenu(self.menu_add)
-        toolbar.addWidget(self.btn_add_menu)
 
-        self.btn_edit_engine = SecondaryButton("Modifier")
+        self.btn_edit_engine = SecondaryButton(self.tr("Modifier"))
+        self.btn_edit_engine.setMinimumWidth(0)
         self.btn_edit_engine.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
         self.btn_edit_engine.setToolTip(self.tr("Modifier les paramètres du moteur IA sélectionné"))
         self.btn_edit_engine.clicked.connect(lambda: self._edit_selected_engine())
-        toolbar.addWidget(self.btn_edit_engine)
-
-        toolbar.addStretch()
 
         self.btn_del_engine = DangerButton(tr("Supprimer"), ghost=True)
+        self.btn_del_engine.setMinimumWidth(0)
         self.btn_del_engine.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
         self.btn_del_engine.clicked.connect(lambda: self._del_engine())
-        toolbar.addWidget(self.btn_del_engine)
 
-        layout.addLayout(toolbar)
+        layout.addWidget(self.toolbar_widget)
 
         # ── SECTION 4 : PRÉFÉRENCES IA GLOBALES ──────────────────────────────
         self.lbl_sec_global_prefs = QLabel(self.tr("PRÉFÉRENCES IA GLOBALES"))
@@ -513,23 +533,25 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         model_row.addWidget(icon_def_model)
 
         self.lbl_default_model = QLabel(self.tr("Modèle IA par défaut global :"))
-        self.lbl_default_model.setMinimumWidth(180)
+        self.lbl_default_model.setWordWrap(True)
+        self.lbl_default_model.setMinimumWidth(0)
         self.lbl_default_model.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         model_row.addWidget(self.lbl_default_model)
 
         self.cb_default_model = StyledComboBox()
+        self.cb_default_model.setMinimumWidth(0)
         self.cb_default_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         model_row.addWidget(self.cb_default_model)
         prefs_layout.addLayout(model_row)
 
         # Paramètres de génération (Température, Max tokens, CoT budget)
-        gen_grid = QGridLayout()
-        gen_grid.setHorizontalSpacing(16)
-        gen_grid.setVerticalSpacing(8)
+        self.gen_grid = QGridLayout()
+        self.gen_grid.setHorizontalSpacing(16)
+        self.gen_grid.setVerticalSpacing(8)
 
         # Température
-        temp_col = QVBoxLayout()
-        temp_col.setSpacing(4)
+        self.temp_col = QVBoxLayout()
+        self.temp_col.setSpacing(4)
         temp_hdr = QHBoxLayout()
         self.lbl_temp_title = QLabel(self.tr("Température :"))
         self.lbl_temp_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
@@ -538,24 +560,24 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         temp_hdr.addWidget(self.lbl_temp_title)
         temp_hdr.addStretch()
         temp_hdr.addWidget(self.lbl_temp_val)
-        temp_col.addLayout(temp_hdr)
+        self.temp_col.addLayout(temp_hdr)
 
         self.slider_temp = QSlider(Qt.Orientation.Horizontal)
         self.slider_temp.setMinimum(0)
         self.slider_temp.setMaximum(100)
         self.slider_temp.setValue(70)
         self.slider_temp.valueChanged.connect(lambda v: self.lbl_temp_val.setText(f"{v / 100:.2f}"))
-        temp_col.addWidget(self.slider_temp)
-        gen_grid.addLayout(temp_col, 0, 0)
+        self.temp_col.addWidget(self.slider_temp)
 
         # Max tokens
-        tokens_col = QVBoxLayout()
-        tokens_col.setSpacing(4)
+        self.tokens_col = QVBoxLayout()
+        self.tokens_col.setSpacing(4)
         self.lbl_tokens_title = QLabel(self.tr("Plafond Max Tokens :"))
         self.lbl_tokens_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        tokens_col.addWidget(self.lbl_tokens_title)
+        self.tokens_col.addWidget(self.lbl_tokens_title)
 
         self.cb_max_tokens = StyledComboBox()
+        self.cb_max_tokens.setMinimumWidth(0)
         self.cb_max_tokens.addItem(self.tr("4 096 tokens"), 4096)
         self.cb_max_tokens.addItem(self.tr("8 192 tokens"), 8192)
         self.cb_max_tokens.addItem(self.tr("16 384 tokens (Standard)"), 16384)
@@ -563,17 +585,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.cb_max_tokens.addItem(self.tr("65 536 tokens"), 65536)
         self.cb_max_tokens.addItem(self.tr("128 000 tokens (Large)"), 128000)
         self.cb_max_tokens.setCurrentIndex(2)
-        tokens_col.addWidget(self.cb_max_tokens)
-        gen_grid.addLayout(tokens_col, 0, 1)
+        self.tokens_col.addWidget(self.cb_max_tokens)
 
         # Thinking CoT Budget
-        thinking_col = QVBoxLayout()
-        thinking_col.setSpacing(4)
+        self.thinking_col = QVBoxLayout()
+        self.thinking_col.setSpacing(4)
         self.lbl_thinking_title = QLabel(self.tr("Budget Réflexion (CoT) :"))
         self.lbl_thinking_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        thinking_col.addWidget(self.lbl_thinking_title)
+        self.thinking_col.addWidget(self.lbl_thinking_title)
 
         self.cb_thinking = StyledComboBox()
+        self.cb_thinking.setMinimumWidth(0)
         self.cb_thinking.addItem(self.tr("Désactivé (0)"), 0)
         self.cb_thinking.addItem(self.tr("1 024 tokens"), 1024)
         self.cb_thinking.addItem(self.tr("2 048 tokens"), 2048)
@@ -582,17 +604,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.cb_thinking.addItem(self.tr("16 384 tokens"), 16384)
         self.cb_thinking.addItem(self.tr("32 768 tokens (Max)"), 32768)
         self.cb_thinking.setCurrentIndex(0)
-        thinking_col.addWidget(self.cb_thinking)
-        gen_grid.addLayout(thinking_col, 0, 2)
+        self.thinking_col.addWidget(self.cb_thinking)
 
         # Budget Tokens Consultant (Temps Réel)
-        consultant_tokens_col = QVBoxLayout()
-        consultant_tokens_col.setSpacing(4)
+        self.consultant_tokens_col = QVBoxLayout()
+        self.consultant_tokens_col.setSpacing(4)
         self.lbl_consultant_tokens_title = QLabel(self.tr("Budget Tokens Consultant :"))
         self.lbl_consultant_tokens_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        consultant_tokens_col.addWidget(self.lbl_consultant_tokens_title)
+        self.consultant_tokens_col.addWidget(self.lbl_consultant_tokens_title)
 
         self.cb_consultant_token_budget = StyledComboBox()
+        self.cb_consultant_token_budget.setMinimumWidth(0)
         self.cb_consultant_token_budget.addItem(self.tr("10 000 tokens"), 10000)
         self.cb_consultant_token_budget.addItem(self.tr("25 000 tokens"), 25000)
         self.cb_consultant_token_budget.addItem(self.tr("50 000 tokens (Défaut)"), 50000)
@@ -600,17 +622,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.cb_consultant_token_budget.addItem(self.tr("200 000 tokens"), 200000)
         self.cb_consultant_token_budget.addItem(self.tr("Illimité (0)"), 0)
         self.cb_consultant_token_budget.setCurrentIndex(2)
-        consultant_tokens_col.addWidget(self.cb_consultant_token_budget)
-        gen_grid.addLayout(consultant_tokens_col, 1, 0)
+        self.consultant_tokens_col.addWidget(self.cb_consultant_token_budget)
 
         # Budget Coût Consultant USD (Temps Réel)
-        consultant_cost_col = QVBoxLayout()
-        consultant_cost_col.setSpacing(4)
+        self.consultant_cost_col = QVBoxLayout()
+        self.consultant_cost_col.setSpacing(4)
         self.lbl_consultant_cost_title = QLabel(self.tr("Budget Coût Consultant (USD) :"))
         self.lbl_consultant_cost_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        consultant_cost_col.addWidget(self.lbl_consultant_cost_title)
+        self.consultant_cost_col.addWidget(self.lbl_consultant_cost_title)
 
         self.cb_consultant_cost_budget = StyledComboBox()
+        self.cb_consultant_cost_budget.setMinimumWidth(0)
         self.cb_consultant_cost_budget.addItem(self.tr("0.10 $"), 0.10)
         self.cb_consultant_cost_budget.addItem(self.tr("0.25 $"), 0.25)
         self.cb_consultant_cost_budget.addItem(self.tr("0.50 $ (Défaut)"), 0.50)
@@ -619,19 +641,18 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.cb_consultant_cost_budget.addItem(self.tr("5.00 $"), 5.00)
         self.cb_consultant_cost_budget.addItem(self.tr("Illimité (0.00 $)"), 0.0)
         self.cb_consultant_cost_budget.setCurrentIndex(2)
-        consultant_cost_col.addWidget(self.cb_consultant_cost_budget)
-        gen_grid.addLayout(consultant_cost_col, 1, 1)
+        self.consultant_cost_col.addWidget(self.cb_consultant_cost_budget)
 
         # Note d'information sur le garde-fou 80 %
-        info_guard_col = QVBoxLayout()
-        info_guard_col.setSpacing(4)
+        self.info_guard_col = QVBoxLayout()
+        self.info_guard_col.setSpacing(4)
         lbl_guard_title = QLabel(self.tr("Protection Budget Consultant :"))
         lbl_guard_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        info_guard_col.addWidget(lbl_guard_title)
+        self.info_guard_col.addWidget(lbl_guard_title)
         self.lbl_guard_desc = QLabel(self.tr("Arrêt préventif à 80 % du quota"))
+        self.lbl_guard_desc.setWordWrap(True)
         self.lbl_guard_desc.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: 600; padding-top: 4px;")
-        info_guard_col.addWidget(self.lbl_guard_desc)
-        gen_grid.addLayout(info_guard_col, 1, 2)
+        self.info_guard_col.addWidget(self.lbl_guard_desc)
 
         # Délai maximal de génération (timeout réseau par requête)
         timeout_row = QHBoxLayout()
@@ -641,6 +662,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         timeout_row.addWidget(icon_timeout)
 
         self.lbl_timeout_title = QLabel(self.tr("Délai max. de génération :"))
+        self.lbl_timeout_title.setWordWrap(True)
+        self.lbl_timeout_title.setMinimumWidth(0)
         self.lbl_timeout_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
         timeout_row.addWidget(self.lbl_timeout_title)
 
@@ -657,30 +680,24 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             ("60 000 s (défaut)", 60000),
         ]
         self.cb_timeout = StyledComboBox()
-        self.cb_timeout.setMinimumWidth(220)
+        self.cb_timeout.setMinimumWidth(0)
         self.cb_timeout.setFixedHeight(28)
         for label, value in timeout_presets:
             self.cb_timeout.addItem(label, value)
         self.cb_timeout.setCurrentIndex(len(timeout_presets) - 1)
         timeout_row.addWidget(self.cb_timeout)
 
-        # Toggles globaux (2x2 grid)
-        toggles_grid = QGridLayout()
-        toggles_grid.setHorizontalSpacing(12)
-        toggles_grid.setVerticalSpacing(8)
+        # Toggles globaux réactifs
+        self.toggles_grid = QGridLayout()
+        self.toggles_grid.setHorizontalSpacing(12)
+        self.toggles_grid.setVerticalSpacing(8)
 
         self.toggle_streaming = OptionToggleRow(tr("Streaming des réponses"), icon_name="ph.waveform", checked=True)
         self.toggle_vision = OptionToggleRow(tr("Capacités Vision activées"), icon_name="ph.eye", checked=True)
         self.toggle_autoval = OptionToggleRow(tr("Validation automatique des cartes"), icon_name="ph.shield-check", checked=False)
         self.toggle_linter = OptionToggleRow(tr("Audit Linter automatique"), icon_name="ph.check-circle", checked=True)
 
-        toggles_grid.addWidget(self.toggle_streaming, 0, 0)
-        toggles_grid.addWidget(self.toggle_vision, 0, 1)
-        toggles_grid.addWidget(self.toggle_autoval, 1, 0)
-        toggles_grid.addWidget(self.toggle_linter, 1, 1)
-        toggles_grid.setColumnStretch(0, 1)
-        toggles_grid.setColumnStretch(1, 1)
-        prefs_layout.addLayout(toggles_grid)
+        prefs_layout.addLayout(self.toggles_grid)
 
         # Paramètres RAG / Recherche Sémantique
         rag_grid = QGridLayout()
@@ -734,7 +751,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         # Paramètres avancés : génération (température/tokens/CoT), timeout et RAG, repliés par défaut
         self.sec_advanced_gen = CollapsibleSection(tr("Options avancées de génération & RAG"), collapsed=True)
-        self.sec_advanced_gen.add_layout(gen_grid)
+        self.sec_advanced_gen.add_layout(self.gen_grid)
         self.sec_advanced_gen.add_layout(timeout_row)
         self.sec_advanced_gen.add_layout(rag_grid)
         prefs_layout.addWidget(self.sec_advanced_gen)
@@ -743,6 +760,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         self.scroll.setWidget(self.content_widget)
         root_layout.addWidget(self.scroll)
+
+        self._last_is_narrow: bool | None = None
+        self._relayout_responsive(is_narrow=True)
 
     def _test_cloud_key(self, provider_id: str, provider_name: str) -> None:
         key_edit = self.key_edits.get(provider_id)
@@ -1457,3 +1477,109 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         )
         if res == QMessageBox.StandardButton.Yes:
             self.rotate_mcp_token_requested.emit()
+
+    def _relayout_toolbar(self, is_narrow: bool) -> None:
+        """Réorganise la barre d'outils du catalogue : 2 lignes sous 700px, 1 ligne au-delà."""
+        for w in (self.btn_browse_catalog, self.btn_add_menu, self.btn_edit_engine, self.btn_del_engine):
+            w.setParent(None)
+
+        while self.toolbar_vlayout.count():
+            item = self.toolbar_vlayout.takeAt(0)
+            if item.layout():
+                while item.layout().count():
+                    item.layout().takeAt(0)
+
+        if is_narrow:
+            row_top = QHBoxLayout()
+            row_top.setContentsMargins(0, 0, 0, 0)
+            row_top.addWidget(self.btn_browse_catalog)
+
+            row_actions = QHBoxLayout()
+            row_actions.setContentsMargins(0, 0, 0, 0)
+            row_actions.setSpacing(8)
+            row_actions.addWidget(self.btn_add_menu)
+            row_actions.addWidget(self.btn_edit_engine)
+            row_actions.addStretch()
+            row_actions.addWidget(self.btn_del_engine)
+
+            self.toolbar_vlayout.addLayout(row_top)
+            self.toolbar_vlayout.addLayout(row_actions)
+        else:
+            row_all = QHBoxLayout()
+            row_all.setContentsMargins(0, 0, 0, 0)
+            row_all.setSpacing(8)
+            row_all.addWidget(self.btn_browse_catalog)
+            row_all.addWidget(self.btn_add_menu)
+            row_all.addWidget(self.btn_edit_engine)
+            row_all.addStretch()
+            row_all.addWidget(self.btn_del_engine)
+
+            self.toolbar_vlayout.addLayout(row_all)
+
+    def _relayout_toggles(self, is_narrow: bool) -> None:
+        """Réorganise la grille des bascules globales : 1 colonne sous 700px, 2 colonnes au-delà."""
+        for t in (self.toggle_streaming, self.toggle_vision, self.toggle_autoval, self.toggle_linter):
+            self.toggles_grid.removeWidget(t)
+
+        if is_narrow:
+            self.toggles_grid.addWidget(self.toggle_streaming, 0, 0)
+            self.toggles_grid.addWidget(self.toggle_vision, 1, 0)
+            self.toggles_grid.addWidget(self.toggle_autoval, 2, 0)
+            self.toggles_grid.addWidget(self.toggle_linter, 3, 0)
+            self.toggles_grid.setColumnStretch(0, 1)
+            self.toggles_grid.setColumnStretch(1, 0)
+        else:
+            self.toggles_grid.addWidget(self.toggle_streaming, 0, 0)
+            self.toggles_grid.addWidget(self.toggle_vision, 0, 1)
+            self.toggles_grid.addWidget(self.toggle_autoval, 1, 0)
+            self.toggles_grid.addWidget(self.toggle_linter, 1, 1)
+            self.toggles_grid.setColumnStretch(0, 1)
+            self.toggles_grid.setColumnStretch(1, 1)
+
+    def _relayout_gen_grid(self, is_narrow: bool) -> None:
+        """Réorganise les paramètres avancés de génération : 2 colonnes sous 700px, 3 colonnes au-delà."""
+        cols = [
+            self.temp_col,
+            self.tokens_col,
+            self.thinking_col,
+            self.consultant_tokens_col,
+            self.consultant_cost_col,
+            self.info_guard_col,
+        ]
+        for c in cols:
+            self.gen_grid.removeItem(c)
+
+        if is_narrow:
+            self.gen_grid.addLayout(self.temp_col, 0, 0)
+            self.gen_grid.addLayout(self.tokens_col, 0, 1)
+            self.gen_grid.addLayout(self.thinking_col, 1, 0)
+            self.gen_grid.addLayout(self.consultant_tokens_col, 1, 1)
+            self.gen_grid.addLayout(self.consultant_cost_col, 2, 0)
+            self.gen_grid.addLayout(self.info_guard_col, 2, 1)
+            self.gen_grid.setColumnStretch(0, 1)
+            self.gen_grid.setColumnStretch(1, 1)
+            self.gen_grid.setColumnStretch(2, 0)
+        else:
+            self.gen_grid.addLayout(self.temp_col, 0, 0)
+            self.gen_grid.addLayout(self.tokens_col, 0, 1)
+            self.gen_grid.addLayout(self.thinking_col, 0, 2)
+            self.gen_grid.addLayout(self.consultant_tokens_col, 1, 0)
+            self.gen_grid.addLayout(self.consultant_cost_col, 1, 1)
+            self.gen_grid.addLayout(self.info_guard_col, 1, 2)
+            self.gen_grid.setColumnStretch(0, 1)
+            self.gen_grid.setColumnStretch(1, 1)
+            self.gen_grid.setColumnStretch(2, 1)
+
+    def _relayout_responsive(self, is_narrow: bool) -> None:
+        """Applique l'adaptation réactive sur l'ensemble des sous-sections de l'onglet."""
+        self._relayout_toolbar(is_narrow)
+        self._relayout_toggles(is_narrow)
+        self._relayout_gen_grid(is_narrow)
+
+    def resizeEvent(self, event: Any) -> None:
+        """Adapte dynamiquement les grilles selon la largeur disponible (seuil à 700px)."""
+        super().resizeEvent(event)
+        is_narrow = self.width() < 700
+        if getattr(self, "_last_is_narrow", None) != is_narrow:
+            self._last_is_narrow = is_narrow
+            self._relayout_responsive(is_narrow)

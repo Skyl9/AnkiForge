@@ -62,10 +62,10 @@ class DeveloperTab(QWidget):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
-        scroll = QScrollArea(self)
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         content_widget = QWidget()
         layout = QVBoxLayout(content_widget)
@@ -96,6 +96,8 @@ class DeveloperTab(QWidget):
             self.tr("Métadonnées d'exécution et localisation des données du profil développeur."),
             self.env_card,
         )
+        lbl_env_desc.setWordWrap(True)
+        lbl_env_desc.setMinimumWidth(0)
         lbl_env_desc.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         title_env_box.addWidget(lbl_env_desc)
 
@@ -129,10 +131,13 @@ class DeveloperTab(QWidget):
 
         for row_idx, (k, v) in enumerate(meta_rows):
             lbl_k = QLabel(k, self.env_card)
+            lbl_k.setMinimumWidth(0)
             lbl_k.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.TEXT_SECONDARY};")
             grid.addWidget(lbl_k, row_idx, 0)
 
             lbl_v = QLabel(str(v), self.env_card)
+            lbl_v.setWordWrap(True)
+            lbl_v.setMinimumWidth(0)
             lbl_v.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; color: {DesignTokens.TEXT_PRIMARY};")
             lbl_v.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             grid.addWidget(lbl_v, row_idx, 1)
@@ -165,12 +170,14 @@ class DeveloperTab(QWidget):
             self.gallery_card,
         )
         lbl_gal_desc.setWordWrap(True)
+        lbl_gal_desc.setMinimumWidth(0)
         lbl_gal_desc.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
         title_gal_box.addWidget(lbl_gal_desc)
 
         header_gal.addLayout(title_gal_box, 1)
 
         btn_open_gallery = PrimaryButton(self.tr("Ouvrir la Galerie Plein Écran"))
+        btn_open_gallery.setMinimumWidth(0)
         btn_open_gallery.setIcon(load_phosphor_icon("ph.arrows-out-simple", color=DesignTokens.TEXT_ON_ACCENT))
         apply_compact_style(btn_open_gallery, height=28)
         btn_open_gallery.clicked.connect(self.open_full_gallery_dialog)
@@ -224,12 +231,14 @@ class DeveloperTab(QWidget):
             ),
         ]
 
-        dialogs_grid = QGridLayout()
-        dialogs_grid.setHorizontalSpacing(10)
-        dialogs_grid.setVerticalSpacing(10)
+        self.dialogs_grid = QGridLayout()
+        self.dialogs_grid.setHorizontalSpacing(10)
+        self.dialogs_grid.setVerticalSpacing(10)
+        self.dialog_cards: list[QFrame] = []
 
-        for idx, (_d_name, d_title, d_desc, icon_name, fn) in enumerate(dialogs_info):
+        for _idx, (_d_name, d_title, d_desc, icon_name, fn) in enumerate(dialogs_info):
             card_item = QFrame(self.gallery_card)
+            card_item.setMinimumWidth(0)
             card_item.setStyleSheet(f"""
                 QFrame {{
                     background-color: {DesignTokens.BG_INPUT};
@@ -250,6 +259,8 @@ class DeveloperTab(QWidget):
             top_row.addWidget(icon_lbl)
 
             lbl_card_t = QLabel(d_title, card_item)
+            lbl_card_t.setWordWrap(True)
+            lbl_card_t.setMinimumWidth(0)
             lbl_card_t.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
             top_row.addWidget(lbl_card_t)
             top_row.addStretch()
@@ -258,34 +269,39 @@ class DeveloperTab(QWidget):
 
             lbl_card_d = QLabel(d_desc, card_item)
             lbl_card_d.setWordWrap(True)
+            lbl_card_d.setMinimumWidth(0)
             lbl_card_d.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
             c_layout.addWidget(lbl_card_d)
 
             c_layout.addStretch()
 
             btn = ActionButton(self.tr("Lancer le test"))
+            btn.setMinimumWidth(0)
             btn.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_PRIMARY))
             apply_compact_style(btn, height=26)
             btn.clicked.connect(fn)
             c_layout.addWidget(btn)
             self.launcher_buttons.append(btn)
 
-            row = idx // 2
-            col = idx % 2
-            dialogs_grid.addWidget(card_item, row, col)
+            self.dialog_cards.append(card_item)
 
-        gallery_card_layout.addLayout(dialogs_grid)
+        gallery_card_layout.addLayout(self.dialogs_grid)
 
         # Statut du dernier test exécuté
         self.lbl_status = QLabel(self.tr("Prêt : aucun dialogue ouvert pour le moment."), self.gallery_card)
+        self.lbl_status.setWordWrap(True)
+        self.lbl_status.setMinimumWidth(0)
         self.lbl_status.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-style: italic;")
         gallery_card_layout.addWidget(self.lbl_status)
 
         layout.addWidget(self.gallery_card)
         layout.addStretch()
 
-        scroll.setWidget(content_widget)
-        root_layout.addWidget(scroll)
+        self.scroll.setWidget(content_widget)
+        root_layout.addWidget(self.scroll)
+
+        self._last_is_narrow: bool | None = True
+        self._relayout_dialogs(is_narrow=True)
 
     def has_pending_changes(self) -> bool:
         """L'onglet Développeur est un cockpit de diagnostic en lecture seule."""
@@ -348,3 +364,29 @@ class DeveloperTab(QWidget):
         dlg = IsolatedBatchSliceComposerDialog(parent=self.window())
         res = dlg.exec()
         self.lbl_status.setText(tr("Dernier test : BatchSliceComposerDialog exécuté (code %1).", res))
+
+    def _relayout_dialogs(self, is_narrow: bool) -> None:
+        """Réorganise la grille des modales : 1 colonne sous 700px, 2 colonnes au-delà."""
+        for card in self.dialog_cards:
+            self.dialogs_grid.removeWidget(card)
+
+        for idx, card in enumerate(self.dialog_cards):
+            if is_narrow:
+                self.dialogs_grid.addWidget(card, idx, 0)
+            else:
+                self.dialogs_grid.addWidget(card, idx // 2, idx % 2)
+
+        if is_narrow:
+            self.dialogs_grid.setColumnStretch(0, 1)
+            self.dialogs_grid.setColumnStretch(1, 0)
+        else:
+            self.dialogs_grid.setColumnStretch(0, 1)
+            self.dialogs_grid.setColumnStretch(1, 1)
+
+    def resizeEvent(self, event: Any) -> None:
+        """Adapte dynamiquement la grille des modales selon la largeur disponible (seuil 700px)."""
+        super().resizeEvent(event)
+        is_narrow = self.width() < 700
+        if getattr(self, "_last_is_narrow", None) != is_narrow:
+            self._last_is_narrow = is_narrow
+            self._relayout_dialogs(is_narrow)

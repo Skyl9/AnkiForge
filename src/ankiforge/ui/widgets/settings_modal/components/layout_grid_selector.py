@@ -5,6 +5,7 @@ Conforme aux tokens sémantiques AnkiForge et aux règles d'accessibilité WCAG.
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPainterPath, QPixmap
@@ -23,6 +24,61 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
+
+
+class ThumbnailPreviewWidget(QWidget):
+    """Widget d'aperçu élastique conservant le ratio d'aspect sans imposer de largeur minimale."""
+
+    def __init__(self, pixmap: QPixmap | None = None, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._pixmap = pixmap
+        self.setFixedHeight(180)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setMinimumWidth(0)
+
+    def set_pixmap(self, pixmap: QPixmap | None) -> None:
+        self._pixmap = pixmap
+        self.update()
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(0, 180)
+
+    def sizeHint(self) -> QSize:
+        return QSize(200, 180)
+
+    def paintEvent(self, event: Any) -> None:
+        if self._pixmap is None or self._pixmap.isNull():
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+
+        avail_w = self.width()
+        avail_h = self.height()
+        scaled = self._pixmap.scaled(
+            QSize(avail_w, avail_h),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        if not scaled.isNull():
+            x = (avail_w - scaled.width()) // 2
+            y = (avail_h - scaled.height()) // 2
+
+            path = QPainterPath()
+            r = float(DesignTokens.RADIUS_MD - 1)
+            w = float(scaled.width())
+            h = float(scaled.height())
+            path.moveTo(x, y + r)
+            path.arcTo(x, y, r * 2, r * 2, 180, -90)
+            path.lineTo(x + w - r, y)
+            path.arcTo(x + w - r * 2, y, r * 2, r * 2, 90, -90)
+            path.lineTo(x + w, y + h)
+            path.lineTo(x, y + h)
+            path.closeSubpath()
+
+            painter.setClipPath(path)
+            painter.drawPixmap(x, y, scaled)
+        painter.end()
 
 
 class LayoutThumbnailCard(QFrame):
@@ -51,11 +107,13 @@ class LayoutThumbnailCard(QFrame):
         self.is_selected: bool = False
         self.is_fallback_active: bool = False
         self.fallback_label: QLabel | None = None
+        self.lbl_thumbnail: QWidget | None = None
 
         self.setObjectName("LayoutThumbnailCard")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
 
         self._setup_ui()
         self._update_accessibility()
@@ -83,18 +141,10 @@ class LayoutThumbnailCard(QFrame):
                 pixmap = loaded
 
         if pixmap is not None:
-            self.lbl_thumbnail = QLabel()
-            self.lbl_thumbnail.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            # Mise à l'échelle douce conservant le ratio d'aspect sans rognage déformant
-            scaled_pixmap = pixmap.scaled(
-                QSize(360, 180),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            rounded_pixmap = self._round_top_corners(scaled_pixmap, DesignTokens.RADIUS_MD - 1)
-            self.lbl_thumbnail.setPixmap(rounded_pixmap)
-            self.lbl_thumbnail.setScaledContents(False)
-            preview_layout.addWidget(self.lbl_thumbnail)
+            # Vignette élastique sans largeur fixe
+            self._thumb_preview = ThumbnailPreviewWidget(pixmap, self.preview_container)
+            self.lbl_thumbnail = self._thumb_preview
+            preview_layout.addWidget(self._thumb_preview)
         else:
             # Repli explicite : icône structurelle distinctive + libellé
             self.is_fallback_active = True
@@ -115,6 +165,7 @@ class LayoutThumbnailCard(QFrame):
         # 2. Zone d'informations textuelles
         self.info_container = QWidget()
         self.info_container.setObjectName("LayoutCardInfo")
+        self.info_container.setMinimumWidth(0)
         info_layout = QVBoxLayout(self.info_container)
         info_layout.setContentsMargins(10, 8, 10, 8)
         info_layout.setSpacing(3)
@@ -129,6 +180,8 @@ class LayoutThumbnailCard(QFrame):
         header_row.addWidget(self.icon_badge)
 
         self.lbl_name = QLabel(self.name)
+        self.lbl_name.setWordWrap(True)
+        self.lbl_name.setMinimumWidth(0)
         self.lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 600;")
         header_row.addWidget(self.lbl_name)
         header_row.addStretch()
@@ -143,35 +196,11 @@ class LayoutThumbnailCard(QFrame):
         # Description
         self.lbl_desc = QLabel(self.description)
         self.lbl_desc.setWordWrap(True)
+        self.lbl_desc.setMinimumWidth(0)
         self.lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; line-height: 1.2;")
         info_layout.addWidget(self.lbl_desc)
 
         layout.addWidget(self.info_container)
-
-    @staticmethod
-    def _round_top_corners(pixmap: QPixmap, radius: int = 8) -> QPixmap:
-        """Découpe les coins supérieurs d'un pixmap avec un rayon d'arrondi."""
-        if pixmap.isNull() or radius <= 0:
-            return pixmap
-        out = QPixmap(pixmap.size())
-        out.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(out)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        path = QPainterPath()
-        w = float(pixmap.width())
-        h = float(pixmap.height())
-        r = float(radius)
-        path.moveTo(0, r)
-        path.arcTo(0, 0, r * 2, r * 2, 180, -90)
-        path.lineTo(w - r, 0)
-        path.arcTo(w - r * 2, 0, r * 2, r * 2, 90, -90)
-        path.lineTo(w, h)
-        path.lineTo(0, h)
-        path.closeSubpath()
-        painter.setClipPath(path)
-        painter.drawPixmap(0, 0, pixmap)
-        painter.end()
-        return out
 
     def set_selected(self, selected: bool) -> None:
         """Met à jour l'état de sélection visuelle et les propriétés d'accessibilité."""
@@ -228,6 +257,8 @@ class LayoutGridSelector(QWidget):
     layout_changed = Signal(str)  # layout_id
     currentIndexChanged = Signal(int)  # index pour duck-typing QComboBox
 
+    COLUMNS_BREAKPOINT_WIDTH: int = 480
+
     def __init__(
         self,
         current_layout_id: str | None = None,
@@ -235,10 +266,14 @@ class LayoutGridSelector(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._columns = max(1, columns)
+        self._target_columns = max(1, columns)
+        self._columns = self._target_columns
         self._ordered_layout_ids: list[str] = []
         self._cards: dict[str, LayoutThumbnailCard] = {}
         self._current_layout_id: str = LayoutManager.DEFAULT_LAYOUT_ID
+
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
 
         self._grid_layout = QGridLayout(self)
         self._grid_layout.setContentsMargins(0, 0, 0, 0)
@@ -248,6 +283,34 @@ class LayoutGridSelector(QWidget):
 
         target_id = current_layout_id or LayoutManager.DEFAULT_LAYOUT_ID
         self.set_current_layout_id(target_id)
+
+    @property
+    def columns(self) -> int:
+        return self._columns
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(0, 0)
+
+    def sizeHint(self) -> QSize:
+        return QSize(750, 480)
+
+    def resizeEvent(self, event: Any) -> None:
+        super().resizeEvent(event)
+        w = event.size().width()
+        if w > 0:
+            target_cols = 1 if w < self.COLUMNS_BREAKPOINT_WIDTH else self._target_columns
+            if target_cols != self._columns:
+                self._relayout_columns(target_cols)
+
+    def _relayout_columns(self, cols: int) -> None:
+        self._columns = max(1, cols)
+        for idx, lid in enumerate(self._ordered_layout_ids):
+            card = self._cards.get(lid)
+            if card:
+                self._grid_layout.removeWidget(card)
+                row = idx // self._columns
+                col = idx % self._columns
+                self._grid_layout.addWidget(card, row, col)
 
     @property
     def cards(self) -> dict[str, LayoutThumbnailCard]:
