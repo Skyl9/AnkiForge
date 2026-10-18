@@ -120,33 +120,75 @@ class CommandPalette(QDialog):
         self.commands.clear()
 
         # 1. Vues de navigation
-        if self.view_registry:
-            for view_id, info in self.view_registry.items():
-                if isinstance(info, tuple | list) and len(info) >= 3:
-                    cat, icon, title = info[0], info[1], info[2]
+        registry = self.view_registry
+        if not registry:
+            from ankiforge.ui.main_window import MainWindow
 
-                    self.register_command(view_id, f"Aller à {title}", icon, "", cat)
-        else:
-            self.register_command("dashboard", "Aller au Tableau de bord", "house", "Ctrl+1", "Navigation")
-            self.register_command("creation", "Aller au Studio de Création", "magic-wand", "Ctrl+2", "Navigation")
-            self.register_command("edition", "Aller à Édition & Navigateur", "cards", "Ctrl+3", "Navigation")
-            self.register_command("analysis", "Aller à Analyse & Audit IA", "chart-line-up", "Ctrl+4", "Navigation")
-            self.register_command("consultant", "Aller à AI Consultant", "robot", "Ctrl+5", "Navigation")
+            registry = MainWindow.view_registry()
 
-        # 2. Actions globales
-        self.register_command("action.import", "Importer un paquet Anki (.apkg)", "download-simple", "Ctrl+Shift+I", "Actions")
-        self.register_command("action.export", "Exporter des cartes Anki (.apkg)", "upload-simple", "Ctrl+Shift+E", "Actions")
-        self.register_command("action.tour", "Lancer la visite guidée d'AnkiForge", "compass", "F1", "Aide")
-        self.register_command("action.feedback", "Signaler un bug ou proposer une idée", "chat-circle-dots", "", "Aide")
-        self.register_command("action.support", "Soutenir le projet AnkiForge (Ko-fi)", "ph.heart", "", "Aide")
-        self.register_command("action.settings", "Ouvrir les Paramètres", "gear", "Ctrl+,", "Système")
+        from ankiforge.ui.shortcuts import ShortcutId, get_shortcut_sequence
+
+        for idx, (view_id, info) in enumerate(registry.items()):
+            if isinstance(info, tuple | list) and len(info) >= 3:
+                cat, icon, title = info[0], info[1], info[2]
+                shortcut = ""
+                if idx < 9:
+                    nav_id = getattr(ShortcutId, f"NAV_VIEW_{idx + 1}", None)
+                    if nav_id:
+                        shortcut = get_shortcut_sequence(nav_id)
+
+                self.register_command(view_id, tr("Aller à %1", title), icon, shortcut, cat)
+
+        # 2. Actions globales dérivées du catalogue déclaratif
+        self.register_command(
+            "action.import",
+            tr("Importer un paquet Anki (.apkg)"),
+            "download-simple",
+            get_shortcut_sequence(ShortcutId.APP_IMPORT),
+            tr("Actions"),
+        )
+        self.register_command(
+            "action.export",
+            tr("Exporter des cartes Anki (.apkg)"),
+            "upload-simple",
+            get_shortcut_sequence(ShortcutId.APP_EXPORT),
+            tr("Actions"),
+        )
+        self.register_command(
+            "action.tour",
+            tr("Lancer la visite guidée d'AnkiForge"),
+            "compass",
+            get_shortcut_sequence(ShortcutId.APP_TOUR),
+            tr("Aide"),
+        )
+        self.register_command(
+            "action.feedback",
+            tr("Signaler un bug ou proposer une idée"),
+            "chat-circle-dots",
+            "",
+            tr("Aide"),
+        )
+        self.register_command(
+            "action.support",
+            tr("Soutenir le projet AnkiForge (Ko-fi)"),
+            "ph.heart",
+            "",
+            tr("Aide"),
+        )
+        self.register_command(
+            "action.settings",
+            tr("Ouvrir les Paramètres"),
+            "gear",
+            get_shortcut_sequence(ShortcutId.APP_SETTINGS),
+            tr("Système"),
+        )
         if is_development():
             self.register_command(
                 "action.dialog_gallery",
-                "Galerie des Boîtes de Dialogue (Dev)",
+                tr("Galerie des Boîtes de Dialogue (Dev)"),
                 "app-window",
-                "Ctrl+Alt+D",
-                "Développement",
+                get_shortcut_sequence(ShortcutId.APP_DEBUG_GALLERY),
+                tr("Développement"),
             )
 
         self.refresh_data()

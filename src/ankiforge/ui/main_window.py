@@ -7,13 +7,14 @@ import sys
 from typing import Any, cast
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QIcon, QKeySequence, QShortcut
+from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStackedWidget, QVBoxLayout, QWidget
 
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.ui.components.sidebar import ClickableLabel, Sidebar, SidebarItem  # noqa: F401 — re-export rétrocompatible
 from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — re-export rétrocompatible
 from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
+from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view import AgentsView
 from ankiforge.utils.environment import KOFI_URL, is_development, is_testing
@@ -87,6 +88,7 @@ class MainWindow(QMainWindow):
         }
 
     mcp_data_mutated = Signal(dict)
+    shortcut_manager: ShortcutManager
 
     def __init__(self, ai_manager: AIManager | None, profile_name: str = "default") -> None:
         super().__init__()
@@ -137,6 +139,8 @@ class MainWindow(QMainWindow):
         self._support_dialog: QWidget | None = None
         self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
+        self.shortcut_manager = ShortcutManager(parent=self)
+        self.stacked_widget.currentChanged.connect(self._on_stacked_current_changed)
 
         # Bandeau d'activité global (ADR 0021) : hébergé hors des quatre dispositions
         # enfichables, il reste donc visible quel que soit l'écran et survit à un
@@ -180,8 +184,7 @@ class MainWindow(QMainWindow):
 
         self._prewarm_web_engine()
 
-        self._setup_debug_shortcuts()
-        self._setup_global_shortcuts()
+        self._setup_shortcuts()
         event_bus.subscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
         event_bus.subscribe(OpenFeedbackRequestedEvent, self._on_open_feedback_requested)
 
@@ -614,34 +617,73 @@ class MainWindow(QMainWindow):
                 tr("Réindexation terminée : %1 document(s), %2 fragment(s).", documents, fragments),
             )
 
-    def _setup_debug_shortcuts(self) -> None:
-        """Configure les raccourcis de debug (ex: Capture d'écran, Galerie des dialogues)."""
-        screenshot_shortcut = QShortcut(QKeySequence("Ctrl+F12"), self)
-        screenshot_shortcut.activated.connect(self._take_debug_screenshot)
+    def _on_stacked_current_changed(self, index: int) -> None:
+        """Synchronise la vue active du ShortcutManager lors d'un changement de page."""
+        widget = self.stacked_widget.widget(index)
+        self.shortcut_manager.set_active_view(widget)
+
+    def _get_navigable_view_ids(self) -> list[str]:
+        """Renvoie la liste ordonnée des identifiants de vues navigables."""
+        return [vid for vid in self._view_registry if vid not in ("settings", "tour")]
+
+    def _select_view_by_index(self, index: int) -> None:
+        """Bascule vers la vue correspondant à l'index donné (0-indexed)."""
+        view_ids = self._get_navigable_view_ids()
+        if 0 <= index < len(view_ids):
+            self._on_view_selected(view_ids[index])
+
+    def _select_next_view(self) -> None:
+        """Bascule vers la vue navigable suivante de manière cyclique."""
+        view_ids = self._get_navigable_view_ids()
+        if not view_ids:
+            return
+        try:
+            current_idx = view_ids.index(self._current_view_id) if self._current_view_id in view_ids else 0
+        except ValueError:
+            current_idx = 0
+        next_idx = (current_idx + 1) % len(view_ids)
+        self._on_view_selected(view_ids[next_idx])
+
+    def _select_prev_view(self) -> None:
+        """Bascule vers la vue navigable précédente de manière cyclique."""
+        view_ids = self._get_navigable_view_ids()
+        if not view_ids:
+            return
+        try:
+            current_idx = view_ids.index(self._current_view_id) if self._current_view_id in view_ids else 0
+        except ValueError:
+            current_idx = 0
+        prev_idx = (current_idx - 1) % len(view_ids)
+        self._on_view_selected(view_ids[prev_idx])
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs universels et de navigation via ShortcutManager."""
+        from collections.abc import Callable
+
+        app_bindings: dict[ShortcutId, Callable[[], None]] = {
+            ShortcutId.APP_COMMAND_PALETTE: lambda: self._open_command_palette(),
+            ShortcutId.APP_SETTINGS: lambda: self._open_settings_modal(),
+            ShortcutId.APP_SAVE: lambda: self._on_shortcut_save(),
+            ShortcutId.APP_RUN_PRIMARY: lambda: self._on_shortcut_run(),
+            ShortcutId.APP_FIND: lambda: self._on_shortcut_find(),
+            ShortcutId.APP_IMPORT: lambda: self._open_import_dialog(),
+            ShortcutId.APP_EXPORT: lambda: self._open_export_dialog(),
+            ShortcutId.APP_TOUR: lambda: self.start_tour_guide(),
+            ShortcutId.APP_DEBUG_SCREENSHOT: lambda: self._take_debug_screenshot(),
+            ShortcutId.NAV_NEXT_VIEW: lambda: self._select_next_view(),
+            ShortcutId.NAV_PREV_VIEW: lambda: self._select_prev_view(),
+        }
 
         if is_development():
-            gallery_shortcut = QShortcut(QKeySequence("Ctrl+Alt+D"), self)
-            gallery_shortcut.activated.connect(self._open_dialog_gallery)
+            app_bindings[ShortcutId.APP_DEBUG_GALLERY] = lambda: self._open_dialog_gallery()
 
-    def _setup_global_shortcuts(self) -> None:
-        """Configure les raccourcis clavier universels (Sauvegarde, Exécution, Recherche, Import, Export)."""
-        self.shortcut_save = QShortcut(QKeySequence.StandardKey.Save, self)
-        self.shortcut_save.activated.connect(self._on_shortcut_save)
+        # Liaison des raccourcis de navigation Alt+1..9
+        for idx in range(9):
+            nav_id = getattr(ShortcutId, f"NAV_VIEW_{idx + 1}", None)
+            if nav_id:
+                app_bindings[nav_id] = (lambda i=idx: lambda: self._select_view_by_index(i))()
 
-        self.shortcut_run = QShortcut(QKeySequence(Qt.Key.Key_Return | Qt.KeyboardModifier.ControlModifier), self)
-        self.shortcut_run.activated.connect(self._on_shortcut_run)
-
-        self.shortcut_find = QShortcut(QKeySequence.StandardKey.Find, self)
-        self.shortcut_find.activated.connect(self._on_shortcut_find)
-
-        self.shortcut_import = QShortcut(QKeySequence("Ctrl+Shift+I"), self)
-        self.shortcut_import.activated.connect(self._open_import_dialog)
-
-        self.shortcut_export = QShortcut(QKeySequence("Ctrl+Shift+E"), self)
-        self.shortcut_export.activated.connect(self._open_export_dialog)
-
-        self.shortcut_tour = QShortcut(QKeySequence("F1"), self)
-        self.shortcut_tour.activated.connect(self.start_tour_guide)
+        self.shortcut_manager.bind(self, app_bindings, scope=ShortcutScope.APPLICATION)
 
     def _on_shortcut_save(self) -> None:
         """Déclenche la sauvegarde sur la vue active si elle le supporte."""
@@ -810,6 +852,8 @@ class MainWindow(QMainWindow):
         widget = self._view_widgets.get(view_id)
         if widget:
             self.stacked_widget.setCurrentWidget(widget)
+            if hasattr(self, "shortcut_manager") and self.shortcut_manager:
+                self.shortcut_manager.set_active_view(widget)
             self._current_view_id = view_id
             logger.info("Navigation vers la vue '%s' (avec contexte: %s)", view_id, bool(data))
             if hasattr(self, "current_layout") and self.current_layout:
