@@ -73,6 +73,37 @@ class ShortcutId(StrEnum):
     VIEW_SIDEBAR = "view.sidebar"
     VIEW_INSPECTOR = "view.inspector"
 
+    # Édition & Navigateur (T2)
+    EDITION_MOVE_TO_DECK = "edition.move_to_deck"
+    EDITION_NEW_DECK = "edition.new_deck"
+    EDITION_DESELECT_ALL = "edition.deselect_all"
+    EDITION_EDIT_NOTE = "edition.edit_note"
+    EDITION_EDIT_NOTE_BARE = "edition.edit_note_bare"
+    EDITION_CHANGE_MODEL = "edition.change_model"
+    EDITION_TOGGLE_DISPLAY_MODE = "edition.toggle_display_mode"
+    EDITION_FIND_REPLACE = "edition.find_replace"
+    EDITION_DELETE = "edition.delete"
+    EDITION_SUSPEND = "edition.suspend"
+    EDITION_SUSPEND_BARE = "edition.suspend_bare"
+    EDITION_GROUP_EDIT = "edition.group_edit"
+    EDITION_TOGGLE_PREVIEW = "edition.toggle_preview"
+    EDITION_TOGGLE_TABLE = "edition.toggle_table"
+    EDITION_PREV_CARD = "edition.prev_card"
+    EDITION_NEXT_CARD = "edition.next_card"
+    EDITION_FLAG_0 = "edition.flag_0"
+    EDITION_FLAG_1 = "edition.flag_1"
+    EDITION_FLAG_2 = "edition.flag_2"
+    EDITION_FLAG_3 = "edition.flag_3"
+    EDITION_FLAG_4 = "edition.flag_4"
+    EDITION_FLAG_5 = "edition.flag_5"
+    EDITION_FLAG_6 = "edition.flag_6"
+    EDITION_FLAG_7 = "edition.flag_7"
+    EDITION_FORMAT_BOLD = "edition.format_bold"
+    EDITION_FORMAT_ITALIC = "edition.format_italic"
+    EDITION_FORMAT_UNDERLINE = "edition.format_underline"
+    EDITION_FORMAT_CLOZE = "edition.format_cloze"
+    EDITION_FORMAT_MATH = "edition.format_math"
+
 
 #: Séquences protégées (liste noire non remappable protégeant la saisie de texte et l'OS).
 RESERVED_SEQUENCES: frozenset[str] = frozenset(

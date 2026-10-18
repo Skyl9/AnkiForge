@@ -383,7 +383,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+999"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+1088"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -495,12 +495,28 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/topbar.py" line="+129"/>
+        <location filename="../../ui/components/topbar.py" line="+130"/>
         <source>Rechercher cartes, paquets, commandes... (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+79"/>
+        <location line="+50"/>
+        <location line="+5"/>
+        <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-604"/>
+        <location line="+212"/>
+        <location line="+8"/>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+84"/>
+        <location line="+45"/>
+        <location line="+15"/>
+        <location line="+15"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+468"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+471"/>
+        <source>%1 (%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
         <source>✨ v%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1208,6 +1224,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
     <message>
         <location line="+17"/>
         <location line="+223"/>
+        <location filename="../../ui/shortcuts/catalog.py" line="+215"/>
         <source>Tout décocher</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1522,7 +1539,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+316"/>
+        <location line="+319"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -1542,7 +1559,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/shortcuts/catalog.py" line="+31"/>
+        <location filename="../../ui/shortcuts/catalog.py" line="-184"/>
         <source>Palette de commandes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1696,6 +1713,266 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     <message>
         <location line="+7"/>
         <source>Vue précédente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Historique des versions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Affiche la machine à remonter le temps et les versions antérieures</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Déplacer vers un paquet…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Déplace les cartes ou notes sélectionnées vers un autre paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Nouveau paquet…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Crée un nouveau paquet de cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Décoche et désélectionne toutes les cartes de la vue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Éditer la note ciblée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Active l&apos;éditeur de champs pour la note sélectionnée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Éditer la note ciblée (touche rapide)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Active l&apos;éditeur depuis la table des cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Changer le type de note…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Modifie le type de note du lot sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Basculer Cartes / Notes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Alterne l&apos;affichage entre les cartes unitaires et les notes parentes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Rechercher / remplacer ciblé…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ouvre l&apos;édition groupée pré-armée sur Rechercher et Remplacer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Supprimer la sélection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Supprime définitivement les cartes ou notes sélectionnées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Suspendre / réactiver</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bascule l&apos;état suspendu des cartes ou notes sélectionnées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Suspendre / réactiver (table)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bascule l&apos;état suspendu depuis la table focalisée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Édition groupée…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ouvre la boîte de dialogue d&apos;édition groupée de cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Afficher / Masquer l&apos;aperçu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bascule le volet latéral d&apos;aperçu de la carte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Replier / déplier la liste des cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Replie ou déplie le panneau tabulaire des cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Carte précédente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélectionne la carte précédente dans la table</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Carte suivante</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélectionne la carte suivante dans la table</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Aucun drapeau</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Retire tout drapeau des cartes sélectionnées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Drapeau 1 (Rouge)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Drapeau 2 (Orange)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Drapeau 3 (Vert)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Drapeau 4 (Bleu)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Drapeau 5 (Rose)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Drapeau 6 (Turquoise)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Drapeau 7 (Violet)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Gras</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Applique la mise en gras au texte sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Italique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Applique l&apos;italique au texte sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Souligné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Applique le soulignement au texte sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Trou Cloze</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Insère une suppression masquée Anki</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Formule KaTeX</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Insère un bloc ou une formule mathématique KaTeX</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1914,13 +2191,6 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+468"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+471"/>
-        <source>%1 (%2)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../../ui/views/agents_view/widgets/tag_pill_button.py" line="+24"/>
         <location filename="../../ui/views/pipelines_view/widgets/common.py" line="-218"/>
         <source>%1
@@ -2110,7 +2380,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+127"/>
         <location filename="../../ui/views/card_models_view/view.py" line="+1071"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+359"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+743"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2600,7 +2870,7 @@ Gabarits : %3</source>
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="-138"/>
         <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-19"/>
         <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+940"/>
-        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+373"/>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+300"/>
         <source>%1%2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3926,7 +4196,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+58"/>
+        <location line="+65"/>
         <source>Édition groupée — %1 carte(s) sélectionnée(s)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4059,17 +4329,31 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+110"/>
-        <source>Modifier le groupe (%1 cartes)...</source>
+        <location line="+109"/>
+        <location line="+16"/>
+        <location line="+10"/>
+        <location line="+7"/>
+        <location line="+8"/>
+        <location line="+7"/>
+        <location line="+28"/>
+        <location line="+10"/>
+        <location line="+23"/>
+        <location line="+10"/>
+        <source>%1	(%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="-116"/>
+        <source>Modifier le groupe (%1 cartes)...	(%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+35"/>
         <source>Déplacer vers un paquet (%1 cartes)...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+16"/>
         <source>Linter IA (%1 cartes)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4089,17 +4373,17 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+17"/>
-        <source>%1	(Ctrl+%2)</source>
+        <location line="+35"/>
+        <source>%1%2	(%3)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+7"/>
         <source>Supprimer les %1 cartes ciblées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+52"/>
+        <location line="+59"/>
         <source>Drapeau retiré pour %1 carte(s).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11816,7 +12100,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-1955"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-2056"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11827,18 +12111,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+33"/>
-        <location line="+1005"/>
+        <location line="+1070"/>
         <source>Dossier : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-986"/>
-        <location line="+1277"/>
+        <location line="-1051"/>
+        <location line="+1342"/>
         <source>Type de note : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1258"/>
+        <location line="-1323"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11884,27 +12168,27 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+356"/>
+        <location line="+421"/>
         <location line="+13"/>
-        <location line="+1395"/>
+        <location line="+1431"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1760"/>
+        <location line="-1861"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+348"/>
+        <location line="+413"/>
         <location line="+7"/>
         <source>Modifier le groupe</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-352"/>
-        <source>Appliquer une modification sur les cartes sélectionnées (Ctrl+Shift+E)</source>
+        <location line="-416"/>
+        <source>Appliquer une modification sur les cartes sélectionnées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11918,23 +12202,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+109"/>
-        <source>Déplier la liste des cartes (Ctrl+Shift+T)</source>
+        <location line="+172"/>
+        <source>Déplier la liste des cartes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>Replier la liste des cartes (Ctrl+Shift+T)</source>
+        <location line="+8"/>
+        <source>Replier la liste des cartes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+396"/>
-        <location line="+700"/>
+        <location line="+713"/>
         <source>Changer le type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-569"/>
+        <location line="-582"/>
         <source>Modifications non enregistrées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11957,33 +12241,32 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="-53"/>
-        <location line="+214"/>
+        <location line="+229"/>
         <source>Déplacer vers un paquet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-18"/>
-        <location line="+3"/>
+        <location line="-38"/>
         <source>Éditer cette carte</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+16"/>
         <source>Modifier le groupe...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+10"/>
         <source>Historique des versions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+22"/>
         <source>Nouveau paquet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Linter IA (Wozniak)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12003,32 +12286,38 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
-        <source>Aucun drapeau	(Ctrl+0)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+26"/>
-        <source>Supprimer la carte</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Tout cocher</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Tout décocher</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+11"/>
+        <location line="+10"/>
+        <location line="+56"/>
         <source>Aucun drapeau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+62"/>
+        <location line="-32"/>
+        <source>Réactiver la sélection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Suspendre la sélection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Supprimer la carte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Tout cocher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Tout décocher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+75"/>
         <source>Tous les drapeaux</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12091,12 +12380,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditorToolbarWidget</name>
     <message>
-        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="-301"/>
-        <source>Replier la liste des cartes (Ctrl+Shift+T)</source>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="-375"/>
+        <source>Replier la liste des cartes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+16"/>
         <source>Personnaliser la barre d&apos;outils...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12106,22 +12395,22 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+19"/>
-        <source>Machine à Remonter le Temps (Ctrl+H)</source>
+        <location line="+20"/>
+        <source>Machine à Remonter le Temps</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
-        <source>Sauvegarder les modifications (Ctrl+S)</source>
+        <location line="+15"/>
+        <source>Sauvegarder les modifications</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
-        <source>Afficher / Masquer l&apos;aperçu (Ctrl+P)</source>
+        <location line="+15"/>
+        <source>Afficher / Masquer l&apos;aperçu</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+228"/>
+        <location line="+294"/>
         <source>Actions masquées :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14740,7 +15029,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-790"/>
+        <location filename="../../ui/main_window.py" line="-793"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14750,7 +15039,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+482"/>
+        <location line="+485"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18154,7 +18443,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TopBar</name>
     <message>
-        <location filename="../../ui/components/topbar.py" line="-171"/>
+        <location filename="../../ui/components/topbar.py" line="-173"/>
         <source>AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18179,13 +18468,13 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
-        <source>Importer un paquet Anki (Ctrl+Shift+I)</source>
+        <location line="+13"/>
+        <source>Importer un paquet Anki</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Exporter des cartes Anki (Ctrl+Shift+E)</source>
+        <location line="+5"/>
+        <source>Exporter des cartes Anki</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

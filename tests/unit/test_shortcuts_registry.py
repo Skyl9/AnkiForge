@@ -161,3 +161,53 @@ def test_validate_catalog_rejects_scope_collision() -> None:
     }
     with pytest.raises(ValueError, match="Collision de séquence"):
         validate_catalog(bad_catalog)
+
+
+def test_edition_shortcuts_catalog_integrity() -> None:
+    """Vérifie que tous les raccourcis d'Édition & Navigateur sont enregistrés et valides."""
+    expected_ids = [
+        ShortcutId.EDITION_MOVE_TO_DECK,
+        ShortcutId.EDITION_NEW_DECK,
+        ShortcutId.EDITION_DESELECT_ALL,
+        ShortcutId.EDITION_EDIT_NOTE,
+        ShortcutId.EDITION_EDIT_NOTE_BARE,
+        ShortcutId.EDITION_CHANGE_MODEL,
+        ShortcutId.EDITION_TOGGLE_DISPLAY_MODE,
+        ShortcutId.EDITION_FIND_REPLACE,
+        ShortcutId.EDITION_DELETE,
+        ShortcutId.EDITION_SUSPEND,
+        ShortcutId.EDITION_SUSPEND_BARE,
+        ShortcutId.EDITION_GROUP_EDIT,
+        ShortcutId.EDITION_TOGGLE_PREVIEW,
+        ShortcutId.EDITION_TOGGLE_TABLE,
+        ShortcutId.EDITION_PREV_CARD,
+        ShortcutId.EDITION_NEXT_CARD,
+        ShortcutId.EDITION_FORMAT_BOLD,
+        ShortcutId.EDITION_FORMAT_ITALIC,
+        ShortcutId.EDITION_FORMAT_UNDERLINE,
+        ShortcutId.EDITION_FORMAT_CLOZE,
+        ShortcutId.EDITION_FORMAT_MATH,
+        ShortcutId.VIEW_HISTORY,
+    ]
+    # Drapeaux 0 à 7
+    for f in range(8):
+        expected_ids.append(getattr(ShortcutId, f"EDITION_FLAG_{f}"))
+
+    catalog = SHORTCUT_CATALOG
+    for sc_id in expected_ids:
+        assert sc_id in catalog, f"Raccourci manquant au catalogue : {sc_id}"
+        defn = catalog[sc_id]
+        assert defn.category == ShortcutCategory.EDITION or (sc_id == ShortcutId.VIEW_HISTORY and defn.category == ShortcutCategory.APPLICATION)
+        assert len(defn.default_sequence) > 0
+        assert len(defn.title) > 0
+
+    # Vérifications des spécificités d'Édition
+    assert catalog[ShortcutId.EDITION_MOVE_TO_DECK].default_sequence == "Ctrl+D"
+    assert catalog[ShortcutId.EDITION_GROUP_EDIT].default_sequence == "Ctrl+Shift+E"
+    assert catalog[ShortcutId.EDITION_SUSPEND_BARE].default_sequence == "!"
+    assert catalog[ShortcutId.EDITION_SUSPEND_BARE].scope == ShortcutScope.WIDGET
+    assert catalog[ShortcutId.EDITION_SUSPEND_BARE].allow_bare_key is True
+
+    assert catalog[ShortcutId.EDITION_EDIT_NOTE_BARE].default_sequence == "E"
+    assert catalog[ShortcutId.EDITION_EDIT_NOTE_BARE].scope == ShortcutScope.WIDGET
+    assert catalog[ShortcutId.EDITION_EDIT_NOTE_BARE].allow_bare_key is True

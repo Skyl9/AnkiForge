@@ -22,6 +22,7 @@ from ankiforge.services.update_checker import UpdateInfo
 from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.dialogs.update_dialog import UpdateDialog
+from ankiforge.ui.shortcuts import ShortcutId, get_shortcut_sequence
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
@@ -175,11 +176,13 @@ class TopBar(QWidget):
         content_layout.addWidget(self.update_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Import & Export Actions (28px)
-        self.import_btn = IconButton("download-simple", tooltip=self.tr("Importer un paquet Anki (Ctrl+Shift+I)"), size=28)
+        seq_import = get_shortcut_sequence(ShortcutId.APP_IMPORT)
+        self.import_btn = IconButton("download-simple", tooltip=tr("%1 (%2)", self.tr("Importer un paquet Anki"), seq_import), size=28)
         self.import_btn.clicked.connect(self.import_clicked.emit)
         content_layout.addWidget(self.import_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.export_btn = IconButton("upload-simple", tooltip=self.tr("Exporter des cartes Anki (Ctrl+Shift+E)"), size=28)
+        seq_export = get_shortcut_sequence(ShortcutId.APP_EXPORT)
+        self.export_btn = IconButton("upload-simple", tooltip=tr("%1 (%2)", self.tr("Exporter des cartes Anki"), seq_export), size=28)
         self.export_btn.clicked.connect(self.export_clicked.emit)
         content_layout.addWidget(self.export_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
