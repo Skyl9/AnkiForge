@@ -14,11 +14,20 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QWidget
 
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.shortcuts import ShortcutId, get_shortcut_sequence
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
+
+ACTION_SHORTCUT_MAP: dict[str, ShortcutId] = {
+    "bold": ShortcutId.EDITION_FORMAT_BOLD,
+    "italic": ShortcutId.EDITION_FORMAT_ITALIC,
+    "underline": ShortcutId.EDITION_FORMAT_UNDERLINE,
+    "cloze": ShortcutId.EDITION_FORMAT_CLOZE,
+    "math": ShortcutId.EDITION_FORMAT_MATH,
+}
 
 
 @dataclass
@@ -69,7 +78,13 @@ class EditorToolbarWidget(QWidget):
         """)
 
         # Bouton Toggle Table (Replier/Déplier la liste)
-        self.btn_toggle_table = IconButton("caret-up", tooltip=self.tr("Replier la liste des cartes (Ctrl+Shift+T)"), size=24, parent=self)
+        seq_table = get_shortcut_sequence(ShortcutId.EDITION_TOGGLE_TABLE)
+        self.btn_toggle_table = IconButton(
+            "caret-up",
+            tooltip=tr("%1 (%2)", self.tr("Replier la liste des cartes"), seq_table),
+            size=24,
+            parent=self,
+        )
         self.btn_toggle_table.clicked.connect(self.toggle_table_requested.emit)
         self.main_layout.addWidget(self.btn_toggle_table)
 
@@ -108,9 +123,10 @@ class EditorToolbarWidget(QWidget):
         self.main_layout.addWidget(self.btn_consult_ai)
 
         # Boutons système à droite : Historique + Sauvegarder + Toggle Preview
+        seq_history = get_shortcut_sequence(ShortcutId.VIEW_HISTORY)
         self.btn_history = SecondaryButton("Historique")
         self.btn_history.setIcon(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_history.setToolTip(self.tr("Machine à Remonter le Temps (Ctrl+H)"))
+        self.btn_history.setToolTip(tr("%1 (%2)", self.tr("Machine à Remonter le Temps"), seq_history))
         self.btn_history.setFixedHeight(26)
         self.btn_history.setStyleSheet("""
             QPushButton {
@@ -122,9 +138,10 @@ class EditorToolbarWidget(QWidget):
         self.btn_history.clicked.connect(self.history_requested.emit)
         self.main_layout.addWidget(self.btn_history)
 
+        seq_save = get_shortcut_sequence(ShortcutId.APP_SAVE)
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_on_accent_icon("floppy-disk"))
-        self.btn_save.setToolTip(self.tr("Sauvegarder les modifications (Ctrl+S)"))
+        self.btn_save.setToolTip(tr("%1 (%2)", self.tr("Sauvegarder les modifications"), seq_save))
         self.btn_save.setFixedHeight(26)
         self.btn_save.setStyleSheet("""
             QPushButton {
@@ -136,7 +153,13 @@ class EditorToolbarWidget(QWidget):
         self.btn_save.clicked.connect(self.save_requested.emit)
         self.main_layout.addWidget(self.btn_save)
 
-        self.btn_toggle_preview = IconButton("sidebar-simple", tooltip=self.tr("Afficher / Masquer l'aperçu (Ctrl+P)"), size=24, parent=self)
+        seq_preview = get_shortcut_sequence(ShortcutId.EDITION_TOGGLE_PREVIEW)
+        self.btn_toggle_preview = IconButton(
+            "sidebar-simple",
+            tooltip=tr("%1 (%2)", self.tr("Afficher / Masquer l'aperçu"), seq_preview),
+            size=24,
+            parent=self,
+        )
         self.btn_toggle_preview.clicked.connect(self.toggle_preview_requested.emit)
         self.main_layout.addWidget(self.btn_toggle_preview)
 
@@ -150,10 +173,37 @@ class EditorToolbarWidget(QWidget):
 
     def _register_default_actions(self) -> None:
         # --- Groupe Mise en Forme ---
-        self.register_action("bold", "text-b", "Gras", "Gras (Ctrl+B)", "Ctrl+B", lambda: self.action_triggered.emit("bold"), group="text")
-        self.register_action("italic", "text-italic", "Italique", "Italique (Ctrl+I)", "Ctrl+I", lambda: self.action_triggered.emit("italic"), group="text")
-        self.register_action("underline", "text-underline", "Souligné", "Souligné (Ctrl+U)", "Ctrl+U", lambda: self.action_triggered.emit("underline"), group="text")
-        self.register_action("strikethrough", "text-strikethrough", "Barré", "Barré (<s>...</s>)", "Ctrl+Shift+X", lambda: self.action_triggered.emit("strikethrough"), group="text")
+        self.register_action(
+            "bold",
+            "text-b",
+            "Gras",
+            "Gras",
+            "",
+            lambda: self.action_triggered.emit("bold"),
+            group="text",
+            shortcut_id=ShortcutId.EDITION_FORMAT_BOLD,
+        )
+        self.register_action(
+            "italic",
+            "text-italic",
+            "Italique",
+            "Italique",
+            "",
+            lambda: self.action_triggered.emit("italic"),
+            group="text",
+            shortcut_id=ShortcutId.EDITION_FORMAT_ITALIC,
+        )
+        self.register_action(
+            "underline",
+            "text-underline",
+            "Souligné",
+            "Souligné",
+            "",
+            lambda: self.action_triggered.emit("underline"),
+            group="text",
+            shortcut_id=ShortcutId.EDITION_FORMAT_UNDERLINE,
+        )
+        self.register_action("strikethrough", "text-strikethrough", "Barré", "Barré (<s>...</s>)", "", lambda: self.action_triggered.emit("strikethrough"), group="text")
 
         # Séparateur
         self.tools_layout.addWidget(self._create_separator())
@@ -161,13 +211,31 @@ class EditorToolbarWidget(QWidget):
         # --- Groupe Code & Math ---
         self.register_action("code_inline", "code", "Code inline", "Code en ligne (<code>...</code>)", "", lambda: self.action_triggered.emit("code_inline"), group="code")
         self.register_action("code_block", "code-block", "Bloc de code", "Bloc préformaté (<pre><code>...</code></pre>)", "", lambda: self.action_triggered.emit("code_block"), group="code")
-        self.register_action("math", "function", "Formule KaTeX", "Formule mathématique LaTeX (Ctrl+M)", "Ctrl+M", lambda: self.action_triggered.emit("math"), group="math")
+        self.register_action(
+            "math",
+            "function",
+            "Formule KaTeX",
+            "Formule mathématique LaTeX",
+            "",
+            lambda: self.action_triggered.emit("math"),
+            group="math",
+            shortcut_id=ShortcutId.EDITION_FORMAT_MATH,
+        )
 
         # Séparateur
         self.tools_layout.addWidget(self._create_separator())
 
         # --- Groupe Cloze ---
-        self.register_action("cloze", "brackets-curly", "Trou Cloze", "Créer un trou Cloze {{cN::...}} (Ctrl+Shift+C)", "Ctrl+Shift+C", lambda: self.action_triggered.emit("cloze"), group="cloze")
+        self.register_action(
+            "cloze",
+            "brackets-curly",
+            "Trou Cloze",
+            "Créer un trou Cloze {{cN::...}}",
+            "",
+            lambda: self.action_triggered.emit("cloze"),
+            group="cloze",
+            shortcut_id=ShortcutId.EDITION_FORMAT_CLOZE,
+        )
 
         # Séparateur
         self.tools_layout.addWidget(self._create_separator())
@@ -199,7 +267,7 @@ class EditorToolbarWidget(QWidget):
                             icon_name=act["icon_name"],
                             label=act["label"],
                             tooltip=act["tooltip"],
-                            shortcut=act["shortcut"],
+                            shortcut=act.get("shortcut", ""),
                             callback=act["callback"],
                             group=act.get("group", "custom"),
                         )
@@ -212,24 +280,42 @@ class EditorToolbarWidget(QWidget):
         icon_name: str,
         label: str,
         tooltip: str,
-        shortcut: str,
-        callback: Callable[[], None],
+        shortcut: str = "",
+        callback: Callable[[], None] | None = None,
         group: str = "custom",
+        shortcut_id: ShortcutId | None = None,
     ) -> None:
         """Enregistre une nouvelle action et ajoute son bouton dans la barre d'outils."""
+        cb: Callable[[], None] = callback if callback is not None else (lambda: None)
+        sc_id = shortcut_id or ACTION_SHORTCUT_MAP.get(action_id)
+        effective_shortcut = shortcut
+        if sc_id is not None:
+            try:
+                effective_shortcut = get_shortcut_sequence(sc_id)
+            except Exception:
+                pass
+
+        effective_tooltip = tooltip
+        if effective_shortcut:
+            if "(" in tooltip and tooltip.endswith(")"):
+                base_tip = tooltip[: tooltip.rfind("(")].strip()
+                effective_tooltip = f"{base_tip} ({effective_shortcut})"
+            elif "(" not in tooltip:
+                effective_tooltip = f"{tooltip} ({effective_shortcut})"
+
         action = ToolbarAction(
             action_id=action_id,
             icon_name=icon_name,
             label=label,
-            tooltip=tooltip,
-            shortcut=shortcut,
-            callback=callback,
+            tooltip=effective_tooltip,
+            shortcut=effective_shortcut,
+            callback=cb,
             group=group,
         )
         self._actions[action_id] = action
 
-        btn = IconButton(icon_name, tooltip=tooltip, size=24, parent=self)
-        btn.clicked.connect(callback)
+        btn = IconButton(icon_name, tooltip=effective_tooltip, size=24, parent=self)
+        btn.clicked.connect(cb)
         btn.setVisible(action_id not in self._hidden_action_ids)
         self._action_buttons[action_id] = btn
         self.tools_layout.addWidget(btn)

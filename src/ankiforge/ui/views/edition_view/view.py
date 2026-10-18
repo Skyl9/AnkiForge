@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 import peewee
 from PySide6.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, Qt, QTimer, Signal, Slot
-from PySide6.QtGui import QFont, QKeySequence, QShortcut
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
@@ -53,6 +53,7 @@ from ankiforge.ui.models import (
     TagItemDelegate,
     TextSnippetDelegate,
 )
+from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope, get_shortcut_sequence
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.viewmodels import EditionViewModel
 from ankiforge.ui.views.edition_view.group_edit_dialog import GroupEditDialog
@@ -86,9 +87,17 @@ class EditionView(QWidget):
 
     BATCH_SIZE = 50
 
-    def __init__(self, ai_manager: Any = None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any = None,
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self.store = StoreManager()
         self.note_repo = NoteRepository()
         self.deck_repo = DeckRepository()
@@ -150,6 +159,21 @@ class EditionView(QWidget):
         self._setup_ui()
         self._setup_shortcuts()
         event_bus.subscribe(FlagLabelsUpdatedEvent, self._on_flag_labels_updated)
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé à la vue."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+                if hasattr(self, "card_table"):
+                    self._shortcut_manager.unbind(self.card_table)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
 
     @property
     def current_folder_id(self) -> int | None:
@@ -456,7 +480,8 @@ class EditionView(QWidget):
         self.btn_group_edit = SecondaryButton(self.tr("Modifier le groupe"))
         self.btn_group_edit.setIcon(load_phosphor_icon("pencil-simple-line", color=DesignTokens.TEXT_PRIMARY))
         self.btn_group_edit.setFixedHeight(24)
-        self.btn_group_edit.setToolTip(self.tr("Appliquer une modification sur les cartes sélectionnées (Ctrl+Shift+E)"))
+        seq_group = get_shortcut_sequence(ShortcutId.EDITION_GROUP_EDIT)
+        self.btn_group_edit.setToolTip(tr("%1 (%2)", self.tr("Appliquer une modification sur les cartes sélectionnées"), seq_group))
         self.btn_group_edit.clicked.connect(lambda: self.open_group_edit_dialog())
         ribbon_layout.addWidget(self.btn_group_edit)
 
@@ -575,25 +600,87 @@ class EditionView(QWidget):
         self.editor_stack.setCurrentIndex(0)
 
     def _setup_shortcuts(self) -> None:
-        QShortcut(QKeySequence.StandardKey.Save, self, self._save_card)
-        QShortcut(QKeySequence("Ctrl+H"), self, self._open_history_modal)
-        QShortcut(QKeySequence("Ctrl+P"), self, self._toggle_preview_pane)
-        QShortcut(QKeySequence("Ctrl+Shift+T"), self, self._toggle_table_collapsed)
-        QShortcut(QKeySequence("Alt+Up"), self, self._select_previous_card)
-        QShortcut(QKeySequence("Alt+Down"), self, self._select_next_card)
-        QShortcut(QKeySequence("Ctrl+B"), self, lambda: self._handle_editor_action("bold"))
-        QShortcut(QKeySequence("Ctrl+I"), self, lambda: self._handle_editor_action("italic"))
-        QShortcut(QKeySequence("Ctrl+Shift+C"), self, lambda: self._handle_editor_action("cloze"))
-        QShortcut(QKeySequence("Ctrl+Shift+E"), self, self.open_group_edit_dialog)
+        """Configure l'ensemble des raccourcis déclaratifs de la vue Édition via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
 
-        # Raccourcis drapeaux Anki (Ctrl+0 à Ctrl+7)
-        QShortcut(QKeySequence("Ctrl+0"), self, lambda: self._apply_flag_to_selected_notes(0))
-        for f_idx in range(1, 8):
-            QShortcut(QKeySequence(f"Ctrl+{f_idx}"), self, lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg))
+        # 1. Raccourcis de portée WIDGET attachés à card_table (touches nues)
+        if hasattr(self, "card_table") and self.card_table is not None:
+            widget_bindings = {
+                ShortcutId.EDITION_SUSPEND_BARE: lambda: self._toggle_suspend_selected(),
+                ShortcutId.EDITION_EDIT_NOTE_BARE: lambda: self._edit_focused_card(),
+            }
+            self._shortcut_manager.bind(self.card_table, widget_bindings, scope=ShortcutScope.WIDGET)
 
-        # Raccourcis suspension Anki (! ou Ctrl+J)
-        QShortcut(QKeySequence("!"), self, self._toggle_suspend_selected)
-        QShortcut(QKeySequence("Ctrl+J"), self, self._toggle_suspend_selected)
+        # 2. Raccourcis de portée VUE attachés à self
+        vue_bindings = {
+            ShortcutId.EDITION_MOVE_TO_DECK: lambda: self._open_move_to_deck_modal(),
+            ShortcutId.EDITION_NEW_DECK: lambda: self._open_create_deck_dialog(),
+            ShortcutId.EDITION_DESELECT_ALL: lambda: self.deselect_all_cards(),
+            ShortcutId.EDITION_EDIT_NOTE: lambda: self._edit_focused_card(),
+            ShortcutId.EDITION_CHANGE_MODEL: lambda: self._on_shortcut_change_note_model(),
+            ShortcutId.EDITION_TOGGLE_DISPLAY_MODE: lambda: self._toggle_display_mode(),
+            ShortcutId.EDITION_FIND_REPLACE: lambda: self.open_group_edit_dialog(initial_mode="find_replace"),
+            ShortcutId.EDITION_DELETE: lambda: self._on_shortcut_delete_selected(),
+            ShortcutId.EDITION_SUSPEND: lambda: self._toggle_suspend_selected(),
+            ShortcutId.EDITION_GROUP_EDIT: lambda: self.open_group_edit_dialog(),
+            ShortcutId.EDITION_TOGGLE_PREVIEW: lambda: self._toggle_preview_pane(),
+            ShortcutId.EDITION_TOGGLE_TABLE: lambda: self._toggle_table_collapsed(),
+            ShortcutId.EDITION_PREV_CARD: lambda: self._select_previous_card(),
+            ShortcutId.EDITION_NEXT_CARD: lambda: self._select_next_card(),
+            ShortcutId.VIEW_HISTORY: lambda: self._open_history_modal(),
+            ShortcutId.EDITION_FORMAT_BOLD: lambda: self._handle_editor_action("bold"),
+            ShortcutId.EDITION_FORMAT_ITALIC: lambda: self._handle_editor_action("italic"),
+            ShortcutId.EDITION_FORMAT_UNDERLINE: lambda: self._handle_editor_action("underline"),
+            ShortcutId.EDITION_FORMAT_CLOZE: lambda: self._handle_editor_action("cloze"),
+            ShortcutId.EDITION_FORMAT_MATH: lambda: self._handle_editor_action("math"),
+        }
+
+        # Raccourcis drapeaux (Ctrl+0 à Ctrl+7)
+        for f_idx in range(8):
+            flag_sc_id = getattr(ShortcutId, f"EDITION_FLAG_{f_idx}")
+            vue_bindings[flag_sc_id] = (lambda flg=f_idx: lambda: self._apply_flag_to_selected_notes(flg))()
+
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def _edit_focused_card(self) -> None:
+        """Bascule le focus sur l'éditeur pour la carte sélectionnée."""
+        selected_rows = self.card_table.get_selected_rows()
+        if not selected_rows and self.card_table.currentIndex().isValid():
+            selected_rows = [self.card_table.currentIndex().row()]
+        if not selected_rows:
+            return
+        row = selected_rows[0]
+        note = self.note_table_model.get_note_at(row)
+        if note:
+            self.select_note_by_id(note.id)
+            if self.dynamic_field_widgets:
+                first_widget = next(iter(self.dynamic_field_widgets.values()))
+                first_widget.editor.setFocus()
+
+    def _on_shortcut_change_note_model(self) -> None:
+        """Ouvre la modale pour changer le modèle de la note ciblée."""
+        note = self._current_note
+        if not note:
+            selected_rows = self.card_table.get_selected_rows()
+            if selected_rows:
+                note = self.note_table_model.get_note_at(selected_rows[0])
+        if note:
+            self._open_change_model_modal(note)
+
+    def _toggle_display_mode(self) -> None:
+        """Alterne entre le mode Cartes et le mode Notes."""
+        target_mode = "notes" if self._display_mode == "cards" else "cards"
+        target_id = 0 if target_mode == "notes" else 1
+        btn = self.btn_mode_notes if target_mode == "notes" else self.btn_mode_cards
+        btn.setChecked(True)
+        self._on_display_mode_changed(target_id)
+
+    def _on_shortcut_delete_selected(self) -> None:
+        """Supprime les notes sélectionnées après confirmation."""
+        target_note_ids = self.get_target_note_ids()
+        if target_note_ids:
+            self.reject_selected_notes(target_note_ids)
 
     @Slot()
     def _toggle_table_collapsed(self) -> None:
@@ -605,14 +692,16 @@ class EditionView(QWidget):
             self.table_box.hide()
             self.nav_ribbon.show()
             self.editor_toolbar.btn_toggle_table.setIcon(load_phosphor_icon("caret-down", color=DesignTokens.TEXT_PRIMARY))
-            self.editor_toolbar.btn_toggle_table.setToolTip(self.tr("Déplier la liste des cartes (Ctrl+Shift+T)"))
+            seq_table = get_shortcut_sequence(ShortcutId.EDITION_TOGGLE_TABLE)
+            self.editor_toolbar.btn_toggle_table.setToolTip(tr("%1 (%2)", self.tr("Déplier la liste des cartes"), seq_table))
             self.main_splitter.setSizes([32, sizes[0] + sizes[1] - 32])
         else:
             sizes = self.main_splitter.sizes()
             self.table_box.show()
             self.nav_ribbon.hide()
             self.editor_toolbar.btn_toggle_table.setIcon(load_phosphor_icon("caret-up", color=DesignTokens.TEXT_PRIMARY))
-            self.editor_toolbar.btn_toggle_table.setToolTip(self.tr("Replier la liste des cartes (Ctrl+Shift+T)"))
+            seq_table = get_shortcut_sequence(ShortcutId.EDITION_TOGGLE_TABLE)
+            self.editor_toolbar.btn_toggle_table.setToolTip(tr("%1 (%2)", self.tr("Replier la liste des cartes"), seq_table))
             self.main_splitter.setSizes([self._saved_table_height, max(300, sizes[0] + sizes[1] - self._saved_table_height)])
 
     @Slot(int)
@@ -1686,36 +1775,58 @@ class EditionView(QWidget):
 
         menu = StyledMenu(self)
 
+        seq_edit = get_shortcut_sequence(ShortcutId.EDITION_EDIT_NOTE)
+        seq_gedit = get_shortcut_sequence(ShortcutId.EDITION_GROUP_EDIT)
+        edit_label = tr("%1\t(%2)", self.tr("Éditer cette carte"), seq_edit)
+
         if count > 1:
+            group_label = tr("Modifier le groupe (%1 cartes)...\t(%2)", count, seq_gedit)
             action_group_edit = menu.addAction(
                 load_phosphor_icon("pencil-simple-line", color=DesignTokens.TEXT_PRIMARY),
-                tr("Modifier le groupe (%1 cartes)...", count),
+                group_label,
             )
             action_group_edit.triggered.connect(lambda: self.open_group_edit_dialog(target_note_ids))
 
-            action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), self.tr("Éditer cette carte"))
+            action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), edit_label)
             action_edit.triggered.connect(lambda: self.select_note_by_id(note.id))
         else:
-            action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), self.tr("Éditer cette carte"))
+            action_edit = menu.addAction(load_phosphor_icon("pencil-simple", color=DesignTokens.TEXT_PRIMARY), edit_label)
             action_edit.triggered.connect(lambda: self.select_note_by_id(note.id))
 
+            group_label = tr("%1\t(%2)", self.tr("Modifier le groupe..."), seq_gedit)
             action_group_edit = menu.addAction(
                 load_phosphor_icon("pencil-simple-line", color=DesignTokens.TEXT_PRIMARY),
-                self.tr("Modifier le groupe..."),
+                group_label,
             )
             action_group_edit.triggered.connect(lambda: self.open_group_edit_dialog(target_note_ids))
 
-        action_history = menu.addAction(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY), self.tr("Historique des versions"))
+        seq_history = get_shortcut_sequence(ShortcutId.VIEW_HISTORY)
+        action_history = menu.addAction(
+            load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY),
+            tr("%1\t(%2)", self.tr("Historique des versions"), seq_history),
+        )
         action_history.triggered.connect(lambda: self.show_version_history(note.id))
 
-        action_change_model = menu.addAction(load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY), self.tr("Changer le type de note..."))
+        seq_change_model = get_shortcut_sequence(ShortcutId.EDITION_CHANGE_MODEL)
+        action_change_model = menu.addAction(
+            load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY),
+            tr("%1\t(%2)", self.tr("Changer le type de note..."), seq_change_model),
+        )
         action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
 
-        move_text = tr("Déplacer vers un paquet (%1 cartes)...", count) if count > 1 else self.tr("Déplacer vers un paquet...")
-        action_move_deck = menu.addAction(load_phosphor_icon("folder-simple-plus", color=DesignTokens.TEXT_PRIMARY), move_text)
+        seq_move = get_shortcut_sequence(ShortcutId.EDITION_MOVE_TO_DECK)
+        move_base = tr("Déplacer vers un paquet (%1 cartes)...", count) if count > 1 else self.tr("Déplacer vers un paquet...")
+        action_move_deck = menu.addAction(
+            load_phosphor_icon("folder-simple-plus", color=DesignTokens.TEXT_PRIMARY),
+            tr("%1\t(%2)", move_base, seq_move),
+        )
         action_move_deck.triggered.connect(lambda: self._open_move_to_deck_modal(fallback_note_id=note.id))
 
-        action_new_deck = menu.addAction(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY), self.tr("Nouveau paquet..."))
+        seq_new_deck = get_shortcut_sequence(ShortcutId.EDITION_NEW_DECK)
+        action_new_deck = menu.addAction(
+            load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY),
+            tr("%1\t(%2)", self.tr("Nouveau paquet..."), seq_new_deck),
+        )
         action_new_deck.triggered.connect(self._open_create_deck_dialog)
 
         menu.addSeparator()
@@ -1741,7 +1852,8 @@ class EditionView(QWidget):
         flag_menu = menu.addMenu("Drapeau")
         flag_menu.setIcon(load_phosphor_icon("flag", color=DesignTokens.TEXT_PRIMARY))
 
-        action_flag_0 = flag_menu.addAction(self.tr("Aucun drapeau\t(Ctrl+0)"))
+        seq_flag_0 = get_shortcut_sequence(ShortcutId.EDITION_FLAG_0)
+        action_flag_0 = flag_menu.addAction(tr("%1\t(%2)", self.tr("Aucun drapeau"), seq_flag_0))
         action_flag_0.triggered.connect(lambda: self._apply_flag_to_selected_notes(0, fallback_note_id=note.id))
 
         flag_menu.addSeparator()
@@ -1749,7 +1861,9 @@ class EditionView(QWidget):
         for f_idx in range(1, 8):
             f_name = FlagService.get_flag_name(f_idx)
             f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
-            act = flag_menu.addAction(load_phosphor_icon("flag", color=f_color), tr("%1\t(Ctrl+%2)", f_name, f_idx))
+            flag_sc_id = getattr(ShortcutId, f"EDITION_FLAG_{f_idx}")
+            seq_f = get_shortcut_sequence(flag_sc_id)
+            act = flag_menu.addAction(load_phosphor_icon("flag", color=f_color), tr("%1\t(%2)", f_name, seq_f))
             act.triggered.connect(lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg, fallback_note_id=note.id))
         menu.addSeparator()
 
@@ -1761,19 +1875,30 @@ class EditionView(QWidget):
         else:
             is_item_suspended = self.note_repo.is_note_suspended(note.id)
 
-        suspend_text = "▶️ Réactiver la sélection\t(!)" if is_item_suspended else "⏸️ Suspendre la sélection\t(!)"
+        seq_suspend = get_shortcut_sequence(ShortcutId.EDITION_SUSPEND_BARE)
+        suspend_prefix = "▶️ " if is_item_suspended else "⏸️ "
+        suspend_title = self.tr("Réactiver la sélection") if is_item_suspended else self.tr("Suspendre la sélection")
+        suspend_text = tr("%1%2\t(%3)", suspend_prefix, suspend_title, seq_suspend)
         action_suspend = menu.addAction(load_phosphor_icon("play" if is_item_suspended else "pause", color=DesignTokens.TEXT_PRIMARY), suspend_text)
         action_suspend.triggered.connect(lambda: self._toggle_suspend_selected(fallback_note_id=note.id))
 
         menu.addSeparator()
 
-        del_text = tr("Supprimer les %1 cartes ciblées", count) if count > 1 else self.tr("Supprimer la carte")
+        seq_del = get_shortcut_sequence(ShortcutId.EDITION_DELETE)
+        del_base = tr("Supprimer les %1 cartes ciblées", count) if count > 1 else self.tr("Supprimer la carte")
+        del_text = tr("%1\t(%2)", del_base, seq_del)
         action_delete = menu.addAction(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED), del_text)
         action_delete.triggered.connect(lambda: self.reject_selected_notes(target_note_ids))
 
         menu.addSeparator()
         menu.addAction(load_phosphor_icon("check-square", color=DesignTokens.TEXT_SECONDARY), self.tr("Tout cocher"), self.select_all_cards)
-        menu.addAction(load_phosphor_icon("square", color=DesignTokens.TEXT_SECONDARY), self.tr("Tout décocher"), self.deselect_all_cards)
+
+        seq_desel = get_shortcut_sequence(ShortcutId.EDITION_DESELECT_ALL)
+        menu.addAction(
+            load_phosphor_icon("square", color=DesignTokens.TEXT_SECONDARY),
+            tr("%1\t(%2)", self.tr("Tout décocher"), seq_desel),
+            self.deselect_all_cards,
+        )
 
         menu.exec(self.card_table.mapToGlobal(pos))
 
@@ -2014,7 +2139,7 @@ class EditionView(QWidget):
 
     @Slot()
     @Slot(list)
-    def open_group_edit_dialog(self, note_ids: list[int] | None = None) -> None:
+    def open_group_edit_dialog(self, note_ids: list[int] | None = None, initial_mode: str | None = None) -> None:
         """Ouvre le dialogue d'édition groupée pour le lot de notes ciblé."""
         if note_ids is None:
             note_ids = self.get_target_note_ids()
@@ -2023,7 +2148,7 @@ class EditionView(QWidget):
             show_toast(self, self.tr("Aucune carte sélectionnée pour l'édition groupée."), is_error=True)
             return
 
-        dialog = GroupEditDialog(note_ids=note_ids, parent=self)
+        dialog = GroupEditDialog(note_ids=note_ids, parent=self, initial_mode=initial_mode)
         if dialog.exec():
             res = dialog.result_data
             if res and res.success:

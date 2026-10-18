@@ -822,6 +822,9 @@ class MainWindow(QMainWindow):
                     except TypeError:
                         real_widget = cast(Any, cls)()
 
+                if hasattr(real_widget, "set_shortcut_manager") and hasattr(self, "shortcut_manager"):
+                    real_widget.set_shortcut_manager(self.shortcut_manager)
+
                 if hasattr(real_widget, "request_navigation"):
                     real_widget.request_navigation.connect(self._on_view_selected)
 

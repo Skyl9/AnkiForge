@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 class GroupEditDialog(QDialog):
     """Boîte de dialogue modale permettant l'édition groupée de cartes/notes sélectionnées."""
 
-    def __init__(self, note_ids: list[int], parent: QWidget | None = None) -> None:
+    def __init__(self, note_ids: list[int], parent: QWidget | None = None, initial_mode: str | None = None) -> None:
         super().__init__(parent)
         self.note_ids = list(note_ids)
         self.result_data: GroupEditResult | None = None
@@ -47,6 +47,13 @@ class GroupEditDialog(QDialog):
 
         self._available_fields = self._collect_available_fields()
         self._init_ui()
+
+        if initial_mode == "find_replace":
+            self.cb_enable_field_edit.setChecked(True)
+            idx = self.combo_action.findData("find_replace")
+            if idx >= 0:
+                self.combo_action.setCurrentIndex(idx)
+            self.input_find.setFocus()
 
     def _collect_available_fields(self) -> list[str]:
         """Extrait l'ensemble des champs distincts partagés par les modèles des notes sélectionnées."""
