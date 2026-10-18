@@ -173,6 +173,7 @@ class ShortcutManager(QObject):
             if rec.target is target:
                 try:
                     rec.shortcut.setEnabled(False)
+                    rec.shortcut.setParent(None)
                     rec.shortcut.deleteLater()
                 except RuntimeError:
                     pass

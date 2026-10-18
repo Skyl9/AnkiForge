@@ -39,6 +39,12 @@ from ankiforge.ui.components import (
     SecondaryButton,
     StyledComboBox,
 )
+from ankiforge.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    ShortcutScope,
+    get_shortcut_sequence,
+)
 from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.viewmodels import PipelineViewModel
 from ankiforge.ui.views.pipelines_view.constants import (
@@ -68,10 +74,19 @@ logger = logging.getLogger(__name__)
 class PipelinesView(QWidget):
     """Vue Pipelines de Génération — Architecture Maître-Détail JetBrains."""
 
-    def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any | None = None,
+        profile_name: str = "default",
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self.pipeline_repo = PipelineRepository()
         self.persona_repo = PersonaRepository()
         self.view_model = PipelineViewModel(
@@ -88,8 +103,62 @@ class PipelinesView(QWidget):
         self._selected_step_index: int = 0
 
         self._setup_ui()
+        self._setup_shortcuts()
         self._connect_signals()
         self.refresh_data()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé aux pipelines."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+                if hasattr(self, "step_scroll"):
+                    self._shortcut_manager.unbind(self.step_scroll)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de PipelinesView via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        vue_bindings = {
+            ShortcutId.PIPELINES_NEW: lambda: self._on_new_pipeline(),
+            ShortcutId.PIPELINES_MOVE_STEP_UP: lambda: self._on_move_current_step_up(),
+            ShortcutId.PIPELINES_MOVE_STEP_DOWN: lambda: self._on_move_current_step_down(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+        widget_bindings = {
+            ShortcutId.PIPELINES_DELETE_STEP: lambda: self._on_delete_current_step(),
+        }
+        target_widget = getattr(self, "step_scroll", self)
+        self._shortcut_manager.bind(target_widget, widget_bindings, scope=ShortcutScope.WIDGET)
+
+    def _on_move_current_step_up(self) -> None:
+        """Déplace l'étape sélectionnée vers le haut."""
+        self._move_step_up(self._selected_step_index)
+
+    def _on_move_current_step_down(self) -> None:
+        """Déplace l'étape sélectionnée vers le bas."""
+        self._move_step_down(self._selected_step_index)
+
+    def _on_delete_current_step(self) -> None:
+        """Supprime l'étape actuellement sélectionnée."""
+        self._delete_step(self._selected_step_index)
+
+    def save(self) -> None:
+        """Enregistre le pipeline en cours d'édition (routeur Ctrl+S)."""
+        self._on_save_pipeline()
+
+    def run_primary_action(self) -> None:
+        """Lance le test complet du pipeline (routeur Ctrl+Entrée)."""
+        self._on_test_full_pipeline()
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -136,7 +205,10 @@ class PipelinesView(QWidget):
         pipeline_sel_row.addStretch()
 
         # Action Principale : Tester DAG
-        self.btn_test_full = SecondaryButton("Tester le DAG", tooltip=self.tr("Exécuter une simulation pas-à-pas du pipeline DAG sur un texte de test"))
+        self.btn_test_full = SecondaryButton(
+            "Tester le DAG",
+            tooltip=tr("Exécuter une simulation pas-à-pas du pipeline DAG sur un texte de test (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)),
+        )
         self.btn_test_full.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_PRIMARY))
         self.btn_test_full.setIconSize(QSize(14, 14))
         self.btn_test_full.setFixedHeight(30)
@@ -144,7 +216,10 @@ class PipelinesView(QWidget):
         pipeline_sel_row.addWidget(self.btn_test_full, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Action Secondaire : Sauvegarder
-        self.btn_save_pipeline = PrimaryButton("Enregistrer", tooltip=self.tr("Enregistrer la structure et la configuration du pipeline (Ctrl+S)"))
+        self.btn_save_pipeline = PrimaryButton(
+            "Enregistrer",
+            tooltip=tr("Enregistrer la structure et la configuration du pipeline (%1)", get_shortcut_sequence(ShortcutId.APP_SAVE)),
+        )
         self.btn_save_pipeline.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_pipeline.setIconSize(QSize(14, 14))
         self.btn_save_pipeline.setFixedHeight(30)
@@ -191,19 +266,19 @@ class PipelinesView(QWidget):
         steps_header.addWidget(self.lbl_step_count)
         left_layout.addLayout(steps_header)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet(f"QScrollArea {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
+        self.step_scroll = QScrollArea()
+        self.step_scroll.setWidgetResizable(True)
+        self.step_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.step_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.step_scroll.setStyleSheet(f"QScrollArea {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
 
         self.steps_inner = QWidget()
         self.steps_layout = QVBoxLayout(self.steps_inner)
         self.steps_layout.setContentsMargins(8, 8, 8, 8)
         self.steps_layout.setSpacing(8)
         self.steps_layout.addStretch()
-        scroll.setWidget(self.steps_inner)
-        left_layout.addWidget(scroll, 1)
+        self.step_scroll.setWidget(self.steps_inner)
+        left_layout.addWidget(self.step_scroll, 1)
 
         self.btn_add_step = PrimaryButton("Ajouter une étape au workflow", tooltip=self.tr("Ajouter une étape (LLM, RAG, Outil, Map-Reduce) à ce workflow"))
         self.btn_add_step.setIcon(load_on_accent_icon("ph.plus"))

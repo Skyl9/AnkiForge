@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 from PySide6.QtCore import QSize, Qt, QThreadPool, QTimer, Slot
-from PySide6.QtGui import QFontMetrics, QKeySequence, QShortcut
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -52,6 +52,12 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledTextEdit,
 )
+from ankiforge.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    ShortcutScope,
+    get_shortcut_sequence,
+)
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.views.ab_tests_view.widgets import (
     BranchKpiWidget,
@@ -70,10 +76,19 @@ logger = logging.getLogger(__name__)
 class ABTestsView(QWidget):
     """Vue Laboratoire A/B — Comparateur haute précision de Moteurs, Prompts et Pipelines DAG."""
 
-    def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any | None = None,
+        profile_name: str = "default",
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
 
         self.cards_a: list[dict[str, Any]] = []
         self.index_a: int = 0
@@ -120,6 +135,7 @@ class ABTestsView(QWidget):
         self._pipeline_modals: dict[str, PipelineSelectWindow] = {}
 
         self._setup_ui()
+        self._setup_shortcuts()
         self._connect_signals()
         self.refresh_data()
         if os.environ.get("ANKIFORGE_ENV") == "testing":
@@ -128,6 +144,36 @@ class ABTestsView(QWidget):
         self._elapsed_timer = QTimer(self)
         self._elapsed_timer.setInterval(250)
         self._elapsed_timer.timeout.connect(self._on_elapsed_tick)
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé au laboratoire A/B."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de ABTestsView via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        vue_bindings = {
+            ShortcutId.AB_SAMPLE_A_PREV: lambda: self._prev_a(),
+            ShortcutId.AB_SAMPLE_A_NEXT: lambda: self._next_a(),
+            ShortcutId.AB_SAMPLE_B_PREV: lambda: self._prev_b(),
+            ShortcutId.AB_SAMPLE_B_NEXT: lambda: self._next_b(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def run_primary_action(self) -> None:
+        """Lance le test comparatif A/B (routeur Ctrl+Entrée)."""
+        self._on_run_ab_test()
 
     def _build_inference_sliders(self, accent_color: str) -> tuple[QWidget, QSlider, QSlider]:
         """Génère un widget compact pour les réglages de température et tokens."""
@@ -443,7 +489,10 @@ class ABTestsView(QWidget):
 
         config_panel_layout.addStretch(1)
 
-        self.btn_run = PrimaryButton("Lancer le Test A/B", tooltip=self.tr("Lancer le test comparatif A/B sur les deux configurations (Ctrl+Entrée)"))
+        self.btn_run = PrimaryButton(
+            "Lancer le Test A/B",
+            tooltip=tr("Lancer le test comparatif A/B sur les deux configurations (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)),
+        )
         self.btn_run.setIcon(load_on_accent_icon("ph.play"))
         self.btn_run.setIconSize(QSize(15, 15))
         self.btn_run.setFixedHeight(34)
@@ -674,10 +723,18 @@ class ABTestsView(QWidget):
         nav_a_box.setSpacing(6)
         lbl_pag_a = QLabel(self.tr("Branche A :"))
         lbl_pag_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.btn_prev_a = IconButton("ph.caret-left", tooltip=self.tr("Carte précédente (Branche A)"), size=22)
+        self.btn_prev_a = IconButton(
+            "ph.caret-left",
+            tooltip=tr("Carte précédente (Branche A) (%1)", get_shortcut_sequence(ShortcutId.AB_SAMPLE_A_PREV)),
+            size=22,
+        )
         self.lbl_count_a = QLabel(self.tr("0 / 0"))
         self.lbl_count_a.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; font-weight: bold;")
-        self.btn_next_a = IconButton("ph.caret-right", tooltip=self.tr("Carte suivante (Branche A)"), size=22)
+        self.btn_next_a = IconButton(
+            "ph.caret-right",
+            tooltip=tr("Carte suivante (Branche A) (%1)", get_shortcut_sequence(ShortcutId.AB_SAMPLE_A_NEXT)),
+            size=22,
+        )
         nav_a_box.addWidget(lbl_pag_a)
         nav_a_box.addWidget(self.btn_prev_a)
         nav_a_box.addWidget(self.lbl_count_a)
@@ -686,7 +743,7 @@ class ABTestsView(QWidget):
 
         pagination_bar.addStretch()
 
-        lbl_shortcut = QLabel(self.tr("Raccourci : Ctrl+Entrée pour lancer"))
+        lbl_shortcut = QLabel(tr("Raccourci : %1 pour lancer", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)))
         lbl_shortcut.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-style: italic;")
         pagination_bar.addWidget(lbl_shortcut)
 
@@ -696,10 +753,18 @@ class ABTestsView(QWidget):
         nav_b_box.setSpacing(6)
         lbl_pag_b = QLabel(self.tr("Branche B :"))
         lbl_pag_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.btn_prev_b = IconButton("ph.caret-left", tooltip=self.tr("Carte précédente (Branche B)"), size=22)
+        self.btn_prev_b = IconButton(
+            "ph.caret-left",
+            tooltip=tr("Carte précédente (Branche B) (%1)", get_shortcut_sequence(ShortcutId.AB_SAMPLE_B_PREV)),
+            size=22,
+        )
         self.lbl_count_b = QLabel(self.tr("0 / 0"))
         self.lbl_count_b.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; font-weight: bold;")
-        self.btn_next_b = IconButton("ph.caret-right", tooltip=self.tr("Carte suivante (Branche B)"), size=22)
+        self.btn_next_b = IconButton(
+            "ph.caret-right",
+            tooltip=tr("Carte suivante (Branche B) (%1)", get_shortcut_sequence(ShortcutId.AB_SAMPLE_B_NEXT)),
+            size=22,
+        )
         nav_b_box.addWidget(lbl_pag_b)
         nav_b_box.addWidget(self.btn_prev_b)
         nav_b_box.addWidget(self.lbl_count_b)
@@ -720,9 +785,6 @@ class ABTestsView(QWidget):
 
         self.ab_panel.add_tab("Laboratoire A/B", ab_content, "ph.scales", closable=False)
         main_layout.addWidget(self.ab_panel, 1)
-
-        shortcut_run = QShortcut(QKeySequence("Ctrl+Return"), self)
-        shortcut_run.activated.connect(self._on_run_ab_test)
 
     def _build_config_block(self, title: str) -> tuple[QFrame, QHBoxLayout]:
         """Construit un bloc de configuration labelisé (fond bg_input, en-tête muted)."""

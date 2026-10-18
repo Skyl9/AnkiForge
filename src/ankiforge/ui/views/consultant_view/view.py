@@ -54,6 +54,12 @@ from ankiforge.ui.components import (
     StyledComboBox,
 )
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
+from ankiforge.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    ShortcutScope,
+    get_shortcut_sequence,
+)
 from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.viewmodels import ConsultantViewModel
 from ankiforge.ui.views.consultant_view.constants import apply_pill_style
@@ -306,10 +312,19 @@ class ConsultantView(QWidget):
     mcp_restart_requested = Signal()
     mcp_rotate_token_requested = Signal()
 
-    def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any | None = None,
+        profile_name: str = "default",
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self.persona_repo = PersonaRepository()
         self.setting_repo = SettingRepository()
         self.view_model = ConsultantViewModel(
@@ -331,8 +346,39 @@ class ConsultantView(QWidget):
         self._doc_modal: DocumentSelectWindow | None = None
 
         self._setup_ui()
+        self._setup_shortcuts()
         self._connect_signals()
         self.refresh_data()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé au consultant."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de ConsultantView via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        vue_bindings = {
+            ShortcutId.CONSULTANT_NEW_CHAT: lambda: self._on_new_chat_clicked(),
+            ShortcutId.CONSULTANT_EXPORT_SESSION: lambda: self._on_export_session_clicked(),
+            ShortcutId.CONSULTANT_TOGGLE_SIDEBAR: lambda: self._toggle_sidebar(),
+            ShortcutId.CONSULTANT_TOGGLE_INSPECTOR: lambda: self._toggle_inspector(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def run_primary_action(self) -> None:
+        """Déclenche l'envoi ou l'interruption du message (routeur Ctrl+Entrée)."""
+        self._on_send_or_stop_clicked()
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "mcp_dashboard") and hasattr(self.mcp_dashboard, "refresh_theme"):
@@ -396,7 +442,11 @@ class ConsultantView(QWidget):
         self.chat_panel.set_menu_button_visible(False)
 
         # Bouton toggle de la sidebar (intégré dans l'en-tête de l'onglet)
-        self.btn_toggle_sidebar = IconButton("ph.sidebar-simple", tooltip=self.tr("Afficher/Masquer l'historique des discussions"), size=22)
+        self.btn_toggle_sidebar = IconButton(
+            "ph.sidebar-simple",
+            tooltip=tr("Afficher/Masquer l'historique des discussions (%1)", get_shortcut_sequence(ShortcutId.CONSULTANT_TOGGLE_SIDEBAR)),
+            size=22,
+        )
         self.btn_toggle_sidebar.clicked.connect(self._toggle_sidebar)
         self.chat_panel.add_header_widget(self.btn_toggle_sidebar)
         self.chat_panel.add_header_separator()
@@ -408,13 +458,21 @@ class ConsultantView(QWidget):
         self.chat_panel.add_header_separator()
 
         # Bouton toggle de l'inspecteur
-        self.btn_toggle_inspector = IconButton("ph.brain", tooltip=self.tr("Afficher/Masquer le Hub de Contexte"), size=22)
+        self.btn_toggle_inspector = IconButton(
+            "ph.brain",
+            tooltip=tr("Afficher/Masquer le Hub de Contexte (%1)", get_shortcut_sequence(ShortcutId.CONSULTANT_TOGGLE_INSPECTOR)),
+            size=22,
+        )
         self.btn_toggle_inspector.clicked.connect(self._toggle_inspector)
         self.chat_panel.add_header_widget(self.btn_toggle_inspector)
         self.chat_panel.add_header_separator()
 
         # Bouton export de la session en Markdown
-        self.btn_export_session = IconButton("ph.export", tooltip=self.tr("Exporter la session complète en Markdown"), size=22)
+        self.btn_export_session = IconButton(
+            "ph.export",
+            tooltip=tr("Exporter la session complète en Markdown (%1)", get_shortcut_sequence(ShortcutId.CONSULTANT_EXPORT_SESSION)),
+            size=22,
+        )
         self.btn_export_session.clicked.connect(self._on_export_session_clicked)
         self.chat_panel.add_header_widget(self.btn_export_session)
 
@@ -422,7 +480,11 @@ class ConsultantView(QWidget):
         self.session_selector = StyledComboBox()
         self.session_selector.setVisible(False)
         self.session_selector.currentIndexChanged.connect(self._on_session_selected)
-        self.btn_new_chat = IconButton("ph.plus", size=22)
+        self.btn_new_chat = IconButton(
+            "ph.plus",
+            tooltip=tr("Nouvelle discussion (%1)", get_shortcut_sequence(ShortcutId.CONSULTANT_NEW_CHAT)),
+            size=22,
+        )
         self.btn_new_chat.setVisible(False)
         self.btn_new_chat.clicked.connect(self._on_new_chat_clicked)
         self.btn_session_menu = IconButton("ph.dots-three-vertical", size=22)

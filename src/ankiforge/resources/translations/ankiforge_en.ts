@@ -431,7 +431,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+108"/>
-        <location filename="../../ui/views/agents_view/view.py" line="+581"/>
+        <location filename="../../ui/views/agents_view/view.py" line="+635"/>
         <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="+172"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-822"/>
         <source>%1 :</source>
@@ -540,7 +540,7 @@ Cliquer pour voir les détails</source>
         <location filename="../../ui/dialogs/addon_manager_dialog.py" line="+104"/>
         <location filename="../../ui/dialogs/human_validation_dialog.py" line="+72"/>
         <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+203"/>
-        <location filename="../../ui/views/pipelines_view/view.py" line="+664"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="+739"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="+323"/>
         <source>&lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
@@ -1074,7 +1074,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="+69"/>
+        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="+75"/>
         <source>Différent</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1086,12 +1086,37 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+144"/>
+        <location line="+180"/>
         <source>Similarité : 85%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+95"/>
+        <location line="+51"/>
+        <source>Conserver toutes les valeurs locales (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Remplacer par toutes les valeurs entrantes (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Conflit précédent (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Conflit suivant (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Valider et appliquer la fusion (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
         <source>Conflit %1 sur %2 (ID #%3)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1102,7 +1127,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/views/ab_tests_view/view.py" line="+1370"/>
+        <location filename="../../ui/views/ab_tests_view/view.py" line="+1432"/>
         <location line="+26"/>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+476"/>
         <location filename="../../ui/views/creation_view/view.py" line="+211"/>
@@ -1465,7 +1490,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
     <message>
         <location line="+1"/>
         <location line="+1"/>
-        <location filename="../../ui/views/dashboard_view.py" line="+690"/>
+        <location filename="../../ui/views/dashboard_view.py" line="+732"/>
         <source>Bibliothèque</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2196,7 +2221,202 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/ab_tests_view/view.py" line="-887"/>
+        <location line="+8"/>
+        <source>Nouvel agent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Crée un nouvel agent IA dans l&apos;atelier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Dupliquer l&apos;agent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Clone l&apos;agent IA sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Nouveau pipeline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Crée un nouveau pipeline DAG</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Monter l&apos;étape</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Déplace l&apos;étape sélectionnée vers le haut dans le DAG</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Descendre l&apos;étape</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Déplace l&apos;étape sélectionnée vers le bas dans le DAG</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Supprimer l&apos;étape ciblée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Supprime l&apos;étape actuellement sélectionnée dans le workflow</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Nouvelle discussion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Démarre une nouvelle session de chat avec le consultant IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Exporter la session</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Exporte l&apos;historique de la discussion courante en Markdown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Barre latérale des sessions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Affiche ou masque l&apos;arborescence des discussions antérieures</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Inspecteur d&apos;activité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Affiche ou masque le volet d&apos;inspection MCP et télémétrie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Échantillon A précédent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Affiche la carte précédente générée par la branche A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Échantillon A suivant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Affiche la carte suivante générée par la branche A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Échantillon B précédent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Affiche la carte précédente générée par la branche B</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Échantillon B suivant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Affiche la carte suivante générée par la branche B</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Conflit précédent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Navigue vers le conflit d&apos;importation précédent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Conflit suivant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Navigue vers le conflit d&apos;importation suivant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Tout garder Local</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Conserve toutes les valeurs locales de la carte en conflit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Tout garder Entrant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Remplace toutes les valeurs par la version entrante</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Valider la fusion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Valide les arbitrages et applique la fusion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/views/ab_tests_view/view.py" line="-964"/>
+        <source>Lancer le test comparatif A/B sur les deux configurations (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+64"/>
         <source>Rendu Visuel</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2216,7 +2436,32 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+401"/>
+        <location line="+158"/>
+        <source>Carte précédente (Branche A) (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Carte suivante (Branche A) (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Raccourci : %1 pour lancer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Carte précédente (Branche B) (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Carte suivante (Branche B) (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+219"/>
         <source>Le document « %1 » est vide.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2291,12 +2536,17 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/agents_view/view.py" line="-450"/>
+        <location filename="../../ui/views/agents_view/view.py" line="-460"/>
         <source>0 agents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+17"/>
+        <source>Créer un nouveau persona d&apos;agent IA (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
         <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+25"/>
         <source>Tous</source>
         <translation type="unfinished"></translation>
@@ -2313,7 +2563,27 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+97"/>
+        <location line="+58"/>
+        <source>Dupliquer l&apos;agent sélectionné (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Historique des versions (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Tester l&apos;agent (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Enregistrer les modifications (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
         <source>Identité &amp;&amp; Moteur IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3116,7 +3386,27 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="+616"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="+447"/>
+        <source>Afficher/Masquer l&apos;historique des discussions (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Afficher/Masquer le Hub de Contexte (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Exporter la session complète en Markdown (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Nouvelle discussion (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+193"/>
         <source>Espace de Travail</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3979,18 +4269,24 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/dashboard_view.py" line="-609"/>
+        <location filename="../../ui/views/dashboard_view.py" line="-646"/>
         <location line="+34"/>
         <source>Bienvenue dans &lt;span style=&quot;color: %1;&quot;&gt;AnkiForge&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+569"/>
+        <location line="+542"/>
+        <location line="+64"/>
+        <source>Forger des cartes (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-1"/>
         <source>Forger des cartes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+3"/>
         <source>Importer .apkg</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4763,12 +5059,22 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/pipelines_view/view.py" line="-536"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="-542"/>
         <source>0 étapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+281"/>
+        <location line="+13"/>
+        <source>Exécuter une simulation pas-à-pas du pipeline DAG sur un texte de test (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Enregistrer la structure et la configuration du pipeline (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+263"/>
         <location line="+1"/>
         <source>%1 étape%2</source>
         <translation type="unfinished"></translation>
@@ -5921,7 +6227,7 @@ Une nouvelle version sera automatiquement créée.</source>
 <context>
     <name>ABTestsView</name>
     <message>
-        <location filename="../../ui/views/ab_tests_view/view.py" line="-1561"/>
+        <location filename="../../ui/views/ab_tests_view/view.py" line="-1577"/>
         <source>Température :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6002,28 +6308,23 @@ Une nouvelle version sera automatiquement créée.</source>
     </message>
     <message>
         <location line="+17"/>
-        <location line="+599"/>
+        <location line="+615"/>
         <source>Moteur A :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-589"/>
-        <location line="+590"/>
+        <location line="-605"/>
+        <location line="+606"/>
         <source>Moteur B :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-570"/>
+        <location line="-586"/>
         <source>Réglages indépendants A/B</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+15"/>
-        <source>Lancer le test comparatif A/B sur les deux configurations (Ctrl+Entrée)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+37"/>
+        <location line="+55"/>
         <source>RÉSUMÉ DE LA CONFIGURATION :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6086,45 +6387,20 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+2"/>
-        <source>Carte précédente (Branche A)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <location line="+22"/>
-        <location line="+690"/>
+        <location line="+7"/>
+        <location line="+30"/>
+        <location line="+691"/>
         <location line="+26"/>
         <source>0 / 0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-736"/>
-        <source>Carte suivante (Branche A)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>Raccourci : Ctrl+Entrée pour lancer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
+        <location line="-724"/>
         <source>Branche B :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+2"/>
-        <source>Carte précédente (Branche B)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Carte suivante (Branche B)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+214"/>
+        <location line="+224"/>
         <source>Texte source effacé.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7193,7 +7469,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AgentsView</name>
     <message>
-        <location filename="../../ui/views/agents_view/view.py" line="-1152"/>
+        <location filename="../../ui/views/agents_view/view.py" line="-1162"/>
         <source>AGENTS &amp; DOSSIERS :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7203,12 +7479,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
-        <source>Créer un nouveau persona d&apos;agent IA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+13"/>
+        <location line="+21"/>
         <source>Afficher tous les agents enregistrés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7233,17 +7504,12 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
-        <source>Dupliquer l&apos;agent sélectionné</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
+        <location line="+10"/>
         <source>Supprimer l&apos;élément sélectionné</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+73"/>
+        <location line="+76"/>
         <source>NOM DU PERSONA :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9281,7 +9547,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ConflictFieldRow</name>
     <message>
-        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="-217"/>
+        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="-270"/>
         <source>Utiliser le contenu Local</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9330,22 +9596,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ConsultantView</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1350"/>
-        <source>Afficher/Masquer l&apos;historique des discussions</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+12"/>
-        <source>Afficher/Masquer le Hub de Contexte</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Exporter la session complète en Markdown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+112"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1220"/>
         <source>Attacher une ressource au contexte (Paquet, Document, Type de note)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9695,7 +9946,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ContextPillBadge</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1647"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1703"/>
         <source>Cliquer pour retirer du contexte</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10477,7 +10728,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DashboardDropZone</name>
     <message>
-        <location filename="../../ui/views/dashboard_view.py" line="-177"/>
+        <location filename="../../ui/views/dashboard_view.py" line="-210"/>
         <source>Glissez un PDF, Document ou Paquet Anki ici</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10490,7 +10741,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DashboardHeroBanner</name>
     <message>
-        <location line="-429"/>
+        <location line="-433"/>
         <source>Le générateur de cartes intelligent et votre assistant d&apos;apprentissage personnel.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10531,12 +10782,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DashboardView</name>
     <message>
-        <location filename="../../ui/views/dashboard_view.py" line="+585"/>
+        <location filename="../../ui/views/dashboard_view.py" line="+621"/>
         <source>Actions Rapides</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+38"/>
         <source>Accueil</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10561,7 +10812,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+47"/>
         <source>Aucune activité récente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16565,7 +16816,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>PipelinesView</name>
     <message>
-        <location filename="../../ui/views/pipelines_view/view.py" line="-686"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="-692"/>
         <source>PIPELINE :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16575,17 +16826,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
-        <source>Exécuter une simulation pas-à-pas du pipeline DAG sur un texte de test</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
-        <source>Enregistrer la structure et la configuration du pipeline (Ctrl+S)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
+        <location line="+28"/>
         <source>Options avancées (Nouveau, Dupliquer, Modèles, Export/Import, Supprimer)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16693,7 +16934,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>ProactiveDiagnosticsWidget</name>
     <message>
-        <location filename="../../ui/views/dashboard_view.py" line="-514"/>
+        <location filename="../../ui/views/dashboard_view.py" line="-548"/>
         <source>Diagnostics &amp; Actions Proactives</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17515,12 +17756,12 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SmartMergeDialog</name>
     <message>
-        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="+44"/>
+        <location filename="../../ui/dialogs/smart_merge_dialog.py" line="+52"/>
         <source>Smart Merge — Résolution de Conflits</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+65"/>
         <source>Conflit 1 sur N</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17545,22 +17786,12 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+44"/>
-        <source>Conflit précédent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
+        <location line="+58"/>
         <source>1 / 1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Conflit suivant</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+125"/>
+        <location line="+136"/>
         <source>Tout conserver en Local (tous les conflits)</source>
         <translation type="unfinished"></translation>
     </message>

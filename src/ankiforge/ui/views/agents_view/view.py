@@ -51,6 +51,12 @@ from ankiforge.ui.components import (
     apply_compact_style,
 )
 from ankiforge.ui.dialogs.persona_history_dialog import PersonaHistoryDialog
+from ankiforge.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    ShortcutScope,
+    get_shortcut_sequence,
+)
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.views.agents_view.constants import (
     JINJA2_SNIPPETS,
@@ -87,10 +93,14 @@ class AgentsView(QWidget):
         ai_manager: Any | None = None,
         profile_name: str = "default",
         parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
     ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self._current_agent: PersonaModel | None = None
         self._current_folder: PersonaFolderModel | None = None
         self._tool_cards: dict[str, ToolPermissionCard] = {}
@@ -100,8 +110,42 @@ class AgentsView(QWidget):
         self._current_scope_filter: str = "all"  # 'all', 'pipeline', 'mcp', 'universal'
 
         self._setup_ui()
+        self._setup_shortcuts()
         self._connect_signals()
         self.refresh_data()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé aux agents."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de AgentsView via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        vue_bindings = {
+            ShortcutId.AGENTS_NEW: lambda: self._on_new_agent(),
+            ShortcutId.AGENTS_DUPLICATE: lambda: self._on_clone_agent(),
+            ShortcutId.VIEW_HISTORY: lambda: self._on_open_history(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def save(self) -> None:
+        """Enregistre l'agent en cours d'édition (routeur Ctrl+S)."""
+        self._on_save_agent()
+
+    def run_primary_action(self) -> None:
+        """Lance le test de l'agent actif (routeur Ctrl+Entrée)."""
+        self._on_test_agent()
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -143,7 +187,10 @@ class AgentsView(QWidget):
         self.edit_search.textChanged.connect(self._apply_filters)
         search_row.addWidget(self.edit_search, 1)
 
-        self.btn_new = PrimaryButton("Nouvel Agent", tooltip=self.tr("Créer un nouveau persona d'agent IA"))
+        self.btn_new = PrimaryButton(
+            "Nouvel Agent",
+            tooltip=tr("Créer un nouveau persona d'agent IA (%1)", get_shortcut_sequence(ShortcutId.AGENTS_NEW)),
+        )
         self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
         self.btn_new.setIconSize(QSize(14, 14))
         self.btn_new.setFixedHeight(30)
@@ -217,7 +264,11 @@ class AgentsView(QWidget):
         self.btn_new_folder.setIconSize(QSize(14, 14))
         self.btn_new_folder.setFixedHeight(30)
 
-        self.btn_clone = IconButton("ph.copy", tooltip=self.tr("Dupliquer l'agent sélectionné"), size=30)
+        self.btn_clone = IconButton(
+            "ph.copy",
+            tooltip=tr("Dupliquer l'agent sélectionné (%1)", get_shortcut_sequence(ShortcutId.AGENTS_DUPLICATE)),
+            size=30,
+        )
         self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer l'élément sélectionné"), size=30)
 
         list_toolbar.addWidget(self.btn_new_folder, 1)
@@ -243,9 +294,12 @@ class AgentsView(QWidget):
         self.scope_badge = self.top_action_bar.scope_badge
         self.format_badge = self.top_action_bar.format_badge
         self.btn_history = self.top_action_bar.btn_history
+        self.btn_history.setToolTip(tr("Historique des versions (%1)", get_shortcut_sequence(ShortcutId.VIEW_HISTORY)))
         self.btn_test = self.top_action_bar.btn_test
+        self.btn_test.setToolTip(tr("Tester l'agent (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)))
         self.btn_import = self.top_action_bar.btn_import
         self.btn_save = self.top_action_bar.btn_save
+        self.btn_save.setToolTip(tr("Enregistrer les modifications (%1)", get_shortcut_sequence(ShortcutId.APP_SAVE)))
 
         self.btn_history.clicked.connect(self._on_open_history)
         self.btn_test.clicked.connect(self._on_test_agent)

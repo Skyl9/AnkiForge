@@ -28,6 +28,12 @@ from PySide6.QtWidgets import (
 from ankiforge.services.cards.import_manager import ConflictItem
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    ShortcutScope,
+    get_shortcut_sequence,
+)
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -159,11 +165,19 @@ class SmartMergeDialog(QDialog):
 
     merge_completed = Signal(dict)  # dict[guid, resolution_dict]
 
-    def __init__(self, conflicts: list[ConflictItem], parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        conflicts: list[ConflictItem],
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.conflicts = conflicts
         self.current_index = 0
         self.resolutions: dict[str, dict[str, Any]] = {}  # guid -> {"content": ..., "choice": ...}
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_dialog(self)
 
         self.setWindowTitle(self.tr("Smart Merge — Résolution de Conflits"))
         self.resize(1100, 700)
@@ -172,7 +186,35 @@ class SmartMergeDialog(QDialog):
         self.field_rows: dict[str, ConflictFieldRow] = {}
 
         self._setup_ui()
+        self._setup_shortcuts()
         self._load_current_conflict()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé au dialogue de fusion."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de SmartMergeDialog via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        dialog_bindings = {
+            ShortcutId.MERGE_PREV_CONFLICT: lambda: self._on_prev_conflict(),
+            ShortcutId.MERGE_NEXT_CONFLICT: lambda: self._on_next_conflict(),
+            ShortcutId.MERGE_KEEP_ALL_LOCAL: lambda: self._on_keep_all_local(),
+            ShortcutId.MERGE_KEEP_ALL_INCOMING: lambda: self._on_keep_all_incoming(),
+            ShortcutId.MERGE_CONFIRM: lambda: self._on_confirm_merge(),
+        }
+        self._shortcut_manager.bind(self, dialog_bindings, scope=ShortcutScope.DIALOGUE)
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -262,12 +304,18 @@ class SmartMergeDialog(QDialog):
         footer_layout = QHBoxLayout()
         footer_layout.setSpacing(8)
 
-        self.btn_keep_local = SecondaryButton("Tout garder Local")
+        self.btn_keep_local = SecondaryButton(
+            "Tout garder Local",
+            tooltip=tr("Conserver toutes les valeurs locales (%1)", get_shortcut_sequence(ShortcutId.MERGE_KEEP_ALL_LOCAL)),
+        )
         self.btn_keep_local.setIcon(load_phosphor_icon("caret-double-left", color=DesignTokens.COLOR_RED))
         self.btn_keep_local.clicked.connect(self._on_keep_all_local)
         footer_layout.addWidget(self.btn_keep_local)
 
-        self.btn_keep_incoming = SecondaryButton("Tout remplacer par Entrant")
+        self.btn_keep_incoming = SecondaryButton(
+            "Tout remplacer par Entrant",
+            tooltip=tr("Remplacer par toutes les valeurs entrantes (%1)", get_shortcut_sequence(ShortcutId.MERGE_KEEP_ALL_INCOMING)),
+        )
         self.btn_keep_incoming.setIcon(load_phosphor_icon("caret-double-right", color=DesignTokens.COLOR_GREEN))
         self.btn_keep_incoming.clicked.connect(self._on_keep_all_incoming)
         footer_layout.addWidget(self.btn_keep_incoming)
@@ -275,7 +323,11 @@ class SmartMergeDialog(QDialog):
         footer_layout.addStretch()
 
         # Pagination
-        self.btn_prev = IconButton("caret-left", tooltip=self.tr("Conflit précédent"), size=24)
+        self.btn_prev = IconButton(
+            "caret-left",
+            tooltip=tr("Conflit précédent (%1)", get_shortcut_sequence(ShortcutId.MERGE_PREV_CONFLICT)),
+            size=24,
+        )
         self.btn_prev.clicked.connect(self._on_prev_conflict)
         footer_layout.addWidget(self.btn_prev)
 
@@ -283,7 +335,11 @@ class SmartMergeDialog(QDialog):
         self.lbl_page.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 11px;")
         footer_layout.addWidget(self.lbl_page)
 
-        self.btn_next = IconButton("caret-right", tooltip=self.tr("Conflit suivant"), size=24)
+        self.btn_next = IconButton(
+            "caret-right",
+            tooltip=tr("Conflit suivant (%1)", get_shortcut_sequence(ShortcutId.MERGE_NEXT_CONFLICT)),
+            size=24,
+        )
         self.btn_next.clicked.connect(self._on_next_conflict)
         footer_layout.addWidget(self.btn_next)
 
@@ -293,7 +349,10 @@ class SmartMergeDialog(QDialog):
         self.btn_batch_menu.clicked.connect(self._show_batch_menu)
         footer_layout.addWidget(self.btn_batch_menu)
 
-        self.btn_confirm = PrimaryButton("Valider la Fusion")
+        self.btn_confirm = PrimaryButton(
+            "Valider la Fusion",
+            tooltip=tr("Valider et appliquer la fusion (%1)", get_shortcut_sequence(ShortcutId.MERGE_CONFIRM)),
+        )
         self.btn_confirm.setIcon(load_on_accent_icon("check"))
         self.btn_confirm.clicked.connect(self._on_confirm_merge)
         footer_layout.addWidget(self.btn_confirm)

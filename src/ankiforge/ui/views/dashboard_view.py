@@ -20,6 +20,11 @@ from shiboken6 import isValid
 
 from ankiforge.services.audit.metrics_service import MetricsService
 from ankiforge.ui.components import IdePanel, PrimaryButton, SecondaryButton
+from ankiforge.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    get_shortcut_sequence,
+)
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.retention_curve import RetentionCurveWidget
 from ankiforge.utils.i18n import tr
@@ -188,6 +193,10 @@ class DashboardActionButton(QFrame):
                 border: 1px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
+
+    def click(self) -> None:
+        """Déclenche le clic de manière programmatique."""
+        self.clicked.emit()
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -624,14 +633,46 @@ class DashboardView(QWidget):
     request_navigation = Signal(str, object)
     dashboard_data_updated = Signal(dict)
 
-    def __init__(self, ai_manager: Any = None, profile_name: str = "default", parent: QWidget | None = None):
+    def __init__(
+        self,
+        ai_manager: Any = None,
+        profile_name: str = "default",
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self._import_dialog: QWidget | None = None
         self._export_dialog: QWidget | None = None
         self.worker: DashboardWorker | None = None
         self.setup_ui()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé au tableau de bord."""
+        return self._shortcut_manager
+
+    def _update_tooltips(self) -> None:
+        """Met à jour dynamiquement les infobulles avec les raccourcis configurés."""
+        if hasattr(self, "btn_forge"):
+            self.btn_forge.setToolTip(tr("Forger des cartes (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)))
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._update_tooltips()
+
+    def run_primary_action(self) -> None:
+        """Déclenche l'action primaire 'Forger des cartes' (routeur Ctrl+Entrée)."""
+        if hasattr(self, "btn_forge") and self.btn_forge.isEnabled():
+            self.btn_forge.click()
 
     def _navigate(self, view_id: str, data: dict | None = None) -> None:
         self.request_navigation.emit(view_id, data)
@@ -682,6 +723,7 @@ class DashboardView(QWidget):
         actions_layout.setSpacing(8)
 
         self.btn_forge = DashboardActionButton(tr("Forger des cartes"), "Depuis un document", "ph.hammer", DesignTokens.COLOR_BLUE, DesignTokens.BG_ACTIVE)
+        self.btn_forge.setToolTip(tr("Forger des cartes (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)))
         self.btn_forge.clicked.connect(lambda: self._navigate("creation"))
         self.btn_import = DashboardActionButton(tr("Importer .apkg"), "Paquet ou collection", "ph.download-simple", DesignTokens.COLOR_YELLOW, DesignTokens.BG_ACTIVE)
         self.btn_import.clicked.connect(self._open_import_dialog)
@@ -805,6 +847,7 @@ class DashboardView(QWidget):
         splitter.setCollapsible(1, False)
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 1)
+        self._update_tooltips()
 
     def refresh_data(self):
         """Lance l'actualisation asynchrone des données du tableau de bord."""
