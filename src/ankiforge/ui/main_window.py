@@ -688,15 +688,19 @@ class MainWindow(QMainWindow):
     def _on_shortcut_save(self) -> None:
         """Déclenche la sauvegarde sur la vue active si elle le supporte."""
         current_widget = self.stacked_widget.currentWidget()
-        if hasattr(current_widget, "_save_card"):
-            current_widget._save_card()
-        elif hasattr(current_widget, "save"):
+        if hasattr(current_widget, "save"):
             current_widget.save()
+        elif hasattr(current_widget, "_save_card"):
+            current_widget._save_card()
+        elif hasattr(current_widget, "_on_save_anki"):
+            current_widget._on_save_anki()
 
     def _on_shortcut_run(self) -> None:
-        """Déclenche l'action primaire de la vue active (ex: Générer / Lancer)."""
+        """Déclenche l'action primaire de la vue active (ex: Générer / Lancer / Reprendre)."""
         current_widget = self.stacked_widget.currentWidget()
-        if hasattr(current_widget, "btn_generate_cards") and current_widget.btn_generate_cards.isEnabled():
+        if hasattr(current_widget, "run_primary_action"):
+            current_widget.run_primary_action()
+        elif hasattr(current_widget, "btn_generate_cards") and current_widget.btn_generate_cards.isEnabled():
             current_widget.btn_generate_cards.click()
         elif hasattr(current_widget, "_on_generate_clicked"):
             current_widget._on_generate_clicked()

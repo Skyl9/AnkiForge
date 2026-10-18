@@ -104,6 +104,22 @@ class ShortcutId(StrEnum):
     EDITION_FORMAT_CLOZE = "edition.format_cloze"
     EDITION_FORMAT_MATH = "edition.format_math"
 
+    # Studio de Création & Batch Factory (T3)
+    CREATION_NEW_INPUT = "creation.new_input"
+    BATCH_COMPOSE = "batch.compose"
+
+    # Revue de cartes (Portée WIDGET partagée Studio & Batch)
+    REVIEW_VALIDATE_SPACE = "review.validate_space"
+    REVIEW_VALIDATE_V = "review.validate_v"
+    REVIEW_REJECT_DELETE = "review.reject_delete"
+    REVIEW_REJECT_BACKSPACE = "review.reject_backspace"
+    REVIEW_REJECT_R = "review.reject_r"
+    REVIEW_EDIT = "review.edit"
+    REVIEW_PREV_CARD = "review.prev_card"
+    REVIEW_NEXT_CARD = "review.next_card"
+    REVIEW_PREV_TASK = "review.prev_task"
+    REVIEW_NEXT_TASK = "review.next_task"
+
 
 #: Séquences protégées (liste noire non remappable protégeant la saisie de texte et l'OS).
 RESERVED_SEQUENCES: frozenset[str] = frozenset(

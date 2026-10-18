@@ -21,10 +21,10 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
-from PySide6.QtCore import QEvent, Qt, Signal, Slot
-from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components import Badge, DangerButton, IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
@@ -182,7 +183,6 @@ class BatchStagingPanel(QWidget):
         self.cards_table.itemSelectionChanged.connect(self._on_table_selection_changed)
         self.cards_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.cards_table.customContextMenuRequested.connect(self._on_context_menu)
-        self.cards_table.installEventFilter(self)
 
         left_layout.addWidget(self.cards_table, 1)
         self._splitter.addWidget(left_widget)
@@ -290,22 +290,27 @@ class BatchStagingPanel(QWidget):
 
         main_layout.addWidget(action_bar)
 
-    # ── Raccourcis Clavier ────────────────────────────────────────────────
+    # ── Raccourcis Clavier (ADR 0032) ────────────────────────────────────
 
-    def eventFilter(self, obj: Any, event: Any) -> bool:
-        if obj == self.cards_table and event.type() == QEvent.Type.KeyPress:
-            key_event = cast(QKeyEvent, event)
-            key = key_event.key()
-            if key in (Qt.Key.Key_Space, Qt.Key.Key_V):
-                self._on_validate_card()
-                return True
-            elif key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace, Qt.Key.Key_R):
-                self._on_reject_card()
-                return True
-            elif key == Qt.Key.Key_E:
-                self._on_edit_card()
-                return True
-        return super().eventFilter(obj, event)
+    def setup_shortcuts(self, manager: ShortcutManager) -> None:
+        """Configure l'ensemble des raccourcis de revue déclaratifs sur cards_table."""
+        widget_bindings = {
+            ShortcutId.REVIEW_VALIDATE_SPACE: lambda: self._on_validate_card(),
+            ShortcutId.REVIEW_VALIDATE_V: lambda: self._on_validate_card(),
+            ShortcutId.REVIEW_REJECT_DELETE: lambda: self._on_reject_card(),
+            ShortcutId.REVIEW_REJECT_BACKSPACE: lambda: self._on_reject_card(),
+            ShortcutId.REVIEW_REJECT_R: lambda: self._on_reject_card(),
+            ShortcutId.REVIEW_EDIT: lambda: self._on_edit_card(),
+            ShortcutId.REVIEW_PREV_CARD: lambda: self._on_prev_card(),
+            ShortcutId.REVIEW_NEXT_CARD: lambda: self._on_next_card(),
+            ShortcutId.REVIEW_PREV_TASK: lambda: self._nav_to_task(-1),
+            ShortcutId.REVIEW_NEXT_TASK: lambda: self._nav_to_task(1),
+        }
+        manager.bind(self.cards_table, widget_bindings, scope=ShortcutScope.WIDGET)
+
+    def unbind_shortcuts(self, manager: ShortcutManager) -> None:
+        """Délie les raccourcis déclaratifs de cards_table."""
+        manager.unbind(self.cards_table)
 
     # ── API publique ──────────────────────────────────────────────────────
 

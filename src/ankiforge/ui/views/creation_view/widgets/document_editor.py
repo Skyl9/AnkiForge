@@ -29,6 +29,7 @@ from ankiforge.ui.components import (
     SecondaryButton,
     StyledTextEdit,
 )
+from ankiforge.ui.shortcuts import ShortcutId, get_shortcut_sequence
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -463,7 +464,8 @@ class DocumentEditorWidget(QWidget):
         self.btn_paste.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
         self.btn_paste.clicked.connect(self.raw_editor.paste)
 
-        self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)", tooltip=self.tr("Lancer la forge des flashcards avec le modèle IA sélectionné (Ctrl+Entrée)"))
+        run_seq = get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)
+        self.btn_generate = PrimaryButton(tr("Générer (%1)", run_seq), tooltip=tr("Lancer la forge des flashcards avec le modèle IA sélectionné (%1)", run_seq))
         self.btn_generate.setIcon(load_on_accent_icon("ph.play"))
         self.btn_generate.clicked.connect(self._on_generate_clicked)
 

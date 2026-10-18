@@ -260,7 +260,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location filename="../../ui/views/batch_view/widgets/progress_cell_widget.py" line="+36"/>
         <location line="+36"/>
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+804"/>
-        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+742"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+744"/>
         <location line="+10"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+745"/>
         <location line="+298"/>
@@ -307,7 +307,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location line="+64"/>
         <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+192"/>
         <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+111"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+1656"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+1721"/>
         <location line="+29"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="+509"/>
         <location line="+75"/>
@@ -1104,8 +1104,8 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location line="+1"/>
         <location filename="../../ui/views/ab_tests_view/view.py" line="+1370"/>
         <location line="+26"/>
-        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+471"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+226"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+476"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+211"/>
         <location filename="../../ui/views/documents_view/view.py" line="+1601"/>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
@@ -1539,7 +1539,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+319"/>
+        <location line="+323"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -1862,21 +1862,23 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+7"/>
+        <location line="+185"/>
         <source>Carte précédente</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-184"/>
         <source>Sélectionne la carte précédente dans la table</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
+        <location line="+185"/>
         <source>Carte suivante</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-184"/>
         <source>Sélectionne la carte suivante dans la table</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1973,6 +1975,104 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     <message>
         <location line="+1"/>
         <source>Insère un bloc ou une formule mathématique KaTeX</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Nouvelle saisie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ouvre un nouvel onglet de saisie libre dans le Studio de Création</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Composer le lot…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ouvre le dialogue de composition et de découpage de lot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Valider la carte (Espace)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+9"/>
+        <source>Marque la carte ciblée comme validée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-1"/>
+        <source>Valider la carte (V)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Rejeter la carte (Suppr)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+9"/>
+        <location line="+9"/>
+        <source>Rejette la carte ciblée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-10"/>
+        <source>Rejeter la carte (Retour)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Rejeter la carte (R)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Éditer la carte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Active l&apos;édition de la carte ciblée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Sélectionne la carte précédente dans la table de revue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Sélectionne la carte suivante dans la table de revue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Tranche précédente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bascule vers la tâche ou tranche précédente dans la revue du lot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Tranche suivante</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bascule vers la tâche ou tranche suivante dans la revue du lot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2493,7 +2593,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/batch_view/view.py" line="+337"/>
+        <location filename="../../ui/views/batch_view/view.py" line="+386"/>
         <source>Vision (PDF)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2508,7 +2608,17 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+562"/>
+        <location line="+128"/>
+        <source>Choisir le document, son mode de découpage (direct / auto), puis ses parties (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Démarrer l&apos;exécution du traitement par lots en arrière-plan (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+413"/>
         <source>Document &apos;%1&apos; chargé !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2650,7 +2760,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+21"/>
-        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-259"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-264"/>
         <source>En attente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2681,13 +2791,13 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+47"/>
-        <location filename="../../ui/views/creation_view/view.py" line="-2032"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-2017"/>
         <location filename="../../ui/widgets/note_table_widget.py" line="+99"/>
         <source>Rejeter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+110"/>
+        <location line="+115"/>
         <source>Revue — %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2698,7 +2808,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+132"/>
-        <location filename="../../ui/views/creation_view/view.py" line="+2131"/>
+        <location filename="../../ui/views/creation_view/view.py" line="+2116"/>
         <source>Enregistrer dans la Forge (%1/%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3481,7 +3591,17 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/creation_view/view.py" line="-1952"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-2748"/>
+        <source>Créer une saisie libre sans document source (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+405"/>
+        <source>Enregistrer les cartes validées dans votre collection AnkiForge (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+406"/>
         <location line="+640"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="-87"/>
         <location line="+29"/>
@@ -3591,7 +3711,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+191"/>
+        <location line="+176"/>
         <source>Le champ &apos;%1&apos; ne fait pas partie du type de note &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3633,7 +3753,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-398"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-399"/>
         <source>Extrait filtré</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3659,7 +3779,17 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+345"/>
+        <location line="+126"/>
+        <source>Générer (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Lancer la forge des flashcards avec le modèle IA sélectionné (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+220"/>
         <source>Portée : Page %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7277,7 +7407,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AlbumPageMiniWidget</name>
     <message>
-        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-741"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-742"/>
         <source>Portée</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8103,7 +8233,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>BatchStagingPanel</name>
     <message>
-        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-663"/>
+        <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-667"/>
         <source>Revue &amp; Staging — sélectionnez une tâche terminée</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8138,13 +8268,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+66"/>
-        <location line="+253"/>
+        <location line="+65"/>
+        <location line="+258"/>
         <source>0 / 0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-217"/>
+        <location line="-222"/>
         <source>Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8155,28 +8285,28 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+11"/>
-        <location line="+425"/>
+        <location line="+430"/>
         <source>Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-420"/>
+        <location line="-425"/>
         <source>Modifier les champs de la carte (Raccourci: E ou double-clic)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+413"/>
+        <location line="+418"/>
         <source>Valider la carte active et passer à la suivante (Raccourci: Espace ou V)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-407"/>
+        <location line="-412"/>
         <source>Abandonner toute la tranche et ses cartes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+186"/>
+        <location line="+191"/>
         <source>En attente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8260,7 +8390,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>BatchView</name>
     <message>
-        <location filename="../../ui/views/batch_view/view.py" line="-1755"/>
+        <location filename="../../ui/views/batch_view/view.py" line="-1761"/>
         <source>CIBLES ANKI</source>
         <extracomment>Cartes enregistrées sans lien de couverture (fragment source non résolu), remonté au récapitulatif de fin de lot.</extracomment>
         <translation type="unfinished"></translation>
@@ -8301,12 +8431,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>Choisir le document, son mode de découpage (direct / auto), puis ses parties</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location line="+16"/>
         <source>Flux unique : ouvrir le document → choisir le mode de découpage (Direct ou Auto) → sélectionner les parties → Ajouter à la Queue.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8316,12 +8441,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Démarrer l&apos;exécution du traitement par lots en arrière-plan</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+21"/>
+        <location line="+28"/>
         <source>Relancer uniquement les documents non terminés ou en échec</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9633,12 +9753,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CreationView</name>
     <message>
-        <location filename="../../ui/views/creation_view/view.py" line="-2951"/>
-        <source>Créer une saisie libre sans document source</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+66"/>
+        <location filename="../../ui/views/creation_view/view.py" line="-2869"/>
         <source>DOCUMENT SOURCE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9649,23 +9764,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+22"/>
-        <location line="+1543"/>
+        <location line="+1542"/>
         <source>Sélectionner un type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1515"/>
+        <location line="-1514"/>
         <source>ORCHESTRATION IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+53"/>
-        <location line="+775"/>
+        <location line="+774"/>
         <source>Vision Multimodale</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-761"/>
+        <location line="-760"/>
         <source>Extraction multimodale des figures, schémas &amp; planches.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9701,12 +9816,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+56"/>
-        <location line="+1954"/>
+        <location line="+1938"/>
         <source>Type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1954"/>
+        <location line="-1938"/>
         <source>Front</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9717,39 +9832,34 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+0"/>
-        <location line="+1954"/>
+        <location line="+1938"/>
         <source>Statut</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1926"/>
-        <source>Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location line="-1905"/>
         <source>Marquer toutes les cartes générées comme &apos;Validée&apos; (1-clic)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+8"/>
-        <location line="+2064"/>
+        <location line="+2049"/>
         <source>Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-2060"/>
+        <location line="-2045"/>
         <source>Modifier le texte de la carte (Raccourci: E)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+2054"/>
+        <location line="+2039"/>
         <source>Valider la carte active et passer à la suivante (Raccourci: Espace ou V)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-2036"/>
+        <location line="-2021"/>
         <source>Journal d&apos;exécution en direct</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9932,7 +10042,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+9"/>
         <source>Pipeline annulé.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10830,12 +10940,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Lancer la forge des flashcards avec le modèle IA sélectionné (Ctrl+Entrée)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+107"/>
+        <location line="+112"/>
         <source>00:00 / 00:00</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15029,7 +15134,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-793"/>
+        <location filename="../../ui/main_window.py" line="-797"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15039,7 +15144,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+485"/>
+        <location line="+489"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18231,7 +18336,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TextScopeBannerWidget</name>
     <message>
-        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-760"/>
+        <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="-761"/>
         <source>Portée active</source>
         <translation type="unfinished"></translation>
     </message>

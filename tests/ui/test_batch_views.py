@@ -1585,8 +1585,6 @@ def test_batch_staging_multi_selection_and_mark_all(qtbot: Any) -> None:
 
 def test_batch_staging_keyboard_shortcuts(qtbot: Any) -> None:
     """Vérifie que les raccourcis clavier V et R fonctionnent via l'eventFilter."""
-    from PySide6.QtCore import QEvent
-    from PySide6.QtGui import QKeyEvent
 
     doc = DocumentModel.create(title="Doc Shortcuts.md", content="Contenu", file_type="md")
     deck = DeckModel.create(name="Deck Shortcuts")
@@ -1606,17 +1604,17 @@ def test_batch_staging_keyboard_shortcuts(qtbot: Any) -> None:
         force=True,
     )
 
-    # Simuler appui sur 'V' (Valider)
-    event_v = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_V, Qt.KeyboardModifier.NoModifier, "v")
-    consumed = panel.eventFilter(panel.cards_table, event_v)
-    assert consumed is True
+    from ankiforge.ui.shortcuts import ShortcutId
+
+    # Déclencher le raccourci V (Valider)
+    rec_v = [rec for rec in view.shortcut_manager._bindings if rec.id == ShortcutId.REVIEW_VALIDATE_V][0]
+    rec_v.shortcut.activated.emit()
     assert panel._prepared_notes[0]["_staging_status"] == "accepted"
     assert panel._current_card_idx == 1
 
-    # Simuler appui sur 'R' (Rejeter)
-    event_r = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_R, Qt.KeyboardModifier.NoModifier, "r")
-    consumed_r = panel.eventFilter(panel.cards_table, event_r)
-    assert consumed_r is True
+    # Déclencher le raccourci R (Rejeter)
+    rec_r = [rec for rec in view.shortcut_manager._bindings if rec.id == ShortcutId.REVIEW_REJECT_R][0]
+    rec_r.shortcut.activated.emit()
     assert panel._prepared_notes[1]["_staging_status"] == "rejected"
 
 

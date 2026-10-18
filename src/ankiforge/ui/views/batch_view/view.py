@@ -65,6 +65,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.vision_capability import VISION_TOOLTIP, effective_vision, sync_vision_capability
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
+from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope, get_shortcut_sequence
 from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.viewmodels.batch_viewmodel import BatchViewModel
 from ankiforge.ui.views.batch_view.dialogs import BatchSliceComposerDialog
@@ -161,9 +162,17 @@ def _blocks_for_direct_part(
 class BatchView(QWidget):
     """Batch Factory CI/CD View — 100% Conforme à la Maquette concept_ide/index.html (L1883-L2062)."""
 
-    def __init__(self, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any | None = None,
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self.worker: BatchWorker | None = None
         self.batch_view_model = BatchViewModel(self)
         self._batch_scope_results: dict[int, dict[str, Any]] = {}
@@ -185,7 +194,47 @@ class BatchView(QWidget):
 
         self._setup_ui()
         self._connect_signals()
+        self._setup_shortcuts()
         self.refresh_data()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé au Batch Factory."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+                if hasattr(self, "staging_panel") and self.staging_panel is not None:
+                    self.staging_panel.unbind_shortcuts(self._shortcut_manager)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de BatchView via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        # 1. Raccourcis de portée VUE attachés à self
+        vue_bindings = {
+            ShortcutId.BATCH_COMPOSE: lambda: self._on_open_batch_composer(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+        # 2. Délégation à staging_panel
+        if hasattr(self, "staging_panel") and self.staging_panel is not None:
+            self.staging_panel.setup_shortcuts(self._shortcut_manager)
+
+    def run_primary_action(self) -> None:
+        """Déclenche l'action primaire du Batch (Démarrer ou Reprendre le lot, Ctrl+Entrée)."""
+        if self._is_batch_running():
+            return
+        if hasattr(self, "btn_resume_batch") and not self.btn_resume_batch.isHidden():
+            self._on_resume_batch()
+        else:
+            self._on_start_batch()
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -470,7 +519,10 @@ class BatchView(QWidget):
         compose_top.addStretch()
         compose_layout.addLayout(compose_top)
 
-        self.btn_compose_batch = PrimaryButton("Composer le lot…", tooltip=self.tr("Choisir le document, son mode de découpage (direct / auto), puis ses parties"))
+        self.btn_compose_batch = PrimaryButton(
+            "Composer le lot…",
+            tooltip=tr("Choisir le document, son mode de découpage (direct / auto), puis ses parties (%1)", get_shortcut_sequence(ShortcutId.BATCH_COMPOSE)),
+        )
         self.btn_compose_batch.setIcon(load_on_accent_icon("ph.plus"))
         apply_shadow(self.btn_compose_batch, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
         self.btn_compose_batch.clicked.connect(self._on_open_batch_composer)
@@ -494,7 +546,10 @@ class BatchView(QWidget):
         self.btn_clear_table.clicked.connect(self._on_clear_queue)
         self.queue_panel.add_header_widget(self.btn_clear_table)
 
-        self.btn_start_pipeline = PrimaryButton("Démarrer Pipeline", tooltip=self.tr("Démarrer l'exécution du traitement par lots en arrière-plan"))
+        self.btn_start_pipeline = PrimaryButton(
+            "Démarrer Pipeline",
+            tooltip=tr("Démarrer l'exécution du traitement par lots en arrière-plan (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)),
+        )
         self.btn_start_pipeline.setIcon(load_on_accent_icon("ph.play"))
         self.btn_start_pipeline.setStyleSheet(f"""
             QPushButton {{

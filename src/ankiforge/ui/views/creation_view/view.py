@@ -2,11 +2,11 @@ import datetime
 import json
 import logging
 import time
-from typing import Any, cast
+from typing import Any
 
 from peewee import fn
-from PySide6.QtCore import QEvent, Qt, QThreadPool, QTimer, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent, QTextCursor
+from PySide6.QtCore import Qt, QThreadPool, QTimer, Signal, Slot
+from PySide6.QtGui import QCloseEvent, QColor, QTextCursor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -70,6 +70,7 @@ from ankiforge.ui.components.vision_capability import effective_vision, sync_vis
 from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
 from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.dialogs.selection_dialog import MultiSelectionDialog
+from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope, get_shortcut_sequence
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.viewmodels import CreationViewModel
 from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
@@ -115,10 +116,19 @@ class CreationView(QWidget):
     TAB_INDEX_LOGS: int = 1
     TAB_INDEX_ERRORS: int = 2
 
-    def __init__(self, ai_manager: Any = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any = None,
+        profile_name: str = "default",
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
         self.note_repo = NoteRepository()
         self.deck_repo = DeckRepository()
         self.pipeline_repo = PipelineRepository()
@@ -162,7 +172,60 @@ class CreationView(QWidget):
 
         self._setup_ui()
         self._connect_signals()
+        self._setup_shortcuts()
         self.refresh_data()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé au Studio de Création."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+                if hasattr(self, "results_table") and self.results_table is not None:
+                    self._shortcut_manager.unbind(self.results_table)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs du Studio de Création via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        # 1. Raccourcis de revue (portée WIDGET attachés à results_table)
+        if hasattr(self, "results_table") and self.results_table is not None:
+            widget_bindings = {
+                ShortcutId.REVIEW_VALIDATE_SPACE: lambda: self._on_validate_card(),
+                ShortcutId.REVIEW_VALIDATE_V: lambda: self._on_validate_card(),
+                ShortcutId.REVIEW_REJECT_DELETE: lambda: self._on_reject_card(),
+                ShortcutId.REVIEW_REJECT_BACKSPACE: lambda: self._on_reject_card(),
+                ShortcutId.REVIEW_REJECT_R: lambda: self._on_reject_card(),
+                ShortcutId.REVIEW_EDIT: lambda: self._on_edit_card(),
+                ShortcutId.REVIEW_PREV_CARD: lambda: self._on_prev_card(),
+                ShortcutId.REVIEW_NEXT_CARD: lambda: self._on_next_card(),
+            }
+            self._shortcut_manager.bind(self.results_table, widget_bindings, scope=ShortcutScope.WIDGET)
+
+        # 2. Raccourcis de portée VUE attachés à self
+        vue_bindings = {
+            ShortcutId.CREATION_NEW_INPUT: lambda: self._open_document_tab("Nouvelle Saisie"),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def save(self) -> None:
+        """Enregistre les cartes validées dans Anki / la collection (routeur Ctrl+S)."""
+        self._on_save_anki()
+
+    def run_primary_action(self) -> None:
+        """Déclenche la génération de cartes (action primaire du Studio, Ctrl+Entrée)."""
+        editor = self._get_current_editor()
+        if editor is not None and hasattr(editor, "btn_generate") and editor.btn_generate.isEnabled():
+            editor._on_generate_clicked()
+        elif hasattr(self, "btn_generate_cards"):
+            self._on_generate_from_tree()
 
     def _navigate(self, view_id: str, data: dict | None = None) -> None:
         self.request_navigation.emit(view_id, data)
@@ -186,7 +249,10 @@ class CreationView(QWidget):
         explorer_layout.setContentsMargins(10, 10, 10, 10)
         explorer_layout.setSpacing(8)
 
-        self.btn_new_free_input = SecondaryButton("Nouvelle Saisie Libre", tooltip=self.tr("Créer une saisie libre sans document source"))
+        self.btn_new_free_input = SecondaryButton(
+            "Nouvelle Saisie Libre",
+            tooltip=tr("Créer une saisie libre sans document source (%1)", get_shortcut_sequence(ShortcutId.CREATION_NEW_INPUT)),
+        )
         self.btn_new_free_input.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
         explorer_layout.addWidget(self.btn_new_free_input)
 
@@ -575,7 +641,6 @@ class CreationView(QWidget):
         self.results_table.itemChanged.connect(self._on_cell_edited)
         self.results_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.results_table.customContextMenuRequested.connect(self._on_table_context_menu)
-        self.results_table.installEventFilter(self)
         table_layout.addWidget(self.results_table, 1)
 
         self.results_splitter.addWidget(table_container)
@@ -591,7 +656,7 @@ class CreationView(QWidget):
         self.btn_save_anki = PrimaryButton("Enregistrer dans la Forge (0)")
         self.btn_save_anki.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_anki.setEnabled(False)
-        self.btn_save_anki.setToolTip(self.tr("Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)"))
+        self.btn_save_anki.setToolTip(tr("Enregistrer les cartes validées dans votre collection AnkiForge (%1)", get_shortcut_sequence(ShortcutId.APP_SAVE)))
         main_bot_toolbar.addWidget(self.btn_save_anki)
 
         self.btn_accept_all = SecondaryButton("Tout valider")
@@ -2418,21 +2483,6 @@ class CreationView(QWidget):
         self._clear_running_indicator()
         self._append_generation_log("Génération annulée.", level="CANCEL")
         show_toast(self, self.tr("Génération annulée."), is_error=False)
-
-    def eventFilter(self, obj: Any, event: Any) -> bool:
-        if obj == self.results_table and event.type() == QEvent.Type.KeyPress:
-            key_event = cast(QKeyEvent, event)
-            key = key_event.key()
-            if key in (Qt.Key.Key_Space, Qt.Key.Key_V):
-                self._on_validate_card()
-                return True
-            elif key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace, Qt.Key.Key_R):
-                self._on_reject_card()
-                return True
-            elif key == Qt.Key.Key_E:
-                self._on_edit_card()
-                return True
-        return super().eventFilter(obj, event)
 
     @Slot()
     def _on_cancel_generation(self) -> None:
