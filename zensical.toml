@@ -64,6 +64,7 @@ nav = [
       { "Fournisseurs LLM & Agnosticisme" = "guides/ia_fournisseurs.md" },
       { "Ingénierie de Prompts & Jinja2" = "guides/guide_prompts_ia.md" },
       { "Catalogue des Outils MCP" = "guides/catalogue_outils_mcp.md" },
+      { "Référence Clavier" = "guides/raccourcis_clavier.md" },
       { "FAQ & Dépannage" = "guides/faq_depannage.md" },
       { "Design System & Thèmes" = "guides/design_system.md" },
   ]},
