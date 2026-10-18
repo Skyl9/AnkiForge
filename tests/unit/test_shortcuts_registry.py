@@ -254,3 +254,72 @@ def test_t4_shortcuts_catalog_integrity() -> None:
     assert catalog[ShortcutId.MODELS_DUPLICATE].default_sequence == "Ctrl+Shift+D"
     assert catalog[ShortcutId.MODELS_IMPORT_JSON].default_sequence == "Ctrl+Alt+O"
     assert catalog[ShortcutId.MODELS_EXPORT_JSON].default_sequence == "Ctrl+Alt+E"
+
+
+def test_t5_shortcuts_catalog_integrity() -> None:
+    """Vérifie l'intégrité déclarative des raccourcis Agents, Pipelines, Consultant, AB, Merge (T5)."""
+    t5_vue_ids = [
+        ShortcutId.AGENTS_NEW,
+        ShortcutId.AGENTS_DUPLICATE,
+        ShortcutId.PIPELINES_NEW,
+        ShortcutId.PIPELINES_MOVE_STEP_UP,
+        ShortcutId.PIPELINES_MOVE_STEP_DOWN,
+        ShortcutId.CONSULTANT_NEW_CHAT,
+        ShortcutId.CONSULTANT_EXPORT_SESSION,
+        ShortcutId.CONSULTANT_TOGGLE_SIDEBAR,
+        ShortcutId.CONSULTANT_TOGGLE_INSPECTOR,
+        ShortcutId.AB_SAMPLE_A_PREV,
+        ShortcutId.AB_SAMPLE_A_NEXT,
+        ShortcutId.AB_SAMPLE_B_PREV,
+        ShortcutId.AB_SAMPLE_B_NEXT,
+    ]
+
+    catalog = SHORTCUT_CATALOG
+    for sc_id in t5_vue_ids:
+        assert sc_id in catalog, f"Raccourci T5 manquant au catalogue : {sc_id}"
+        defn = catalog[sc_id]
+        assert defn.scope == ShortcutScope.VUE
+        assert len(defn.default_sequence) > 0
+        assert len(defn.title) > 0
+        assert len(defn.description) > 0
+
+    # Touche nue en WIDGET pour Pipelines
+    assert ShortcutId.PIPELINES_DELETE_STEP in catalog
+    del_defn = catalog[ShortcutId.PIPELINES_DELETE_STEP]
+    assert del_defn.scope == ShortcutScope.WIDGET
+    assert del_defn.allow_bare_key is True
+    assert del_defn.default_sequence == "Delete"
+
+    # Dialogues pour Merge
+    merge_ids = [
+        ShortcutId.MERGE_PREV_CONFLICT,
+        ShortcutId.MERGE_NEXT_CONFLICT,
+        ShortcutId.MERGE_KEEP_ALL_LOCAL,
+        ShortcutId.MERGE_KEEP_ALL_INCOMING,
+        ShortcutId.MERGE_CONFIRM,
+    ]
+    for sc_id in merge_ids:
+        assert sc_id in catalog, f"Raccourci Merge manquant au catalogue : {sc_id}"
+        defn = catalog[sc_id]
+        assert defn.scope == ShortcutScope.DIALOGUE
+        assert len(defn.default_sequence) > 0
+
+    # Assignations de séquences
+    assert catalog[ShortcutId.AGENTS_NEW].default_sequence == "Ctrl+N"
+    assert catalog[ShortcutId.AGENTS_DUPLICATE].default_sequence == "Ctrl+Shift+D"
+    assert catalog[ShortcutId.PIPELINES_NEW].default_sequence == "Ctrl+N"
+    assert catalog[ShortcutId.PIPELINES_MOVE_STEP_UP].default_sequence == "Ctrl+Up"
+    assert catalog[ShortcutId.PIPELINES_MOVE_STEP_DOWN].default_sequence == "Ctrl+Down"
+    assert catalog[ShortcutId.CONSULTANT_NEW_CHAT].default_sequence == "Ctrl+N"
+    assert catalog[ShortcutId.CONSULTANT_EXPORT_SESSION].default_sequence == "Ctrl+Alt+E"
+    assert catalog[ShortcutId.CONSULTANT_TOGGLE_SIDEBAR].default_sequence == "Ctrl+Alt+B"
+    assert catalog[ShortcutId.CONSULTANT_TOGGLE_INSPECTOR].default_sequence == "Ctrl+Alt+I"
+    assert catalog[ShortcutId.AB_SAMPLE_A_PREV].default_sequence == "Alt+Up"
+    assert catalog[ShortcutId.AB_SAMPLE_A_NEXT].default_sequence == "Alt+Down"
+    assert catalog[ShortcutId.AB_SAMPLE_B_PREV].default_sequence == "Alt+Left"
+    assert catalog[ShortcutId.AB_SAMPLE_B_NEXT].default_sequence == "Alt+Right"
+    assert catalog[ShortcutId.MERGE_PREV_CONFLICT].default_sequence == "Alt+Left"
+    assert catalog[ShortcutId.MERGE_NEXT_CONFLICT].default_sequence == "Alt+Right"
+    assert catalog[ShortcutId.MERGE_KEEP_ALL_LOCAL].default_sequence == "Ctrl+Alt+Left"
+    assert catalog[ShortcutId.MERGE_KEEP_ALL_INCOMING].default_sequence == "Ctrl+Alt+Right"
+    assert catalog[ShortcutId.MERGE_CONFIRM].default_sequence == "Ctrl+Return"
