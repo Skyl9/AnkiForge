@@ -172,6 +172,20 @@ class ShortcutId(StrEnum):
     MERGE_KEEP_ALL_INCOMING = "merge.keep_all_incoming"
     MERGE_CONFIRM = "merge.confirm"
 
+    # Dialogues modaux & Sélecteurs (T6)
+    DIALOG_CLOSE = "dialog.close"
+    DIALOG_CONFIRM = "dialog.confirm"
+    DIALOG_APPLY = "dialog.apply"
+    DIALOG_NEW_DECK = "dialog.new_deck"
+    DIALOG_PREV_ITEM = "dialog.prev_item"
+    DIALOG_NEXT_ITEM = "dialog.next_item"
+
+    # Édition & Formatage inline (T6)
+    EDITION_FORMAT_CODE = "edition.format_code"
+
+    # Modèles de cartes & Éditeur de code (T6)
+    CODE_FORMAT = "code.format"
+
 
 #: Séquences protégées (liste noire non remappable protégeant la saisie de texte et l'OS).
 RESERVED_SEQUENCES: frozenset[str] = frozenset(

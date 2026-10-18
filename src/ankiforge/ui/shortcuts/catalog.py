@@ -779,6 +779,75 @@ def build_shortcut_catalog() -> dict[ShortcutId, ShortcutDefinition]:
             title_getter=lambda: tr("Valider la fusion"),
             description_getter=lambda: tr("Valide les arbitrages et applique la fusion"),
         ),
+        # Dialogues modaux & Sélecteurs (T6)
+        ShortcutId.DIALOG_CLOSE: ShortcutDefinition(
+            id=ShortcutId.DIALOG_CLOSE,
+            category=ShortcutCategory.DIALOGUE,
+            scope=ShortcutScope.DIALOGUE,
+            default_sequence="Escape",
+            title_getter=lambda: tr("Fermer la boîte de dialogue"),
+            description_getter=lambda: tr("Ferme la boîte de dialogue active sans valider"),
+        ),
+        ShortcutId.DIALOG_CONFIRM: ShortcutDefinition(
+            id=ShortcutId.DIALOG_CONFIRM,
+            category=ShortcutCategory.DIALOGUE,
+            scope=ShortcutScope.DIALOGUE,
+            default_sequence="Return",
+            title_getter=lambda: tr("Valider la boîte de dialogue"),
+            description_getter=lambda: tr("Confirme et valide la sélection de la boîte de dialogue"),
+        ),
+        ShortcutId.DIALOG_APPLY: ShortcutDefinition(
+            id=ShortcutId.DIALOG_APPLY,
+            category=ShortcutCategory.DIALOGUE,
+            scope=ShortcutScope.DIALOGUE,
+            default_sequence="Ctrl+Return",
+            title_getter=lambda: tr("Appliquer les modifications"),
+            description_getter=lambda: tr("Valide ou applique les modifications sans fermer la boîte de dialogue"),
+        ),
+        ShortcutId.DIALOG_NEW_DECK: ShortcutDefinition(
+            id=ShortcutId.DIALOG_NEW_DECK,
+            category=ShortcutCategory.DIALOGUE,
+            scope=ShortcutScope.DIALOGUE,
+            default_sequence="Ctrl+N",
+            title_getter=lambda: tr("Nouveau paquet"),
+            description_getter=lambda: tr("Ouvre la création d'un nouveau paquet dans le sélecteur"),
+        ),
+        ShortcutId.DIALOG_PREV_ITEM: ShortcutDefinition(
+            id=ShortcutId.DIALOG_PREV_ITEM,
+            category=ShortcutCategory.DIALOGUE,
+            scope=ShortcutScope.WIDGET,
+            default_sequence="Up",
+            allow_bare_key=True,
+            title_getter=lambda: tr("Élément précédent"),
+            description_getter=lambda: tr("Sélectionne l'élément précédent dans la liste du dialogue"),
+        ),
+        ShortcutId.DIALOG_NEXT_ITEM: ShortcutDefinition(
+            id=ShortcutId.DIALOG_NEXT_ITEM,
+            category=ShortcutCategory.DIALOGUE,
+            scope=ShortcutScope.WIDGET,
+            default_sequence="Down",
+            allow_bare_key=True,
+            title_getter=lambda: tr("Élément suivant"),
+            description_getter=lambda: tr("Sélectionne l'élément suivant dans la liste du dialogue"),
+        ),
+        # Édition & Formatage inline (T6)
+        ShortcutId.EDITION_FORMAT_CODE: ShortcutDefinition(
+            id=ShortcutId.EDITION_FORMAT_CODE,
+            category=ShortcutCategory.EDITION,
+            scope=ShortcutScope.VUE,
+            default_sequence="Ctrl+K",
+            title_getter=lambda: tr("Code inline"),
+            description_getter=lambda: tr("Enveloppe le texte sélectionné dans des balises de code"),
+        ),
+        # Modèles de cartes & Éditeur de code (T6)
+        ShortcutId.CODE_FORMAT: ShortcutDefinition(
+            id=ShortcutId.CODE_FORMAT,
+            category=ShortcutCategory.MODELES,
+            scope=ShortcutScope.WIDGET,
+            default_sequence="Ctrl+Alt+L",
+            title_getter=lambda: tr("Formater le document"),
+            description_getter=lambda: tr("Réindente et nettoie le code HTML ou CSS dans l'éditeur"),
+        ),
     }
 
 

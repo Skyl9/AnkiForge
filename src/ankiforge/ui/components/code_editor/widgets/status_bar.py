@@ -56,7 +56,7 @@ class LintStatusBar(QFrame):
         self.format_btn = QPushButton(self.tr("Formater"))
         self.format_btn.setIcon(load_phosphor_icon("ph.magic-wand", color=DesignTokens.TEXT_SECONDARY))
         self.format_btn.setIconSize(QSize(13, 13))
-        self.format_btn.setToolTip(self.tr("Formater le document (Ctrl+Alt+L / Ctrl+Shift+I)"))
+        self.format_btn.setToolTip(self.tr("Formater le document (Ctrl+Alt+L)"))
         self.format_btn.setFixedHeight(20)
         self.format_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.format_btn.setStyleSheet(f"""

@@ -586,10 +586,9 @@ class NativeCodeEditor(QPlainTextEdit):
 
     def keyPressEvent(self, event: Any) -> None:
         is_ctrl_alt_l = event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier) and event.key() == Qt.Key.Key_L
-        is_ctrl_shift_i = event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier) and event.key() == Qt.Key.Key_I
         is_shift_alt_f = event.modifiers() == (Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.AltModifier) and event.key() == Qt.Key.Key_F
 
-        if is_ctrl_alt_l or is_ctrl_shift_i or is_shift_alt_f:
+        if is_ctrl_alt_l or is_shift_alt_f:
             event.accept()
             self.format_code()
             return

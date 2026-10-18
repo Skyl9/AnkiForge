@@ -27,6 +27,7 @@ ACTION_SHORTCUT_MAP: dict[str, ShortcutId] = {
     "underline": ShortcutId.EDITION_FORMAT_UNDERLINE,
     "cloze": ShortcutId.EDITION_FORMAT_CLOZE,
     "math": ShortcutId.EDITION_FORMAT_MATH,
+    "code_inline": ShortcutId.EDITION_FORMAT_CODE,
 }
 
 
@@ -209,7 +210,16 @@ class EditorToolbarWidget(QWidget):
         self.tools_layout.addWidget(self._create_separator())
 
         # --- Groupe Code & Math ---
-        self.register_action("code_inline", "code", "Code inline", "Code en ligne (<code>...</code>)", "", lambda: self.action_triggered.emit("code_inline"), group="code")
+        self.register_action(
+            "code_inline",
+            "code",
+            "Code inline",
+            "Code en ligne (<code>...</code>)",
+            "",
+            lambda: self.action_triggered.emit("code_inline"),
+            group="code",
+            shortcut_id=ShortcutId.EDITION_FORMAT_CODE,
+        )
         self.register_action("code_block", "code-block", "Bloc de code", "Bloc préformaté (<pre><code>...</code></pre>)", "", lambda: self.action_triggered.emit("code_block"), group="code")
         self.register_action(
             "math",
