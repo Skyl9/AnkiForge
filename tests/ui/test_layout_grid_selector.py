@@ -178,3 +178,18 @@ def test_layout_grid_selector_arrow_navigation(qtbot):
     selector.keyPressEvent(event_down)
     # Ligne 1, colonne 1 (glassmorphism)
     assert selector.current_layout_id() == "glassmorphism"
+
+
+def test_layout_grid_selector_responsive_columns(qtbot):
+    """Vérifie le repli en 1 colonne sous le seuil et le retour en multi-colonnes."""
+    selector = LayoutGridSelector(current_layout_id="ide", columns=2)
+    qtbot.addWidget(selector)
+    selector.show()
+
+    # Redimensionnement étroit (< COLUMNS_BREAKPOINT_WIDTH)
+    selector.resize(400, 600)
+    assert selector.columns == 1
+
+    # Redimensionnement large (>= COLUMNS_BREAKPOINT_WIDTH)
+    selector.resize(700, 600)
+    assert selector.columns == 2

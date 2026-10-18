@@ -6,6 +6,7 @@ la validation des clés API, les règles de formats/fusion Anki hors-ligne et la
 
 import datetime
 import json
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1148,3 +1149,38 @@ def test_settings_modal_save_button_disabled_has_visible_contour(qtbot):
     modal_qss = modal.styleSheet()
     assert 'QPushButton[role="primary"]:disabled' in modal_qss
     assert "border: 1px solid" in modal_qss
+
+
+@pytest.mark.parametrize("size", [(820, 560), (880, 620)])
+@pytest.mark.parametrize(("tab_index", "tab_name"), [(0, "Général"), (1, "Moteurs IA"), (4, "Maintenance"), (7, "Développeur")])
+def test_settings_modal_tabs_no_horizontal_scrollbar(qtbot: Any, size: tuple[int, int], tab_index: int, tab_name: str) -> None:
+    """Aux tailles 820x560 et 880x620, le contenu des 4 onglets s'adapte sans imposer de barre de défilement horizontale."""
+    from PySide6.QtWidgets import QScrollArea
+
+    with patch("ankiforge.utils.environment.is_development", return_value=True):
+        modal = SettingsModal()
+        qtbot.addWidget(modal)
+        modal.resize(*size)
+        modal.show()
+        modal.select_tab(tab_index)
+        QApplication.processEvents()
+
+        tab = modal._ensure_tab_loaded(tab_index)
+        scroll = getattr(tab, "scroll", None) or tab.findChild(QScrollArea)
+        assert scroll is not None, f"L'onglet {tab_name} doit comporter une QScrollArea."
+
+        # Vérifier que la scrollbar horizontale n'est pas nécessaire
+        QApplication.processEvents()
+        h_bar = scroll.horizontalScrollBar()
+        assert not h_bar.isVisible(), f"Barre horizontale visible sur {tab_name} à {size[0]}x{size[1]} (maximum={h_bar.maximum()}, viewport={scroll.viewport().width()})"
+        assert h_bar.maximum() == 0, f"Débordement horizontal sur {tab_name} à {size[0]}x{size[1]} (maximum={h_bar.maximum()}, viewport={scroll.viewport().width()})"
+
+        # Sur l'onglet Général, vérifier que les cartes de layout conservent leurs informations visibles
+        if tab_index == 0:
+            from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import LayoutGridSelector
+
+            selector = tab.findChild(LayoutGridSelector)
+            if selector:
+                for lid, card in selector.cards.items():
+                    assert card.info_container.isVisible(), f"Le conteneur d'informations du layout {lid} doit être visible."
+                    assert card.lbl_name.isVisible(), f"Le titre du layout {lid} doit être visible."
