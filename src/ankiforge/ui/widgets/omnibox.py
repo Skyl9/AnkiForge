@@ -1,8 +1,9 @@
 import json
 import re
+from typing import cast
 
-from PySide6.QtCore import Qt, QTimer, Signal, Slot
-from PySide6.QtGui import QColor, QKeySequence, QShortcut
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal, Slot
+from PySide6.QtGui import QColor, QKeyEvent
 from PySide6.QtWidgets import QDialog, QGraphicsDropShadowEffect, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 
 from ankiforge.database.models import CardModel, DocumentModel, NoteModel, NoteVersionModel
@@ -71,6 +72,7 @@ class Omnibox(QDialog):
         # 2. La liste de résultats
         self.results_list = QListWidget()
         self.results_list.itemClicked.connect(self._on_item_activated)
+        self.results_list.itemActivated.connect(self._on_item_activated)
         layout.addWidget(self.results_list)
 
         # 3. Timer (Debounce) pour ne pas exploser la BDD à chaque lettre
@@ -79,10 +81,10 @@ class Omnibox(QDialog):
         self.search_timer.setInterval(300)
         self.search_timer.timeout.connect(self.perform_search)
 
-        # 4. Raccourcis clavier de navigation interne
-        QShortcut(QKeySequence("Escape"), self).activated.connect(self.close)
-        QShortcut(QKeySequence("Return"), self.search_bar).activated.connect(self._on_enter_pressed)
-        QShortcut(QKeySequence("Down"), self.search_bar).activated.connect(self._focus_list)
+        # 4. Navigation clavier interne
+        self.search_bar.returnPressed.connect(self._on_enter_pressed)
+        self.search_bar.installEventFilter(self)
+        self.results_list.installEventFilter(self)
 
     @Slot()
     def _on_text_changed(self):
@@ -189,6 +191,37 @@ class Omnibox(QDialog):
         if data:
             self.result_selected.emit(data["type"], data["id"], data["deck_id"])
         self.close()
+
+    def eventFilter(self, obj: object, event: QEvent) -> bool:
+        """Capture les touches de navigation (Flèche Bas, Échap, Entrée) dans la barre de recherche et la liste."""
+        if obj is self.search_bar and event.type() == QEvent.Type.KeyPress:
+            key_event = cast(QKeyEvent, event)
+            if key_event.key() == Qt.Key.Key_Down:
+                self._focus_list()
+                return True
+            elif key_event.key() == Qt.Key.Key_Escape:
+                self.close()
+                return True
+        elif obj is self.results_list and event.type() == QEvent.Type.KeyPress:
+            key_event = cast(QKeyEvent, event)
+            if key_event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                cur_item = self.results_list.currentItem()
+                if cur_item is not None:
+                    self._on_item_activated(cur_item)
+                    return True
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Gère les raccourcis de navigation globale de l'Omnibox."""
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Down and not self.results_list.hasFocus():
+            self._focus_list()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def showEvent(self, event):
         """Réinitialise la boîte à chaque ouverture."""

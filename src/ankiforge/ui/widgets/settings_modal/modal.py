@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
-from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
@@ -305,6 +305,14 @@ class SettingsModal(QDialog):
         super().closeEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
+        if (event.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier)) and event.key() == Qt.Key.Key_S:
+            self._save_all()
+            event.accept()
+            return
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+            event.accept()
+            return
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self._save_all()
             event.accept()
@@ -442,14 +450,6 @@ class SettingsModal(QDialog):
         main_layout.addWidget(self.footer_bar)
 
         self._apply_dialog_styles()
-
-        # Raccourci Échap pour fermer
-        shortcut_esc = QShortcut(QKeySequence("Escape"), self)
-        shortcut_esc.activated.connect(self.close)
-
-        # Raccourci standard Ctrl+S / Cmd+S pour enregistrer
-        shortcut_save = QShortcut(QKeySequence.StandardKey.Save, self)
-        shortcut_save.activated.connect(self._save_all)
 
         # Connecter returnPressed des champs de saisie du premier onglet
         self._connect_tab_line_edits(self.general_tab)

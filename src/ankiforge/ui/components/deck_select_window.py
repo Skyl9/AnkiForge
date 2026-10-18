@@ -3,8 +3,10 @@
 Reproduit la maquette `folder_select_modal.html`.
 """
 
-from PySide6.QtCore import QPoint, Qt, Signal
-from PySide6.QtGui import QColor, QPalette
+from typing import cast
+
+from PySide6.QtCore import QEvent, QPoint, Qt, Signal
+from PySide6.QtGui import QColor, QKeyEvent, QPalette
 from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QInputDialog, QLineEdit, QMessageBox, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from ankiforge.database.models import DeckModel
@@ -147,6 +149,10 @@ class DeckSelectWindow(QWidget):
 
         self.tree.itemSelectionChanged.connect(self._on_selection_changed)
         self.tree.itemDoubleClicked.connect(self._on_confirm)
+
+        # Installation des raccourcis et navigation clavier
+        self.search_input.installEventFilter(self)
+        self.tree.installEventFilter(self)
 
         self._load_decks()
 
@@ -361,3 +367,62 @@ class DeckSelectWindow(QWidget):
             self.selected_deck_id = None
             self.btn_confirm.setEnabled(False)
         self._load_decks()
+
+    def eventFilter(self, obj: object, event: QEvent) -> bool:
+        """Navigation clavier et raccourcis dans le sélecteur de paquet."""
+        if event.type() == QEvent.Type.KeyPress:
+            key_event = cast(QKeyEvent, event)
+            key = key_event.key()
+            modifiers = key_event.modifiers()
+
+            if (modifiers & Qt.KeyboardModifier.ControlModifier) and key == Qt.Key.Key_N:
+                self._open_create_deck_dialog()
+                return True
+
+            if key == Qt.Key.Key_Escape:
+                self.close()
+                return True
+
+            if obj is self.search_input:
+                if key == Qt.Key.Key_Down:
+                    cur = self.tree.currentItem()
+                    if cur is None:
+                        if self.tree.topLevelItemCount() > 0:
+                            self.tree.setCurrentItem(self.tree.topLevelItem(0))
+                    else:
+                        below = self.tree.itemBelow(cur)
+                        if below is not None:
+                            self.tree.setCurrentItem(below)
+                    return True
+                elif key == Qt.Key.Key_Up:
+                    cur = self.tree.currentItem()
+                    if cur is not None:
+                        above = self.tree.itemAbove(cur)
+                        if above is not None:
+                            self.tree.setCurrentItem(above)
+                    return True
+                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    self._on_confirm()
+                    return True
+
+            elif obj is self.tree and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self._on_confirm()
+                return True
+
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Gère les raccourcis globaux du sélecteur de paquet (Ctrl+N, Échap, Entrée)."""
+        if (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and event.key() == Qt.Key.Key_N:
+            self._open_create_deck_dialog()
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Escape:
+            self.close()
+            event.accept()
+            return
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self._on_confirm()
+            event.accept()
+            return
+        super().keyPressEvent(event)

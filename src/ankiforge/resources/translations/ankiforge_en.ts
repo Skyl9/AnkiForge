@@ -225,7 +225,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/deck_select_window.py" line="+330"/>
+        <location filename="../../ui/components/deck_select_window.py" line="+336"/>
         <source>Un paquet nommé « %1 » existe déjà.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -368,7 +368,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/model_select_window.py" line="+202"/>
+        <location filename="../../ui/components/model_select_window.py" line="+207"/>
         <location filename="../../ui/components/tabs/bars/settings_bar.py" line="+25"/>
         <location filename="../../ui/views/batch_view/dialogs/batch_slice_composer_dialog.py" line="+181"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="+741"/>
@@ -432,7 +432,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     <message>
         <location line="+108"/>
         <location filename="../../ui/views/agents_view/view.py" line="+635"/>
-        <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="+172"/>
+        <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="+176"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-822"/>
         <source>%1 :</source>
         <translation type="unfinished"></translation>
@@ -506,7 +506,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location filename="../../ui/views/edition_view/view.py" line="-604"/>
         <location line="+212"/>
         <location line="+8"/>
-        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+84"/>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+85"/>
         <location line="+45"/>
         <location line="+15"/>
         <location line="+15"/>
@@ -632,8 +632,8 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/crash_report_dialog.py" line="+145"/>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+339"/>
+        <location filename="../../ui/dialogs/crash_report_dialog.py" line="+141"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+347"/>
         <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -823,7 +823,7 @@ Aucune modification ne sera écrite en base de données.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="+299"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="+295"/>
         <source>Profil : %1 · %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1069,7 +1069,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/selection_dialog.py" line="+290"/>
+        <location filename="../../ui/dialogs/selection_dialog.py" line="+350"/>
         <source>%1 modèle(s) sélectionné(s)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2411,6 +2411,86 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+8"/>
+        <source>Fermer la boîte de dialogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ferme la boîte de dialogue active sans valider</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Valider la boîte de dialogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Confirme et valide la sélection de la boîte de dialogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Appliquer les modifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Valide ou applique les modifications sans fermer la boîte de dialogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Nouveau paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ouvre la création d&apos;un nouveau paquet dans le sélecteur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Élément précédent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélectionne l&apos;élément précédent dans la liste du dialogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Élément suivant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélectionne l&apos;élément suivant dans la liste du dialogue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Code inline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Enveloppe le texte sélectionné dans des balises de code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Formater le document</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Réindente et nettoie le code HTML ou CSS dans l&apos;éditeur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/views/ab_tests_view/view.py" line="-964"/>
         <source>Lancer le test comparatif A/B sur les deux configurations (%1)</source>
         <translation type="unfinished"></translation>
@@ -3425,7 +3505,7 @@ Gabarits : %3</source>
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="-138"/>
         <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-19"/>
         <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+940"/>
-        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+300"/>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+309"/>
         <source>%1%2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5833,7 +5913,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+199"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+191"/>
         <source>✓ Paramètres sauvegardés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9082,12 +9162,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardEditDialog</name>
     <message>
-        <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="-56"/>
+        <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="-59"/>
         <source>Éditer la carte</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+144"/>
+        <location line="+147"/>
         <source>Aperçu en direct (Recto / Verso)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9959,12 +10039,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CrashReportDialog</name>
     <message>
-        <location filename="../../ui/dialogs/crash_report_dialog.py" line="-84"/>
+        <location filename="../../ui/dialogs/crash_report_dialog.py" line="-80"/>
         <source>Rapport d&apos;arrêt inattendu d&apos;AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+49"/>
         <source>AnkiForge s&apos;est arrêté de manière inattendue</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10825,13 +10905,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DeckSelectWindow</name>
     <message>
-        <location filename="../../ui/components/deck_select_window.py" line="-287"/>
+        <location filename="../../ui/components/deck_select_window.py" line="-291"/>
         <source>Rechercher un dossier (ex: Informatique, C++)...</source>
         <extracomment>Identifiant du nœud racine virtuel « Tous les paquets » (aucun DeckModel réel ne porte cet id).</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+99"/>
+        <location line="+103"/>
         <source>Tous les paquets</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12866,7 +12946,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditorToolbarWidget</name>
     <message>
-        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="-375"/>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="-384"/>
         <source>Replier la liste des cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12896,7 +12976,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+294"/>
+        <location line="+303"/>
         <source>Actions masquées :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13068,12 +13148,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FeedbackDialog</name>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="-594"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="-590"/>
         <source>Retours &amp; Suggestions AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+42"/>
+        <location line="+38"/>
         <source>Retours &amp; Suggestions</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14606,7 +14686,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+3"/>
-        <source>Formater le document (Ctrl+Alt+L / Ctrl+Shift+I)</source>
+        <source>Formater le document (Ctrl+Alt+L)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -16039,7 +16119,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>ModelSelectWindow</name>
     <message>
-        <location filename="../../ui/components/model_select_window.py" line="-144"/>
+        <location filename="../../ui/components/model_select_window.py" line="-148"/>
         <source>Rechercher un type de note (ex: Basique, Cloze, Front)...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16049,7 +16129,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+33"/>
         <source>Tous les types de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16057,7 +16137,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MultiSelectionDialog</name>
     <message>
-        <location filename="../../ui/dialogs/selection_dialog.py" line="-111"/>
+        <location filename="../../ui/dialogs/selection_dialog.py" line="-115"/>
         <source>Rechercher un modèle...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16070,7 +16150,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NativeCodeEditor</name>
     <message>
-        <location filename="../../ui/components/code_editor/widgets/native_editor.py" line="+691"/>
+        <location filename="../../ui/components/code_editor/widgets/native_editor.py" line="+690"/>
         <source>Appliquer la classe CSS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16410,7 +16490,7 @@ Aucune anomalie détectée dans votre collection.</source>
 <context>
     <name>Omnibox</name>
     <message>
-        <location filename="../../ui/widgets/omnibox.py" line="+67"/>
+        <location filename="../../ui/widgets/omnibox.py" line="+68"/>
         <source>Rechercher dans les cours ou les flashcards...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17632,7 +17712,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SelectionDialog</name>
     <message>
-        <location filename="../../ui/dialogs/selection_dialog.py" line="-179"/>
+        <location filename="../../ui/dialogs/selection_dialog.py" line="-235"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17669,7 +17749,7 @@ Utilisez {{ text_source }}.</source>
     <name>SettingsModal</name>
     <message>
         <location filename="../../ui/widgets/settings_modal/modal.py" line="-469"/>
-        <location line="+263"/>
+        <location line="+271"/>
         <source>Paramètres AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17684,7 +17764,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+77"/>
+        <location line="+69"/>
         <source>✓ Aucun paramètre modifié</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18388,7 +18468,7 @@ Utilisez {{ text_source }}.</source>
     <name>SupportDialog</name>
     <message>
         <location filename="../../ui/dialogs/support_dialog.py" line="+40"/>
-        <location line="+35"/>
+        <location line="+29"/>
         <source>Soutenir AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>

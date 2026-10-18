@@ -46,12 +46,6 @@ class SupportDialog(QDialog):
         self._setup_ui()
         self._apply_styles()
 
-        # Raccourci Échap pour fermer
-        from PySide6.QtGui import QKeySequence, QShortcut
-
-        shortcut_esc = QShortcut(QKeySequence("Escape"), self)
-        shortcut_esc.activated.connect(self._on_close_clicked)
-
     # ── Construction de l'interface ────────────────────────────────────────────
 
     def _setup_ui(self) -> None:

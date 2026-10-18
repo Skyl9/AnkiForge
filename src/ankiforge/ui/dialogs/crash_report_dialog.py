@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QDesktopServices, QFont, QKeySequence, QShortcut
+from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -70,10 +70,6 @@ class CrashReportDialog(QDialog):
 
         self._setup_ui()
         self._apply_styles()
-
-        # Raccourci Échap pour fermer et acquitter
-        shortcut_esc = QShortcut(QKeySequence("Escape"), self)
-        shortcut_esc.activated.connect(self._on_ignore_clicked)
 
     def _create_meta_badge(self, icon_name: str, label_text: str) -> QWidget:
         """Crée un item d'information compact avec icône Phosphor et label stylisé."""
@@ -338,3 +334,7 @@ class CrashReportDialog(QDialog):
         if self.chk_dont_ask.isChecked():
             CrashReporterService.set_prompt_enabled(False)
         self.close()
+
+    def reject(self) -> None:
+        """Ferme la modale et marque l'incident comme acquitté sur Échap."""
+        self._on_ignore_clicked()

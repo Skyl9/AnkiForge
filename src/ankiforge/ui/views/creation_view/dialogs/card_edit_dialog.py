@@ -1,7 +1,6 @@
 from typing import Any
 
-from PySide6.QtCore import QKeyCombination, QSize, Qt, QTimer
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -21,6 +20,7 @@ from ankiforge.ui.components import (
     SecondaryButton,
     StyledTextEdit,
 )
+from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.note_editor_widget import NoteKaTeXHighlighter
@@ -66,6 +66,7 @@ class CardEditDialog(QDialog):
         field_names: list[str] | None = None,
         note_type: NoteTypeModel | None = None,
         parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Éditer la carte"))
@@ -73,6 +74,9 @@ class CardEditDialog(QDialog):
         self.resize(1020, 640)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
 
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_dialog(self)
         self.note_type = note_type
         self.card_data: dict[str, Any] = dict(card_data) if card_data is not None else {}
         if not self.card_data and (front or back):
@@ -306,27 +310,17 @@ class CardEditDialog(QDialog):
         return bar
 
     def _setup_shortcuts(self) -> None:
-        """Enregistre les raccourcis de formatage standard."""
-        sc_bold = QShortcut(QKeySequence("Ctrl+B"), self)
-        sc_bold.activated.connect(lambda: self._wrap_selection("<b>", "</b>"))
-
-        sc_italic = QShortcut(QKeySequence("Ctrl+I"), self)
-        sc_italic.activated.connect(lambda: self._wrap_selection("<i>", "</i>"))
-
-        sc_underline = QShortcut(QKeySequence("Ctrl+U"), self)
-        sc_underline.activated.connect(lambda: self._wrap_selection("<u>", "</u>"))
-
-        sc_code = QShortcut(QKeySequence("Ctrl+K"), self)
-        sc_code.activated.connect(lambda: self._wrap_selection("<code>", "</code>"))
-
-        sc_math = QShortcut(QKeySequence("Ctrl+M"), self)
-        sc_math.activated.connect(lambda: self._wrap_selection(r"\( ", r" \)"))
-
-        sc_cloze = QShortcut(QKeyCombination(Qt.Modifier.CTRL | Qt.Modifier.SHIFT, Qt.Key.Key_C), self)
-        sc_cloze.activated.connect(self._insert_cloze)
-
-        sc_save = QShortcut(QKeySequence("Ctrl+Return"), self)
-        sc_save.activated.connect(self.accept)
+        """Enregistre les raccourcis de formatage standard via ShortcutManager."""
+        bindings = {
+            ShortcutId.EDITION_FORMAT_BOLD: lambda: self._wrap_selection("<b>", "</b>"),
+            ShortcutId.EDITION_FORMAT_ITALIC: lambda: self._wrap_selection("<i>", "</i>"),
+            ShortcutId.EDITION_FORMAT_UNDERLINE: lambda: self._wrap_selection("<u>", "</u>"),
+            ShortcutId.EDITION_FORMAT_CODE: lambda: self._wrap_selection("<code>", "</code>"),
+            ShortcutId.EDITION_FORMAT_MATH: lambda: self._wrap_selection(r"\( ", r" \)"),
+            ShortcutId.EDITION_FORMAT_CLOZE: self._insert_cloze,
+            ShortcutId.DIALOG_APPLY: self.accept,
+        }
+        self._shortcut_manager.bind(self, bindings, scope=ShortcutScope.DIALOGUE)
 
     def _resolve_initial_field_value(self, field_name: str) -> str:
         """Résout la valeur initiale d'un champ avec repli gracieux sur les synonymes courants."""

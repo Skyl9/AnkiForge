@@ -1,10 +1,10 @@
 """Dialogue générique de sélection d'éléments (Paquets, Modèles, etc.)."""
 
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, cast
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QColor, QKeyEvent
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -106,6 +106,10 @@ class SelectionDialog(QDialog):
         btn_layout.addWidget(self.btn_accept)
         layout.addLayout(btn_layout)
 
+        # Installation de la navigation clavier (↑/↓/Entrée/Échap)
+        self.search_input.installEventFilter(self)
+        self.list_widget.installEventFilter(self)
+
     def _populate_list(self, items: Sequence[Any]) -> None:
         self.list_widget.clear()
         if not items:
@@ -141,6 +145,58 @@ class SelectionDialog(QDialog):
 
     def get_selected_item(self) -> Any | None:
         return self.selected_item
+
+    def eventFilter(self, obj: object, event: QEvent) -> bool:
+        """Navigation clavier au sein du sélecteur (↑/↓ pour naviguer, Entrée pour valider, Échap pour annuler)."""
+        if event.type() == QEvent.Type.KeyPress:
+            key_event = cast(QKeyEvent, event)
+            key = key_event.key()
+
+            if key == Qt.Key.Key_Escape:
+                self.reject()
+                return True
+
+            if obj is self.search_input:
+                if key == Qt.Key.Key_Down:
+                    cnt = self.list_widget.count()
+                    if cnt > 0:
+                        cur = self.list_widget.currentRow()
+                        next_row = min(cur + 1, cnt - 1) if cur >= 0 else 0
+                        self.list_widget.setCurrentRow(next_row)
+                    return True
+                elif key == Qt.Key.Key_Up:
+                    cnt = self.list_widget.count()
+                    if cnt > 0:
+                        cur = self.list_widget.currentRow()
+                        prev_row = max(cur - 1, 0) if cur >= 0 else 0
+                        self.list_widget.setCurrentRow(prev_row)
+                    return True
+                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    if self.selected_item is None and self.list_widget.count() > 0:
+                        self.list_widget.setCurrentRow(0)
+                    if self.selected_item is not None:
+                        self.accept()
+                    return True
+
+            elif obj is self.list_widget and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                if self.selected_item is not None:
+                    self.accept()
+                return True
+
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Gère les raccourcis globaux du dialogue."""
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+            event.accept()
+            return
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if self.selected_item is not None:
+                self.accept()
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
 
 class MultiSelectionDialog(QDialog):
@@ -242,6 +298,10 @@ class MultiSelectionDialog(QDialog):
         btn_layout.addWidget(self.btn_accept)
         layout.addLayout(btn_layout)
 
+        # Installation de la navigation clavier (↑/↓/Espace/Entrée/Échap)
+        self.search_input.installEventFilter(self)
+        self.list_widget.installEventFilter(self)
+
     def _populate_list(self, items: Sequence[Any]) -> None:
         self.list_widget.blockSignals(True)
         self.list_widget.clear()
@@ -292,3 +352,61 @@ class MultiSelectionDialog(QDialog):
 
     def get_selected_items(self) -> list[Any]:
         return [item for item in self.items if item in self.checked_items or any(getattr(item, "id", None) == getattr(c, "id", None) for c in self.checked_items if hasattr(item, "id"))]
+
+    def eventFilter(self, obj: object, event: QEvent) -> bool:
+        """Navigation clavier dans le sélecteur multiple (↑/↓ pour naviguer, Espace pour cocher, Entrée pour valider)."""
+        if event.type() == QEvent.Type.KeyPress:
+            key_event = cast(QKeyEvent, event)
+            key = key_event.key()
+
+            if key == Qt.Key.Key_Escape:
+                self.reject()
+                return True
+
+            if obj is self.search_input:
+                if key == Qt.Key.Key_Down:
+                    cnt = self.list_widget.count()
+                    if cnt > 0:
+                        cur = self.list_widget.currentRow()
+                        next_row = min(cur + 1, cnt - 1) if cur >= 0 else 0
+                        self.list_widget.setCurrentRow(next_row)
+                    return True
+                elif key == Qt.Key.Key_Up:
+                    cnt = self.list_widget.count()
+                    if cnt > 0:
+                        cur = self.list_widget.currentRow()
+                        prev_row = max(cur - 1, 0) if cur >= 0 else 0
+                        self.list_widget.setCurrentRow(prev_row)
+                    return True
+                elif key == Qt.Key.Key_Space:
+                    cur = self.list_widget.currentRow()
+                    if cur >= 0:
+                        item = self.list_widget.item(cur)
+                        if item:
+                            new_st = Qt.CheckState.Unchecked if item.checkState() == Qt.CheckState.Checked else Qt.CheckState.Checked
+                            item.setCheckState(new_st)
+                    return True
+                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    if len(self.checked_items) > 0:
+                        self.accept()
+                    return True
+
+            elif obj is self.list_widget and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                if len(self.checked_items) > 0:
+                    self.accept()
+                return True
+
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Gère les raccourcis globaux du dialogue."""
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+            event.accept()
+            return
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if len(self.checked_items) > 0:
+                self.accept()
+                event.accept()
+                return
+        super().keyPressEvent(event)

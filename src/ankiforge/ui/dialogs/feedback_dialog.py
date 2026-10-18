@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QFont, QKeySequence, QShortcut
+from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -79,10 +79,6 @@ class FeedbackDialog(QDialog):
 
         self._setup_ui()
         self._apply_styles()
-
-        # Raccourci Échap pour fermer
-        shortcut_esc = QShortcut(QKeySequence("Escape"), self)
-        shortcut_esc.activated.connect(self.close)
 
     def _setup_ui(self) -> None:
         root_layout = QVBoxLayout(self)

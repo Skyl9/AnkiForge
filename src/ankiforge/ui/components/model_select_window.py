@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import cast
 
 from peewee import fn
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtGui import QColor, QKeyEvent, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -153,6 +154,10 @@ class ModelSelectWindow(QWidget):
         self.tree.itemSelectionChanged.connect(self._on_selection_changed)
         self.tree.itemDoubleClicked.connect(self._on_confirm)
 
+        # Installation des raccourcis et navigation clavier
+        self.search_input.installEventFilter(self)
+        self.tree.installEventFilter(self)
+
         self._load_models()
 
     def _load_models(self) -> None:
@@ -287,3 +292,53 @@ class ModelSelectWindow(QWidget):
         if mid and mid > 0:
             return self._model_cache.get(mid)
         return None
+
+    def eventFilter(self, obj: object, event: QEvent) -> bool:
+        """Navigation clavier et raccourcis dans le sélecteur de modèle."""
+        if event.type() == QEvent.Type.KeyPress:
+            key_event = cast(QKeyEvent, event)
+            key = key_event.key()
+
+            if key == Qt.Key.Key_Escape:
+                self.close()
+                return True
+
+            if obj is self.search_input:
+                if key == Qt.Key.Key_Down:
+                    cur = self.tree.currentItem()
+                    if cur is None:
+                        if self.tree.topLevelItemCount() > 0:
+                            self.tree.setCurrentItem(self.tree.topLevelItem(0))
+                    else:
+                        below = self.tree.itemBelow(cur)
+                        if below is not None:
+                            self.tree.setCurrentItem(below)
+                    return True
+                elif key == Qt.Key.Key_Up:
+                    cur = self.tree.currentItem()
+                    if cur is not None:
+                        above = self.tree.itemAbove(cur)
+                        if above is not None:
+                            self.tree.setCurrentItem(above)
+                    return True
+                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    self._on_confirm()
+                    return True
+
+            elif obj is self.tree and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self._on_confirm()
+                return True
+
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Gère les raccourcis globaux de la fenêtre (Échap, Entrée)."""
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+            event.accept()
+            return
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self._on_confirm()
+            event.accept()
+            return
+        super().keyPressEvent(event)
