@@ -879,13 +879,7 @@ class ImportManager:
         local_nt = existing_note.note_type
         local_nt_name = local_nt.name if local_nt else ""
         notetype_differs = False
-        if local_nt:
-            if mid is not None and local_nt.anki_id is not None:
-                notetype_differs = (local_nt.anki_id != mid) or (local_nt_name != notetype_name)
-            else:
-                notetype_differs = (local_nt_name != notetype_name)
-        else:
-            notetype_differs = True
+        notetype_differs = (local_nt.anki_id != mid or local_nt_name != notetype_name if mid is not None and local_nt.anki_id is not None else local_nt_name != notetype_name) if local_nt else True
 
         has_manual_edits = NoteVersionModel.select().where((NoteVersionModel.note == existing_note) & (NoteVersionModel.source.in_(["manual", "merge", "restore_v"]))).exists()
 
@@ -986,13 +980,11 @@ class ImportManager:
                     existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == m_name)
 
                 if existing_nt:
-                    if int_mid is not None and existing_nt.anki_id is None:
-                        if not NoteTypeModel.select().where(NoteTypeModel.anki_id == int_mid).exists():
-                            existing_nt.anki_id = int_mid
+                    if int_mid is not None and existing_nt.anki_id is None and not NoteTypeModel.select().where(NoteTypeModel.anki_id == int_mid).exists():
+                        existing_nt.anki_id = int_mid
 
-                    if existing_nt.name != m_name:
-                        if not NoteTypeModel.select().where(NoteTypeModel.name == m_name).exists():
-                            existing_nt.name = m_name
+                    if existing_nt.name != m_name and not NoteTypeModel.select().where(NoteTypeModel.name == m_name).exists():
+                        existing_nt.name = m_name
 
                     # Vérifier si ce modèle local est vierge (0 notes associées en base)
                     notes_count = NoteModel.select().where(NoteModel.note_type == existing_nt).count()
@@ -1059,11 +1051,12 @@ class ImportManager:
             for n_info in analysis.new_notes:
                 deck_name = n_info["deck_name"]
                 nt_name = n_info["notetype_name"]
-                note_type_model: NoteTypeModel | None = (
-                    model_cache.get(n_info.get("mid"))
-                    or model_cache.get(str(n_info.get("mid")))
-                    or model_cache.get(nt_name)
-                )
+                raw_mid: str | int | None = n_info.get("mid")
+                note_type_model: NoteTypeModel | None = None
+                if raw_mid is not None:
+                    note_type_model = model_cache.get(raw_mid) or model_cache.get(str(raw_mid))
+                if note_type_model is None:
+                    note_type_model = model_cache.get(nt_name)
                 if not note_type_model:
                     # Essayer via model_info si présent
                     m_info = n_info.get("model_info", {})
@@ -1295,9 +1288,9 @@ class ImportManager:
             # 7. Nettoyage des modèles orphelins si import de collection complète (.colpkg)
             if analysis.source_type == "colpkg":
                 incoming_names = {m.get("name") for m in analysis.raw_models.values() if m.get("name")}
-                incoming_mids = {int(_mid) for _mid in analysis.raw_models.keys() if str(_mid).isdigit()}
+                incoming_mids = {int(_mid) for _mid in analysis.raw_models if str(_mid).isdigit()}
                 for local_nt in NoteTypeModel.select():
-                    if local_nt.name not in incoming_names and (local_nt.anki_id is None or local_nt.anki_id not in incoming_mids):
+                    if local_nt.name not in incoming_names and (local_nt.anki_id is None or local_nt.anki_id not in incoming_mids):  # noqa: SIM102
                         if NoteModel.select().where(NoteModel.note_type == local_nt).count() == 0:
                             logger.info("Suppression du modèle orphelin '%s' absent du colpkg", local_nt.name)
                             local_nt.delete_instance()
