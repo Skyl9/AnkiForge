@@ -9,6 +9,7 @@ import zstandard as zstd
 from ankiforge.database.models import (
     DeckModel,
     NoteModel,
+    NoteTypeModel,
 )
 from ankiforge.services.cards.import_manager import ImportManager
 
@@ -396,3 +397,130 @@ def test_apkg_size_limit_error_message_rich(tmp_path: Path, monkeypatch: pytest.
     assert exc_info.value.total_size > 1000
     assert exc_info.value.limit == 1000
     assert exc_info.value.provenance == provenance
+
+
+def test_import_apkg_updates_existing_notetype_css_and_templates(tmp_path: Path) -> None:
+    """Vérifie que l'import d'un paquet met à jour le CSS et les templates d'un modèle déjà utilisé par des notes."""
+    nt = NoteTypeModel.create(
+        name="SyncModel",
+        anki_id=2001,
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style=".card { color: black; }",
+    )
+    NoteModel.create(guid="guid_sync_1", note_type=nt)
+
+    db_file = tmp_path / "sync_model.db"
+    conn = sqlite3.connect(str(db_file))
+    cursor = conn.cursor()
+    models_json = {
+        "2001": {
+            "name": "SyncModel",
+            "flds": [{"name": "Front"}, {"name": "Back"}],
+            "tmpls": [{"name": "Card 1 Modern", "qfmt": "<div class='modern'>{{Front}}</div>", "afmt": "{{FrontSide}}<hr>{{Back}}"}],
+            "css": ".card { color: #0284c7; font-family: monospace; }",
+        }
+    }
+    decks_json = {"1": {"id": 1, "name": "Default"}}
+    cursor.execute("CREATE TABLE col (id integer, models text, decks text)")
+    cursor.execute("INSERT INTO col VALUES (1, ?, ?)", (json.dumps(models_json), json.dumps(decks_json)))
+    cursor.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
+    cursor.execute("INSERT INTO notes VALUES (1, 'guid_sync_1', 2001, '', 'FrontVal\x1fBackVal')")
+    cursor.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer, ivl integer, reps integer, lapses integer)")
+    cursor.execute("INSERT INTO cards VALUES (10, 1, 1, 0, 0, 0, 0)")
+    conn.commit()
+    conn.close()
+
+    apkg_path = tmp_path / "sync_model.apkg"
+    with zipfile.ZipFile(apkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+
+    manager = ImportManager()
+    analysis = manager.analyze_archive(apkg_path)
+    manager.commit_import(analysis)
+
+    refreshed_nt = NoteTypeModel.get(NoteTypeModel.id == nt.id)
+    assert refreshed_nt.css_style == ".card { color: #0284c7; font-family: monospace; }"
+    parsed_tmpls = json.loads(refreshed_nt.templates)
+    assert parsed_tmpls[0]["name"] == "Card 1 Modern"
+    assert "<div class='modern'>" in parsed_tmpls[0]["qfmt"]
+
+
+def test_import_apkg_reassigns_note_type(tmp_path: Path) -> None:
+    """Vérifie qu'une note locale réaffectée à un autre modèle dans Anki met bien à jour note_type."""
+    nt_old = NoteTypeModel.create(name="ModelOld", anki_id=3001, fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    nt_new = NoteTypeModel.create(name="ModelNew", anki_id=3002, fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    NoteModel.create(guid="guid_reassign_1", note_type=nt_old)
+
+    db_file = tmp_path / "reassign.db"
+    conn = sqlite3.connect(str(db_file))
+    cursor = conn.cursor()
+    models_json = {
+        "3002": {
+            "name": "ModelNew",
+            "flds": [{"name": "Front"}, {"name": "Back"}],
+            "tmpls": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+            "css": "",
+        }
+    }
+    decks_json = {"1": {"id": 1, "name": "Default"}}
+    cursor.execute("CREATE TABLE col (id integer, models text, decks text)")
+    cursor.execute("INSERT INTO col VALUES (1, ?, ?)", (json.dumps(models_json), json.dumps(decks_json)))
+    cursor.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
+    cursor.execute("INSERT INTO notes VALUES (1, 'guid_reassign_1', 3002, '', 'Front\x1fBack')")
+    cursor.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer, ivl integer, reps integer, lapses integer)")
+    cursor.execute("INSERT INTO cards VALUES (10, 1, 1, 0, 0, 0, 0)")
+    conn.commit()
+    conn.close()
+
+    apkg_path = tmp_path / "reassign.apkg"
+    with zipfile.ZipFile(apkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+
+    manager = ImportManager()
+    analysis = manager.analyze_archive(apkg_path)
+    manager.commit_import(analysis)
+
+    refreshed_note = NoteModel.get(NoteModel.guid == "guid_reassign_1")
+    assert refreshed_note.note_type.id == nt_new.id
+    assert refreshed_note.note_type.name == "ModelNew"
+
+
+def test_import_colpkg_prunes_empty_orphan_models(tmp_path: Path) -> None:
+    """Vérifie que l'import d'une collection (.colpkg) supprime les modèles locaux vierges absents de la collection entrante."""
+    NoteTypeModel.create(name="ModelOrphan", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    NoteTypeModel.create(name="ModelKept", anki_id=4001, fields_schema='["Front", "Back"]', templates="[]", css_style="")
+
+    db_file = tmp_path / "collection_prune.db"
+    conn = sqlite3.connect(str(db_file))
+    cursor = conn.cursor()
+    models_json = {
+        "4001": {
+            "name": "ModelKept",
+            "flds": [{"name": "Front"}, {"name": "Back"}],
+            "tmpls": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+            "css": "",
+        }
+    }
+    decks_json = {"1": {"id": 1, "name": "Default"}}
+    cursor.execute("CREATE TABLE col (id integer, models text, decks text)")
+    cursor.execute("INSERT INTO col VALUES (1, ?, ?)", (json.dumps(models_json), json.dumps(decks_json)))
+    cursor.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
+    cursor.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer, ivl integer, reps integer, lapses integer)")
+    conn.commit()
+    conn.close()
+
+    colpkg_path = tmp_path / "collection.colpkg"
+    with zipfile.ZipFile(colpkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+
+    manager = ImportManager()
+    analysis = manager.analyze_archive(colpkg_path)
+    assert analysis.source_type == "colpkg"
+    manager.commit_import(analysis)
+
+    assert NoteTypeModel.get_or_none(NoteTypeModel.name == "ModelOrphan") is None
+    assert NoteTypeModel.get_or_none(NoteTypeModel.name == "ModelKept") is not None

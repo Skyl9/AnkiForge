@@ -699,9 +699,9 @@ class ImportManager:
                             tmpls = []
                             if "templates" in tables:
                                 try:
-                                    cursor.execute("SELECT name, config FROM templates WHERE ntid=? ORDER BY ord", (mid,))
+                                    cursor.execute("SELECT name, config, ord FROM templates WHERE ntid=? ORDER BY ord", (mid,))
                                     for t_row in cursor.fetchall():
-                                        t_name, t_config = t_row
+                                        t_name, t_config, t_ord = t_row
                                         qfmt = ""
                                         afmt = ""
                                         if t_config:
@@ -726,7 +726,7 @@ class ImportManager:
                                             back_f = field_names[1] if len(field_names) > 1 else field_names[0]
                                             afmt = f"{{{{FrontSide}}}}<hr id=answer>{{{{{back_f}}}}}"
 
-                                        tmpls.append({"name": t_name, "qfmt": qfmt, "afmt": afmt})
+                                        tmpls.append({"name": t_name, "qfmt": qfmt, "afmt": afmt, "ord": t_ord})
                                 except Exception as t_err:
                                     logger.debug("Remarque extraction templates notetype %s: %s", mid, t_err)
                             raw_models[mid] = {
@@ -807,6 +807,7 @@ class ImportManager:
                                 "anki_id": nid,
                                 "deck_name": deck_name,
                                 "notetype_name": model_info["name"],
+                                "mid": int_mid,
                                 "model_info": model_info,
                                 "tags": tags,
                                 "content": content_dict,
@@ -821,6 +822,7 @@ class ImportManager:
                             deck_name=deck_name,
                             incoming_tags=tags,
                             notetype_name=model_info["name"],
+                            mid=int_mid,
                             silent_updates=silent_updates,
                             conflicts=conflicts,
                             attached_cards=attached_cards,
@@ -829,9 +831,10 @@ class ImportManager:
             finally:
                 conn.close()
 
+            is_colpkg = apkg_path.suffix.lower() == ".colpkg"
             return ImportAnalysisResult(
                 temp_dir=temp_dir,
-                source_type="apkg",
+                source_type="colpkg" if is_colpkg else "apkg",
                 sqlite_path=str(sqlite_db_path),
                 txt_path=None,
                 new_notes=new_notes,
@@ -856,6 +859,7 @@ class ImportManager:
         silent_updates: list[dict[str, Any]],
         conflicts: list[ConflictItem],
         attached_cards: list[dict[str, Any]] | None = None,
+        mid: int | None = None,
     ) -> bool:
         local_version = NoteVersionModel.get_or_none(note=existing_note, is_active=True)
         if not local_version:
@@ -871,6 +875,17 @@ class ImportManager:
         local_text = " ".join(str(v).strip() for v in local_content.values())
         incoming_text = " ".join(str(v).strip() for v in incoming_content.values())
         content_differs = local_text != incoming_text
+
+        local_nt = existing_note.note_type
+        local_nt_name = local_nt.name if local_nt else ""
+        notetype_differs = False
+        if local_nt:
+            if mid is not None and local_nt.anki_id is not None:
+                notetype_differs = (local_nt.anki_id != mid) or (local_nt_name != notetype_name)
+            else:
+                notetype_differs = (local_nt_name != notetype_name)
+        else:
+            notetype_differs = True
 
         has_manual_edits = NoteVersionModel.select().where((NoteVersionModel.note == existing_note) & (NoteVersionModel.source.in_(["manual", "merge", "restore_v"]))).exists()
 
@@ -909,18 +924,21 @@ class ImportManager:
             )
             return False
         else:
+            reason = "incoming_newer" if content_differs else ("notetype_changed" if notetype_differs else "identical")
             silent_updates.append(
                 {
                     "note_id": existing_note.id,
                     "guid": existing_note.guid,
                     "deck_name": deck_name,
+                    "notetype_name": notetype_name,
+                    "mid": mid,
                     "tags": incoming_tags,
                     "content": incoming_content,
                     "cards": attached_cards or [],
-                    "reason": "incoming_newer" if content_differs else "identical",
+                    "reason": reason,
                 }
             )
-            return not content_differs
+            return (not content_differs) and (not notetype_differs)
 
     def commit_import(
         self,
@@ -951,17 +969,31 @@ class ImportManager:
                 self._ensure_deck(d_name, deck_cache, anki_id=d_id)
 
             # 2. Enregistrement des NoteTypes
-            model_cache: dict[str, NoteTypeModel] = {}
+            model_cache: dict[str | int, NoteTypeModel] = {}
             for _mid, m_info in analysis.raw_models.items():
                 self._validate_model_structure(_mid, m_info)
+                int_mid = int(_mid) if str(_mid).isdigit() else None
                 m_name = m_info.get("name", "Basic")
                 fields_data = m_info.get("fields") or ["Front", "Back"]
                 fields_schema = json.dumps(fields_data)
                 templates_json = json.dumps(m_info.get("templates", []), ensure_ascii=False)
                 css = m_info.get("css", "")
 
-                existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == m_name)
+                existing_nt = None
+                if int_mid is not None:
+                    existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.anki_id == int_mid)
+                if not existing_nt:
+                    existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == m_name)
+
                 if existing_nt:
+                    if int_mid is not None and existing_nt.anki_id is None:
+                        if not NoteTypeModel.select().where(NoteTypeModel.anki_id == int_mid).exists():
+                            existing_nt.anki_id = int_mid
+
+                    if existing_nt.name != m_name:
+                        if not NoteTypeModel.select().where(NoteTypeModel.name == m_name).exists():
+                            existing_nt.name = m_name
+
                     # Vérifier si ce modèle local est vierge (0 notes associées en base)
                     notes_count = NoteModel.select().where(NoteModel.note_type == existing_nt).count()
                     if notes_count == 0:
@@ -976,40 +1008,62 @@ class ImportManager:
                         # Le modèle local est déjà utilisé par des notes existantes
                         existing_fields = json.loads(existing_nt.fields_schema) if existing_nt.fields_schema else []
                         incoming_fields = m_info.get("fields", [])
-                        existing_tmpls = json.loads(existing_nt.templates) if existing_nt.templates else []
                         incoming_tmpls = m_info.get("templates", [])
 
-                        if existing_fields == incoming_fields and len(existing_tmpls) == len(incoming_tmpls):
+                        # Mettre à jour les gabarits et le CSS pour synchroniser le style depuis Anki
+                        if incoming_tmpls:
+                            existing_nt.templates = templates_json
+                        if css:
+                            existing_nt.css_style = css
+
+                        if existing_fields == incoming_fields:
                             # Schéma compatible, réutilisation sans duplication
+                            existing_nt.save()
                             nt_obj = existing_nt
                         else:
-                            # Conflit de structure : créer un modèle avec suffixe unique pour préserver l'intégrité
-                            unique_name = f"{m_name} (Importé)"
-                            counter = 1
-                            while NoteTypeModel.select().where(NoteTypeModel.name == unique_name).exists():
-                                counter += 1
-                                unique_name = f"{m_name} (Importé {counter})"
-                            nt_obj = NoteTypeModel.create(
-                                name=unique_name,
-                                fields_schema=fields_schema,
-                                templates=templates_json,
-                                css_style=css,
-                            )
+                            if analysis.source_type == "colpkg" or (int_mid is not None and existing_nt.anki_id == int_mid):
+                                existing_nt.fields_schema = fields_schema
+                                existing_nt.save()
+                                nt_obj = existing_nt
+                            else:
+                                existing_nt.save()
+                                # Conflit de structure : créer un modèle avec suffixe unique pour préserver l'intégrité
+                                unique_name = f"{m_name} (Importé)"
+                                counter = 1
+                                while NoteTypeModel.select().where(NoteTypeModel.name == unique_name).exists():
+                                    counter += 1
+                                    unique_name = f"{m_name} (Importé {counter})"
+                                nt_obj = NoteTypeModel.create(
+                                    name=unique_name,
+                                    fields_schema=fields_schema,
+                                    templates=templates_json,
+                                    css_style=css,
+                                )
                 else:
+                    target_anki_id = int_mid
+                    if target_anki_id is not None and NoteTypeModel.select().where(NoteTypeModel.anki_id == target_anki_id).exists():
+                        target_anki_id = None
                     nt_obj = NoteTypeModel.create(
                         name=m_name,
+                        anki_id=target_anki_id,
                         fields_schema=fields_schema,
                         templates=templates_json,
                         css_style=css,
                     )
                 model_cache[m_name] = nt_obj
                 model_cache[str(_mid)] = nt_obj
+                if int_mid is not None:
+                    model_cache[int_mid] = nt_obj
 
             # 3. Insertion des Nouvelles Notes et de leurs Cartes
             for n_info in analysis.new_notes:
                 deck_name = n_info["deck_name"]
                 nt_name = n_info["notetype_name"]
-                note_type_model: NoteTypeModel | None = model_cache.get(nt_name)
+                note_type_model: NoteTypeModel | None = (
+                    model_cache.get(n_info.get("mid"))
+                    or model_cache.get(str(n_info.get("mid")))
+                    or model_cache.get(nt_name)
+                )
                 if not note_type_model:
                     # Essayer via model_info si présent
                     m_info = n_info.get("model_info", {})
@@ -1089,6 +1143,17 @@ class ImportManager:
                 if not u_note:
                     continue
 
+                # Mise à jour NoteType si changé dans Anki
+                target_nt: NoteTypeModel | None = None
+                if u_info.get("mid") is not None:
+                    target_nt = model_cache.get(u_info["mid"]) or model_cache.get(str(u_info["mid"]))
+                if not target_nt and u_info.get("notetype_name"):
+                    target_nt = model_cache.get(u_info["notetype_name"])
+
+                if target_nt and u_note.note_type_id != target_nt.id:
+                    u_note.note_type = target_nt
+                    u_note.save()
+
                 # Mise à jour Deck si changé
                 if not target_deck_override and u_info.get("deck_name"):
                     d_name = u_info["deck_name"]
@@ -1099,6 +1164,13 @@ class ImportManager:
                             card.save()
 
                 if u_info.get("cards"):
+                    existing_cards = list(u_note.cards) if hasattr(u_note, "cards") else []
+                    fallback_deck = (
+                        target_deck_override
+                        or (existing_cards[0].deck if existing_cards and existing_cards[0].deck else None)
+                        or (self._ensure_deck(u_info["deck_name"], deck_cache) if u_info.get("deck_name") else None)
+                        or self._ensure_deck("Par défaut", deck_cache)
+                    )
                     for cinfo in u_info["cards"]:
                         c_ord = cinfo.get("ord", 0)
                         card_match = CardModel.get_or_none(CardModel.note == u_note, CardModel.template_index == c_ord)
@@ -1114,6 +1186,23 @@ class ImportManager:
                             if "is_suspended" in cinfo:
                                 card_match.is_suspended = cinfo["is_suspended"]
                             card_match.save()
+                        else:
+                            c_did = cinfo.get("did")
+                            c_deck = self._ensure_deck(deck_id_to_name.get(c_did, "Par défaut"), deck_cache, anki_id=c_did) if c_did else fallback_deck
+                            c_anki_id = cinfo.get("anki_id")
+                            if c_anki_id and CardModel.select().where(CardModel.anki_id == c_anki_id).exists():
+                                c_anki_id = None
+                            CardModel.create(
+                                note=u_note,
+                                deck=c_deck,
+                                anki_id=c_anki_id,
+                                template_index=c_ord,
+                                ivl=cinfo.get("ivl", 0),
+                                reps=cinfo.get("reps", 0),
+                                lapses=cinfo.get("lapses", 0),
+                                flags=cinfo.get("flags", 0),
+                                is_suspended=cinfo.get("is_suspended", False),
+                            )
 
                 # Mise à jour version si raison == incoming_newer
                 if u_info.get("reason") == "incoming_newer" and u_info.get("content"):
@@ -1142,6 +1231,10 @@ class ImportManager:
                         resolved_content = conflict.incoming_content
                         resolved_deck_name = conflict.incoming_deck
                         resolved_tags = conflict.incoming_tags
+                        target_nt = model_cache.get(conflict.note_type_name)
+                        if target_nt and c_note.note_type_id != target_nt.id:
+                            c_note.note_type = target_nt
+                            c_note.save()
                     elif choice == "local":
                         resolved_content = conflict.local_content
                         resolved_deck_name = conflict.local_deck
@@ -1198,6 +1291,16 @@ class ImportManager:
                             media_count += 1
                         except Exception as m_err:
                             logger.warning("Erreur copie/enregistrement média '%s' (%s): %s", file_id, filename, m_err)
+
+            # 7. Nettoyage des modèles orphelins si import de collection complète (.colpkg)
+            if analysis.source_type == "colpkg":
+                incoming_names = {m.get("name") for m in analysis.raw_models.values() if m.get("name")}
+                incoming_mids = {int(_mid) for _mid in analysis.raw_models.keys() if str(_mid).isdigit()}
+                for local_nt in NoteTypeModel.select():
+                    if local_nt.name not in incoming_names and (local_nt.anki_id is None or local_nt.anki_id not in incoming_mids):
+                        if NoteModel.select().where(NoteModel.note_type == local_nt).count() == 0:
+                            logger.info("Suppression du modèle orphelin '%s' absent du colpkg", local_nt.name)
+                            local_nt.delete_instance()
 
         # Nettoyage dossier temporaire
         analysis.cleanup()
