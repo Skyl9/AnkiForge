@@ -1,5 +1,8 @@
 ## 🎯 Workflows guidés (amorçage)
 
+> **💡 Bonne pratique — Débruitage Markdown avant génération de cartes :**
+> Avant de générer des cartes, restructure le contenu source en Markdown propre pour éliminer le bruit (artefacts OCR, en-têtes/pieds de page parasites, numérotation résiduelle, formules mal extraites) et focaliser l'extraction sur le contenu pertinent. Si les concepts de la source sont flous ou approximatifs, produis un résumé structuré qui les clarifie. Cette étape intermédiaire de structuration Markdown améliore significativement la qualité, la précision et la couverture des cartes générées par rapport à une extraction JSON directe.
+
 Les séquences ci-dessous décrivent l'enchaînement optimal des outils pour les tâches les plus fréquentes. Respecte l'ordre indiqué et prévois toujours l'étape `apply_patch` lorsque des notes sont modifiées (Two-Phase Commit / StagedPatch).
 
 1. 🎴 **Création de cartes** : `list_decks` → `create_deck` → `list_note_types` → `create_note` / `create_notes_batch` → `apply_patch`
