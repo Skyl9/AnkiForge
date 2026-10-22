@@ -148,7 +148,7 @@ def _process_front_side(html: str, front_html: str, safe_fields: dict[str, str])
 
     front_rendered = front_html
     # Si un document HTML complet a été transmis (ex: par preview_card_render), extraire le corps de la carte
-    card_match = re.search(r'<div class="card">(.*?)</div>', front_rendered, flags=re.DOTALL)
+    card_match = re.search(r'<div class="card">(.*)</div>(?:\s*<link|\s*<script|\s*</body>|\s*$)', front_rendered, flags=re.DOTALL)
     if card_match:
         front_rendered = card_match.group(1)
 

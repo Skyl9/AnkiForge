@@ -297,9 +297,21 @@ class StagedPatchRegistry:
                     if "css_style" in modified:
                         nt.css_style = str(modified["css_style"])
                     if "fields_schema" in modified:
-                        nt.fields_schema = json.dumps(modified["fields_schema"], ensure_ascii=False) if isinstance(modified["fields_schema"], list) else str(modified["fields_schema"])
+                        f_val = modified["fields_schema"]
+                        if isinstance(f_val, str) and f_val.strip().startswith("["):
+                            try:
+                                f_val = json.loads(f_val)
+                            except Exception:
+                                pass
+                        nt.fields_schema = json.dumps(f_val, ensure_ascii=False) if isinstance(f_val, list) else str(f_val)
                     if "templates" in modified:
-                        nt.templates = json.dumps(modified["templates"], ensure_ascii=False) if isinstance(modified["templates"], list) else str(modified["templates"])
+                        t_val = modified["templates"]
+                        if isinstance(t_val, str) and t_val.strip().startswith("["):
+                            try:
+                                t_val = json.loads(t_val)
+                            except Exception:
+                                pass
+                        nt.templates = json.dumps(t_val, ensure_ascii=False) if isinstance(t_val, list) else str(t_val)
                     if "description" in modified:
                         nt.description = str(modified["description"])
                 elif isinstance(modified, str):
