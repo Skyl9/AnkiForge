@@ -336,6 +336,12 @@ class CardModelsView(QWidget):
         self.btn_save = self.top_action_bar.btn_save
         self.btn_save.setToolTip(tr("Enregistrer le type de note (%1)", get_shortcut_sequence(ShortcutId.APP_SAVE)))
 
+        self.lbl_default_model_badge = QLabel()
+        self.lbl_default_model_badge.setObjectName("defaultModelBadge")
+        self.lbl_default_model_badge.setVisible(False)
+        self.lbl_default_model_badge.setStyleSheet(f"color: {DesignTokens.COLOR_WARNING}; font-weight: bold; font-size: 11px;")
+        self.top_action_bar.layout().insertWidget(2, self.lbl_default_model_badge)
+
         editor_layout.addWidget(self.top_action_bar)
 
         self.editor_vertical_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -796,13 +802,19 @@ class CardModelsView(QWidget):
         def _filter_notes(m: NoteTypeModel = model) -> None:
             self._on_filter_notes_by_model(m)
 
-        menu.addAction(self.tr("Renommer"), _rename)
-        menu.addAction(self.tr("Dupliquer"), self._on_duplicate_model)
-        menu.addAction(self.tr("Définir comme modèle par défaut"), _set_default)
-        menu.addAction(self.tr("Exporter (.afmodel / JSON)"), self._on_export_json)
-        menu.addAction(self.tr("Filtrer les notes associées"), _filter_notes)
+        rename_action = menu.addAction(self.tr("Renommer"))
+        rename_action.triggered.connect(_rename)
+        duplicate_action = menu.addAction(self.tr("Dupliquer"))
+        duplicate_action.triggered.connect(self._on_duplicate_model)
+        default_action = menu.addAction(self.tr("Définir comme modèle par défaut"))
+        default_action.triggered.connect(_set_default)
+        export_action = menu.addAction(self.tr("Exporter (.afmodel / JSON)"))
+        export_action.triggered.connect(self._on_export_json)
+        filter_action = menu.addAction(self.tr("Filtrer les notes associées"))
+        filter_action.triggered.connect(_filter_notes)
         menu.addSeparator()
-        menu.addAction(self.tr("Supprimer"), self._on_delete_model)
+        delete_action = menu.addAction(self.tr("Supprimer"))
+        delete_action.triggered.connect(self._on_delete_model)
         sort_menu = menu.addMenu(self.tr("Trier par..."))
         group = QActionGroup(self)
         group.setExclusive(True)
@@ -898,7 +910,7 @@ class CardModelsView(QWidget):
                 type_label = "Cloze" if is_m_cloze else f"{tmpl_count} carte{'s' if tmpl_count > 1 else ''}"
                 display_name = f"{m.name}  ({type_label})"
                 if getattr(self, "_default_note_type_id", None) == m.id:
-                    display_name = f"★ {display_name}"
+                    display_name = f"★ {m.name}  ({type_label})"
                 item = QListWidgetItem(display_name)
                 item.setIcon(load_phosphor_icon(icon_str, color=DesignTokens.ACCENT_PRIMARY))
                 item.setToolTip(tr("Type de note : %1\nType : %2\nGabarits : %3", m.name, "Texte à trous (Cloze)" if is_m_cloze else "Standard", tmpl_count))
@@ -1010,6 +1022,13 @@ class CardModelsView(QWidget):
 
         self._current_model = model
         self.lbl_editor_title.setText(model.name)
+        if getattr(self, "lbl_default_model_badge", None) is not None:
+            default_id = getattr(self, "_default_note_type_id", None)
+            if default_id is not None and model.id == default_id:
+                self.lbl_default_model_badge.setText(self.tr("★ Par défaut"))
+                self.lbl_default_model_badge.setVisible(True)
+            else:
+                self.lbl_default_model_badge.setVisible(False)
 
         self._is_syncing_template = True
         try:
