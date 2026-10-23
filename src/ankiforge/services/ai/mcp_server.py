@@ -5,7 +5,7 @@ import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from jinja2 import FileSystemLoader
 from jinja2.sandbox import SandboxedEnvironment
@@ -18,9 +18,13 @@ from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 __all__ = [
+    "DEFAULT_MCP_MUTATION_DOMAIN",
+    "MCP_MUTATION_DOMAINS",
     "mcp",
+    "normalize_mutation_type",
     "register_mutation_listener",
     "register_staged_patch_listener",
+    "resolve_mcp_mutation_domain",
     "run_server",
     "unregister_mutation_listener",
     "unregister_staged_patch_listener",
@@ -33,6 +37,79 @@ _mutation_listeners: list[Callable[[dict[str, Any]], None]] = []
 
 # Écouteurs de propositions de patchs en attente (Two-Phase Commit)
 _staged_patch_listeners: list[Callable[[dict[str, Any]], None]] = []
+
+# Domaines fonctionnels exposés par une mutation MCP.
+MCP_MUTATION_DOMAINS: frozenset[str] = frozenset({"cards", "decks", "models", "docs"})
+
+#: Correspondance entre le type de mutation émis par les services et son domaine de vue.
+_MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
+    # Notes, cartes et opérations d'hygiène en masse.
+    "note_update": "cards",
+    "note_create": "cards",
+    "batch_note_create": "cards",
+    "card_split": "cards",
+    # Types historiques émis par `ConsultantToolRegistry.apply_patch`.
+    "card": "cards",
+    "split": "cards",
+    "bulk_html_sanitize": "cards",
+    "sanitize_fields_html": "cards",
+    "set_tags_bulk": "cards",
+    "merge_tags": "cards",
+    "delete_empty_cards": "cards",
+    "move_cards": "cards",
+    # Types de note, gabarits et CSS.
+    "css_tune": "models",
+    "note_type_update": "models",
+    "note_type_create": "models",
+    "note_type_change": "models",
+    "delete_note_type": "models",
+    "delete_unused_note_types": "models",
+    # Types historiques émis par `ConsultantToolRegistry.apply_patch`.
+    "model": "models",
+    "css": "models",
+    # Paquets et arborescence.
+    "create_deck": "decks",
+    "deck_create": "decks",
+    "deck_update": "decks",
+    "deck_delete": "decks",
+    "rename_deck": "decks",
+    # Bibliothèque documentaire.
+    "document_create": "docs",
+    "document_update": "docs",
+    "document_delete": "docs",
+    "document_index": "docs",
+}
+
+DEFAULT_MCP_MUTATION_DOMAIN = "cards"
+
+
+def normalize_mutation_type(data: dict[str, Any]) -> str:
+    """Normalise le type de mutation porté par ``type`` ou ``mutation_type``."""
+    return str(data.get("type") or data.get("mutation_type") or "").strip().lower()
+
+
+def resolve_mcp_mutation_domain(data: dict[str, Any]) -> str:
+    """Résout le domaine fonctionnel d'une mutation MCP.
+
+    Un domaine explicite valide (``cards``, ``decks``, ``models`` ou ``docs``) est
+    prioritaire. À défaut, le type de mutation est traduit via la table de routage,
+    puis replié sur ``cards`` pour préserver la compatibilité des anciens outils.
+    """
+    explicit = str(data.get("domain") or "").strip().lower()
+    if explicit in MCP_MUTATION_DOMAINS:
+        return explicit
+
+    mutation_type = normalize_mutation_type(data)
+    domain = _MUTATION_DOMAIN_BY_TYPE.get(mutation_type)
+    if domain is None:
+        if mutation_type:
+            logger.debug(
+                "Type de mutation MCP inconnu '%s' : domaine '%s' appliqué par repli.",
+                mutation_type,
+                DEFAULT_MCP_MUTATION_DOMAIN,
+            )
+        return DEFAULT_MCP_MUTATION_DOMAIN
+    return domain
 
 
 def register_mutation_listener(callback: Callable[[dict[str, Any]], None]) -> None:
@@ -60,24 +137,36 @@ def unregister_staged_patch_listener(callback: Callable[[dict[str, Any]], None])
 
 
 def _notify_mcp_mutation(data: dict[str, Any]) -> None:
-    """Notifie les écouteurs enregistrés et le bus d'événements central."""
-    from ankiforge.utils.event_bus import MCPDataMutatedEvent, event_bus
+    """Notifie les écouteurs enregistrés et le bus d'événements central.
+
+    Le domaine fonctionnel est résolu une seule fois ici puis injecté dans la
+    charge utile transmise aux écouteurs, afin que la GUI n'ait pas à réimplémenter
+    la table de routage.
+    """
+    from ankiforge.utils.event_bus import MCPDataMutatedEvent, MCPDomain, event_bus
+
+    domain = cast(MCPDomain, resolve_mcp_mutation_domain(data))
+    payload = {**data, "domain": domain}
+
+    target_id = int(data.get("target_id") or data.get("parent_note_id") or data.get("note_id") or data.get("note_type_id") or data.get("document_id") or data.get("deck_id") or 0)
+    target_name = str(data.get("note_type_name") or data.get("deck_name") or data.get("document_title") or "")
 
     try:
         event_bus.publish(
             MCPDataMutatedEvent(
-                mutation_type=str(data.get("type", "")),
-                target_id=int(data.get("target_id") or data.get("parent_note_id") or data.get("note_id") or 0),
-                target_name=str(data.get("note_type_name", "")),
-                details=data,
+                mutation_type=normalize_mutation_type(data),
+                domain=domain,
+                target_id=target_id,
+                target_name=target_name,
+                details=payload,
             )
         )
     except Exception as e:
-        logger.debug("Erreur publication event_bus MCPDataMutatedEvent : %s", e)
+        logger.warning("Erreur publication event_bus MCPDataMutatedEvent : %s", e)
 
     for listener in list(_mutation_listeners):
         try:
-            listener(data)
+            listener(payload)
         except Exception as e:
             logger.warning("Erreur dans l'écouteur de mutation MCP : %s", e)
 
@@ -203,7 +292,9 @@ def apply_patch(
         )
     try:
         data = json.loads(result)
-        if isinstance(data, dict) and data.get("status") == "applied":
+        # Le chemin staged (`preview_and_apply_patch`) notifie déjà via
+        # `StagedPatchRegistry` avec un type canonique : ne pas doubler la mutation.
+        if isinstance(data, dict) and data.get("status") == "applied" and normalize_mutation_type(data):
             _notify_mcp_mutation(data)
     except Exception as e:
         logger.debug("Erreur analyse résultat apply_patch : %s", e)
@@ -353,6 +444,18 @@ def create_deck(deck_name: str, description: str = "") -> str:
 
         repo = DeckRepository()
         deck = repo.get_or_create_deck_hierarchical(dk_clean, description=description.strip())
+
+        if is_new:
+            _notify_mcp_mutation(
+                {
+                    "type": "create_deck",
+                    "domain": "decks",
+                    "target_id": deck.id,
+                    "target_name": deck.name,
+                    "deck_id": deck.id,
+                    "deck_name": deck.name,
+                }
+            )
 
         return json.dumps(
             {

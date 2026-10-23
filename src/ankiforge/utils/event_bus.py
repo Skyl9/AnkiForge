@@ -11,7 +11,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -290,14 +290,24 @@ class OpenFeedbackRequestedEvent(AppEvent):
 
 
 # MCP Server Events
+MCPDomain = Literal["cards", "decks", "models", "docs"]
+
+
 @dataclass(frozen=True)
 class MCPDataMutatedEvent(AppEvent):
-    """Événement émis lors d'une mutation de données par un agent externe via le protocole MCP."""
+    """Événement émis lors d'une mutation de données par un agent externe via le protocole MCP.
 
-    mutation_type: str = ""  # "card", "split", "model", "css"
+    ``domain`` désigne le domaine fonctionnel impacté (``cards``, ``decks``, ``models``
+    ou ``docs``). Il permet aux vues abonnées de ne rafraîchir que leur périmètre utile
+    sans réinitialiser l'état de navigation de l'utilisateur.
+    """
+
+    mutation_type: str = ""  # "card", "split", "model", "css", ...
     target_id: int = 0
     target_name: str = ""
     details: dict[str, Any] = field(default_factory=dict)
+    # Ajouté en fin de dataclass pour préserver la signature positionnelle historique.
+    domain: MCPDomain = "cards"
 
 
 @dataclass(frozen=True)
