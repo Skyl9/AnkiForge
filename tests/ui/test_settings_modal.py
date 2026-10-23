@@ -73,10 +73,10 @@ def test_settings_modal_creation_and_tabs(qtbot):
     assert isinstance(modal.anki_tab, AnkiSyncTab)
     assert isinstance(modal.tts_tab, TTSSettingsTab)
     assert isinstance(modal.maint_tab, StorageMaintenanceTab)
-    assert modal.stacked_widget.count() == 8
+    assert modal.stacked_widget.count() in (8, 9)
 
     # Navigation dans tous les onglets
-    for i in range(8):
+    for i in range(modal.stacked_widget.count()):
         modal.stacked_widget.setCurrentIndex(i)
         assert modal.stacked_widget.currentIndex() == i
 

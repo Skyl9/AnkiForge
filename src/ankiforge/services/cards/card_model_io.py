@@ -280,6 +280,31 @@ class CardModelIO:
             if conflict_policy == "error":
                 raise ValueError(f"Un type de note portant le nom '{name}' existe déjà.")
             elif conflict_policy == "overwrite":
+                # Protection non destructive des notes locales existantes
+                old_fields: list[str] = json.loads(existing.fields_schema) if existing.fields_schema else []
+                new_fields: list[str] = json.loads(fields_json) if fields_json else []
+                removed_fields = [f for f in old_fields if f not in new_fields]
+                if removed_fields:
+                    from ankiforge.database.models import NoteModel, NoteVersionModel
+
+                    for note_to_archive in NoteModel.select().where(NoteModel.note_type == existing):
+                        active_v = NoteVersionModel.get_or_none(
+                            NoteVersionModel.note == note_to_archive,
+                            NoteVersionModel.is_active == True,  # noqa: E712
+                        )
+                        if active_v and active_v.content:
+                            try:
+                                c_dict = json.loads(active_v.content)
+                                orphaned = {rf: c_dict[rf] for rf in removed_fields if rf in c_dict and c_dict[rf]}
+                                if orphaned:
+                                    if "_orphaned_fields" not in c_dict:
+                                        c_dict["_orphaned_fields"] = {}
+                                    c_dict["_orphaned_fields"].update(orphaned)
+                                    active_v.content = json.dumps(c_dict, ensure_ascii=False)
+                                    active_v.save()
+                            except Exception as ex:
+                                logger.warning("Erreur archivage _orphaned_fields lors de l'écrasement du modèle : %s", ex)
+
                 existing.fields_schema = fields_json
                 existing.templates = templates_json
                 existing.css_style = css_style

@@ -468,6 +468,41 @@ class ImportManager:
         "默认",
     }
 
+    @staticmethod
+    def _is_structurally_isomorphic(fields_a: list[str], fields_b: list[str]) -> bool:
+        """Détermine si deux listes de champs de modèle de note sont isomorphes.
+
+        Sont considérées comme isomorphes :
+        - Les listes strictement identiques.
+        - Les listes de même longueur avec des noms identiques insensiblement à la casse.
+        - Pour les modèles à 2 champs : les équivalents canoniques universels
+          (["Recto", "Verso"] <-> ["Front", "Back"] <-> ["Question", "Réponse"]).
+        """
+        if fields_a == fields_b:
+            return True
+        if len(fields_a) != len(fields_b):
+            return False
+
+        lower_a = [f.strip().lower() for f in fields_a]
+        lower_b = [f.strip().lower() for f in fields_b]
+        if lower_a == lower_b:
+            return True
+
+        if len(fields_a) == 2:
+            canonical_pairs = [
+                {"front", "back"},
+                {"recto", "verso"},
+                {"question", "reponse"},
+                {"question", "réponse"},
+                {"q", "a"},
+            ]
+            set_a = set(lower_a)
+            set_b = set(lower_b)
+            if any(set_a == p for p in canonical_pairs) and any(set_b == p for p in canonical_pairs):
+                return True
+
+        return False
+
     def _ensure_deck(self, name: str, deck_cache: dict[str, DeckModel], anki_id: int | None = None) -> DeckModel:
         """Crée ou récupère un deck et toute son arborescence de sous-decks en évitant les collisions d'anki_id."""
         if not name or not name.strip():
@@ -974,22 +1009,23 @@ class ImportManager:
                 css = m_info.get("css", "")
 
                 existing_nt = None
+                matched_by_id = False
                 if int_mid is not None:
                     existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.anki_id == int_mid)
+                    if existing_nt:
+                        matched_by_id = True
                 if not existing_nt:
                     existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == m_name)
 
                 if existing_nt:
-                    if int_mid is not None and existing_nt.anki_id is None and not NoteTypeModel.select().where(NoteTypeModel.anki_id == int_mid).exists():
-                        existing_nt.anki_id = int_mid
-
-                    if existing_nt.name != m_name and not NoteTypeModel.select().where(NoteTypeModel.name == m_name).exists():
-                        existing_nt.name = m_name
-
                     # Vérifier si ce modèle local est vierge (0 notes associées en base)
                     notes_count = NoteModel.select().where(NoteModel.note_type == existing_nt).count()
                     if notes_count == 0:
                         # Modèle vierge : on applique directement la structure et les templates du modèle entrant
+                        if int_mid is not None and existing_nt.anki_id is None and not NoteTypeModel.select().where(NoteTypeModel.anki_id == int_mid).exists():
+                            existing_nt.anki_id = int_mid
+                        if existing_nt.name != m_name and not NoteTypeModel.select().where(NoteTypeModel.name == m_name).exists():
+                            existing_nt.name = m_name
                         existing_nt.fields_schema = fields_schema
                         existing_nt.templates = templates_json
                         if css:
@@ -1008,29 +1044,55 @@ class ImportManager:
                         if css:
                             existing_nt.css_style = css
 
-                        if existing_fields == incoming_fields:
-                            # Schéma compatible, réutilisation sans duplication
+                        is_isomorphic = self._is_structurally_isomorphic(existing_fields, incoming_fields)
+                        if is_isomorphic or existing_fields == incoming_fields:
+                            # Schéma compatible ou isomorphe, réutilisation sans duplication
+                            if int_mid is not None and existing_nt.anki_id is None and not NoteTypeModel.select().where(NoteTypeModel.anki_id == int_mid).exists():
+                                existing_nt.anki_id = int_mid
+                            existing_nt.save()
+                            nt_obj = existing_nt
+                        elif matched_by_id or analysis.source_type == "colpkg":
+                            # Modèle Anki ayant le même mid officiel qui a évolué dans Anki
+                            # Option B2 Hybride : préserver les champs supprimés dans _orphaned_fields
+                            removed_fields = [f for f in existing_fields if f not in incoming_fields]
+                            if removed_fields:
+                                for note_to_archive in NoteModel.select().where(NoteModel.note_type == existing_nt):
+                                    active_v = NoteVersionModel.get_or_none(
+                                        NoteVersionModel.note == note_to_archive,
+                                        NoteVersionModel.is_active == True,  # noqa: E712
+                                    )
+                                    if active_v and active_v.content:
+                                        try:
+                                            c_dict = json.loads(active_v.content)
+                                            orphaned = {rf: c_dict[rf] for rf in removed_fields if rf in c_dict and c_dict[rf]}
+                                            if orphaned:
+                                                if "_orphaned_fields" not in c_dict:
+                                                    c_dict["_orphaned_fields"] = {}
+                                                c_dict["_orphaned_fields"].update(orphaned)
+                                                active_v.content = json.dumps(c_dict, ensure_ascii=False)
+                                                active_v.save()
+                                        except Exception as ex:
+                                            logger.warning("Erreur archivage _orphaned_fields note %d : %s", note_to_archive.id, ex)
+
+                            existing_nt.fields_schema = fields_schema
                             existing_nt.save()
                             nt_obj = existing_nt
                         else:
-                            if analysis.source_type == "colpkg" or (int_mid is not None and existing_nt.anki_id == int_mid):
-                                existing_nt.fields_schema = fields_schema
-                                existing_nt.save()
-                                nt_obj = existing_nt
-                            else:
-                                existing_nt.save()
-                                # Conflit de structure : créer un modèle avec suffixe unique pour préserver l'intégrité
-                                unique_name = f"{m_name} (Importé)"
-                                counter = 1
-                                while NoteTypeModel.select().where(NoteTypeModel.name == unique_name).exists():
-                                    counter += 1
-                                    unique_name = f"{m_name} (Importé {counter})"
-                                nt_obj = NoteTypeModel.create(
-                                    name=unique_name,
-                                    fields_schema=fields_schema,
-                                    templates=templates_json,
-                                    css_style=css,
-                                )
+                            # Conflit de structure avec notes locales : interdiction formelle d'écraser fields_schema !
+                            existing_nt.save()
+                            unique_name = f"{m_name} (Importé)"
+                            counter = 1
+                            while NoteTypeModel.select().where(NoteTypeModel.name == unique_name).exists():
+                                counter += 1
+                                unique_name = f"{m_name} (Importé {counter})"
+                            target_id = int_mid if (int_mid is not None and not NoteTypeModel.select().where(NoteTypeModel.anki_id == int_mid).exists()) else None
+                            nt_obj = NoteTypeModel.create(
+                                name=unique_name,
+                                anki_id=target_id,
+                                fields_schema=fields_schema,
+                                templates=templates_json,
+                                css_style=css,
+                            )
                 else:
                     target_anki_id = int_mid
                     if target_anki_id is not None and NoteTypeModel.select().where(NoteTypeModel.anki_id == target_anki_id).exists():
@@ -1087,6 +1149,19 @@ class ImportManager:
                 if anki_id_val and NoteModel.select().where(NoteModel.anki_id == anki_id_val).exists():
                     anki_id_val = None
 
+                # Aligner le contenu entrant sur les champs du modèle cible si isomorphes
+                raw_incoming = dict(n_info.get("content", {}))
+                target_fields = json.loads(note_type_model.fields_schema) if note_type_model.fields_schema else []
+                if target_fields and set(target_fields) != set(raw_incoming.keys()):
+                    source_fields = n_info.get("field_names") or list(raw_incoming.keys())
+                    if len(source_fields) == len(target_fields):
+                        mapped_c: dict[str, Any] = {}
+                        for s_f, t_f in zip(source_fields, target_fields, strict=False):
+                            mapped_c[t_f] = raw_incoming.get(s_f, "")
+                        if "_orphaned_fields" in raw_incoming:
+                            mapped_c["_orphaned_fields"] = raw_incoming["_orphaned_fields"]
+                        raw_incoming = mapped_c
+
                 note = NoteModel.create(
                     guid=n_info["guid"],
                     anki_id=anki_id_val,
@@ -1097,7 +1172,7 @@ class ImportManager:
                 NoteVersionModel.create(
                     note=note,
                     version_number=1,
-                    content=json.dumps(n_info["content"], ensure_ascii=False),
+                    content=json.dumps(raw_incoming, ensure_ascii=False),
                     source="import",
                     is_active=True,
                 )
