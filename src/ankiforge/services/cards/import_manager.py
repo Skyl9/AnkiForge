@@ -1604,7 +1604,7 @@ class ImportManager:
         try:
             from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-            CoverageAlignmentService.align_all_documents()
+            CoverageAlignmentService.realign_profile_coverage()
         except Exception as cov_err:
             logger.debug("Réalignement de couverture après colpkg ignoré : %s", cov_err)
 

@@ -176,6 +176,16 @@ class CoverageAlignmentService:
     MIN_SUBSECTION_SCORE: float = 1.0
 
     @classmethod
+    def realign_profile_coverage(cls) -> dict[str, Any]:
+        """Réaligne de manière déterministe la couverture de tous les documents du profil.
+
+        Utilisé notamment après un remplacement intégral par archive .colpkg pour reconstituer
+        les liens NoteChunkLinkModel vers les documents du Studio préservés.
+        Délègue à :meth:`sync_coverage_from_tags` sur l'ensemble du profil et émet les notifications réactives.
+        """
+        return cls.sync_coverage_from_tags(doc_id=None)
+
+    @classmethod
     def sync_coverage_from_tags(cls, doc_id: int | None = None) -> dict[str, Any]:
         """Synchronise de manière déterministe les liaisons NoteModel <-> DocumentChunkModel à partir des tags des notes.
 
@@ -255,7 +265,9 @@ class CoverageAlignmentService:
             )
 
         # Seules les notes portant des tags de traçabilité sont concernées : évite le scan O(N*M)
-        all_notes = list(NoteModel.select().where((NoteModel.tags.contains("doc:")) | (NoteModel.tags.contains("source:"))))
+        all_notes = list(
+            NoteModel.select().where((NoteModel.tags.contains("doc:")) | (NoteModel.tags.contains("source:")) | (NoteModel.tags.contains("section:")) | (NoteModel.tags.contains("page:")))
+        )
         newly_linked = 0
         matched_notes = 0
         unlinked_note_ids: list[int] = []
@@ -274,6 +286,17 @@ class CoverageAlignmentService:
                     matched_doc = docs_by_id[meta["doc_id"]]
                 elif meta["source_slug"] is not None and meta["source_slug"] in docs_by_slug:
                     matched_doc = docs_by_slug[meta["source_slug"]]
+                elif meta["section_slug"] is not None:
+                    for candidate_doc in docs_by_id.values():
+                        if candidate_doc.id in stale_doc_ids:
+                            continue
+                        if cls._find_chunk_by_section_suffix(candidate_doc.id, meta["section_slug"]) is not None:
+                            matched_doc = candidate_doc
+                            break
+                elif meta["page_number"] is not None and len(docs_by_id) == 1:
+                    candidate_doc = next(iter(docs_by_id.values()))
+                    if candidate_doc.id not in stale_doc_ids:
+                        matched_doc = candidate_doc
 
                 if not matched_doc:
                     continue
