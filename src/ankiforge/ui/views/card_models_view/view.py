@@ -339,7 +339,7 @@ class CardModelsView(QWidget):
         self.lbl_default_model_badge = QLabel()
         self.lbl_default_model_badge.setObjectName("defaultModelBadge")
         self.lbl_default_model_badge.setVisible(False)
-        self.lbl_default_model_badge.setStyleSheet(f"color: {DesignTokens.COLOR_WARNING}; font-weight: bold; font-size: 11px;")
+        self.lbl_default_model_badge.setStyleSheet(f"color: {DesignTokens.COLOR_ORANGE}; font-weight: bold; font-size: 11px;")
         self.top_action_bar.layout().insertWidget(2, self.lbl_default_model_badge)
 
         editor_layout.addWidget(self.top_action_bar)
