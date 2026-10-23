@@ -1,3 +1,4 @@
+import re
 import shutil
 import sqlite3
 from pathlib import Path
@@ -5,7 +6,12 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.backup import backup_database, check_db_integrity, restore_latest_valid_backup
+from ankiforge.database.backup import (
+    backup_before_colpkg_import,
+    backup_database,
+    check_db_integrity,
+    restore_latest_valid_backup,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -158,3 +164,107 @@ def test_check_db_integrity_and_restore(tmp_path: Path):
         # Vérifie qu'un fichier de quarantaine a été créé
         quarantined = list(p_dir.glob("ankiforge_corrupt_*.db"))
         assert len(quarantined) == 1
+
+
+def _seed_backup_profile(tmp_path: Path) -> tuple[Path, Path]:
+    """Crée une base de profil minimale saine et retourne (dossier des profils, base active)."""
+    profiles_dir = tmp_path / "profiles"
+    profile_dir = profiles_dir / "default"
+    (profile_dir / "backups").mkdir(parents=True)
+
+    active_db = profile_dir / "ankiforge.db"
+    seed = sqlite3.connect(str(active_db))
+    seed.execute("CREATE TABLE notes (id int, front text);")
+    seed.execute("INSERT INTO notes VALUES (1, 'Question');")
+    seed.commit()
+    seed.close()
+
+    return profiles_dir, active_db
+
+
+def test_backup_before_colpkg_import_creates_valid_snapshot(tmp_path: Path):
+    """La sauvegarde pré-importation est nommée, stockée dans `backups/` et intègre."""
+    profiles_dir, active_db = _seed_backup_profile(tmp_path)
+
+    with (
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+    ):
+        backup_path = backup_before_colpkg_import()
+
+    backup_dir = profiles_dir / "default" / "backups"
+    assert backup_path.parent == backup_dir
+    assert re.fullmatch(r"ankiforge_backup_precolpkg_\d{8}_\d{6}\.db", backup_path.name)
+    assert backup_path.exists()
+    assert check_db_integrity(backup_path) is True
+
+    # Le contenu de la base est bien celui du profil actif
+    with sqlite3.connect(str(backup_path)) as conn:
+        assert conn.execute("SELECT front FROM notes WHERE id=1;").fetchone() == ("Question",)
+
+
+def test_backup_before_colpkg_import_survives_standard_rotation(tmp_path: Path):
+    """La sauvegarde pré-colpkg échappe à la rotation `keep_last` de `backup_database()`."""
+    profiles_dir, active_db = _seed_backup_profile(tmp_path)
+    backup_dir = profiles_dir / "default" / "backups"
+    for day in range(1, 4):
+        (backup_dir / f"ankiforge_backup_2020010{day}_000000.db").write_text("ancienne")
+
+    with (
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+    ):
+        precolpkg_path = backup_before_colpkg_import()
+
+        # Trois rotations successives avec une limite très stricte
+        for _ in range(3):
+            backup_database(keep_last=1)
+
+    assert precolpkg_path.exists(), "La sauvegarde pré-colpkg a été emportée par la rotation."
+    assert check_db_integrity(precolpkg_path) is True
+
+    standard_backups = [b for b in backup_dir.glob("ankiforge_backup_*.db") if "_precolpkg_" not in b.name]
+    assert len(standard_backups) == 1, "La rotation standard n'a pas respecté la limite."
+
+
+def test_backup_before_colpkg_import_raises_when_no_database(tmp_path: Path):
+    """Sans base à sauvegarder, l'import doit être interrompu par une erreur explicite."""
+    profiles_dir = tmp_path / "profiles"
+    missing_db = profiles_dir / "default" / "ankiforge.db"
+
+    with (
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=missing_db),
+        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        pytest.raises(RuntimeError),
+    ):
+        backup_before_colpkg_import()
+
+
+def test_backup_before_colpkg_import_closes_all_sqlite_connections(tmp_path: Path, monkeypatch):
+    """Régression Windows : aucune connexion ne doit rester ouverte après l'instantané."""
+    profiles_dir, active_db = _seed_backup_profile(tmp_path)
+
+    opened: list[sqlite3.Connection] = []
+    real_connect = sqlite3.connect
+
+    def tracking_connect(*args, **kwargs):
+        connection = real_connect(*args, **kwargs)
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr("ankiforge.database.backup.sqlite3.connect", tracking_connect)
+
+    with (
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+    ):
+        backup_before_colpkg_import()
+
+    assert opened, "L'instantané doit ouvrir au moins une connexion SQLite"
+    for connection in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            connection.execute("SELECT 1;")

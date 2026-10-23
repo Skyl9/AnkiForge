@@ -13,6 +13,14 @@ from ankiforge.utils.paths import get_active_profile
 
 logger = logging.getLogger(__name__)
 
+# Marqueurs des instantanés de sécurité exclus de la rotation standard (``keep_last``).
+PROTECTED_SNAPSHOT_MARKERS: tuple[str, ...] = ("_prerestore_", "_precolpkg_")
+
+
+def _is_protected_snapshot(filename: str) -> bool:
+    """Indique si une sauvegarde est un instantané de sécurité hors rotation."""
+    return any(marker in filename for marker in PROTECTED_SNAPSHOT_MARKERS)
+
 
 def check_db_integrity(db_path: Path) -> bool:
     """Vérifie l'intégrité physique d'une base SQLite (PRAGMA integrity_check)."""
@@ -31,10 +39,61 @@ def check_db_integrity(db_path: Path) -> bool:
         return False
 
 
+def _atomic_sqlite_copy(db_path: Path, destination: Path) -> None:
+    """Copie atomique d'une base SQLite (compatible WAL) avec repli par copie physique.
+
+    ``closing`` garantit la libération immédiate des verrous de fichier (le
+    ``with sqlite3.connect(...)`` ne ferme pas la connexion).
+    """
+    try:
+        with contextlib.closing(sqlite3.connect(str(db_path))) as src_conn:
+            with contextlib.suppress(Exception):
+                src_conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
+            with contextlib.closing(sqlite3.connect(str(destination))) as dst_conn:
+                src_conn.backup(dst_conn)
+    except Exception:
+        shutil.copy2(db_path, destination)
+
+
+def _snapshot_database(profile_name: str | None, filename_prefix: str) -> Path | None:
+    """Crée un instantané horodaté de la base du profil, exclu de la rotation standard."""
+    pm = ProfileManager()
+    target_profile = profile_name or get_active_profile()
+    db_path = pm.get_db_path(target_profile)
+    if not db_path.exists():
+        logger.warning("Fichier de base introuvable pour l'instantané '%s' : %s", filename_prefix, db_path)
+        return None
+
+    backup_dir = pm.PROFILES_DIR / target_profile / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    # Deux instantanés créés dans la même seconde ne doivent jamais s'écraser mutuellement.
+    stamp = datetime.datetime.now()
+    backup_file = backup_dir / f"{filename_prefix}_{stamp.strftime('%Y%m%d_%H%M%S')}.db"
+    while backup_file.exists():
+        stamp += datetime.timedelta(seconds=1)
+        backup_file = backup_dir / f"{filename_prefix}_{stamp.strftime('%Y%m%d_%H%M%S')}.db"
+
+    try:
+        _atomic_sqlite_copy(db_path, backup_file)
+    except Exception as e:
+        logger.error("Échec de la création de l'instantané '%s' : %s", backup_file.name, e, exc_info=True)
+        return None
+
+    logger.info(
+        "Instantané de sécurité créé : %s (%d octets) pour le profil '%s'",
+        backup_file.name,
+        backup_file.stat().st_size,
+        target_profile,
+    )
+    return backup_file
+
+
 def backup_database(keep_last: int = 5) -> None:
     """Crée une copie de sécurité atomique de la base de données SQLite (compatible WAL mode).
 
-    Conserve uniquement les `keep_last` fichiers les plus récents.
+    Conserve uniquement les `keep_last` fichiers les plus récents, à l'exception des
+    instantanés de sécurité pré-restauration et pré-importation .colpkg.
     """
     pm = ProfileManager()
     active_profile = get_active_profile()
@@ -51,18 +110,7 @@ def backup_database(keep_last: int = 5) -> None:
     backup_file = backup_dir / f"ankiforge_backup_{timestamp}.db"
 
     try:
-        # Sauvegarde atomique en ligne compatible mode WAL
-        try:
-            # ``closing`` garantit la libération immédiate des verrous de fichier
-            # (le ``with sqlite3.connect(...)`` ne ferme pas la connexion).
-            with contextlib.closing(sqlite3.connect(str(db_path))) as src_conn:
-                with contextlib.suppress(Exception):
-                    src_conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
-                with contextlib.closing(sqlite3.connect(str(backup_file))) as dst_conn:
-                    src_conn.backup(dst_conn)
-        except Exception:
-            # Repli par copie physique si la connexion SQLite échoue
-            shutil.copy2(db_path, backup_file)
+        _atomic_sqlite_copy(db_path, backup_file)
 
         file_size = backup_file.stat().st_size if backup_file.exists() else 0
         logger.info(
@@ -72,8 +120,8 @@ def backup_database(keep_last: int = 5) -> None:
             active_profile,
         )
 
-        # Rotation : Nettoyage des anciennes sauvegardes (hors pré-restauration)
-        backups = sorted([b for b in backup_dir.glob("ankiforge_backup_*.db") if "_prerestore_" not in b.name])
+        # Rotation : Nettoyage des anciennes sauvegardes (hors instantanés protégés)
+        backups = sorted(b for b in backup_dir.glob("ankiforge_backup_*.db") if not _is_protected_snapshot(b.name))
         if len(backups) > keep_last:
             for old_backup in backups[:-keep_last]:
                 try:
@@ -199,36 +247,23 @@ def create_prerestore_backup(profile_name: str | None = None) -> Path | None:
 
     Exclu de la rotation standard pour garantir un retour arrière immédiat.
     """
-    pm = ProfileManager()
-    target_profile = profile_name or get_active_profile()
-    db_path = pm.get_db_path(target_profile)
-    if not db_path.exists():
-        logger.warning("Fichier de base introuvable pour pré-restauration : %s", db_path)
-        return None
+    return _snapshot_database(profile_name, "ankiforge_backup_prerestore")
 
-    backup_dir = pm.PROFILES_DIR / target_profile / "backups"
-    backup_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = backup_dir / f"ankiforge_backup_prerestore_{timestamp}.db"
+def backup_before_colpkg_import(profile_name: str | None = None) -> Path:
+    """Crée l'instantané de sécurité obligatoire avant un remplacement par `.colpkg`.
 
-    try:
-        try:
-            # Fermeture explicite : sinon la connexion survit en garbage cyclique et
-            # garde un verrou Windows sur la base pendant le remplacement qui suit.
-            with contextlib.closing(sqlite3.connect(str(db_path))) as src_conn:
-                with contextlib.suppress(Exception):
-                    src_conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
-                with contextlib.closing(sqlite3.connect(str(backup_file))) as dst_conn:
-                    src_conn.backup(dst_conn)
-        except Exception:
-            shutil.copy2(db_path, backup_file)
+    Le fichier produit est nommé ``ankiforge_backup_precolpkg_<horodatage>.db`` dans le
+    sous-dossier ``backups/`` du profil et échappe à la rotation standard : il reste
+    restaurable même après plusieurs imports successifs.
 
-        logger.info("Sauvegarde pré-restauration de sécurité créée : %s", backup_file.name)
-        return backup_file
-    except Exception as e:
-        logger.error("Échec création de la sauvegarde pré-restauration : %s", e, exc_info=True)
-        return None
+    Lève ``RuntimeError`` si la base du profil est introuvable ou si l'instantané échoue,
+    afin d'interrompre l'import avant toute écriture destructrice.
+    """
+    backup_path = _snapshot_database(profile_name, "ankiforge_backup_precolpkg")
+    if backup_path is None:
+        raise RuntimeError("Sauvegarde de sécurité pré-importation .colpkg impossible : import interrompu pour préserver la collection.")
+    return backup_path
 
 
 def restore_granular_backup(
