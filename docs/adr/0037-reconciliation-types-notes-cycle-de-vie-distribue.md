@@ -45,6 +45,7 @@ L'importation de types de notes (notamment via `.apkg`) obéit aux règles suiva
 - À l'initialisation d'un profil vierge ([`initial_seed.py`](file:///src/ankiforge/database/seeds/initial_seed.py)), AnkiForge ne génère qu'**un unique modèle de carte** : `"Basique"` (`["Recto", "Verso"]`, `anki_id: None`).
 - **Adoption transparente** : lors du premier import d'un paquet Anki contenant un modèle basique (qu'il se nomme `"Basique"` ou `"Basic"`), le modèle local vierge (0 note) adopte silencieusement l'`anki_id`, le nom canonique, les gabarits et le CSS d'Anki.
 - Les modèles spécialisés (`"Texte à trous (Cloze)"`, `"Image Occlusion Enhanced"`, QCM) ne sont plus imposés au démarrage : ils sont activés à la demande (en un clic via le Starter Pack ou automatiquement à l'ouverture d'un dialogue d'occlusion).
+- Le seed est idempotent sur les alias `Basique`/`Basic` : après adoption du modèle par un premier import, il n'est jamais recréé au démarrage suivant.
 
 ### 3. Conformité Totale au Moteur de Cartes Anki & Quantificateurs Conditionnels
 

@@ -98,6 +98,7 @@ flowchart TD
   Avant de créer un clone `(Importé)`, vérifier si un modèle local possède exactement la même liste ordonnée de champs (ou une équivalence multilingue canonique `["Recto", "Verso"]` ↔ `["Front", "Back"]`). Si oui, réutiliser ce modèle pour les nouvelles notes.
 
 ### B. Seed Initial Épuré (`initial_seed.py`)
+- Les définitions canoniques résident dans `src/ankiforge/database/note_type_catalog.py` (`basic_note_type_definition()`, `seed_default_note_types()`), consommées par le seed d'amorçage et les services de cartes sans cycle d'import.
 - Restreindre l'initialisation de la base à un seul modèle :
   - `name`: `"Basique"`
   - `fields_schema`: `json.dumps(["Recto", "Verso"])`
