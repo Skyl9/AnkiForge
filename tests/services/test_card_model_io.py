@@ -137,13 +137,14 @@ def test_save_model_to_db_collisions():
 
 def test_starter_pack_models():
     packs = CardModelIO.get_starter_pack_models()
-    assert len(packs) == 4
+    assert len(packs) == 5
 
     pack_ids = [p["id"] for p in packs]
     assert "medical_qcm" in pack_ids
     assert "dev_jetbrains" in pack_ids
     assert "math_katex" in pack_ids
     assert "vocab_languages" in pack_ids
+    assert "cloze" in pack_ids
 
     # Installation du modèle médical
     med_model = CardModelIO.install_starter_pack("medical_qcm")
@@ -155,3 +156,13 @@ def test_starter_pack_models():
     med_copy = CardModelIO.install_starter_pack("medical_qcm", overwrite=False)
     assert med_copy is not None
     assert "(2)" in med_copy.name
+
+
+def test_starter_pack_cloze_installable_on_demand():
+    """Le modèle Cloze n'est plus semé d'office mais reste installable en un clic."""
+    cloze_model = CardModelIO.install_starter_pack("cloze")
+
+    assert cloze_model is not None
+    assert cloze_model.name == "Texte à trous (Cloze)"
+    assert json.loads(cloze_model.fields_schema) == ["Texte", "Remarques extra"]
+    assert "{{cloze:" in cloze_model.templates

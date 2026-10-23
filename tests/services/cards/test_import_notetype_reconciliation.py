@@ -164,6 +164,82 @@ def test_import_notetype_structural_isomorphism_avoids_clones(mock_db):
     assert note_entrante.note_type_id == local_nt.id
 
 
+def test_first_import_reuses_local_basic_model_with_notes(mock_db):
+    """Un « Basique » local déjà utilisé est adopté, sans clone `(Importé)`.
+
+    Profil non vierge : le modèle « Basique » (Recto/Verso) porte des notes locales
+    et n'est pas encore relié à Anki. Un premier import nommé « Basic » (Front/Back)
+    structurellement isomorphe réutilise ce modèle, lui attribue l'`anki_id` entrant
+    et aligne le contenu des notes sur ses champs, sans dupliquer le modèle.
+    """
+    manager = ImportManager()
+    DeckModel.create(name="Défaut", anki_id=1)
+
+    local_nt = NoteTypeModel.create(
+        name="Basique",
+        fields_schema=json.dumps(["Recto", "Verso"]),
+        templates=json.dumps([{"name": "Carte 1", "qfmt": "{{Recto}}", "afmt": "{{FrontSide}}<hr id=answer>{{Verso}}"}]),
+        css_style="",
+        anki_id=None,
+    )
+    note_locale = NoteModel.create(guid="loc_basic_1", note_type=local_nt)
+    NoteVersionModel.create(
+        note=note_locale,
+        version_number=1,
+        content=json.dumps({"Recto": "R1", "Verso": "V1"}),
+        source="manual",
+        is_active=True,
+    )
+
+    incoming_mid = 3_141_592
+    analysis = ImportAnalysisResult(
+        temp_dir="",
+        source_type="apkg",
+        sqlite_path=None,
+        txt_path=None,
+        new_notes=[
+            {
+                "guid": "entrant_basic_1",
+                "deck_name": "Défaut",
+                "notetype_name": "Basic",
+                "mid": incoming_mid,
+                "tags": [],
+                "content": {"Front": "What is Python?", "Back": "A programming language"},
+                "field_names": ["Front", "Back"],
+                "cards": [{"ord": 0, "did": 1, "ivl": 0, "reps": 0, "lapses": 0}],
+            }
+        ],
+        silent_updates=[],
+        identical_count=0,
+        conflicts=[],
+        media_map={},
+        raw_models={
+            incoming_mid: {
+                "name": "Basic",
+                "fields": ["Front", "Back"],
+                "templates": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}],
+                "css": "",
+            }
+        },
+        raw_decks=[{"id": 1, "name": "Défaut"}],
+    )
+
+    manager.commit_import(analysis)
+
+    models = list(NoteTypeModel.select())
+    assert len(models) == 1, "Aucun clone « (Importé) » ne doit être créé pour un modèle isomorphe"
+    assert models[0].id == local_nt.id
+    assert models[0].name == "Basique", "Le nom du modèle local déjà utilisé ne doit pas être écrasé"
+    assert models[0].anki_id == incoming_mid
+    assert json.loads(models[0].fields_schema) == ["Recto", "Verso"]
+
+    note_entrante = NoteModel.get(NoteModel.guid == "entrant_basic_1")
+    assert note_entrante.note_type_id == local_nt.id
+    active_v = NoteVersionModel.get_or_none(note=note_entrante, is_active=True)
+    assert active_v is not None
+    assert json.loads(active_v.content) == {"Recto": "What is Python?", "Verso": "A programming language"}
+
+
 def test_import_notetype_orphaned_fields_archived(mock_db):
     """Vérifie l'archivage non destructif des champs supprimés dans Anki.
 
@@ -304,3 +380,70 @@ def test_import_notetype_multilingual_isomorphism_maps_note_content(mock_db):
     assert v is not None
     c = json.loads(v.content)
     assert c == {"Recto": "What is Python?", "Verso": "A programming language"}
+
+
+def test_first_import_adopts_pristine_seed_basic_model(mock_db):
+    """Un profil vierge adopte silencieusement l'identité du modèle « Basic » entrant.
+
+    Le seed d'usine ne contient qu'un modèle « Basique » sans anki_id. Au premier
+    import d'un paquet contenant « Basic », ce modèle vierge (0 note) adopte
+    l'anki_id, le nom, les champs et les gabarits de la collection entrante :
+    aucun clone `(Importé)` n'est créé (ADR 0037).
+    """
+    from ankiforge.database.seeds.initial_seed import seed_initial_data
+
+    seed_initial_data()
+    seed_basic = NoteTypeModel.get(NoteTypeModel.name == "Basique")
+    assert seed_basic.anki_id is None
+
+    manager = ImportManager()
+    incoming_mid = 1_588_742_123_456
+    analysis = ImportAnalysisResult(
+        temp_dir="",
+        source_type="apkg",
+        sqlite_path=None,
+        txt_path=None,
+        new_notes=[
+            {
+                "guid": "guid_premier_import",
+                "deck_name": "Default",
+                "notetype_name": "Basic",
+                "mid": incoming_mid,
+                "tags": [],
+                "content": {"Front": "What is the capital of France?", "Back": "Paris"},
+                "field_names": ["Front", "Back"],
+                "cards": [{"ord": 0, "did": 1, "ivl": 0, "reps": 0, "lapses": 0}],
+            }
+        ],
+        silent_updates=[],
+        identical_count=0,
+        conflicts=[],
+        media_map={},
+        raw_models={
+            incoming_mid: {
+                "name": "Basic",
+                "fields": ["Front", "Back"],
+                "templates": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}],
+                "css": ".card { font-size: 20px; }",
+            }
+        },
+        raw_decks=[{"id": 1, "name": "Default"}],
+    )
+
+    manager.commit_import(analysis)
+
+    models = list(NoteTypeModel.select())
+    assert len(models) == 1, "Aucun clone « (Importé) » ne doit apparaître au premier import"
+    adopted = models[0]
+    assert adopted.id == seed_basic.id
+    assert adopted.name == "Basic"
+    assert adopted.anki_id == incoming_mid
+    assert json.loads(adopted.fields_schema) == ["Front", "Back"]
+    assert json.loads(adopted.templates)[0]["qfmt"] == "{{Front}}"
+    assert adopted.css_style == ".card { font-size: 20px; }"
+
+    created_note = NoteModel.get(NoteModel.guid == "guid_premier_import")
+    assert created_note.note_type_id == adopted.id
+    active_v = NoteVersionModel.get_or_none(note=created_note, is_active=True)
+    assert active_v is not None
+    assert json.loads(active_v.content) == {"Front": "What is the capital of France?", "Back": "Paris"}

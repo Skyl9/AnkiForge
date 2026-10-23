@@ -93,6 +93,51 @@ def test_seed_initial_data_is_idempotent():
     assert LLMConfigModel.select().count() == llm_count
 
 
+def test_seed_initial_data_creates_single_basic_note_type():
+    """Un profil vierge ne reçoit qu'un modèle « Basique » (Recto/Verso, sans anki_id).
+
+    Les modèles Cloze et Image Occlusion Enhanced ne sont plus injectés d'office :
+    ils restent activables à la demande (Starter Pack / dialogue d'occlusion).
+    """
+    from ankiforge.database.seeds.initial_seed import seed_initial_data
+
+    NoteTypeModel.delete().execute()
+    seed_initial_data()
+
+    note_types = list(NoteTypeModel.select())
+    assert [nt.name for nt in note_types] == ["Basique"]
+
+    basic = note_types[0]
+    assert json.loads(basic.fields_schema) == ["Recto", "Verso"]
+    assert basic.anki_id is None
+    assert json.loads(basic.templates)[0]["qfmt"] == "{{Recto}}"
+
+
+def test_seed_initial_data_does_not_recreate_basic_after_adoption():
+    """Le seed ne recrée pas un « Basique » après adoption du modèle par un import Anki.
+
+    Une fois le seed adopté (nom « Basic », anki_id renseigné), l'idempotence doit
+    couvrir les deux alias afin d'éviter un doublon au démarrage suivant.
+    """
+    from ankiforge.database.seeds.initial_seed import seed_initial_data
+
+    NoteTypeModel.delete().execute()
+    seed_initial_data()
+
+    adopted = NoteTypeModel.get(NoteTypeModel.name == "Basique")
+    adopted.name = "Basic"
+    adopted.anki_id = 424242
+    adopted.save()
+
+    seed_initial_data()
+
+    models = list(NoteTypeModel.select())
+    assert len(models) == 1
+    assert models[0].id == adopted.id
+    assert models[0].name == "Basic"
+    assert models[0].anki_id == 424242
+
+
 def test_note_versioning_system():
     """Vérifie que la méthode add_version crée bien un historique et désactive l'ancienne version."""
 
