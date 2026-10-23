@@ -383,7 +383,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+1088"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+1091"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -1131,7 +1131,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location line="+26"/>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="+476"/>
         <location filename="../../ui/views/creation_view/view.py" line="+211"/>
-        <location filename="../../ui/views/documents_view/view.py" line="+1664"/>
+        <location filename="../../ui/views/documents_view/view.py" line="+1697"/>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
@@ -1527,12 +1527,12 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+25"/>
         <source>AnkiForge%1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+350"/>
+        <location line="+372"/>
         <source>Un pipeline DAG « %1 » n&apos;a pas été terminé lors de la session précédente (interrompu à l&apos;étape %2).
 
 Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
@@ -2974,7 +2974,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1138"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1177"/>
         <location filename="../../ui/views/edition_view/view.py" line="+743"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -3356,7 +3356,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-930"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-968"/>
         <source>Créer un nouveau type de note Anki (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3401,15 +3401,15 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+178"/>
+        <location line="+179"/>
         <source>Type de note : %1
 Type : %2
 Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+120"/>
-        <location line="+50"/>
+        <location line="+154"/>
+        <location line="+52"/>
         <location line="+22"/>
         <location line="+35"/>
         <source>%1 gabarit%2</source>
@@ -3436,7 +3436,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+45"/>
         <source>Insérer le champ %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3471,12 +3471,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+56"/>
+        <location line="+58"/>
         <source>Voulez-vous vraiment supprimer le type de note &apos;%1&apos; ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+34"/>
+        <location line="+35"/>
         <source>Type de note &apos;%1&apos; sauvegardé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4172,7 +4172,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/documents_view/view.py" line="-1246"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-1279"/>
         <source>%1 (Non extrait)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4636,7 +4636,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+173"/>
+        <location line="+206"/>
         <source>RAG Prêt (%1 chunks)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9340,7 +9340,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1191"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1232"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9361,25 +9361,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+13"/>
-        <location line="+1082"/>
+        <location line="+1122"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1016"/>
+        <location line="-1056"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+486"/>
+        <location line="+521"/>
         <location line="+2"/>
         <location line="+2"/>
         <source>Front, Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-489"/>
+        <location line="-524"/>
         <source>ex: Front, Back, Audio...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9492,17 +9492,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+419"/>
+        <location line="+456"/>
         <source>Données d&apos;exemple automatiques</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-408"/>
+        <location line="-445"/>
         <source>Masquer l&apos;aperçu en direct</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+222"/>
+        <location line="+254"/>
         <source>Replier le volet d&apos;aides</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9512,12 +9512,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+12"/>
         <source>Aucun type de note sélectionné</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+140"/>
+        <location line="+142"/>
         <source>Gabarit renommé.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9542,7 +9542,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+146"/>
+        <location line="+147"/>
         <source>Insérer le rappel du recto au verso</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9577,7 +9577,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+29"/>
         <source>Type de note supprimé.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12011,7 +12011,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2601"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2634"/>
         <source>Importer depuis le Web / YouTube</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12022,12 +12022,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+1859"/>
+        <location line="+1892"/>
         <source>Supprimer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1855"/>
+        <location line="-1888"/>
         <source>Importer des documents depuis un autre profil</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12138,25 +12138,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+100"/>
-        <location line="+1648"/>
+        <location line="+1681"/>
         <location line="+21"/>
         <source>Couverture : 0%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1665"/>
+        <location line="-1698"/>
         <source>Ouvrir le diagnostic complet du document dans Analyse &amp; Audit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+25"/>
-        <location line="+1622"/>
+        <location line="+1655"/>
         <location line="+21"/>
         <source>0 sections analysées • 0 cartes liées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1637"/>
+        <location line="-1670"/>
         <source>Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12236,7 +12236,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+129"/>
+        <location line="+162"/>
         <source>Album</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12779,11 +12779,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+421"/>
         <location line="+13"/>
         <location line="+1431"/>
+        <location line="+100"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1861"/>
+        <location line="-1961"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15761,12 +15762,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-811"/>
+        <location filename="../../ui/main_window.py" line="-833"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+45"/>
+        <location line="+67"/>
         <source>Reprise de Pipeline DAG</source>
         <translation type="unfinished"></translation>
     </message>

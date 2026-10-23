@@ -4,7 +4,7 @@ import contextlib
 import logging
 import os
 import sys
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QIcon
@@ -89,6 +89,16 @@ class MainWindow(QMainWindow):
 
     mcp_data_mutated = Signal(dict)
     shortcut_manager: ShortcutManager
+
+    # Domaine fonctionnel MCP -> vues autorisées à se rafraîchir.
+    # Toute vue absente de cette table n'est jamais réveillée par une mutation externe.
+    # L'ordre est déterministe : les vues légères passent avant les vues coûteuses.
+    _MCP_DOMAIN_VIEWS: ClassVar[dict[str, tuple[str, ...]]] = {
+        "cards": ("edition", "analysis"),
+        "decks": ("creation", "batch", "edition"),
+        "models": ("card-models", "edition"),
+        "docs": ("documents",),
+    }
 
     def __init__(self, ai_manager: AIManager | None, profile_name: str = "default") -> None:
         super().__init__()
@@ -408,19 +418,41 @@ class MainWindow(QMainWindow):
     def _on_mcp_data_mutated(self, mutation: dict[str, Any]) -> None:
         """Traite les mutations émises par les outils MCP (apply_patch, etc.).
 
-        Actualise les vues actives et fait clignoter le badge de statut.
+        Seules les vues abonnées au domaine fonctionnel impacté sont actualisées.
+        Les vues concernées peuvent exposer ``apply_mcp_mutation()`` pour appliquer
+        une mise à jour granulaire ; à défaut, ``refresh_data()`` est appelé.
+        Aucune navigation, sélection ou position d'ascenseur n'est modifiée ici.
         """
-        logger.info("Mutation MCP reçue : %s", mutation)
+        domain = str(mutation.get("domain") or "").strip().lower()
+        if domain not in self._MCP_DOMAIN_VIEWS:
+            # Repli pour les producteurs historiques qui n'injectent pas encore le domaine.
+            from ankiforge.services.ai.mcp_server import resolve_mcp_mutation_domain
+
+            domain = resolve_mcp_mutation_domain(mutation)
+        logger.info(
+            "Mutation MCP reçue (domaine=%s, type=%s)",
+            domain,
+            mutation.get("type") or mutation.get("mutation_type") or "?",
+        )
+        logger.debug("Charge utile de la mutation MCP : %s", mutation)
+
         if hasattr(self, "mcp_status_widget") and self.mcp_status_widget is not None:
             self.mcp_status_widget.flash_mutation()
 
-        # Rafraîchissement des vues instanciées
-        for view_id, widget in self._view_widgets.items():
-            if not isinstance(widget, DummyView) and hasattr(widget, "refresh_data"):
-                try:
-                    widget.refresh_data()
-                except Exception as e:
-                    logger.warning("Erreur rafraîchissement vue %s après mutation MCP: %s", view_id, e)
+        targets = self._MCP_DOMAIN_VIEWS.get(domain, ())
+        for view_id in targets:
+            widget = self._view_widgets.get(view_id)
+            if widget is None or isinstance(widget, DummyView):
+                continue
+
+            granular_handler = getattr(widget, "apply_mcp_mutation", None)
+            try:
+                if callable(granular_handler):
+                    granular_handler(mutation)
+                elif hasattr(widget, "refresh_data"):
+                    cast(Any, widget).refresh_data()
+            except Exception as e:
+                logger.warning("Erreur rafraîchissement vue %s après mutation MCP (%s): %s", view_id, domain, e)
 
         self._refresh_nav_badges()
         self.mcp_data_mutated.emit(mutation)

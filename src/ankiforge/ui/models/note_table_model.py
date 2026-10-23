@@ -743,6 +743,10 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 return idx
         return -1
 
+    def loaded_note_ids(self) -> list[int]:
+        """Retourne les identifiants de notes actuellement chargés, sans doublon ni ordre garanti."""
+        return list(dict.fromkeys(row.note_id for row in self._loaded_rows))
+
     def update_card_flag(self, card_id: int, flag: int) -> None:
         """Met à jour instantanément le drapeau d'une carte dans le modèle virtuel."""
         row_idx = self.find_row_by_card_id(card_id)

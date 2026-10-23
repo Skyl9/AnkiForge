@@ -86,6 +86,9 @@ class EditionView(QWidget):
     request_navigation = Signal(str, object)
 
     BATCH_SIZE = 50
+    _MCP_NOTE_CREATION_TYPES = frozenset({"note_create", "batch_note_create", "card_split", "split"})
+    # Mutations sans identifiants de notes : le contenu des lignes déjà chargées est relu.
+    _MCP_BULK_REFRESH_TYPES = frozenset({"merge_tags", "delete_empty_cards"})
 
     def __init__(
         self,
@@ -2408,6 +2411,185 @@ class EditionView(QWidget):
 
         except Exception as e:
             logger.warning("Erreur lors du rafraîchissement d'EditionView: %s", e)
+
+    def apply_mcp_mutation(self, mutation: dict[str, Any]) -> None:
+        """Applique une mutation MCP au périmètre de la vue sans recharger tout le tableau.
+
+        Le modèle virtuel est mis à jour ligne par ligne (contenu, tags, paquet) afin de
+        conserver la sélection, la position d'ascenseur et l'ordre courant. L'éditeur
+        affiché est rafraîchi uniquement s'il correspond à la note mutée et qu'aucune
+        saisie utilisateur n'est en cours.
+        """
+        mutation_type = str(mutation.get("type") or mutation.get("mutation_type") or "").strip().lower()
+        note_ids = self._extract_mutation_note_ids(mutation)
+
+        if mutation_type in self._MCP_NOTE_CREATION_TYPES:
+            self._insert_created_notes(mutation)
+
+        if note_ids:
+            self._apply_note_updates_in_place(note_ids)
+        elif mutation_type in self._MCP_BULK_REFRESH_TYPES:
+            self._apply_note_updates_in_place(self.note_table_model.loaded_note_ids())
+
+    def _clear_current_note(self) -> None:
+        """Vide l'éditeur sans toucher à la sélection ni à l'ascenseur du tableau."""
+        self._current_note = None
+        self.editor_stack.setCurrentIndex(0)
+        self.lbl_card_ribbon_info.setText(self.tr("Aucune carte sélectionnée"))
+
+    def _insert_created_notes(self, mutation: dict[str, Any]) -> None:
+        """Insère en tête du modèle les notes créées par une mutation externe."""
+        created_ids: list[int] = []
+        for key in ("created_note_ids", "created_ids", "note_id"):
+            value = mutation.get(key)
+            candidates = value if isinstance(value, list | tuple | set) else [value]
+            for candidate in candidates:
+                try:
+                    candidate_id = int(candidate)
+                except (TypeError, ValueError):
+                    continue
+                if candidate_id > 0 and candidate_id not in created_ids:
+                    created_ids.append(candidate_id)
+
+        if not created_ids:
+            return
+        if self.note_table_model.display_mode != "notes":
+            # En mode cartes, l'insertion granulaire d'une note n'a pas de sens :
+            # le rechargement complet reste la seule voie sûre.
+            self.refresh_data()
+            return
+
+        for note_id in created_ids:
+            if self.note_table_model.find_row_by_note_id(note_id) >= 0:
+                continue
+            note = NoteModel.get_or_none(NoteModel.id == note_id)
+            if note is not None:
+                self.note_table_model.prepend_note(note)
+        self._update_nav_ribbon_info()
+
+    def _apply_note_updates_in_place(self, note_ids: list[int]) -> None:
+        """Met à jour les lignes existantes en un nombre borné de requêtes SQL."""
+        if not note_ids:
+            return
+
+        notes = {note.id: note for note in NoteModel.select().where(NoteModel.id.in_(note_ids))}
+        content_by_id: dict[int, dict[str, str]] = {}
+        try:
+            versions = NoteVersionModel.select().where(
+                (NoteVersionModel.note.in_(note_ids)) & (NoteVersionModel.is_active == True)  # noqa: E712
+            )
+            for version in versions:
+                if not version.content:
+                    continue
+                try:
+                    parsed = json.loads(version.content)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    continue
+                if isinstance(parsed, dict):
+                    content_by_id[version.note_id] = {str(k): str(v) for k, v in parsed.items()}
+        except peewee.PeeweeException as exc:
+            logger.debug("Préchargement des versions de notes MCP ignoré : %s", exc)
+
+        deck_by_note_id: dict[int, str] = {}
+        cards = CardModel.select(CardModel.note, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
+        for card in cards:
+            if card.note_id not in deck_by_note_id and card.deck:
+                deck_by_note_id[card.note_id] = card.deck.name
+
+        for note_id in note_ids:
+            note = notes.get(note_id)
+            if note is None:
+                self.note_table_model.remove_notes_by_ids([note_id])
+                if self._current_note and self._current_note.id == note_id:
+                    self._clear_current_note()
+                continue
+
+            content = content_by_id.get(note_id) or self._get_note_content_dynamic(note)
+            self.note_table_model.update_note_content(note_id, content)
+            self.note_table_model.update_note_tags(note_id, parse_note_tags(note.tags))
+            deck_name = deck_by_note_id.get(note_id, "")
+            if deck_name:
+                self.note_table_model.update_note_deck(note_id, deck_name)
+
+            if not self._current_note or self._current_note.id != note_id:
+                continue
+
+            self._current_note = note
+            # Ne jamais écraser une saisie en cours : la mutation externe est appliquée
+            # au modèle et sera reflétée à la sauvegarde ou à la prochaine sélection.
+            if self._dirty:
+                continue
+
+            schema_changed = set(self.dynamic_field_widgets) != set(content)
+            if schema_changed:
+                self._build_dynamic_editors(note, content)
+            else:
+                self._apply_note_content_in_place(content)
+            if self.tags_editor is not None:
+                self.tags_editor.set_note(note)
+
+            self._update_preview()
+            self._update_nav_ribbon_info()
+
+    def _apply_note_content_in_place(self, content: dict[str, str]) -> None:
+        """Met à jour les éditeurs de champs sans recréer les widgets ni voler le focus."""
+        for field_name, widget in self.dynamic_field_widgets.items():
+            if field_name not in content:
+                continue
+            widget.editor.blockSignals(True)
+            try:
+                widget.set_text(content[field_name])
+            finally:
+                widget.editor.blockSignals(False)
+        self._original_content = content.copy()
+        self._dirty = False
+
+    def _extract_mutation_note_ids(self, mutation: dict[str, Any]) -> list[int]:
+        """Extrait les identifiants de notes impactés par une mutation MCP.
+
+        ``target_id`` est volontairement exclu : selon le type de mutation il désigne
+        un paquet, un type de note ou un document, jamais une note de façon fiable.
+        Les mutations carte (`card_ids`) sont résolues vers leurs notes encore existantes.
+        """
+        raw_candidates: list[Any] = []
+        for key in (
+            "note_ids",
+            "created_note_ids",
+            "modified_note_ids",
+            "created_ids",
+            "deleted_note_ids",
+            "note_id",
+            "parent_id",
+            "parent_note_id",
+        ):
+            value = mutation.get(key)
+            if isinstance(value, list | tuple | set):
+                raw_candidates.extend(value)
+            elif isinstance(value, int) and value > 0:
+                raw_candidates.append(value)
+
+        card_ids = mutation.get("card_ids")
+        if isinstance(card_ids, list | tuple | set):
+            resolved_card_ids: list[int] = []
+            for candidate in card_ids:
+                try:
+                    candidate_id = int(candidate)
+                except (TypeError, ValueError):
+                    continue
+                if candidate_id > 0:
+                    resolved_card_ids.append(candidate_id)
+            if resolved_card_ids:
+                raw_candidates.extend(card.note_id for card in CardModel.select(CardModel.note).where(CardModel.id.in_(resolved_card_ids)))
+
+        note_ids: list[int] = []
+        for candidate in raw_candidates:
+            try:
+                candidate_id = int(candidate)
+            except (TypeError, ValueError):
+                continue
+            if candidate_id > 0 and candidate_id not in note_ids:
+                note_ids.append(candidate_id)
+        return note_ids
 
     def select_note_by_id(self, note_id: int) -> None:
         try:

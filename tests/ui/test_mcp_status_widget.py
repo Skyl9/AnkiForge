@@ -246,13 +246,13 @@ def test_main_window_mcp_integration(qtbot: Any, mock_db: Any) -> None:
             assert len(new_token) >= 32
             assert window.mcp_status_widget.token == new_token
 
-        # Mock d'une vue avec refresh_data
+        # Mock d'une vue abonnée au domaine `cards`
         mock_view = QWidget()
         mock_view.refresh_data = MagicMock()  # type: ignore[attr-defined]
-        window._view_widgets["mock_view"] = mock_view
+        window._view_widgets["edition"] = mock_view
 
         # Émission du signal via _on_mcp_data_mutated
-        mutation_payload = {"action": "apply_patch", "note_ids": [101, 102]}
+        mutation_payload = {"type": "note_update", "domain": "cards", "note_ids": [101, 102]}
 
         with qtbot.waitSignal(window.mcp_data_mutated, timeout=1000) as blocker:
             window._on_mcp_data_mutated(mutation_payload)

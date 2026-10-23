@@ -122,6 +122,7 @@ class CardModelsView(QWidget):
         self._current_template_idx: int = 0
         self._is_syncing_template: bool = False
         self._is_refreshing: bool = False
+        self._dirty: bool = False
         self._splitters_initialized: bool = False
         self._current_helper_cat: str = "Tous"
         self.helper_category_buttons: dict[str, QPushButton] = {}
@@ -690,6 +691,7 @@ class CardModelsView(QWidget):
     def _on_code_changed(self) -> None:
         if self._is_syncing_template:
             return
+        self._dirty = True
         self._sync_current_template_from_editors()
         self._update_preview()
 
@@ -749,6 +751,9 @@ class CardModelsView(QWidget):
             self.list_widget.blockSignals(False)
 
             if not models:
+                self._current_model = None
+                self._templates_list = []
+                self._current_template_idx = 0
                 self.list_widget.hide()
                 self.empty_models_widget.show()
             else:
@@ -774,8 +779,36 @@ class CardModelsView(QWidget):
         finally:
             self._is_refreshing = False
 
+    def apply_mcp_mutation(self, mutation: dict[str, Any]) -> None:
+        """Recharge les gabarits après une mutation MCP en conservant la sélection.
+
+        Le type de note courant, l'index du gabarit et le sous-onglet actif
+        (CSS / Recto / Verso) sont restaurés après le rechargement de la liste.
+        Une saisie locale non enregistrée est prioritaire : le rechargement est
+        différé pour ne jamais écraser le travail de l'utilisateur.
+        """
+        if self._dirty:
+            logger.debug(
+                "Mutation MCP '%s' différée : édition de type de note en cours.",
+                mutation.get("type") or mutation.get("mutation_type") or "?",
+            )
+            return
+
+        current_model_id = self._current_model.id if self._current_model is not None else None
+        template_idx = self._current_template_idx
+        subtab_idx = self.editor_stack.currentIndex()
+
+        self.refresh_data()
+
+        if current_model_id is not None and self._current_model is not None and self._current_model.id == current_model_id and self._templates_list:
+            self._current_template_idx = max(0, min(template_idx, len(self._templates_list) - 1))
+            self._populate_template_selector()
+            self._load_current_template_to_editors()
+            self._switch_subtab(subtab_idx)
+            self._update_preview()
+
     def is_dirty(self) -> bool:
-        return False
+        return self._dirty
 
     def _is_cloze_active(self) -> bool:
         if is_template_cloze(self._templates_list):
@@ -808,6 +841,9 @@ class CardModelsView(QWidget):
     def _on_item_selected(self, current: QListWidgetItem | None, previous: QListWidgetItem | None) -> None:
         if not current:
             self._current_model = None
+            self._templates_list = []
+            self._current_template_idx = 0
+            self._dirty = False
             self.lbl_editor_title.setText(self.tr("Aucun type de note sélectionné"))
             return
 
@@ -867,6 +903,8 @@ class CardModelsView(QWidget):
         self._update_witness_notes_combo()
         self._update_tags_toolbar()
         self._update_preview()
+        # Les éditeurs viennent d'être rechargés depuis la base : plus aucune saisie en attente.
+        self._dirty = False
 
     def _populate_template_selector(self) -> None:
         self.card_selector_combo.blockSignals(True)
@@ -1071,6 +1109,7 @@ class CardModelsView(QWidget):
     def _on_fields_changed(self) -> None:
         if self._is_syncing_template:
             return
+        self._dirty = True
         self._update_tags_toolbar()
 
     def _update_tags_toolbar(self) -> None:
@@ -1340,6 +1379,8 @@ class CardModelsView(QWidget):
     @Slot()
     def _on_description_changed(self) -> None:
         """Met à jour l'indicateur de présence d'un tableau Markdown dans le rôle IA."""
+        if not self._is_syncing_template:
+            self._dirty = True
         text = self.description_input.text()
         has_table = is_markdown_table(text)
         self.badge_role_table.setVisible(has_table)
@@ -1386,6 +1427,7 @@ class CardModelsView(QWidget):
             self._current_model.css_style = css
             self._current_model.save()
 
+            self._dirty = False
             logger.info("Type de note '%s' sauvegardé avec succès.", self._current_model.name)
             show_toast(self, tr("Type de note '%1' sauvegardé avec succès.", self._current_model.name))
             self._update_preview()

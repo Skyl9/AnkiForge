@@ -1075,8 +1075,8 @@ class DocumentsView(FileDropMixin, QWidget):
                 show_toast(self, self.tr("Un dossier avec ce nom existe déjà à cet emplacement."), is_error=True)
 
     def refresh_data(self) -> None:
+        self.tree_explorer.blockSignals(True)
         try:
-            self.tree_explorer.blockSignals(True)
             self.tree_explorer.clear()
 
             DocumentRepository().heal_folder_hierarchies()
@@ -1159,13 +1159,46 @@ class DocumentsView(FileDropMixin, QWidget):
                     item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
 
             self.tree_explorer.expandAll()
-            self.tree_explorer.blockSignals(False)
 
             if not self._current_doc_id:
                 self.editor_stack.setCurrentIndex(0)
 
         except Exception as e:
             logger.warning("Erreur refresh_data documents_view: %s", e)
+        finally:
+            self.tree_explorer.blockSignals(False)
+
+    def apply_mcp_mutation(self, mutation: dict[str, Any]) -> None:
+        """Actualise le hub documentaire après une mutation MCP sans perdre la sélection.
+
+        L'arbre est reconstruit (titres, dossiers, badges) puis le document courant et
+        la position d'ascenseur sont restaurés. Aucun changement d'onglet ni vol de
+        focus n'est provoqué.
+        """
+        current_doc_id = self._current_doc_id
+        scroll_value = self.tree_explorer.verticalScrollBar().value()
+        was_dirty = self._dirty
+
+        # `refresh_data()` gère lui-même le blocage de ses propres signaux : il ne faut
+        # pas l'englober dans un blocage externe (QObject.blockSignals n'est pas un compteur).
+        self.refresh_data()
+
+        doc_still_exists = current_doc_id is not None and DocumentModel.get_or_none(DocumentModel.id == current_doc_id) is not None
+        self.tree_explorer.blockSignals(True)
+        try:
+            if doc_still_exists and current_doc_id is not None:
+                self._select_doc_id_in_tree(current_doc_id)
+            elif current_doc_id is not None:
+                self._current_doc_id = None
+                self.text_editor.set_content("")
+                self.outline_widget.set_document_content("")
+                self._set_outline_tab_visible(False)
+                self.view_model.clear_selection()
+                self.editor_stack.setCurrentIndex(0)
+            self.tree_explorer.verticalScrollBar().setValue(scroll_value)
+        finally:
+            self.tree_explorer.blockSignals(False)
+        self._dirty = was_dirty if doc_still_exists or current_doc_id is None else False
 
     def is_dirty(self) -> bool:
         return self._dirty
