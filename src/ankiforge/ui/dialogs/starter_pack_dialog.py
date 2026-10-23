@@ -147,7 +147,7 @@ class StarterPackDialog(QDialog):
         title_box = QVBoxLayout()
         title_lbl = QLabel(self.tr("Types de note communautaires et professionnels prêts à l'emploi"))
         title_lbl.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        subtitle_lbl = QLabel(self.tr("Installez en un clic des gabarits conçus pour la médecine, le code, les maths et les langues."))
+        subtitle_lbl = QLabel(self.tr("Installez en un clic des gabarits pour la médecine, le code, les maths et les langues, ou activez la mémorisation par texte à trous (Cloze)."))
         subtitle_lbl.setStyleSheet(f"font-size: 12px; color: {DesignTokens.TEXT_MUTED};")
         title_box.addWidget(title_lbl)
         title_box.addWidget(subtitle_lbl)

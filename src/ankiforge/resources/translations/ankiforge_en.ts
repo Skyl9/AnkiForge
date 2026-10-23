@@ -18305,7 +18305,7 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+2"/>
-        <source>Installez en un clic des gabarits conçus pour la médecine, le code, les maths et les langues.</source>
+        <source>Installez en un clic des gabarits pour la médecine, le code, les maths et les langues, ou activez la mémorisation par texte à trous (Cloze).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
