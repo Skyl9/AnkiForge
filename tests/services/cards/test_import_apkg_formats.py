@@ -7,11 +7,29 @@ import pytest
 import zstandard as zstd
 
 from ankiforge.database.models import (
+    CardModel,
     DeckModel,
+    DocumentChunkModel,
+    DocumentModel,
+    DocumentPageModel,
+    FolderModel,
+    MediaModel,
     NoteModel,
     NoteTypeModel,
+    NoteVersionModel,
+    PersonaFolderModel,
+    PersonaModel,
+    PipelineModel,
+    PromptModel,
+    SettingModel,
 )
-from ankiforge.services.cards.import_manager import ImportManager
+from ankiforge.services.cards import import_manager as import_manager_mod
+from ankiforge.services.cards.import_manager import (
+    MAX_APKG_DECOMPRESSED_BYTES,
+    MAX_COLPKG_DECOMPRESSED_BYTES,
+    ApkgSizeLimitError,
+    ImportManager,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -488,8 +506,10 @@ def test_import_apkg_reassigns_note_type(tmp_path: Path) -> None:
     assert refreshed_note.note_type.name == "ModelNew"
 
 
-def test_import_colpkg_prunes_empty_orphan_models(tmp_path: Path) -> None:
+def test_import_colpkg_prunes_empty_orphan_models(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie que l'import d'une collection (.colpkg) supprime les modèles locaux vierges absents de la collection entrante."""
+    monkeypatch.setattr("ankiforge.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "backup.db")
+
     NoteTypeModel.create(name="ModelOrphan", fields_schema='["Front", "Back"]', templates="[]", css_style="")
     NoteTypeModel.create(name="ModelKept", anki_id=4001, fields_schema='["Front", "Back"]', templates="[]", css_style="")
 
@@ -524,3 +544,266 @@ def test_import_colpkg_prunes_empty_orphan_models(tmp_path: Path) -> None:
 
     assert NoteTypeModel.get_or_none(NoteTypeModel.name == "ModelOrphan") is None
     assert NoteTypeModel.get_or_none(NoteTypeModel.name == "ModelKept") is not None
+
+
+def test_colpkg_size_limit_default_and_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le plafond par défaut pour .colpkg est 5 Gio ; un réglage utilisateur ou désactivation prime."""
+    assert MAX_COLPKG_DECOMPRESSED_BYTES == 5 * 1024 * 1024 * 1024
+    assert MAX_APKG_DECOMPRESSED_BYTES == 1 * 1024 * 1024 * 1024
+
+    # 1. Sans réglage enregistré : colpkg = 5 Gio, apkg = 1 Gio
+    monkeypatch.setattr(import_manager_mod.SettingsService, "get", lambda key, default=None, category=None: default)
+    assert import_manager_mod._resolve_apkg_size_limit(is_colpkg=True) == MAX_COLPKG_DECOMPRESSED_BYTES
+    assert import_manager_mod._resolve_apkg_size_limit(is_colpkg=False) == MAX_APKG_DECOMPRESSED_BYTES
+
+    # 2. Réglage utilisateur enregistré (ex: 2 Gio) s'applique aux deux
+    custom_bytes = 2 * 1024 * 1024 * 1024
+    monkeypatch.setattr(
+        import_manager_mod.SettingsService,
+        "get",
+        lambda key, default=None, category=None: custom_bytes if key == "anki/max_import_bytes" else default,
+    )
+    assert import_manager_mod._resolve_apkg_size_limit(is_colpkg=True) == custom_bytes
+    assert import_manager_mod._resolve_apkg_size_limit(is_colpkg=False) == custom_bytes
+
+    # 3. Réglage désactivé (<= 0)
+    monkeypatch.setattr(
+        import_manager_mod.SettingsService,
+        "get",
+        lambda key, default=None, category=None: 0 if key == "anki/max_import_bytes" else default,
+    )
+    assert import_manager_mod._resolve_apkg_size_limit(is_colpkg=True) is None
+    assert import_manager_mod._resolve_apkg_size_limit(is_colpkg=False) is None
+
+    # 4. Message d'erreur personnalisé à 5 Gio
+    err_colpkg = ApkgSizeLimitError(6 * 1024**3, MAX_COLPKG_DECOMPRESSED_BYTES, provenance="default")
+    assert "plafond par défaut (5 Gio)" in str(err_colpkg)
+
+
+def test_colpkg_replacement_routes_and_aborts_if_backup_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """commit_import route vers le remplacement colpkg et avorte sans écriture si la sauvegarde échoue."""
+    nt = NoteTypeModel.create(name="ModelSafety", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    NoteModel.create(guid="guid_safety", note_type=nt, status="active")
+
+    db_file = tmp_path / "colpkg_abort.db"
+    conn = sqlite3.connect(str(db_file))
+    cursor = conn.cursor()
+    models_json = {
+        "1": {
+            "name": "Basic",
+            "flds": [{"name": "Front"}, {"name": "Back"}],
+            "tmpls": [{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+            "css": "",
+        }
+    }
+    decks_json = {"1": {"id": 1, "name": "Default"}}
+    cursor.execute("CREATE TABLE col (id integer, models text, decks text)")
+    cursor.execute("INSERT INTO col VALUES (1, ?, ?)", (json.dumps(models_json), json.dumps(decks_json)))
+    cursor.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
+    cursor.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer, ivl integer, reps integer, lapses integer)")
+    conn.commit()
+    conn.close()
+
+    colpkg_path = tmp_path / "safety.colpkg"
+    with zipfile.ZipFile(colpkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+
+    manager = ImportManager()
+    analysis = manager.analyze_archive(colpkg_path)
+    assert analysis.source_type == "colpkg"
+
+    # Simuler l'échec de la sauvegarde pré-importation
+    def _fail_backup(profile_name: str | None = None) -> Path:
+        raise RuntimeError("Instantané pré-colpkg impossible (disque plein).")
+
+    monkeypatch.setattr("ankiforge.services.cards.import_manager.backup_before_colpkg_import", _fail_backup)
+
+    with pytest.raises(RuntimeError, match="Instantané pré-colpkg impossible"):
+        manager.commit_import(analysis)
+
+    # Sanctuarisation : aucune note locale n'a été purgée
+    assert NoteModel.get_or_none(NoteModel.guid == "guid_safety") is not None
+    assert NoteTypeModel.get_or_none(NoteTypeModel.name == "ModelSafety") is not None
+
+
+def test_colpkg_replacement_eliminates_zombie_cards_and_updates_notetypes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le remplacement .colpkg purge les cartes zombies et met à jour les schémas de modèles sans corruption."""
+    monkeypatch.setattr("ankiforge.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "mock_backup.db")
+
+    # 1. État initial de la base locale : cartes et modèles obsolètes (zombies)
+    deck_old = DeckModel.create(name="Ancien Paquet")
+    nt_old = NoteTypeModel.create(name="Basic", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    nt_zombie = NoteTypeModel.create(name="ModeleZombie", fields_schema='["Q", "A"]', templates="[]", css_style="")
+
+    note_old = NoteModel.create(guid="guid_zombie_1", note_type=nt_old, status="active")
+    CardModel.create(note=note_old, deck=deck_old, template_index=0)
+    NoteVersionModel.create(note=note_old, version_number=1, content='{"Front": "F_old", "Back": "B_old"}', is_active=True)
+
+    note_zombie = NoteModel.create(guid="guid_zombie_2", note_type=nt_zombie, status="active")
+    CardModel.create(note=note_zombie, deck=deck_old, template_index=0)
+    NoteVersionModel.create(note=note_zombie, version_number=1, content='{"Q": "Q_old", "A": "A_old"}', is_active=True)
+
+    # 2. Collection entrante .colpkg :
+    #    - Nouveau modèle "Basic" enrichi d'un troisième champ ["Front", "Back", "Remarque"]
+    #    - Nouveau modèle "Specialiste" ["Concept", "Definition"]
+    #    - Nouveau deck "Nouveau::SousPaquet"
+    #    - Notes entrantes guid_fresh_1 et guid_fresh_2 (les zombies 1 et 2 n'y figurent pas)
+    db_file = tmp_path / "colpkg_fresh.db"
+    conn = sqlite3.connect(str(db_file))
+    cursor = conn.cursor()
+
+    models_json = {
+        "101": {
+            "name": "Basic",
+            "flds": [{"name": "Front"}, {"name": "Back"}, {"name": "Remarque"}],
+            "tmpls": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}<br>{{Remarque}}"}],
+            "css": ".card { font-size: 20px; }",
+        },
+        "102": {
+            "name": "Specialiste",
+            "flds": [{"name": "Concept"}, {"name": "Definition"}],
+            "tmpls": [{"name": "Card 1", "qfmt": "{{Concept}}", "afmt": "{{Definition}}"}],
+            "css": "",
+        },
+    }
+    decks_json = {"10": {"id": 10, "name": "Nouveau::SousPaquet"}}
+    cursor.execute("CREATE TABLE col (id integer, models text, decks text)")
+    cursor.execute("INSERT INTO col VALUES (1, ?, ?)", (json.dumps(models_json), json.dumps(decks_json)))
+
+    cursor.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
+    cursor.execute("INSERT INTO notes VALUES (1, 'guid_fresh_1', 101, 'tagA tagB', 'F_fresh\x1fB_fresh\x1fNote importante')")
+    cursor.execute("INSERT INTO notes VALUES (2, 'guid_fresh_2', 102, 'tagC', 'Anatomie\x1fScience du corps')")
+
+    cursor.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer, ivl integer, reps integer, lapses integer, flags integer, queue integer)")
+    cursor.execute("INSERT INTO cards VALUES (101, 1, 10, 0, 14, 5, 1, 2, 0)")
+    cursor.execute("INSERT INTO cards VALUES (102, 2, 10, 0, 30, 8, 0, 4, -1)")
+    conn.commit()
+    conn.close()
+
+    colpkg_path = tmp_path / "fresh_collection.colpkg"
+    with zipfile.ZipFile(colpkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+
+    manager = ImportManager()
+    analysis = manager.analyze_archive(colpkg_path)
+    assert analysis.source_type == "colpkg"
+    assert len(analysis.new_notes) == 2
+
+    res = manager.commit_import(analysis)
+    assert res["created"] == 2
+
+    # 3. Validation de l'élimination des zombies
+    assert NoteModel.get_or_none(NoteModel.guid == "guid_zombie_1") is None
+    assert NoteModel.get_or_none(NoteModel.guid == "guid_zombie_2") is None
+    assert NoteTypeModel.get_or_none(NoteTypeModel.name == "ModeleZombie") is None
+    assert DeckModel.get_or_none(DeckModel.name == "Ancien Paquet") is None
+
+    # 4. Validation des nouvelles cartes et des types de note conformes
+    n1 = NoteModel.get(NoteModel.guid == "guid_fresh_1")
+    assert n1.note_type.name == "Basic"
+    assert json.loads(n1.note_type.fields_schema) == ["Front", "Back", "Remarque"]
+    assert n1.note_type.css_style == ".card { font-size: 20px; }"
+    assert n1.tags == '["tagA", "tagB"]'
+
+    v1 = NoteVersionModel.get(note=n1)
+    assert json.loads(v1.content) == {"Front": "F_fresh", "Back": "B_fresh", "Remarque": "Note importante"}
+
+    c1 = CardModel.get(note=n1)
+    assert c1.deck.name == "Nouveau::SousPaquet"
+    assert c1.ivl == 14
+    assert c1.reps == 5
+    assert c1.lapses == 1
+    assert c1.flags == 2
+    assert c1.is_suspended is False
+
+    n2 = NoteModel.get(NoteModel.guid == "guid_fresh_2")
+    c2 = CardModel.get(note=n2)
+    assert c2.is_suspended is True
+    assert c2.flags == 4
+
+
+def test_colpkg_replacement_sanctuarizes_studio_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le remplacement .colpkg préserve intégralement et fidèlement 100% du Périmètre Studio."""
+    monkeypatch.setattr("ankiforge.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "mock_backup.db")
+
+    # 1. Enregistrement des entités du Périmètre Studio
+    folder = FolderModel.create(name="Dossier Neuroanatomie")
+    doc = DocumentModel.create(title="Manuel de Neurosciences", folder=folder, page_count=120)
+    page_media = MediaModel.create(checksum="page_media_123", filename="page1.png", original_name="page1.png", mime_type="image/png")
+    page = DocumentPageModel.create(document=doc, media=page_media, page_number=42, ocr_text="Le cortex cérébral...")
+    chunk = DocumentChunkModel.create(document=doc, chunk_index=1, content="Fragment détaillé sur les synapses.")
+
+    p_folder = PersonaFolderModel.create(name="Dossier Personas")
+    persona = PersonaModel.create(
+        name="Expert Neuro",
+        folder=p_folder,
+        system_prompt="Tu es un enseignant-chercheur. Règles Wozniak strictes.",
+        description="Enseignant-chercheur",
+    )
+    prompt = PromptModel.create(
+        name="Prompt Fiches Anatomie",
+        content="Formule des cartes sur {{topic}}",
+    )
+    pipeline = PipelineModel.create(
+        name="Pipeline Découpage Neuro",
+        description="DAG de synthèse",
+        steps_config="[]",
+    )
+    SettingModel.create(key="theme/current", value="nordic_frost", category="ui")
+
+    # 2. Données Anki antérieures vouées au remplacement
+    old_deck = DeckModel.create(name="Vieux Deck")
+    old_nt = NoteTypeModel.create(name="Vieux Type", fields_schema='["Front", "Back"]')
+    old_note = NoteModel.create(guid="guid_to_be_replaced", note_type=old_nt)
+    CardModel.create(note=old_note, deck=old_deck, template_index=0)
+
+    # 3. Création et exécution d'un .colpkg entrant
+    db_file = tmp_path / "colpkg_studio_safe.db"
+    conn = sqlite3.connect(str(db_file))
+    cursor = conn.cursor()
+    models_json = {
+        "201": {
+            "name": "Nouveau Modele",
+            "flds": [{"name": "A"}, {"name": "B"}],
+            "tmpls": [{"name": "C1", "qfmt": "{{A}}", "afmt": "{{B}}"}],
+            "css": "",
+        }
+    }
+    decks_json = {"1": {"id": 1, "name": "Deck Entrant"}}
+    cursor.execute("CREATE TABLE col (id integer, models text, decks text)")
+    cursor.execute("INSERT INTO col VALUES (1, ?, ?)", (json.dumps(models_json), json.dumps(decks_json)))
+    cursor.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
+    cursor.execute("INSERT INTO notes VALUES (1, 'guid_fresh_unique', 201, '', 'AA\x1fBB')")
+    cursor.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer, ivl integer, reps integer, lapses integer)")
+    cursor.execute("INSERT INTO cards VALUES (1, 1, 1, 0, 0, 0, 0)")
+    conn.commit()
+    conn.close()
+
+    colpkg_path = tmp_path / "studio_sanctuary.colpkg"
+    with zipfile.ZipFile(colpkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+
+    manager = ImportManager()
+    analysis = manager.analyze_archive(colpkg_path)
+    res = manager.commit_import(analysis)
+    assert res["created"] == 1
+
+    # 4. Vérification de la sanctuarisation absolue du Studio
+    assert DocumentModel.get_by_id(doc.id).title == "Manuel de Neurosciences"
+    assert FolderModel.get_by_id(folder.id).name == "Dossier Neuroanatomie"
+    assert DocumentPageModel.get_by_id(page.id).page_number == 42
+    assert DocumentChunkModel.get_by_id(chunk.id).content == "Fragment détaillé sur les synapses."
+    assert PersonaFolderModel.get_by_id(p_folder.id).name == "Dossier Personas"
+    assert PersonaModel.get_by_id(persona.id).name == "Expert Neuro"
+    assert PromptModel.get_by_id(prompt.id).name == "Prompt Fiches Anatomie"
+    assert PipelineModel.get_by_id(pipeline.id).name == "Pipeline Découpage Neuro"
+    assert SettingModel.get(SettingModel.key == "theme/current").value == "nordic_frost"
+
+    # Vérification que le périmètre Anki a bien été remplacé
+    assert NoteModel.get_or_none(NoteModel.guid == "guid_to_be_replaced") is None
+    assert DeckModel.get_or_none(DeckModel.name == "Vieux Deck") is None
+    assert NoteTypeModel.get_or_none(NoteTypeModel.name == "Vieux Type") is None
+    assert NoteModel.get_or_none(NoteModel.guid == "guid_fresh_unique") is not None

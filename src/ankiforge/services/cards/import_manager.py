@@ -28,12 +28,17 @@ from typing import Any
 
 import zstandard as zstd
 
+from ankiforge.database.backup import backup_before_colpkg_import
 from ankiforge.database.models import (
+    AuditRecordModel,
     CardModel,
     DeckModel,
+    IgnoredDuplicateModel,
     MediaModel,
+    NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
+    NoteVersionMediaModel,
     NoteVersionModel,
     db,
 )
@@ -47,6 +52,7 @@ from ankiforge.utils.tags import serialize_note_tags
 logger = logging.getLogger(__name__)
 
 MAX_APKG_DECOMPRESSED_BYTES = 1 * 1024 * 1024 * 1024  # 1 Gio — plafond anti zip-bomb de sécurité par défaut pour l'import APKG
+MAX_COLPKG_DECOMPRESSED_BYTES = 5 * 1024 * 1024 * 1024  # 5 Gio — plafond anti zip-bomb de sécurité par défaut pour l'import COLPKG
 
 
 def _size_limit_provenance() -> str:
@@ -62,7 +68,7 @@ def _human_gib(value: int) -> str:
 class ApkgSizeLimitError(ArchiveSizeLimitError):
     """Rejet d'une archive .apkg/.colpkg à cause du plafond de taille décompressée.
 
-    Ajoute la ``provenance`` du plafond (défaut 1 Gio ou réglage utilisateur) et
+    Ajoute la ``provenance`` du plafond (défaut ou réglage utilisateur) et
     un message orienté action orientant vers l'onglet de réglage concerné.
     """
 
@@ -70,7 +76,12 @@ class ApkgSizeLimitError(ArchiveSizeLimitError):
 
     def __init__(self, total_size: int, limit: int, provenance: str) -> None:
         self.provenance = provenance
-        origin = "réglage utilisateur (Paramètres → « Anki && Formats »)" if provenance == "user" else "plafond par défaut (1 Gio)"
+        if provenance == "user":
+            origin = "réglage utilisateur (Paramètres → « Anki && Formats »)"
+        elif limit == MAX_COLPKG_DECOMPRESSED_BYTES:
+            origin = "plafond par défaut (5 Gio)"
+        else:
+            origin = "plafond par défaut (1 Gio)"
         super().__init__(total_size, limit)
         self.user_message = (
             f"Archive rejetée : la taille décompressée totale ({total_size} octets ≈ {_human_gib(total_size)}) "
@@ -82,18 +93,25 @@ class ApkgSizeLimitError(ArchiveSizeLimitError):
         return self.user_message
 
 
-def _resolve_apkg_size_limit() -> int | None:
+def _resolve_apkg_size_limit(is_colpkg: bool = False) -> int | None:
     """Résout le plafond de taille décompressée pour l'import depuis les réglages.
+
+    Args:
+        is_colpkg: Si vrai, applique le plafond par défaut de 5 Gio pour les archives .colpkg
+                   à défaut de réglage utilisateur explicite.
 
     Returns:
         Plafond en octets, ou ``None`` si le plafond a été désactivé (valeur <= 0).
     """
-    try:
-        raw = SettingsService.get("anki/max_import_bytes", MAX_APKG_DECOMPRESSED_BYTES)
-        limit = int(raw)
-    except (TypeError, ValueError):
-        limit = MAX_APKG_DECOMPRESSED_BYTES
-    return limit if limit > 0 else None
+    default_limit = MAX_COLPKG_DECOMPRESSED_BYTES if is_colpkg else MAX_APKG_DECOMPRESSED_BYTES
+    user_val = SettingsService.get("anki/max_import_bytes", None)
+    if user_val is not None:
+        try:
+            limit = int(user_val)
+            return limit if limit > 0 else None
+        except (TypeError, ValueError):
+            pass
+    return default_limit
 
 
 @dataclass
@@ -576,10 +594,15 @@ class ImportManager:
         temp_dir = tempfile.mkdtemp(prefix="ankiforge_import_")
         temp_path = Path(temp_dir)
 
+        is_colpkg = apkg_path.suffix.lower() == ".colpkg"
         try:
+            try:
+                limit = _resolve_apkg_size_limit(is_colpkg=is_colpkg)
+            except TypeError:
+                limit = _resolve_apkg_size_limit()
             # Extraction sécurisée anti Zip-Slip (chemins absolus/remontées refusés),
             # plafond de taille décompressée configurable (anti zip-bomb).
-            safe_extract_zip(apkg_path, temp_path, max_total_size=_resolve_apkg_size_limit())
+            safe_extract_zip(apkg_path, temp_path, max_total_size=limit)
         except ArchiveSizeLimitError as e:
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise ApkgSizeLimitError(e.total_size, e.limit, provenance=_size_limit_provenance()) from e
@@ -831,9 +854,12 @@ class ImportManager:
                     did = attached_cards[0]["did"] if attached_cards else 1
                     deck_name = deck_id_to_name.get(did, "Par défaut")
 
-                    existing_note = NoteModel.get_or_none(NoteModel.guid == guid)
-                    if not existing_note and nid is not None:
-                        existing_note = NoteModel.get_or_none(NoteModel.anki_id == nid)
+                    if is_colpkg:
+                        existing_note = None
+                    else:
+                        existing_note = NoteModel.get_or_none(NoteModel.guid == guid)
+                        if not existing_note and nid is not None:
+                            existing_note = NoteModel.get_or_none(NoteModel.anki_id == nid)
 
                     if not existing_note:
                         new_notes.append(
@@ -979,7 +1005,14 @@ class ImportManager:
         """Effectue l'écriture finale en base de données de manière atomique.
 
         Applique les créations, mises à jour silencieuses et résolutions de conflits arbitrées.
+        Pour les archives .colpkg, route vers le remplacement atomique intégral du Périmètre Anki.
         """
+        if analysis.source_type == "colpkg":
+            return self._commit_colpkg_replacement(
+                analysis=analysis,
+                progress_callback=progress_callback,
+            )
+
         resolutions = conflict_resolutions or {}
         created_count = 0
         updated_count = 0
@@ -1321,54 +1354,7 @@ class ImportManager:
                     merged_count += 1
 
             # 6. Extraction & Copie des Médias
-            if analysis.temp_dir and Path(analysis.temp_dir).exists():
-                temp_p = Path(analysis.temp_dir)
-                for file_id, filename in analysis.media_map.items():
-                    src_file = temp_p / file_id
-                    if src_file.exists() and src_file.is_file():
-                        dest_file = self.media_dir / filename
-                        try:
-                            with open(src_file, "rb") as sf:
-                                header = sf.read(4)
-                                sf.seek(0)
-                                if header == b"\x28\xb5\x2f\xfd":
-                                    dctx = zstd.ZstdDecompressor()
-                                    with open(dest_file, "wb") as df:
-                                        dctx.copy_stream(sf, df)
-                                else:
-                                    with open(dest_file, "wb") as df:
-                                        shutil.copyfileobj(sf, df)
-
-                            sha256 = hashlib.sha256()
-                            with open(dest_file, "rb") as mf:
-                                for chunk in iter(lambda: mf.read(65536), b""):
-                                    sha256.update(chunk)
-                            checksum = sha256.hexdigest()
-
-                            mime_type, _ = mimetypes.guess_type(str(dest_file))
-                            mime_type = mime_type or "application/octet-stream"
-
-                            MediaModel.get_or_create(
-                                checksum=checksum,
-                                defaults={
-                                    "filename": filename,
-                                    "original_name": filename,
-                                    "mime_type": mime_type,
-                                },
-                            )
-                            media_count += 1
-                        except Exception as m_err:
-                            logger.warning("Erreur copie/enregistrement média '%s' (%s): %s", file_id, filename, m_err)
-
-            # 7. Nettoyage des modèles orphelins si import de collection complète (.colpkg)
-            if analysis.source_type == "colpkg":
-                incoming_names = {m.get("name") for m in analysis.raw_models.values() if m.get("name")}
-                incoming_mids = {int(_mid) for _mid in analysis.raw_models if str(_mid).isdigit()}
-                for local_nt in NoteTypeModel.select():
-                    if local_nt.name not in incoming_names and (local_nt.anki_id is None or local_nt.anki_id not in incoming_mids):  # noqa: SIM102
-                        if NoteModel.select().where(NoteModel.note_type == local_nt).count() == 0:
-                            logger.info("Suppression du modèle orphelin '%s' absent du colpkg", local_nt.name)
-                            local_nt.delete_instance()
+            media_count = self._extract_and_sync_media(analysis)
 
         # Nettoyage dossier temporaire
         analysis.cleanup()
@@ -1388,5 +1374,255 @@ class ImportManager:
             "created": created_count,
             "updated": updated_count,
             "merged": merged_count,
+            "media": media_count,
+        }
+
+    def _extract_and_sync_media(self, analysis: ImportAnalysisResult) -> int:
+        """Extrait et synchronise de manière dédupliquée les médias de l'archive dans media/."""
+        media_count = 0
+        if not analysis.temp_dir or not Path(analysis.temp_dir).exists():
+            return 0
+
+        temp_p = Path(analysis.temp_dir)
+        for file_id, filename in analysis.media_map.items():
+            src_file = temp_p / file_id
+            if src_file.exists() and src_file.is_file():
+                dest_file = self.media_dir / filename
+                try:
+                    with open(src_file, "rb") as sf:
+                        header = sf.read(4)
+                        sf.seek(0)
+                        if header == b"\x28\xb5\x2f\xfd":
+                            dctx = zstd.ZstdDecompressor()
+                            with open(dest_file, "wb") as df:
+                                dctx.copy_stream(sf, df)
+                        else:
+                            with open(dest_file, "wb") as df:
+                                shutil.copyfileobj(sf, df)
+
+                    sha256 = hashlib.sha256()
+                    with open(dest_file, "rb") as mf:
+                        for chunk in iter(lambda: mf.read(65536), b""):
+                            sha256.update(chunk)
+                    checksum = sha256.hexdigest()
+
+                    mime_type, _ = mimetypes.guess_type(str(dest_file))
+                    mime_type = mime_type or "application/octet-stream"
+
+                    MediaModel.get_or_create(
+                        checksum=checksum,
+                        defaults={
+                            "filename": filename,
+                            "original_name": filename,
+                            "mime_type": mime_type,
+                        },
+                    )
+                    media_count += 1
+                except Exception as m_err:
+                    logger.warning("Erreur copie/enregistrement média '%s' (%s): %s", file_id, filename, m_err)
+        return media_count
+
+    def _commit_colpkg_replacement(
+        self,
+        analysis: ImportAnalysisResult,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> dict[str, int]:
+        """Effectue le remplacement atomique intégral du Périmètre Anki par le contenu du .colpkg.
+
+        Sanctuarise scrupuleusement le Périmètre Studio (documents, RAG, personas, pipelines, réglages).
+        Déclenche obligatoirement la sauvegarde de sécurité avant toute écriture en base.
+        """
+        if progress_callback:
+            progress_callback("Création de la sauvegarde de sécurité pré-importation...")
+
+        # Sauvegarde atomique préalable obligatoire — lève RuntimeError en cas d'échec
+        backup_before_colpkg_import()
+
+        created_count = 0
+        deck_id_to_name: dict[int, str] = {int(d.get("id", 0)): d.get("name", "Par défaut") for d in analysis.raw_decks}
+
+        with db.atomic():
+            if progress_callback:
+                progress_callback("Purge ordonnée du Périmètre Anki...")
+
+            # 1. Purge ordonnée des tables dépendantes du Périmètre Anki
+            NoteChunkLinkModel.delete().execute()
+            AuditRecordModel.delete().execute()
+            IgnoredDuplicateModel.delete().execute()
+            CardModel.delete().execute()
+            NoteVersionMediaModel.delete().execute()
+            NoteVersionModel.delete().execute()
+            NoteModel.delete().execute()
+            DeckModel.update(parent_deck=None).execute()
+            DeckModel.delete().execute()
+            NoteTypeModel.delete().execute()
+
+            if progress_callback:
+                progress_callback("Enregistrement des paquets...")
+
+            # 2. Insertion fidèle des Decks (respect de l'arborescence)
+            deck_cache: dict[str, DeckModel] = {}
+            for d in analysis.raw_decks:
+                d_name = d.get("name", "Par défaut")
+                d_id = d.get("id")
+                self._ensure_deck(d_name, deck_cache, anki_id=d_id)
+
+            if progress_callback:
+                progress_callback("Enregistrement des modèles de cartes...")
+
+            # 3. Insertion fidèle des NoteTypes
+            model_cache: dict[str | int, NoteTypeModel] = {}
+            for _mid, m_info in analysis.raw_models.items():
+                self._validate_model_structure(_mid, m_info)
+                int_mid = int(_mid) if str(_mid).isdigit() else None
+                m_name = m_info.get("name", "Basic")
+                fields_data = m_info.get("fields") or ["Front", "Back"]
+                fields_schema = json.dumps(fields_data)
+                templates_json = json.dumps(m_info.get("templates", []), ensure_ascii=False)
+                css = m_info.get("css", "")
+
+                target_name = m_name
+                counter = 1
+                while NoteTypeModel.select().where(NoteTypeModel.name == target_name).exists():
+                    counter += 1
+                    target_name = f"{m_name} ({counter})"
+
+                nt_obj = NoteTypeModel.create(
+                    name=target_name,
+                    anki_id=int_mid,
+                    fields_schema=fields_schema,
+                    templates=templates_json,
+                    css_style=css,
+                )
+                model_cache[m_name] = nt_obj
+                model_cache[target_name] = nt_obj
+                model_cache[str(_mid)] = nt_obj
+                if int_mid is not None:
+                    model_cache[int_mid] = nt_obj
+
+            if progress_callback:
+                progress_callback("Insertion des notes et observation SRS...")
+
+            # 4. Insertion fidèle des Notes, Versions et Cartes
+            all_notes: list[dict[str, Any]] = list(analysis.new_notes)
+            if analysis.silent_updates:
+                all_notes.extend(analysis.silent_updates)
+
+            for n_info in all_notes:
+                deck_name = n_info.get("deck_name", "Par défaut")
+                nt_name = n_info.get("notetype_name", "Basic")
+                raw_mid: str | int | None = n_info.get("mid")
+                note_type_model: NoteTypeModel | None = None
+                if raw_mid is not None:
+                    note_type_model = model_cache.get(raw_mid) or model_cache.get(str(raw_mid))
+                if note_type_model is None:
+                    note_type_model = model_cache.get(nt_name)
+                if note_type_model is None:
+                    m_info = n_info.get("model_info", {})
+                    if m_info and m_info.get("name") in model_cache:
+                        note_type_model = model_cache[m_info["name"]]
+                    else:
+                        existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == nt_name)
+                        if existing_nt:
+                            note_type_model = existing_nt
+                        else:
+                            fields_list = n_info.get("field_names", ["Front", "Back"])
+                            back_f = fields_list[1] if len(fields_list) > 1 else fields_list[0]
+                            dyn_tmpl = json.dumps(
+                                [{"name": "Carte 1", "qfmt": f"{{{{{fields_list[0]}}}}}", "afmt": f"{{{{FrontSide}}}}<hr id=answer>{{{{{back_f}}}}}"}],
+                                ensure_ascii=False,
+                            )
+                            note_type_model = NoteTypeModel.create(
+                                name=nt_name,
+                                fields_schema=json.dumps(fields_list),
+                                templates=dyn_tmpl,
+                                css_style="",
+                            )
+                            model_cache[nt_name] = note_type_model
+
+                if note_type_model is None:
+                    continue
+
+                raw_incoming = dict(n_info.get("content", {}))
+                target_fields = json.loads(note_type_model.fields_schema) if note_type_model.fields_schema else []
+                if target_fields and set(target_fields) != set(raw_incoming.keys()):
+                    source_fields = n_info.get("field_names") or list(raw_incoming.keys())
+                    if len(source_fields) == len(target_fields):
+                        mapped_c: dict[str, Any] = {}
+                        for s_f, t_f in zip(source_fields, target_fields, strict=False):
+                            mapped_c[t_f] = raw_incoming.get(s_f, "")
+                        if "_orphaned_fields" in raw_incoming:
+                            mapped_c["_orphaned_fields"] = raw_incoming["_orphaned_fields"]
+                        raw_incoming = mapped_c
+
+                note = NoteModel.create(
+                    guid=n_info["guid"],
+                    anki_id=n_info.get("anki_id"),
+                    note_type=note_type_model,
+                    tags=serialize_note_tags(n_info.get("tags", [])),
+                    status="imported",
+                )
+                NoteVersionModel.create(
+                    note=note,
+                    version_number=1,
+                    content=json.dumps(raw_incoming, ensure_ascii=False),
+                    source="import",
+                    is_active=True,
+                )
+
+                cards_list = n_info.get("cards") or [{"ord": 0, "did": None, "ivl": 0, "reps": 0, "lapses": 0, "flags": 0, "is_suspended": False}]
+                for cinfo in cards_list:
+                    c_ord = cinfo.get("ord", 0)
+                    c_did = cinfo.get("did")
+                    c_deck_name = deck_id_to_name.get(c_did, deck_name) if c_did else deck_name
+                    c_deck = self._ensure_deck(c_deck_name, deck_cache)
+
+                    c_anki_id = cinfo.get("id") or cinfo.get("anki_id")
+                    if c_anki_id and CardModel.select().where(CardModel.anki_id == c_anki_id).exists():
+                        c_anki_id = None
+
+                    CardModel.create(
+                        note=note,
+                        deck=c_deck,
+                        anki_id=c_anki_id,
+                        template_index=c_ord,
+                        ivl=cinfo.get("ivl", 0),
+                        reps=cinfo.get("reps", 0),
+                        lapses=cinfo.get("lapses", 0),
+                        flags=cinfo.get("flags", 0),
+                        is_suspended=cinfo.get("is_suspended", False),
+                    )
+                created_count += 1
+
+            if progress_callback:
+                progress_callback("Synchronisation des médias...")
+
+            # 5. Extraction et déduplication des Médias
+            media_count = self._extract_and_sync_media(analysis)
+
+        # 6. Réalignement déterministe de la couverture documentaire (si applicable)
+        try:
+            from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+            CoverageAlignmentService.align_all_documents()
+        except Exception as cov_err:
+            logger.debug("Réalignement de couverture après colpkg ignoré : %s", cov_err)
+
+        # Nettoyage dossier temporaire
+        analysis.cleanup()
+
+        logger.info(
+            "Remplacement de la collection (.colpkg) achevé : %d créées, %d médias",
+            created_count,
+            media_count,
+        )
+
+        if progress_callback:
+            progress_callback(f"Remplacement terminé : {created_count} créées, {media_count} médias synchronisés.")
+
+        return {
+            "created": created_count,
+            "updated": 0,
+            "merged": 0,
             "media": media_count,
         }
