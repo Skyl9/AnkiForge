@@ -6,8 +6,8 @@ from pathlib import Path
 
 from ankiforge.database.base import db
 from ankiforge.database.models.ai import LLMConfigModel, PersonaModel
-from ankiforge.database.models.cards import NoteTypeModel
 from ankiforge.database.models.pipelines import PipelineModel, PipelineStepModel
+from ankiforge.database.note_type_catalog import seed_default_note_types
 from ankiforge.database.seeds.linter_rules_seed import seed_default_linter_rules
 
 logger = logging.getLogger(__name__)
@@ -59,137 +59,13 @@ def _seed_initial_data_inner() -> None:
     if not prompts_dir.exists():
         prompts_dir = Path(__file__).parent.parent.parent.parent / "ressources" / "prompts"
 
-    if NoteTypeModel.select().where(NoteTypeModel.name == "Basique").count() == 0:
-        NoteTypeModel.create(
-            name="Basique",
-            description="Questions directes, définitions conceptuelles, relations de cause à effet simples. Format Q/R standard.",
-            fields_schema=json.dumps(["Front", "Back"], ensure_ascii=False),
-            templates=json.dumps(
-                [
-                    {
-                        "name": "Carte 1",
-                        "qfmt": "{{Front}}",
-                        "afmt": "{{FrontSide}}<hr id=answer>{{Back}}",
-                    }
-                ],
-                ensure_ascii=False,
-            ),
-            css_style=(
-                ".card {\n"
-                "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n"
-                "  font-size: 18px;\n"
-                "  text-align: center;\n"
-                "  color: #1e293b;\n"
-                "  background-color: #ffffff;\n"
-                "}"
-            ),
-        )
-
-    if NoteTypeModel.select().where(NoteTypeModel.name == "Texte à trous (Cloze)").count() == 0:
-        NoteTypeModel.create(
-            name="Texte à trous (Cloze)",
-            description="Phrases denses, citations, listes ordonnées et dates clés. Utilise la syntaxe {{c1::mot}} pour masquer l'information clé dans le champ Texte.",
-            fields_schema=json.dumps(["Texte", "Remarques extra"], ensure_ascii=False),
-            templates=json.dumps(
-                [
-                    {
-                        "name": "Texte à trous",
-                        "qfmt": "{{cloze:Texte}}",
-                        "afmt": "{{cloze:Texte}}<br><br><hr id=answer><br>{{Remarques extra}}",
-                    }
-                ],
-                ensure_ascii=False,
-            ),
-            css_style=(
-                ".card {\n"
-                "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n"
-                "  font-size: 18px;\n"
-                "  text-align: center;\n"
-                "  color: #1e293b;\n"
-                "  background-color: #ffffff;\n"
-                "}\n"
-                ".cloze {\n"
-                "  font-weight: bold;\n"
-                "  color: #3b82f6;\n"
-                "}"
-            ),
-        )
-
-    if NoteTypeModel.select().where(NoteTypeModel.name == "Image Occlusion Enhanced").count() == 0:
-        NoteTypeModel.create(
-            name="Image Occlusion Enhanced",
-            description="Masquage d'images (Image Occlusion). Découverte active sur schémas, diagrammes et planches anatomiques.",
-            fields_schema=json.dumps(
-                [
-                    "id",
-                    "Header",
-                    "Image",
-                    "Question Mask",
-                    "Answer Mask",
-                    "Original Mask",
-                    "Footer",
-                    "Remarks",
-                    "Sources",
-                    "Extra 1",
-                    "Extra 2",
-                ],
-                ensure_ascii=False,
-            ),
-            templates=json.dumps(
-                [
-                    {
-                        "name": "Image Occlusion",
-                        "qfmt": (
-                            "{{#Header}}<div style='font-weight: bold; margin-bottom: 8px;'>{{Header}}</div>{{/Header}}\n"
-                            "<div id='image-wrapper'>\n"
-                            "    {{Image}}\n"
-                            "    {{Question Mask}}\n"
-                            "</div>\n"
-                            "{{#Footer}}<div style='margin-top: 8px; font-size: 0.9em; opacity: 0.8;'>{{Footer}}</div>{{/Footer}}"
-                        ),
-                        "afmt": (
-                            "{{#Header}}<div style='font-weight: bold; margin-bottom: 8px;'>{{Header}}</div>{{/Header}}\n"
-                            "<div id='image-wrapper'>\n"
-                            "    {{Image}}\n"
-                            "    {{Answer Mask}}\n"
-                            "</div>\n"
-                            "{{#Footer}}<div style='margin-top: 8px; font-size: 0.9em; opacity: 0.8;'>{{Footer}}</div>{{/Footer}}\n"
-                            "{{#Remarks}}<hr id=answer><div style='text-align: left; margin-top: 8px;'>{{Remarks}}</div>{{/Remarks}}"
-                        ),
-                    }
-                ],
-                ensure_ascii=False,
-            ),
-            css_style=(
-                ".card {\n"
-                "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n"
-                "  font-size: 16px;\n"
-                "  text-align: center;\n"
-                "  color: #1e293b;\n"
-                "}\n"
-                "#image-wrapper {\n"
-                "  position: relative;\n"
-                "  display: inline-block;\n"
-                "  max-width: 100%;\n"
-                "}\n"
-                "#image-wrapper img {\n"
-                "  max-width: 100%;\n"
-                "  height: auto;\n"
-                "}\n"
-                "#image-wrapper img:first-child {\n"
-                "  display: block;\n"
-                "  position: static;\n"
-                "}\n"
-                "#image-wrapper img:not(:first-child) {\n"
-                "  position: absolute;\n"
-                "  top: 0;\n"
-                "  left: 0;\n"
-                "  width: 100%;\n"
-                "  height: 100%;\n"
-                "  pointer-events: none;\n"
-                "}\n"
-            ),
-        )
+    # ==========================================
+    # INITIALISATION DU MODÈLE BASIQUE D'USINE
+    # ==========================================
+    # Un profil vierge ne contient qu'un unique modèle « Basique » (ADR 0037).
+    # Les modèles spécialisés (Cloze, Image Occlusion Enhanced) sont activés à la
+    # demande via le Starter Pack ou créés au premier usage.
+    seed_default_note_types()
 
     # Lecture des prompts depuis les fichiers .jinja2
     extracteur_prompt = (prompts_dir / "extracteur.jinja2").read_text(encoding="utf-8") if (prompts_dir / "extracteur.jinja2").exists() else ""

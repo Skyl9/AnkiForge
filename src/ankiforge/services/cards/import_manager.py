@@ -42,6 +42,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     db,
 )
+from ankiforge.database.note_type_catalog import is_basic_note_type_name
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.utils.archive_utils import ArchiveSizeLimitError, safe_extract_zip
 from ankiforge.utils.c_bridge import get_similarity
@@ -485,6 +486,30 @@ class ImportManager:
         "既定",
         "默认",
     }
+
+    @classmethod
+    def _find_basic_model_candidate(cls, incoming_name: str) -> NoteTypeModel | None:
+        """Trouve le modèle basique local à réutiliser quand son nom diffère (Basique/Basic).
+
+        Priorité au seed d'usine encore vierge (0 note), puis à tout modèle basique
+        jamais relié à Anki (notes locales créées avant le premier import). Un modèle
+        déjà relié à un `anki_id` n'est jamais détourné : l'import crée alors un modèle
+        distinct afin de préserver la fidélité de la collection (ADR 0037).
+        """
+        if not is_basic_note_type_name(incoming_name):
+            return None
+
+        pristine: NoteTypeModel | None = None
+        local_used: NoteTypeModel | None = None
+        candidates = NoteTypeModel.select().where(NoteTypeModel.anki_id.is_null(True)).order_by(NoteTypeModel.id.asc())
+        for candidate in candidates:
+            if not is_basic_note_type_name(candidate.name):
+                continue
+            if NoteModel.select().where(NoteModel.note_type == candidate).count() == 0:
+                pristine = pristine or candidate
+            else:
+                local_used = local_used or candidate
+        return pristine or local_used
 
     @staticmethod
     def _is_structurally_isomorphic(fields_a: list[str], fields_b: list[str]) -> bool:
@@ -1049,6 +1074,10 @@ class ImportManager:
                         matched_by_id = True
                 if not existing_nt:
                     existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == m_name)
+                if not existing_nt:
+                    # Adoption transparente du seed « Basique » par un premier import
+                    # nommé « Basic » (ou inversement) : zéro clone (Importé) (ADR 0037).
+                    existing_nt = self._find_basic_model_candidate(m_name)
 
                 if existing_nt:
                     # Vérifier si ce modèle local est vierge (0 notes associées en base)

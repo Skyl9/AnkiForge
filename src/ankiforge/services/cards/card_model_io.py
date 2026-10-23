@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from ankiforge.database.models import NoteTypeModel
+from ankiforge.database.note_type_catalog import cloze_starter_pack_entry
 
 logger = logging.getLogger(__name__)
 
@@ -332,7 +333,11 @@ class CardModelIO:
 
     @classmethod
     def get_starter_pack_models(cls) -> list[dict[str, Any]]:
-        """Retourne la collection des 4 modèles communautaires préconfigurés (Starter Pack)."""
+        """Retourne les 5 modèles préconfigurés du Starter Pack.
+
+        Quatre modèles communautaires, plus le modèle « Texte à trous (Cloze) »
+        désormais activable à la demande au lieu d'être injecté d'office (ADR 0037).
+        """
         return [
             {
                 "id": "medical_qcm",
@@ -547,6 +552,7 @@ class CardModelIO:
                     }
                 ],
             },
+            cloze_starter_pack_entry(),
         ]
 
     @classmethod
