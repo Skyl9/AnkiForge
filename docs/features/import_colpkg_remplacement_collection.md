@@ -176,9 +176,10 @@ BASE DU PROFIL (ankiforge.db)
    * **Test de réconciliation documentaire :** Vérifier que si une note importée porte le tag `section:Chapitre 1`, elle est réassociée au fragment documentaire existant correspondant.
    * **Test de la sauvegarde automatique :** Vérifier la présence physique du fichier `ankiforge_backup_precolpkg_*.db` dans le dossier de backups du profil.
 
-2. **Oracle Anki Officiel (`tests/integration/test_anki_export_oracle.py` / `slow`) :**
+2. **Oracle Anki Officiel (`tests/integration/test_anki_colpkg_oracle.py` / `slow`) :**
    * Génération par le backend `anki` officiel d'un `.colpkg` complexe (contenant du Zstd `collection.anki21b`, du cloze et des médias).
-   * Validation de l'ingestion par AnkiForge de bout en bout sans aucune exception.
+   * Validation de l'ingestion par AnkiForge de bout en bout sans aucune exception : analyse non destructive, remplacement atomique, fidélité des notes/cartes dérivées, gabarits HTML/CSS, hiérarchie des paquets, médias et sanctuarisation du Studio.
+   * Le format moderne est explicitement certifié (`collection.anki21b` + table `media` Zstandard) : une régression vers `legacy=True` fait échouer l'oracle.
 
 3. **Interface Graphique Headless (`tests/ui/test_import_dialog_colpkg.py`) :**
    * Vérifier par introspection des signaux Qt et des widgets (`qtbot`) que le passage d'un chemin `.apkg` à `.colpkg` bascule instantanément l'affichage du panneau d'avertissement et masque le cadre de sélection de destination.
