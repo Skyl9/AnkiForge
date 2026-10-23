@@ -4,7 +4,8 @@ import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal, Slot
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -28,6 +30,7 @@ from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.cards.card_model_io import CardModelIO
 from ankiforge.services.cards.note_type_roles import is_markdown_table
 from ankiforge.services.cards.snippet_library import CSSConflictResolver, SnippetItem
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     Badge,
     EmptyStateWidget,
@@ -55,7 +58,7 @@ from ankiforge.ui.shortcuts import (
     get_shortcut_sequence,
 )
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.card_models_view.utils import extract_css_classes
+from ankiforge.ui.views.card_models_view.utils import extract_css_classes, sort_note_types
 from ankiforge.ui.views.card_models_view.widgets import (
     ResponsiveTopActionBar,
     SubTabButton,
@@ -104,6 +107,8 @@ def generate_preview_mock_fields(raw_fields: list[str]) -> dict[str, str]:
 class CardModelsView(QWidget):
     """Vue Card Models (Atelier de Modèles de Cartes) — Conforme Pilier 3 d'AnkiForge."""
 
+    request_navigation = Signal(str, object)
+
     def __init__(
         self,
         ai_manager: Any | None = None,
@@ -128,6 +133,13 @@ class CardModelsView(QWidget):
         self.helper_category_buttons: dict[str, QPushButton] = {}
         self._last_active_editor: str = "front"
         self._snippet_drawer_instance: SnippetLibraryDrawer | None = None
+        self._sort_order: str = SettingsService.get("card_models/sort_order", "name_asc") or "name_asc"
+        self._default_note_type_id: int | None = SettingsService.get("card_models/default_note_type_id", None)
+        if self._default_note_type_id is not None:
+            try:
+                self._default_note_type_id = int(self._default_note_type_id)
+            except Exception:
+                self._default_note_type_id = None
 
         self._preview_debounce_timer = QTimer(self)
         self._preview_debounce_timer.setSingleShot(True)
@@ -204,6 +216,15 @@ class CardModelsView(QWidget):
         self.model_search_input.textChanged.connect(self._filter_models_list)
         search_row.addWidget(self.model_search_input, 1)
 
+        self.btn_sort_models = IconButton(
+            "ph.funnel",
+            tooltip=self.tr("Trier les types de note"),
+            size=24,
+        )
+        self.btn_sort_models.setFixedHeight(28)
+        self.btn_sort_models.clicked.connect(self._on_show_sort_menu)
+        search_row.addWidget(self.btn_sort_models)
+
         self.btn_new = PrimaryButton(
             "Nouveau",
             tooltip=tr("Créer un nouveau type de note Anki (%1)", get_shortcut_sequence(ShortcutId.MODELS_NEW_TYPE)),
@@ -215,6 +236,8 @@ class CardModelsView(QWidget):
         list_layout.addLayout(search_row)
 
         self.list_widget = QListWidget()
+        self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.list_widget.customContextMenuRequested.connect(self._on_models_list_context_menu)
         self.list_widget.setStyleSheet(f"""
             QListWidget {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -716,6 +739,135 @@ class CardModelsView(QWidget):
             else:
                 item.setHidden(True)
 
+    def _get_sort_order(self) -> str:
+        val = SettingsService.get("card_models/sort_order", "name_asc") or "name_asc"
+        return str(val)
+
+    def _set_sort_order(self, sort_order: str) -> None:
+        self._sort_order = sort_order
+        SettingsService.set("card_models/sort_order", sort_order, category="ui")
+        self.refresh_data()
+
+    def _on_show_sort_menu(self) -> None:
+        menu = QMenu(self)
+        group = QActionGroup(self)
+        group.setExclusive(True)
+
+        options = [
+            ("name_asc", self.tr("Nom (A → Z)")),
+            ("name_desc", self.tr("Nom (Z → A)")),
+            ("created_desc", self.tr("Date de création (Plus récents)")),
+            ("created_asc", self.tr("Date de création (Plus anciens)")),
+            ("template_count_desc", self.tr("Nombre de gabarits / cartes")),
+        ]
+        current = self._get_sort_order()
+        for key, label in options:
+            action = QAction(label, menu)
+            action.setCheckable(True)
+            if key == current:
+                action.setChecked(True)
+
+            def _make_handler(sort_key: str) -> Any:
+                def _handler(checked: bool = False) -> None:
+                    self._set_sort_order(sort_key)
+
+                return _handler
+
+            action.triggered.connect(_make_handler(key))
+            group.addAction(action)
+            menu.addAction(action)
+        menu.exec(self.btn_sort_models.mapToGlobal(self.btn_sort_models.rect().bottomLeft()))
+
+    def _on_models_list_context_menu(self, pos: QPoint) -> None:
+        item = self.list_widget.itemAt(pos)
+        if not item:
+            return
+        model = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(model, NoteTypeModel):
+            return
+        menu = QMenu(self)
+
+        def _rename(m: NoteTypeModel = model) -> None:
+            self._on_rename_model(m)
+
+        def _set_default(m: NoteTypeModel = model) -> None:
+            self._on_set_default_model(m)
+
+        def _filter_notes(m: NoteTypeModel = model) -> None:
+            self._on_filter_notes_by_model(m)
+
+        menu.addAction(self.tr("Renommer"), _rename)
+        menu.addAction(self.tr("Dupliquer"), self._on_duplicate_model)
+        menu.addAction(self.tr("Définir comme modèle par défaut"), _set_default)
+        menu.addAction(self.tr("Exporter (.afmodel / JSON)"), self._on_export_json)
+        menu.addAction(self.tr("Filtrer les notes associées"), _filter_notes)
+        menu.addSeparator()
+        menu.addAction(self.tr("Supprimer"), self._on_delete_model)
+        sort_menu = menu.addMenu(self.tr("Trier par..."))
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        options = [
+            ("name_asc", self.tr("Nom (A → Z)")),
+            ("name_desc", self.tr("Nom (Z → A)")),
+            ("created_desc", self.tr("Date de création (Plus récents)")),
+            ("created_asc", self.tr("Date de création (Plus anciens)")),
+            ("template_count_desc", self.tr("Nombre de gabarits / cartes")),
+        ]
+        current = self._get_sort_order()
+        for key, label in options:
+            action = QAction(label, sort_menu)
+            action.setCheckable(True)
+            if key == current:
+                action.setChecked(True)
+
+            def _make_handler(sort_key: str) -> Any:
+                def _handler(checked: bool = False) -> None:
+                    self._set_sort_order(sort_key)
+
+                return _handler
+
+            action.triggered.connect(_make_handler(key))
+            group.addAction(action)
+            sort_menu.addAction(action)
+        menu.exec(self.list_widget.mapToGlobal(pos))
+
+    def _on_rename_model(self, model: NoteTypeModel | None = None) -> None:
+        if model is None and self._current_model:
+            model = self._current_model
+        if not model:
+            return
+        current_name = model.name or ""
+        new_name, ok = QInputDialog.getText(self, self.tr("Renommer le type de note"), self.tr("Nouveau nom :"), text=current_name)
+        if not ok:
+            return
+        new_name = new_name.strip()
+        if not new_name or new_name == current_name:
+            return
+        if NoteTypeModel.get_or_none(NoteTypeModel.name == new_name):
+            QMessageBox.warning(self, self.tr("Nom déjà utilisé"), self.tr("Un type de note avec ce nom existe déjà."))
+            return
+        model.name = new_name
+        model.save()
+        self.refresh_data()
+        self.lbl_editor_title.setText(new_name)
+
+    def _on_set_default_model(self, model: NoteTypeModel | None = None) -> None:
+        if model is None and self._current_model:
+            model = self._current_model
+        if not model:
+            return
+        self._default_note_type_id = int(model.id)
+        SettingsService.set("card_models/default_note_type_id", self._default_note_type_id, category="ui")
+        self.refresh_data()
+        show_toast(self, self.tr("Type de note par défaut défini : %1", model.name))
+
+    def _on_filter_notes_by_model(self, model: NoteTypeModel | None = None) -> None:
+        if model is None and self._current_model:
+            model = self._current_model
+        if not model:
+            return
+        self.request_navigation.emit("edition", {"note_type_id": int(model.id), "note_type_name": model.name or ""})
+
     def refresh_data(self) -> None:
         if self._is_refreshing:
             return
@@ -725,6 +877,8 @@ class CardModelsView(QWidget):
             self.list_widget.clear()
 
             models = list(NoteTypeModel.select())
+            sort_order = self._get_sort_order()
+            models = sort_note_types(models, sort_order)
             for m in models:
                 is_m_cloze = False
                 tmpl_count = 1
@@ -742,7 +896,10 @@ class CardModelsView(QWidget):
 
                 icon_str = "ph.eye-slash" if is_m_cloze else "ph.cards"
                 type_label = "Cloze" if is_m_cloze else f"{tmpl_count} carte{'s' if tmpl_count > 1 else ''}"
-                item = QListWidgetItem(f"{m.name}  ({type_label})")
+                display_name = f"{m.name}  ({type_label})"
+                if getattr(self, "_default_note_type_id", None) == m.id:
+                    display_name = f"★ {display_name}"
+                item = QListWidgetItem(display_name)
                 item.setIcon(load_phosphor_icon(icon_str, color=DesignTokens.ACCENT_PRIMARY))
                 item.setToolTip(tr("Type de note : %1\nType : %2\nGabarits : %3", m.name, "Texte à trous (Cloze)" if is_m_cloze else "Standard", tmpl_count))
                 item.setData(Qt.ItemDataRole.UserRole, m)

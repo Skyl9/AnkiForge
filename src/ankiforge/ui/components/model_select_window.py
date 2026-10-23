@@ -7,15 +7,18 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import cast
+from typing import Any, cast
 
 from peewee import fn
-from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent, QPalette
+from PySide6.QtCore import QEvent, QPoint, Qt, Signal
+from PySide6.QtGui import QAction, QActionGroup, QColor, QKeyEvent, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
+    QInputDialog,
     QLineEdit,
+    QMenu,
+    QMessageBox,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -23,7 +26,8 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import NoteModel, NoteTypeModel
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.services.settings_service import SettingsService
+from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -48,6 +52,7 @@ class ModelSelectWindow(QWidget):
         self.current_model_id = current_model_id
         self._items_by_id: dict[int, QTreeWidgetItem] = {}
         self._model_cache: dict[int, NoteTypeModel] = {}
+        self._sort_order: str = SettingsService.get("card_models/sort_order", "name_asc") or "name_asc"
 
         self.setWindowTitle(title)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -71,6 +76,9 @@ class ModelSelectWindow(QWidget):
         content_layout.setSpacing(12)
 
         # 1. Barre de recherche
+        search_row = QHBoxLayout()
+        search_row.setSpacing(6)
+
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(self.tr("Rechercher un type de note (ex: Basique, Cloze, Front)..."))
         search_icon = load_phosphor_icon("magnifying-glass", color=DesignTokens.TEXT_MUTED)
@@ -92,7 +100,17 @@ class ModelSelectWindow(QWidget):
             }}
         """)
         self.search_input.textChanged.connect(self._on_search_changed)
-        content_layout.addWidget(self.search_input)
+        search_row.addWidget(self.search_input, 1)
+
+        self.btn_sort_models = IconButton(
+            "ph.funnel",
+            tooltip=self.tr("Trier les types de note"),
+            size=24,
+        )
+        self.btn_sort_models.setFixedHeight(32)
+        self.btn_sort_models.clicked.connect(self._on_show_sort_menu)
+        search_row.addWidget(self.btn_sort_models)
+        content_layout.addLayout(search_row)
 
         # 2. Arborescence / Liste des modèles
         self.tree = QTreeWidget()
@@ -100,6 +118,8 @@ class ModelSelectWindow(QWidget):
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.tree.setExpandsOnDoubleClick(True)
         self.tree.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._on_tree_context_menu)
 
         palette = self.tree.palette()
         palette.setColor(QPalette.ColorRole.Highlight, QColor(0, 0, 0, 0))
@@ -160,8 +180,163 @@ class ModelSelectWindow(QWidget):
 
         self._load_models()
 
+    def _get_sort_order(self) -> str:
+        val = SettingsService.get("card_models/sort_order", "name_asc") or "name_asc"
+        return str(val)
+
+    def _set_sort_order(self, sort_order: str) -> None:
+        self._sort_order = sort_order
+        SettingsService.set("card_models/sort_order", sort_order, category="ui")
+        self._load_models()
+
+    def _on_show_sort_menu(self) -> None:
+        menu = QMenu(self)
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        options = [
+            ("name_asc", self.tr("Nom (A → Z)")),
+            ("name_desc", self.tr("Nom (Z → A)")),
+            ("created_desc", self.tr("Date de création (Plus récents)")),
+            ("created_asc", self.tr("Date de création (Plus anciens)")),
+            ("template_count_desc", self.tr("Nombre de gabarits / cartes")),
+        ]
+        current = self._get_sort_order()
+        for key, label in options:
+            action = QAction(label, menu)
+            action.setCheckable(True)
+            if key == current:
+                action.setChecked(True)
+
+            def _make_handler(sort_key: str) -> Any:
+                def _handler(checked: bool = False) -> None:
+                    self._set_sort_order(sort_key)
+
+                return _handler
+
+            action.triggered.connect(_make_handler(key))
+            group.addAction(action)
+            menu.addAction(action)
+        menu.exec(self.btn_sort_models.mapToGlobal(self.btn_sort_models.rect().bottomLeft()))
+
+    def _on_tree_context_menu(self, pos: QPoint) -> None:
+        item = self.tree.itemAt(pos)
+        if not item:
+            return
+        mid = item.data(0, Qt.ItemDataRole.UserRole)
+        if mid == -1 or mid is None:
+            return
+        model = self._model_cache.get(int(mid))
+        if not model:
+            return
+        menu = QMenu(self)
+
+        def _rename(m: NoteTypeModel = model) -> None:
+            self._on_rename_model(m)
+
+        def _duplicate(m: NoteTypeModel = model) -> None:
+            self._on_duplicate_model(m)
+
+        def _set_default(m: NoteTypeModel = model) -> None:
+            self._on_set_default_model(m)
+
+        def _export(m: NoteTypeModel = model) -> None:
+            self._on_export_json(m)
+
+        def _delete(m: NoteTypeModel = model) -> None:
+            self._on_delete_model(m)
+
+        menu.addAction(self.tr("Renommer"), _rename)
+        menu.addAction(self.tr("Dupliquer"), _duplicate)
+        menu.addAction(self.tr("Définir comme modèle par défaut"), _set_default)
+        menu.addAction(self.tr("Exporter (.afmodel / JSON)"), _export)
+        menu.addAction(self.tr("Supprimer"), _delete)
+        sort_menu = menu.addMenu(self.tr("Trier par..."))
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        options = [
+            ("name_asc", self.tr("Nom (A → Z)")),
+            ("name_desc", self.tr("Nom (Z → A)")),
+            ("created_desc", self.tr("Date de création (Plus récents)")),
+            ("created_asc", self.tr("Date de création (Plus anciens)")),
+            ("template_count_desc", self.tr("Nombre de gabarits / cartes")),
+        ]
+        current = self._get_sort_order()
+        for key, label in options:
+            action = QAction(label, sort_menu)
+            action.setCheckable(True)
+            if key == current:
+                action.setChecked(True)
+
+            def _make_handler(sort_key: str) -> Any:
+                def _handler(checked: bool = False) -> None:
+                    self._set_sort_order(sort_key)
+
+                return _handler
+
+            action.triggered.connect(_make_handler(key))
+            group.addAction(action)
+            sort_menu.addAction(action)
+        menu.exec(self.tree.mapToGlobal(pos))
+
+    def _on_rename_model(self, model: NoteTypeModel) -> None:
+        current_name = model.name or ""
+        new_name, ok = QInputDialog.getText(self, self.tr("Renommer le type de note"), self.tr("Nouveau nom :"), text=current_name)
+        if not ok:
+            return
+        new_name = new_name.strip()
+        if not new_name or new_name == current_name:
+            return
+        if NoteTypeModel.get_or_none(NoteTypeModel.name == new_name):
+            QMessageBox.warning(self, self.tr("Nom déjà utilisé"), self.tr("Un type de note avec ce nom existe déjà."))
+            return
+        model.name = new_name
+        model.save()
+        self._load_models()
+
+    def _on_duplicate_model(self, model: NoteTypeModel) -> None:
+        from ankiforge.services.cards.card_model_io import CardModelIO
+
+        try:
+            CardModelIO.duplicate(model)
+            self._load_models()
+        except Exception as e:
+            logger.warning("Duplication depuis ModelSelectWindow échouée: %s", e)
+            QMessageBox.warning(self, self.tr("Erreur"), str(e))
+
+    def _on_set_default_model(self, model: NoteTypeModel) -> None:
+        SettingsService.set("card_models/default_note_type_id", int(model.id), category="ui")
+        self._load_models()
+
+    def _on_export_json(self, model: NoteTypeModel) -> None:
+        from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
+
+        dlg = ModelExportDialog(model, self)
+        dlg.exec()
+
+    def _on_delete_model(self, model: NoteTypeModel) -> None:
+        res = QMessageBox.question(
+            self,
+            self.tr("Supprimer le type de note"),
+            tr("Voulez-vous vraiment supprimer le type de note '%1' ?", model.name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if res != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            from ankiforge.services.cards.card_model_io import CardModelIO
+
+            CardModelIO.delete_model(model)
+            if self.current_model_id == model.id:
+                self.current_model_id = None
+            self._load_models()
+        except Exception as e:
+            logger.warning("Suppression depuis ModelSelectWindow échouée: %s", e)
+            QMessageBox.warning(self, self.tr("Suppression impossible"), str(e))
+
     def _load_models(self) -> None:
         """Charge la liste des modèles de cartes depuis NoteTypeModel."""
+        from ankiforge.ui.views.card_models_view.utils import sort_note_types
+
         self.tree.clear()
         self._items_by_id.clear()
         self._model_cache.clear()
@@ -185,7 +360,9 @@ class ModelSelectWindow(QWidget):
             if self.current_model_id is None or self.current_model_id == -1:
                 self.tree.setCurrentItem(global_item)
 
-        models = list(NoteTypeModel.select().order_by(NoteTypeModel.name.asc()))
+        models = list(NoteTypeModel.select())
+        sort_order = self._get_sort_order()
+        models = sort_note_types(models, sort_order)
 
         for m in models:
             self._model_cache[m.id] = m
