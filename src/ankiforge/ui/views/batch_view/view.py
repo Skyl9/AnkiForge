@@ -76,7 +76,7 @@ from ankiforge.ui.views.batch_view.widgets import (
     BatchStagingPanel,
 )
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.anki_renderer import get_max_cloze_index, should_generate_card
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
@@ -2010,9 +2010,11 @@ class BatchView(QWidget):
                             CardModel.create(note=note, deck=deck, template_index=i)
                             created_cards_count += 1
                     else:
-                        for idx, _ in enumerate(templates):
-                            CardModel.create(note=note, deck=deck, template_index=idx)
-                            created_cards_count += 1
+                        for idx, tmpl in enumerate(templates):
+                            qfmt = tmpl.get("qfmt", "")
+                            if should_generate_card(qfmt, cleaned_fields):
+                                CardModel.create(note=note, deck=deck, template_index=idx)
+                                created_cards_count += 1
 
             if created_cards_count and doc:
                 try:

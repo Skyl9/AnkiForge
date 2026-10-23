@@ -64,14 +64,88 @@ def _sanitize_fields(fields_dict: Mapping[str, Any]) -> dict[str, str]:
     return safe_fields
 
 
-def _process_conditionals(html: str, safe_fields: dict[str, str]) -> str:
-    for field, val in safe_fields.items():
-        empty = _is_empty(val)
-        pos_pattern = r"\{\{#" + re.escape(field) + r"\}\}(.*?)\{\{/" + re.escape(field) + r"\}\}"
-        html = re.sub(pos_pattern, r"\1" if not empty else "", html, flags=re.DOTALL)
-        neg_pattern = r"\{\{\^" + re.escape(field) + r"\}\}(.*?)\{\{/" + re.escape(field) + r"\}\}"
-        html = re.sub(neg_pattern, "" if not empty else r"\1", html, flags=re.DOTALL)
+def _process_conditionals(html: str, safe_fields: Mapping[str, str]) -> str:
+    """Évalue de façon récursive les blocs conditionnels Anki {{#Champ}} et {{^Champ}}.
+
+    - Supporte les balises imbriquées à n'importe quelle profondeur via un remplacement
+      itératif ciblant à chaque passe le bloc conditionnel le plus interne.
+    - Évalue tout champ absent de `safe_fields` ou ne contenant que du texte vide
+      comme 'falsy' (vide).
+    - Nettoie les balises conditionnelles orphelines ou mal formées.
+    """
+    if "{{#" not in html and "{{^" not in html:
+        return html
+
+    # Motif ciblant le bloc conditionnel le plus interne (ne contenant aucun {{# ou {{^ ou {{/)
+    # Group 1: opérateur ('#' ou '^')
+    # Group 2: nom du champ
+    # Group 3: contenu du bloc
+    inner_pattern = re.compile(
+        r"\{\{([#^])([^}#/]+)\}\}((?:(?!\{\{[#^/]).)*?)\{\{/\2\}\}",
+        flags=re.DOTALL,
+    )
+
+    max_passes = 50
+    passes = 0
+    while passes < max_passes:
+        passes += 1
+        matched = False
+
+        def _replace_block(m: re.Match[str]) -> str:
+            nonlocal matched
+            matched = True
+            op = m.group(1)
+            field_name = m.group(2).strip()
+            body = m.group(3)
+
+            field_val = safe_fields.get(field_name, "")
+            empty = _is_empty(field_val)
+
+            if op == "#":
+                return body if not empty else ""
+            else:  # op == "^"
+                return "" if not empty else body
+
+        new_html = inner_pattern.sub(_replace_block, html)
+        if not matched or new_html == html:
+            break
+        html = new_html
+
+    # Nettoyage de sécurité pour d'éventuelles balises de conditionnels orphelines
+    html = re.sub(r"\{\{[#^/][^}]+\}\}", "", html)
     return html
+
+
+def should_generate_card(template_qfmt: str, fields_dict: Mapping[str, Any]) -> bool:
+    """Détermine si un gabarit de carte Recto (qfmt) engendre une carte physique selon la règle officielle Anki.
+
+    Règle officielle Anki :
+    Une carte n'est créée pour une note que si :
+    1. Le gabarit Recto, après résolution des conditionnels ({{#...}}, {{^...}}) et
+       substitution des champs ({{Champ}}), produit du texte visible non vide ou du média
+       (images <img>, <svg>, sons [sound:...]).
+    2. Un recto ne contenant que des espaces ou des balises HTML vides (ex: <br>, <div></div>)
+       n'engendre AUCUNE carte.
+    """
+    if not template_qfmt:
+        return False
+
+    safe_fields = _sanitize_fields(fields_dict)
+
+    # 1. Évaluation des conditionnels imbriqués
+    rendered = _process_conditionals(template_qfmt, safe_fields)
+
+    # 2. Substitution des champs standards
+    rendered = _process_standard_fields(rendered, safe_fields, is_recto=True)
+
+    # 3. Retrait des balises spéciales (FrontSide, Tags, Deck, etc.)
+    rendered = re.sub(r"\{\{(FrontSide|Tags|Deck|Subdeck|Card|Type)\}\}", "", rendered)
+
+    # 4. Nettoyage de balises non substituées résiduelles
+    rendered = re.sub(r"\{\{[^}]+\}\}", "", rendered)
+
+    # 5. Détection de non-vacuité via _is_empty
+    return not _is_empty(rendered)
 
 
 def _process_cloze_fields(html: str, safe_fields: dict[str, str], template_index: int, is_recto: bool) -> str:

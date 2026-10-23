@@ -9,7 +9,7 @@ import logging
 import uuid
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, db
-from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.anki_renderer import get_max_cloze_index, should_generate_card
 from ankiforge.utils.tags import serialize_note_tags
 
 logger = logging.getLogger(__name__)
@@ -75,8 +75,10 @@ class NoteManager:
                     for i in range(num_cards):
                         CardModel.create(note=new_note, deck=deck, template_index=i)
                 else:
-                    for i, _ in enumerate(templates):
-                        CardModel.create(note=new_note, deck=deck, template_index=i)
+                    for i, tmpl in enumerate(templates):
+                        qfmt = tmpl.get("qfmt", "")
+                        if should_generate_card(qfmt, content_dict):
+                            CardModel.create(note=new_note, deck=deck, template_index=i)
 
                 logger.info(
                     "Note ID=%d créée avec succès (modèle: '%s', deck: '%s', source: '%s')",
