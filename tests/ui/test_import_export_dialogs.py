@@ -16,6 +16,12 @@ def test_import_dialog_init(qtbot):
     assert dialog.windowTitle() == "Importer un Paquet ou une Collection Anki"
     assert dialog.radio_keep_tree.isChecked()
 
+    # Vérification du style sans bordure du bloc destination (style flat card)
+    assert hasattr(dialog, "options_frame")
+    sheet = dialog.options_frame.styleSheet()
+    assert "border: none;" in sheet
+    assert "border: 1px solid" not in sheet
+
     # Test de la sélection de paquet cible via modal
     dialog._on_target_deck_selected_from_modal(12, "Langues::Japonais")
     assert dialog.target_deck_id == 12

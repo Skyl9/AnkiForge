@@ -170,16 +170,16 @@ class ImportDialog(QDialog):
         layout.addLayout(file_row)
 
         # Options de destination
-        options_frame = QFrame()
-        options_frame.setStyleSheet(f"""
+        self.options_frame = QFrame()
+        self.options_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border: none;
                 border-radius: {DesignTokens.RADIUS_MD}px;
                 padding: 8px;
             }}
         """)
-        options_layout = QVBoxLayout(options_frame)
+        options_layout = QVBoxLayout(self.options_frame)
         options_layout.setContentsMargins(10, 10, 10, 10)
         options_layout.setSpacing(8)
 
@@ -203,7 +203,7 @@ class ImportDialog(QDialog):
         merge_row.addWidget(self.btn_select_target_deck, 1)
         options_layout.addLayout(merge_row)
 
-        layout.addWidget(options_frame)
+        layout.addWidget(self.options_frame)
 
         # Barre de progression et statut
         self.progress_bar = QProgressBar()
