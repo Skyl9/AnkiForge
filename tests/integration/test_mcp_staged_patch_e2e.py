@@ -82,27 +82,30 @@ def test_mcp_proposal_reaches_workspace_inspector_and_applies(qtbot, tmp_path):
     assert [row.patch_id for row in pending_rows] == [patch_id]
     assert StagedPatchModel.get(StagedPatchModel.patch_id == patch_id).status == "pending"
 
-    # 3. L'ouverture de la vue recharge la file et bascule sur l'onglet Espace de Travail
+    # 3. L'ouverture de la vue charge la file dans le Garde-Fou MCP (et non dans le WorkspaceInspector)
     from ankiforge.ui.views.consultant_view.view import ConsultantView
 
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)
     view.show()
 
-    inspector = view.workspace_inspector
-    assert [item.get("patch_id") for item in inspector._patch_queue] == [patch_id]
-    assert view.context_panel.content_stack.currentWidget() is inspector
-    assert inspector.isVisible()
-    assert "En attente" in inspector.status_badge.text()
-    assert inspector.btn_apply.isEnabled()
+    # Décorrélation stricte (ADR 0033) : l'inspecteur de chat reste vide et l'onglet Serveur MCP reste actif
+    assert not view.workspace_inspector._patch_queue
+    assert view.chat_panel.tabs_bar.current_index == 0
 
-    # 4. Validation : le patch passe à « applied » et la nouvelle version devient active
-    with qtbot.waitSignal(inspector.action_applied, timeout=5000):
-        inspector.btn_apply.click()
+    gf = view.mcp_dashboard.garde_fou_widget
+    assert [p.patch_id for p in gf._patches] == [patch_id]
+    assert gf.count() == 1
+    assert gf.btn_apply.isEnabled()
+
+    # 4. Validation via le Garde-Fou : le patch passe à « applied » et la nouvelle version devient active
+    with qtbot.waitSignal(gf.patch_applied, timeout=5000):
+        gf.btn_apply.click()
 
     assert StagedPatchRegistry.get_patch(patch_id).status == "applied"
     assert not StagedPatchRegistry.list_pending()
-    assert not inspector._patch_queue
+    assert gf.count() == 0
+    assert view.chat_panel.tabs_bar.current_index == 0
 
     active_version = NoteVersionModel.get(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
     fields = json.loads(active_version.content)

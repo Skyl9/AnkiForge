@@ -802,7 +802,7 @@ Aucune modification ne sera écrite en base de données.</source>
     </message>
     <message>
         <location line="+2"/>
-        <location filename="../../ui/dialogs/import_dialog.py" line="+264"/>
+        <location filename="../../ui/dialogs/import_dialog.py" line="+328"/>
         <source>📁 %1 ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -854,7 +854,7 @@ Aucune modification ne sera écrite en base de données.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/import_dialog.py" line="+108"/>
+        <location filename="../../ui/dialogs/import_dialog.py" line="+112"/>
         <location line="+9"/>
         <source>Impossible d&apos;importer l&apos;archive :
 %1</source>
@@ -3535,7 +3535,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+42"/>
+        <location line="+39"/>
         <source>💬 %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3546,12 +3546,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+102"/>
+        <location line="+99"/>
         <source>Proposition de modification</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+106"/>
+        <location line="+91"/>
         <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+169"/>
         <source>&quot;%1&quot;</source>
         <translation type="unfinished"></translation>
@@ -3815,7 +3815,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+110"/>
+        <location line="+112"/>
         <source>Patch %1 appliqué avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9718,7 +9718,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ConsultantView</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1220"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1199"/>
         <source>Attacher une ressource au contexte (Paquet, Document, Type de note)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9751,31 +9751,31 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+25"/>
         <location line="+1"/>
         <location line="+1"/>
-        <location line="+528"/>
+        <location line="+507"/>
         <location line="+366"/>
         <source>0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-825"/>
-        <location line="+209"/>
+        <location line="-804"/>
+        <location line="+206"/>
         <source>Discussion renommée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-197"/>
-        <location line="+222"/>
+        <location line="-194"/>
+        <location line="+219"/>
         <source>Discussion supprimée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-216"/>
+        <location line="-213"/>
         <source>Aucune session active à exporter.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+29"/>
-        <location line="+171"/>
+        <location line="+168"/>
         <source>Discussion copiée dans le presse-papier en Markdown !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9810,7 +9810,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+94"/>
+        <location line="+76"/>
         <source>Élément retiré du contexte.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10068,7 +10068,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ContextPillBadge</name>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1703"/>
+        <location filename="../../ui/views/consultant_view/view.py" line="-1682"/>
         <source>Cliquer pour retirer du contexte</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14360,7 +14360,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ImportDialog</name>
     <message>
-        <location filename="../../ui/dialogs/import_dialog.py" line="-266"/>
+        <location filename="../../ui/dialogs/import_dialog.py" line="-334"/>
         <source>Importer un Paquet ou une Collection Anki</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14380,7 +14380,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+25"/>
         <source>DESTINATION :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14395,7 +14395,37 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+55"/>
+        <location line="+33"/>
+        <source>Remplacement intégral de la collection Anki</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>• Périmètre Anki : L&apos;ensemble des paquets, notes, modèles et cartes existants seront remplacés par l&apos;archive entrante.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>• Studio sanctuarisé : Vos documents sources, fragments RAG, agents IA, personas, prompts et pipelines restent strictement intacts.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>• Filet de sécurité : Une sauvegarde automatique de votre base sera créée avant le remplacement.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Remplacer la Collection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Lancer l&apos;Importation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
         <source>Sélectionner le paquet cible</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14420,12 +14450,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+34"/>
         <source>Importation annulée par l&apos;utilisateur.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
+        <source>Remplacement de la collection en cours...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>Écriture en base de données...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14449,7 +14484,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ImportDropZone</name>
     <message>
-        <location line="-306"/>
+        <location line="-374"/>
         <source>Glissez-déposez votre archive Anki ici</source>
         <translation type="unfinished"></translation>
     </message>

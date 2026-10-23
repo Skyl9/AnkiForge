@@ -376,6 +376,9 @@ def test_consultant_view_workspace_inspector_tab_present_and_visible(qtbot):
     qtbot.addWidget(view)
     view.show()
 
+    # Sélection de l'onglet Consultant IA (index 1)
+    view.chat_panel.set_active_tab(1)
+
     # CA1 : le panneau est inséré dans context_panel et ses indices sont exploitables
     tab_titles = [btn.text().strip() for btn in view.context_panel.tabs_bar.tabs]
     assert "Espace de Travail" in tab_titles
@@ -408,6 +411,7 @@ def test_consultant_view_multi_staged_diffs_fill_patch_queue(qtbot):
     """CA4 : chaque staged_diff d'un même tour rejoint la file N/M, navigable à l'aide des flèches."""
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)
+    view.chat_panel.set_active_tab(1)
     inspector = view.workspace_inspector
 
     def _payload(note_id: int) -> dict[str, Any]:
@@ -437,7 +441,7 @@ def test_consultant_view_multi_staged_diffs_fill_patch_queue(qtbot):
 
 
 def test_consultant_view_reloads_pending_patches_on_open(qtbot):
-    """CA3 : les patchs encore « pending » en BDD sont rechargés dans la file à l'ouverture de la vue."""
+    """ADR 0033 : les patchs staged_patch ne sont plus injectés dans workspace_inspector mais dans Garde-Fou MCP."""
     staged = StagedPatchRegistry.create_patch(
         patch_type="card",
         target_id=42,
@@ -455,9 +459,11 @@ def test_consultant_view_reloads_pending_patches_on_open(qtbot):
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)
 
-    queue = view.workspace_inspector._patch_queue
-    assert [item.get("patch_id") for item in queue] == [staged.patch_id]
-    assert "En attente" in view.workspace_inspector.status_badge.text()
+    # Décorrélation stricte (ADR 0033) : workspace_inspector reste vide
+    assert not view.workspace_inspector._patch_queue
+    # Et le Garde-Fou MCP a bien chargé la proposition
+    assert view.mcp_dashboard.garde_fou_widget.count() == 1
+    assert view.mcp_dashboard.garde_fou_widget.current_patch_id == staged.patch_id
 
 
 def test_consultant_view_apply_and_reject_update_staged_status(qtbot):
@@ -489,7 +495,33 @@ def test_consultant_view_apply_and_reject_update_staged_status(qtbot):
     qtbot.addWidget(view)
     inspector = view.workspace_inspector
 
-    # Rechargés depuis la BDD : le plus récent est l'élément courant de la file
+    # Alimenter la file du workspace inspector via les propositions chat
+    view._queue_workspace_patch(
+        {
+            "status": "staged_diff",
+            "patch_id": to_apply.patch_id,
+            "type": "card",
+            "note_id": note.id,
+            "title": "À appliquer",
+            "original": {"Front": "Ancienne question"},
+            "modified": {"Front": "Nouvelle question"},
+            "metadata": {"note_id": note.id, "patch_id": to_apply.patch_id},
+        }
+    )
+    view._queue_workspace_patch(
+        {
+            "status": "staged_diff",
+            "patch_id": to_reject.patch_id,
+            "type": "card",
+            "note_id": note.id,
+            "title": "À rejeter",
+            "original": {"Front": "Ancienne question"},
+            "modified": {"Front": "Question rejetée"},
+            "metadata": {"note_id": note.id, "patch_id": to_reject.patch_id},
+        }
+    )
+
+    # Le plus récent est l'élément courant de la file
     assert len(inspector._patch_queue) == 2
 
     inspector.btn_reject.click()
@@ -992,3 +1024,90 @@ def test_consultant_view_budget_updated_slot(qtbot):
     view._on_budget_updated(tokens_used=42000, cost_usd=0.063, token_budget=50000, cost_budget=0.50)
     assert "42 000" in view.lbl_tokens_usage.text() or "42000" in view.lbl_tokens_usage.text()
     assert "80%" in view.lbl_chat_status.text()
+
+
+def test_consultant_view_mcp_patch_validation_does_not_switch_tab(qtbot):
+    """ADR 0033 : La validation d'un patch MCP ne doit jamais éjecter l'utilisateur de l'onglet Serveur MCP."""
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.show()
+
+    # S'assurer que l'utilisateur est sur l'onglet Serveur MCP (index 0) et sous-onglet Garde-Fou
+    view.chat_panel.set_active_tab(0)
+    view.mcp_dashboard.sub_tab_bar.set_active_tab("garde_fou")
+    assert view.chat_panel.tabs_bar.current_index == 0
+    assert view.mcp_dashboard.sub_tab_bar.get_active_tab_id() == "garde_fou"
+
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_NoJump_{uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    note = NoteModel.create(guid=f"g_nojump_{uid}", note_type=nt)
+    NoteVersionModel.create(
+        note=note,
+        version_number=1,
+        content=json.dumps({"Front": "Initiale", "Back": "Initiale"}),
+        is_active=True,
+    )
+
+    note2 = NoteModel.create(guid=f"g_nojump2_{uid}", note_type=nt)
+    NoteVersionModel.create(
+        note=note2,
+        version_number=1,
+        content=json.dumps({"Front": "Initiale 2", "Back": "Initiale 2"}),
+        is_active=True,
+    )
+
+    StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note.id,
+        diff_payload={
+            "type": "card",
+            "note_id": note.id,
+            "title": "Proposition MCP Sans Saut 1",
+            "original": {"Front": "Initiale 1", "Back": "Initiale 1"},
+            "modified": {"Front": "Modifiée 1", "Back": "Modifiée 1"},
+        },
+    )
+    StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note2.id,
+        diff_payload={
+            "type": "card",
+            "note_id": note2.id,
+            "title": "Proposition MCP Sans Saut 2",
+            "original": {"Front": "Initiale 2", "Back": "Initiale 2"},
+            "modified": {"Front": "Modifiée 2", "Back": "Modifiée 2"},
+        },
+    )
+
+    view.mcp_dashboard.garde_fou_widget.reload_pending_patches()
+    assert view.mcp_dashboard.garde_fou_widget.count() == 2
+
+    # Appliquer le premier patch dans le Garde-Fou MCP (le 2ème reste en pending)
+    view.mcp_dashboard.garde_fou_widget.btn_apply.click()
+
+    # Simuler le déclenchement du refresh_data sur toutes les vues suite à MCPDataMutatedEvent
+    view.refresh_data()
+
+    # L'utilisateur doit impérativement rester sur l'onglet Serveur MCP et son sous-onglet Garde-Fou
+    assert view.chat_panel.tabs_bar.current_index == 0
+    assert view.mcp_dashboard.sub_tab_bar.get_active_tab_id() == "garde_fou"
+    # Et le WorkspaceInspectorWidget du Consultant IA ne doit pas avoir été pollué
+    assert not view.workspace_inspector._patch_queue
+
+
+def test_consultant_view_activate_workspace_tab_does_not_switch_chat_panel(qtbot):
+    """ADR 0033 : _activate_workspace_tab ne doit piloter que context_panel, jamais chat_panel."""
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.show()
+
+    # Onglet initial : Serveur MCP (0)
+    view.chat_panel.set_active_tab(0)
+    assert view.chat_panel.tabs_bar.current_index == 0
+
+    view._activate_workspace_tab()
+
+    # chat_panel reste sur Serveur MCP (0)
+    assert view.chat_panel.tabs_bar.current_index == 0
+    # context_panel ouvre bien l'espace de travail
+    assert view.context_panel.content_stack.currentWidget() is view.workspace_inspector

@@ -11,7 +11,7 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel, StagedPatchModel
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
 
@@ -143,3 +143,101 @@ def test_mcp_garde_fou_widget_reject(qtbot, sample_note):
 
     updated_patch = StagedPatchRegistry.get_patch(patch.patch_id)
     assert updated_patch.status == "rejected"
+
+
+def test_mcp_garde_fou_widget_selection_advances_on_apply(qtbot):
+    """Vérifie que la sélection avance au patch suivant après validation, ou affiche l'état vide."""
+    nt = NoteTypeModel.create(name=f"NT_GF_ADV_{uuid.uuid4().hex[:6]}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+
+    def _make_note_and_patch(idx: int) -> StagedPatchModel:
+        note = NoteModel.create(guid=f"g_adv_{idx}_{uuid.uuid4().hex[:6]}", note_type=nt)
+        NoteVersionModel.create(
+            note=note,
+            version_number=1,
+            content=json.dumps({"Front": f"Q{idx}", "Back": f"R{idx}"}),
+            is_active=True,
+        )
+        return StagedPatchRegistry.create_patch(
+            patch_type="card",
+            target_id=note.id,
+            diff_payload={
+                "type": "card",
+                "note_id": note.id,
+                "title": f"Proposition #{idx}",
+                "original": {"Front": f"Q{idx}"},
+                "modified": {"Front": f"Q{idx} mod"},
+            },
+        )
+
+    p1 = _make_note_and_patch(1)
+    p2 = _make_note_and_patch(2)
+    p3 = _make_note_and_patch(3)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 3
+    assert widget.current_patch_id == p1.patch_id
+
+    # Validation du premier patch -> avance au 2ème
+    widget.btn_apply.click()
+    assert widget.count() == 2
+    assert widget.current_patch_id == p2.patch_id
+    assert widget.detail_stack.currentWidget() is widget.detail_view
+
+    # Validation du 2ème -> avance au 3ème
+    widget.btn_apply.click()
+    assert widget.count() == 1
+    assert widget.current_patch_id == p3.patch_id
+    assert widget.detail_stack.currentWidget() is widget.detail_view
+
+    # Validation du dernier -> file épuisée, vue vide affichée
+    widget.btn_apply.click()
+    assert widget.count() == 0
+    assert widget.current_patch_id is None
+    assert widget.detail_stack.currentWidget() is widget.empty_view
+
+
+def test_mcp_garde_fou_widget_selection_advances_from_middle_item(qtbot):
+    """Vérifie que la validation d'un élément au milieu avance au suivant et ne repart pas à zéro."""
+    nt = NoteTypeModel.create(name=f"NT_GF_MID_{uuid.uuid4().hex[:6]}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+
+    def _make(idx: int) -> StagedPatchModel:
+        note = NoteModel.create(guid=f"g_mid_{idx}_{uuid.uuid4().hex[:6]}", note_type=nt)
+        NoteVersionModel.create(
+            note=note,
+            version_number=1,
+            content=json.dumps({"Front": f"Q{idx}", "Back": f"R{idx}"}),
+            is_active=True,
+        )
+        return StagedPatchRegistry.create_patch(
+            patch_type="card",
+            target_id=note.id,
+            diff_payload={
+                "type": "card",
+                "note_id": note.id,
+                "title": f"Proposition #{idx}",
+                "original": {"Front": f"Q{idx}"},
+                "modified": {"Front": f"Q{idx} mod"},
+            },
+        )
+
+    _make(1)
+    p2 = _make(2)
+    p3 = _make(3)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    # Sélectionner le 2ème élément (index 1 = p2)
+    widget.patch_list.setCurrentRow(1)
+    assert widget.current_patch_id == p2.patch_id
+
+    # Validation de p2 -> doit avancer vers p3 (index 1 dans la nouvelle liste [p1, p3])
+    widget.btn_apply.click()
+    assert widget.count() == 2
+    assert widget.current_patch_id == p3.patch_id

@@ -393,6 +393,7 @@ class MCPGardeFouWidget(QWidget):
 
         # Sauvegarde de la sélection active si existante
         prev_patch_id = self.current_patch_id
+        prev_row = self.patch_list.currentRow()
 
         self.patch_list.blockSignals(True)
         self.patch_list.clear()
@@ -423,7 +424,8 @@ class MCPGardeFouWidget(QWidget):
             if selected_item is not None:
                 self.patch_list.setCurrentItem(selected_item)
             else:
-                self.patch_list.setCurrentRow(0)
+                target_row = max(0, min(prev_row, len(self._patches) - 1)) if prev_row >= 0 else 0
+                self.patch_list.setCurrentRow(target_row)
 
         self.queue_updated.emit(len(self._patches))
 

@@ -41,7 +41,7 @@ from ankiforge.database.models import (
 from ankiforge.repositories import PersonaRepository, SettingRepository
 from ankiforge.services.ai.consultant_engine import robust_json_loads
 from ankiforge.services.ai.context_compactor import ContextCompactor
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry, staged_patch_id, staged_payload_of
+from ankiforge.services.ai.staged_patch_registry import staged_patch_id
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
 from ankiforge.ui.components import (
     Badge,
@@ -839,9 +839,6 @@ class ConsultantView(QWidget):
         except Exception as e:
             logger.warning("Erreur refresh_data consultant_view: %s", e)
 
-        # Hors du try : une panne d'initialisation ne doit jamais masquer les patchs en attente.
-        self._reload_pending_patches()
-
     def is_dirty(self) -> bool:
         return False
 
@@ -1030,15 +1027,12 @@ class ConsultantView(QWidget):
         show_toast(self, self.tr("Action annulée en BDD."))
 
     def _activate_workspace_tab(self) -> None:
-        """Bascule sur l'onglet « Espace de Travail » qui contient l'inspecteur de workspace.
+        """Bascule sur l'onglet « Espace de Travail » du panneau contextuel (panneau droit).
 
-        La cible est résolue par son libellé, jamais par un index : IdePanel aligne alors lui-même
-        barre d'onglets et content_stack (y compris après détachement d'un onglet), alors qu'un
-        index de pile peut dériver de l'index de barre.
+        Conformément à l'ADR 0033, cette méthode ne pilote que le panneau droit (context_panel)
+        lors d'une action utilisateur explicite et ne modifie jamais l'onglet actif du panneau
+        principal (chat_panel).
         """
-        if hasattr(self, "chat_panel"):
-            self.chat_panel.set_active_tab(1)
-            self._on_main_tab_changed(1)
         if not hasattr(self.context_panel, "open_tab"):
             return
         self.context_panel.open_tab(self._workspace_tab_title)
@@ -1074,35 +1068,20 @@ class ConsultantView(QWidget):
 
         added = self.workspace_inspector.add_patch_to_queue(item)
         if activate_tab:
-            active_idx = getattr(self.chat_panel.tabs_bar, "active_tab_idx", -1) if hasattr(self, "chat_panel") else -1
+            active_idx = self.chat_panel.content_stack.currentIndex() if hasattr(self, "chat_panel") else -1
             if active_idx != 0:
                 self._activate_workspace_tab()
         return added
 
     def _reload_pending_patches(self) -> None:
-        """Recharge depuis la BDD les patchs en attente (ouverture d'une session ou de la vue).
+        """Conservé pour compatibilité ascendante mais strictement no-op (ADR 0033).
 
-        Sans ce rechargement, une proposition non tranchée avant la fermeture de l'application
-        disparaît de l'IHM tout en restant « pending » en base : c'est l'orphelin du ticket.
+        Conformément à l'ADR 0033, les propositions de la table staged_patch émises
+        par les agents MCP sont administrées exclusivement dans le sous-onglet
+        « Garde-Fou & Validation » (MCPGardeFouWidget) et ne sont plus réinjectées
+        dans le WorkspaceInspectorWidget du Consultant IA.
         """
-        try:
-            reloaded = 0
-            for staged in StagedPatchRegistry.list_pending():
-                payload = staged_payload_of(staged)
-                if not payload:
-                    continue  # payload illisible ou vide : déjà journalisé en WARNING
-                if self._queue_workspace_patch({**payload, "patch_id": staged.patch_id}, activate_tab=False):
-                    reloaded += 1
-        except Exception as err:
-            logger.warning("Rechargement des patchs en attente impossible : %s", err)
-            return
-
-        # La bascule d'onglet n'a lieu que si de nouvelles propositions ont réellement rejoint la file
-        # ET que l'utilisateur n'est pas sur l'onglet Serveur MCP (priorité autonomie MCP, ADR 0029).
-        if reloaded:
-            active_idx = getattr(self.chat_panel.tabs_bar, "active_tab_idx", -1) if hasattr(self, "chat_panel") else -1
-            if active_idx != 0:
-                self._activate_workspace_tab()
+        pass
 
     @Slot(dict)
     def _on_diff_inspect_requested(self, patch_data: dict[str, Any]) -> None:
