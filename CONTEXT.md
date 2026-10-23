@@ -18,6 +18,11 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 
 - **Type de note** : le gabarit Anki qui définit les champs d'une note, les gabarits de ses cartes (recto/verso) et son CSS. Une note lui est conforme ; ses cartes en dérivent.
   _Avoid_ : modèle, modèle de notes, modèle de carte, card model, note model
+- **Type de note par défaut** : type de note préférentiel mémorisé dans les préférences du profil utilisateur (`card_models/default_note_type_id`), pré-sélectionné automatiquement lors des créations manuelles ou de l'extraction par lot lorsqu'aucun type n'est spécifié. Il est mis en évidence dans l'interface par un indicateur visuel dédié (étoile ou badge).
+  _Avoid_ : note type actif, gabarit par défaut
+- **Ordre de tri des types de note** : critère d'ordonnancement appliqué à l'affichage des types de note dans la liste latérale et les fenêtres modales de sélection (`Nom (A-Z)`, `Nom (Z-A)`, `Plus récents`, `Plus anciens`, `Nombre de gabarits`), persisté par profil utilisateur (`card_models/sort_order`).
+  _Avoid_ : filtre de note, ordre BDD
+- **Menu contextuel de type de note** : menu d'actions déclenché par clic droit sur un type de note dans les vues et sélecteurs de l'application, regroupant les opérations sur son cycle de vie (Renommer, Dupliquer, Exporter, Définir par défaut, Filtrer les notes rattachées, Supprimer).
 - **Note** : l'unité de contenu d'une collection — un jeu de valeurs conforme à un type de note. Elle ne porte aucun état de révision.
   _Avoid_ : fiche, item
 - **Carte** : l'unité de révision dérivée d'une note à partir d'un gabarit de son type de note. Elle appartient à un paquet et **héberge** les compteurs SRS d'observation (`ivl`, `reps`, `lapses`, drapeaux, suspension) importés d'Anki, dont l'ordonnancement relève exclusivement d'Anki (voir *Ordonnancement*).
@@ -26,6 +31,14 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : carte difficile, carte échouée, leech, mauvaise carte
 - **Rôle IA (d'un type de note)** : directive sémantique et heuristique attachée à un type de note (`NoteTypeModel.description`), injectée dans la balise `{{ available_card_models }}` des prompts d'extraction pour orienter le choix du type de note le plus pertinent face à chaque concept identifié.
   _Avoid_ : rôle du modèle, description du modèle de carte
+- **Modèle basique amorce (Seed Note Type)** : l'unique type de note minimaliste injecté à la création d'un profil vierge (`"Basique"`), sans identifiant Anki préempté (`anki_id: None`), conçu pour fusionner de façon transparente et adopter l'identité du premier modèle équivalent importé.
+  _Avoid_ : gabarits par défaut multiples, pack de démarrage forcé
+- **Isomorphisme structurel (de type de note)** : relation d'équivalence entre deux types de notes dont la liste ordonnée des champs et la finalité sémantique sont identiques (ex: `["Recto", "Verso"]` et `["Front", "Back"]`), permettant leur réutilisation conjointe sans instancier de clone artificiel `(Importé)`.
+  _Avoid_ : doublon toléré, clone de modèle, alias flou
+- **Règle de génération conditionnelle (de carte)** : règle officielle du moteur Anki selon laquelle un gabarit de carte `i` n'engendre une carte physique que si son recto (`qfmt`), après résolution de toutes les directives conditionnelles (`{{#Champ}}` / `{{^Champ}}`), contient au moins un champ non vide et du texte visible. Une note ne produit jamais de carte au recto vide.
+  _Avoid_ : génération aveugle, carte vide par défaut, quantificateur passif
+- **Champ orphelin archivé** : mécanisme de préservation non destructive sauvegardant les données d'un champ supprimé dans Anki lors d'une mise à jour de schéma dans une clé de repli (`_orphaned_fields`), évitant toute perte irrémédiable de texte rédigé dans la Forge.
+  _Avoid_ : champ supprimé, purge silencieuse, troncature de note
 - **Enveloppement de balise (Wrapping)** : opération d'encadrement non destructif d'une sélection textuelle au sein d'un gabarit de type de note par une balise HTML (`<span>` en ligne, `<div>` en bloc), une règle CSS ou une directive conditionnelle Anki (`{{#Champ}}...{{/Champ}}`), préservant l'intégrité du contenu existant.
   _Avoid_ : remplacement de sélection, écrasement de balise, injection destructrice
 
@@ -220,6 +233,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Amorçage d'agent (Init)** : opération par laquelle un agent externe demande au serveur MCP de générer un fichier d'instructions méthodologiques dans son répertoire de travail, afin de maximiser ses compétences pour piloter AnkiForge. Le fichier produit est un adaptateur d'instructions au format attendu par le client (`GEMINI.md`, `CLAUDE.md`, `ANKIFORGE_GUIDE.md`, etc.), contenant les workflows d'usage, le catalogue des outils MCP et les garde-fous anticipatifs.
   _Avoid_ : bootstrap, setup, onboarding, workspace init, init workspace
 - **Garde-Fou MCP (ou Espace de Validation MCP)** : sous-onglet dédié et autonome au sein de l'onglet Serveur MCP, centralisant l'examen, la comparaison haute fidélité et l'arbitrage (validation, retouche directe, rejet) des patchs chirurgicaux émis par des agents externes sans redirection vers le Consultant IA in-app.
+- **Décorrélation des flux de validation** : séparation hermétique entre les propositions issues d'agents MCP externes (administrées exclusivement dans le Garde-Fou MCP) et les suggestions issues du chat in-app (visibles dans l'Espace de Travail du Consultant IA). Les rafraîchissements de données (`refresh_data`) consécutifs à une mutation MCP sont strictement passifs et n'entraînent aucune commutation automatique d'onglet.
+  _Avoid_ : file de patch unifiée avec saut d'écran, bascule implicite d'inspecteur
   _Avoid_ : inspecteur consultant, onglet diff, panneau de chat
 - **Comparateur sémantique de note (ou Diff sémantique de note)** : composant visuel présentant les modifications d'une note champ par champ avec deux colonnes synchronisées, surlignage mot à mot intra-ligne (*word-level diff*) et prévisualisation Anki en direct, sans exposition de syntaxe JSON brute.
   _Avoid_ : diff JSON, inspecteur textuel brut, raw diff viewer
@@ -317,6 +332,25 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : fenêtre settings, popup préférences, dialogue options
 - **Libellé de drapeau (Flag label)** : nom personnalisé attribué à l'un des 7 drapeaux colorés d'Anki (indices 1 à 7) pour le profil actif. Un libellé non défini ou vide applique un repli automatique strict vers la désignation native du jeton Anki (`DesignTokens.FLAG_NAMES`).
   _Avoid_ : tag couleur, nom de couleur, drapeau custom
+
+## Échanges, Imports & Synchronisation Anki
+
+- **Import de collection (`.colpkg`)** : opération de remplacement intégral et atomique du périmètre de cartes Anki d'un profil par le reflet exact d'une collection Anki, avec sanctuarisation stricte de la matière de travail propre à AnkiForge (documents sources, fragments RAG, personas, agents IA, prompts, pipelines).
+  _Avoid_ : fusion de collection, merge colpkg, restore database
+- **Import de paquet (`.apkg`)** : apport partiel et fusionnel d'un sous-ensemble de notes, cartes et médias au sein de la collection existante, avec détection des conflits de contenu selon la Règle 11 et arbitrage éventuel dans le dialogue Smart Merge.
+  _Avoid_ : import global, écrasement de paquet
+- **Périmètre Collection Anki** : sous-ensemble des entités de données directement issues du modèle Anki et gouvernées par la collection (`DeckModel`, `NoteTypeModel`, `CardModel`, `NoteModel`, `NoteVersionModel`, `MediaModel`), intégralement remplacé lors d'un import de collection `.colpkg`.
+  _Avoid_ : données globales, base complète
+- **Périmètre Studio / Forge** : ensemble des entités d'authoring, d'indexation et d'orchestration créées dans AnkiForge (`DocumentModel`, `FolderModel`, `DocumentPageModel`, `DocumentChunkModel`, `PersonaModel`, `PromptModel`, `PipelineModel`, `SettingModel`), strictement préservées lors d'un remplacement de collection.
+  _Avoid_ : configuration système, métadonnées
+- **Sauvegarde pré-importation** : instantané de sécurité de la base SQLite créé automatiquement et obligatoirement avant tout remplacement de collection par un `.colpkg`, exclu de la politique de rotation standard pour permettre un retour arrière immédiat.
+  _Avoid_ : backup temporaire, snapshot volatile
+- **Réconciliation de types de note (Note Type Reconciliation)** : protocole d'alignement entre un type de note entrant et la base locale, privilégiant l'autorité d'`anki_id` (`mid`), reconnaissant l'isomorphisme structurel pour éviter les doublons et archivant les champs retranchés sans altérer les notes existantes.
+  _Avoid_ : écrasement de schéma, copie systématique, suffixage infini
+- **Périmètre d'autorité distribuée (Distributed Authority Perimeter)** : frontière de responsabilité gouvernant les échanges entre Anki et AnkiForge — Anki détenant l'autorité sur l'ordonnancement SRS et l'état révisé des cartes, AnkiForge détenant l'autorité sur les sources, la traçabilité documentaire (RAG) et les cartes en cours de conception.
+  _Avoid_ : maître-esclave rigide, base dupliquée sans rôle, sync bidirectionnelle naïve
+
+
 
 
 
