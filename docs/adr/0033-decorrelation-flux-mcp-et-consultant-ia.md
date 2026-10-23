@@ -8,7 +8,7 @@ Afin de garantir l'autonomie et l'herméticité du flux de travail des agents MC
 
 ## Le Problème
 
-1. **Éjection intempestive du contexte lors d'une validation MCP** : Lorsqu'un utilisateur valide ou rejette un patch dans le sous-onglet « Garde-Fou & Validation » du Serveur MCP (`MCPGardeFouWidget`), l'écriture en base déclenche un événement `mcp_data_mutated`. Ce signal invoque `refresh_data()` sur l'ensemble des vues, y compris `ConsultantView`.
+1. **Éjection intempestive du contexte lors d'une validation MCP** : Lorsqu'un utilisateur valide ou rejette un patch dans le sous-onglet « Garde-Fou & Validation » du Serveur MCP (`MCPGardeFouWidget`), l'écriture en base déclenche un événement `mcp_data_mutated`. Ce signal invoquait `refresh_data()` sur l'ensemble des vues, y compris `ConsultantView`.
 2. **Effet de bord actif dans un rafraîchissement passif** : `ConsultantView.refresh_data()` appelait `self._reload_pending_patches()`, qui interrogeait `StagedPatchRegistry.list_pending()` et réinjectait ces patchs dans la file du `WorkspaceInspectorWidget` (volet droit du Consultant IA). Si d'autres patchs restaient en attente, la méthode appelait `_activate_workspace_tab()`.
 3. **Double bogue de contrôle d'onglet** :
    - `_reload_pending_patches()` tentait d'ignorer la bascule si l'onglet MCP était actif via `getattr(self.chat_panel.tabs_bar, "active_tab_idx", -1) != 0`. Or, `ScrollableTabBarWidget` ne dispose d'aucun attribut `active_tab_idx`. L'expression valait systématiquement `-1 != 0` (toujours vrai).
@@ -36,6 +36,16 @@ Afin de garantir l'autonomie et l'herméticité du flux de travail des agents MC
 - L'invariance d'interface suivante est gravée : `refresh_data()` ne doit **jamais** modifier l'onglet actif d'un panneau (`chat_panel`, `context_panel` ou `SegmentedTabBar`), ni basculer de vue, ni afficher de volet rétractable.
 - Lors de la réception de `mcp_data_mutated`, les vues mettent à jour leurs compteurs, badges et sélections sans jamais modifier la disposition active de l'utilisateur.
 
+### 2 bis. Routage Granulaire par Domaine
+- `MCPDataMutatedEvent` porte un champ `domain` (`cards`, `decks`, `models`, `docs`) résolu une seule fois par `resolve_mcp_mutation_domain()` dans le serveur MCP, puis injecté dans la charge utile.
+- `MainWindow._on_mcp_data_mutated` ne réveille que les vues de la table `_MCP_DOMAIN_VIEWS` :
+  - `cards` → `edition`, `analysis` ;
+  - `decks` → `creation`, `batch`, `edition` (sélecteurs de paquets) ;
+  - `models` → `card-models`, `edition` ;
+  - `docs` → `documents`.
+- Une vue peut exposer `apply_mcp_mutation(mutation)` pour une mise à jour granulaire (ligne de table, éditeur, sélection) ; à défaut, `refresh_data()` est appelé. Aucune vue hors domaine n'est plus réveillée par une mutation externe.
+- Les types historiques émis par `ConsultantToolRegistry.apply_patch` (`card`, `split`, `model`, `css`) sont routés comme leurs équivalents canoniques afin de préserver la compatibilité des agents existants.
+
 ### 3. Nettoyage de `_activate_workspace_tab()`
 - `_activate_workspace_tab()` ne pilote plus que le volet droit `self.context_panel.open_tab(self._workspace_tab_title)`. L'appel `self.chat_panel.set_active_tab(1)` est supprimé.
 - L'activation de l'espace de travail ne se produit que lors d'une action utilisateur explicite (clic d'inspection depuis une carte inline de chat), jamais de manière automatique lors d'un rechargement de données.
@@ -48,5 +58,6 @@ Afin de garantir l'autonomie et l'herméticité du flux de travail des agents MC
 ## Conséquences
 
 - **Stabilité de Navigation** : La validation ou le rejet d'un patch MCP maintient fidèlement l'utilisateur sur le sous-onglet Garde-Fou, sans aucun saut d'écran vers le chat.
+- **Réactivité Ciblée** : Seules les vues du domaine muté se rafraîchissent, ce qui supprime les rechargements inutiles et préserve sélection, ascenseur et saisies en cours dans les autres vues.
 - **Préparation du Dégagement de Dette** : Cette décorrélation isole hermétiquement le serveur MCP, rendant possible l'évolution ou la suppression ultérieure du Consultant in-app sans aucun risque de régression sur la chaîne d'outillage MCP.
 - **Conformité ADR 0029 & 0030** : Réaffirme le principe d'autonomie des agents externes posé par les architectures précédentes.
