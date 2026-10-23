@@ -160,6 +160,7 @@ class ImportDialog(QDialog):
 
         self.path_input = StyledLineEdit()
         self.path_input.setPlaceholderText(self.tr("Chemin du fichier .apkg, .colpkg ou .txt..."))
+        self.path_input.textChanged.connect(self._on_path_changed)
         file_row.addWidget(self.path_input, 1)
 
         self.btn_browse = SecondaryButton("Parcourir...")
@@ -169,7 +170,7 @@ class ImportDialog(QDialog):
 
         layout.addLayout(file_row)
 
-        # Options de destination
+        # Options de destination (.apkg, .txt)
         self.options_frame = QFrame()
         self.options_frame.setStyleSheet(f"""
             QFrame {{
@@ -205,6 +206,51 @@ class ImportDialog(QDialog):
 
         layout.addWidget(self.options_frame)
 
+        # Encart d'avertissement dédié pour les collections Anki (.colpkg)
+        self.colpkg_warning_card = QFrame()
+        self.colpkg_warning_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
+                border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 10px;
+            }}
+        """)
+        colpkg_layout = QVBoxLayout(self.colpkg_warning_card)
+        colpkg_layout.setContentsMargins(12, 12, 12, 12)
+        colpkg_layout.setSpacing(6)
+
+        header_warn = QHBoxLayout()
+        header_warn.setSpacing(8)
+        icon_warn = QLabel()
+        icon_warn.setPixmap(load_phosphor_icon("warning", color=DesignTokens.COLOR_YELLOW).pixmap(20, 20))
+        icon_warn.setStyleSheet("border: none; background: transparent;")
+        header_warn.addWidget(icon_warn)
+
+        lbl_warn_title = QLabel(self.tr("Remplacement intégral de la collection Anki"))
+        lbl_warn_title.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
+        lbl_warn_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        header_warn.addWidget(lbl_warn_title, 1)
+        colpkg_layout.addLayout(header_warn)
+
+        lbl_warn_anki = QLabel(self.tr("• Périmètre Anki : L'ensemble des paquets, notes, modèles et cartes existants seront remplacés par l'archive entrante."))
+        lbl_warn_anki.setWordWrap(True)
+        lbl_warn_anki.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none; background: transparent;")
+        colpkg_layout.addWidget(lbl_warn_anki)
+
+        lbl_warn_studio = QLabel(self.tr("• Studio sanctuarisé : Vos documents sources, fragments RAG, agents IA, personas, prompts et pipelines restent strictement intacts."))
+        lbl_warn_studio.setWordWrap(True)
+        lbl_warn_studio.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN_TEXT}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+        colpkg_layout.addWidget(lbl_warn_studio)
+
+        lbl_warn_backup = QLabel(self.tr("• Filet de sécurité : Une sauvegarde automatique de votre base sera créée avant le remplacement."))
+        lbl_warn_backup.setWordWrap(True)
+        lbl_warn_backup.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        colpkg_layout.addWidget(lbl_warn_backup)
+
+        self.colpkg_warning_card.hide()
+        layout.addWidget(self.colpkg_warning_card)
+
         # Barre de progression et statut
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(6)
@@ -235,6 +281,24 @@ class ImportDialog(QDialog):
         footer.addWidget(self.btn_import)
 
         layout.addLayout(footer)
+
+        self._update_mode()
+
+    @Slot(str)
+    def _on_path_changed(self, text: str) -> None:
+        self._update_mode(text)
+
+    def _update_mode(self, path: str | None = None) -> None:
+        current_path = (path if path is not None else self.path_input.text()).strip()
+        is_colpkg = current_path.lower().endswith(".colpkg")
+        if is_colpkg:
+            self.options_frame.hide()
+            self.colpkg_warning_card.show()
+            self.btn_import.setText(self.tr("Remplacer la Collection"))
+        else:
+            self.options_frame.show()
+            self.colpkg_warning_card.hide()
+            self.btn_import.setText(self.tr("Lancer l'Importation"))
 
     @Slot()
     def _open_target_deck_select_modal(self) -> None:
@@ -322,7 +386,8 @@ class ImportDialog(QDialog):
         resolutions = {}
 
         # Si des conflits de contenu existent selon la règle 11 -> Ouverture du Smart Merge
-        if conflicts_count > 0:
+        # Court-circuit pour les collections (.colpkg) : la collection entrante fait autorité intégrale
+        if analysis.source_type != "colpkg" and conflicts_count > 0:
             merge_dialog = SmartMergeDialog(analysis.conflicts, parent=self)
             if merge_dialog.exec() == QDialog.DialogCode.Accepted:
                 resolutions = merge_dialog.get_resolutions()
@@ -332,9 +397,12 @@ class ImportDialog(QDialog):
                 return
 
         # Commit final asynchrone
-        target_id = self.target_deck_id if self.radio_merge_deck.isChecked() else None
+        target_id = self.target_deck_id if (self.radio_merge_deck.isChecked() and analysis.source_type != "colpkg") else None
 
-        self.lbl_status.setText(self.tr("Écriture en base de données..."))
+        if analysis.source_type == "colpkg":
+            self.lbl_status.setText(self.tr("Remplacement de la collection en cours..."))
+        else:
+            self.lbl_status.setText(self.tr("Écriture en base de données..."))
         self.progress_bar.show()
 
         self.worker = ImportCardsWorker(
