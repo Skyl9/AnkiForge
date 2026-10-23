@@ -228,6 +228,11 @@ class ModelSelectWindow(QWidget):
         model = self._model_cache.get(int(mid))
         if not model:
             return
+        menu = self._build_context_menu(model)
+        menu.exec(self.tree.mapToGlobal(pos))
+
+    def _build_context_menu(self, model: NoteTypeModel) -> QMenu:
+        """Construit le menu d'actions d'un type de note sélectionné."""
         menu = QMenu(self)
 
         def _rename(m: NoteTypeModel = model) -> None:
@@ -276,7 +281,7 @@ class ModelSelectWindow(QWidget):
             action.triggered.connect(_make_handler(key))
             group.addAction(action)
             sort_menu.addAction(action)
-        menu.exec(self.tree.mapToGlobal(pos))
+        return menu
 
     def _on_rename_model(self, model: NoteTypeModel) -> None:
         current_name = model.name or ""

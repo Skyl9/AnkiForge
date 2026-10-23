@@ -793,28 +793,40 @@ class CardModelsView(QWidget):
             return
         menu = QMenu(self)
 
-        def _rename(m: NoteTypeModel = model) -> None:
-            self._on_rename_model(m)
+        def _rename(checked: bool = False) -> None:
+            self._on_rename_model(model)
 
-        def _set_default(m: NoteTypeModel = model) -> None:
-            self._on_set_default_model(m)
+        def _set_default(checked: bool = False) -> None:
+            self._on_set_default_model(model)
 
-        def _filter_notes(m: NoteTypeModel = model) -> None:
-            self._on_filter_notes_by_model(m)
+        def _filter_notes(checked: bool = False) -> None:
+            self._on_filter_notes_by_model(model)
+
+        def _duplicate(checked: bool = False) -> None:
+            self.list_widget.setCurrentItem(item)
+            self._on_duplicate_model()
+
+        def _export(checked: bool = False) -> None:
+            self.list_widget.setCurrentItem(item)
+            self._on_export_json()
+
+        def _delete(checked: bool = False) -> None:
+            self.list_widget.setCurrentItem(item)
+            self._on_delete_model()
 
         rename_action = menu.addAction(self.tr("Renommer"))
         rename_action.triggered.connect(_rename)
         duplicate_action = menu.addAction(self.tr("Dupliquer"))
-        duplicate_action.triggered.connect(self._on_duplicate_model)
+        duplicate_action.triggered.connect(_duplicate)
         default_action = menu.addAction(self.tr("Définir comme modèle par défaut"))
         default_action.triggered.connect(_set_default)
         export_action = menu.addAction(self.tr("Exporter (.afmodel / JSON)"))
-        export_action.triggered.connect(self._on_export_json)
+        export_action.triggered.connect(_export)
         filter_action = menu.addAction(self.tr("Filtrer les notes associées"))
         filter_action.triggered.connect(_filter_notes)
         menu.addSeparator()
         delete_action = menu.addAction(self.tr("Supprimer"))
-        delete_action.triggered.connect(self._on_delete_model)
+        delete_action.triggered.connect(_delete)
         sort_menu = menu.addMenu(self.tr("Trier par..."))
         group = QActionGroup(self)
         group.setExclusive(True)

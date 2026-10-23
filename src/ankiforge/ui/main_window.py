@@ -909,8 +909,11 @@ class MainWindow(QMainWindow):
             if hasattr(widget, "refresh_data"):
                 cast(Any, widget).refresh_data()
 
-            if view_id == "edition" and isinstance(data, dict) and "note_id" in data and hasattr(widget, "select_note_by_id"):
-                cast(Any, widget).select_note_by_id(data["note_id"])
+            if view_id == "edition" and isinstance(data, dict):
+                if "note_id" in data and hasattr(widget, "select_note_by_id"):
+                    cast(Any, widget).select_note_by_id(data["note_id"])
+                if "note_type_id" in data and hasattr(widget, "_on_model_selected"):
+                    cast(Any, widget)._on_model_selected(data["note_type_id"], data.get("note_type_name", ""))
 
             if view_id == "creation" and isinstance(data, dict):
                 if hasattr(widget, "load_context"):

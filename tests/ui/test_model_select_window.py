@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 import pytest
+from PySide6.QtCore import Qt
 
 from ankiforge.database.models import NoteModel, NoteTypeModel
 from ankiforge.ui.components.model_select_window import ModelSelectWindow
@@ -93,3 +94,22 @@ def test_model_select_window_allow_all_false_and_get_selected(qtbot: Any, mock_d
     assert selected_model is not None
     assert selected_model.id == nt.id
     assert selected_model.name == f"Medical {uid}"
+
+
+def test_model_select_window_context_menu_actions_and_root_exclusion(qtbot: Any, mock_db: Any) -> None:
+    """Le menu contextuel expose les actions du modèle, jamais celles de la racine."""
+    uid = uuid.uuid4().hex[:6]
+    model = NoteTypeModel.create(name=f"Menu {uid}", fields_schema='["Front", "Back"]')
+
+    win = ModelSelectWindow(allow_all=True, current_model_id=-1)
+    qtbot.addWidget(win)
+
+    menu = win._build_context_menu(model)
+    labels = [action.text() for action in menu.actions() if action.text()]
+
+    assert "Renommer" in labels
+    assert "Dupliquer" in labels
+    assert "Définir comme modèle par défaut" in labels
+    assert "Exporter (.afmodel / JSON)" in labels
+    assert "Supprimer" in labels
+    assert win.tree.topLevelItem(0).data(0, Qt.ItemDataRole.UserRole) == -1
