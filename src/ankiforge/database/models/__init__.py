@@ -13,8 +13,6 @@ from ankiforge.database.base import (
     init_db,
 )
 from ankiforge.database.models.ai import (
-    ConsultantMessageModel,
-    ConsultantSessionModel,
     LLMConfigModel,
     PersonaFolderModel,
     PersonaModel,
@@ -76,8 +74,6 @@ ALL_MODELS = [
     PersonaFolderModel,
     PersonaModel,
     PersonaVersionModel,
-    ConsultantSessionModel,
-    ConsultantMessageModel,
     StagedPatchModel,
     PipelineModel,
     PipelineRunModel,
@@ -123,8 +119,6 @@ __all__ = [
     "PersonaFolderModel",
     "PersonaModel",
     "PersonaVersionModel",
-    "ConsultantSessionModel",
-    "ConsultantMessageModel",
     "StagedPatchModel",
     # Batch Factory
     "BatchRunModel",

@@ -1,4 +1,4 @@
-"""Modèles Peewee des fournisseurs LLM, personas, sessions du Consultant et patchs en attente."""
+"""Modèles Peewee des fournisseurs LLM, personas et patchs en attente."""
 
 from __future__ import annotations
 
@@ -165,34 +165,6 @@ class PersonaVersionModel(BaseModel):
 
     class Meta:
         table_name = "persona_versions"
-
-
-class ConsultantSessionModel(BaseModel):
-    """Session de discussion persistée avec le Consultant IA."""
-
-    title = CharField(default="Nouvelle Session")
-    persona = ForeignKeyField(PersonaModel, backref="consultant_sessions", null=True, on_delete="SET NULL")
-    created_at = DateTimeField(default=datetime.datetime.now)
-    updated_at = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        table_name = "consultant_sessions"
-
-
-class ConsultantMessageModel(BaseModel):
-    """Message individuel d'une session de chat avec le Consultant IA."""
-
-    session = ForeignKeyField(ConsultantSessionModel, backref="messages", on_delete="CASCADE")
-    role = CharField()  # "user", "assistant", "system"
-    content = TextField()
-    thoughts = TextField(null=True)
-    tool_calls_json = TextField(null=True)
-    staged_diffs_json = TextField(null=True)
-    tokens_used = IntegerField(default=0)
-    created_at = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        table_name = "consultant_messages"
 
 
 class StagedPatchModel(BaseModel):
