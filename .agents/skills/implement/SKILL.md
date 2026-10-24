@@ -49,6 +49,11 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
    - Déclencher systématiquement **`/code-review`** (deux sous-agents parallèles : Standards & Spécification) pour confronter le diff aux exigences avant toute clôture.
    > [!IMPORTANT]
    > ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT de clore le ticket, de modifier son statut en `✅ Terminé`, de toucher au Kanban ou de formuler une proposition de commit avant d'avoir formellement restitué le rapport de code-review à deux axes à l'utilisateur.
+   - **Boucle de remédiation immédiate** : si la revue de code formule des constats ou demandes d'ajustements (standards, typage, design system, i18n) :
+     1. Appliquer les corrections requises dans le code ou les tests.
+     2. Si des chaînes traduisibles ont été modifiées, ré-exécuter `uv run python script/extract_translations.py`.
+     3. Re-valider l'intégralité de la chaîne via `uv run python script/verify.py`.
+     4. Ne passer à l'étape 4 qu'une fois la porte canonique 100% au vert post-remédiation.
 4. **Mise à jour du statut Obsidian & Archivage Physique (Post-Revue)** :
    - Mettre à jour l'en-tête du ticket : `**Statut :** ✅ Terminé` et cocher les critères d'acceptation.
    - **Déplacement physique obligatoire** : déplacer la note du ticket de `ankiforge_obsidian/Tickets/ticket-actif/` vers `ankiforge_obsidian/Tickets/Archives/` (ainsi que les spécifications associées). La racine `Tickets/` ne doit jamais comporter de fichier à plat.

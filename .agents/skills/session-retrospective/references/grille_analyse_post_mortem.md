@@ -37,6 +37,21 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Absence de validation des cibles réelles sur disque (liens Markdown, chemins d'ADRs, détection de patterns de langages interdits).
 - **Remédiation** : Enrichir le script d'audit statique (`auditer_coherence_skills.py`) pour vérifier l'existence physique de chaque ADR et lien relatif, et interdire les blocs de langages étrangers (TypeScript/JSX dans un repo Python).
 
+### T-7 : Couplage de Décompte d'Éléments d'Interface (Rigid UI Element Count Assertions)
+- **Symptôme** : L'ajout d'un nouvel onglet, bouton ou entrée dans une interface modale (ex: `SettingsModal`) fait échouer plusieurs tests transverses en dur (`assert count == 8`).
+- **Cause racine** : Tests de régression écrits avec des constantes numériques absolues plutôt qu'une inspection sémantique des onglets présents.
+- **Remédiation** : Documenter la vigilance d'impact dans `ui-pyside6-design/SKILL.md` et mettre à jour de manière synchronisée l'ensemble des galeries et suites de tests de composants (`test_settings_modal.py`, `test_dialog_gallery.py`, etc.).
+
+### T-8 : Émojis Résiduels dans les Composants d'Action (Action Label Emoji Leaks)
+- **Symptôme** : L'agent insère spontanément des émoticônes dans le libellé texte d'un bouton (`PrimaryButton("📖 Ouvrir")`) par mimétisme conversationnel, en violation de la Règle 8 du Design System.
+- **Cause racine** : Absence de rappel strict dans les compétences de design UI imposant l'exclusivité des icônes Phosphor vectorielles (`load_phosphor_icon`).
+- **Remédiation** : Garde-fou bloquant formel dans `ui-pyside6-design/SKILL.md` interdisant tout emoji décoratif dans les boutons et libellés d'interface.
+
+### T-9 : Contexte Linguist Dégradé dans les Méthodes de Classe (Classmethod Linguist Degradation)
+- **Symptôme** : Appel de `dlg.tr("...")` sur une variable locale d'une `@classmethod` de fabrique (ex: `open_guide`), assignant un contexte de chaîne invalide (`<name>dlg</name>`) dans les fichiers `.ts`.
+- **Cause racine** : Méconnaissance du mécanisme de résolution de métadonnées Qt Linguist où `QObject.tr()` utilise le type statique de l'appelant.
+- **Remédiation** : Rappel impératif dans `ui-pyside6-design/SKILL.md` d'utiliser `cls.tr("...")` ou la fonction libre `tr("...")` dans toute méthode de classe.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -47,5 +62,6 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 |---|---|---|
 | Omission de revue ou de vérification | Ajout d'une précondition bloquante dans le workflow | `implement/SKILL.md`, `to-spec/SKILL.md` |
 | Conflit / écrasement dans le vault Obsidian | Clarification du sous-repo Git et renforcement des règles atomiques | `obsidian-vault/SKILL.md` |
-| Erreur de Design System ou couleur codée en dur | Rappel de la règle 8 et ajout d'assertions `refresh_theme` | `ui-pyside6-design/SKILL.md` |
+| Erreur de Design System ou couleur codée en dur | Rappel de la règle 8, interdiction des émojis et tokens CSS | `ui-pyside6-design/SKILL.md` |
+| Altération de contexte de traduction Linguist | Directive stricte `cls.tr()` vs `instance.tr()` | `ui-pyside6-design/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |
