@@ -12,7 +12,7 @@ import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
@@ -179,36 +179,6 @@ class MCPActivityDetailDialog(QDialog):
         if clipboard is not None:
             clipboard.setText(json.dumps(data, indent=2, ensure_ascii=False))
             show_toast(self, self.tr("Détail de l'appel copié dans le presse-papiers."))
-
-
-class MCPCatalogPlaceholderWidget(QWidget):
-    """Placeholder temporaire pour le sous-onglet Catalogue d'Outils MCP (Tranche 3)."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setObjectName("MCPCatalogPlaceholderWidget")
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(10)
-
-        icon = QLabel(self)
-        icon.setPixmap(load_phosphor_icon("ph.wrench", color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon.setStyleSheet("border: none; background: transparent; opacity: 0.7;")
-        layout.addWidget(icon)
-
-        title = QLabel(self.tr("Catalogue d'Outils MCP"), self)
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: 700; border: none;")
-        layout.addWidget(title)
-
-        desc = QLabel(
-            self.tr("Exploration interactive des 58 outils du serveur MCP (Tranche 3 en cours d'intégration)."),
-            self,
-        )
-        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none;")
-        layout.addWidget(desc)
 
 
 class MCPServerDashboardWidget(QWidget):
@@ -423,10 +393,10 @@ class MCPServerDashboardWidget(QWidget):
         tab_layout.addStretch()
         outer_layout.addWidget(tab_container)
 
-        tab_separator = QFrame()
-        tab_separator.setFixedHeight(1)
-        tab_separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
-        outer_layout.addWidget(tab_separator)
+        self.tab_separator = QFrame(self)
+        self.tab_separator.setFixedHeight(1)
+        self.tab_separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
+        outer_layout.addWidget(self.tab_separator)
 
         # ── Empilement des vues ───────────────────────────────────────────
         self.stacked_widget = QStackedWidget(self)
@@ -562,6 +532,9 @@ class MCPServerDashboardWidget(QWidget):
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
+        border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+        if hasattr(self, "tab_separator") and self.tab_separator is not None:
+            self.tab_separator.setStyleSheet(f"background-color: {border_color}; border: none;")
         if hasattr(self, "sub_tab_bar") and hasattr(self.sub_tab_bar, "refresh_theme"):
             self.sub_tab_bar.refresh_theme(profile)
         if hasattr(self, "supervision_widget") and hasattr(self.supervision_widget, "refresh_theme"):
@@ -579,7 +552,6 @@ class MCPServerDashboardWidget(QWidget):
 __all__ = [
     "MCPServerDashboardWidget",
     "MCPActivityDetailDialog",
-    "MCPCatalogPlaceholderWidget",
     "MCPToolCatalogWidget",
     "MCPWorkspaceGuideWidget",
 ]

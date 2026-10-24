@@ -368,7 +368,13 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/model_select_window.py" line="+207"/>
+        <location filename="../../ui/components/model_select_window.py" line="+325"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1585"/>
+        <source>Voulez-vous vraiment supprimer le type de note &apos;%1&apos; ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+64"/>
         <location filename="../../ui/components/tabs/bars/settings_bar.py" line="+25"/>
         <location filename="../../ui/views/batch_view/dialogs/batch_slice_composer_dialog.py" line="+181"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="+741"/>
@@ -503,6 +509,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+521"/>
         <location filename="../../ui/views/edition_view/view.py" line="-604"/>
         <location line="+212"/>
         <location line="+8"/>
@@ -1564,7 +1571,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+331"/>
+        <location line="+334"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -2974,7 +2981,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1177"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
         <location filename="../../ui/views/edition_view/view.py" line="+743"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -3356,12 +3363,12 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-968"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1135"/>
         <source>Créer un nouveau type de note Anki (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+57"/>
+        <location line="+59"/>
         <source>Dupliquer le type de note sélectionné (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3381,7 +3388,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+175"/>
+        <location line="+181"/>
         <source>Style CSS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3401,14 +3408,19 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+179"/>
+        <location line="+289"/>
+        <source>Type de note par défaut défini : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+42"/>
         <source>Type de note : %1
 Type : %2
 Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+154"/>
+        <location line="+161"/>
         <location line="+52"/>
         <location line="+22"/>
         <location line="+35"/>
@@ -3471,12 +3483,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+58"/>
-        <source>Voulez-vous vraiment supprimer le type de note &apos;%1&apos; ?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+35"/>
+        <location line="+93"/>
         <source>Type de note &apos;%1&apos; sauvegardé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3745,7 +3752,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+380"/>
+        <location line="+350"/>
         <source>Activité (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3901,7 +3908,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+284"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="-237"/>
         <source>(Aucune description fournie)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4056,7 +4063,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+59"/>
+        <location line="+60"/>
         <source>%1 outils autorisés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9340,12 +9347,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1232"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1408"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+49"/>
+        <location line="+9"/>
+        <source>Trier les types de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+51"/>
         <source>Aucun type de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9361,25 +9373,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+13"/>
-        <location line="+1122"/>
+        <location line="+1287"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1056"/>
+        <location line="-1215"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+521"/>
+        <location line="+680"/>
         <location line="+2"/>
         <location line="+2"/>
         <source>Front, Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-524"/>
+        <location line="-683"/>
         <source>ex: Front, Back, Audio...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9492,17 +9504,102 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+456"/>
+        <location line="+615"/>
         <source>Données d&apos;exemple automatiques</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-445"/>
+        <location line="-604"/>
         <source>Masquer l&apos;aperçu en direct</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+254"/>
+        <location line="+161"/>
+        <location line="+71"/>
+        <source>Nom (A → Z)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-70"/>
+        <location line="+71"/>
+        <source>Nom (Z → A)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-70"/>
+        <location line="+71"/>
+        <source>Date de création (Plus récents)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-70"/>
+        <location line="+71"/>
+        <source>Date de création (Plus anciens)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-70"/>
+        <location line="+71"/>
+        <source>Nombre de gabarits / cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-21"/>
+        <source>Renommer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Dupliquer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Définir comme modèle par défaut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Exporter (.afmodel / JSON)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Filtrer les notes associées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Supprimer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Trier par...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>Renommer le type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Nouveau nom :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Nom déjà utilisé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Un type de note avec ce nom existe déjà.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+137"/>
         <source>Replier le volet d&apos;aides</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9517,7 +9614,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+142"/>
+        <location line="+12"/>
+        <source>★ Par défaut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+137"/>
         <source>Gabarit renommé.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15068,7 +15170,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-438"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-408"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15124,22 +15226,9 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
-    <name>MCPCatalogPlaceholderWidget</name>
-    <message>
-        <location line="+19"/>
-        <source>Catalogue d&apos;Outils MCP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Exploration interactive des 58 outils du serveur MCP (Tranche 3 en cours d&apos;intégration).</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>MCPServerDashboardWidget</name>
     <message>
-        <location line="+209"/>
+        <location line="+204"/>
         <source>Supervision &amp; Configuration</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15352,7 +15441,27 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+9"/>
+        <source>Claude (Desktop &amp; Code)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Antigravity CLI (agy)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Cursor / Windsurf</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>cURL / CLI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <location line="+193"/>
         <source>Collez ce bloc dans votre fichier claude_desktop_config.json :</source>
         <translation type="unfinished"></translation>
@@ -15546,7 +15655,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MCPWorkspaceGuideWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_workspace_guide_widget.py" line="-380"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_workspace_guide_widget.py" line="-381"/>
         <source>Amorçage de Workspace Agent</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15716,7 +15825,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+26"/>
         <source>(Aucune description)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15762,7 +15871,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-833"/>
+        <location filename="../../ui/main_window.py" line="-836"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15772,7 +15881,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+497"/>
+        <location line="+500"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16286,17 +16395,117 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>ModelSelectWindow</name>
     <message>
-        <location filename="../../ui/components/model_select_window.py" line="-148"/>
+        <location filename="../../ui/components/model_select_window.py" line="-322"/>
         <source>Rechercher un type de note (ex: Basique, Cloze, Front)...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+70"/>
+        <location line="+24"/>
+        <source>Trier les types de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+58"/>
         <source>Valider ce type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+32"/>
+        <location line="+65"/>
+        <source>Nom (A → Z)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-64"/>
+        <location line="+65"/>
+        <source>Nom (Z → A)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-64"/>
+        <location line="+65"/>
+        <source>Date de création (Plus récents)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-64"/>
+        <location line="+65"/>
+        <source>Date de création (Plus anciens)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-64"/>
+        <location line="+65"/>
+        <source>Nombre de gabarits / cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-13"/>
+        <source>Renommer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Dupliquer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Définir comme modèle par défaut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Exporter (.afmodel / JSON)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Supprimer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Trier par...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source>Renommer le type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Nouveau nom :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Nom déjà utilisé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Un type de note avec ce nom existe déjà.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Supprimer le type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Suppression impossible</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
         <source>Tous les types de note</source>
         <translation type="unfinished"></translation>
     </message>

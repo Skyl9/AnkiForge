@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QFont, QGuiApplication
+from PySide6.QtGui import QColor, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
@@ -518,7 +518,7 @@ class MCPToolCatalogWidget(QWidget):
         for domain_key, meta in DOMAIN_METADATA.items():
             count = sum(1 for t in self._tools if t.domain == domain_key)
             chip = FilterChipButton(
-                f"{meta['label']} ({count})",
+                tr("%1 (%2)", tr(str(meta["label"])), count),
                 icon_name=meta["icon"],
                 parent=chips_container,
             )
@@ -703,9 +703,9 @@ class MCPToolCatalogWidget(QWidget):
         layout.addLayout(header_box)
 
         # ── Carte Description complète ──
-        desc_frame = QFrame(container)
-        desc_frame.setObjectName("mcp_catalog_desc_frame")
-        desc_frame.setStyleSheet(f"""
+        self.desc_frame = QFrame(container)
+        self.desc_frame.setObjectName("mcp_catalog_desc_frame")
+        self.desc_frame.setStyleSheet(f"""
             QFrame#mcp_catalog_desc_frame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -713,21 +713,21 @@ class MCPToolCatalogWidget(QWidget):
                 padding: 10px;
             }}
         """)
-        desc_layout = QVBoxLayout(desc_frame)
+        desc_layout = QVBoxLayout(self.desc_frame)
         desc_layout.setContentsMargins(8, 8, 8, 8)
         desc_layout.setSpacing(4)
 
-        lbl_desc_title = QLabel(tr("DESCRIPTION DE LA FONCTION :"), desc_frame)
+        lbl_desc_title = QLabel(tr("DESCRIPTION DE LA FONCTION :"), self.desc_frame)
         lbl_desc_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 700; border: none;")
         desc_layout.addWidget(lbl_desc_title)
 
-        self.lbl_detail_desc = QLabel(desc_frame)
+        self.lbl_detail_desc = QLabel(self.desc_frame)
         self.lbl_detail_desc.setWordWrap(True)
         self.lbl_detail_desc.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.lbl_detail_desc.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12.5px; line-height: 1.4; border: none;")
         desc_layout.addWidget(self.lbl_detail_desc)
 
-        layout.addWidget(desc_frame)
+        layout.addWidget(self.desc_frame)
 
         # ── Carte Garde-fous et Directives de Sécurité ──
         self.frame_safeguards = QFrame(container)
@@ -1005,13 +1005,13 @@ class MCPToolCatalogWidget(QWidget):
             font_code = QFont(DesignTokens.FONT_CODE, 10)
             font_code.setBold(True)
             item_name.setFont(font_code)
-            item_name.setForeground(Qt.GlobalColor.white if DesignTokens.IS_DARK else Qt.GlobalColor.black)
+            item_name.setForeground(QColor(DesignTokens.TEXT_PRIMARY))
             self.params_table.setItem(row, 0, item_name)
 
             # 2. Type
             p_type = p_info.get("type", "any")
             item_type = QTableWidgetItem(p_type)
-            item_type.setForeground(Qt.GlobalColor.gray)
+            item_type.setForeground(QColor(DesignTokens.TEXT_MUTED))
             self.params_table.setItem(row, 1, item_type)
 
             # 3. Requis ?
@@ -1022,9 +1022,9 @@ class MCPToolCatalogWidget(QWidget):
             font_req.setBold(is_req)
             item_req.setFont(font_req)
             if is_req:
-                item_req.setForeground(Qt.GlobalColor.red)
+                item_req.setForeground(QColor(DesignTokens.COLOR_RED))
             else:
-                item_req.setForeground(Qt.GlobalColor.gray)
+                item_req.setForeground(QColor(DesignTokens.TEXT_MUTED))
             self.params_table.setItem(row, 2, item_req)
 
             # 4. Description et valeur par défaut
@@ -1118,6 +1118,65 @@ class MCPToolCatalogWidget(QWidget):
         # Actualisation de l'icône de détail
         if self._current_tool and hasattr(self, "lbl_detail_icon"):
             self.lbl_detail_icon.setPixmap(load_phosphor_icon(self._current_tool.domain_icon, color=accent_primary).pixmap(24, 24))
+
+        # Actualisation du volet droit de détail
+        color_orange = getattr(profile, "color_orange", DesignTokens.COLOR_ORANGE)
+        text_secondary = getattr(profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
+        text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
+
+        if hasattr(self, "desc_frame") and self.desc_frame is not None:
+            self.desc_frame.setStyleSheet(f"""
+                QFrame#mcp_catalog_desc_frame {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_col};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 10px;
+                }}
+            """)
+
+        if hasattr(self, "frame_safeguards") and self.frame_safeguards is not None:
+            self.frame_safeguards.setStyleSheet(f"""
+                QFrame#mcp_catalog_safeguards_frame {{
+                    background-color: {bg_input};
+                    border: 1px solid {color_orange};
+                    border-left: 4px solid {color_orange};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 8px;
+                }}
+            """)
+
+        if hasattr(self, "params_table") and self.params_table is not None:
+            self.params_table.setStyleSheet(f"""
+                QTableWidget#mcp_catalog_params_table {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_col};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    gridline-color: {border_col};
+                    font-size: 11.5px;
+                }}
+                QHeaderView::section {{
+                    background-color: {bg_panel};
+                    color: {text_secondary};
+                    font-size: 10px;
+                    font-weight: 700;
+                    padding: 4px;
+                    border: none;
+                    border-bottom: 1px solid {border_col};
+                }}
+            """)
+
+        if hasattr(self, "edit_json_signature") and self.edit_json_signature is not None:
+            self.edit_json_signature.setStyleSheet(f"""
+                QPlainTextEdit#mcp_catalog_json_signature {{
+                    background-color: {bg_input};
+                    color: {text_primary};
+                    border: 1px solid {border_col};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    font-family: {DesignTokens.FONT_CODE};
+                    font-size: 11.5px;
+                    padding: 8px;
+                }}
+            """)
 
 
 __all__ = [

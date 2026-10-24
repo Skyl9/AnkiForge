@@ -459,7 +459,8 @@ class MCPWorkspaceGuideWidget(QWidget):
 
         for p in self._personas_cache:
             type_label = f"[{p.persona_type.upper()}]" if p.persona_type else "[MCP]"
-            item = QListWidgetItem(f"🤖  {p.name}  {type_label}")
+            item = QListWidgetItem(f"{p.name}  {type_label}")
+            item.setIcon(load_phosphor_icon("ph.robot", color=DesignTokens.ACCENT_PRIMARY))
             item.setData(Qt.ItemDataRole.UserRole, p.id)
             self.list_personas.addItem(item)
 

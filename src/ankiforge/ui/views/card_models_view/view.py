@@ -883,7 +883,7 @@ class CardModelsView(QWidget):
         self._default_note_type_id = int(model.id)
         SettingsService.set("card_models/default_note_type_id", self._default_note_type_id, category="ui")
         self.refresh_data()
-        show_toast(self, self.tr("Type de note par défaut défini : %1", model.name))
+        show_toast(self, tr("Type de note par défaut défini : %1", model.name))
 
     def _on_filter_notes_by_model(self, model: NoteTypeModel | None = None) -> None:
         if model is None and self._current_model:

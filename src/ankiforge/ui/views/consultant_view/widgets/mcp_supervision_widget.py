@@ -374,10 +374,10 @@ class MCPSupervisionWidget(QWidget):
         self.tab_bar_clients = QTabBar()
         self.tab_bar_clients.setDrawBase(False)
         self.tab_bar_clients.setStyleSheet("QTabBar { border: none; background: transparent; font-size: 12px; }")
-        self.tab_bar_clients.addTab("Claude (Desktop & Code)")
-        self.tab_bar_clients.addTab("Antigravity CLI (agy)")
-        self.tab_bar_clients.addTab("Cursor / Windsurf")
-        self.tab_bar_clients.addTab("cURL / CLI")
+        self.tab_bar_clients.addTab(self.tr("Claude (Desktop & Code)"))
+        self.tab_bar_clients.addTab(self.tr("Antigravity CLI (agy)"))
+        self.tab_bar_clients.addTab(self.tr("Cursor / Windsurf"))
+        self.tab_bar_clients.addTab(self.tr("cURL / CLI"))
         self.tab_bar_clients.currentChanged.connect(self._on_client_tab_changed)
         snippets_layout.addWidget(self.tab_bar_clients)
 
@@ -619,9 +619,12 @@ class MCPSupervisionWidget(QWidget):
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif sans cascade de contour parasite."""
         bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
+        bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
         bg_main = getattr(profile, "bg_main", DesignTokens.BG_MAIN)
         text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
+        text_secondary = getattr(profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
+        text_muted = getattr(profile, "text_muted", DesignTokens.TEXT_MUTED)
         accent_primary = getattr(profile, "accent_primary", DesignTokens.ACCENT_PRIMARY)
 
         card_style_tpl = "QFrame#{name} {{ background-color: {bg}; border: 1px solid {border}; border-radius: 8px; }} QFrame#{name} QLabel {{ border: none; background: transparent; }}"
@@ -644,12 +647,25 @@ class MCPSupervisionWidget(QWidget):
                 f"QPlainTextEdit#mcp_edit_request_prompt {{ background-color: {bg_main}; color: {text_primary}; "
                 f"border: 1px solid {border_color}; border-radius: 6px; font-family: {DesignTokens.FONT_CODE}; font-size: 11.5px; padding: 6px; }}"
             )
+
+        line_edit_style = (
+            f"QLineEdit {{ background-color: {bg_input}; color: {text_primary}; "
+            f"border: 1px solid {border_color}; border-radius: 6px; padding: 4px 8px; "
+            f"font-family: {DesignTokens.FONT_CODE}; font-size: 11.5px; }}"
+        )
+        if hasattr(self, "edit_url_http"):
+            self.edit_url_http.setStyleSheet(line_edit_style)
+        if hasattr(self, "edit_url_sse"):
+            self.edit_url_sse.setStyleSheet(line_edit_style)
+        if hasattr(self, "edit_token"):
+            self.edit_token.setStyleSheet(line_edit_style)
+
         if hasattr(self, "lbl_port_info"):
-            self.lbl_port_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; margin-left: 6px; background: transparent; border: none;")
+            self.lbl_port_info.setStyleSheet(f"color: {text_muted}; font-size: 12px; margin-left: 6px; background: transparent; border: none;")
         if hasattr(self, "lbl_transport_info"):
-            self.lbl_transport_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; margin-left: 6px; background: transparent; border: none;")
+            self.lbl_transport_info.setStyleSheet(f"color: {text_muted}; font-size: 12px; margin-left: 6px; background: transparent; border: none;")
         if hasattr(self, "lbl_snippet_hint"):
-            self.lbl_snippet_hint.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; background: transparent; border: none;")
+            self.lbl_snippet_hint.setStyleSheet(f"color: {text_secondary}; font-size: 12px; background: transparent; border: none;")
 
 
 __all__ = ["MCPSupervisionWidget"]

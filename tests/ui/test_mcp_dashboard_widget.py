@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 from PySide6.QtGui import QGuiApplication
@@ -14,7 +15,7 @@ from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import (
 pytestmark = pytest.mark.ui
 
 
-def test_mcp_dashboard_widget_initialization(qtbot) -> None:
+def test_mcp_dashboard_widget_initialization(qtbot: Any) -> None:
     """Vérifie l'initialisation du tableau de bord MCP et l'état par défaut (arrêté)."""
     widget = MCPServerDashboardWidget(initial_status="stopped", initial_port=8765, initial_token="test_token_123")
     qtbot.addWidget(widget)
@@ -35,7 +36,7 @@ def test_mcp_dashboard_widget_initialization(qtbot) -> None:
     assert not widget.banner_context_request.isVisible()
 
 
-def test_mcp_dashboard_widget_set_status(qtbot) -> None:
+def test_mcp_dashboard_widget_set_status(qtbot: Any) -> None:
     """Vérifie la mise à jour dynamique de statut, port et token."""
     widget = MCPServerDashboardWidget(initial_status="stopped", initial_port=8765)
     qtbot.addWidget(widget)
@@ -53,7 +54,7 @@ def test_mcp_dashboard_widget_set_status(qtbot) -> None:
     assert widget.btn_restart.isEnabled()
 
 
-def test_mcp_dashboard_widget_lifecycle_signals(qtbot) -> None:
+def test_mcp_dashboard_widget_lifecycle_signals(qtbot: Any) -> None:
     """Vérifie l'émission des signaux de pilotage du démon."""
     widget = MCPServerDashboardWidget(initial_status="stopped")
     qtbot.addWidget(widget)
@@ -73,7 +74,7 @@ def test_mcp_dashboard_widget_lifecycle_signals(qtbot) -> None:
         widget.btn_rotate_token.click()
 
 
-def test_mcp_dashboard_widget_snippets_generation(qtbot) -> None:
+def test_mcp_dashboard_widget_snippets_generation(qtbot: Any) -> None:
     """Vérifie que les 4 snippets de configuration client sont valides et contiennent l'URL et le jeton."""
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765, initial_token="secret_abc")
     qtbot.addWidget(widget)
@@ -103,7 +104,7 @@ def test_mcp_dashboard_widget_snippets_generation(qtbot) -> None:
     assert "Bearer secret_abc" in curl_snippet
 
 
-def test_mcp_dashboard_widget_copy_config(qtbot) -> None:
+def test_mcp_dashboard_widget_copy_config(qtbot: Any) -> None:
     """Vérifie la copie du snippet courant dans le presse-papiers."""
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765, initial_token="secret_xyz")
     qtbot.addWidget(widget)
@@ -116,7 +117,7 @@ def test_mcp_dashboard_widget_copy_config(qtbot) -> None:
     assert "Bearer secret_xyz" in text
 
 
-def test_mcp_dashboard_widget_pending_request_banner(qtbot) -> None:
+def test_mcp_dashboard_widget_pending_request_banner(qtbot: Any) -> None:
     """Vérifie l'affichage, la copie et la fermeture du bandeau de requête contextuelle."""
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765, initial_token="secret_xyz")
     qtbot.addWidget(widget)
@@ -144,7 +145,7 @@ def test_mcp_dashboard_widget_pending_request_banner(qtbot) -> None:
     assert widget.pending_request is None
 
 
-def test_mcp_dashboard_widget_no_border_cascade_on_children(qtbot) -> None:
+def test_mcp_dashboard_widget_no_border_cascade_on_children(qtbot: Any) -> None:
     """Vérifie que les conteneurs QFrame sont scopés par ID et qu'aucun QLabel enfant n'hérite de bordure parasite."""
     from ankiforge.ui.style_engine import JETBRAINS_LIGHT
 
@@ -180,7 +181,7 @@ def test_mcp_dashboard_widget_no_border_cascade_on_children(qtbot) -> None:
         assert "background: transparent" in style
 
 
-def test_mcp_dashboard_segmented_tab_bar_integration(qtbot) -> None:
+def test_mcp_dashboard_segmented_tab_bar_integration(qtbot: Any) -> None:
     """Vérifie l'intégration du composant officiel SegmentedTabBar en mode subtab."""
     from ankiforge.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
 
@@ -203,7 +204,7 @@ def test_mcp_dashboard_segmented_tab_bar_integration(qtbot) -> None:
     assert widget.stacked_widget.widget(4) is widget.workspace_guide_widget
 
 
-def test_mcp_activity_detail_dialog(qtbot) -> None:
+def test_mcp_activity_detail_dialog(qtbot: Any) -> None:
     """Vérifie l'affichage et les contrôles du dialogue d'inspection détaillée."""
     from datetime import datetime
 
@@ -242,7 +243,7 @@ def test_mcp_activity_detail_dialog(qtbot) -> None:
     assert "call1234" in copied_text
 
 
-def test_mcp_dashboard_sub_tabs_navigation(qtbot) -> None:
+def test_mcp_dashboard_sub_tabs_navigation(qtbot: Any) -> None:
     """Vérifie la navigation et la synchronisation des 4 sous-onglets du tableau de bord."""
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
     qtbot.addWidget(widget)
@@ -284,7 +285,7 @@ def test_mcp_dashboard_sub_tabs_navigation(qtbot) -> None:
     assert widget.stacked_widget.currentIndex() == 0
 
 
-def test_mcp_dashboard_telemetry_badge_dynamic_update(qtbot) -> None:
+def test_mcp_dashboard_telemetry_badge_dynamic_update(qtbot: Any) -> None:
     """Vérifie l'actualisation dynamique du badge et du libellé Activité (N) sur le sous-onglet."""
     from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
 
@@ -318,7 +319,7 @@ def test_mcp_dashboard_telemetry_badge_dynamic_update(qtbot) -> None:
     assert widget.sub_tab_bar.tab_badge("telemetrie") == ""
 
 
-def test_mcp_dashboard_patch_staged_notification_and_badge(qtbot, monkeypatch) -> None:
+def test_mcp_dashboard_patch_staged_notification_and_badge(qtbot: Any, monkeypatch: Any) -> None:
     """Vérifie l'actualisation dynamique du badge et l'affichage d'un toast discret sans redirection forcée."""
     from ankiforge.database.models import StagedPatchModel
     from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
@@ -356,7 +357,7 @@ def test_mcp_dashboard_patch_staged_notification_and_badge(qtbot, monkeypatch) -
     StagedPatchModel.delete().execute()
 
 
-def test_mcp_dashboard_event_bus_relay(qtbot) -> None:
+def test_mcp_dashboard_event_bus_relay(qtbot: Any) -> None:
     """Vérifie que MCPPatchStagedEvent sur l'EventBus met à jour le dashboard de manière thread-safe."""
     from PySide6.QtWidgets import QApplication
 
@@ -396,7 +397,7 @@ def test_mcp_dashboard_event_bus_relay(qtbot) -> None:
     StagedPatchModel.delete().execute()
 
 
-def test_mcp_dashboard_auto_selection_on_empty_queue(qtbot) -> None:
+def test_mcp_dashboard_auto_selection_on_empty_queue(qtbot: Any) -> None:
     """Vérifie que si la file était vide et l'utilisateur sur l'onglet Garde-Fou, le premier patch est sélectionné."""
     from ankiforge.database.models import StagedPatchModel
     from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
@@ -429,3 +430,43 @@ def test_mcp_dashboard_auto_selection_on_empty_queue(qtbot) -> None:
 
     # Nettoyage
     StagedPatchModel.delete().execute()
+
+
+def test_mcp_dashboard_full_contract_and_theme_propagation(qtbot: Any) -> None:
+    """Valide le contrat complet des 5 sous-onglets et la propagation du thème à tous les sous-composants."""
+    from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
+
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765, initial_token="token_contract")
+    qtbot.addWidget(widget)
+
+    # 1. 5 sous-onglets avec mode subtab
+    assert widget.sub_tab_bar.count() == 5
+    assert widget.sub_tab_bar.variant == "subtab"
+    assert widget.stacked_widget.count() == 5
+
+    # 2. Vérification des 5 sous-widgets dédiés
+    assert widget.stacked_widget.widget(0) is widget.supervision_widget
+    assert widget.stacked_widget.widget(1) is widget.garde_fou_widget
+    assert widget.stacked_widget.widget(2) is widget.catalog_widget
+    assert widget.stacked_widget.widget(3) is widget.telemetry_widget
+    assert widget.stacked_widget.widget(4) is widget.workspace_guide_widget
+
+    # 3. Basculement et déclenchement des hooks paresseux
+    widget.sub_tab_bar.setCurrentIndex(1)
+    assert widget.stacked_widget.currentIndex() == 1
+
+    widget.sub_tab_bar.setCurrentIndex(4)
+    assert widget.stacked_widget.currentIndex() == 4
+
+    widget.sub_tab_bar.setCurrentIndex(2)
+    assert widget.stacked_widget.currentIndex() == 2
+
+    widget.sub_tab_bar.setCurrentIndex(3)
+    assert widget.stacked_widget.currentIndex() == 3
+
+    widget.sub_tab_bar.setCurrentIndex(0)
+    assert widget.stacked_widget.currentIndex() == 0
+
+    # 4. Propagation du thème sombre et clair à tous les composants
+    widget.refresh_theme(JETBRAINS_DARK)
+    widget.refresh_theme(JETBRAINS_LIGHT)
