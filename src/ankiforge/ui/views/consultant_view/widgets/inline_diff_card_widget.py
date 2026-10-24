@@ -952,21 +952,6 @@ class InlineDiffCardWidget(QFrame):
                     for fw in self.field_widgets:
                         fw.set_applied(True)
 
-                    # Sauvegarder l'état appliqué dans ConsultantMessageModel pour les prochaines sessions
-                    try:
-                        from ankiforge.database.models import ConsultantMessageModel
-
-                        db_msgs = ConsultantMessageModel.select().where(ConsultantMessageModel.staged_diffs_json.is_null(False)).order_by(ConsultantMessageModel.id.desc()).limit(10)
-                        for m in db_msgs:
-                            if m.staged_diffs_json and str(note.id) in m.staged_diffs_json:
-                                st = json.loads(m.staged_diffs_json)
-                                st["is_applied"] = True
-                                m.staged_diffs_json = json.dumps(st, ensure_ascii=False)
-                                m.save()
-                                break
-                    except Exception as ex_db:
-                        logger.debug("Mise à jour staged_diffs_json BDD : %s", ex_db)
-
                     self.applied.emit(f"Note #{note.id} refactorisée")
                     show_toast(self, tr("Note #%1 mise à jour en BDD (version %2) !", note.id, new_v_num))
 

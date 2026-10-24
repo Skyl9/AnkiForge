@@ -264,10 +264,6 @@ def test_t5_shortcuts_catalog_integrity() -> None:
         ShortcutId.PIPELINES_NEW,
         ShortcutId.PIPELINES_MOVE_STEP_UP,
         ShortcutId.PIPELINES_MOVE_STEP_DOWN,
-        ShortcutId.CONSULTANT_NEW_CHAT,
-        ShortcutId.CONSULTANT_EXPORT_SESSION,
-        ShortcutId.CONSULTANT_TOGGLE_SIDEBAR,
-        ShortcutId.CONSULTANT_TOGGLE_INSPECTOR,
         ShortcutId.AB_SAMPLE_A_PREV,
         ShortcutId.AB_SAMPLE_A_NEXT,
         ShortcutId.AB_SAMPLE_B_PREV,
@@ -310,10 +306,6 @@ def test_t5_shortcuts_catalog_integrity() -> None:
     assert catalog[ShortcutId.PIPELINES_NEW].default_sequence == "Ctrl+N"
     assert catalog[ShortcutId.PIPELINES_MOVE_STEP_UP].default_sequence == "Ctrl+Up"
     assert catalog[ShortcutId.PIPELINES_MOVE_STEP_DOWN].default_sequence == "Ctrl+Down"
-    assert catalog[ShortcutId.CONSULTANT_NEW_CHAT].default_sequence == "Ctrl+N"
-    assert catalog[ShortcutId.CONSULTANT_EXPORT_SESSION].default_sequence == "Ctrl+Alt+E"
-    assert catalog[ShortcutId.CONSULTANT_TOGGLE_SIDEBAR].default_sequence == "Ctrl+Alt+B"
-    assert catalog[ShortcutId.CONSULTANT_TOGGLE_INSPECTOR].default_sequence == "Ctrl+Alt+I"
     assert catalog[ShortcutId.AB_SAMPLE_A_PREV].default_sequence == "Alt+Up"
     assert catalog[ShortcutId.AB_SAMPLE_A_NEXT].default_sequence == "Alt+Down"
     assert catalog[ShortcutId.AB_SAMPLE_B_PREV].default_sequence == "Alt+Left"

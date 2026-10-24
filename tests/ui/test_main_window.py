@@ -247,9 +247,10 @@ def test_main_window_navigates_to_analysis_with_doc_id(qtbot, mock_db):
 
 
 def test_main_window_consultant_mcp_wiring_and_title(qtbot, mock_db):
-    """Vérifie que la vue consultant est intitulée MCP & Agents et que la synchronisation d'état fonctionne."""
+    """Vérifie que la vue consultant est intitulée Serveur MCP & Agents et que la synchronisation d'état fonctionne."""
     registry = MainWindow.view_registry()
-    assert registry["consultant"][2] == "MCP & Agents"
+    assert registry["consultant"][1] == "plugs-connected"
+    assert registry["consultant"][2] == "Serveur MCP & Agents"
 
     with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)

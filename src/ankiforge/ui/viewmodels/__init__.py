@@ -9,7 +9,6 @@ from ankiforge.ui.viewmodels.agents_viewmodel import AgentsViewModel
 from ankiforge.ui.viewmodels.analysis_viewmodel import AnalysisViewModel
 from ankiforge.ui.viewmodels.base import BaseViewModel
 from ankiforge.ui.viewmodels.batch_viewmodel import BatchViewModel
-from ankiforge.ui.viewmodels.consultant_viewmodel import ConsultantViewModel
 from ankiforge.ui.viewmodels.creation_viewmodel import CreationViewModel
 from ankiforge.ui.viewmodels.dashboard_viewmodel import DashboardViewModel
 from ankiforge.ui.viewmodels.documents_viewmodel import DocumentsViewModel
@@ -22,7 +21,6 @@ __all__ = [
     "CreationViewModel",
     "BatchViewModel",
     "AnalysisViewModel",
-    "ConsultantViewModel",
     "EditionViewModel",
     "DocumentsViewModel",
     "AgentsViewModel",

@@ -672,39 +672,6 @@ def build_shortcut_catalog() -> dict[ShortcutId, ShortcutDefinition]:
             title_getter=lambda: tr("Supprimer l'étape ciblée"),
             description_getter=lambda: tr("Supprime l'étape actuellement sélectionnée dans le workflow"),
         ),
-        # Consultant IA (T5)
-        ShortcutId.CONSULTANT_NEW_CHAT: ShortcutDefinition(
-            id=ShortcutId.CONSULTANT_NEW_CHAT,
-            category=ShortcutCategory.CONSULTANT,
-            scope=ShortcutScope.VUE,
-            default_sequence="Ctrl+N",
-            title_getter=lambda: tr("Nouvelle discussion"),
-            description_getter=lambda: tr("Démarre une nouvelle session de chat avec le consultant IA"),
-        ),
-        ShortcutId.CONSULTANT_EXPORT_SESSION: ShortcutDefinition(
-            id=ShortcutId.CONSULTANT_EXPORT_SESSION,
-            category=ShortcutCategory.CONSULTANT,
-            scope=ShortcutScope.VUE,
-            default_sequence="Ctrl+Alt+E",
-            title_getter=lambda: tr("Exporter la session"),
-            description_getter=lambda: tr("Exporte l'historique de la discussion courante en Markdown"),
-        ),
-        ShortcutId.CONSULTANT_TOGGLE_SIDEBAR: ShortcutDefinition(
-            id=ShortcutId.CONSULTANT_TOGGLE_SIDEBAR,
-            category=ShortcutCategory.CONSULTANT,
-            scope=ShortcutScope.VUE,
-            default_sequence="Ctrl+Alt+B",
-            title_getter=lambda: tr("Barre latérale des sessions"),
-            description_getter=lambda: tr("Affiche ou masque l'arborescence des discussions antérieures"),
-        ),
-        ShortcutId.CONSULTANT_TOGGLE_INSPECTOR: ShortcutDefinition(
-            id=ShortcutId.CONSULTANT_TOGGLE_INSPECTOR,
-            category=ShortcutCategory.CONSULTANT,
-            scope=ShortcutScope.VUE,
-            default_sequence="Ctrl+Alt+I",
-            title_getter=lambda: tr("Inspecteur d'activité"),
-            description_getter=lambda: tr("Affiche ou masque le volet d'inspection MCP et télémétrie"),
-        ),
         # Laboratoire A/B (T5)
         ShortcutId.AB_SAMPLE_A_PREV: ShortcutDefinition(
             id=ShortcutId.AB_SAMPLE_A_PREV,

@@ -32,7 +32,6 @@ class ShortcutCategory(StrEnum):
     ANALYSE = "Analyse & Audit"
     MODELES = "Types de Note"
     PIPELINES = "Pipelines & Agents"
-    CONSULTANT = "Consultant IA"
     AB_TEST = "Laboratoire A/B"
     MERGE = "Smart Merge"
     OUTILLAGE = "Outillage & Debug"
@@ -152,12 +151,6 @@ class ShortcutId(StrEnum):
     PIPELINES_MOVE_STEP_UP = "pipelines.move_step_up"
     PIPELINES_MOVE_STEP_DOWN = "pipelines.move_step_down"
     PIPELINES_DELETE_STEP = "pipelines.delete_step"
-
-    # Consultant IA (T5)
-    CONSULTANT_NEW_CHAT = "consultant.new_chat"
-    CONSULTANT_EXPORT_SESSION = "consultant.export_session"
-    CONSULTANT_TOGGLE_SIDEBAR = "consultant.toggle_sidebar"
-    CONSULTANT_TOGGLE_INSPECTOR = "consultant.toggle_inspector"
 
     # Laboratoire A/B (T5)
     AB_SAMPLE_A_PREV = "ab.sample_a_prev"

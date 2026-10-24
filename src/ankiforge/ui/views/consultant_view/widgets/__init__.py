@@ -1,10 +1,5 @@
-"""Widgets spécialisés pour le module Consultant IA."""
+"""Widgets spécialisés pour le cockpit du Serveur MCP & Agents (ADR 0034 §4)."""
 
-from ankiforge.ui.views.consultant_view.widgets.chat_input import ConsultantChatInput
-from ankiforge.ui.views.consultant_view.widgets.chat_message_widget import ChatMessageWidget
-from ankiforge.ui.views.consultant_view.widgets.context_hub_widget import ContextHubWidget
-from ankiforge.ui.views.consultant_view.widgets.embedded_card_preview_widget import EmbeddedCardPreviewWidget
-from ankiforge.ui.views.consultant_view.widgets.embedded_card_table_widget import EmbeddedCardTableWidget
 from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import InlineDiffCardWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import MCPServerDashboardWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
@@ -12,19 +7,8 @@ from ankiforge.ui.views.consultant_view.widgets.mcp_supervision_widget import MC
 from ankiforge.ui.views.consultant_view.widgets.mcp_telemetry_widget import MCPTelemetryWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_tool_catalog_widget import MCPToolCatalogWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_workspace_guide_widget import MCPWorkspaceGuideWidget
-from ankiforge.ui.views.consultant_view.widgets.mention_completer import MentionCompleter
-from ankiforge.ui.views.consultant_view.widgets.session_sidebar import ConsultantSessionSidebar
-from ankiforge.ui.views.consultant_view.widgets.thought_step_widget import ThoughtStepWidget
-from ankiforge.ui.views.consultant_view.widgets.tool_call_widget import ToolCallWidget
-from ankiforge.ui.views.consultant_view.widgets.workspace_inspector_widget import WorkspaceInspectorWidget
 
 __all__ = [
-    "ChatMessageWidget",
-    "ConsultantChatInput",
-    "ConsultantSessionSidebar",
-    "ContextHubWidget",
-    "EmbeddedCardPreviewWidget",
-    "EmbeddedCardTableWidget",
     "InlineDiffCardWidget",
     "MCPGardeFouWidget",
     "MCPServerDashboardWidget",
@@ -32,8 +16,4 @@ __all__ = [
     "MCPTelemetryWidget",
     "MCPToolCatalogWidget",
     "MCPWorkspaceGuideWidget",
-    "MentionCompleter",
-    "ThoughtStepWidget",
-    "ToolCallWidget",
-    "WorkspaceInspectorWidget",
 ]

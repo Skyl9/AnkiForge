@@ -259,7 +259,6 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location filename="../../ui/components/linter_widgets.py" line="+258"/>
         <location filename="../../ui/views/batch_view/widgets/progress_cell_widget.py" line="+36"/>
         <location line="+36"/>
-        <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+804"/>
         <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+744"/>
         <location line="+10"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+745"/>
@@ -306,7 +305,6 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location line="+6"/>
         <location line="+64"/>
         <location filename="../../ui/views/analysis_view/tabs/duplicates_merge_tab.py" line="+192"/>
-        <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+111"/>
         <location filename="../../ui/views/creation_view/view.py" line="+1721"/>
         <location line="+29"/>
         <location filename="../../ui/widgets/segment_inspector_widget.py" line="+509"/>
@@ -1486,7 +1484,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
     </message>
     <message>
         <location line="+1"/>
-        <source>MCP &amp; Agents</source>
+        <source>Serveur MCP &amp; Agents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1539,7 +1537,12 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+372"/>
+        <location line="+149"/>
+        <source>Espace Serveur MCP &amp; Agents actif.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+223"/>
         <source>Un pipeline DAG « %1 » n&apos;a pas été terminé lors de la session précédente (interrompu à l&apos;étape %2).
 
 Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
@@ -2289,46 +2292,6 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+8"/>
-        <source>Nouvelle discussion</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Démarre une nouvelle session de chat avec le consultant IA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
-        <source>Exporter la session</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Exporte l&apos;historique de la discussion courante en Markdown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
-        <source>Barre latérale des sessions</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Affiche ou masque l&apos;arborescence des discussions antérieures</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
-        <source>Inspecteur d&apos;activité</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Affiche ou masque le volet d&apos;inspection MCP et télémétrie</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
         <source>Échantillon A précédent</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2601,7 +2564,6 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/views/consultant_view/widgets/embedded_card_table_widget.py" line="+131"/>
         <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-3537"/>
         <source>%1 carte%2</source>
         <translation type="unfinished"></translation>
@@ -3498,165 +3460,6 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="+447"/>
-        <source>Afficher/Masquer l&apos;historique des discussions (%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+16"/>
-        <source>Afficher/Masquer le Hub de Contexte (%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Exporter la session complète en Markdown (%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+12"/>
-        <source>Nouvelle discussion (%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+193"/>
-        <source>Espace de Travail</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+95"/>
-        <source>Session exportée avec succès (%1) !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Erreur lors de l&apos;export : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+37"/>
-        <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="-138"/>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-19"/>
-        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+940"/>
-        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+309"/>
-        <source>%1%2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+39"/>
-        <source>💬 %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+107"/>
-        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="+177"/>
-        <source>Voulez-vous vraiment supprimer la discussion &apos;%1&apos; ?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+99"/>
-        <source>Proposition de modification</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+91"/>
-        <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="+169"/>
-        <source>&quot;%1&quot;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+133"/>
-        <source>%1 tokens</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+82"/>
-        <source>Note #%1 restaurée à la version %2 !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
-        <source>Erreur Time Machine : %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+418"/>
-        <source>⏳ %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="+247"/>
-        <source>🧠 %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+104"/>
-        <source>Style CSS injecté avec succès dans le type de note &apos;%1&apos; !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Erreur application CSS: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+21"/>
-        <source>%1 cartes importées dans le paquet &apos;Consultant_Imports&apos; !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Erreur import cartes: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="-633"/>
-        <source>~%1 tok</source>
-        <comment>{token_est:,}</comment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+128"/>
-        <source>Tous outils</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message numerus="yes">
-        <location line="+473"/>
-        <source>%1 / %2k tokens (%3%%)</source>
-        <comment>{total:,}</comment>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
-        </translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>~%1 tok</source>
-        <comment>{self._persona_tokens:,}</comment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>~%1 tok</source>
-        <comment>{self._history_tokens:,}</comment>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+45"/>
-        <source>%1 outils</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Outils autorisés pour cet agent :
-%1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/embedded_card_table_widget.py" line="+25"/>
-        <source>Ouvrir la note #%1 dans l&apos;Éditeur</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+7"/>
         <location line="+194"/>
         <source>%1 ➔ %2 mots</source>
@@ -3699,7 +3502,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+59"/>
+        <location line="+44"/>
         <source>Note #%1 mise à jour en BDD (version %2) !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3715,7 +3518,6 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+44"/>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="+762"/>
         <source>Erreur d&apos;annulation : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4068,76 +3870,6 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="+152"/>
-        <source>📦 %1 mod.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/thought_step_widget.py" line="+119"/>
-        <source>Réflexion en cours... (%1 • %2)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>🧠 Réflexion terminée en %1 (%2 tokens)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>🧠 Réflexion terminée (~%1 tokens)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/tool_call_widget.py" line="+47"/>
-        <source>Outil invoqué : &lt;b&gt;%1&lt;/b&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Exécution...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+16"/>
-        <source>&lt;b&gt;Entrée (JSON) :&lt;/b&gt; &lt;code&gt;%1&lt;/code&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-675"/>
-        <source>En veille</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+299"/>
-        <source>🛡️ En attente (%1/%2)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Proposition %1 / %2</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Tout appliquer (%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+382"/>
-        <source>⚠️ Confirmer (%1) ?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+25"/>
-        <source>✅ %1 modifications appliquées</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>%1 modifications enregistrées avec succès en BDD !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="-45"/>
         <source>Éditer la carte — %1</source>
         <translation type="unfinished"></translation>
@@ -4450,12 +4182,19 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-16"/>
+        <location filename="../../ui/views/documents_view/dialogs/delimitation_dialog.py" line="-35"/>
         <source>H%1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+16"/>
+        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+940"/>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+309"/>
+        <source>%1%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
         <location line="+3"/>
         <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+532"/>
         <location line="+2"/>
@@ -9728,34 +9467,6 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
-    <name>ChatMessageWidget</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/chat_message_widget.py" line="-349"/>
-        <source>🧠 Réflexion &amp;&amp; Outils ReAct</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+277"/>
-        <source>⏹ &lt;i&gt;Génération interrompue par l&apos;utilisateur.&lt;/i&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+27"/>
-        <source>Copier le texte</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Réponse copiée dans le presse-papiers !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+17"/>
-        <source>Format JSON introuvable dans la réponse.</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>CommandPalette</name>
     <message>
         <location filename="../../ui/widgets/command_palette.py" line="-189"/>
@@ -9782,401 +9493,10 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
-    <name>ConsultantChatInput</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/chat_input.py" line="+36"/>
-        <source>Posez une question, tapez &apos;@&apos; pour attacher ou &apos;/&apos; pour les commandes rapides...</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>ConsultantSessionSidebar</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="-111"/>
-        <source>DISCUSSIONS</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+12"/>
-        <source>Créer une nouvelle discussion avec le Consultant IA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+15"/>
-        <source>Filtrer l&apos;historique...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+52"/>
-        <source>⚡ 0 tokens</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>📦 0 mod.</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>ConsultantView</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1199"/>
-        <source>Attacher une ressource au contexte (Paquet, Document, Type de note)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Mentionner une ressource spécifique (@)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>0 tokens</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
-        <source>Le Consultant IA propose des refactorisations sous forme de diffs validables avant écriture en BDD.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+23"/>
-        <source>Serveur MCP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Consultant IA</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+25"/>
-        <location line="+1"/>
-        <location line="+1"/>
-        <location line="+507"/>
-        <location line="+366"/>
-        <source>0</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-804"/>
-        <location line="+206"/>
-        <source>Discussion renommée.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-194"/>
-        <location line="+219"/>
-        <source>Discussion supprimée.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-213"/>
-        <source>Aucune session active à exporter.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+29"/>
-        <location line="+168"/>
-        <source>Discussion copiée dans le presse-papier en Markdown !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-81"/>
-        <source>Nouvelle discussion démarrée.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+58"/>
-        <source>Renommer la discussion...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Copier la discussion en Markdown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Supprimer cette discussion</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+25"/>
-        <source>Confirmer la suppression</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+69"/>
-        <source>Action annulée en BDD.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+76"/>
-        <source>Élément retiré du contexte.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
-        <source>Interrompre la génération (Stop)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
-        <source>Envoyer la requête</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+23"/>
-        <source>Cette source est ancrée dans l&apos;historique de cette discussion.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Source retirée du contexte.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+80"/>
-        <source>Type de note inconnu</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+76"/>
-        <source>Contexte compacté avec succès !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+37"/>
-        <source>Aucune version récente du consultant à annuler.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+16"/>
-        <source>Pas de version antérieure disponible pour cette note.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+30"/>
-        <source>🎴 Paquet Anki...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>📄 Cours / Document PDF...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>🎨 Type de note...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>🗂️ Carte ciblée...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+29"/>
-        <source>Sélectionner un paquet à attacher au contexte</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+20"/>
-        <source>Sélectionner un cours / document à attacher</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
-        <source>Sélectionner un type de note</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+43"/>
-        <source>Contexte attaché !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+31"/>
-        <source>Session réinitialisée.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+104"/>
-        <source>⏹ Interruption en cours...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+37"/>
-        <source>⏳ Analyse et streaming en direct...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+47"/>
-        <source>⚠️ Quota budget proche de la limite (80%)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+141"/>
-        <source>Génération interrompue.</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>ContextAssetCard</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="-642"/>
-        <source>Cette source est ancrée dans l&apos;historique de cette discussion</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Retirer du contexte de travail</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>ContextHubWidget</name>
-    <message>
-        <location line="+56"/>
-        <source>PERSONA &amp; DIRECTIVE ACTIVE</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+75"/>
-        <source>&quot;Directeur qualité : 20 règles de Piotr Wozniak, atomicité et clarté&quot;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+17"/>
-        <source>ESPACE DE TRAVAIL</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+57"/>
-        <source>Aucune source active</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Tapez @ ou liez un paquet pour contextualiser les analyses.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+11"/>
-        <source>🎴 Paquet Anki</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+21"/>
-        <source>📄 Cours / PDF</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+37"/>
-        <source>FENÊTRE D&apos;ATTENTION &amp; TOKENS</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Inspecter le prompt brut complet (JSON)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+26"/>
-        <source>0 / 128k tokens (0%)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+43"/>
-        <source>🟣</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Persona &amp; Consignes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>~250 tok</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>🔵</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Sources de travail</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <location line="+17"/>
-        <source>0 tok</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-7"/>
-        <source>🟢</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Historique de chat</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+15"/>
-        <source>Résumer automatiquement l&apos;historique pour libérer des tokens</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+210"/>
-        <source>MCP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Pipeline</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Global</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Tous outils</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Cet agent dispose d&apos;un accès intégral à tous les outils de la collection.</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>ContextItem</name>
     <message>
         <location filename="../../ui/components/lists.py" line="+208"/>
         <source>Supprimer</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>ContextPillBadge</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/view.py" line="-1682"/>
-        <source>Cliquer pour retirer du contexte</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Source ancrée dans l&apos;historique de cette discussion</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -13142,52 +12462,6 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
-    <name>EmbeddedCardPreviewWidget</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/embedded_card_preview_widget.py" line="+117"/>
-        <source>RECTO</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+41"/>
-        <source>Verso</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Ouvrir dans l&apos;Éditeur</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>EmbeddedCardTableWidget</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/embedded_card_table_widget.py" line="-58"/>
-        <source>🔒 Figé</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+11"/>
-        <source>ID</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Type de note</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Recto</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Verso</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>ExportDialog</name>
     <message>
         <location filename="../../ui/dialogs/export_dialog.py" line="-286"/>
@@ -13579,7 +12853,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FieldDiffWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="-843"/>
+        <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="-828"/>
         <source>🔍 Ratures</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14619,12 +13893,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+184"/>
         <location line="+23"/>
         <location line="+33"/>
-        <location line="+66"/>
+        <location line="+51"/>
         <source>✅ Appliqué en BDD</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-235"/>
+        <location line="-220"/>
         <source>Éditeur ↗</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14646,7 +13920,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+166"/>
+        <location line="+151"/>
         <source>↩️ Annulé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17696,19 +16970,6 @@ Utilisez {{ text_source }}.</source>
     </message>
 </context>
 <context>
-    <name>RawContextDialog</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/context_hub_widget.py" line="-796"/>
-        <source>Inspection du Contexte Brut (Prompt Augmenté)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+12"/>
-        <source>🔍 Payload JSON et Scope injectés dans la fenêtre d&apos;attention</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>ReasoningViewerDialog</name>
     <message>
         <location filename="../../ui/views/creation_view/dialogs/reasoning_dialog.py" line="-46"/>
@@ -18090,34 +17351,6 @@ Utilisez {{ text_source }}.</source>
     <message>
         <location filename="../../ui/dialogs/selection_dialog.py" line="-235"/>
         <source>Rechercher...</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>SessionItemWidget</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/session_sidebar.py" line="-178"/>
-        <source>Options de la discussion</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+21"/>
-        <source>Renommer...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Copier en Markdown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Supprimer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+22"/>
-        <source>Confirmer la suppression</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -19228,26 +18461,6 @@ Utilisez {{ text_source }}.</source>
     </message>
 </context>
 <context>
-    <name>ThoughtStepWidget</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/thought_step_widget.py" line="-63"/>
-        <location line="+128"/>
-        <location line="+8"/>
-        <source>Détails ▾</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-71"/>
-        <source>🧠 Réflexion</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+68"/>
-        <source>Masquer ▴</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>TimeMachineDialog</name>
     <message>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="-178"/>
@@ -19282,35 +18495,6 @@ Utilisez {{ text_source }}.</source>
     <message>
         <location line="+17"/>
         <source>Erreur de restauration</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>ToolCallWidget</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/tool_call_widget.py" line="-13"/>
-        <location line="+92"/>
-        <source>Voir données ▾</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-26"/>
-        <source>En cours...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Échec</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Succès</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
-        <source>Masquer ▴</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -19740,140 +18924,6 @@ https://blog.example.com/article-1</source>
     <message>
         <location filename="../../ui/components/vision_capability.py" line="+88"/>
         <source>Ce moteur analyse les images du document (payload multimodal).</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>WorkspaceInspectorWidget</name>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/workspace_inspector_widget.py" line="-721"/>
-        <source>WORKSPACE &amp; GARDE-FOU</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+30"/>
-        <source>◀</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Proposition de modification précédente</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Proposition 0 / 0</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>▶</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Proposition de modification suivante</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <location line="+264"/>
-        <source>Appliquer toutes les modifications validées en base de données</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-231"/>
-        <source>&lt;b&gt;Garde-Fou actif :&lt;/b&gt; Validez ou éditez ci-dessous avant d&apos;enregistrer en BDD.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+57"/>
-        <source>✏️ Modifiez directement le texte de la proposition avant de l&apos;appliquer :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+36"/>
-        <source>🔍 Diff Comparatif</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>✏️ Édition Directe</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>👁️ Aperçu Anki</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+23"/>
-        <source>Valider et appliquer cette modification individuelle sur la note</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Annuler la modification et revenir à la version antérieure</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Rejeter cette suggestion de refactorisation</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Copier le contenu du différentiel dans le presse-papier</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+8"/>
-        <source>SUGGESTIONS D&apos;ACTIONS SUIVANTES</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+15"/>
-        <source>En veille</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+399"/>
-        <source>✅ Appliqué en BDD</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+35"/>
-        <source>↩️ Annulé en BDD</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Modification annulée avec succès !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+16"/>
-        <source>Cliquez à nouveau pour confirmer l&apos;application par lot en BDD</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+44"/>
-        <source>❌ Proposition rejetée</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Proposition rejetée.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+126"/>
-        <source>Patch copié dans le presse-papiers !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Aucune suggestion</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         from ankiforge.ui.views.analysis_view import AnalysisView
         from ankiforge.ui.views.batch_view import BatchView
         from ankiforge.ui.views.card_models_view import CardModelsView
-        from ankiforge.ui.views.consultant_view import ConsultantView
+        from ankiforge.ui.views.consultant_view import MCPServerView
         from ankiforge.ui.views.creation_view import CreationView
         from ankiforge.ui.views.dashboard_view import DashboardView
         from ankiforge.ui.views.documents_view import DocumentsView
@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
             "creation": (tr("Forge & Outils"), "magic-wand", tr("Studio de Création"), CreationView),
             "edition": (tr("Forge & Outils"), "cards", tr("Édition & Navigateur"), EditionView),
             "analysis": (tr("Forge & Outils"), "chart-line-up", tr("Analyse & Audit IA"), AnalysisView),
-            "consultant": (tr("Forge & Outils"), "robot", tr("MCP & Agents"), ConsultantView),
+            "consultant": (tr("Forge & Outils"), "plugs-connected", tr("Serveur MCP & Agents"), MCPServerView),
             "batch": (tr("Forge & Outils"), "factory", tr("Batch Factory"), BatchView),
             "documents": (tr("Bibliothèque"), "file-text", tr("My Documents"), DocumentsView),
             "card-models": (tr("Bibliothèque"), "swatches", tr("Types de note"), CardModelsView),
@@ -254,11 +254,11 @@ class MainWindow(QMainWindow):
                 )
 
     def _on_open_consultant_requested(self, event: OpenConsultantRequestedEvent) -> None:
-        """Bascule immédiatement sur l'onglet Consultant IA et pré-attache le contexte."""
+        """Bascule immédiatement sur l'onglet Serveur MCP & Agents."""
         self._on_view_selected("consultant")
-        consultant_widget = self._view_widgets.get("consultant")
-        if consultant_widget and hasattr(consultant_widget, "attach_and_prompt"):
-            consultant_widget.attach_and_prompt(event.context_item, event.initial_prompt)
+        from ankiforge.ui.widgets.toast import show_toast
+
+        show_toast(self, tr("Espace Serveur MCP & Agents actif."))
 
     def _restore_cached_update_badge(self) -> None:
         """Restaure immédiatement le badge de mise à jour depuis le cache QSettings (sans appel HTTP).

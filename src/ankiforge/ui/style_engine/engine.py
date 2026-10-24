@@ -982,36 +982,7 @@ class StyleEngine(QObject):
             border-radius: 4px;
         }}
 
-        /* --- Consultant IA View & Chat Components --- */
-        ConsultantSessionSidebar, QFrame#ConsultantSessionSidebar {{
-            background-color: {p.bg_sidebar};
-        }}
-        SessionItemWidget, QFrame#SessionItemWidget {{
-            background-color: transparent;
-            border-radius: {p.radius_sm}px;
-            padding: 4px;
-        }}
-        SessionItemWidget:hover, QFrame#SessionItemWidget:hover {{
-            background-color: {p.bg_hover};
-        }}
-        SessionItemWidget[active="true"], QFrame#SessionItemWidget[active="true"] {{
-            background-color: {p.bg_input};
-            border-left: 2px solid {p.accent_primary};
-        }}
-
-        ContextHubWidget, QFrame#ContextHubWidget {{
-            background-color: {p.bg_panel};
-            border: none;
-        }}
-        ContextAssetCard, QFrame#ContextAssetCard {{
-            background-color: {p.bg_input};
-            border: 1px solid {p.border_color};
-            border-radius: {p.radius_sm}px;
-        }}
-        ContextAssetCard:hover, QFrame#ContextAssetCard:hover {{
-            border-color: {p.accent_primary};
-        }}
-
+        /* --- MCP View & Diffs --- */
         InlineDiffCardWidget, QFrame#InlineDiffCardWidget {{
             background-color: {p.bg_input};
             border: 1px solid {p.accent_primary};
@@ -1024,20 +995,6 @@ class StyleEngine(QObject):
         }}
         SplitCardItemWidget, QFrame#SplitCardItemWidget {{
             background-color: {p.bg_panel};
-            border: 1px solid {p.border_color};
-            border-radius: {p.radius_sm}px;
-        }}
-
-        ChatMessageWidget, QFrame#ChatMessageWidget {{
-            background-color: transparent;
-        }}
-        ThoughtStepWidget, QFrame#ThoughtStepWidget {{
-            background-color: {p.bg_input};
-            border: 1px solid {p.border_color};
-            border-radius: {p.radius_sm}px;
-        }}
-        ToolCallWidget, QFrame#ToolCallWidget {{
-            background-color: {p.bg_input};
             border: 1px solid {p.border_color};
             border-radius: {p.radius_sm}px;
         }}

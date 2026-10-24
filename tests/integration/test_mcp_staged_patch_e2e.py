@@ -82,16 +82,12 @@ def test_mcp_proposal_reaches_workspace_inspector_and_applies(qtbot, tmp_path):
     assert [row.patch_id for row in pending_rows] == [patch_id]
     assert StagedPatchModel.get(StagedPatchModel.patch_id == patch_id).status == "pending"
 
-    # 3. L'ouverture de la vue charge la file dans le Garde-Fou MCP (et non dans le WorkspaceInspector)
+    # 3. L'ouverture de la vue charge la file dans le Garde-Fou MCP
     from ankiforge.ui.views.consultant_view.view import ConsultantView
 
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)
     view.show()
-
-    # Décorrélation stricte (ADR 0034 §3) : l'inspecteur de chat reste vide et l'onglet Serveur MCP reste actif
-    assert not view.workspace_inspector._patch_queue
-    assert view.chat_panel.tabs_bar.current_index == 0
 
     gf = view.mcp_dashboard.garde_fou_widget
     assert [p.patch_id for p in gf._patches] == [patch_id]
@@ -105,7 +101,6 @@ def test_mcp_proposal_reaches_workspace_inspector_and_applies(qtbot, tmp_path):
     assert StagedPatchRegistry.get_patch(patch_id).status == "applied"
     assert not StagedPatchRegistry.list_pending()
     assert gf.count() == 0
-    assert view.chat_panel.tabs_bar.current_index == 0
 
     active_version = NoteVersionModel.get(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
     fields = json.loads(active_version.content)

@@ -21,15 +21,13 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeyEvent, QShortcut
+from PySide6.QtGui import QShortcut
 
 from ankiforge.services.cards.import_manager import ConflictItem
 from ankiforge.ui.dialogs.smart_merge_dialog import SmartMergeDialog
 from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager
 from ankiforge.ui.views.ab_tests_view import ABTestsView
 from ankiforge.ui.views.agents_view import AgentsView
-from ankiforge.ui.views.consultant_view import ConsultantView
 from ankiforge.ui.views.dashboard_view import DashboardView
 from ankiforge.ui.views.pipelines_view import PipelinesView
 
@@ -137,53 +135,6 @@ def test_pipelines_view_step_reorder_and_delete(qtbot: Any, mock_db: Any) -> Non
     del_rec.shortcut.activated.emit()
     assert len(view.current_steps) == 1
     assert view.current_steps[0]["custom_title"] == "Étape 1"
-
-
-# ── Tests ConsultantView ──────────────────────────────────────────────────────
-
-
-def test_consultant_view_shortcuts_and_chat(qtbot: Any, mock_db: Any) -> None:
-    """Vérifie les bindings déclaratifs et l'envoi de message sur ConsultantView."""
-    manager = ShortcutManager()
-    view = ConsultantView()
-    view.set_shortcut_manager(manager)
-    qtbot.addWidget(view)
-    manager.set_active_view(view)
-
-    bound_ids = {rec.id for rec in manager._bindings if rec.target is view}
-    expected_ids = {
-        ShortcutId.CONSULTANT_NEW_CHAT,
-        ShortcutId.CONSULTANT_EXPORT_SESSION,
-        ShortcutId.CONSULTANT_TOGGLE_SIDEBAR,
-        ShortcutId.CONSULTANT_TOGGLE_INSPECTOR,
-    }
-    assert expected_ids.issubset(bound_ids), f"Raccourcis manquants sur ConsultantView: {expected_ids - bound_ids}"
-
-    with (
-        patch.object(view, "_on_new_chat_clicked") as mock_new_chat,
-        patch.object(view, "_on_export_session_clicked") as mock_export,
-        patch.object(view, "_toggle_sidebar") as mock_sidebar,
-        patch.object(view, "_toggle_inspector") as mock_inspector,
-    ):
-        for rec in manager._bindings:
-            if rec.target is view and rec.id in expected_ids:
-                rec.shortcut.activated.emit()
-
-        mock_new_chat.assert_called_once()
-        mock_export.assert_called_once()
-        mock_sidebar.assert_called_once()
-        mock_inspector.assert_called_once()
-
-    # run_primary_action() déclenche l'envoi / arrêt
-    with patch.object(view, "_on_send_or_stop_clicked") as mock_send:
-        view.run_primary_action()
-        mock_send.assert_called_once()
-
-    # Touche Entrée dans chat_input
-    with patch.object(view, "_on_send_or_stop_clicked") as mock_input_send:
-        event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Return, Qt.KeyboardModifier.NoModifier)
-        view.chat_input.keyPressEvent(event)
-        mock_input_send.assert_called_once()
 
 
 # ── Tests ABTestsView ─────────────────────────────────────────────────────────
@@ -329,31 +280,19 @@ def test_t5_view_isolation_and_no_ghost_gestures(qtbot: Any, mock_db: Any) -> No
     agents_view.set_shortcut_manager(manager)
     pipelines_view = PipelinesView()
     pipelines_view.set_shortcut_manager(manager)
-    consultant_view = ConsultantView()
-    consultant_view.set_shortcut_manager(manager)
 
     qtbot.addWidget(agents_view)
     qtbot.addWidget(pipelines_view)
-    qtbot.addWidget(consultant_view)
 
     # 1. Quand AgentsView est active
     manager.set_active_view(agents_view)
     agent_n = next(r.shortcut for r in manager._bindings if r.target is agents_view and r.id == ShortcutId.AGENTS_NEW)
     pipe_n = next(r.shortcut for r in manager._bindings if r.target is pipelines_view and r.id == ShortcutId.PIPELINES_NEW)
-    cons_n = next(r.shortcut for r in manager._bindings if r.target is consultant_view and r.id == ShortcutId.CONSULTANT_NEW_CHAT)
 
     assert agent_n.isEnabled() is True
     assert pipe_n.isEnabled() is False
-    assert cons_n.isEnabled() is False
 
     # 2. Quand PipelinesView est active
     manager.set_active_view(pipelines_view)
     assert agent_n.isEnabled() is False
     assert pipe_n.isEnabled() is True
-    assert cons_n.isEnabled() is False
-
-    # 3. Quand ConsultantView est active
-    manager.set_active_view(consultant_view)
-    assert agent_n.isEnabled() is False
-    assert pipe_n.isEnabled() is False
-    assert cons_n.isEnabled() is True
