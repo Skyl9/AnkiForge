@@ -18,6 +18,10 @@ Le document produit sert de base directe pour le découpage en tickets via **`/t
 1. **Explorer le contexte** : réutiliser le glossaire `CONTEXT.md` et les ADRs applicables.
 2. **Identifier les coutures (Seams)** : identifier le point d'intégration le plus haut possible pour tester le comportement de bout en bout.
 3. **Rédiger la spécification** selon le gabarit canonique ci-dessous.
+4. **Persistance & Emplacement** :
+   - Rédiger la spécification dans un artefact Markdown dédié (`spec_<nom>.md`) pour lecture et validation immédiate par l'utilisateur.
+   - Si une copie est persistée dans le vault Obsidian pour traçabilité de tâche, la placer obligatoirement dans `ankiforge_obsidian/Tickets/ticket-actif/` (ou `Archives/` post-clôture). La racine `Tickets/` ne doit **JAMAIS** héberger de fichiers à plat.
+   - Toute spécification technique à vocation pérenne doit être intégrée dans `docs/` (Zensical) et non confinée au vault de tickets.
 
 ## Gabarit de Spécification
 

@@ -17,6 +17,7 @@ Ce skill encadre la fin de toute intervention modifiant l'arbre Git. Il interdit
 Ne regroupez pas des modifications disparates dans un commit fourre-tout. Découpez les changements par unité logique :
 1. **Un commit par préoccupation :** Isoler un refactoring (`refactor:`), un ajout de tests (`test:`), une correction de bug (`fix:`), une mise à jour de documentation (`docs:`) ou une nouvelle fonctionnalité (`feat:`).
 2. **Ciblage strict des fichiers :** Chaque commit proposé doit spécifier la liste exacte des fichiers à indexer via `git add <fichiers>`, sans utiliser aveuglément `git add .` ou `git add -A`.
+3. **Topologie Multi-Dépôts (`ankiforge_obsidian/`) :** Le dossier `ankiforge_obsidian/` est un sous-dépôt Git autonome avec son propre `.git/`, ignoré par le `.gitignore` racine. Il est formellement INTERDIT d'indexer `ankiforge_obsidian/...` depuis la racine AnkiForge. Si des tickets ou le Kanban ont été modifiés, formuler systématiquement une proposition de commit distincte dédiée au sous-dépôt via `git -C ankiforge_obsidian add ...` et `git -C ankiforge_obsidian commit ...`.
 
 ## ✍️ Règles Conventional Commits v1.0.0 (Français)
 

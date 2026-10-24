@@ -43,10 +43,13 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
    - Déclencher systématiquement **`/code-review`** (deux sous-agents parallèles : Standards & Spécification) pour confronter le diff aux exigences avant toute clôture.
    > [!IMPORTANT]
    > ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT de clore le ticket, de modifier son statut en `✅ Terminé`, de toucher au Kanban ou de formuler une proposition de commit avant d'avoir formellement restitué le rapport de code-review à deux axes à l'utilisateur.
-3. **Mise à jour du statut Obsidian (Post-Revue)** :
-   - Mettre à jour l'en-tête du ticket : `**Statut :** ✅ Terminé`.
-   - Déplacer la carte dans `ankiforge_obsidian/Avancement du projet.md` vers `## ✅ Terminé (Fonctionnalités Livrées)`.
+3. **Mise à jour du statut Obsidian & Archivage Physique (Post-Revue)** :
+   - Mettre à jour l'en-tête du ticket : `**Statut :** ✅ Terminé` et cocher les critères d'acceptation.
+   - **Déplacement physique obligatoire** : déplacer la note du ticket de `ankiforge_obsidian/Tickets/ticket-actif/` vers `ankiforge_obsidian/Tickets/Archives/` (ainsi que les spécifications associées). La racine `Tickets/` ne doit jamais comporter de fichier à plat.
+   - Déplacer la carte dans `ankiforge_obsidian/Avancement du projet.md` vers `## ✅ Terminé (done)` en ajustant le lien vers `[[Tickets/Archives/<Nom>|<Titre>]]`.
+   - Vérifier l'absence de fichiers fantômes résiduels de 0 octet à la racine de `Tickets/`.
    - Si la colonne `Terminé` dépasse 15 items, archiver les plus anciens dans `Archives - Tickets Terminés.md`.
+   - **Sous-Dépôt Git Autonome** : `ankiforge_obsidian/` dispose de son propre dépôt Git ignoré par la racine. Ne jamais l'inclure dans un `git add` du projet principal ; proposer un commit dédié via `git -C ankiforge_obsidian`.
    - **Arrêt immédiat** (One-shot pass).
 
 ## When NOT to use this skill
