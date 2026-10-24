@@ -22,7 +22,7 @@ Wayfinder est un outil de **cadrage et de levée d'inconnues**. Chaque ticket co
    - Identifier les questions immédiatement tranchables (la frontière).
    - Consigner le reste dans la zone « Pas encore spécifié » (le brouillard).
 3. **Résoudre un ticket de décision par session** :
-   - Par recherche (`research`), prototype jetable (`prototype`), ou interview contradictoire (`grilling`).
+   - Par recherche (`research`), prototype jetable (`prototype`), ou interview contradictoire (`grill-with-docs`).
    - Mettre à jour la carte et consigner les décisions validées dans `CONTEXT.md` / ADRs.
 4. **Passer la main** : dès que le chemin est dégagé, basculer sur `/to-spec` puis `/to-tickets`.
 

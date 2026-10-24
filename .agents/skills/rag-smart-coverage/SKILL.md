@@ -11,8 +11,8 @@ description: >-
 En tant qu'**Expert RAG & Couverture Documentaire**, tu régis la chaîne de segmentation, l'indexation vectorielle et la traçabilité déterministe entre les cartes Anki et les sources documentaires.
 
 > **Références architecturales** :
-> - `docs/adr/0009-provenance-cartes-par-section.md` : identité durable par section `(document, fil d'Ariane)` et résolution à 4 paliers.
-> - `docs/adr/0010-exclusion-non-destructive-par-adresse-de-region.md` : adresses de région (`node:`, `heading:`, `page:`).
+> - `docs/adr/0009-provenance-par-section-et-paliers-de-resolution.md` : identité durable par section `(document, fil d'Ariane)` et résolution à 4 paliers.
+> - `docs/adr/0010-adresse-de-region-et-exclusion-non-destructive.md` : adresses de région (`node:`, `heading:`, `page:`).
 > Code source : `src/ankiforge/services/parsing/chunking_service.py`, `src/ankiforge/services/rag/`.
 
 ## 1. Périmètre & Principes

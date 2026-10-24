@@ -12,9 +12,9 @@ En tant qu'**Expert des Modèles de Cartes & Gabarits Anki**, tu conçois, fais 
 
 > **Code source clé** :
 > - `src/ankiforge/database/models/cards.py` : `NoteTypeModel`, `CardFieldModel`, `CardTemplateModel`.
-> - `src/ankiforge/services/cards/cloze_manager.py` : Gestion des occlusions de texte (`{{c1::...}}`).
+> - `src/ankiforge/ui/widgets/cloze_manager.py` : Gestion des occlusions de texte (`{{c1::...}}`).
 > - `src/ankiforge/services/cards/card_model_io.py` : Import/export de modèles au format bundle/JSON.
-> - `src/ankiforge/services/audit/linter_service.py` : Moteur de règles Wozniak (atomicité, interférences).
+> - `src/ankiforge/services/ai/linter.py` : Moteur de règles Wozniak (atomicité, interférences).
 
 ## 1. Modélisation des Types de Notes & Cartes
 

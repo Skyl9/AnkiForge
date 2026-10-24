@@ -50,10 +50,10 @@ uv run --with pip-licenses pip-licenses --format=markdown \
 1. **CVE bloquantes** : tout paquet avec une CVE **CVSS ≥ 7.0** (sévérité haute/critique selon le scoring OSV/PyPI Advisory utilisé par pip-audit) non justifiée (pin en attente de patch documenté) est une violation critique ; les vulnérabilités modérées (CVSS 4.0–6.9) avec workaround doivent être notées mais non bloquantes.
 2. **Séparation des groupes** : rien d'accidentel dans `[project.dependencies]` qui devrait vivre en `dev`/`docs`/`build` (ex. `pytest`, `nuitka`, `mkdocs`) ; et réciproquement, pas de dépendance runtime indispensable absente.
 3. **Dépendances lourdes / lazy** : Marker OCR, PyTorch, FAISS, ChromaDB ne font pas partie du runtime obligatoire (installés à la volée — vérifier `services/` pour l'installation dynamique et l'absence d'import au sommet).
-4. **Extension C** : `src/ankiforge/c_ext/levenshtein_distance.c` est compilée par OS dans la CI (gcc/clang) avec repli Python transparent (`utils/c_bridge.py`) ; vérifier la présence du fallback et la cohérence binaire/source.
+4. **Extension C** : `c_ext/levenshtein_distance.c` est compilée par OS dans la CI (gcc/clang) avec repli Python transparent (`src/ankiforge/utils/c_bridge.py`) ; vérifier la présence du fallback et la cohérence binaire/source.
 5. **Types stubs** : `types-peewee`, `types-requests`, `types-markdown` présents dans `dev` (nécessaires au mypy strict).
 6. **Verrouillage** : `uv.lock` commité ; `uv sync --frozen` viable (CI) ; pas de divergence pyproject/uv.lock.
-7. **Build Nuitka** (`build_script/`, workflow `release.yml`) : cohérence des bundles (PySide6, extension C, ressources) ; pas de dépendance non embarquable.
+7. **Build Nuitka** (`build_script/`, workflow `.github/workflows/release.yml`) : cohérence des bundles (PySide6, extension C, ressources) ; pas de dépendance non embarquable.
 8. **Licences** (si demandé) : alerte sur les licences incompatibles avec MIT du projet (via `pip-licenses` — voir commande section 2, sinon revue `uv.lock`).
 
 ## 4. Rapport

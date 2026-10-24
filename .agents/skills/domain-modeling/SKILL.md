@@ -1,82 +1,61 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a CONTEXT.md, or recording or editing an ADR.
+description: >-
+  Modélisation du domaine métier d'AnkiForge, enrichissement continu du glossaire CONTEXT.md et enregistrement des décisions d'architecture (ADR) structurantes dans docs/adr/.
+  Use when the user asks to "domain-modeling", "modéliser le domaine", "définir un terme métier", "enrichir CONTEXT.md", "ajouter un ADR", or wants to align terms and architectural decisions.
+  When NOT to use: Do not use for technical module interface design (use codebase-design), full feature interview (use grill-with-docs), or pure glossary reading.
 ---
 
-# Domain Modeling
+# 📖 Modélisation du Domaine Métier (Domain Modeling)
 
-Actively build and sharpen the project's domain model as you design. This is the *active* discipline: challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely *reading* `CONTEXT.md` for vocabulary is not this skill: that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
+Construire et affûter activement le modèle de domaine d'AnkiForge au fil de la conception : challenger la terminologie, éliminer les faux synonymes, éprouver les cas limites et figer les arbitrages dans le glossaire partagé et le registre d'ADRs.
 
-## File structure
+---
 
-Most repos have a single context:
+## 1. Structure Mono-Contexte d'AnkiForge
 
-```
-/
-├── CONTEXT.md
-├── docs/
-│   └── adr/
-│       ├── 0001-event-sourced-orders.md
-│       └── 0002-postgres-for-write-model.md
-└── src/
-```
-
-If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The map points to where each one lives:
+AnkiForge fonctionne rigoureusement en **mono-contexte** :
 
 ```
 /
-├── CONTEXT-MAP.md
+├── CONTEXT.md                     ← Glossaire canonique unique du domaine
 ├── docs/
-│   └── adr/                          ← system-wide decisions
-├── src/
-│   ├── ordering/
-│   │   ├── CONTEXT.md
-│   │   └── docs/adr/                 ← context-specific decisions
-│   └── billing/
-│       ├── CONTEXT.md
-│       └── docs/adr/
+│   └── adr/                       ← Registre des décisions d'architecture structurantes
+│       ├── 0001-...md
+│       └── 0038-...md
+└── src/ankiforge/
 ```
 
-Create files lazily: only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
+- `CONTEXT.md` est un **glossaire pur** et rien d'autre. Il ne contient aucun détail d'implémentation, aucun code, aucune table SQL.
+- Format obligatoire : voir [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
+- Format d'ADR : voir [ADR-FORMAT.md](./ADR-FORMAT.md).
 
-## During the session
+---
 
-### Challenge against the glossary
+## 2. Rôle Actif pendant les Échanges
 
-When the user uses a term that conflicts with the existing language in `CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y. Which is it?"
+### Challenger les Termes face au Glossaire
+Dès que l'utilisateur ou une proposition emploie un terme ambigu ou contradictoire avec `CONTEXT.md`, le signaler immédiatement :
+> *« Le glossaire définit "Note" comme l'entité documentaire brute et "Carte" comme l'unité de révision générée par un gabarit. Vous parlez de "créer une note de révision" : s'agit-il d'éditer la note ou de réviser la carte ? »*
 
-### Sharpen fuzzy language
+### Affûter le Vocabulaire Imprécis
+Identifier les termes flous ou surchargés et proposer la formulation canonique du domaine :
+- Au lieu de « supprimer le chunk », employer « écarter la région » (règle d'exclusion non destructive ADR 0010).
+- Au lieu de « modèle de carte », employer « type de note » (`NoteTypeModel`).
 
-When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account': do you mean the Customer or the User? Those are different things."
+### Mettre à Jour `CONTEXT.md` au Fil de l'Eau
+Dès qu'un terme ou une frontière de concept est stabilisé avec l'utilisateur, éditer immédiatement `CONTEXT.md`. Ne pas différer cette mise à jour en fin de session.
 
-### Discuss concrete scenarios
+### Proposer un ADR avec Parcimonie
+Ne proposer d'enregistrer un ADR (`docs/adr/0038-titre.md`) que lorsque les **3 critères suivants sont simultanément réunis** :
+1. **Difficile à inverser** : le coût de revenir sur ce choix plus tard est significatif.
+2. **Surprenant sans contexte** : un futur contributeur se demandera légitimement « pourquoi avoir fait ce choix ? ».
+3. **Fruit d'un arbitrage réel** : il existait plusieurs alternatives crédibles et l'une a été retenue pour des motifs techniques précis.
 
-When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
-
-### Cross-reference with code
-
-When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible. Which is right?"
-
-### Update CONTEXT.md inline
-
-When a term is resolved, update `CONTEXT.md` right there. Don't batch these up: capture them as they happen. Use the format in [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
-
-`CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
-
-### Offer ADRs sparingly
-
-Only offer to create an ADR when all three are true:
-
-1. **Hard to reverse**: the cost of changing your mind later is meaningful
-2. **Surprising without context**: a future reader will wonder "why did they do it this way?"
-3. **The result of a real trade-off**: there were genuine alternatives and you picked one for specific reasons
-
-If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+---
 
 ## When NOT to use this skill
 
-- Ne pas utiliser pour la conception de l'architecture technique des modules et interfaces → utiliser `/codebase-design`.
-- Ne pas utiliser pour interviewer sur une fonctionnalité complète → utiliser `/grill-with-docs`.
-- Ne pas utiliser pour simplement consulter le glossaire sans modifier de terme.
-
-
+- Ne pas utiliser pour la conception technique des interfaces de modules et des coutures de code → utiliser `/codebase-design`.
+- Ne pas utiliser pour mener l'interview complète de cadrage d'une fonctionnalité → utiliser `/grill-with-docs`.
+- Ne pas utiliser pour une simple consultation passive du glossaire.

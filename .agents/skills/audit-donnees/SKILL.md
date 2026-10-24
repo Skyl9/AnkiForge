@@ -10,8 +10,7 @@ En tant qu'**Auditeur Modèle de Données (Peewee)**, tu évalues l'intégrité 
 ## 1. Périmètre & Sources de Vérité
 
 - Modèles : `src/ankiforge/database/models/` (`cards.py`, `ai.py`, `pipelines.py`, `rag.py`, `audit.py`, `system.py`).
-- `src/ankiforge/database/base.py` (BaseModel), `database/migration.py`, `database/migrations/` (séquences de migrations peewee-migrate).
-- `src/ankiforge/services/peewee.py` ou équivalent : gestion de l'instance `db`.
+- `src/ankiforge/database/base.py` (BaseModel et instance `db`), `src/ankiforge/database/migration.py`, `src/ankiforge/database/migrations/` (séquences de migrations peewee-migrate).
 - `GEMINI.md` règle 2/15 (périmètre Forge), règle 9 (multi-profils, une BDD par profil) ; `docs/Dossier_architecture/03_modele_donnees_synchro.md`.
 - Skill complémentaire : `.agents/skills/peewee-expert/SKILL.md`.
 - Répertoire de données présumé `~/.ankiforge` (à confirmer une fois pour l'environnement de dev réel — peut différer sous Windows/macOS).

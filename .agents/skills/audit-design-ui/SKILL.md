@@ -11,8 +11,7 @@ En tant qu'**Auditeur Design System & Accessibilité**, tu vérifies que l'inter
 
 - `DESIGN.md` : design system, matrice des tokens (`DesignTokens` / `ThemeProfile`), inventaire des 12 thèmes et 4 layouts, consignation obligatoire des nouveaux widgets.
 - `GEMINI.md` règle 18 : toute nouvelle UI s'appuie sur `docs/Dossier_architecture/07_inventaire_composants_ui.md` ; zéro couleur ou style codé en dur.
-- `src/ankiforge/ui/` + `src/ankiforge/theme/` (ou équivalent) et `src/ankiforge/styles/`.
-- `theme.py` vit à la racine du package (`src/ankiforge/theme.py`), pas sous `src/ankiforge/ui/` : il est donc hors du périmètre scanné par les commandes de la section 2 et n'a pas besoin d'être exclu explicitement. Les profils `ThemeProfile` sont la source légitime de couleurs en dur.
+- `src/ankiforge/ui/` dont `src/ankiforge/ui/theme.py` et `src/ankiforge/ui/style_engine/` (source légitime des profils `ThemeProfile` et couleurs de thèmes).
 
 ## 2. Commandes d'Investigation
 
@@ -22,8 +21,8 @@ Les sorties sont conservées sous `audits/raw/` (horodatées) pour permettre une
 mkdir -p audits/raw
 STAMP=$(date +%Y-%m-%d)
 UI_SRC="src/ankiforge/ui/"
-EXCLUDES="--exclude-dir=tests --exclude-dir=__pycache__ --exclude-dir=.venv --exclude-dir=build"
-# theme.py n'a pas besoin d'être exclu : il vit hors de $UI_SRC (src/ankiforge/theme.py)
+EXCLUDES="--exclude-dir=tests --exclude-dir=__pycache__ --exclude-dir=.venv --exclude-dir=build --exclude-dir=style_engine"
+# Les définitions de palettes dans theme.py et style_engine/ sont la source légitime des tokens
 
 # Couleurs codées en dur (hex) dans le code UI hors fichiers de thème, hors commentaires purs
 grep -rInE "#[0-9a-fA-F]{3,8}\b|rgba?\([0-9]+" $UI_SRC --include="*.py" $EXCLUDES \

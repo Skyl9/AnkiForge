@@ -12,7 +12,7 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
 
 > **Références de référence** :
 > - `DESIGN.md` : Source unique de vérité du design system, matrice des tokens sémantiques et inventaire des 12 thèmes et 4 layouts.
-> - `docs/adr/0013-i18n-qt-linguist.md` : Règles impératives d'internationalisation Qt Linguist (`tr()`).
+> - `docs/adr/0013-internationalisation-qt-linguist.md` : Règles impératives d'internationalisation Qt Linguist (`tr()`).
 > - `docs/Dossier_architecture/07_inventaire_composants_ui.md` : Inventaire des widgets, dialogues et panneaux.
 
 ## 1. Règles Cardinales de Conception UI

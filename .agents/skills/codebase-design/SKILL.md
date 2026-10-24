@@ -1,121 +1,88 @@
 ---
 name: codebase-design
-description: Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.
+description: >-
+  Vocabulaire et principes de conception de modules profonds (deep modules) et de coutures (seams) dans AnkiForge. Permet de concevoir des interfaces compactes cachant une grande complexité, faciles à tester et à maintenir.
+  Use when the user asks to "codebase-design", "concevoir un module", "modularisation profonde", "deep modules", "placer une couture", "définir une interface", or wants to design clean interfaces with high leverage.
+  When NOT to use: Do not use for domain glossary and ADRs (use domain-modeling), writing tests first (use tdd) or running full feature implementation (use implement).
 ---
 
-# Codebase Design
+# 🏛️ Conception de Modules Profonds (Codebase Design)
 
-Design **deep modules**: a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface. Use this language and these principles wherever code is being designed or restructured. The aim is leverage for callers, locality for maintainers, and testability for everyone.
+Concevoir des **modules profonds (deep modules)** : une grande richesse de comportement métier masquée derrière une interface publique compacte, positionnée sur une couture (seam) nette, testable directement via cette interface. L'objectif est l'**effet de levier** pour les appelants, la **localité** pour les mainteneurs et la **testabilité** sans couplage.
 
-## Glossary
+> **Guides associés** :
+> - [DEEPENING.md](DEEPENING.md) : Approfondissement d'un groupe de modules selon ses catégories de dépendances.
+> - [DESIGN-IT-TWICE.md](DESIGN-IT-TWICE.md) : Exploration d'interfaces alternatives par sous-agents parallèles.
 
-Use these terms exactly: don't substitute "component," "service," "API," or "boundary." Consistent language is the whole point.
+---
 
-**Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, or tier-spanning slice. _Avoid_: unit, component, service.
+## 1. Glossaire Canonique
 
-**Interface**: everything a caller must know to use the module correctly: the type signature, but also invariants, ordering constraints, error modes, required configuration, and performance characteristics. _Avoid_: API, signature (too narrow, they refer only to the type-level surface).
+Employer ces termes avec rigueur :
 
-**Implementation**: what's inside a module, its body of code. Distinct from **Adapter**: a thing can be a small adapter with a large implementation (a Postgres repo) or a large adapter with a small implementation (an in-memory fake). Reach for "adapter" when the seam is the topic; "implementation" otherwise.
+- **Module** : toute unité associant une interface et une implémentation (fonction, classe, service ou découpage applicatif). *À éviter* : composant, unité, service (termes trop flous).
+- **Interface** : tout ce qu'un appelant doit connaître pour utiliser le module correctement (signatures de types, préconditions, invariants, erreurs levées et garanties de performance). *À éviter* : signature, API (trop restrictif).
+- **Implémentation** : le corps interne du module masqué derrière l'interface.
+- **Profondeur (Depth)** : rapport entre la puissance du comportement fourni et la simplicité de l'interface à apprendre. Un module est **profond** quand une interface réduite pilote une logique riche (ex: `ChunkingService`). Il est **superficiel (shallow)** quand l'interface est presque aussi volumineuse que le code interne.
+- **Couture (Seam)** : l'emplacement précis où se situe l'interface et où le comportement peut être altéré (ex: substitution d'un provider IA pour un test) sans modifier l'appelant.
+- **Adaptateur (Adapter)** : classe ou fonction concrète satisfaisant une interface à une couture (ex: `OpenAIProvider`, `OllamaProvider` pour `LLMProvider`).
+- **Effet de levier (Leverage)** : gain pour les appelants : un petit effort d'apprentissage débloque une grande capacité réutilisable sur N sites d'appel et M tests.
+- **Localité (Locality)** : gain pour la maintenance : les modifications, corrections de bogues et vérifications sont concentrées au même endroit plutôt que dispersées.
 
-**Depth**: leverage at the interface. The amount of behaviour a caller (or test) can exercise per unit of interface they have to learn. A module is **deep** when a large amount of behaviour sits behind a small interface, **shallow** when the interface is nearly as complex as the implementation.
+---
 
-**Seam** _(Michael Feathers)_: a place where you can alter behaviour without editing in that place; the *location* at which a module's interface lives. Where to put the seam is its own design decision, distinct from what goes behind it. _Avoid_: boundary (overloaded with DDD's bounded context).
-
-**Adapter**: a concrete thing that satisfies an interface at a seam. Describes *role* (what slot it fills), not substance (what's inside).
-
-**Leverage**: what callers get from depth. More capability per unit of interface they learn. One implementation pays back across N call sites and M tests.
-
-**Locality**: what maintainers get from depth. Change, bugs, knowledge, and verification concentrate in one place rather than spreading across callers. Fix once, fixed everywhere.
-
-## Deep vs shallow
-
-**Deep module** = small interface + lots of implementation:
-
-```
-┌─────────────────────┐
-│   Small Interface   │  ← Few methods, simple params
-├─────────────────────┤
-│                     │
-│  Deep Implementation│  ← Complex logic hidden
-│                     │
-└─────────────────────┘
-```
-
-**Shallow module** = large interface + little implementation (avoid):
+## 2. Modules Profonds vs Superficiels
 
 ```
 ┌─────────────────────────────────┐
-│       Large Interface           │  ← Many methods, complex params
+│     Interface Réduite           │  ← 2 à 3 méthodes publiques, paramètres simples
 ├─────────────────────────────────┤
-│  Thin Implementation            │  ← Just passes through
+│                                 │
+│  Implémentation Profonde        │  ← Logique riche (parsing, cache, fallback)
+│                                 │
 └─────────────────────────────────┘
 ```
 
-When designing an interface, ask:
+Lors de la conception d'un module sous `src/ankiforge/`, se poser 3 questions :
+1. Peut-on réduire le nombre de méthodes publiques exposées ?
+2. Peut-on simplifier les paramètres requis (évitement des dictionnaires fourre-tout) ?
+3. Peut-on encapsuler davantage de complexité à l'intérieur ?
 
-- Can I reduce the number of methods?
-- Can I simplify the parameters?
-- Can I hide more complexity inside?
+---
 
-## Principles
+## 3. Conception pour la Testabilité en Python 3.12
 
-- **Depth is a property of the interface, not the implementation.** A deep module can be internally composed of small, mockable, swappable parts; they just aren't part of the interface. A module can have **internal seams** (private to its implementation, used by its own tests) as well as the **external seam** at its interface.
-- **The deletion test.** Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
-- **The interface is the test surface.** Callers and tests cross the same seam. If you want to test *past* the interface, the module is probably the wrong shape.
-- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a seam unless something actually varies across it.
+Une bonne interface rend les tests naturels :
 
-## Designing for testability
+### 1. Accepter les dépendances au lieu de les instancier en dur
+```python
+# TESTABLE : le provider est injecté (seam)
+class ExtractionService:
+    def __init__(self, provider: LLMProvider | None = None) -> None:
+        self.provider = provider or create_default_provider()
 
-Good interfaces make testing natural:
+# DIFFICILE À TESTER : instanciation interne d'un client externe
+class ExtractionService:
+    def __init__(self) -> None:
+        self.client = OpenAIClient(api_key=os.environ["API_KEY"])
+```
 
-1. **Accept dependencies, don't create them.**
+### 2. Retourner des résultats purs plutôt que produire des effets de bord
+```python
+# TESTABLE : fonction pure retournant un rapport
+def evaluate_coverage(document: Document, notes: list[Note]) -> CoverageReport:
+    ...
 
-   ```typescript
-   // Testable
-   function processOrder(order, paymentGateway) {}
+# DIFFICILE À TESTER : modifie directement l'état global ou l'UI
+def evaluate_coverage(document: Document, notes: list[Note]) -> None:
+    global_state.coverage = 42
+    ui_label.setText("42%")
+```
 
-   // Hard to test
-   function processOrder(order) {
-     const gateway = new StripeGateway();
-   }
-   ```
-
-2. **Return results, don't produce side effects.**
-
-   ```typescript
-   // Testable
-   function calculateDiscount(cart): Discount {}
-
-   // Hard to test
-   function applyDiscount(cart): void {
-     cart.total -= discount;
-   }
-   ```
-
-3. **Small surface area.** Fewer methods = fewer tests needed. Fewer params = simpler test setup.
-
-## Relationships
-
-- A **Module** has exactly one **Interface** (the surface it presents to callers and tests).
-- **Depth** is a property of a **Module**, measured against its **Interface**.
-- A **Seam** is where a **Module**'s **Interface** lives.
-- An **Adapter** sits at a **Seam** and satisfies the **Interface**.
-- **Depth** produces **Leverage** for callers and **Locality** for maintainers.
-
-## Rejected framings
-
-- **Depth as ratio of implementation-lines to interface-lines** (Ousterhout): rewards padding the implementation. We use depth-as-leverage instead.
-- **"Interface" as the TypeScript `interface` keyword or a class's public methods**: too narrow: interface here includes every fact a caller must know.
-- **"Boundary"**: overloaded with DDD's bounded context. Say **seam** or **interface**.
-
-## Going deeper
-
-- **Deepening a cluster given its dependencies**, see [DEEPENING.md](DEEPENING.md): dependency categories, seam discipline, and replace-don't-layer testing.
-- **Exploring alternative interfaces**, see [DESIGN-IT-TWICE.md](DESIGN-IT-TWICE.md): spin up parallel sub-agents to design the interface several radically different ways, then compare on depth, locality, and seam placement.
+---
 
 ## When NOT to use this skill
 
-- Ne pas utiliser pour définir le vocabulaire métier ou les entités du domaine → utiliser `/domain-modeling`.
-- Ne pas utiliser pour implémenter du code en TDD → utiliser `/tdd` ou `/implement`.
-- Ne pas utiliser pour auditer la qualité du code par linter → utiliser `audit-qualite-code`.
-
+- Ne pas utiliser pour définir le vocabulaire métier ou enregistrer des ADRs → utiliser `/domain-modeling` ou `/grill-with-docs`.
+- Ne pas utiliser pour dérouler la boucle Red-Green-Refactor → utiliser `/tdd`.
+- Ne pas utiliser pour piloter la réalisation d'un ticket Obsidian de bout en bout → utiliser `/implement`.

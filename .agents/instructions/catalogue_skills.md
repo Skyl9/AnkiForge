@@ -1,6 +1,6 @@
 ## Catalogue des Compétences Agentiques (`.agents/skills/`)
 
-Le dépôt héberge 51 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
+Le dépôt héberge 48 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
 
 > [!IMPORTANT]
 > **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les compétences dont la spécification ou les déclencheurs emploient l'anglais.
@@ -37,7 +37,7 @@ Le dépôt héberge 51 compétences agentiques autonomes conformes au standard i
 
 ### 4. Flux d'Ingénierie Agentique (Workflow AnkiForge)
 - `ask-forge` (`.agents/skills/ask-forge/SKILL.md`) : Aiguilleur et routeur de tâches d'ingénierie articulé avec le suivi Kanban Obsidian.
-- `grill-with-docs` (`.agents/skills/grill-with-docs/SKILL.md`), `grill-me` (`.agents/skills/grill-me/SKILL.md`), `grilling` (`.agents/skills/grilling/SKILL.md`) : Interviews contradictoires rigoureuses et exploration de la frontière d'arbre de conception.
+- `grill-with-docs` (`.agents/skills/grill-with-docs/SKILL.md`) : Cadrage d'architecture et interview contradictoire méthodique avec exploration de frontière de décision et traçabilité CONTEXT.md / ADRs.
 - `to-spec` (`.agents/skills/to-spec/SKILL.md`), `to-tickets` (`.agents/skills/to-tickets/SKILL.md`) : Formalisation de spécifications et découpage en tickets traçables dans le vault Obsidian.
 - `implement` (`.agents/skills/implement/SKILL.md`), `tdd` (`.agents/skills/tdd/SKILL.md`) : Réalisation pilotée par les tests (Red-Green-Refactor) liée au cycle de vie des tickets Obsidian.
 - `code-review` (`.agents/skills/code-review/SKILL.md`) : Revue de code contradictoire à deux axes (Standards du dépôt + Respect de la spécification) par sous-agents parallèles.
@@ -48,4 +48,4 @@ Le dépôt héberge 51 compétences agentiques autonomes conformes au standard i
 - `handoff` (`.agents/skills/handoff/SKILL.md`), `prototype` (`.agents/skills/prototype/SKILL.md`), `research` (`.agents/skills/research/SKILL.md`) : Compaction de contexte pour reprise de session, spikes jetables et investigation de sources primaires.
 - `doubt-driven-development` (`.agents/skills/doubt-driven-development/SKILL.md`), `source-driven-development` (`.agents/skills/source-driven-development/SKILL.md`) : Contre-revue contradictoire en contexte neutre et ancrage dans les documentations officielles vérifiées.
 - `resolving-merge-conflicts` (`.agents/skills/resolving-merge-conflicts/SKILL.md`), `code-simplification` (`.agents/skills/code-simplification/SKILL.md`) : Résolution d'intentions de fusion et simplification de clarté de code.
-- `wizard` (`.agents/skills/wizard/SKILL.md`), `wait-what` (`.agents/skills/wait-what/SKILL.md`), `writing-for-agents` (`.agents/skills/writing-for-agents/SKILL.md`), `to-questionnaire` (`.agents/skills/to-questionnaire/SKILL.md`), `setup-forge-workflow` (`.agents/skills/setup-forge-workflow/SKILL.md`) : Assistants interactifs pour opérations humaines, réparation de compréhension, rédaction de compétences et initialisation de workflow.
+- `wait-what` (`.agents/skills/wait-what/SKILL.md`), `writing-for-agents` (`.agents/skills/writing-for-agents/SKILL.md`), `to-questionnaire` (`.agents/skills/to-questionnaire/SKILL.md`), `setup-forge-workflow` (`.agents/skills/setup-forge-workflow/SKILL.md`) : Réparation de compréhension, rédaction de compétences, aide au choix éclairé et initialisation de workflow.

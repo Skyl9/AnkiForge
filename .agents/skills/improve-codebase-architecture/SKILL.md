@@ -27,7 +27,7 @@ Identifie les frictions architecturales et propose des **opportunités de modula
    - Intégrer des schémas comparatifs Mermaid (Avant / Après) et des fiches structurées.
    - Ouvrir automatiquement le rapport pour l'utilisateur.
 3. **Boucle d'affûtage (Grilling)** :
-   - Dès que l'utilisateur sélectionne un axe, dérouler `grilling` et `domain-modeling` pour concevoir la nouvelle interface et consigner d'éventuels ADRs.
+   - Dès que l'utilisateur sélectionne un axe, dérouler `grill-with-docs` pour concevoir la nouvelle interface et consigner d'éventuels ADRs.
 
 ## When NOT to use this skill
 

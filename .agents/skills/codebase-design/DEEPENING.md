@@ -1,37 +1,42 @@
-# Deepening
+# Approfondissement de Modules (Deepening) 🔍
 
-How to deepen a cluster of shallow modules safely, given its dependencies. Assumes the vocabulary in [SKILL.md](SKILL.md): **module**, **interface**, **seam**, **adapter**.
+Comment approfondir un ensemble de modules superficiels (shallow) en toute sécurité selon leurs catégories de dépendances, en s'appuyant sur le vocabulaire de [SKILL.md](SKILL.md) : **module**, **interface**, **couture (seam)**, **adaptateur (adapter)**.
 
-## Dependency categories
+---
 
-When assessing a candidate for deepening, classify its dependencies. The category determines how the deepened module is tested across its seam.
+## 1. Catégories de Dépendances dans AnkiForge
 
-### 1. In-process
+Lors de l'évaluation d'un candidat à l'approfondissement, classifier ses dépendances. La catégorie détermine la façon dont le module approfondi sera testé à travers sa couture :
 
-Pure computation, in-memory state, no I/O. Always deepenable: merge the modules and test through the new interface directly. No adapter needed.
+### 1. In-process (Calcul pur)
+- **Nature** : Algorithmique pure, manipulation d'arbres de titres (`HeadingTree`), calcul de distances Levenshtein, état en mémoire, aucune I/O.
+- **Stratégie** : Toujours approfondissable sans couture d'indirection. Fusionner les modules et tester directement via la nouvelle interface publique.
 
-### 2. Local-substitutable
+### 2. Localement substituable (Persistance Peewee)
+- **Nature** : Dépendances disposant d'un équivalent local transparent en test.
+- **Exemple AnkiForge** : SQLite sur disque (`~/.ankiforge/profiles/<profile>/ankiforge.db`) en production ➔ SQLite en mémoire partagée (`file:memdb_test_<worker>?mode=memory&cache=shared` via la fixture `mock_db`) en test.
+- **Stratégie** : La couture est interne au framework BDD. Le module approfondi s'exécute contre la base mémoire sans introduire de port artificiel dans son interface publique.
 
-Dependencies that have local test stand-ins (PGLite for Postgres, in-memory filesystem). Deepenable if the stand-in exists. The deepened module is tested with the stand-in running in the test suite. The seam is internal; no port at the module's external interface.
+### 3. Outillage Multimédia & Outils Lourds
+- **Nature** : Outils locaux optionnels ou asynchrones (Marker OCR pour les PDF, Edge-TTS pour l'audio, sous-processus d'analyse).
+- **Stratégie** : Définir un protocole / port clair au niveau du service. Injecter le convertisseur ou le synthétiseur audio. En production : adaptateur réel. En test : adaptateur mémoire léger produisant un faux fichier ou un Markdown prédéfini.
 
-### 3. Remote but owned (Ports & Adapters)
+### 4. Véritables externes (Fournisseurs d'IA & LLM)
+- **Nature** : Services tiers que nous ne contrôlons pas directement (OpenAI, Gemini, Anthropic, Ollama).
+- **Stratégie** : Le module approfondi (ex: `ExtractionPipeline`, `PersonaService`) accepte son port `LLMProvider` par injection de dépendance. Les tests injectent un adaptateur mock déterministe retournant des réponses JSON prédéfinies, sans aucun appel réseau réel.
 
-Your own services across a network boundary (microservices, internal APIs). Define a **port** (interface) at the seam. The deep module owns the logic; the transport is injected as an **adapter**. Tests use an in-memory adapter. Production uses an HTTP/gRPC/queue adapter.
+---
 
-Recommendation shape: *"Define a port at the seam, implement an HTTP adapter for production and an in-memory adapter for testing, so the logic sits in one deep module even though it's deployed across a network."*
+## 2. Discipline des Coutures (Seams)
 
-### 4. True external (Mock)
+- **Un seul adaptateur = couture hypothétique. Deux adaptateurs = couture réelle.** N'introduisez pas de protocole/port d'indirection à moins qu'au moins deux adaptateurs ne soient justifiés (typiquement : implémentation de production + fake/mock déterministe pour les tests).
+- **Coutures internes vs coutures externes** : Un module profond peut posséder des coutures internes (privées à son implémentation) utilisées par ses sous-composants, en plus de sa couture externe publique. N'exposez jamais les coutures internes dans l'interface publique simplement pour les besoins d'un test.
 
-Third-party services (Stripe, Twilio, etc.) you don't control. The deepened module takes the external dependency as an injected port; tests provide a mock adapter.
+---
 
-## Seam discipline
+## 3. Stratégie de Test : Remplacer, ne pas Empiler
 
-- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a port unless at least two adapters are justified (typically production + test). A single-adapter seam is just indirection.
-- **Internal seams vs external seams.** A deep module can have internal seams (private to its implementation, used by its own tests) as well as the external seam at its interface. Don't expose internal seams through the interface just because tests use them.
-
-## Testing strategy: replace, don't layer
-
-- Old unit tests on shallow modules become waste once tests at the deepened module's interface exist; delete them.
-- Write new tests at the deepened module's interface. The **interface is the test surface**.
-- Tests assert on observable outcomes through the interface, not internal state.
-- Tests should survive internal refactors, since they describe behaviour, not implementation. If a test has to change when the implementation changes, it's testing past the interface.
+- Les anciens tests unitaires fins sur des micro-fonctions privées deviennent du déchet dès lors que des tests robustes à l'interface du module approfondi existent : les supprimer.
+- Écrire les nouveaux tests à l'interface publique du module approfondi. **L'interface est la surface de test**.
+- Les tests vérifient les résultats observables, jamais l'état interne.
+- Les tests doivent survivre aux refactorisations internes du module : si un test doit être modifié lors d'un refactoring interne sans changement de comportement observable, c'est qu'il teste au-delà de l'interface.

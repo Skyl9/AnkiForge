@@ -9,11 +9,11 @@ En tant qu'**Auditeur Moteur IA & Orchestration**, tu évalues la robustesse et 
 
 ## 1. Périmètre & Sources de Vérité
 
-- `src/ankiforge/services/ai/orchestrator.py` : `PipelineOrchestrator`, `PipelineRunState`, 5 types d'étapes (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`) et sauts conditionnels.
+- `src/ankiforge/services/ai/orchestrator.py` : `PipelineOrchestrator`, `PipelineRunState`, 6 types d'étapes (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`) et sauts conditionnels.
 - `src/ankiforge/services/ai/mcp_server.py` + `MCPToolService` : outils exposés (`query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `update_card_model_css`, `execute_python_tool`).
-- `src/ankiforge/services/ai/flexible_service.py` : abstraction fournisseurs (OpenAI/Anthropic/Gemini/Ollama), `providers/` (`model_catalog.py`), `pricing_service.py`, `TokenUsageModel`.
+- `src/ankiforge/services/ai/flexible_service.py` : abstraction fournisseurs (OpenAI/Anthropic/Gemini/Ollama), `src/ankiforge/services/ai/model_catalog.py`, `src/ankiforge/services/ai/pricing_service.py`, `TokenUsageModel`.
 - `src/ankiforge/services/ai/prompt_interpolator.py` + `src/ankiforge/utils/jinja_sandbox.py` (`create_prompt_environment`).
-- `GEMINI.md` règle 3 (DAG), règle 4 (MCP sécurisé), règle 5 (personas), règle 10 (agnosticisme LLM) ; `docs/Dossier_architecture/05_services_ia_et_analyse.md`, `06_moteur_orchestration_ia.md`.
+- `GEMINI.md` règle 3 (DAG), règle 4 (MCP sécurisé), règle 5 (personas), règle 10 (agnosticisme LLM) ; `docs/Dossier_architecture/05_services_ia_et_analyse.md`, `docs/Dossier_architecture/06_moteur_orchestration_ia.md`.
 
 ## 2. Commandes d'Investigation
 

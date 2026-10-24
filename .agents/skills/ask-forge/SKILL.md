@@ -47,7 +47,6 @@ Situations initiales générant du travail avant d'intégrer le flux principal :
 
 ## Compétences autonomes (Standalone)
 
-- **`/grill-me`** : interview contradictoire stateless, réservée aux sessions hors dépôt / hors working directory.
 - **`/resolving-merge-conflicts`** : résolution méthodique des conflits de fusion git par intention.
 - **`/research`** : délégation d'investigation documentaire à un sous-agent avec rapport sourcé.
 - **`/writing-for-agents`** : référence pour la rédaction de compétences et d'instructions agentiques.

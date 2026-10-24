@@ -1,44 +1,35 @@
-# Design It Twice
+# Concevoir Deux Fois (Design It Twice) 📐
 
-When the user wants to explore alternative interfaces for a chosen deepening candidate, use this parallel sub-agent pattern. Based on "Design It Twice" (Ousterhout): your first idea is unlikely to be the best.
+Lorsque l'utilisateur souhaite explorer des interfaces alternatives pour un module à approfondir, utiliser ce patron de sous-agents parallèles. Fondé sur le principe *« Design It Twice »* (John Ousterhout) : votre première idée d'interface est rarement la meilleure.
 
-Uses the vocabulary in [SKILL.md](SKILL.md): **module**, **interface**, **seam**, **adapter**, **leverage**.
+S'appuie sur le vocabulaire de [SKILL.md](SKILL.md) : **module**, **interface**, **couture (seam)**, **adaptateur (adapter)**, **effet de levier (leverage)**.
 
-## Process
+---
 
-### 1. Frame the problem space
+## Processus d'Exploration
 
-Before spawning sub-agents, write a user-facing explanation of the problem space for the chosen candidate:
+### 1. Cadrer l'Espace du Problème
+Avant de lancer des sous-agents, exposer à l'utilisateur une explication concise du problème :
+- Les contraintes que toute nouvelle interface doit respecter.
+- Les dépendances requises et leur catégorie (voir [DEEPENING.md](DEEPENING.md)).
+- Une esquisse de code illustrative en Python 3.12 pour ancrer les contraintes concrètement.
 
-- The constraints any new interface would need to satisfy
-- The dependencies it would rely on, and which category they fall into (see [DEEPENING.md](DEEPENING.md))
-- A rough illustrative code sketch to ground the constraints, not a proposal, just a way to make the constraints concrete
+### 2. Lancer les Sous-Agents Parallèles
+Instancier 3 sous-agents en parallèle avec des contraintes de conception intentionnellement opposées :
+- **Agent 1 (Minimaliste)** : Réduire l'interface au strict minimum (1 à 2 points d'entrée max, fort effet de levier).
+- **Agent 2 (Extensible)** : Maximiser la modularité et la composition d'étapes (ex: pipeline DAG).
+- **Agent 3 (Usage courant)** : Optimiser pour le cas le plus fréquent (rendre le cas nominal trivial en une ligne).
 
-Show this to the user, then immediately proceed to Step 2. The user reads and thinks while the sub-agents work in parallel.
+Chaque sous-agent produit :
+1. L'interface typée (méthodes, types PEP 695, invariants, exceptions).
+2. Un exemple d'usage appelant en Python.
+3. Ce que l'implémentation masque derrière la couture.
+4. Les compromis (points forts vs points faibles).
 
-### 2. Spawn sub-agents
+### 3. Restituer et Comparer
+Présenter les variantes successivement, puis les confronter :
+- Par **profondeur** (puissance offerte par rapport à l'effort d'apprentissage).
+- Par **localité** (concentration des responsabilités).
+- Par **pertinence du placement de la couture**.
 
-Spawn 3+ sub-agents in parallel. Each must produce a **radically different** interface for the deepened module.
-
-Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each agent a different design constraint:
-
-- Agent 1: "Minimize the interface: aim for 1–3 entry points max. Maximise leverage per entry point."
-- Agent 2: "Maximise flexibility: support many use cases and extension."
-- Agent 3: "Optimise for the most common caller: make the default case trivial."
-- Agent 4 (if applicable): "Design around ports & adapters for cross-seam dependencies."
-
-Include both [SKILL.md](SKILL.md) vocabulary and CONTEXT.md vocabulary in the brief so each sub-agent names things consistently with the architecture language and the project's domain language.
-
-Each sub-agent outputs:
-
-1. Interface (types, methods, params, plus invariants, ordering, error modes)
-2. Usage example showing how callers use it
-3. What the implementation hides behind the seam
-4. Dependency strategy and adapters (see [DEEPENING.md](DEEPENING.md))
-5. Trade-offs: where leverage is high, where it's thin
-
-### 3. Present and compare
-
-Present designs sequentially so the user can absorb each one, then compare them in prose. Contrast by **depth** (leverage at the interface), **locality** (where change concentrates), and **seam placement**.
-
-After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated: the user wants a strong read, not a menu.
+Formuler une recommandation tranchée et argumentée pour AnkiForge.
