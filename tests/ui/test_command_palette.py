@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from ankiforge.ui.widgets.command_palette import CommandPalette
@@ -5,7 +7,7 @@ from ankiforge.ui.widgets.command_palette import CommandPalette
 pytestmark = pytest.mark.ui
 
 
-def test_command_palette_creation(qtbot):
+def test_command_palette_creation(qtbot: Any) -> None:
     widget = CommandPalette()
     qtbot.addWidget(widget)
     assert widget is not None
@@ -16,7 +18,7 @@ def test_command_palette_creation(qtbot):
     assert "visite guidée" in tour_cmds[0]["title"]
 
 
-def test_command_palette_selection_tour(qtbot):
+def test_command_palette_selection_tour(qtbot: Any) -> None:
     widget = CommandPalette()
     qtbot.addWidget(widget)
 
@@ -34,3 +36,26 @@ def test_command_palette_selection_tour(qtbot):
 
     assert captured.get("cmd") == "action.tour"
     assert captured.get("view") == "tour"
+
+
+def test_command_palette_lifecycle_guide_command(qtbot: Any) -> None:
+    widget = CommandPalette()
+    qtbot.addWidget(widget)
+
+    guide_cmds = [cmd for cmd in widget.commands if cmd["id"] == "action.lifecycle_guide"]
+    assert len(guide_cmds) == 1
+    assert "cycle de vie" in guide_cmds[0]["title"].lower()
+    assert guide_cmds[0]["category"] == "Aide"
+
+    captured: dict[str, str] = {}
+    widget.command_selected.connect(lambda cid: captured.update(cmd=cid))
+    widget.view_requested.connect(lambda vid: captured.update(view=vid))
+
+    widget.search_input.setText("cycle")
+    assert widget.result_list.count() >= 1
+
+    first_item = widget.result_list.item(0)
+    widget._on_item_clicked(first_item)
+
+    assert captured.get("cmd") == "action.lifecycle_guide"
+    assert captured.get("view") == "lifecycle_guide"

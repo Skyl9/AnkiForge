@@ -1153,7 +1153,7 @@ def test_settings_modal_save_button_disabled_has_visible_contour(qtbot):
 
 
 @pytest.mark.parametrize("size", [(820, 560), (880, 620)])
-@pytest.mark.parametrize(("tab_index", "tab_name"), [(0, "Général"), (1, "Moteurs IA"), (4, "Maintenance"), (8, "Développeur")])
+@pytest.mark.parametrize(("tab_index", "tab_name"), [(0, "Général"), (1, "Moteurs IA"), (4, "Maintenance"), (8, "Aide & Guides"), (9, "Développeur")])
 def test_settings_modal_tabs_no_horizontal_scrollbar(qtbot: Any, size: tuple[int, int], tab_index: int, tab_name: str) -> None:
     """Aux tailles 820x560 et 880x620, le contenu des 4 onglets s'adapte sans imposer de barre de défilement horizontale."""
     from PySide6.QtWidgets import QScrollArea

@@ -170,14 +170,14 @@ def test_settings_modal_dev_tab_conditional(qtbot):
     with patch("ankiforge.ui.widgets.settings_modal.modal.is_development", return_value=False):
         modal_prod = SettingsModal()
         qtbot.addWidget(modal_prod)
-        assert modal_prod.stacked_widget.count() == 8
+        assert modal_prod.stacked_widget.count() == 9
         assert modal_prod.dev_tab is None
 
     # 2. En environnement de développement (--dev)
     with patch("ankiforge.ui.widgets.settings_modal.modal.is_development", return_value=True):
         modal_dev = SettingsModal()
         qtbot.addWidget(modal_dev)
-        assert modal_dev.stacked_widget.count() == 9
+        assert modal_dev.stacked_widget.count() == 10
         assert modal_dev.dev_tab is not None
         assert isinstance(modal_dev.dev_tab, DeveloperTab)
 
