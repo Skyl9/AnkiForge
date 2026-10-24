@@ -10,6 +10,7 @@ from ankiforge.services.parsing.audio_parser import (
 )
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.parsing.document_parser import DocumentParser
+from tests.conftest import MINIMAL_VALID_MP3_BYTES
 
 pytestmark = pytest.mark.unit
 
@@ -43,7 +44,7 @@ def test_audio_parser_file_not_found():
 def test_audio_parser_with_whisper_mock(tmp_path):
     """Vérifie la transcription et le regroupement en blocs horodatés avec un mock de Whisper."""
     fake_mp3 = tmp_path / "cours_cardiologie.mp3"
-    fake_mp3.write_bytes(b"\xff\xfb\x90\x44" * 100)
+    fake_mp3.write_bytes(MINIMAL_VALID_MP3_BYTES)
 
     # Simulation de la réponse Whisper verbose_json avec segments
     mock_segments = [
@@ -112,7 +113,7 @@ Puis vient la systole ventriculaire et enfin la diastole générale pour le remp
 def test_audio_parser_cancellation(tmp_path):
     """Vérifie que le check_cancel interrompt la génération."""
     fake_mp3 = tmp_path / "cours_cancel.mp3"
-    fake_mp3.write_bytes(b"\xff\xfb\x90\x44" * 100)
+    fake_mp3.write_bytes(MINIMAL_VALID_MP3_BYTES)
 
     parser = AudioParser(media_manager=MagicMock())
     result = parser.parse(fake_mp3, check_cancel=lambda: True)

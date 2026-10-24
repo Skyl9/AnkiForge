@@ -63,6 +63,10 @@ os.environ.setdefault("ANKIFORGE_ENV", "testing")
 # Document Marker typique (fixture partagée) : un sommaire dont les entrées sont
 # balisées comme des titres Markdown, suivi du corps réel des chapitres sous les
 # MÊMES titres — la collision à laquelle le ticket P1 s'applique.
+# Fichier audio MP3 minimalement et structurellement valide (ID3v2.3 + 10 trames MPEG-1 Layer 3)
+# Garanti sans avertissement de détection tronquée FFmpeg ("Format mp3 detected with low score").
+MINIMAL_VALID_MP3_BYTES = b"ID3\x03\x00\x00\x00\x00\x00\x00" + ((b"\xff\xfb\x90\xc4" + b"\x00" * 413) * 10)
+
 MARKER_TOC_PAGINATED = "\n".join(
     [
         "{0}------------------------------------------------",
@@ -129,6 +133,25 @@ def marker_toc_paginated() -> str:
 def marker_toc_plain() -> str:
     """Variante non paginée du même document (consommateurs Markdown)."""
     return MARKER_TOC_PLAIN
+
+
+@pytest.fixture(scope="session")
+def minimal_valid_mp3_bytes() -> bytes:
+    """Binaire MP3 minimalement et structurellement valide pour les tests audio."""
+    return MINIMAL_VALID_MP3_BYTES
+
+
+@pytest.fixture
+def minimal_valid_mp3_path(tmp_path: os.PathLike) -> Callable[[str], str]:
+    """Fabrique un fichier temporaire .mp3 valide sans warning FFmpeg."""
+    from pathlib import Path
+
+    def _create(filename: str = "valid_sample.mp3") -> str:
+        target = Path(tmp_path) / filename
+        target.write_bytes(MINIMAL_VALID_MP3_BYTES)
+        return str(target)
+
+    return _create
 
 
 @pytest.fixture(autouse=True)

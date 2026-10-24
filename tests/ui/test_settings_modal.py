@@ -34,6 +34,7 @@ from ankiforge.ui.widgets.settings_modal import (
     TTSSettingsTab,
 )
 from ankiforge.utils import i18n
+from tests.conftest import MINIMAL_VALID_MP3_BYTES
 
 pytestmark = pytest.mark.ui
 
@@ -736,7 +737,7 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
     assert tab.cb_engine.width() <= 320
 
     fake_audio = tmp_path / "sample.mp3"
-    fake_audio.write_bytes(b"fake mp3 audio data")
+    fake_audio.write_bytes(MINIMAL_VALID_MP3_BYTES)
 
     with patch.object(tab.tts_service, "synthesize", return_value=("[sound:sample.mp3]", fake_audio)), patch.object(tab._player, "play") as mock_play:
         tab._on_test_voice()
