@@ -1063,6 +1063,15 @@ class MainWindow(QMainWindow):
             QDesktopServices.openUrl(QUrl(KOFI_URL))
         elif command_id == "action.dialog_gallery":
             self._open_dialog_gallery()
+        elif command_id == "action.taxonomy_manager":
+            self._open_taxonomy_manager()
+
+    def _open_taxonomy_manager(self) -> None:
+        """Ouvre le gestionnaire complet de taxonomie des tags (ADR 0040)."""
+        from ankiforge.ui.components.tag_select_window import TagSelectWindow
+
+        win = TagSelectWindow(mode="manage", parent=self)
+        win.show()
 
     def _open_lifecycle_guide(self) -> None:
         """Ouvre le dialogue du guide visuel du cycle de vie distribué."""

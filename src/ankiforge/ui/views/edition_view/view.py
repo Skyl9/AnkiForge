@@ -1125,6 +1125,8 @@ class EditionView(QWidget):
 
         # Éditeur Inline de Tags de la Note
         self.tags_editor = NoteTagsEditorWidget(note=note, parent=self.fields_container)
+        if getattr(self, "selected_deck_id", None) is not None:
+            self.tags_editor.set_deck_id(self.selected_deck_id)
         self.tags_editor.tags_changed.connect(self._on_note_tags_changed)
         self.tags_editor.provenance_tag_removed.connect(self._on_provenance_tag_removed)
         self.fields_layout.addWidget(self.tags_editor)

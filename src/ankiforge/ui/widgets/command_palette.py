@@ -155,6 +155,13 @@ class CommandPalette(QDialog):
             tr("Actions"),
         )
         self.register_command(
+            "action.taxonomy_manager",
+            tr("Gestionnaire de taxonomie des tags"),
+            "tag",
+            "",
+            tr("Actions"),
+        )
+        self.register_command(
             "action.tour",
             tr("Lancer la visite guidée d'AnkiForge"),
             "compass",

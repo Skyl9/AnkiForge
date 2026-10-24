@@ -381,7 +381,8 @@ class NoteRepository(BaseRepository):
             if not deck_ids:
                 return []
 
-            query = NoteModel.select(NoteModel.tags).join(CardModel, on=(CardModel.note == NoteModel.id)).where(CardModel.deck.in_(deck_ids) & NoteModel.tags.is_null(False)).distinct()
+            subq = CardModel.select(CardModel.note_id).where(CardModel.deck.in_(deck_ids))
+            query = NoteModel.select(NoteModel.tags).where(NoteModel.id.in_(subq) & NoteModel.tags.is_null(False))
             for note in query:
                 if note.tags:
                     for t in parse_note_tags(note.tags):
@@ -394,3 +395,44 @@ class NoteRepository(BaseRepository):
                         tags_set.add(t)
 
         return sorted(tags_set)
+
+    def get_tags_with_counts(
+        self,
+        deck_id: int | None = None,
+        include_descendants: bool = True,
+    ) -> dict[str, int]:
+        """Extrait tous les tags uniques pour une portée donnée avec leur nombre d'occurrences.
+
+        Args:
+            deck_id: ID du paquet sélectionné ou None pour toute la collection.
+            include_descendants: Si True, inclut les sous-paquets du paquet spécifié.
+
+        Returns:
+            Dictionnaire associant chaque tag à son nombre de notes.
+        """
+        counts: dict[str, int] = {}
+
+        if deck_id is not None:
+            active_deck = DeckModel.get_or_none(DeckModel.id == deck_id)
+            if not active_deck:
+                return {}
+
+            if include_descendants:
+                deck_ids = [d.id for d in DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(descendants_prefix(active_deck.name))))]
+            else:
+                deck_ids = [active_deck.id]
+
+            if not deck_ids:
+                return {}
+
+            subq = CardModel.select(CardModel.note_id).where(CardModel.deck.in_(deck_ids))
+            query = NoteModel.select(NoteModel.tags).where(NoteModel.id.in_(subq) & NoteModel.tags.is_null(False))
+        else:
+            query = NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False))
+
+        for note in query:
+            if note.tags:
+                for t in parse_note_tags(note.tags):
+                    counts[t] = counts.get(t, 0) + 1
+
+        return counts

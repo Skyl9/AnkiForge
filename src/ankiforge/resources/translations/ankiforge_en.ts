@@ -499,6 +499,61 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/components/tag_completer.py" line="+60"/>
+        <source>%1 note%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/components/tag_select_window.py" line="+363"/>
+        <source>Nouveau nom pour « %1 » (%2 note%3) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Propager à la sous-arborescence (%1 sous-tag%2, %3 note%4)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Renommer « %1 » en « %2 » va modifier %3 note%4. Continuer ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Attention : « %1 » est un tag de traçabilité documentaire (RAG).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Le %1 de ce tag risque de délier les cartes de leurs sources et de recalculer leur couverture.
+
+Voulez-vous vraiment continuer ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+46"/>
+        <location line="+52"/>
+        <location line="+52"/>
+        <source>Une erreur est survenue :
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-96"/>
+        <source>Voulez-vous supprimer le tag « %1 » sur %2 note(s) ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+52"/>
+        <source>Voulez-vous fusionner « %1 » vers « %2 » sur %3 note%4 ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Sélectionner le tag cible dans lequel fusionner « %1 » :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/components/topbar.py" line="+130"/>
         <source>Rechercher cartes, paquets, commandes... (%1)</source>
         <translation type="unfinished"></translation>
@@ -1357,6 +1412,22 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/dialogs/taxonomy_audit_dialog.py" line="+155"/>
+        <source>%1 anomalie%2 détectée%3 sur %4 note%5.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+125"/>
+        <source>%1 tag(s) réparé(s) avec succès sur %2 note(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Une erreur est survenue lors de la transaction :
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/dialogs/tool_editor_dialog.py" line="+228"/>
         <source>Impossible d&apos;enregistrer : %1</source>
         <translation type="unfinished"></translation>
@@ -1594,7 +1665,7 @@ Voulez-vous vraiment %2 ? Ce travail sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+236"/>
+        <location line="+245"/>
         <source>Impossible de basculer vers l&apos;espace « %1 » : il est actuellement ouvert par une autre instance%2.
 
 L&apos;accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.</source>
@@ -2956,7 +3027,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
         <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+738"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+740"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4670,7 +4741,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="+48"/>
+        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="+50"/>
         <source>Édition groupée (%1 cartes)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4685,23 +4756,23 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+289"/>
+        <location line="+291"/>
         <source>La modification a échoué et la transaction a été annulée :
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+75"/>
+        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+77"/>
         <source>Tag de traçabilité documentaire : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+226"/>
+        <location line="+228"/>
         <source>(%1 tag%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+90"/>
+        <location line="+110"/>
         <source>Voulez-vous vraiment supprimer le tag de traçabilité documentaire « %1 » ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4716,7 +4787,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-567"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-569"/>
         <source>%1 cartes sélectionnées (sur %2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4747,7 +4818,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+89"/>
+        <location line="+91"/>
         <source>Tag de provenance « %1 » retiré et couverture recalculée.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5481,11 +5552,17 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="+8"/>
         <location line="+7"/>
+        <location line="+7"/>
         <source>Actions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="-3"/>
+        <source>Gestionnaire de taxonomie des tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
         <source>Lancer la visite guidée d&apos;AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9759,7 +9836,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CommandPalette</name>
     <message>
-        <location filename="../../ui/widgets/command_palette.py" line="-196"/>
+        <location filename="../../ui/widgets/command_palette.py" line="-203"/>
         <source>Rechercher cartes, paquets, vues ou commandes...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12473,7 +12550,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-2051"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-2053"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12484,18 +12561,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+33"/>
-        <location line="+1070"/>
+        <location line="+1072"/>
         <source>Dossier : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1051"/>
-        <location line="+1337"/>
+        <location line="-1053"/>
+        <location line="+1339"/>
         <source>Type de note : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1318"/>
+        <location line="-1320"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12543,13 +12620,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+4"/>
         <location line="+421"/>
         <location line="+13"/>
-        <location line="+1426"/>
+        <location line="+1428"/>
         <location line="+100"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1956"/>
+        <location line="-1958"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12587,7 +12664,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+396"/>
-        <location line="+708"/>
+        <location line="+710"/>
         <source>Changer le type de note...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13695,7 +13772,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>GroupEditDialog</name>
     <message>
-        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="-278"/>
+        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="-280"/>
         <source>🏷️ Étiquettes (Tags)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13711,12 +13788,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+18"/>
-        <location line="+33"/>
+        <location line="+35"/>
         <source>Parcourir et sélectionner un tag existant</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-14"/>
+        <location line="-15"/>
         <source>Retirer des tags (séparés par virgules ou espaces) :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13726,7 +13803,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+16"/>
         <source>&lt;i&gt;Remarque : les tags de provenance documentaire (doc:, source:, page:, section:) sont préservés pour garantir la traçabilité.&lt;/i&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15547,7 +15624,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-848"/>
+        <location filename="../../ui/main_window.py" line="-857"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15562,7 +15639,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+156"/>
+        <location line="+165"/>
         <source>Aucun incident n&apos;est enregistré dans crash.log.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16320,7 +16397,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NoteTagChipWidget</name>
     <message>
-        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="-283"/>
+        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="-305"/>
         <source>Déplacer vers la gauche</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16348,7 +16425,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+22"/>
         <source>+</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16368,12 +16445,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+86"/>
+        <location line="+106"/>
         <source>Supprimer le tag de provenance ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="+30"/>
         <source>Sélectionner un Tag</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18888,18 +18965,267 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TagSelectWindow</name>
     <message>
-        <location filename="../../ui/components/tag_select_window.py" line="+48"/>
+        <location filename="../../ui/components/tag_select_window.py" line="-467"/>
+        <source>Gestionnaire de Taxonomie des Tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
         <source>Sélectionner ou Ajouter un Tag</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="+23"/>
+        <source>Filtrer l&apos;arborescence des tags...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
         <source>Rechercher ou saisir un nouveau tag...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+27"/>
         <source>Afficher les tags de traçabilité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Clic droit sur un tag pour le renommer, fusionner ou supprimer.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Auditer la taxonomie...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Fermer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+178"/>
+        <location line="+22"/>
+        <location line="+18"/>
+        <location line="+51"/>
+        <location line="+52"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-318"/>
+        <source>Valider ce tag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+128"/>
+        <source>Renommer ce tag...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Fusionner avec un autre tag...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Supprimer de la collection...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Auditer la conformité de la taxonomie...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Renommer le tag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <location line="+19"/>
+        <source>Renommer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-2"/>
+        <source>Confirmer le renommage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Garde-Fou de Provenance Documentaire</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Confirmer malgré le risque</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+41"/>
+        <source>Échec du renommage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Supprimer le tag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Supprimer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Sous-tags détectés</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ce tag possède des sous-tags. Voulez-vous aussi supprimer toute sa sous-arborescence ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Échec de la suppression</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Confirmer la fusion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Fusionner</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Fusionner le tag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Échec de la fusion</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TaxonomyAuditDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/taxonomy_audit_dialog.py" line="-239"/>
+        <source>Audit de Conformité de la Taxonomie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Analyse de la collection en cours...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Appliquer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Tag actuel (Anomalie)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Notes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Correction proposée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>Tout cocher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Fermer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Appliquer les réparations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Aucun problème détecté : l&apos;ensemble des tags respecte la syntaxe Anki.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Espaces interdits</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hiérarchie &apos;::&apos; invalide</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Tag vide</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Caractères non imprimables</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Variante de casse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>Remplacer (_)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Scinder en plusieurs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+56"/>
+        <source>Aucune réparation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Veuillez cocher au moins une anomalie à réparer.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Réparations appliquées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Échec de la réparation</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

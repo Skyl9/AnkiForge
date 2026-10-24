@@ -1,3 +1,4 @@
+import uuid
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -41,6 +42,7 @@ def sample_album_files(tmp_path):
 @pytest.fixture
 def created_album(sample_album_files, mock_db):
     """Crée un album de test en BDD."""
+    DocumentModel.delete().where(DocumentModel.title == "Manuel Anatomie Test").execute()
     service = AlbumService()
     return service.create_album_from_images(
         title="Manuel Anatomie Test",
@@ -736,7 +738,6 @@ def test_album_occlusion_notes_are_attached_to_the_page_chunk(qtbot, created_alb
     fragment « page » créé par l'indexation visuelle et l'inscrit au palier exact.
     """
     import json
-    import uuid
 
     from ankiforge.database.models import (
         DocumentChunkModel,

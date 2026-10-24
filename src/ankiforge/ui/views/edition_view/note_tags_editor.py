@@ -28,12 +28,14 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import NoteChunkLinkModel, NoteModel
 from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.ui.components.flow_layout import FlowWidget
+from ankiforge.ui.components.tag_completer import TagAutocompleter
 from ankiforge.ui.components.tag_select_window import TagSelectWindow
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.tags import (
     is_provenance_tag,
+    normalize_tag_input,
     parse_note_tags,
     serialize_note_tags,
 )
@@ -233,6 +235,8 @@ class NoteTagsEditorWidget(QFrame):
             }}
         """)
         self.input_new_tag.returnPressed.connect(self._on_add_tag_clicked)
+        self.completer = TagAutocompleter(self.input_new_tag, single_tag_mode=True, parent=self)
+        self.completer.tag_confirmed.connect(self._add_tag_directly)
         top_layout.addWidget(self.input_new_tag)
 
         # Bouton d'ajout
@@ -318,17 +322,37 @@ class NoteTagsEditorWidget(QFrame):
             chip.delete_requested.connect(self._on_delete_tag_requested)
             self.chips_flow.add_widget(chip)
 
+    def set_deck_id(self, deck_id: int | None) -> None:
+        """Met à jour la portée de l'autocomplétion selon le paquet actif."""
+        if hasattr(self, "completer"):
+            self.completer.set_deck_id(deck_id)
+
+    def _add_tag_directly(self, tag: str) -> None:
+        """Ajoute directement un tag normalisé émis par l'autocomplétion."""
+        clean_tag = normalize_tag_input(tag)
+        if not clean_tag or clean_tag in self._tags:
+            return
+        self._tags.append(clean_tag)
+        self._persist_tags()
+        self._refresh_chips()
+        self.tags_changed.emit(list(self._tags))
+
     def _on_add_tag_clicked(self) -> None:
-        """Ajoute un tag saisi par l'utilisateur."""
+        """Ajoute un tag saisi par l'utilisateur avec normalisation stricte Anki."""
         raw_text = self.input_new_tag.text().strip()
         if not raw_text:
             return
 
-        if raw_text in self._tags:
+        clean_tag = normalize_tag_input(raw_text)
+        if not clean_tag:
             self.input_new_tag.clear()
             return
 
-        self._tags.append(raw_text)
+        if clean_tag in self._tags:
+            self.input_new_tag.clear()
+            return
+
+        self._tags.append(clean_tag)
         self._persist_tags()
         self.input_new_tag.clear()
         self._refresh_chips()
@@ -403,6 +427,8 @@ class NoteTagsEditorWidget(QFrame):
             return
         self._note.tags = serialize_note_tags(self._tags)
         self._note.save(only=[NoteModel.tags])
+        if hasattr(self, "completer"):
+            self.completer.refresh_tags()
 
     def _on_browse_tag_clicked(self) -> None:
         try:

@@ -28,10 +28,12 @@ from ankiforge.services.cards.group_edit_service import (
     GroupEditService,
 )
 from ankiforge.ui.components import ActionButton, PrimaryButton
+from ankiforge.ui.components.tag_completer import TagAutocompleter
 from ankiforge.ui.components.tag_select_window import TagSelectWindow
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankiforge.utils.tags import split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +188,7 @@ class GroupEditDialog(QDialog):
                 border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
+        self.completer_add = TagAutocompleter(self.input_tags_add, single_tag_mode=False, parent=self)
         self.btn_browse_tags_add.clicked.connect(lambda: self._open_tag_selector(self.input_tags_add))
         row_add.addWidget(self.btn_browse_tags_add)
 
@@ -204,6 +207,7 @@ class GroupEditDialog(QDialog):
         self.input_tags_remove.setStyleSheet(self.input_tags_add.styleSheet())
         row_remove.addWidget(self.input_tags_remove, stretch=1)
 
+        self.completer_remove = TagAutocompleter(self.input_tags_remove, single_tag_mode=False, parent=self)
         self.btn_browse_tags_remove = QToolButton(tags_group)
         self.btn_browse_tags_remove.setIcon(load_phosphor_icon("tag", color=DesignTokens.TEXT_SECONDARY))
         self.btn_browse_tags_remove.setToolTip(self.tr("Parcourir et sélectionner un tag existant"))
@@ -360,8 +364,8 @@ class GroupEditDialog(QDialog):
         raw_add = self.input_tags_add.text().strip()
         raw_remove = self.input_tags_remove.text().strip()
 
-        tags_to_add = [t.strip() for t in raw_add.replace(",", " ").split() if t.strip()]
-        tags_to_remove = [t.strip() for t in raw_remove.replace(",", " ").split() if t.strip()]
+        tags_to_add = split_tag_tokens(raw_add)
+        tags_to_remove = split_tag_tokens(raw_remove)
 
         field_name: str | None = None
         field_action: str | None = None

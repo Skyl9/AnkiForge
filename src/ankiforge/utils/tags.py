@@ -337,3 +337,103 @@ def replace_provenance_tags(
         parsed = rebuilt
 
     return serialize_note_tags(parsed)
+
+
+def validate_tag_syntax(tag: str) -> tuple[bool, str | None]:
+    """Vérifie si un tag est syntaxiquement conforme à la norme Anki (ADR 0040).
+
+    Règles Anki :
+    - Non vide.
+    - Zéro espace ou tabulation (l'espace est le séparateur Anki).
+    - Aucun segment hiérarchique vide (pas de '::' en tête/queue ni de '::::').
+    - Aucun caractère de contrôle non imprimable.
+
+    Returns:
+        Un tuple (est_valide, message_erreur_ou_none).
+    """
+    if not tag or not tag.strip():
+        return False, "Le tag ne peut pas être vide."
+
+    if bool(re.search(r"\s", tag)):
+        return False, "Les espaces sont interdits dans un tag individuel."
+
+    raw = tag.strip()
+    if raw.startswith("::") or raw.endswith("::") or ":::" in raw or any(not seg for seg in raw.split("::")):
+        return False, "La hiérarchie '::' contient des segments vides."
+
+    if any(ord(c) < 32 for c in raw):
+        return False, "Le tag contient des caractères de contrôle non imprimables."
+
+    return True, None
+
+
+def normalize_tag_input(tag: str) -> str:
+    """Normalise une chaîne de tag selon l'ADR 0040.
+
+    - Convertit les espaces internes consécutifs en tirets bas (_).
+    - Nettoie les deux-points superflus (tête, queue, répétitions) et segments vides.
+    """
+    if not tag or not tag.strip():
+        return ""
+
+    raw = tag.strip()
+    segments = raw.split("::")
+    cleaned_segments: list[str] = []
+
+    for seg in segments:
+        s = seg.strip()
+        if not s:
+            continue
+        # Remplacer les espaces consécutifs par un tiret bas
+        s = re.sub(r"\s+", "_", s)
+        # Supprimer d'éventuels deux-points résiduels internes au segment
+        s = s.strip(":")
+        if s:
+            cleaned_segments.append(s)
+
+    return "::".join(cleaned_segments)
+
+
+def split_tag_tokens(text: str) -> list[str]:
+    """Découpe une saisie textuelle de tags (séparée par espaces ou virgules).
+
+    Chaque jeton est normalisé, les doublons sont éliminés en préservant l'ordre.
+    """
+    if not text or not text.strip():
+        return []
+
+    tokens = [t.strip() for t in re.split(r"[,\s]+", text) if t.strip()]
+    result: list[str] = []
+
+    for tok in tokens:
+        norm = normalize_tag_input(tok)
+        if norm and norm not in result:
+            result.append(norm)
+
+    return result
+
+
+def detect_tag_anomalies(tag: str) -> list[str]:
+    """Détecte les anomalies syntaxiques d'un tag legacy.
+
+    Retourne la liste des anomalies :
+    - 'empty' : chaîne vide ou blancs purs.
+    - 'has_spaces' : contient des espaces internes.
+    - 'malformed_hierarchy' : colons superflus ou segments hiérarchiques vides.
+    - 'control_chars' : caractères non imprimables.
+    """
+    if not tag or not tag.strip():
+        return ["empty"]
+
+    anomalies: list[str] = []
+    if bool(re.search(r"\s", tag)):
+        anomalies.append("has_spaces")
+
+    raw = tag.strip()
+    if raw.startswith("::") or raw.endswith("::") or ":::" in raw or any(not seg.strip() for seg in raw.split("::")):
+        anomalies.append("malformed_hierarchy")
+
+    if any(ord(c) < 32 for c in raw):
+        anomalies.append("control_chars")
+
+    return anomalies

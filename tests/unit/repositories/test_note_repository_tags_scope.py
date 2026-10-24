@@ -95,3 +95,27 @@ def test_get_tags_for_scope_hierarchical_decks() -> None:
     # Portée deck parent SANS descendants : uniquement n1
     tags_parent_strict = repo.get_tags_for_scope(deck_id=deck_parent.id, include_descendants=False)
     assert tags_parent_strict == ["matiere_generale"]
+
+
+def test_get_tags_with_counts_deck_scope_exact_counting() -> None:
+    """Vérifie que plusieurs notes distinctes avec les mêmes tags dans un deck sont exactement comptées."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"ModelCounts_{uid}", fields_schema='["Front", "Back"]')
+    deck = DeckModel.create(name=f"DeckCounts_{uid}")
+
+    # 3 notes distinctes avec le même tag "anatomie"
+    n1 = NoteModel.create(note_type=nt, tags='["anatomie", "commun"]')
+    CardModel.create(note=n1, deck=deck, template_index=0)
+
+    n2 = NoteModel.create(note_type=nt, tags='["anatomie", "rare"]')
+    CardModel.create(note=n2, deck=deck, template_index=0)
+
+    n3 = NoteModel.create(note_type=nt, tags='["anatomie"]')
+    CardModel.create(note=n3, deck=deck, template_index=0)
+
+    repo = NoteRepository()
+    counts = repo.get_tags_with_counts(deck_id=deck.id)
+
+    assert counts["anatomie"] == 3
+    assert counts["commun"] == 1
+    assert counts["rare"] == 1

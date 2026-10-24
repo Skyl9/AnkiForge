@@ -489,7 +489,7 @@ def test_edition_view_save_card_preserves_proven_and_migrated_links(qtbot: Any, 
 
 
 def test_edition_view_tags_editor_inline_and_add_tag_with_spaces(qtbot, mock_db):
-    """Vérifie l'éditeur inline de tags, l'ajout de tags avec espaces et leur persistance sans coupure."""
+    """Vérifie l'éditeur inline de tags, la normalisation des espaces en tirets bas (ADR 0040) et leur persistance."""
     from ankiforge.utils.tags import parse_note_tags
 
     uid = uuid.uuid4().hex[:6]
@@ -506,14 +506,14 @@ def test_edition_view_tags_editor_inline_and_add_tag_with_spaces(qtbot, mock_db)
     assert hasattr(view, "tags_editor") and view.tags_editor is not None
     assert view.tags_editor.get_tags() == ["tag1", "doc:99"]
 
-    # 2. Ajout d'un tag avec espaces ("médecine générale")
+    # 2. Ajout d'un tag avec espaces ("médecine générale") normalisé en "médecine_générale"
     view.tags_editor.input_new_tag.setText("médecine générale")
     view.tags_editor.btn_add_tag.click()
 
-    assert "médecine générale" in view.tags_editor.get_tags()
+    assert "médecine_générale" in view.tags_editor.get_tags()
     refreshed_note = NoteModel.get_by_id(note.id)
-    # Vérification que le round-trip n'a pas découpé le tag en deux
-    assert parse_note_tags(refreshed_note.tags) == ["tag1", "doc:99", "médecine générale"]
+    # Vérification que le tag normalisé est persisté sans espaces
+    assert parse_note_tags(refreshed_note.tags) == ["tag1", "doc:99", "médecine_générale"]
 
 
 def test_edition_view_tags_editor_visual_distinction_and_reorder(qtbot, mock_db):
