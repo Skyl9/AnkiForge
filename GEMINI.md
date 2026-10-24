@@ -24,7 +24,7 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 
 ## Catalogue des Compétences Agentiques (`.agents/skills/`)
 
-Le dépôt héberge 48 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
+Le dépôt héberge 49 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
 
 > [!IMPORTANT]
 > **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les compétences dont la spécification ou les déclencheurs emploient l'anglais.
@@ -38,6 +38,7 @@ Le dépôt héberge 48 compétences agentiques autonomes conformes au standard i
 - `obsidian-vault` (`.agents/skills/obsidian-vault/SKILL.md`) : Gestionnaire du vault Obsidian (`ankiforge_obsidian/`), Kanban (`Avancement du projet.md`) et tickets en mode atomique one-shot anti-boucle.
 - `proposer-commits` (`.agents/skills/proposer-commits/SKILL.md`) : Formulation de propositions de commits atomiques conformes à Conventional Commits v1.0.0 en français (garde-fou interdisant tout commit autonome).
 - `verification-environnement` (`.agents/skills/verification-environnement/SKILL.md`) : Règles d'ingénierie préventives, interdits non négociables et exécution de la porte canonique (`script/verify.py`).
+- `revue-adr` (`.agents/skills/revue-adr/SKILL.md`) : Audit du cycle de vie, consolidation des ADRs, élimination de l'obsolescence et mise à jour des redirections dans `docs/adr/`.
 
 ### 2. Socle Technique & Piliers d'Architecture
 - `peewee-expert` (`.agents/skills/peewee-expert/SKILL.md`) : Modélisation Peewee ORM, intégrité référentielle, migrations SQLite et élimination des requêtes N+1.
