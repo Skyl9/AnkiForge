@@ -1,6 +1,6 @@
 """Tests unitaires et d'interface graphique (PySide6 / pytest-qt) pour la sécurisation du clavier dans SettingsModal.
 
-Conforme à l'ADR 0031 :
+Conforme à l'ADR 0032 §9 (neutralisation des dialogues et persistance explicite) :
 - Neutralisation de la fermeture accidentelle sur Entrée
 - Validation par Entrée dans les QLineEdit (dont les champs de drapeaux) avec persistance _save_all() et maintien ouvert
 - Raccourci standard Ctrl+S / Cmd+S

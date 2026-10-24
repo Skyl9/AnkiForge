@@ -1,6 +1,6 @@
-# Registre central des raccourcis clavier et politique de conflits
+# Registre central des raccourcis clavier, gestion des portées et neutralisation des dialogues
 
-**Statut :** accepté
+**Statut :** accepté (ADR consolidé intégrant la sécurisation et la neutralisation de dialogue de l'ex-ADR 0031)
 
 Afin d'éliminer les séquences câblées en double et les gestes annoncés sans action, nous instaurons un **registre central déclaratif des raccourcis** (`src/ankiforge/ui/shortcuts/`) comme unique source de vérité de tout binding, de tout libellé affiché et de la documentation : quatre portées hiérarchiques (`Dialogue > Widget > Vue > Application`), activation des bindings par vue affichée, règle « la saisie de texte prime toujours », surcharges utilisateur persistées dans `SettingsService`, refus strict des conflits intra-portée et liste noire de séquences réservées.
 
@@ -48,5 +48,12 @@ Toute infobulle, toute entrée de palette et la page de référence clavier sont
 ### 8. Garde-fou de dérive
 `script/check_shortcuts_drift.py --check|--fix` régénère et valide la page de référence ; une étape `shortcuts-drift` est ajoutée à la porte canonique `script/verify.py`, sur le patron exact de `instructions-drift`.
 
-### 9. Prolongement de l'ADR 0031
-L'ADR 0031 (sécurisation de la touche `Entrée` et persistance explicite de la modale Paramètres) reste en vigueur ; le présent ADR le prolonge sans le contredire : l'onglet « Clavier » se conforme à la neutralisation d'`autoDefault` et à la sauvegarde explicite en place.
+### 9. Neutralisation des dialogues modaux et persistance explicite (ex-ADR 0031)
+
+Afin d'éliminer toute perte de données et toute fermeture impromptue lors de la configuration ou de la capture de raccourcis, les règles d'ergonomie et de neutralisation de `QDialog` sont généralisées :
+- **Neutralisation d'`autoDefault`** : Désactivation explicite d'`autoDefault` sur tous les boutons secondaires, icônes et boutons d'annulation des dialogues (`setAutoDefault(False)`).
+- **Interception de la touche Entrée** : Surcharge de `keyPressEvent(event)` pour intercepter `Qt.Key.Key_Return` et `Qt.Key.Key_Enter` au niveau racine, interdisant la fermeture aveugle via `QDialog.accept()`.
+- **Validation en place avec toast** : Dans les champs de saisie simple (`QLineEdit`, ex: libellés de drapeaux Anki ou filtres), l'appui sur `Entrée` (`returnPressed`) déclenche l'enregistrement global sans fermer la modale, avec confirmation visuelle immédiate par toast non bloquant.
+- **Navigation par tabulation (`Tab` / `Shift+Tab`)** : L'ordre séquentiel de focalisation est strictement respecté pour permettre la complétion rapide de grilles de champs avant validation finale.
+- **Raccourci universel `Ctrl+S` / `Cmd+S` en portée Dialogue** : Tout dialogue de configuration expose un `QShortcut` mappé sur la clé standard d'enregistrement pour offrir une parité clavier totale avec le bouton principal de pied de page.
+- **Repli canonique des libellés vides** : Un champ de configuration vidé par l'utilisateur réapplique immédiatement le repli textuel par défaut (`DesignTokens.FLAG_NAMES[idx]`), garantissant l'absence de valeurs nulles orphelines.

@@ -3,7 +3,7 @@
 Permet de remapper une action en capturant en temps réel l'appui réel au clavier
 (y compris modificateurs et touches mortes), avec contrôle immédiat de la liste noire
 et des conflits intra-portée.
-Conforme à l'ADR 0013, à l'ADR 0031 et à l'ADR 0032.
+Conforme à l'ADR 0013 et à l'ADR 0032 (notamment §9).
 """
 
 from __future__ import annotations

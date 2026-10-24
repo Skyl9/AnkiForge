@@ -3,7 +3,7 @@
 Permet de visualiser l'ensemble des raccourcis déclaratifs de l'application,
 de rechercher par action ou séquence, de filtrer par catégorie, de remapper par appui réel,
 et de réinitialiser unitairement ou globalement les surcharges utilisateur.
-Conforme à l'ADR 0013, à l'ADR 0031 et à l'ADR 0032.
+Conforme à l'ADR 0013 et à l'ADR 0032 (notamment §9).
 """
 
 from __future__ import annotations

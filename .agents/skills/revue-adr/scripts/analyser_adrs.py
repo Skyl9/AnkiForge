@@ -119,8 +119,15 @@ def parse_adr_file(path: Path) -> AdrInfo | None:
     if status_match:
         status = status_match.group(1).strip().strip("*_`[]")
 
-    # Références sortantes vers d'autres ADRs
-    outbound_refs = sorted({m.group(1) for m in ADR_REF_RE.finditer(content) if m.group(1) != number})
+    # Références sortantes vers d'autres ADRs (en ignorant les mentions d'anciennes décisions absorbées ex-ADR)
+    content_without_absorbed = re.sub(
+        r"(?i)(?:l'|d')?ex[-_\s]adr[\s\-_]*\d{4}|anciennes?\s+décisions?[\s\-_]*\d{4}",
+        "",
+        content,
+    )
+    sorted_outbound_refs = sorted(
+        {m.group(1) for m in ADR_REF_RE.finditer(content_without_absorbed) if m.group(1) != number}
+    )
 
     # Détection des thématiques ciblées (priorité titre et slug)
     content_lower = content.lower()
@@ -138,7 +145,7 @@ def parse_adr_file(path: Path) -> AdrInfo | None:
         status=status,
         line_count=len(lines),
         word_count=len(content.split()),
-        outbound_refs=outbound_refs,
+        outbound_refs=sorted_outbound_refs,
         detected_themes=detected_themes,
     )
 
