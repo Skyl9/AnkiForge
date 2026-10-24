@@ -36,6 +36,7 @@ if TYPE_CHECKING:
         AIEnginesTab,
         AnkiSyncTab,
         DeveloperTab,
+        HelpTab,
         KeyboardTab,
         StorageMaintenanceTab,
         TTSSettingsTab,
@@ -66,6 +67,7 @@ class SettingsModal(QDialog):
         self._addons_tab: AddonManagerWidget | None = None
         self._support_tab: Any = None
         self._keyboard_tab: KeyboardTab | None = None
+        self._help_tab: HelpTab | None = None
         self._dev_tab: DeveloperTab | None = None
         self._tabs: list[QWidget | None] = []
         self._wired_line_edits: set[int] = set()
@@ -144,7 +146,12 @@ class SettingsModal(QDialog):
 
             self._keyboard_tab = KeyboardTab(parent=self)
             tab = self._keyboard_tab
-        elif index == 8 and is_development():
+        elif index == 8:
+            from ankiforge.ui.widgets.settings_modal.tabs.help_tab import HelpTab
+
+            self._help_tab = HelpTab(parent=self)
+            tab = self._help_tab
+        elif index == 9 and is_development():
             from ankiforge.ui.widgets.settings_modal.tabs.developer_tab import DeveloperTab
 
             self._dev_tab = DeveloperTab(parent=self)
@@ -295,16 +302,12 @@ class SettingsModal(QDialog):
         self.stacked_widget.blockSignals(False)
 
     @property
-    def dev_tab(self) -> Any:
-        if is_development():
-            return self._ensure_tab_loaded(8)
-        return None
+    def help_tab(self) -> Any:
+        return self._ensure_tab_loaded(8)
 
-    @dev_tab.setter
-    def dev_tab(self, value: Any) -> None:
-        if not is_development():
-            return
-        self._dev_tab = value
+    @help_tab.setter
+    def help_tab(self, value: Any) -> None:
+        self._help_tab = value
         self._tabs[8] = value
         old = self.stacked_widget.widget(8)
         self.stacked_widget.blockSignals(True)
@@ -312,6 +315,26 @@ class SettingsModal(QDialog):
         if old is not None:
             old.deleteLater()
         self.stacked_widget.insertWidget(8, value)
+        self.stacked_widget.blockSignals(False)
+
+    @property
+    def dev_tab(self) -> Any:
+        if is_development():
+            return self._ensure_tab_loaded(9)
+        return None
+
+    @dev_tab.setter
+    def dev_tab(self, value: Any) -> None:
+        if not is_development():
+            return
+        self._dev_tab = value
+        self._tabs[9] = value
+        old = self.stacked_widget.widget(9)
+        self.stacked_widget.blockSignals(True)
+        self.stacked_widget.removeWidget(old)
+        if old is not None:
+            old.deleteLater()
+        self.stacked_widget.insertWidget(9, value)
         self.stacked_widget.blockSignals(False)
 
     def _update_save_enabled(self) -> None:
@@ -400,17 +423,18 @@ class SettingsModal(QDialog):
         self.nav_btns: list[SettingsNavButton] = []
 
         tabs_info = [
-            ("Général", "ph.paint-brush-broad", 0),
-            ("Moteurs IA", "ph.cpu", 1),
-            ("Anki && Formats", "ph.cards", 2),
-            ("Audio && TTS", "ph.speaker-high", 3),
-            ("Maintenance", "ph.wrench", 4),
-            ("Extensions", "ph.puzzle-piece", 5),
-            ("Soutien", "ph.heart", 6),
-            ("Clavier", "ph.key", 7),
+            (self.tr("Général"), "ph.paint-brush-broad", 0),
+            (self.tr("Moteurs IA"), "ph.cpu", 1),
+            (self.tr("Anki && Formats"), "ph.cards", 2),
+            (self.tr("Audio && TTS"), "ph.speaker-high", 3),
+            (self.tr("Maintenance"), "ph.wrench", 4),
+            (self.tr("Extensions"), "ph.puzzle-piece", 5),
+            (self.tr("Soutien"), "ph.heart", 6),
+            (self.tr("Clavier"), "ph.key", 7),
+            (self.tr("Aide && Guides"), "ph.book-open", 8),
         ]
         if is_development():
-            tabs_info.append(("Développeur", "ph.code", 8))
+            tabs_info.append((self.tr("Développeur"), "ph.code", 9))
 
         for title, icon_name, idx in tabs_info:
             btn = SettingsNavButton(title, icon_name, idx)
@@ -427,7 +451,7 @@ class SettingsModal(QDialog):
 
         # Stacked Widget avec chargement différé (lazy-loading) des onglets
         self.general_tab = GeneralTab()
-        num_additional = 8 if is_development() else 7
+        num_additional = 9 if is_development() else 8
         self._tabs = [self.general_tab] + [None] * num_additional
 
         self.stacked_widget.addWidget(self.general_tab)

@@ -196,6 +196,13 @@ class CommandPalette(QDialog):
             "",
             tr("Aide"),
         )
+        self.register_command(
+            "action.lifecycle_guide",
+            tr("Guide visuel du cycle de vie distribué (Anki ↔ AnkiForge)"),
+            "arrows-clockwise",
+            "",
+            tr("Aide"),
+        )
         if is_development():
             self.register_command(
                 "action.dialog_gallery",
@@ -297,6 +304,8 @@ class CommandPalette(QDialog):
                     self.view_requested.emit("shortcuts")
                 elif action_name == "shortcuts_doc":
                     self.view_requested.emit("shortcuts_doc")
+                elif action_name == "lifecycle_guide":
+                    self.view_requested.emit("lifecycle_guide")
                 elif action_name == "tour":
                     self.view_requested.emit("tour")
             else:

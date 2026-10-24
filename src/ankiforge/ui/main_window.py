@@ -846,6 +846,9 @@ class MainWindow(QMainWindow):
 
             QDesktopServices.openUrl(QUrl(DOC_SHORTCUTS_URL))
             return
+        if view_id == "lifecycle_guide":
+            self._open_lifecycle_guide()
+            return
         if view_id == "tour":
             self.start_tour_guide()
             return
@@ -1048,6 +1051,8 @@ class MainWindow(QMainWindow):
             from ankiforge.ui.widgets.settings_modal.tabs.keyboard_tab import DOC_SHORTCUTS_URL
 
             QDesktopServices.openUrl(QUrl(DOC_SHORTCUTS_URL))
+        elif command_id == "action.lifecycle_guide":
+            self._open_lifecycle_guide()
         elif command_id == "action.tour":
             self.start_tour_guide()
         elif command_id == "action.feedback":
@@ -1058,6 +1063,13 @@ class MainWindow(QMainWindow):
             QDesktopServices.openUrl(QUrl(KOFI_URL))
         elif command_id == "action.dialog_gallery":
             self._open_dialog_gallery()
+
+    def _open_lifecycle_guide(self) -> None:
+        """Ouvre le dialogue du guide visuel du cycle de vie distribué."""
+        from ankiforge.ui.dialogs.doc_reader_dialog import DocReaderDialog
+
+        dlg = DocReaderDialog.open_guide("cycle_de_vie_distribue.md", parent=self)
+        dlg.show()
 
     def _open_dialog_gallery(self) -> None:
         """Ouvre la galerie des boîtes de dialogue en mode développement."""

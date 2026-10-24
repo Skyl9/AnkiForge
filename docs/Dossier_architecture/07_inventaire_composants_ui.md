@@ -50,7 +50,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
   * `auto_tag_dialog.py` : Modale de suggestion et d'attribution automatique de tags par IA.
   * `batch_edit_dialog.py` : Dialogue d'édition groupée de notes par l'IA.
   * `group_edit_dialog.py` : Boîte de dialogue d'édition groupée manuelle et atomique de notes (tags, modification/remplacement de champs).
-  * `settings_modal/` : Configuration globale modulaire en 5 onglets (fournisseurs LLM, paramètres généraux avec sélecteur de dispositions en grille de miniatures `LayoutGridSelector`, chemins, maintenance, extensions).
+  * `settings_modal/` : Configuration globale modulaire en 9 onglets (10 en dev) : Moteurs IA, Anki & Formats, Audio & TTS, Maintenance, Extensions, Soutien, Clavier, Aide & Guides (`HelpTab`), Paramètres généraux avec sélecteur de dispositions en grille de miniatures `LayoutGridSelector`.
   * `toast.py` : Notifications système éphémères non-bloquantes.
 * **Activité & Réindexation :**
   * `reindex_activity_banner.py` : Bandeau d'activité global (`ReindexActivityBanner`) d'une passe de réindexation RAG, hébergé hors des dispositions enfichables (ADR 0021).
@@ -76,6 +76,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
   * `url_import_dialog.py` : Ingestion de pages Web et de vidéos YouTube avec parsing JS et sous-titres.
   * `addon_manager_dialog.py` : Gestionnaire des addons et extensions modulaires.
 * **Historique & Sélections (`history_modal.py`, `selection_dialog.py`) :** Dialogues réutilisables pour la sélection et l'inspection de journaux d'actions.
+* **Lecteur de Documentation Embarqué (`doc_reader_dialog.py`) :** Dialogue autonome `DocReaderDialog` pour la consultation applicative native de guides Markdown avec rendu SVG, recherche textuelle en surbrillance et zoom (ADR 0038).
 
 ---
 *Règle d'Or :* Avant toute création d'un nouveau widget dans une vue, consulter systématiquement cet inventaire pour réutiliser ou étendre un composant existant.*

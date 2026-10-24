@@ -638,7 +638,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/crash_report_dialog.py" line="+141"/>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+370"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+393"/>
         <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -726,6 +726,18 @@ Aucune modification ne sera écrite en base de données.</source>
     <message>
         <location line="+6"/>
         <source>Dernière action : BatchSliceComposerDialog fermé (code %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/dialogs/doc_reader_dialog.py" line="+334"/>
+        <source>%1 résultat(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+63"/>
+        <source># Guide Introuvable
+
+Le document `%1` n&apos;a pas pu être chargé.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1574,7 +1586,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+334"/>
+        <location line="+337"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -1582,7 +1594,7 @@ Voulez-vous vraiment %2 ? Ce travail sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+227"/>
+        <location line="+236"/>
         <source>Impossible de basculer vers l&apos;espace « %1 » : il est actuellement ouvert par une autre instance%2.
 
 L&apos;accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.</source>
@@ -5482,11 +5494,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <location line="+7"/>
         <location line="+7"/>
         <location line="+21"/>
+        <location line="+7"/>
         <source>Aide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-31"/>
+        <location line="-38"/>
         <source>Signaler un bug ou proposer une idée</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5514,6 +5527,11 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="+7"/>
         <source>Documentation des raccourcis clavier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Guide visuel du cycle de vie distribué (Anki ↔ AnkiForge)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5973,7 +5991,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+194"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+195"/>
         <source>✓ Paramètres sauvegardés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9741,7 +9759,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CommandPalette</name>
     <message>
-        <location filename="../../ui/widgets/command_palette.py" line="-189"/>
+        <location filename="../../ui/widgets/command_palette.py" line="-196"/>
         <source>Rechercher cartes, paquets, vues ou commandes...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10937,6 +10955,59 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+32"/>
         <source>[Galerie Dev] Signalement d&apos;anomalie UI test</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>DocReaderDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/doc_reader_dialog.py" line="-354"/>
+        <source>Documentation &amp; Guides AnkiForge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+37"/>
+        <source>Guide Utilisateur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Fermer la fenêtre (Échap)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Rechercher dans ce guide...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Occurrence précédente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Occurrence suivante (Entrée)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Réduire la taille du texte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Taille normale (100%)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Agrandir la taille du texte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+183"/>
+        <source>0 résultat</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -13780,6 +13851,54 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>HelpTab</name>
+    <message>
+        <location filename="../../ui/widgets/settings_modal/tabs/help_tab.py" line="+74"/>
+        <source>Cycle de Vie Distribué (Anki ↔ AnkiForge)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Découvrez comment articuler sereinement vos séances de travail : création et découpage RAG dans le Studio AnkiForge, validation en staging, export de cartes vers Anki et synchronisation sans risque de perte de données ni prolifération de cartes zombies.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Ouvrir le Guide Visuel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
+        <source>Raccourcis Clavier &amp; Navigation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>AnkiForge intègre plus de 90 raccourcis clavier déclaratifs organisés par portée (Application, Vue, Widget, Dialogue). Personnalisez vos combinaisons ou consultez la référence.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Personnaliser les raccourcis</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
+        <source>Assistance &amp; Retours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Une question, une suggestion ou une anomalie constatée ? Utilisez les outils intégrés pour transmettre un retour ou consulter les rapports d&apos;erreurs.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Signaler une idée ou un bug</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>HumanValidationDialog</name>
     <message>
         <location filename="../../ui/dialogs/human_validation_dialog.py" line="-78"/>
@@ -15417,7 +15536,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-836"/>
+        <location filename="../../ui/main_window.py" line="-848"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15427,12 +15546,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+500"/>
+        <location line="+503"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+147"/>
+        <location line="+156"/>
         <source>Aucun incident n&apos;est enregistré dans crash.log.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17629,8 +17748,8 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SettingsModal</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="-493"/>
-        <location line="+292"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="-515"/>
+        <location line="+313"/>
         <source>Paramètres AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17640,7 +17759,57 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+71"/>
+        <location line="+27"/>
+        <source>Général</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Moteurs IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Anki &amp;&amp; Formats</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Audio &amp;&amp; TTS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Maintenance</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Extensions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Soutien</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Clavier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Aide &amp;&amp; Guides</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Développeur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
         <source>⌨️ Ctrl+S pour enregistrer • Échap pour fermer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19261,6 +19430,14 @@ https://blog.example.com/article-1</source>
     <message>
         <location line="+1"/>
         <source>Source</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>cls</name>
+    <message>
+        <location filename="../../ui/dialogs/doc_reader_dialog.py" line="+62"/>
+        <source>Erreur</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
