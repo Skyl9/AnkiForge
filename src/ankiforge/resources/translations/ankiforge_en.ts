@@ -1085,7 +1085,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+153"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+192"/>
         <location line="+137"/>
         <source>Identique</source>
         <translation type="unfinished"></translation>
@@ -4196,7 +4196,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+10"/>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+532"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1510"/>
         <location line="+2"/>
         <source>%1 mots</source>
         <translation type="unfinished"></translation>
@@ -5092,7 +5092,27 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-671"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1777"/>
+        <source>Règle #4 (Atomicité) : Question trop verbeuse (%1 mots &gt; 25).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Règle #4 (Atomicité) : Réponse trop verbeuse (%1 mots &gt; 35).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Règle #4 (Minimum Information) : Présence d&apos;une liste dans la réponse.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Règle #6 (Clarté) : Question et réponse identiques.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+119"/>
         <location line="+137"/>
         <source>Modifié</source>
         <translation type="unfinished"></translation>
@@ -5114,17 +5134,24 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+133"/>
+        <location line="+146"/>
         <source>Carte atomique :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+8"/>
+        <location line="+1204"/>
+        <source>Conforme Wozniak (Atomicité R4/R5)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-1156"/>
+        <location line="+226"/>
         <source>Comparaison champ par champ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="-199"/>
         <source>Aperçu dédoublé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5150,12 +5177,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+387"/>
+        <location line="+1435"/>
         <source>Voir Verso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-336"/>
+        <location line="-1384"/>
         <source>Originale (BDD)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5170,17 +5197,262 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+47"/>
+        <location line="+51"/>
         <source>Carte atomique %1 sur %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+180"/>
+        <location line="+27"/>
+        <source>Diff Modèle de Note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+130"/>
+        <source>Création de type de note — &apos;%1&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Sans nom</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Nouveau modèle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>NOM DU MODÈLE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>DESCRIPTION / INSTRUCTIONS POUR L&apos;IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>CHAMPS DU MODÈLE (UN PAR LIGNE)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>%1 champs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+37"/>
+        <source>FEUILLE DE STYLE CSS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+41"/>
+        <source>GABARITS RECTO / VERSO (TEMPLATES)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>%1 gabarits</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <location line="+888"/>
         <source>Carte %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="-884"/>
+        <source>Nom du gabarit %1 :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Recto (Front / Question) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Verso (Back / Réponse) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+88"/>
+        <source>Migration vers le type de note &apos;%1&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>%1 note(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Modèle Source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Source : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+77"/>
+        <source>➔</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-73"/>
+        <source>Modèle Cible</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Cible : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+46"/>
+        <source>CORRESPONDANCE DES CHAMPS (SOURCE ➔ CIBLE)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+31"/>
+        <source>(Non mappé / Perte de donnée)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <location line="+5"/>
+        <source>Mappé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-5"/>
+        <location line="+5"/>
+        <source>Perte de donnée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+62"/>
+        <source>Évolution du modèle de note — &apos;%1&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <location line="+182"/>
+        <source>Modèle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-178"/>
+        <source>Évolution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+31"/>
+        <source>SCHÉMA DES CHAMPS (AVANT ➔ APRÈS)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>+ %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>- %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>FEUILLE DE STYLE CSS (DIFF COMPARATIF)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Actuel (BDD) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Proposé (Éditable) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location line="+34"/>
+        <source>DESCRIPTION POUR L&apos;IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+45"/>
+        <source>Ajustement de style CSS — Modèle &apos;%1&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>CSS actuel (BDD) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>CSS ajusté (Éditable) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>Score: %1/100 · Carte atomique concise et univoque.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Non-conforme Wozniak (%1/100)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+203"/>
+        <source>Nouveau Modèle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>(Inexistant en BDD)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Modèle : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+32"/>
+        <source>Source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Actuel : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Évolution : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>CSS actuel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>CSS ajusté</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+56"/>
         <source>Masquer Verso</source>
         <translation type="unfinished"></translation>
     </message>

@@ -241,3 +241,117 @@ def test_mcp_garde_fou_widget_selection_advances_from_middle_item(qtbot):
     widget.btn_apply.click()
     assert widget.count() == 2
     assert widget.current_patch_id == p3.patch_id
+
+
+def test_mcp_garde_fou_widget_apply_split(qtbot, sample_note) -> None:
+    """Vérifie l'application d'une scission (split) dans le Garde-Fou : N notes créées, note mère archivée."""
+    payload = {
+        "type": "split",
+        "note_id": sample_note.id,
+        "title": f"Scission Note #{sample_note.id}",
+        "original": {"Front": "Question dense", "Back": "R1 et R2"},
+        "modified": [
+            {"Front": "Question atomique 1 ?", "Back": "Réponse 1"},
+            {"Front": "Question atomique 2 ?", "Back": "Réponse 2"},
+        ],
+    }
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="split",
+        target_id=sample_note.id,
+        diff_payload=payload,
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 1
+    assert widget.current_patch_id == patch.patch_id
+
+    applied_signals: list[str] = []
+    widget.patch_applied.connect(applied_signals.append)
+
+    # Clic sur Appliquer
+    widget.btn_apply.click()
+
+    assert len(applied_signals) == 1
+    assert widget.count() == 0
+
+    # Vérification BDD
+    updated_patch = StagedPatchRegistry.get_patch(patch.patch_id)
+    assert updated_patch is not None
+    assert updated_patch.status == "applied"
+
+    # La note mère doit être archivée
+    mother = NoteModel.get_by_id(sample_note.id)
+    assert mother.status == "archived"
+
+    # Vérification que 2 nouvelles notes ont été créées
+    created_notes = list(NoteModel.select().where(NoteModel.id != sample_note.id))
+    assert len(created_notes) == 2
+
+
+def test_mcp_garde_fou_widget_apply_note_type_create(qtbot) -> None:
+    """Vérifie l'application d'un note_type_create via le Garde-Fou."""
+    unique_name = f"NT_Create_GF_{uuid.uuid4().hex[:6]}"
+    payload = {
+        "type": "note_type_create",
+        "name": unique_name,
+        "fields_schema": ["Front", "Back"],
+        "templates": [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+        "css_style": ".card { color: purple; }",
+        "description": "Nouveau type créé via GF",
+        "title": f"Création de {unique_name}",
+    }
+    StagedPatchRegistry.create_patch(
+        patch_type="note_type_create",
+        diff_payload=payload,
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 1
+    widget.btn_apply.click()
+
+    assert widget.count() == 0
+    created_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == unique_name)
+    assert created_nt is not None
+    assert created_nt.description == "Nouveau type créé via GF"
+
+
+def test_mcp_garde_fou_widget_apply_note_type_change(qtbot, sample_note) -> None:
+    """Vérifie l'application d'un note_type_change via le Garde-Fou."""
+    target_nt = NoteTypeModel.create(
+        name=f"NT_Target_GF_{uuid.uuid4().hex[:6]}",
+        fields_schema='["Recto", "Verso"]',
+        templates='[{"name": "C1", "qfmt": "{{Recto}}", "afmt": "{{Verso}}"}]',
+    )
+    payload = {
+        "type": "note_type_change",
+        "note_ids": [sample_note.id],
+        "target_model": target_nt.name,
+        "target_model_id": target_nt.id,
+        "mapping_champs": {"Front": "Recto", "Back": "Verso"},
+        "title": f"Migration vers {target_nt.name}",
+    }
+    StagedPatchRegistry.create_patch(
+        patch_type="note_type_change",
+        target_id=target_nt.id,
+        diff_payload=payload,
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 1
+    widget.btn_apply.click()
+
+    assert widget.count() == 0
+    reloaded_note = NoteModel.get_by_id(sample_note.id)
+    assert reloaded_note.note_type.id == target_nt.id

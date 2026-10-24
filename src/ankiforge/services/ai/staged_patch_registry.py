@@ -186,9 +186,10 @@ class StagedPatchRegistry:
 
         # 2. Type SPLIT / CARD_SPLIT
         if p_type in ("split", "card_split"):
-            note = NoteModel.get_or_none(NoteModel.id == patch.target_id)
+            target_nid = patch.target_id or diff_data.get("note_id")
+            note = NoteModel.get_or_none(NoteModel.id == target_nid) if target_nid else None
             if not note:
-                return {"status": "error", "message": f"Note #{patch.target_id} introuvable en base."}
+                return {"status": "error", "message": f"Note #{target_nid} introuvable en base."}
 
             active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
             if patch.original_version_id is not None and (not active_v or active_v.id != patch.original_version_id):
@@ -198,7 +199,7 @@ class StagedPatchRegistry:
                     "patch_id": patch_id,
                 }
 
-            cards_to_apply = diff_data.get("modified", [])
+            cards_to_apply = diff_data.get("modified") or diff_data.get("new_cards") or diff_data.get("cards") or []
             if not isinstance(cards_to_apply, list) or not cards_to_apply:
                 return {"status": "error", "message": "Aucune carte valide trouvée dans la scission."}
 
@@ -245,14 +246,18 @@ class StagedPatchRegistry:
         if p_type in ("css", "css_tune"):
             meta = diff_data.get("metadata", {})
             model_name = meta.get("note_type_name", "") or diff_data.get("note_type_name", "")
-            snippet = meta.get("snippet", "") or diff_data.get("modified", "")
+            snippet = meta.get("snippet", "") or diff_data.get("snippet", "")
+            modified_css = diff_data.get("modified") if isinstance(diff_data.get("modified"), str) else ""
 
             nt = NoteTypeModel.get_or_none(NoteTypeModel.name == model_name) if model_name else NoteTypeModel.select().first()
             if not nt:
                 return {"status": "error", "message": f"Modèle de note '{model_name}' introuvable."}
 
             with db.atomic():
-                nt.css_style = (nt.css_style or "") + f"\n\n/* Appliqué via patch {patch_id} */\n{snippet}"
+                if modified_css:
+                    nt.css_style = modified_css
+                else:
+                    nt.css_style = (nt.css_style or "") + f"\n\n/* Appliqué via patch {patch_id} */\n{snippet}"
                 nt.save()
 
                 patch.status = "applied"
@@ -340,12 +345,12 @@ class StagedPatchRegistry:
             if not isinstance(model_data, dict):
                 return {"status": "error", "message": "Payload invalide pour la création de type de note."}
 
-            name = str(model_data.get("name", "")).strip()
-            fields_schema = model_data.get("fields_schema", [])
-            templates = model_data.get("templates", [])
-            css_style = model_data.get("css_style") or model_data.get("css", "")
-            description = model_data.get("description", "")
-            on_conflict = str(model_data.get("on_conflict", "error"))
+            name = str(model_data.get("name") or (diff_data.get("name") if isinstance(diff_data, dict) else "") or "").strip()
+            fields_schema = model_data.get("fields_schema") or (diff_data.get("fields_schema") if isinstance(diff_data, dict) else []) or []
+            templates = model_data.get("templates") or (diff_data.get("templates") if isinstance(diff_data, dict) else []) or []
+            css_style = model_data.get("css_style") or model_data.get("css") or (diff_data.get("css_style") if isinstance(diff_data, dict) else "") or ""
+            description = model_data.get("description") or (diff_data.get("description") if isinstance(diff_data, dict) else "") or ""
+            on_conflict = str(model_data.get("on_conflict") or (diff_data.get("on_conflict") if isinstance(diff_data, dict) else "error") or "error")
 
             try:
                 with db.atomic():
@@ -381,9 +386,16 @@ class StagedPatchRegistry:
             from ankiforge.services.cards.note_type_service import NoteTypeService
 
             payload = diff_data.get("modified") if isinstance(diff_data.get("modified"), dict) else diff_data
-            note_ids = payload.get("note_ids", [])
-            target_model = payload.get("target_model") or payload.get("target_model_name") or payload.get("target_model_id")
-            mapping_champs = payload.get("mapping_champs")
+            note_ids = payload.get("note_ids") or (diff_data.get("note_ids") if isinstance(diff_data, dict) else []) or []
+            target_model = (
+                payload.get("target_model")
+                or payload.get("target_model_name")
+                or payload.get("target_model_id")
+                or (diff_data.get("target_model") if isinstance(diff_data, dict) else None)
+                or (diff_data.get("target_model_name") if isinstance(diff_data, dict) else None)
+                or (diff_data.get("target_model_id") if isinstance(diff_data, dict) else None)
+            )
+            mapping_champs = payload.get("mapping_champs") if "mapping_champs" in payload else (diff_data.get("mapping_champs") if isinstance(diff_data, dict) else None)
 
             if not note_ids:
                 return {"status": "error", "message": "Aucune note spécifiée pour la migration.", "patch_id": patch_id}
