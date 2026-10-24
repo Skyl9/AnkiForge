@@ -18,13 +18,13 @@ L'application adopte une stratégie **Agnostique et Local-First** pour protéger
   * Branchements conditionnels (`on_success_step`, `on_failure_step`, `failure_behavior`).
 * **Avantage :** Vitesse d'exécution maximale en multithread, zéro hallucination structurelle, et supervision humaine en continu.
 
-### B. Le Système Agentique ReAct & MCP (`ConsultantEngine`)
-* **Cas d'usage :** La vue `consultant_view.py`.
-* **Philosophie :** Exploration dynamique, raisonnement autonome et assistance conversationnelle avancée.
+### B. Le Serveur MCP In-Process & Registre d'Outils (`MCPToolRegistry`, ADR 0034)
+* **Cas d'usage :** La vue `MCPServerView` et les agents externes (Claude Code, Antigravity CLI, Cursor).
+* **Philosophie :** Priorité absolue aux agents externes de pointe, découplage de tout chat in-app, et validation humaine systématique (Two-Phase Commit).
 * **Mécanique :**
-  * Boucle ReAct (*Thought ➔ Action ➔ Observation ➔ Response*) avec auto-correction d'erreurs.
-  * Serveur MCP in-process (`mcp_server.py`, `ConsultantToolRegistry`) exposant des outils sécurisés : `query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `propose_css_tune`, `execute_python_tool`.
-  * Rendu visuel interactif dans le chat (cartouches de pensée repliables, widgets d'appels d'outils, injection directe de CSS et cartes Anki).
+  * Serveur MCP in-process persistant (`mcp_server.py`) exposant 58 outils sécurisés via `MCPToolRegistry`.
+  * Chambre de compensation Two-Phase Commit (`StagedPatchModel`) avec Garde-Fou de validation plein écran.
+  * Télémétrie d'appels en direct et catalogue d'outils interactif sous `SegmentedTabBar`.
 
 ## 3. Cartographie des Fonctionnalités d'Analyse
 

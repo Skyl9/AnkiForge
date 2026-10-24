@@ -22,7 +22,7 @@ Cette page constitue la **référence officielle et exhaustive** de l'ensemble d
 
 ---
 
-## 📋 Inventaire des Raccourcis (102 actions)
+## 📋 Inventaire des Raccourcis (98 actions)
 
 ### Application
 
@@ -144,15 +144,6 @@ Cette page constitue la **référence officielle et exhaustive** de l'ensemble d
 | **Monter l'étape** | <kbd>Ctrl+Up</kbd> | `Vue` | Déplace l'étape sélectionnée vers le haut dans le DAG | `pipelines.move_step_up` |
 | **Descendre l'étape** | <kbd>Ctrl+Down</kbd> | `Vue` | Déplace l'étape sélectionnée vers le bas dans le DAG | `pipelines.move_step_down` |
 | **Supprimer l'étape ciblée** | <kbd>Delete</kbd> *(touche nue)* | `Widget` | Supprime l'étape actuellement sélectionnée dans le workflow | `pipelines.delete_step` |
-
-### Consultant IA
-
-| Action | Séquence par défaut | Portée | Description | Identifiant |
-| :--- | :--- | :--- | :--- | :--- |
-| **Nouvelle discussion** | <kbd>Ctrl+N</kbd> | `Vue` | Démarre une nouvelle session de chat avec le consultant IA | `consultant.new_chat` |
-| **Exporter la session** | <kbd>Ctrl+Alt+E</kbd> | `Vue` | Exporte l'historique de la discussion courante en Markdown | `consultant.export_session` |
-| **Barre latérale des sessions** | <kbd>Ctrl+Alt+B</kbd> | `Vue` | Affiche ou masque l'arborescence des discussions antérieures | `consultant.toggle_sidebar` |
-| **Inspecteur d'activité** | <kbd>Ctrl+Alt+I</kbd> | `Vue` | Affiche ou masque le volet d'inspection MCP et télémétrie | `consultant.toggle_inspector` |
 
 ### Laboratoire A/B
 
