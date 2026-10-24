@@ -739,8 +739,13 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
     fake_audio = tmp_path / "sample.mp3"
     fake_audio.write_bytes(MINIMAL_VALID_MP3_BYTES)
 
-    with patch.object(tab.tts_service, "synthesize", return_value=("[sound:sample.mp3]", fake_audio)), patch.object(tab._player, "play") as mock_play:
+    with (
+        patch.object(tab.tts_service, "synthesize", return_value=("[sound:sample.mp3]", fake_audio)),
+        patch.object(tab._player, "setSource") as mock_set_source,
+        patch.object(tab._player, "play") as mock_play,
+    ):
         tab._on_test_voice()
+        mock_set_source.assert_called_once()
         mock_play.assert_called_once()
 
     # Vérification des callbacks installateur et rafraîchissement UI (Ticket 6)
