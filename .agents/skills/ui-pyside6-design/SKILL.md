@@ -33,6 +33,20 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
 5. **Héritage de style QSS & isolation des bordures (Vigilance critique)** :
    - Dans Qt StyleSheet, les sélecteurs de conteneurs (ex: `QFrame`, `QWidget`, ou sélecteurs sans sélecteur d'enfant direct `>`) se propagent en cascade à tous les enfants imbriqués (`QLabel`, `QFrame`, boutons).
    - **Garde-fou bordures** : ne jamais appliquer de bordure générique (`border: 1px solid/dashed ...`) sur un conteneur sans ciblage strict par `setObjectName` (`#mon_widget`), sans sélecteur strict d'enfant direct (`#conteneur > QWidget`), ou sans réinitialiser explicitement `border: none;` sur les enfants pour éviter l'héritage parasite de bordures (ex: retour d'expérience `AgentsView`).
+6. **Cycle de vie des conteneurs dynamiques à défilement (`QScrollArea` & `QVBoxLayout`)** :
+   - Ne **JAMAIS** ajouter de `addStretch()` à la construction d'un layout scrollable dynamique alimenté à chaud. Le stretch se retrouverait à l'index 0 et repousserait les widgets ajoutés vers le bas.
+   - Pour vider intégralement un layout dynamique sans widgets orphelins résiduels :
+     ```python
+     while layout.count() > 0:
+         item = layout.takeAt(0)
+         w = item.widget()
+         if w:
+             w.deleteLater()
+     ```
+   - Ajouter les widgets/cartes, puis insérer `layout.addStretch()` **à la toute fin** pour maintenir l'alignement vers le haut (*top-aligned*).
+7. **Puits d'affichage i18n & Symboles typographiques (`ADR 0013`)** :
+   - Tout puits d'affichage (`QLabel`, `QPushButton`, etc.) recevant une chaîne constante (même un symbole comme `➔` ou `•`) doit être wrappé dans `tr()` ou instancié sans argument puis configuré via `.setText("...")` pour satisfaire le test d'audit `test_every_display_sink_wraps_its_literal`.
+   - Lors de l'ajout ou de la modification de chaînes `tr()`, toujours exécuter `uv run python script/extract_translations.py` pour régénérer et compiler les catalogues `.ts` / `.qm` avant le passage de la porte canonique `script/verify.py`.
 
 ## 2. Composants Clés & Bonnes Pratiques
 

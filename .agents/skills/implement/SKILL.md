@@ -34,16 +34,22 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
 
 ## 3. Clôture, Vérification Canonique & Revue
 
-1. **Porte de vérification canonique** :
+1. **Pré-synchronisation des traductions i18n (`ADR 0013`)** :
+   - Si des chaînes utilisateur ont été ajoutées ou modifiées avec `tr()` dans l'UI :
+     ```bash
+     uv run python script/extract_translations.py
+     ```
+     Cette étape met à jour les catalogues `.ts` (`ankiforge_fr.ts`, `ankiforge_en.ts`) et compile les `.qm`, prévenant tout échec de `test_committed_catalog_matches_a_fresh_extraction`.
+2. **Porte de vérification canonique** :
    ```bash
    uv run python script/verify.py
    ```
    Exécute la chaîne complète (ruff check/format, mypy strict, bandit, tests rapides).
-2. **Revue de code à deux axes (Obligatoire)** :
+3. **Revue de code à deux axes (Obligatoire)** :
    - Déclencher systématiquement **`/code-review`** (deux sous-agents parallèles : Standards & Spécification) pour confronter le diff aux exigences avant toute clôture.
    > [!IMPORTANT]
    > ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT de clore le ticket, de modifier son statut en `✅ Terminé`, de toucher au Kanban ou de formuler une proposition de commit avant d'avoir formellement restitué le rapport de code-review à deux axes à l'utilisateur.
-3. **Mise à jour du statut Obsidian & Archivage Physique (Post-Revue)** :
+4. **Mise à jour du statut Obsidian & Archivage Physique (Post-Revue)** :
    - Mettre à jour l'en-tête du ticket : `**Statut :** ✅ Terminé` et cocher les critères d'acceptation.
    - **Déplacement physique obligatoire** : déplacer la note du ticket de `ankiforge_obsidian/Tickets/ticket-actif/` vers `ankiforge_obsidian/Tickets/Archives/` (ainsi que les spécifications associées). La racine `Tickets/` ne doit jamais comporter de fichier à plat.
    - Déplacer la carte dans `ankiforge_obsidian/Avancement du projet.md` vers `## ✅ Terminé (done)` en ajustant le lien vers `[[Tickets/Archives/<Nom>|<Titre>]]`.
