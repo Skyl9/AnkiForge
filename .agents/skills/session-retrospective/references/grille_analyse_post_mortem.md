@@ -62,6 +62,16 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Absence d'attente de synchronisation explicite (`worker.wait()` ou `qtbot.waitUntil`) avant la fin du corps de test.
 - **Remédiation** : Règle impérative dans `ui-pyside6-design/SKILL.md` et `implement/SKILL.md` imposant la terminaison contrôlée de tout thread asynchrone avant le teardown.
 
+### T-12 : Crash Natif C++ QtMultimedia en Test Headless (Native Thread Segfault Leak)
+- **Symptôme** : Un test UI ou un worker pytest xdist plante brutalement avec `Fatal Python error: Segmentation fault (<no Python frame>)` et redémarre en boucle ("workers plantent les uns derrière les autres et se relancent, c'est infini").
+- **Cause racine** : Appel de `setSource(...)` sur une vraie instance `QMediaPlayer` dans un test. QtMultimedia (FFmpeg / AVFoundation sous macOS) démarre un pipeline de décodage asynchrone natif. Lors du démontage du widget par `cleanup_qt_widgets`, le thread C++ en arrière-plan tente d'accéder à la mémoire libérée.
+- **Remédiation** : Mocker systématiquement `setSource` et `play` sur `player` dans les tests headless. Interdiction formelle de laisser `setSource` s'exécuter nativement en test unitaire/UI. Règle inscrite dans `verification-environnement/SKILL.md` et `ui-pyside6-design/SKILL.md`.
+
+### T-13 : Blocage de Boucle d'Événements Qt par Dialogue Modal Synchrone (Headless QMessageBox Hang)
+- **Symptôme** : Un test UI se fige jusqu'au timeout du worker (30s) ou bloque indéfiniment la suite de tests.
+- **Cause racine** : Appel direct de méthodes modales synchrones (`QMessageBox.information(self, ...)`, `QMessageBox.warning(...)` ou `box.exec()`) sans possibilité de simulation ou d'interception dans les tests headless.
+- **Remédiation** : Découpler systématiquement les dialogues sous forme de méthodes auxiliaires de classe (`_notify_info(title, text)`, `_confirm_delete(...)`) permettant un mock immédiat via `monkeypatch` sans bloquer la boucle Qt.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -73,6 +83,8 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Omission de revue ou de vérification | Ajout d'une précondition bloquante dans le workflow | `implement/SKILL.md`, `to-spec/SKILL.md` |
 | Échec fail-fast linter évitable | Ajout d'une passe de pré-nettoyage ruff check/format | `implement/SKILL.md` |
 | Fuite de worker / verrou SQLite en test Qt | Règle d'attente obligatoire des threads avant démontage | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
+| Crash natif QtMultimedia / Segfault xdist | Mock obligatoire de `setSource` et `play` sur `QMediaPlayer` | `verification-environnement/SKILL.md`, `ui-pyside6-design/SKILL.md` |
+| Blocage modal synchrone en test Qt | Découplage obligatoire des dialogues (`_notify_info`, `_confirm_*`) | `ui-pyside6-design/SKILL.md` |
 | Conflit / écrasement dans le vault Obsidian | Clarification du sous-repo Git et renforcement des règles atomiques | `obsidian-vault/SKILL.md` |
 | Erreur de Design System ou couleur codée en dur | Rappel de la règle 8, interdiction des émojis et tokens CSS | `ui-pyside6-design/SKILL.md` |
 | Typage brisé par `.tuples()` / `.dicts()` Peewee | Convention d'accès direct aux attributs typés | `peewee-expert/SKILL.md` |

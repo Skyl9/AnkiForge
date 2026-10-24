@@ -43,6 +43,10 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
    - *Pourquoi* : Les composants de lecture et de synthèse (`QMediaPlayer`, `AudioPlayerWidget`, `TTSSettingsTab`) délèguent le décodage au backend FFmpeg natif. L'injection d'octets arbitraires ou de trames MPEG tronquées (`b"\xff\xfb\x90\x44" * 50`) provoque des avertissements de détection (`Format mp3 detected with low score`, `Failed to find two consecutive MPEG audio frames`) et pollue la sortie de tests.
    - *Garantie automatique* : Utiliser impérativement la constante `MINIMAL_VALID_MP3_BYTES` ou la fixture `minimal_valid_mp3_path` définies dans `tests/conftest.py` (flux ID3v2.3 + 10 trames MPEG-1 Layer 3 valides).
 
+8. **Isolation et mock de `QMediaPlayer.setSource` en test headless (Zéro fuite FFmpeg asynchrone)** :
+   - *Pourquoi* : Même avec un conteneur audio valide, dès que `setSource()` est invoqué sur une vraie instance `QMediaPlayer`, QtMultimedia initialise des threads de décodage asynchrones natifs (FFmpeg / AVFoundation sous macOS). Lorsque l'instance du widget ou du player est détruite au teardown du test, le thread d'arrière-plan C++ tente d'accéder à l'objet désalloué, provoquant un `Fatal Python error: Segmentation fault` natif qui tue le worker pytest-xdist et le fait redémarrer indéfiniment.
+   - *Garantie automatique* : Dans tout test unitaire ou UI pilotant la synthèse ou la lecture vocale, mocker systématiquement `setSource` (et `play`) sur `QMediaPlayer` pour empêcher tout démarrage de threads natifs asynchrones non maîtrisés.
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :

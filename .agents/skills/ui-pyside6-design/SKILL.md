@@ -66,6 +66,7 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
   ```python
   text_browser.document().setBaseUrl(QUrl.fromLocalFile(str(base_dir) + "/"))
   ```
+- **Couture de testabilité pour dialogues et alertes modales (`QMessageBox`)** : ne jamais invoquer directement `QMessageBox.information(self, ...)` ou `box.exec()` au cœur d'une action métier sans méthode intermédiaire (`_notify_info(title, text)`, `_confirm_*()`). Cette couture permet aux tests headless de simuler les réponses utilisateur via `monkeypatch` sans bloquer la boucle d'événements Qt jusqu'au timeout.
 - **Vigilance modales à onglets transverses (`SettingsModal`)** : toute addition ou modification de la liste d'onglets modifie la valeur de `stacked_widget.count()` (par ex. 9 onglets en production, 10 en mode développement). Mettre à jour de manière coordonnée l'ensemble des tests transverses de fenêtres et de galeries (`test_settings_modal.py`, `test_dialog_gallery.py`, `test_addon_settings.py`).
 
 ## 3. Discipline de Test (`pytest-qt`)
@@ -74,6 +75,7 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
 - Utiliser systématiquement `qtbot` pour simuler les clics et interactions utilisateur, et annoter explicitement `qtbot: QtBot` (`from pytestqt.qtbot import QtBot`).
 - Nettoyage obligatoire de chaque widget via la fixture `cleanup_qt_widgets` de `conftest.py`.
 - **Attente impérative des workers asynchrones** : tout test pilotant un widget qui lance un thread (`QThread`, worker d'arrière-plan) doit impérativement attendre sa fin (`if widget.worker and widget.worker.isRunning(): widget.worker.wait()` ou `qtbot.waitUntil(...)`) avant la fin du test, pour empêcher tout verrouillage SQLite concurrent (`database table is locked: sqlite_master`) lors du teardown de `mock_db`.
+- **Isolation et mock de `QMediaPlayer.setSource` (Anti-Segfault FFmpeg)** : ne jamais laisser un `QMediaPlayer` charger ou jouer un fichier audio réel en test unitaire/UI. Mocker systématiquement `setSource` et `play` sur l'instance de player pour empêcher le pipeline C++ natif de lancer des threads de décodage asynchrones qui provoquent un crash par segmentation fault au démontage du widget.
 - **Zéro test de snapshot visuel instable** : tester la logique métier, les signaux/slots et la validation des formulaires.
 
 ## When NOT to use this skill
