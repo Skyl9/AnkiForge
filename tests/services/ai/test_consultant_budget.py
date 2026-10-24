@@ -12,8 +12,6 @@ import pytest
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.consultant_engine import ConsultantEngine
 from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.views.consultant_view.widgets.chat_message_widget import ChatMessageWidget
-from ankiforge.ui.views.consultant_view.widgets.session_sidebar import ConsultantSessionSidebar
 
 pytestmark = pytest.mark.integration
 
@@ -28,38 +26,6 @@ def mock_llm_config():
         max_tokens=4096,
         is_active=True,
     )
-
-
-def test_chat_message_widget_budget_badge(qtbot):
-    """Vérifie que la bulle de message affiche le badge de consommation budget."""
-    msg = ChatMessageWidget("AnkiForge AI", text="Réponse test", is_user=False)
-    qtbot.addWidget(msg)
-    msg.show()
-
-    assert hasattr(msg, "lbl_budget_info")
-    assert msg.lbl_budget_info.isHidden()
-
-    # Mise à jour du budget
-    msg.update_budget(tokens=1250, cost_usd=0.0031)
-    assert not msg.lbl_budget_info.isHidden()
-    assert "1 250" in msg.lbl_budget_info.text() or "1250" in msg.lbl_budget_info.text()
-    assert "$0.0031" in msg.lbl_budget_info.text()
-
-    # mark_as_finished avec budget
-    msg.mark_as_finished(text="Terminé", tokens=2500, cost_usd=0.0062)
-    assert not msg.lbl_budget_info.isHidden()
-    assert "$0.0062" in msg.lbl_budget_info.text()
-
-
-def test_session_sidebar_budget_metrics(qtbot):
-    """Vérifie que la barre latérale affiche les métriques de tokens et de coût."""
-    sidebar = ConsultantSessionSidebar()
-    qtbot.addWidget(sidebar)
-
-    sidebar.update_metrics(tokens=15000, modified_cards=3, cost_usd=0.0450)
-    assert "15 000" in sidebar.lbl_footer_tokens.text() or "15000" in sidebar.lbl_footer_tokens.text()
-    assert "$0.0450" in sidebar.lbl_footer_tokens.text()
-    assert "3 mod." in sidebar.lbl_footer_cards.text()
 
 
 def test_consultant_budget_warning_at_80_percent(mock_llm_config):

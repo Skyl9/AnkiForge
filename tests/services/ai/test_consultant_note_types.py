@@ -14,8 +14,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
-from ankiforge.ui.views.consultant_view.widgets.workspace_inspector_widget import WorkspaceInspectorWidget
+from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -59,7 +58,7 @@ def custom_model_data():
 
 def test_list_note_types(custom_model_data):
     nt = custom_model_data["nt"]
-    res = ConsultantToolRegistry.list_note_types()
+    res = MCPToolRegistry.list_note_types()
     assert "Modèles de cartes (Note Types) enregistrés" in res
     assert nt.name in res
     assert "Organe" in res
@@ -68,7 +67,7 @@ def test_list_note_types(custom_model_data):
 
 def test_get_note_type_details(custom_model_data):
     nt = custom_model_data["nt"]
-    res = ConsultantToolRegistry.get_note_type_details(nt.name)
+    res = MCPToolRegistry.get_note_type_details(nt.name)
     assert f"Détails complets du Modèle '{nt.name}'" in res
     assert "Reconnaissance" in res
     assert "Traitement" in res
@@ -79,7 +78,7 @@ def test_get_note_type_details(custom_model_data):
 def test_get_note_full_profile_360_with_dynamic_model(custom_model_data):
     note = custom_model_data["note"]
     nt = custom_model_data["nt"]
-    profile = ConsultantToolRegistry.get_note_full_profile_360(note.id)
+    profile = MCPToolRegistry.get_note_full_profile_360(note.id)
 
     assert f"Profil 360° de la Note #{note.id}" in profile
     assert nt.name in profile
@@ -95,7 +94,7 @@ def test_propose_note_type_refactor_garde_fou(custom_model_data):
     new_fields = ["Organe", "Symptôme", "Diagnostic", "Traitement", "Pronostic"]
     new_css = ".card { font-family: 'Inter', sans-serif; font-size: 16px; }"
 
-    res = ConsultantToolRegistry.propose_note_type_refactor(
+    res = MCPToolRegistry.propose_note_type_refactor(
         note_type_name=nt.name,
         new_fields_schema_json=json.dumps(new_fields),
         new_css=new_css,
@@ -114,27 +113,20 @@ def test_propose_note_type_refactor_garde_fou(custom_model_data):
     assert "Pronostic" not in fresh_nt.fields_schema
 
 
-def test_workspace_inspector_apply_model_patch(qtbot, custom_model_data):
+def test_apply_model_patch_via_mcp_tool_registry(custom_model_data):
     nt = custom_model_data["nt"]
     new_css = ".card { background-color: #0f172a; color: #f8fafc; }"
     new_fields = ["Organe", "Symptôme", "Diagnostic", "Traitement", "Contre-indications"]
 
-    patch = {
-        "title": f"Mise à jour Modèle {nt.name}",
-        "type": "model",
-        "note_type_name": nt.name,
-        "note_type_id": nt.id,
-        "original": {"css_style": nt.css_style},
-        "modified": {"css_style": new_css, "fields_schema": new_fields},
-        "metadata": {"note_type_name": nt.name, "note_type_id": nt.id},
-    }
-
-    inspector = WorkspaceInspectorWidget()
-    qtbot.addWidget(inspector)
-    inspector.add_patch_to_queue(patch)
-
-    # Valider le garde-fou
-    inspector._on_apply_clicked()
+    # Valider le patch via MCPToolRegistry
+    MCPToolRegistry.apply_patch(
+        patch_json="",
+        patch_type="model",
+        target_id=nt.id,
+        target_name=nt.name,
+        patch_data_json=json.dumps({"css_style": new_css, "fields_schema": new_fields}),
+        explanation="Mise à jour modèle",
+    )
 
     # Vérifier la persistance en BDD
     fresh_nt = NoteTypeModel.get_by_id(nt.id)

@@ -12,7 +12,7 @@ from jinja2.sandbox import SandboxedEnvironment
 from mcp.server.mcpserver import MCPServer
 
 from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, db
-from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
+from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
@@ -48,7 +48,7 @@ _MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
     "note_create": "cards",
     "batch_note_create": "cards",
     "card_split": "cards",
-    # Types historiques émis par `ConsultantToolRegistry.apply_patch`.
+    # Types historiques émis par `MCPToolRegistry.apply_patch`.
     "card": "cards",
     "split": "cards",
     "bulk_html_sanitize": "cards",
@@ -64,7 +64,7 @@ _MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
     "note_type_change": "models",
     "delete_note_type": "models",
     "delete_unused_note_types": "models",
-    # Types historiques émis par `ConsultantToolRegistry.apply_patch`.
+    # Types historiques émis par `MCPToolRegistry.apply_patch`.
     "model": "models",
     "css": "models",
     # Paquets et arborescence.
@@ -240,31 +240,31 @@ get_mcp_activity_tracker().attach_to_server(mcp)
 @mcp.tool()
 def audit_deck_wozniak(deck_name: str) -> str:
     """Effectue un audit de qualité Wozniak complet sur un paquet (20 règles de formulation, atomicité, redondance)."""
-    return ConsultantToolRegistry.audit_deck_wozniak(deck_name)
+    return MCPToolRegistry.audit_deck_wozniak(deck_name)
 
 
 @mcp.tool()
 def audit_card_wozniak(note_id: int) -> str:
     """Analyse chirurgicale d'une carte spécifique au regard des 20 règles de Piotr Wozniak."""
-    return ConsultantToolRegistry.audit_card_wozniak(note_id)
+    return MCPToolRegistry.audit_card_wozniak(note_id)
 
 
 @mcp.tool()
 def find_duplicate_cards(deck_name: str = "", threshold: float = 0.75) -> str:
     """Détecte les cartes doublons ou formulées de manière quasi-identique dans un paquet via distance Levenshtein."""
-    return ConsultantToolRegistry.find_duplicate_cards(deck_name, threshold)
+    return MCPToolRegistry.find_duplicate_cards(deck_name, threshold)
 
 
 @mcp.tool()
 def propose_card_refactor(note_id: int, new_fields_json: str, explanation: str = "") -> str:
     """Propose une modification de carte avec Diff pour validation humaine (Garde-Fou)."""
-    return ConsultantToolRegistry.propose_card_refactor(note_id, new_fields_json, explanation)
+    return MCPToolRegistry.propose_card_refactor(note_id, new_fields_json, explanation)
 
 
 @mcp.tool()
 def propose_card_split(note_id: int, new_cards_json: str, explanation: str = "") -> str:
     """Propose de scinder une carte dense en N cartes atomiques avec Diff comparatif pour validation humaine."""
-    return ConsultantToolRegistry.propose_card_split(note_id, new_cards_json, explanation)
+    return MCPToolRegistry.propose_card_split(note_id, new_cards_json, explanation)
 
 
 @mcp.tool()
@@ -280,9 +280,9 @@ def apply_patch(
     """Applique un patch validé sur une note, scission, modèle ou CSS en base SQLite avec rollback versionné."""
     p_id = patch_id.strip() or (patch_json.strip() if patch_json.strip().startswith("patch_") else "")
     if p_id:
-        result = ConsultantToolRegistry.preview_and_apply_patch(p_id)
+        result = MCPToolRegistry.preview_and_apply_patch(p_id)
     else:
-        result = ConsultantToolRegistry.apply_patch(
+        result = MCPToolRegistry.apply_patch(
             patch_json=patch_json,
             patch_type=patch_type,
             target_id=target_id,
@@ -304,67 +304,67 @@ def apply_patch(
 @mcp.tool()
 def preview_and_apply_patch(patch_id: str) -> str:
     """Valide et applique un patch chirurgical en attente (Two-Phase Commit) avec vérification de version optimiste."""
-    return ConsultantToolRegistry.preview_and_apply_patch(patch_id)
+    return MCPToolRegistry.preview_and_apply_patch(patch_id)
 
 
 @mcp.tool()
 def propose_css_tune(note_type_name: str, css_snippet: str, selector: str = "") -> str:
     """Propose un ajustement CSS pour un modèle de carte avec aperçu live avant enregistrement."""
-    return ConsultantToolRegistry.propose_css_tune(note_type_name, css_snippet, selector)
+    return MCPToolRegistry.propose_css_tune(note_type_name, css_snippet, selector)
 
 
 @mcp.tool()
 def get_collection_panorama_360() -> str:
     """Fournit une vision panoramique 360° de la collection (paquets, cartes, sangsues, santé globale)."""
-    return ConsultantToolRegistry.get_collection_panorama_360()
+    return MCPToolRegistry.get_collection_panorama_360()
 
 
 @mcp.tool()
 def inspect_deck_deep_scan(deck_name: str) -> str:
     """Effectue une analyse approfondie d'un paquet spécifique (distribution des intervalles, top cartes sangsues)."""
-    return ConsultantToolRegistry.inspect_deck_deep_scan(deck_name)
+    return MCPToolRegistry.inspect_deck_deep_scan(deck_name)
 
 
 @mcp.tool()
 def diagnose_deck_weaknesses(deck_name: str) -> str:
     """Effectue un diagnostic chirurgical approfondi d'un paquet (sangsues, surcharge de texte, clozes excessives, Wozniak)."""
-    return ConsultantToolRegistry.diagnose_deck_weaknesses(deck_name)
+    return MCPToolRegistry.diagnose_deck_weaknesses(deck_name)
 
 
 @mcp.tool()
 def list_card_models_manifest() -> str:
     """Dresse la cartographie complète des modèles de notes (champs requis, templates HTML Recto/Verso, CSS effectif, volumétrie)."""
-    return ConsultantToolRegistry.list_card_models_manifest()
+    return MCPToolRegistry.list_card_models_manifest()
 
 
 @mcp.tool()
 def refactor_cards_by_criteria(query: str, instruction: str = "") -> str:
     """Extrait un échantillon condensé de cartes selon un critère ('deck:Nom', 'tag:Nom', 'sangsues', 'verbeux') pour émettre des StagedPatches."""
-    return ConsultantToolRegistry.refactor_cards_by_criteria(query, instruction)
+    return MCPToolRegistry.refactor_cards_by_criteria(query, instruction)
 
 
 @mcp.tool()
 def search_knowledge_context(query: str, max_chunks: int = 5) -> str:
     """Interroge la bibliothèque documentaire locale via RAG pour extraire des passages avec citations et tags de traçabilité."""
-    return ConsultantToolRegistry.search_knowledge_context(query, max_chunks=max_chunks)
+    return MCPToolRegistry.search_knowledge_context(query, max_chunks=max_chunks)
 
 
 @mcp.tool()
 def get_note_full_profile_360(note_id: int) -> str:
     """Génère le profil complet 360° d'une note (cartes, historique Time Machine, stats SRS, tags)."""
-    return ConsultantToolRegistry.get_note_full_profile_360(note_id)
+    return MCPToolRegistry.get_note_full_profile_360(note_id)
 
 
 @mcp.tool()
 def query_peewee(sql_query: str, limit: int = 50, offset: int = 0) -> str:
     """Exécute une requête SQL en lecture seule sur la base de données SQLite avec pagination."""
-    return ConsultantToolRegistry.query_peewee(sql_query, limit=limit, offset=offset)
+    return MCPToolRegistry.query_peewee(sql_query, limit=limit, offset=offset)
 
 
 @mcp.tool()
 def get_deck_stats(deck_name: str) -> str:
     """Récupère les statistiques détaillées d'un paquet Anki (nombre total de cartes, révisions et difficultés)."""
-    return ConsultantToolRegistry.get_deck_stats(deck_name)
+    return MCPToolRegistry.get_deck_stats(deck_name)
 
 
 @mcp.tool()
@@ -377,7 +377,7 @@ def get_cards_by_deck_or_tag(
     include_subdecks: bool = True,
 ) -> str:
     """Récupère une liste de cartes filtrée par nom de paquet (avec sous-paquets optionnels), tag ou type de note avec pagination."""
-    return ConsultantToolRegistry.get_cards_by_deck_or_tag(
+    return MCPToolRegistry.get_cards_by_deck_or_tag(
         deck_name=deck_name,
         tag=tag,
         limit=limit,
@@ -396,7 +396,7 @@ def get_notes_by_model(
     offset: int = 0,
 ) -> str:
     """Liste les notes rattachées à un type de note spécifique, avec descente optionnelle dans les sous-paquets et pagination."""
-    return ConsultantToolRegistry.get_cards_by_deck_or_tag(
+    return MCPToolRegistry.get_cards_by_deck_or_tag(
         deck_name=deck_name,
         limit=limit,
         offset=offset,
@@ -955,19 +955,19 @@ def preview_card_render(
 @mcp.tool()
 def find_cards_by_content(query: str, deck_name: str = "", limit: int = 10, offset: int = 0) -> str:
     """Recherche des cartes par mot-clé dans leur question/réponse pour retrouver facilement leur note_id avec pagination."""
-    return ConsultantToolRegistry.find_cards_by_content(query, deck_name, limit=limit, offset=offset)
+    return MCPToolRegistry.find_cards_by_content(query, deck_name, limit=limit, offset=offset)
 
 
 @mcp.tool()
 def list_note_types() -> str:
     """Liste tous les modèles de cartes (Note Types) disponibles dans la collection."""
-    return ConsultantToolRegistry.list_note_types()
+    return MCPToolRegistry.list_note_types()
 
 
 @mcp.tool()
 def get_note_type_details(note_type_name: str) -> str:
     """Consulte les détails complets d'un modèle de carte (champs requis, templates HTML Recto/Verso, CSS)."""
-    return ConsultantToolRegistry.get_note_type_details(note_type_name)
+    return MCPToolRegistry.get_note_type_details(note_type_name)
 
 
 @mcp.tool()
@@ -980,7 +980,7 @@ def propose_note_type_refactor(
     explanation: str = "",
 ) -> str:
     """Propose une modification structurelle d'un modèle de carte avec Garde-Fou."""
-    return ConsultantToolRegistry.propose_note_type_refactor(note_type_name, new_fields_schema_json, new_css, new_templates_json, new_description, explanation)
+    return MCPToolRegistry.propose_note_type_refactor(note_type_name, new_fields_schema_json, new_css, new_templates_json, new_description, explanation)
 
 
 @mcp.tool()
@@ -1025,7 +1025,7 @@ def sanitize_fields_html(
     stage_threshold: int = 5,
 ) -> str:
     """Nettoie le HTML inline des champs d'un lot de notes. Si le volume dépasse stage_threshold, génère un StagedPatch (Two-Phase Commit)."""
-    return ConsultantToolRegistry.sanitize_fields_html(
+    return MCPToolRegistry.sanitize_fields_html(
         note_ids=note_ids,
         strip_tags=strip_tags,
         strip_all_html=strip_all_html,
@@ -1042,7 +1042,7 @@ def set_tags_bulk(
     allow_remove_provenance_tags: bool = False,
 ) -> str:
     """Pose, retire ou remplace des tags sur un lot de notes via l'écrivain canonique JSON."""
-    return ConsultantToolRegistry.set_tags_bulk(
+    return MCPToolRegistry.set_tags_bulk(
         note_ids=note_ids,
         tags=tags,
         mode=mode,
@@ -1057,7 +1057,7 @@ def audit_tag_hygiene(
     include_levenshtein: bool = True,
 ) -> str:
     """Analyse la collection pour détecter les grappes de tags sensibles à la casse ou proches selon Levenshtein."""
-    return ConsultantToolRegistry.audit_tag_hygiene(
+    return MCPToolRegistry.audit_tag_hygiene(
         note_ids=note_ids or None,
         deck_id=deck_id or None,
         include_levenshtein=include_levenshtein,
@@ -1071,7 +1071,7 @@ def merge_tag_clusters(
     deck_id: int | str = "",
 ) -> str:
     """Applique des fusions de tags planifiées ({tags_to_merge: [...], target_tag: '...'}) sous transaction atomique."""
-    return ConsultantToolRegistry.merge_tag_clusters(
+    return MCPToolRegistry.merge_tag_clusters(
         merges=merges,
         note_ids=note_ids or None,
         deck_id=deck_id or None,
@@ -1084,7 +1084,7 @@ def delete_unused_note_type(
     confirm: bool = False,
 ) -> str:
     """Supprime un type de note uniquement si 0 note y sont rattachées (garde-fou référentiel). Si name='all_unused', supprime tous les modèles orphelins."""
-    return ConsultantToolRegistry.delete_unused_note_type(name=name, confirm=confirm)
+    return MCPToolRegistry.delete_unused_note_type(name=name, confirm=confirm)
 
 
 @mcp.tool()
@@ -1093,7 +1093,7 @@ def move_cards_to_deck(
     deck: str,
 ) -> str:
     """Déplace un lot de cartes physiques vers un paquet ou sous-paquet hiérarchique ('Parent::Enfant')."""
-    return ConsultantToolRegistry.move_cards_to_deck(card_ids=card_ids, deck=deck)
+    return MCPToolRegistry.move_cards_to_deck(card_ids=card_ids, deck=deck)
 
 
 @mcp.tool()
@@ -1103,7 +1103,7 @@ def list_empty_cards(
     offset: int = 0,
 ) -> str:
     """Détecte les cartes physiques dont le recto (question) est vide après substitution du gabarit."""
-    return ConsultantToolRegistry.list_empty_cards(deck_name=deck_name, limit=limit, offset=offset)
+    return MCPToolRegistry.list_empty_cards(deck_name=deck_name, limit=limit, offset=offset)
 
 
 @mcp.tool()
@@ -1113,7 +1113,7 @@ def delete_empty_cards(
     confirm: bool = False,
 ) -> str:
     """Supprime définitivement les cartes à front vide (détection auto ou par identifiants). Action destructive nécessitant confirm=True."""
-    return ConsultantToolRegistry.delete_empty_cards(card_ids=card_ids, deck_name=deck_name, confirm=confirm)
+    return MCPToolRegistry.delete_empty_cards(card_ids=card_ids, deck_name=deck_name, confirm=confirm)
 
 
 # =====================================================================
@@ -1132,7 +1132,7 @@ def format_markdown_document(
     clean_whitespace: bool = True,
 ) -> str:
     """Nettoie, normalise et formate un document Markdown (césures OCR, KaTeX, tables GFM, titres ATX)."""
-    return ConsultantToolRegistry.format_markdown_document(
+    return MCPToolRegistry.format_markdown_document(
         document_id=document_id,
         content=content,
         dehyphenate_ocr=dehyphenate_ocr,
@@ -1146,13 +1146,13 @@ def format_markdown_document(
 @mcp.tool()
 def get_document_outline(document_id: int = 0, content: str = "") -> str:
     """Extrait l'arborescence hiérarchique des titres (Outline) d'un document Markdown."""
-    return ConsultantToolRegistry.get_document_outline(document_id=document_id, content=content)
+    return MCPToolRegistry.get_document_outline(document_id=document_id, content=content)
 
 
 @mcp.tool()
 def structure_document_sections(document_id: int = 0, content: str = "", max_tokens: int = 800) -> str:
     """Découpe un document Markdown en sections sémantiques enrichies avec breadcrumbs et statistiques pour le RAG."""
-    return ConsultantToolRegistry.structure_document_sections(
+    return MCPToolRegistry.structure_document_sections(
         document_id=document_id,
         content=content,
         max_tokens=max_tokens,
@@ -1171,7 +1171,7 @@ def structure_transcript_for_ai(
     add_key_takeaways: bool = True,
 ) -> str:
     """Restructure un texte brut ou une retranscription (YouTube, cours, audio) en Markdown pédagogique structuré."""
-    return ConsultantToolRegistry.structure_transcript_for_ai(
+    return MCPToolRegistry.structure_transcript_for_ai(
         document_id=document_id,
         content=content,
         profile=profile,
@@ -1191,25 +1191,25 @@ def structure_transcript_for_ai(
 @mcp.tool()
 def search_app_documentation(query: str, category: str = "", limit: int = 5) -> str:
     """Recherche des explications, guides et références d'architecture dans la documentation officielle d'AnkiForge via SQLite FTS5 BM25."""
-    return ConsultantToolRegistry.search_app_documentation(query, category, limit)
+    return MCPToolRegistry.search_app_documentation(query, category, limit)
 
 
 @mcp.tool()
 def read_app_doc_page(doc_path: str, section_anchor: str = "") -> str:
     """Consulte le contenu intégral ou une section d'une page de documentation officielle d'AnkiForge (ex: 'features/consultant_mcp.md')."""
-    return ConsultantToolRegistry.read_app_doc_page(doc_path, section_anchor)
+    return MCPToolRegistry.read_app_doc_page(doc_path, section_anchor)
 
 
 @mcp.tool()
 def list_app_doc_topics(category: str = "") -> str:
     """Consulte le sommaire exhaustif de la documentation officielle d'AnkiForge classé par thématiques."""
-    return ConsultantToolRegistry.list_app_doc_topics(category)
+    return MCPToolRegistry.list_app_doc_topics(category)
 
 
 @mcp.tool()
 def get_feature_quick_help(feature_name: str) -> str:
     """Obtient une synthèse immédiate d'une fonctionnalité clé (Ollama, KaTeX, DAG, RAG, Wozniak, Nuitka, Smart Merge, MCP)."""
-    return ConsultantToolRegistry.get_feature_quick_help(feature_name)
+    return MCPToolRegistry.get_feature_quick_help(feature_name)
 
 
 # =====================================================================
@@ -1220,13 +1220,13 @@ def get_feature_quick_help(feature_name: str) -> str:
 @mcp.resource("docs://topics")
 def get_docs_topics_resource() -> str:
     """Retourne la liste hiérarchique complète des chapitres et pages de la documentation officielle."""
-    return ConsultantToolRegistry.list_app_doc_topics()
+    return MCPToolRegistry.list_app_doc_topics()
 
 
 @mcp.resource("docs://page/{doc_path}")
 def get_doc_page_resource(doc_path: str) -> str:
     """Fournit le contenu brut Markdown d'une page de documentation officielle."""
-    return ConsultantToolRegistry.read_app_doc_page(doc_path)
+    return MCPToolRegistry.read_app_doc_page(doc_path)
 
 
 # =====================================================================
@@ -1237,7 +1237,7 @@ def get_doc_page_resource(doc_path: str) -> str:
 @mcp.prompt("explain_ankiforge_feature")
 def prompt_explain_feature(feature_name: str) -> str:
     """Prompt guidé pour expliquer pas à pas une fonctionnalité d'AnkiForge avec extraits officiels."""
-    doc_summary = ConsultantToolRegistry.get_feature_quick_help(feature_name)
+    doc_summary = MCPToolRegistry.get_feature_quick_help(feature_name)
     return _PROMPT_ENV.from_string(
         "Tu es un expert d'AnkiForge. Explique la fonctionnalité '{{ feature_name }}' en t'appuyant sur la documentation officielle ci-dessous :\n\n"
         "<<< CONTENU UTILISATEUR (FONCTIONNALITÉ) >>>\n{{ feature_name }}\n<<< FIN >>>\n\n"
@@ -1249,7 +1249,7 @@ def prompt_explain_feature(feature_name: str) -> str:
 @mcp.prompt("audit_architecture_compliance")
 def prompt_audit_architecture(target_code_or_rule: str) -> str:
     """Prompt guidé pour vérifier la conformité d'un code ou d'une conception avec les 9 dossiers d'architecture AnkiForge."""
-    arch_doc = ConsultantToolRegistry.read_app_doc_page("Dossier_architecture/02_architecture_technique.md")
+    arch_doc = MCPToolRegistry.read_app_doc_page("Dossier_architecture/02_architecture_technique.md")
     return _PROMPT_ENV.from_string(
         "Tu es l'architecte en chef d'AnkiForge. Vérifie que le code ou la proposition suivante respecte les principes architecturaux "
         "décrits dans la documentation :\n\n"
@@ -1266,7 +1266,7 @@ def prompt_audit_architecture(target_code_or_rule: str) -> str:
 @mcp.tool()
 def list_albums(limit: int = 50, offset: int = 0, folder_name: str = "") -> str:
     """Liste les albums d'images et livres scannés enregistrés dans la collection (titre, nombre de planches, dossier, statut d'analyse)."""
-    return ConsultantToolRegistry.list_albums(limit=limit, offset=offset, folder_name=folder_name)
+    return MCPToolRegistry.list_albums(limit=limit, offset=offset, folder_name=folder_name)
 
 
 @mcp.tool()
@@ -1278,7 +1278,7 @@ def get_album_plates(
     include_ocr_text: bool = True,
 ) -> str:
     """Consulte la liste ordonnée des planches / pages d'un album avec leurs métadonnées (numéro, rotation, recadrage, statut, texte OCR, fichier média)."""
-    return ConsultantToolRegistry.get_album_plates(
+    return MCPToolRegistry.get_album_plates(
         album_id=album_id,
         album_title=album_title,
         limit=limit,
@@ -1295,13 +1295,13 @@ def get_album_plates(
 @mcp.tool()
 def list_pipelines(limit: int = 50, offset: int = 0) -> str:
     """Liste les pipelines DAG configurés dans AnkiForge (id, nom, description, étapes ordonnées, branchements, statut du dernier run)."""
-    return ConsultantToolRegistry.list_pipelines(limit=limit, offset=offset)
+    return MCPToolRegistry.list_pipelines(limit=limit, offset=offset)
 
 
 @mcp.tool()
 def get_pipeline_run(run_id: int = 0, pipeline_id: int = 0) -> str:
     """Consulte l'état détaillé d'une exécution de pipeline DAG (statut, étape courante, tokens consommés, erreurs, variables de sortie)."""
-    return ConsultantToolRegistry.get_pipeline_run(run_id=run_id, pipeline_id=pipeline_id)
+    return MCPToolRegistry.get_pipeline_run(run_id=run_id, pipeline_id=pipeline_id)
 
 
 # =====================================================================
@@ -1312,19 +1312,19 @@ def get_pipeline_run(run_id: int = 0, pipeline_id: int = 0) -> str:
 @mcp.tool()
 def list_mcp_agents(scope: str = "mcp") -> str:
     """Liste tous les agents dédiés enregistrés (Auditeur Wozniak, Architecte CSS, Analyste SRS...) avec leurs outils."""
-    return ConsultantToolRegistry.list_mcp_agents(scope)
+    return MCPToolRegistry.list_mcp_agents(scope)
 
 
 @mcp.tool()
 def get_mcp_agent_details(agent_name: str) -> str:
     """Consulte la configuration détaillée d'un agent dédié (prompt système Jinja2, modèle assigné, liste des outils)."""
-    return ConsultantToolRegistry.get_mcp_agent_details(agent_name)
+    return MCPToolRegistry.get_mcp_agent_details(agent_name)
 
 
 @mcp.tool()
 def invoke_mcp_agent(agent_name: str, message: str, conversation_history_json: str = "[]") -> str:
     """Délègue une tâche ou une question à un agent dédié spécifique selon ses autorisations d'outils et son prompt."""
-    return ConsultantToolRegistry.invoke_mcp_agent(agent_name, message, conversation_history_json)
+    return MCPToolRegistry.invoke_mcp_agent(agent_name, message, conversation_history_json)
 
 
 @mcp.tool()
@@ -1385,19 +1385,19 @@ def create_or_update_mcp_agent(
 @mcp.resource("agents://list")
 def get_agents_list_resource() -> str:
     """Retourne la liste hiérarchique de tous les agents dédiés au format texte/JSON."""
-    return ConsultantToolRegistry.list_mcp_agents(scope="all")
+    return MCPToolRegistry.list_mcp_agents(scope="all")
 
 
 @mcp.resource("agents://{agent_name}")
 def get_agent_profile_resource(agent_name: str) -> str:
     """Fournit le profil et la consigne système d'un agent dédié spécifique."""
-    return ConsultantToolRegistry.get_mcp_agent_details(agent_name)
+    return MCPToolRegistry.get_mcp_agent_details(agent_name)
 
 
 @mcp.prompt("run_with_agent")
 def prompt_run_with_agent(agent_name: str, task: str) -> str:
     """Prompt guidé pour exécuter une tâche en adoptant la posture et les outils d'un agent dédié."""
-    agent_info = ConsultantToolRegistry.get_mcp_agent_details(agent_name)
+    agent_info = MCPToolRegistry.get_mcp_agent_details(agent_name)
     return _PROMPT_ENV.from_string(
         "Tu incarnes l'agent spécialisé '{{ agent_name }}'. Voici ton profil et tes consignes strictes :\n\n"
         "<<< CONTENU BDD (PROFIL AGENT) >>>\n{{ agent_info }}\n<<< FIN >>>\n\n"
@@ -1430,7 +1430,7 @@ def _build_tool_catalogue() -> str:
 def _build_agents_list() -> str:
     """Renvoie la liste textuelle des agents MCP configurés par l'utilisateur."""
     try:
-        return ConsultantToolRegistry.list_mcp_agents(scope="all")
+        return MCPToolRegistry.list_mcp_agents(scope="all")
     except Exception as e:
         logger.warning("Impossible de lister les agents MCP : %s", e)
         return "Aucun agent configuré (erreur de lecture)."
