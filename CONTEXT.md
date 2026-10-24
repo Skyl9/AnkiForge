@@ -293,6 +293,16 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : popup de tags, liste de tags, tag picker générique
 - **Portée contextuelle de tags (Tag Scope)** : le périmètre d'extraction des tags déterminé par le paquet sélectionné et tous ses sous-paquets descendants, ou par l'ensemble de la collection si aucun paquet n'est sélectionné.
   _Avoid_ : filtre deck de tags, sous-ensemble de tags, tags locaux
+- **Gestionnaire de taxonomie (Taxonomy Manager)** : surface d'administration enrichie de `TagSelectWindow` accessible via `Outils > Gestionnaire de tags (Taxonomie)` ou depuis l'éditeur, permettant d'administrer l'arborescence complète des tags (renommage de branches avec propagation contrôlée, fusions atomiques, suppressions globales et audit de conformité).
+  _Avoid_ : tag manager externe, gestionnaire de métadonnées, éditeur de labels
+- **Autocomplétion inline de tags** : popover contextuel riche (style IDE) affiché sous le champ de saisie, strictement restreint aux tags de la portée du paquet actif (Tag Scope), surlignant la hiérarchie `::` et le compteur de notes, navigable au clavier et validable par Tab ou Entrée.
+  _Avoid_ : suggestion native, completer basique, dropdown tags
+- **Propagation de renommage taxonomique** : arbitrage explicite lors du renommage d'un tag parent `A::B` proposant par défaut d'appliquer la substitution à l'ensemble de ses descendants directs et indirects (`A::B::*`), avec décompte préalable des sous-tags et des notes impactées.
+  _Avoid_ : renommage en cascade automatique, cascade aveugle, propagation forcée
+- **Audit de conformité de taxonomie** : analyse transactionnelle de la collection détectant les anomalies syntaxiques (espaces résiduels, séparateurs malformés, divergences de casse) et proposant une correction assistée par grappe (substitution par tiret bas ou scission en tags multiples) avec prévisualisation atomique.
+  _Avoid_ : linter de tags, fix automatique de tags, clean tags
+- **Garde-fou de provenance taxonomique** : avertissement critique bloquant la modification ou la suppression d'un tag de traçabilité documentaire (`doc:`, `source:`, `section:`, `page:`), explicitant le recalcul ou la rupture des liens de couverture RAG associés.
+  _Avoid_ : protection absolue, tag système non modifiable, read-only tag
 
 ## Compétences agentiques & Flux d'ingénierie AnkiForge
 
