@@ -26,7 +26,9 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import NoteChunkLinkModel, NoteModel
+from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.ui.components.flow_layout import FlowWidget
+from ankiforge.ui.components.tag_select_window import TagSelectWindow
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -172,6 +174,7 @@ class NoteTagsEditorWidget(QFrame):
         super().__init__(parent)
         self._note = note
         self._tags: list[str] = parse_note_tags(note.tags) if note else []
+        self._tag_modal: TagSelectWindow | None = None
         self._init_ui()
 
     def _init_ui(self) -> None:
@@ -253,6 +256,25 @@ class NoteTagsEditorWidget(QFrame):
         """)
         self.btn_add_tag.clicked.connect(self._on_add_tag_clicked)
         top_layout.addWidget(self.btn_add_tag)
+
+        # Bouton parcourir tags
+        self.btn_browse_tag = QToolButton(self)
+        self.btn_browse_tag.setIcon(load_phosphor_icon("tag", color=DesignTokens.TEXT_MUTED))
+        self.btn_browse_tag.setFixedSize(24, 24)
+        self.btn_browse_tag.setToolTip(self.tr("Parcourir et sélectionner un tag existant"))
+        self.btn_browse_tag.setStyleSheet(f"""
+            QToolButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QToolButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.btn_browse_tag.clicked.connect(self._on_browse_tag_clicked)
+        top_layout.addWidget(self.btn_browse_tag)
 
         root_layout.addLayout(top_layout)
 
@@ -381,3 +403,32 @@ class NoteTagsEditorWidget(QFrame):
             return
         self._note.tags = serialize_note_tags(self._tags)
         self._note.save(only=[NoteModel.tags])
+
+    def _on_browse_tag_clicked(self) -> None:
+        try:
+            if self._tag_modal and self._tag_modal.isVisible():
+                self._tag_modal.raise_()
+                self._tag_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._tag_modal = None
+
+        all_tags = NoteRepository().get_all_tags()
+        self._tag_modal = TagSelectWindow(
+            title=self.tr("Sélectionner un Tag"),
+            allowed_tags=all_tags,
+            show_provenance_toggle=True,
+            parent=self,
+        )
+        self._tag_modal.tag_selected.connect(self._on_tag_selected_from_modal)
+        self._tag_modal.show()
+
+    def _on_tag_selected_from_modal(self, tag: str) -> None:
+        tag_clean = tag.strip()
+        if not tag_clean:
+            return
+        if tag_clean not in self._tags:
+            self._tags.append(tag_clean)
+            self._persist_tags()
+            self._refresh_chips()
+            self.tags_changed.emit(list(self._tags))

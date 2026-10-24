@@ -289,6 +289,10 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : tag pivot, tag maître, tag de remplacement
 - **Fusion de tags** : l'opération atomique remplaçant sur toutes les notes concernées les variantes d'une grappe par leur tag canonique unique, sans duplication ni altération des tags de provenance.
   _Avoid_ : renommage de tags, écrasement de tags
+- **Sélecteur arborescent de tags** : composant modal ou popover (`TagSelectWindow`) permettant d'explorer et sélectionner des tags hiérarchiques (`parent::enfant`), filtré selon la portée du paquet actif et masquant par défaut les tags de traçabilité documentaire.
+  _Avoid_ : popup de tags, liste de tags, tag picker générique
+- **Portée contextuelle de tags (Tag Scope)** : le périmètre d'extraction des tags déterminé par le paquet sélectionné et tous ses sous-paquets descendants, ou par l'ensemble de la collection si aucun paquet n'est sélectionné.
+  _Avoid_ : filtre deck de tags, sous-ensemble de tags, tags locaux
 
 ## Compétences agentiques & Flux d'ingénierie AnkiForge
 

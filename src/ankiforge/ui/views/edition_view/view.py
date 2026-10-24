@@ -1412,21 +1412,16 @@ class EditionView(QWidget):
         except RuntimeError:
             self._tag_modal = None
 
-        current_tags = set()
-        for note in NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False)).limit(500):
-            if note.tags:
-                try:
-                    tags = json.loads(str(note.tags))
-                    if isinstance(tags, list):
-                        for t in tags:
-                            if t.strip():
-                                current_tags.add(t.strip())
-                    elif isinstance(tags, str) and tags.strip():
-                        current_tags.add(tags.strip())
-                except Exception as e:
-                    logger.warning("Échec du parsing des tags : %s", e)
+        current_tags = self.note_repo.get_tags_for_scope(
+            deck_id=self._active_folder_id,
+            include_descendants=True,
+        )
 
-        self._tag_modal = TagSelectWindow(allowed_tags=current_tags, parent=self)
+        self._tag_modal = TagSelectWindow(
+            allowed_tags=current_tags,
+            show_provenance_toggle=True,
+            parent=self,
+        )
         self._tag_modal.tag_selected.connect(self._on_tag_selected_from_modal)
         self._tag_modal.show()
 

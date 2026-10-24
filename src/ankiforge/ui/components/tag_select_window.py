@@ -3,17 +3,30 @@
 Basée sur DeckSelectWindow pour maintenir une cohérence d'UX.
 """
 
-import json
+import logging
+from collections.abc import Sequence
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QHBoxLayout,
+    QLineEdit,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ankiforge.database.models import NoteModel
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.hierarchy import join_hierarchy, split_hierarchy
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.tags import is_provenance_tag, parse_note_tags
+
+logger = logging.getLogger(__name__)
 
 
 class TagSelectWindow(QWidget):
@@ -21,13 +34,20 @@ class TagSelectWindow(QWidget):
 
     tag_selected = Signal(str)  # (tag_name)
 
-    def __init__(self, title: str = "Sélectionner ou Ajouter un Tag", allowed_tags: set[str] | None = None, parent: QWidget | None = None) -> None:
-        self.allowed_tags = allowed_tags
+    def __init__(
+        self,
+        title: str | None = None,
+        allowed_tags: Sequence[str] | set[str] | None = None,
+        show_provenance_toggle: bool = True,
+        parent: QWidget | None = None,
+    ) -> None:
+        self.raw_allowed_tags = list(allowed_tags) if allowed_tags is not None else None
+        self.allowed_tags = set(allowed_tags) if allowed_tags is not None else None
         super().__init__(parent)
 
-        self.setWindowTitle(title)
+        self.setWindowTitle(title or self.tr("Sélectionner ou Ajouter un Tag"))
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setFixedSize(450, 500)
+        self.setFixedSize(450, 520)
 
         self.setStyleSheet(f"""
             QWidget {{
@@ -40,7 +60,7 @@ class TagSelectWindow(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
         # Search Bar
         self.search_input = QLineEdit()
@@ -66,6 +86,24 @@ class TagSelectWindow(QWidget):
         self.search_input.textChanged.connect(self._on_search_changed)
 
         layout.addWidget(self.search_input)
+
+        # Case à cocher : Afficher les tags de traçabilité
+        self.cb_show_provenance = QCheckBox(self.tr("Afficher les tags de traçabilité"))
+        self.cb_show_provenance.setChecked(False)
+        self.cb_show_provenance.setVisible(show_provenance_toggle)
+        self.cb_show_provenance.setStyleSheet(f"""
+            QCheckBox {{
+                color: {DesignTokens.TEXT_MUTED};
+                font-size: 11px;
+                font-family: '{DesignTokens.FONT_MAIN}';
+                spacing: 6px;
+            }}
+            QCheckBox:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+        self.cb_show_provenance.toggled.connect(self._load_tags)
+        layout.addWidget(self.cb_show_provenance)
 
         # TreeWidget
         self.tree = QTreeWidget()
@@ -131,28 +169,25 @@ class TagSelectWindow(QWidget):
         self._load_tags()
 
     def _load_tags(self) -> None:
-        """Charge l'arborescence des tags depuis NoteModel."""
+        """Charge l'arborescence des tags depuis NoteModel ou la liste autorisée."""
         self.tree.clear()
         self._items_by_path.clear()
 
-        all_tags = set()
-        if self.allowed_tags is not None:
-            all_tags = self.allowed_tags.copy()
+        all_tags: set[str] = set()
+        if self.raw_allowed_tags is not None:
+            for t in self.raw_allowed_tags:
+                all_tags.update(parse_note_tags(t))
         else:
             for note in NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False)):
-                try:
-                    tags = json.loads(note.tags)
-                    if isinstance(tags, list):
-                        for t in tags:
-                            if t.strip():
-                                all_tags.add(t.strip())
-                except Exception as e:
-                    import logging
+                if note.tags:
+                    all_tags.update(parse_note_tags(note.tags))
 
-                    logging.warning(f"An error occurred: {e}")
+        # Filtrage des tags de traçabilité documentaire si la case n'est pas cochée
+        show_prov = self.cb_show_provenance.isChecked() if hasattr(self, "cb_show_provenance") else True
+        filtered_tags = {t for t in all_tags if show_prov or not is_provenance_tag(t)}
 
         # Trier alphabétiquement pour que les parents soient créés avant les enfants
-        sorted_tags = sorted(list(all_tags))
+        sorted_tags = sorted(list(filtered_tags))
 
         for tag in sorted_tags:
             parts = split_hierarchy(tag)
@@ -179,6 +214,8 @@ class TagSelectWindow(QWidget):
             self._items_by_path[tag] = item
 
         self.tree.expandAll()
+        if hasattr(self, "search_input") and self.search_input.text().strip():
+            self._on_search_changed(self.search_input.text())
 
     def _on_search_changed(self, text: str) -> None:
         """Filtre l'arborescence et permet d'ajouter un nouveau tag."""

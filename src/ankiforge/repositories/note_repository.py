@@ -17,6 +17,7 @@ from ankiforge.database.models import (
 from ankiforge.repositories.base import BaseRepository
 from ankiforge.services.cards.flag_service import FlagService
 from ankiforge.services.search.fts_service import FTSService
+from ankiforge.utils.hierarchy import descendants_prefix
 from ankiforge.utils.tags import parse_note_tags, serialize_note_tags
 
 logger = logging.getLogger(__name__)
@@ -349,9 +350,47 @@ class NoteRepository(BaseRepository):
 
     def get_all_tags(self) -> list[str]:
         """Extrait tous les tags uniques des notes."""
+        return self.get_tags_for_scope(deck_id=None)
+
+    def get_tags_for_scope(
+        self,
+        deck_id: int | None = None,
+        include_descendants: bool = True,
+    ) -> list[str]:
+        """Extrait tous les tags uniques pour une portée donnée (paquet et sous-paquets ou collection globale).
+
+        Args:
+            deck_id: ID du paquet sélectionné ou None pour toute la collection.
+            include_descendants: Si True, inclut les sous-paquets du paquet spécifié.
+
+        Returns:
+            Liste triée alphabétiquement de tous les tags uniques normalisés.
+        """
         tags_set: set[str] = set()
-        for note in NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False)):
-            if note.tags:
-                for t in parse_note_tags(note.tags):
-                    tags_set.add(t)
+
+        if deck_id is not None:
+            active_deck = DeckModel.get_or_none(DeckModel.id == deck_id)
+            if not active_deck:
+                return []
+
+            if include_descendants:
+                deck_ids = [d.id for d in DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(descendants_prefix(active_deck.name))))]
+            else:
+                deck_ids = [active_deck.id]
+
+            if not deck_ids:
+                return []
+
+            query = NoteModel.select(NoteModel.tags).join(CardModel, on=(CardModel.note == NoteModel.id)).where(CardModel.deck.in_(deck_ids) & NoteModel.tags.is_null(False)).distinct()
+            for note in query:
+                if note.tags:
+                    for t in parse_note_tags(note.tags):
+                        tags_set.add(t)
+        else:
+            query = NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False))
+            for note in query:
+                if note.tags:
+                    for t in parse_note_tags(note.tags):
+                        tags_set.add(t)
+
         return sorted(tags_set)

@@ -15,17 +15,20 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QTextEdit,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from ankiforge.database.models import NoteModel, NoteTypeModel
+from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.services.cards.group_edit_service import (
     GroupEditOptions,
     GroupEditResult,
     GroupEditService,
 )
 from ankiforge.ui.components import ActionButton, PrimaryButton
+from ankiforge.ui.components.tag_select_window import TagSelectWindow
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -40,6 +43,7 @@ class GroupEditDialog(QDialog):
         super().__init__(parent)
         self.note_ids = list(note_ids)
         self.result_data: GroupEditResult | None = None
+        self._tag_modal: TagSelectWindow | None = None
 
         self.setWindowTitle(tr("Édition groupée (%1 cartes)", len(self.note_ids)))
         self.setMinimumWidth(560)
@@ -147,6 +151,9 @@ class GroupEditDialog(QDialog):
         lbl_add.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         tags_layout.addWidget(lbl_add)
 
+        row_add = QHBoxLayout()
+        row_add.setSpacing(6)
+
         self.input_tags_add = QLineEdit(tags_group)
         self.input_tags_add.setPlaceholderText(self.tr("Ex: vocabulaire, examen-2026, chap-1"))
         self.input_tags_add.setStyleSheet(f"""
@@ -162,17 +169,50 @@ class GroupEditDialog(QDialog):
                 border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
-        tags_layout.addWidget(self.input_tags_add)
+        row_add.addWidget(self.input_tags_add, stretch=1)
+
+        self.btn_browse_tags_add = QToolButton(tags_group)
+        self.btn_browse_tags_add.setIcon(load_phosphor_icon("tag", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_browse_tags_add.setToolTip(self.tr("Parcourir et sélectionner un tag existant"))
+        self.btn_browse_tags_add.setFixedSize(30, 30)
+        self.btn_browse_tags_add.setStyleSheet(f"""
+            QToolButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QToolButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.btn_browse_tags_add.clicked.connect(lambda: self._open_tag_selector(self.input_tags_add))
+        row_add.addWidget(self.btn_browse_tags_add)
+
+        tags_layout.addLayout(row_add)
 
         # Retrait de tags
         lbl_remove = QLabel(self.tr("Retirer des tags (séparés par virgules ou espaces) :"), tags_group)
         lbl_remove.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         tags_layout.addWidget(lbl_remove)
 
+        row_remove = QHBoxLayout()
+        row_remove.setSpacing(6)
+
         self.input_tags_remove = QLineEdit(tags_group)
         self.input_tags_remove.setPlaceholderText(self.tr("Ex: brouillon, a_revoir"))
         self.input_tags_remove.setStyleSheet(self.input_tags_add.styleSheet())
-        tags_layout.addWidget(self.input_tags_remove)
+        row_remove.addWidget(self.input_tags_remove, stretch=1)
+
+        self.btn_browse_tags_remove = QToolButton(tags_group)
+        self.btn_browse_tags_remove.setIcon(load_phosphor_icon("tag", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_browse_tags_remove.setToolTip(self.tr("Parcourir et sélectionner un tag existant"))
+        self.btn_browse_tags_remove.setFixedSize(30, 30)
+        self.btn_browse_tags_remove.setStyleSheet(self.btn_browse_tags_add.styleSheet())
+        self.btn_browse_tags_remove.clicked.connect(lambda: self._open_tag_selector(self.input_tags_remove))
+        row_remove.addWidget(self.btn_browse_tags_remove)
+
+        tags_layout.addLayout(row_remove)
 
         tags_note = QLabel(
             self.tr("<i>Remarque : les tags de provenance documentaire (doc:, source:, page:, section:) sont préservés pour garantir la traçabilité.</i>"),
@@ -370,3 +410,31 @@ class GroupEditDialog(QDialog):
 
         self.result_data = result
         self.accept()
+
+    def _open_tag_selector(self, target_input: QLineEdit) -> None:
+        try:
+            if self._tag_modal and self._tag_modal.isVisible():
+                self._tag_modal.close()
+        except RuntimeError:
+            pass
+        self._tag_modal = None
+
+        all_tags = NoteRepository().get_all_tags()
+        self._tag_modal = TagSelectWindow(
+            title=self.tr("Sélectionner un Tag"),
+            allowed_tags=all_tags,
+            show_provenance_toggle=True,
+            parent=self,
+        )
+        self._tag_modal.tag_selected.connect(lambda tag: self._insert_tag_to_input(target_input, tag))
+        self._tag_modal.show()
+
+    def _insert_tag_to_input(self, target_input: QLineEdit, tag: str) -> None:
+        current = target_input.text().strip().rstrip(", ").strip()
+        if not current:
+            target_input.setText(tag)
+        else:
+            tokens = [t.strip() for t in current.replace(",", " ").split() if t.strip()]
+            if tag not in tokens:
+                target_input.setText(f"{current}, {tag}")
+        target_input.setFocus()

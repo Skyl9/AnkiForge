@@ -2956,7 +2956,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
         <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+743"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+738"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4670,7 +4670,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="+44"/>
+        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="+48"/>
         <source>Édition groupée (%1 cartes)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4685,18 +4685,18 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+253"/>
+        <location line="+289"/>
         <source>La modification a échoué et la transaction a été annulée :
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+73"/>
+        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+75"/>
         <source>Tag de traçabilité documentaire : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+206"/>
+        <location line="+226"/>
         <source>(%1 tag%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4716,7 +4716,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-572"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-567"/>
         <source>%1 cartes sélectionnées (sur %2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4773,7 +4773,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+50"/>
+        <location line="+45"/>
         <source>Tag %1 ajouté au filtre</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12473,7 +12473,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-2056"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-2051"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12490,12 +12490,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="-1051"/>
-        <location line="+1342"/>
+        <location line="+1337"/>
         <source>Type de note : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1323"/>
+        <location line="-1318"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12543,13 +12543,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <location line="+4"/>
         <location line="+421"/>
         <location line="+13"/>
-        <location line="+1431"/>
+        <location line="+1426"/>
         <location line="+100"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1961"/>
+        <location line="-1956"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12587,12 +12587,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+396"/>
-        <location line="+713"/>
+        <location line="+708"/>
         <source>Changer le type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-582"/>
+        <location line="-577"/>
         <source>Modifications non enregistrées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12602,7 +12602,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+160"/>
+        <location line="+155"/>
         <source>Filtrer par type de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13695,7 +13695,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>GroupEditDialog</name>
     <message>
-        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="-242"/>
+        <location filename="../../ui/views/edition_view/group_edit_dialog.py" line="-278"/>
         <source>🏷️ Étiquettes (Tags)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13705,22 +13705,28 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+8"/>
         <source>Ex: vocabulaire, examen-2026, chap-1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+17"/>
+        <location line="+18"/>
+        <location line="+33"/>
+        <source>Parcourir et sélectionner un tag existant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-14"/>
         <source>Retirer des tags (séparés par virgules ou espaces) :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+8"/>
         <source>Ex: brouillon, a_revoir</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+15"/>
         <source>&lt;i&gt;Remarque : les tags de provenance documentaire (doc:, source:, page:, section:) sont préservés pour garantir la traçabilité.&lt;/i&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13847,6 +13853,11 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+17"/>
         <source>Échec de l&apos;édition groupée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Sélectionner un Tag</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -16309,7 +16320,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NoteTagChipWidget</name>
     <message>
-        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="-263"/>
+        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="-283"/>
         <source>Déplacer vers la gauche</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16327,7 +16338,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NoteTagsEditorWidget</name>
     <message>
-        <location line="+53"/>
+        <location line="+54"/>
         <source>Tags :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16347,13 +16358,23 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+23"/>
+        <source>Parcourir et sélectionner un tag existant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+40"/>
         <source>Aucun tag associé à cette carte.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+86"/>
         <source>Supprimer le tag de provenance ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Sélectionner un Tag</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -18867,8 +18888,18 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TagSelectWindow</name>
     <message>
-        <location filename="../../ui/components/tag_select_window.py" line="+47"/>
+        <location filename="../../ui/components/tag_select_window.py" line="+48"/>
+        <source>Sélectionner ou Ajouter un Tag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
         <source>Rechercher ou saisir un nouveau tag...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Afficher les tags de traçabilité</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

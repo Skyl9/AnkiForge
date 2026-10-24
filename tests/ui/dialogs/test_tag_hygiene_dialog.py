@@ -153,3 +153,6 @@ def test_tag_hygiene_dialog_with_deck_selection(qtbot, tag_dialog_setup):
     assert dialog.scope_combo.currentData() == "deck"
     assert dialog.btn_select_deck.isVisible() is True
     assert dialog.selected_deck_id == deck.id
+
+    if dialog.worker and dialog.worker.isRunning():
+        dialog.worker.wait()
