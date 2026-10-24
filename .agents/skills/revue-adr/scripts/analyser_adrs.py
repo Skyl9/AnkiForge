@@ -125,9 +125,7 @@ def parse_adr_file(path: Path) -> AdrInfo | None:
         "",
         content,
     )
-    sorted_outbound_refs = sorted(
-        {m.group(1) for m in ADR_REF_RE.finditer(content_without_absorbed) if m.group(1) != number}
-    )
+    sorted_outbound_refs = sorted({m.group(1) for m in ADR_REF_RE.finditer(content_without_absorbed) if m.group(1) != number})
 
     # Détection des thématiques ciblées (priorité titre et slug)
     content_lower = content.lower()
