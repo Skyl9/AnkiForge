@@ -1,4 +1,4 @@
-"""Gestionnaire d'échange et de stockage de thèmes au format JSON (ADR 0005 & 0006).
+"""Gestionnaire d'échange et de stockage de thèmes au format JSON (ADR 0004 §2 et §3).
 
 Définit le format d'échange conteneur de Famille de Thème (variantes sombre & claire),
 la validation stricte des champs, la tolérance de charge utile, la gestion de version,
@@ -190,7 +190,7 @@ def parse_major_version(raw_version: Any) -> int:
 def theme_profile_to_dict(profile: ThemeProfile) -> dict[str, Any]:
     """Sérialise un ThemeProfile en dictionnaire.
 
-    Règles ADR 0006 :
+    Règles ADR 0004 §3 :
     - Les jetons dérivés vides ("") sont omis du dictionnaire.
     - Seuls les jetons dérivés explicitement définis (non vides) sont exportés.
     - Les jetons d'exécution DesignTokens ne sont jamais exportés.
@@ -207,7 +207,7 @@ def theme_profile_to_dict(profile: ThemeProfile) -> dict[str, Any]:
 
 
 def theme_family_to_dict(family: ThemeFamily) -> dict[str, Any]:
-    """Sérialise une ThemeFamily en conteneur d'échange JSON conforme à l'ADR 0006."""
+    """Sérialise une ThemeFamily en conteneur d'échange JSON conforme à l'ADR 0004 §3."""
     return {
         "version": CURRENT_FORMAT_VERSION,
         "id": family.id,
@@ -235,7 +235,7 @@ def merge_variant_payload(
 ) -> ThemeProfile:
     """Fusionne une charge utile de variante sur une base de profil avec tolérance.
 
-    Règles ADR 0006 :
+    Règles ADR 0004 §3 :
     - Un champ présent écrase le champ correspondant après validation.
     - Un jeton absent ne remet jamais une valeur à son défaut (il conserve la valeur de base).
     - Les champs optionnels inconnus sont tolérés sans erreur.
@@ -323,7 +323,7 @@ def theme_family_from_json(
     return theme_family_from_dict(data, file_stem=file_stem, base_family=base_family)
 
 
-# ── Stockage & Bibliothèque sur Disque (ADR 0005) ───────────────────────────
+# ── Stockage & Bibliothèque sur Disque (ADR 0004 §2) ───────────────────────────
 
 
 def resolve_unique_theme_path(themes_dir: Path, base_name: str) -> Path:
@@ -356,7 +356,7 @@ def save_theme_family_to_library(
     """Enregistre une ThemeFamily dans le répertoire de la bibliothèque de thèmes.
 
     Réécrit les identifiants pour dériver du nom de fichier final afin qu'il n'existe
-    pas deux vérités concurrentes (ADR 0005).
+    pas deux vérités concurrentes (ADR 0004 §2).
     """
     dest_dir = themes_dir or paths.get_themes_dir()
     dest_dir.mkdir(parents=True, exist_ok=True)

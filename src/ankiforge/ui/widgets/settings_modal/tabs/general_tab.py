@@ -194,7 +194,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
                         icon_name = fam.icon or ("ph.moon" if is_dark_selected else "ph.sun")
                         icon_color = DesignTokens.ACCENT_PRIMARY if is_dark_selected else DesignTokens.COLOR_YELLOW
                     self.cb_theme.addItem(load_phosphor_icon(icon_name, color=icon_color), fam.name, fam.id)
-                # Une Famille persistée mais inconnue de la bibliothèque (thème tiers, ADR 0005)
+                # Une Famille persistée mais inconnue de la bibliothèque (thème tiers, ADR 0004 §2)
                 # doit survivre à l'enregistrement du Mode : l'ajouter évite de l'effacer.
                 if selected_family_id is not None and all(fam.id != selected_family_id for fam in families):
                     self.cb_theme.addItem(

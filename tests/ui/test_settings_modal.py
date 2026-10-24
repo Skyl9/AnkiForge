@@ -325,7 +325,7 @@ def test_general_tab_keeps_an_absent_family_absent_across_a_mode_change(qtbot):
 
 
 def test_general_tab_keeps_a_family_unknown_to_the_library(qtbot):
-    """Une Famille persistée hors bibliothèque (thème tiers, ADR 0005) ne doit pas être effacée.
+    """Une Famille persistée hors bibliothèque (thème tiers, ADR 0004 §2) ne doit pas être effacée.
 
     Sans entrée de repli, la Famille tomberait sur « aucune » et un simple changement de Mode
     la remplacerait définitivement en base.

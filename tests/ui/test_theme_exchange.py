@@ -1,4 +1,4 @@
-"""Tests unitaires et d'intégration pour l'export et l'import de thèmes JSON (ADR 0005 & 0006).
+"""Tests unitaires et d'intégration pour l'export et l'import de thèmes JSON (ADR 0004 §2 et §3).
 
 Couvre :
 - Sérialisation et conteneur de Famille (version, dark, light)
@@ -141,7 +141,7 @@ def sample_family() -> ThemeFamily:
 
 @pytest.mark.unit
 def test_theme_family_to_dict_and_json(sample_family: ThemeFamily):
-    """Vérifie la structure du conteneur de Famille et la sérialisation conforme à l'ADR 0006."""
+    """Vérifie la structure du conteneur de Famille et la sérialisation conforme à l'ADR 0004 §3."""
     data = theme_family_to_dict(sample_family)
 
     assert data["version"] == CURRENT_FORMAT_VERSION

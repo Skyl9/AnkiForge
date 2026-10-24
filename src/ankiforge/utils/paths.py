@@ -138,7 +138,7 @@ def get_themes_dir() -> Path:
     """Retourne le chemin vers le répertoire de la bibliothèque globale de thèmes JSON (~/.ankiforge/themes).
 
     Garantit l'existence du dossier sur le disque.
-    Conforme à l'ADR 0005.
+    Conforme à l'ADR 0004 §2.
     """
     themes_dir = get_app_data_dir() / "themes"
     themes_dir.mkdir(parents=True, exist_ok=True)
