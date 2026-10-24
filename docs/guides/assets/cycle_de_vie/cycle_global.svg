@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #181825; }
+      .card { fill: #1e1e2e; stroke: #313244; stroke-width: 1.5; rx: 12px; }
+      .card-accent-blue { stroke: #89b4fa; }
+      .card-accent-green { stroke: #a6e3a1; }
+      .card-accent-purple { stroke: #cba6f7; }
+      .card-accent-amber { stroke: #f9e2af; }
+      .title { font-family: system-ui, -apple-system, sans-serif; font-size: 19px; font-weight: 700; fill: #cdd6f4; text-anchor: middle; }
+      .subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; fill: #a6adc8; text-anchor: middle; }
+      .step-num { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 800; fill: #181825; }
+      .badge-bg { rx: 6px; }
+      .step-title { font-family: system-ui, -apple-system, sans-serif; font-size: 15px; font-weight: 700; fill: #cdd6f4; }
+      .step-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; fill: #bac2de; }
+      .step-highlight { font-weight: 600; fill: #89b4fa; }
+      .arrow { stroke: #89b4fa; stroke-width: 2.5; fill: none; stroke-linecap: round; }
+      .arrow-dashed { stroke: #a6e3a1; stroke-width: 2.5; stroke-dasharray: 6,4; fill: none; }
+      .arrow-lbl { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 600; fill: #cdd6f4; text-anchor: middle; }
+    </style>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#89b4fa"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#a6e3a1"/>
+    </marker>
+  </defs>
+
+  <!-- Arrière-plan global -->
+  <rect width="900" height="480" class="bg" rx="16"/>
+
+  <!-- En-tête -->
+  <text x="450" y="38" class="title">Cycle Global Distribué : AnkiForge ↔ Anki</text>
+  <text x="450" y="58" class="subtitle">Articulation sereine entre la création de cours assistée par IA et les révisions quotidiennes</text>
+
+  <!-- 1. Étape 1 : Studio AnkiForge (Authoring) -->
+  <g transform="translate(40, 85)">
+    <rect width="370" height="150" class="card card-accent-blue"/>
+    <rect x="16" y="16" width="28" height="22" rx="6" fill="#89b4fa"/>
+    <text x="30" y="32" class="step-num" text-anchor="middle">1</text>
+    <text x="54" y="33" class="step-title">Studio AnkiForge (Authoring &amp; IA)</text>
+    <text x="16" y="66" class="step-desc">• Ingestion documentaire : PDF, audio, web, markdown</text>
+    <text x="16" y="88" class="step-desc">• Découpage sémantique (RAG) &amp; traçabilité de couverture</text>
+    <text x="16" y="110" class="step-desc">• Génération ciblée par agents IA (pipelines DAG)</text>
+    <text x="16" y="132" class="step-desc"><tspan class="step-highlight">Périmètre Studio sanctuarisé</tspan> et conservé intact</text>
+  </g>
+
+  <!-- Flèche 1 -> 2 (Horizontale) -->
+  <path d="M 410 160 L 480 160" class="arrow" marker-end="url(#arrow-blue)"/>
+  <text x="445" y="148" class="arrow-lbl">Cartes brutes</text>
+
+  <!-- 2. Étape 2 : Revue Staging Humaine -->
+  <g transform="translate(490, 85)">
+    <rect width="370" height="150" class="card card-accent-purple"/>
+    <rect x="16" y="16" width="28" height="22" rx="6" fill="#cba6f7"/>
+    <text x="30" y="32" class="step-num" text-anchor="middle">2</text>
+    <text x="54" y="33" class="step-title">Revue &amp; Validation (Staging)</text>
+    <text x="16" y="66" class="step-desc">• Revue humaine obligatoire carte par carte</text>
+    <text x="16" y="88" class="step-desc">• Édition KaTeX, correction de formulation &amp; tags</text>
+    <text x="16" y="110" class="step-desc">• Contrôle qualité Wozniak (minimum information)</text>
+    <text x="16" y="132" class="step-desc">Attribution des identifiants durables (<tspan class="step-highlight">GUID stables</tspan>)</text>
+  </g>
+
+  <!-- Flèche 2 -> 3 (Verticale descendante) -->
+  <path d="M 675 235 L 675 295" class="arrow" marker-end="url(#arrow-blue)"/>
+  <rect x="610" y="250" width="130" height="22" rx="6" fill="#181825" stroke="#89b4fa" stroke-width="1"/>
+  <text x="675" y="265" class="arrow-lbl" fill="#89b4fa">Export .apkg</text>
+
+  <!-- 3. Étape 3 : Étude quotidienne dans Anki -->
+  <g transform="translate(490, 305)">
+    <rect width="370" height="145" class="card card-accent-green"/>
+    <rect x="16" y="16" width="28" height="22" rx="6" fill="#a6e3a1"/>
+    <text x="30" y="32" class="step-num" text-anchor="middle">3</text>
+    <text x="54" y="33" class="step-title">Étude dans Anki (Moteur SRS)</text>
+    <text x="16" y="66" class="step-desc">• Import du paquet .apkg : nouvelles cartes intégrées</text>
+    <text x="16" y="88" class="step-desc">• Révisions quotidiennes avec algorithme FSRS / SM-2</text>
+    <text x="16" y="110" class="step-desc">• <tspan class="step-highlight">Anki est maître absolu</tspan> des intervalles et révisions</text>
+    <text x="16" y="130" class="step-desc">Zéro altération des progrès par AnkiForge</text>
+  </g>
+
+  <!-- Flèche 3 -> 4 (Horizontale retour vers la gauche) -->
+  <path d="M 490 380 L 420 380" class="arrow-dashed" marker-end="url(#arrow-green)"/>
+  <rect x="425" y="355" width="130" height="22" rx="6" fill="#181825" stroke="#a6e3a1" stroke-width="1"/>
+  <text x="490" y="370" class="arrow-lbl" fill="#a6e3a1">Import .colpkg</text>
+
+  <!-- 4. Étape 4 : Rafraîchissement & Synchronisation -->
+  <g transform="translate(40, 305)">
+    <rect width="370" height="145" class="card card-accent-amber"/>
+    <rect x="16" y="16" width="28" height="22" rx="6" fill="#f9e2af"/>
+    <text x="30" y="32" class="step-num" text-anchor="middle">4</text>
+    <text x="54" y="33" class="step-title">Rafraîchissement &amp; Anti-Zombies</text>
+    <text x="16" y="66" class="step-desc">• Export régulier de votre collection complète (.colpkg)</text>
+    <text x="16" y="88" class="step-desc">• Import dans AnkiForge : mise à jour des statistiques</text>
+    <text x="16" y="110" class="step-desc">• <tspan class="step-highlight">Purge définitive des cartes supprimées</tspan> dans Anki</text>
+    <text x="16" y="130" class="step-desc">Sauvegarde automatique de sécurité avant remplacement</text>
+  </g>
+
+  <!-- Flèche 4 -> 1 (Verticale ascendante vers le Studio) -->
+  <path d="M 225 305 L 225 245" class="arrow-dashed" marker-end="url(#arrow-green)"/>
+  <text x="165" y="278" class="arrow-lbl" fill="#a6e3a1">État à jour</text>
+</svg>

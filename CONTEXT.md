@@ -194,6 +194,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : barre de statut, barre de progression globale, footer, overlay
 - **Contenu d'onglet Paramètres adaptatif** : règle de mise en page selon laquelle le contenu des onglets de la modale Paramètres se comprime pour tenir dans la zone disponible **sans jamais imposer de barre de défilement horizontale ni tronquer un libellé**, de la largeur minimale du modal (820px) jusqu'à l'infini. Les grilles denses (miniatures de layouts, métriques de stockage) se replient en une seule colonne sous leur seuil de lisibilité. Le conteneur (modale, redimensionnable) reste fixe : c'est le contenu qui s'adapte, jamais l'inverse.
   _Avoid_ : largeur minimale rigide, setFixedWidth, sidebar élargie, conteneur adaptatif
+- **Lecteur de documentation embarqué (`DocReaderDialog`)** : boîte de dialogue autonome native basée sur `QTextBrowser` et `AppDocumentationService`, permettant de consulter les guides et la documentation officielle de l'application hors-ligne, avec rendu des illustrations vectorielles SVG locales, recherche textuelle incrémentale et zoom typographique, sans dépendre d'un moteur Chromium lourd ni d'une connexion réseau.
+  _Avoid_ : webview de doc, browser externe obligatoire, aide en ligne, visionneuse web
 
 ## Clavier & Raccourcis
 
@@ -349,6 +351,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : écrasement de schéma, copie systématique, suffixage infini
 - **Périmètre d'autorité distribuée (Distributed Authority Perimeter)** : frontière de responsabilité gouvernant les échanges entre Anki et AnkiForge — Anki détenant l'autorité sur l'ordonnancement SRS et l'état révisé des cartes, AnkiForge détenant l'autorité sur les sources, la traçabilité documentaire (RAG) et les cartes en cours de conception.
   _Avoid_ : maître-esclave rigide, base dupliquée sans rôle, sync bidirectionnelle naïve
+- **Guide visuel du cycle de vie distribué** : documentation pédagogique embarquée illustrée de 5 diagrammes vectoriels (SVG), guidant l'utilisateur dans l'articulation de ses sessions de travail entre la création dans le Studio AnkiForge et les révisions quotidiennes dans Anki, clarifiant la sanctuarisation des périmètres et l'élimination des cartes zombies sans jargon technique développeur.
+  _Avoid_ : manuel technique, spec cycle de vie, doc interne
 
 
 

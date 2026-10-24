@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 440" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #181825; }
+      .title { font-family: system-ui, -apple-system, sans-serif; font-size: 19px; font-weight: 700; fill: #cdd6f4; text-anchor: middle; }
+      .subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; fill: #a6adc8; text-anchor: middle; }
+      .card { fill: #1e1e2e; stroke: #313244; stroke-width: 1.5; rx: 10px; }
+      .card-step-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #cdd6f4; }
+      .card-step-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #a6adc8; }
+      .card-step-tag { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 600; fill: #89b4fa; }
+      .timeline-axis { stroke: #45475a; stroke-width: 3; }
+      .milestone { fill: #89b4fa; stroke: #181825; stroke-width: 3; }
+      .milestone-num { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 800; fill: #181825; text-anchor: middle; }
+      .milestone-time { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 600; fill: #f9e2af; text-anchor: middle; }
+      .connector { stroke: #89b4fa; stroke-width: 1.5; stroke-dasharray: 4,3; }
+    </style>
+  </defs>
+
+  <!-- Arrière-plan global -->
+  <rect width="920" height="440" class="bg" rx="16"/>
+
+  <!-- Titre -->
+  <text x="460" y="38" class="title">Chronologie d'une Session Type : Du Cours aux Révisions</text>
+  <text x="460" y="58" class="subtitle">Enchaînement pas-à-pas des étapes de travail entre AnkiForge et Anki</text>
+
+  <!-- Axe chronologique central -->
+  <line x1="60" y1="210" x2="860" y2="210" class="timeline-axis"/>
+
+  <!-- ==================== JALON 1 ==================== -->
+  <circle cx="100" cy="210" r="14" class="milestone"/>
+  <text x="100" y="214" class="milestone-num">1</text>
+  <text x="100" y="240" class="milestone-time">T = 0 min</text>
+  <line x1="100" y1="196" x2="100" y2="155" class="connector"/>
+  <!-- Carte supérieure 1 -->
+  <g transform="translate(15, 80)">
+    <rect width="170" height="75" class="card" stroke="#89b4fa"/>
+    <text x="12" y="22" class="card-step-tag">STUDIO FORGE</text>
+    <text x="12" y="42" class="card-step-title">1. Ajout du Cours</text>
+    <text x="12" y="60" class="card-step-desc">Glisser-déposer d'un PDF</text>
+    <text x="12" y="72" class="card-step-desc">ou support de cours.</text>
+  </g>
+
+  <!-- ==================== JALON 2 ==================== -->
+  <circle cx="280" cy="210" r="14" class="milestone"/>
+  <text x="280" y="214" class="milestone-num">2</text>
+  <text x="280" y="240" class="milestone-time">T + 5 min</text>
+  <line x1="280" y1="224" x2="280" y2="265" class="connector"/>
+  <!-- Carte inférieure 2 -->
+  <g transform="translate(195, 265)">
+    <rect width="170" height="75" class="card" stroke="#cba6f7"/>
+    <text x="12" y="22" class="card-step-tag" fill="#cba6f7">BATCH &amp; IA</text>
+    <text x="12" y="42" class="card-step-title">2. Découpage &amp; IA</text>
+    <text x="12" y="60" class="card-step-desc">Sélection de sections,</text>
+    <text x="12" y="72" class="card-step-desc">génération de 20 cartes.</text>
+  </g>
+
+  <!-- ==================== JALON 3 ==================== -->
+  <circle cx="460" cy="210" r="14" class="milestone"/>
+  <text x="460" y="214" class="milestone-num">3</text>
+  <text x="460" y="240" class="milestone-time">T + 15 min</text>
+  <line x1="460" y1="196" x2="460" y2="155" class="connector"/>
+  <!-- Carte supérieure 3 -->
+  <g transform="translate(375, 80)">
+    <rect width="170" height="75" class="card" stroke="#f9e2af"/>
+    <text x="12" y="22" class="card-step-tag" fill="#f9e2af">STAGING</text>
+    <text x="12" y="42" class="card-step-title">3. Revue &amp; Validation</text>
+    <text x="12" y="60" class="card-step-desc">Vérification humaine,</text>
+    <text x="12" y="72" class="card-step-desc">attribution des GUIDs.</text>
+  </g>
+
+  <!-- ==================== JALON 4 ==================== -->
+  <circle cx="640" cy="210" r="14" class="milestone"/>
+  <text x="640" y="214" class="milestone-num">4</text>
+  <text x="640" y="240" class="milestone-time">T + 20 min</text>
+  <line x1="640" y1="224" x2="640" y2="265" class="connector"/>
+  <!-- Carte inférieure 4 -->
+  <g transform="translate(555, 265)">
+    <rect width="170" height="75" class="card" stroke="#89b4fa"/>
+    <text x="12" y="22" class="card-step-tag">TRANSFERT</text>
+    <text x="12" y="42" class="card-step-title">4. Export .apkg</text>
+    <text x="12" y="60" class="card-step-desc">Fichier .apkg importé</text>
+    <text x="12" y="72" class="card-step-desc">dans Anki en 1 clic.</text>
+  </g>
+
+  <!-- ==================== JALON 5 ==================== -->
+  <circle cx="820" cy="210" r="14" class="milestone" fill="#a6e3a1"/>
+  <text x="820" y="214" class="milestone-num">5</text>
+  <text x="820" y="240" class="milestone-time">Semaines 1..N</text>
+  <line x1="820" y1="196" x2="820" y2="155" class="connector" stroke="#a6e3a1"/>
+  <!-- Carte supérieure 5 -->
+  <g transform="translate(735, 80)">
+    <rect width="170" height="75" class="card" stroke="#a6e3a1"/>
+    <text x="12" y="22" class="card-step-tag" fill="#a6e3a1">ANKI SRS</text>
+    <text x="12" y="42" class="card-step-title">5. Étude &amp; Rafraîch.</text>
+    <text x="12" y="60" class="card-step-desc">Révisions dans Anki.</text>
+    <text x="12" y="72" class="card-step-desc">Import .colpkg régulier.</text>
+  </g>
+
+  <!-- Légende inférieure -->
+  <g transform="translate(160, 385)">
+    <rect width="600" height="35" rx="8" fill="#1e1e2e" stroke="#313244"/>
+    <text x="300" y="22" class="subtitle" font-size="11px">✨ Résultat : Votre studio de cours s'enrichit en continu pendant qu'Anki optimise votre mémoire.</text>
+  </g>
+</svg>

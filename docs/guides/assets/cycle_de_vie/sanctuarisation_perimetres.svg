@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #181825; }
+      .zone-forge { fill: #1e1e2e; stroke: #a6e3a1; stroke-width: 2; rx: 14px; }
+      .zone-anki { fill: #1e1e2e; stroke: #89b4fa; stroke-width: 2; rx: 14px; }
+      .badge-green { fill: #a6e3a1; rx: 6px; }
+      .badge-blue { fill: #89b4fa; rx: 6px; }
+      .badge-text-dark { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 800; fill: #181825; }
+      .title { font-family: system-ui, -apple-system, sans-serif; font-size: 19px; font-weight: 700; fill: #cdd6f4; text-anchor: middle; }
+      .subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; fill: #a6adc8; text-anchor: middle; }
+      .zone-title { font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 700; fill: #cdd6f4; }
+      .item-box { fill: #313244; rx: 8px; }
+      .item-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 600; fill: #cdd6f4; }
+      .item-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #a6adc8; }
+      .barrier { stroke: #f38ba8; stroke-width: 2.5; stroke-dasharray: 6,4; }
+      .barrier-text { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #f38ba8; text-anchor: middle; }
+      .reconciliation-box { fill: #11111b; stroke: #cba6f7; stroke-width: 1.5; rx: 10px; }
+      .recon-title { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 700; fill: #cba6f7; text-anchor: middle; }
+      .recon-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #bac2de; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <!-- Arrière-plan global -->
+  <rect width="900" height="480" class="bg" rx="16"/>
+
+  <!-- Titre -->
+  <text x="450" y="38" class="title">Sanctuarisation des Périmètres : Studio vs Collection Anki</text>
+  <text x="450" y="58" class="subtitle">Isolation étanche dans la base SQLite : vos sources d'authoring restent intouchables</text>
+
+  <!-- ZONE GAUCHE : Périmètre Studio (Sanctuarisé) -->
+  <g transform="translate(35, 80)">
+    <rect width="400" height="300" class="zone-forge"/>
+    <rect x="20" y="18" width="135" height="22" class="badge-green"/>
+    <text x="87" y="33" class="badge-text-dark" text-anchor="middle">100% PRÉSERVÉ</text>
+    <text x="165" y="34" class="zone-title">Périmètre Studio / Forge</text>
+
+    <!-- Item 1: Documents & RAG -->
+    <rect x="20" y="54" width="360" height="52" class="item-box"/>
+    <text x="32" y="74" class="item-title">📚 Documents Sources &amp; Indexation RAG</text>
+    <text x="32" y="93" class="item-desc">PDF, EPUB, transcriptions audio, chunks sémantiques FAISS</text>
+
+    <!-- Item 2: Personas & Agents IA -->
+    <rect x="20" y="114" width="360" height="52" class="item-box"/>
+    <text x="32" y="134" class="item-title">🤖 Personas, Prompts &amp; Configurations IA</text>
+    <text x="32" y="153" class="item-desc">Agents personnalisés, modèles locaux Ollama, clés d'API</text>
+
+    <!-- Item 3: Pipelines DAG & Usine Batch -->
+    <rect x="20" y="174" width="360" height="52" class="item-box"/>
+    <text x="32" y="194" class="item-title">⚙️ Pipelines DAG &amp; Tâches Batch Factory</text>
+    <text x="32" y="213" class="item-desc">Graphes d'extraction, historique d'exécution, réglages</text>
+
+    <!-- Item 4: Réglages & Profil -->
+    <rect x="20" y="234" width="360" height="52" class="item-box"/>
+    <text x="32" y="254" class="item-title">🎨 Thèmes, Layouts &amp; Préférences</text>
+    <text x="32" y="273" class="item-desc">Disposition d'interface, raccourcis clavier, libellés de flags</text>
+  </g>
+
+  <!-- Ligne de séparation étanche -->
+  <line x1="450" y1="90" x2="450" y2="370" class="barrier"/>
+  <rect x="400" y="215" width="100" height="26" rx="6" fill="#181825" stroke="#f38ba8" stroke-width="1.5"/>
+  <text x="450" y="232" class="barrier-text">CLOISON ÉTANCHE</text>
+
+  <!-- ZONE DROITE : Périmètre Anki (Remplacé & Synchronisé) -->
+  <g transform="translate(465, 80)">
+    <rect width="400" height="300" class="zone-anki"/>
+    <rect x="20" y="18" width="155" height="22" class="badge-blue"/>
+    <text x="97" y="33" class="badge-text-dark" text-anchor="middle">SYNCHRONISÉ PAR .COLPKG</text>
+    <text x="185" y="34" class="zone-title">Périmètre Collection Anki</text>
+
+    <!-- Item 1: Cartes & SRS -->
+    <rect x="20" y="54" width="360" height="52" class="item-box"/>
+    <text x="32" y="74" class="item-title">🗂️ Cartes physiques &amp; Compteurs SRS</text>
+    <text x="32" y="93" class="item-desc">Observations d'apprentissage : ivl, reps, lapses, flags</text>
+
+    <!-- Item 2: Notes de contenu -->
+    <rect x="20" y="114" width="360" height="52" class="item-box"/>
+    <text x="32" y="134" class="item-title">📝 Notes &amp; Données de cartes</text>
+    <text x="32" y="153" class="item-desc">Contenu textuel Recto/Verso, tags, versions validées</text>
+
+    <!-- Item 3: Types de note & CSS -->
+    <rect x="20" y="174" width="360" height="52" class="item-box"/>
+    <text x="32" y="194" class="item-title">📐 Types de Note (Model) &amp; Gabarits</text>
+    <text x="32" y="213" class="item-desc">Schéma des champs, templates Recto/Verso, styles CSS</text>
+
+    <!-- Item 4: Paquets & Médias -->
+    <rect x="20" y="234" width="360" height="52" class="item-box"/>
+    <text x="32" y="254" class="item-title">📦 Arborescence des Paquets (Decks) &amp; Médias</text>
+    <text x="32" y="273" class="item-desc">Hiérarchie des sous-paquets et dossier de médias synchronisé</text>
+  </g>
+
+  <!-- Bandeau Inférieur : Réalignement automatique de provenance -->
+  <g transform="translate(35, 395)">
+    <rect width="830" height="65" class="reconciliation-box"/>
+    <text x="415" y="420" class="recon-title">🔗 Réalignement Automatique de la Couverture Documentaire (Post-Import .colpkg)</text>
+    <text x="415" y="442" class="recon-desc">Les tags durables (doc:, section:, page:) inscrits sur vos cartes sont réconciliés automatiquement pour reconnecter</text>
+    <text x="415" y="456" class="recon-desc">vos fiches de révision aux fragments de cours préservés du Studio, restaurant immédiatement les jauges de couverture.</text>
+  </g>
+</svg>
