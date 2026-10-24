@@ -1029,7 +1029,7 @@ class ConsultantView(QWidget):
     def _activate_workspace_tab(self) -> None:
         """Bascule sur l'onglet « Espace de Travail » du panneau contextuel (panneau droit).
 
-        Conformément à l'ADR 0033, cette méthode ne pilote que le panneau droit (context_panel)
+        Conformément à l'ADR 0034 §3, cette méthode ne pilote que le panneau droit (context_panel)
         lors d'une action utilisateur explicite et ne modifie jamais l'onglet actif du panneau
         principal (chat_panel).
         """
@@ -1074,9 +1074,9 @@ class ConsultantView(QWidget):
         return added
 
     def _reload_pending_patches(self) -> None:
-        """Conservé pour compatibilité ascendante mais strictement no-op (ADR 0033).
+        """Conservé pour compatibilité ascendante mais strictement no-op (ADR 0034 §3).
 
-        Conformément à l'ADR 0033, les propositions de la table staged_patch émises
+        Conformément à l'ADR 0034 §3, les propositions de la table staged_patch émises
         par les agents MCP sont administrées exclusivement dans le sous-onglet
         « Garde-Fou & Validation » (MCPGardeFouWidget) et ne sont plus réinjectées
         dans le WorkspaceInspectorWidget du Consultant IA.

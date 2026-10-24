@@ -6,7 +6,7 @@ Afin d'outiller les agents externes pour la saisie et l'organisation sans risque
 Accepté
 
 ## Options considérées
-1. **Écriture directe inconditionnelle pour les notes et les paquets** : Rejeté pour les notes. Bien qu'une création de note soit une opération additive, une boucle d'agent autonome défaillante pourrait injecter des dizaines de cartes erronées ou mal formatées sans prévisualisation ni contrôle utilisateur, en violation directe d'ADR 0002.
+1. **Écriture directe inconditionnelle pour les notes et les paquets** : Rejeté pour les notes. Bien qu'une création de note soit une opération additive, une boucle d'agent autonome défaillante pourrait injecter des dizaines de cartes erronées ou mal formatées sans prévisualisation ni contrôle utilisateur, en violation directe de l'ADR 0034 §1 (Two-Phase Commit).
 2. **Two-Phase Commit obligatoire pour les paquets (`deck_create`)** : Rejeté car contre-productif. La création d'un paquet hiérarchique est une opération purement structurelle, idempotente et sans destruction, qui n'altère aucune carte existante. Imposer un `StagedPatch` pour un simple dossier alourdirait inutilement la file d'attente humaine.
 3. **Création implicite et automatique des paquets cibles lors de la création d'une note** : Rejeté pour prévenir les hallucinations. Si un agent externe fait une faute de frappe ou invente un nom de paquet fantôme (ex: `"Médecine::Anatomie::Cœur"` avec une graphie erronée), une création automatique polluerait l'arborescence des paquets. Le rejet strict force l'agent à interroger les paquets existants ou à créer délibérément le paquet via `create_deck`.
 4. **Régime asymétrique avec contrôle strict d'hallucination de paquet** : Retenu.

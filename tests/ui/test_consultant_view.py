@@ -441,7 +441,7 @@ def test_consultant_view_multi_staged_diffs_fill_patch_queue(qtbot):
 
 
 def test_consultant_view_reloads_pending_patches_on_open(qtbot):
-    """ADR 0033 : les patchs staged_patch ne sont plus injectés dans workspace_inspector mais dans Garde-Fou MCP."""
+    """ADR 0034 §3 : les patchs staged_patch ne sont plus injectés dans workspace_inspector mais dans Garde-Fou MCP."""
     staged = StagedPatchRegistry.create_patch(
         patch_type="card",
         target_id=42,
@@ -459,7 +459,7 @@ def test_consultant_view_reloads_pending_patches_on_open(qtbot):
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)
 
-    # Décorrélation stricte (ADR 0033) : workspace_inspector reste vide
+    # Décorrélation stricte (ADR 0034 §3) : workspace_inspector reste vide
     assert not view.workspace_inspector._patch_queue
     # Et le Garde-Fou MCP a bien chargé la proposition
     assert view.mcp_dashboard.garde_fou_widget.count() == 1
@@ -1027,7 +1027,7 @@ def test_consultant_view_budget_updated_slot(qtbot):
 
 
 def test_consultant_view_mcp_patch_validation_does_not_switch_tab(qtbot):
-    """ADR 0033 : La validation d'un patch MCP ne doit jamais éjecter l'utilisateur de l'onglet Serveur MCP."""
+    """ADR 0034 §3 : La validation d'un patch MCP ne doit jamais éjecter l'utilisateur de l'onglet Serveur MCP."""
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)
     view.show()
@@ -1096,7 +1096,7 @@ def test_consultant_view_mcp_patch_validation_does_not_switch_tab(qtbot):
 
 
 def test_consultant_view_activate_workspace_tab_does_not_switch_chat_panel(qtbot):
-    """ADR 0033 : _activate_workspace_tab ne doit piloter que context_panel, jamais chat_panel."""
+    """ADR 0034 §3 : _activate_workspace_tab ne doit piloter que context_panel, jamais chat_panel."""
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)
     view.show()

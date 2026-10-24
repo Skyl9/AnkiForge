@@ -89,7 +89,7 @@ def test_mcp_proposal_reaches_workspace_inspector_and_applies(qtbot, tmp_path):
     qtbot.addWidget(view)
     view.show()
 
-    # Décorrélation stricte (ADR 0033) : l'inspecteur de chat reste vide et l'onglet Serveur MCP reste actif
+    # Décorrélation stricte (ADR 0034 §3) : l'inspecteur de chat reste vide et l'onglet Serveur MCP reste actif
     assert not view.workspace_inspector._patch_queue
     assert view.chat_panel.tabs_bar.current_index == 0
 
