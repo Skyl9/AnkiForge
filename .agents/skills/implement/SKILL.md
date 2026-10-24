@@ -30,11 +30,16 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Typage strict 100% (`mypy`).
   - Aucun `print()`, utiliser exclusivement le logging asynchrone (`logging.getLogger(__name__)`).
   - Tests UI Qt 100% headless (`pytest-qt`, `QT_QPA_PLATFORM=offscreen`).
+  - Attente impérative des threads : tout test pilotant un widget démarrant un worker en tâche de fond (`QThread`, worker d'arrière-plan) doit obligatoirement attendre sa fin (`if widget.worker and widget.worker.isRunning(): widget.worker.wait()` ou `qtbot.waitUntil(widget.worker.isFinished)`) pour immuniser le teardown de `mock_db` contre tout verrou SQLite concurrent.
   - Mocks LLM obligatoires (zéro appel API payant en test).
 
 ## 3. Clôture, Vérification Canonique & Revue
 
-1. **Pré-synchronisation des traductions i18n (`ADR 0013`)** :
+1. **Pré-nettoyage Linter, Formatage & i18n (`ADR 0013`)** :
+   - Exécuter la passe rapide de formatage et de nettoyage des imports :
+     ```bash
+     uv run ruff check --fix . && uv run ruff format .
+     ```
    - Si des chaînes utilisateur ont été ajoutées ou modifiées avec `tr()` dans l'UI :
      ```bash
      uv run python script/extract_translations.py

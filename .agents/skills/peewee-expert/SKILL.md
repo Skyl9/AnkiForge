@@ -71,6 +71,13 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
 - Multi-profils : chaque profil a sa propre instance `db` sous `profiles/<name>/ankiforge.db` — ne jamais croiser les instances.
 - Référence complémentaire : skill `audit-donnees` pour l'audit d'intégrité global.
 
+## 7. Typage Statique Strict (types-peewee)
+
+- **Accès attributaire plutôt que `.tuples()` / `.dicts()`** :
+  - Les stubs `types-peewee` infèrent les requêtes `Model.select(...)` comme des itérables de l'instance du modèle (`ModelSelect[T]`).
+  - L'usage de `.tuples()` ou `.dicts()` rompt le typage strict `mypy` (`Value of type "Model" is not indexable [index]`).
+  - Privilégier un `select(Model.field)` ciblé et parcourir `for obj in query: val = obj.field`.
+
 ## ⛔ Ne PAS utiliser ce skill si...
 
 - La demande porte sur un **autre ORM** (SQLAlchemy, Django ORM, etc.) — ce skill est exclusivement Peewee.

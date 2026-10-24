@@ -792,6 +792,9 @@ def test_tts_settings_tab_collapsible_sections_sync(qtbot):
     assert tab.sec_piper.is_collapsed()
     assert not tab.sec_kokoro.is_collapsed()
 
+    if tab._discovery_worker and tab._discovery_worker.isRunning():
+        tab._discovery_worker.wait()
+
 
 def test_tts_settings_tab_kokoro_integration(qtbot):
     """Vérifie la détection dynamique de Kokoro, son statut et les callbacks d'installation."""

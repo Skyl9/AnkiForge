@@ -71,8 +71,9 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
 ## 3. Discipline de Test (`pytest-qt`)
 
 - Tous les tests UI s'exécutent en mode **100% headless** (`QT_QPA_PLATFORM=offscreen`, `QTWEBENGINE_DISABLE_SANDBOX=1`).
-- Utiliser systématiquement `qtbot` pour simuler les clics et interactions utilisateur.
+- Utiliser systématiquement `qtbot` pour simuler les clics et interactions utilisateur, et annoter explicitement `qtbot: QtBot` (`from pytestqt.qtbot import QtBot`).
 - Nettoyage obligatoire de chaque widget via la fixture `cleanup_qt_widgets` de `conftest.py`.
+- **Attente impérative des workers asynchrones** : tout test pilotant un widget qui lance un thread (`QThread`, worker d'arrière-plan) doit impérativement attendre sa fin (`if widget.worker and widget.worker.isRunning(): widget.worker.wait()` ou `qtbot.waitUntil(...)`) avant la fin du test, pour empêcher tout verrouillage SQLite concurrent (`database table is locked: sqlite_master`) lors du teardown de `mock_db`.
 - **Zéro test de snapshot visuel instable** : tester la logique métier, les signaux/slots et la validation des formulaires.
 
 ## When NOT to use this skill

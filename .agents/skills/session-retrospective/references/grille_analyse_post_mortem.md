@@ -52,6 +52,16 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Méconnaissance du mécanisme de résolution de métadonnées Qt Linguist où `QObject.tr()` utilise le type statique de l'appelant.
 - **Remédiation** : Rappel impératif dans `ui-pyside6-design/SKILL.md` d'utiliser `cls.tr("...")` ou la fonction libre `tr("...")` dans toute méthode de classe.
 
+### T-10 : Biais d'Invocation Prématurée de la Porte Canonique (Premature Verification Gate Invocation)
+- **Symptôme** : L'agent lance directement `script/verify.py` après une passe de codage sans effectuer un pré-nettoyage rapide `ruff check --fix . && ruff format .`, provoquant un échec fail-fast précoce sur des imports orphelins ou du formatage trivial.
+- **Cause racine** : Omission de la boucle réflexe de pré-nettoyage linter avant d'engager la chaîne complète de vérification (tests + bandit).
+- **Remédiation** : Formalisation dans `implement/SKILL.md` de la sous-étape obligatoire de pré-nettoyage linter et de formatage avant l'invocation de la porte.
+
+### T-11 : Fuite de Threads Asynchrones au Teardown de Test Qt (Asynchronous Worker Leak on Qt Teardown)
+- **Symptôme** : Un test UI pilotant un widget avec worker d'arrière-plan (`QThread`) s'achève pendant que le thread est actif, provoquant une erreur `sqlite3.OperationalError: database table is locked: sqlite_master` au démontage de la fixture `mock_db`.
+- **Cause racine** : Absence d'attente de synchronisation explicite (`worker.wait()` ou `qtbot.waitUntil`) avant la fin du corps de test.
+- **Remédiation** : Règle impérative dans `ui-pyside6-design/SKILL.md` et `implement/SKILL.md` imposant la terminaison contrôlée de tout thread asynchrone avant le teardown.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -61,7 +71,10 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Type d'Incident | Action sur le Catalogue de Skills | Fichiers Cibles |
 |---|---|---|
 | Omission de revue ou de vérification | Ajout d'une précondition bloquante dans le workflow | `implement/SKILL.md`, `to-spec/SKILL.md` |
+| Échec fail-fast linter évitable | Ajout d'une passe de pré-nettoyage ruff check/format | `implement/SKILL.md` |
+| Fuite de worker / verrou SQLite en test Qt | Règle d'attente obligatoire des threads avant démontage | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
 | Conflit / écrasement dans le vault Obsidian | Clarification du sous-repo Git et renforcement des règles atomiques | `obsidian-vault/SKILL.md` |
 | Erreur de Design System ou couleur codée en dur | Rappel de la règle 8, interdiction des émojis et tokens CSS | `ui-pyside6-design/SKILL.md` |
+| Typage brisé par `.tuples()` / `.dicts()` Peewee | Convention d'accès direct aux attributs typés | `peewee-expert/SKILL.md` |
 | Altération de contexte de traduction Linguist | Directive stricte `cls.tr()` vs `instance.tr()` | `ui-pyside6-design/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |
