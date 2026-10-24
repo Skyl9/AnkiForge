@@ -39,6 +39,10 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
 6. **Conventions d'arborescence et anglais technique** :
    - *Pourquoi* : L'architecture interne s'organise exclusivement en anglais technique (`src/ankiforge/utils/`, `services/`, etc.). L'usage de répertoires francisés alternatifs (ex. `ressources/` au lieu de `utils/`) est banni pour éliminer les divergences d'import constatées dans `initial_seed.py`.
 
+7. **Fixtures audio et conteneurs multimédias valides (Zéro faux MP3 tronqué)** :
+   - *Pourquoi* : Les composants de lecture et de synthèse (`QMediaPlayer`, `AudioPlayerWidget`, `TTSSettingsTab`) délèguent le décodage au backend FFmpeg natif. L'injection d'octets arbitraires ou de trames MPEG tronquées (`b"\xff\xfb\x90\x44" * 50`) provoque des avertissements de détection (`Format mp3 detected with low score`, `Failed to find two consecutive MPEG audio frames`) et pollue la sortie de tests.
+   - *Garantie automatique* : Utiliser impérativement la constante `MINIMAL_VALID_MP3_BYTES` ou la fixture `minimal_valid_mp3_path` définies dans `tests/conftest.py` (flux ID3v2.3 + 10 trames MPEG-1 Layer 3 valides).
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :

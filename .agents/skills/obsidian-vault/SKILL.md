@@ -10,6 +10,11 @@ Ce skill régit l'utilisation du vault `ankiforge_obsidian/` comme **gestionnair
 ## 🧭 Règle Fondamentale : Todo List, pas Documentation
 
 - **Obsidian = Issue Tracker / Todo List** : Le vault sert uniquement à suivre l'avancement, les tickets (`Tickets/`) et le tableau Kanban (`Avancement du projet.md`).
+- **Scission Physique des Dossiers de Tickets** :
+  - `Tickets/ticket-actif/` : Héberge exclusivement les tickets actifs (`needs-info`, `ready-for-spec`, `ready-for-agent`, `ready-for-human`, `in-progress`, `ready-for-review`).
+  - `Tickets/Archives/` : Héberge la totalité des tickets terminés ou abandonnés (`done`, `wontfix`).
+  - La racine `Tickets/` ne doit **JAMAIS** héberger de tickets à plat.
+- **Garde-Fou Anti-Fichiers Fantômes (Cache Obsidian Desktop)** : Lors d'un déplacement de fichier de ticket, si l'application Obsidian est active en mémoire sur l'hôte, elle peut recréer un fichier vide de 0 octet à l'ancien emplacement. Toujours vérifier l'absence de fichiers résiduels de 0 octet à la racine de `Tickets/` après déplacement.
 - **Sous-Dépôt Git Autonome** : Le dossier `ankiforge_obsidian/` constitue son **propre dépôt Git indépendant** (avec son propre dossier `.git/`), ignoré par le `.gitignore` du dépôt racine AnkiForge. Les modifications du vault doivent faire l'objet de commits distincts dans `ankiforge_obsidian/` et ne sont jamais captées par un commit à la racine.
 - **La vraie documentation vit dans Zensical** : Toute documentation d'architecture, guide technique ou spécification pérenne doit être rédigée dans `docs/` (`zensical.toml`) et committée dans le dépôt Git principal.
 - **Nettoyage du vault** : Les anciennes notes documentaires présentes à la racine du vault (ex. `Objectif du projet.md`, `Ankiforge Analise et audit.md`) sont obsolètes/legacy et ne doivent pas servir de référence documentaire. Ne pas y ajouter de nouvelle documentation.
@@ -36,15 +41,15 @@ Les agents risquent d'écraser des colonnes réorganisées par l'utilisateur ou 
    ```
 5. **Pas de Traitement en Rafale Silencieux** : Traiter exactement le ou les tickets demandés. Ne jamais enchaîner de manière autonome sur « le ticket suivant » de la colonne sans ordre explicite de l'utilisateur.
 
-## 📋 Format Canonique d'un Ticket (`Tickets/<Nom>.md`)
+## 📋 Format Canonique d'un Ticket (`Tickets/ticket-actif/<Nom>.md`)
 
-Toute création ou modification de ticket respecte cette structure :
+Toute création ou modification de ticket actif respecte cette structure et se situe obligatoirement sous `Tickets/ticket-actif/` (ou `Tickets/Archives/` une fois clos) :
 
 ```markdown
 # <Type> — <Titre Explicite>
 
 **Statut :** <Emoji> <Libellé> · <triage-role>
-**Prérequis :** Aucun | [[Tickets/<NomDuTicketBloquant>]]
+**Prérequis :** Aucun | [[Tickets/ticket-actif/<NomDuTicketBloquant>]]
 **Difficulté :** 🟢 XS / 🟢 S / 🟡 M / 🔴 L / 🟣 XL
 **Priorité :** 🔴 P0 / 🟡 P1 / 🟢 P2 / ⚪ P3
 **Piliers & Modules :** <Module Principal> / <Sous-module>
@@ -76,11 +81,11 @@ Historique des échanges ou retours d'exécution.
 
 ## 📌 Format d'une Entrée Kanban (`Avancement du projet.md`)
 
-- **Tâche à faire / en cours :**
-  `- [ ] [[Tickets/<NomFichierSansExt>|<Libellé Court>]] #tags <Emoji Priorité>`
-- **Tâche terminée :**
-  `- [x] [[Tickets/<NomFichierSansExt>|<Libellé Court>]] #tags <Emoji Priorité>`
-- Déplacer une carte consiste à **supprimer la ligne de son ancienne colonne** et à **l'insérer dans la nouvelle colonne**, sans altérer l'indentation ni les autres éléments.
+- **Tâche active (à faire / en cours / en attente / en revue) :**
+  `- [ ] [[Tickets/ticket-actif/<NomFichierSansExt>|<Libellé Court>]] #tags <Emoji Priorité>`
+- **Tâche terminée ou abandonnée (récente) :**
+  `- [x] [[Tickets/Archives/<NomFichierSansExt>|<Libellé Court>]] #tags <Emoji Priorité>`
+- Déplacer une carte consiste à **supprimer la ligne de son ancienne colonne** et à **l'insérer dans la nouvelle colonne**, sans altérer l'indentation ni les autres éléments. Lors du passage d'une tâche à l'état `done` ou `wontfix`, déplacer également le fichier de `Tickets/ticket-actif/` vers `Tickets/Archives/`.
 
 ## 📦 Politique d'Archivage des Livraisons
 
