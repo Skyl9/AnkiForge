@@ -9,9 +9,11 @@ Issues et specs de ce repo vivent dans le vault Obsidian `ankiforge_obsidian/` d
 
 ## Conventions
 
-- **Un ticket = une note markdown** : `ankiforge_obsidian/Tickets/<Nom>.md`, avec les en-têtes :
-  - `**Statut :**` (état du ticket, voir `triage-labels.md` pour les rôles de triage)
-  - `**Priorité :**` (🟡 P1 / 🟢 P2 / …)
+- **Un ticket = une note markdown** : `ankiforge_obsidian/Tickets/<Nom>.md`, avec l'en-tête canonique dans l'ordre strict :
+  - `**Statut :**` (état bivalent, ex: `🎯 Prêt pour Agent · ready-for-agent`, voir `triage-labels.md`)
+  - `**Prérequis :**` (`Aucun` ou `[[Tickets/<TicketBloquant>]]`)
+  - `**Difficulté :**` (échelle T-shirt sizing : `🟢 XS`, `🟢 S`, `🟡 M`, `🔴 L`, `🟣 XL`)
+  - `**Priorité :**` (🔴 P0 / 🟡 P1 / 🟢 P2 / ⚪ P3)
   - `**Piliers & Modules :**`
   - `**Lien Tableau :**` `[[Avancement du projet]]`
   - `**Fichiers Cibles :**` (chemins `src/...` visés)

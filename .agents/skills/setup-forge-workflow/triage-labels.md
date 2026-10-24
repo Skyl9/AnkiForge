@@ -1,15 +1,17 @@
-# Triage Labels
+# Triage Labels & Machine à États
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+Ce fichier documente les rôles de triage canoniques d'AnkiForge pour le traqueur d'issues Obsidian (`ankiforge_obsidian/Tickets/`).
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Maintainer needs to evaluate this issue  |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent  |
-| `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
-| `wontfix`                  | `wontfix`            | Will not be actioned                     |
+| Rôle technique (`triage-role`) | Libellé dans le traqueur (`Statut :`) | Sens |
+| :--- | :--- | :--- |
+| `needs-triage` | `📥 Backlog & Idées · needs-triage` | Demande brute à évaluer par un mainteneur |
+| `needs-info` | `🔎 En Attente d'Infos · needs-info` | En attente de précisions utilisateur |
+| `ready-for-spec` | `🎯 Prêt pour Spécification · ready-for-spec` | Prêt pour cadrage ou rédaction de spécification |
+| `ready-for-agent` | `🎯 Prêt pour Agent · ready-for-agent` | Spécifié, autonome et prêt pour prise en charge par un agent |
+| `ready-for-human` | `👤 À faire humain · ready-for-human` | Nécessite une implémentation humaine |
+| `in-progress` | `⚙️ En Cours · in-progress` | Ticket activement pris en charge |
+| `ready-for-review` | `👀 En Revue · ready-for-review` | Implémenté, en attente de contre-revue ou validation |
+| `done` | `✅ Terminé · done` | Livré, testé et validé |
+| `wontfix` | `🚫 Classé sans suite · wontfix` | Ne sera pas traité / abandonné |
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
-
-Edit the right-hand column to match whatever vocabulary you actually use.
+Voir la référence complète dans `docs/agents/triage-labels.md`.

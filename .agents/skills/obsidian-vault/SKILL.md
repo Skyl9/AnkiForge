@@ -44,6 +44,8 @@ Toute création ou modification de ticket respecte cette structure :
 # <Type> — <Titre Explicite>
 
 **Statut :** <Emoji> <Libellé> · <triage-role>
+**Prérequis :** Aucun | [[Tickets/<NomDuTicketBloquant>]]
+**Difficulté :** 🟢 XS / 🟢 S / 🟡 M / 🔴 L / 🟣 XL
 **Priorité :** 🔴 P0 / 🟡 P1 / 🟢 P2 / ⚪ P3
 **Piliers & Modules :** <Module Principal> / <Sous-module>
 **Lien Tableau :** [[Avancement du projet]]
@@ -70,7 +72,7 @@ Faits vérifiés dans le code, classes, méthodes ou fichiers concernés.
 Historique des échanges ou retours d'exécution.
 ```
 
-**Rôles de triage (`triage-role`)** : `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`.
+**Rôles de triage (`triage-role`)** : `needs-triage`, `needs-info`, `ready-for-spec`, `ready-for-agent`, `ready-for-human`, `in-progress`, `ready-for-review`, `done`, `wontfix` (voir `docs/agents/triage-labels.md`).
 
 ## 📌 Format d'une Entrée Kanban (`Avancement du projet.md`)
 

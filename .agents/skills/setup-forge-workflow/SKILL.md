@@ -12,20 +12,15 @@ disable-model-invocation: true
 Configure l'environnement du projet pour le flux d'ingénierie AnkiForge :
 
 - **Issue tracker natif** : le vault Obsidian (`ankiforge_obsidian/`) avec ses dossiers `Tickets/` et son tableau Kanban `Avancement du projet.md`.
-- **Machine à états de triage** : les 5 statuts canoniques (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`).
+- **Machine à états de triage** : les 9 statuts canoniques (`needs-triage`, `needs-info`, `ready-for-spec`, `ready-for-agent`, `ready-for-human`, `in-progress`, `ready-for-review`, `done`, `wontfix`).
 - **Documentation de domaine** : `CONTEXT.md` à la racine et les décisions d'architecture dans `docs/adr/`.
 
 ## Configuration par défaut (AnkiForge)
 
 Dans AnkiForge, l'environnement est configuré par défaut comme suit :
-1. **Tracker** : Obsidian exclusivement. Tout ticket généré ou modifié passe par `ankiforge_obsidian/Tickets/<Type> - <Titre>.md` et s'insère dans `ankiforge_obsidian/Avancement du projet.md`.
+1. **Tracker** : Obsidian exclusivement. Tout ticket généré ou modifié passe par `ankiforge_obsidian/Tickets/<Type> - <Titre>.md` (avec métadonnées Statut, Prérequis, Difficulté en T-shirt sizing, Priorité) et s'insère dans `ankiforge_obsidian/Avancement du projet.md`.
 2. **Contexte unique** : un unique `CONTEXT.md` racine et `docs/adr/`.
-3. **Labels de triage** :
-   - `needs-triage` (🟡 À évaluer)
-   - `needs-info` (🟠 En attente d'infos)
-   - `ready-for-agent` (🟢 Prêt pour Agent)
-   - `ready-for-human` (🔵 Prêt pour Humain)
-   - `wontfix` (⚪ Rejeté / Classé)
+3. **Labels de triage** : voir `docs/agents/triage-labels.md` pour la liste exhaustive des 9 statuts.
 
 ## When NOT to use this skill
 

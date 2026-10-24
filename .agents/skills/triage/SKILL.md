@@ -17,14 +17,18 @@ Deux catégories d'items :
 - `bug` : anomalie ou régression.
 - `enhancement` : évolution ou nouvelle fonctionnalité.
 
-Cinq statuts de triage canoniques :
+Neuf statuts de triage canoniques (détaillés dans `docs/agents/triage-labels.md`) :
 - `needs-triage` : en attente d'évaluation technique.
 - `needs-info` : en attente de précisions ou de reproduction.
+- `ready-for-spec` : prêt pour cadrage ou rédaction de spécification.
 - `ready-for-agent` : spécifié, autonome et prêt pour prise en charge par un agent.
 - `ready-for-human` : nécessite une intervention humaine exclusive.
+- `in-progress` : pris en charge et en cours de réalisation.
+- `ready-for-review` : implémenté, en attente de revue ou validation.
+- `done` : terminé, testé et livré.
 - `wontfix` : demande rejetée ou classée sans suite.
 
-Chaque ticket porte exactement une catégorie et un statut de triage, synchronisé avec les colonnes du tableau Kanban `Avancement du projet.md`.
+Chaque ticket porte une catégorie, un statut de triage, ses `Prérequis`, sa `Difficulté` (T-shirt sizing `🟢 XS` à `🟣 XL`) et sa `Priorité`, synchronisés avec le tableau Kanban `Avancement du projet.md`.
 
 ## Procédure de triage dans Obsidian
 
@@ -37,7 +41,7 @@ Chaque ticket porte exactement une catégorie et un statut de triage, synchronis
    - Pour un bogue : tenter de reproduire avec une commande ciblée ou un test.
    - Pour une évolution : vérifier l'alignement avec les principes de `CONTEXT.md` et les ADRs.
 4. **Appliquer la décision dans Obsidian** :
-   - Mettre à jour le statut dans l'en-tête du ticket : `**Statut :** 🟢 Prêt pour Agent · ready-for-agent`.
+   - Mettre à jour l'en-tête canonique du ticket : `**Statut :** 🎯 Prêt pour Agent · ready-for-agent`, `**Prérequis :**`, `**Difficulté :** 🟢 S`, `**Priorité :**`.
    - Déplacer la carte correspondante dans le tableau Kanban `Avancement du projet.md`.
    - **Règle anti-boucle stricte** : effectuer la mise à jour en une seule passe atomique (One-shot pass), puis s'arrêter immédiatement sans relire le fichier.
 

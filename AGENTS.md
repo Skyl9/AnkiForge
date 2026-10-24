@@ -200,7 +200,7 @@ Les issues/tickets vivent dans le vault Obsidian `ankiforge_obsidian/` (une note
 
 ### Triage labels
 
-Cinq rôles de triage : needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix, portés par l'en-tête `Statut` du ticket Obsidian. Voir `docs/agents/triage-labels.md`.
+Neuf rôles de triage : needs-triage / needs-info / ready-for-spec / ready-for-agent / ready-for-human / in-progress / ready-for-review / done / wontfix, portés par l'en-tête bivalent `Statut` (avec `Prérequis` et `Difficulté` en T-shirt sizing) de chaque ticket Obsidian. Voir `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

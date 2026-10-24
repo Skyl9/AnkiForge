@@ -39,7 +39,9 @@ Une fois validé, publier chaque ticket **directement** dans le vault Obsidian s
    ```markdown
    # <Type> — <Titre Explicite>
 
-   **Statut :** 🟢 Prêt pour Agent · `ready-for-agent`
+   **Statut :** 🎯 Prêt pour Agent · ready-for-agent
+   **Prérequis :** Aucun | [[Tickets/<Bloquant>]]
+   **Difficulté :** 🟢 XS / 🟢 S / 🟡 M / 🔴 L / 🟣 XL
    **Priorité :** 🔴 P0 / 🟡 P1 / 🟢 P2 / ⚪ P3
    **Piliers & Modules :** <Module> / <Sous-module>
    **Lien Tableau :** [[Avancement du projet]]
