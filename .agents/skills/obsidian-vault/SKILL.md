@@ -10,26 +10,31 @@ Ce skill régit l'utilisation du vault `ankiforge_obsidian/` comme **gestionnair
 ## 🧭 Règle Fondamentale : Todo List, pas Documentation
 
 - **Obsidian = Issue Tracker / Todo List** : Le vault sert uniquement à suivre l'avancement, les tickets (`Tickets/`) et le tableau Kanban (`Avancement du projet.md`).
+- **Sous-Dépôt Git Autonome** : Le dossier `ankiforge_obsidian/` constitue son **propre dépôt Git indépendant** (avec son propre dossier `.git/`), ignoré par le `.gitignore` du dépôt racine AnkiForge. Les modifications du vault doivent faire l'objet de commits distincts dans `ankiforge_obsidian/` et ne sont jamais captées par un commit à la racine.
 - **La vraie documentation vit dans Zensical** : Toute documentation d'architecture, guide technique ou spécification pérenne doit être rédigée dans `docs/` (`zensical.toml`) et committée dans le dépôt Git principal.
 - **Nettoyage du vault** : Les anciennes notes documentaires présentes à la racine du vault (ex. `Objectif du projet.md`, `Ankiforge Analise et audit.md`) sont obsolètes/legacy et ne doivent pas servir de référence documentaire. Ne pas y ajouter de nouvelle documentation.
 
-## 🛡️ Règle d'Or Anti-Boucle (One-Shot Action & Stop)
+## 🛡️ Règle d'Or Anti-Écrasement Concurrent & Anti-Boucle (One-Shot Action & Stop)
 
-Les agents ont tendance à boucler sur les fichiers Kanban/tickets en relisant indéfiniment leurs modifications. Pour éliminer ce risque :
+Les agents risquent d'écraser des colonnes réorganisées par l'utilisateur ou de boucler indéfiniment en relisant leurs modifications. Les garde-fous stricts suivants s'appliquent :
 
-1. **Cycle Atomique Strict (One-Shot Pass)** :
+1. **Édition Chirurgicale Mono-Ligne Obligatoire** :
+   - Ne JAMAIS remplacer de blocs multi-colonnes ou des sections entières de `Avancement du projet.md`.
+   - Toujours effectuer un ciblage strict d'une seule ligne à supprimer et d'une seule ligne à insérer.
+   - Ne jamais écraser ou déplacer les tickets modifiés ou créés en parallèle par l'utilisateur.
+2. **Cycle Atomique Strict (One-Shot Pass)** :
    - Étape 1 : Lire la note ciblée (`Tickets/<Nom>.md`) ou la section précise du Kanban.
    - Étape 2 : Modifier ou créer la note du ticket.
    - Étape 3 : Insérer ou déplacer la ligne correspondante dans `Avancement du projet.md`.
    - Étape 4 : **ARRÊT IMMÉDIAT (STOP)**. Terminer le tour et notifier l'utilisateur.
-2. **Zéro Auto-Vérification Circulaire** : Ne JAMAIS relire le Kanban ou le ticket après l'écriture pour « vérifier » que la modification a pris. Le retour de l'outil d'écriture fait foi.
-3. **Protection du Bloc Technique** : Ne JAMAIS modifier, reformater ou supprimer le bloc de configuration en bas de `Avancement du projet.md` :
+3. **Zéro Auto-Vérification Circulaire** : Ne JAMAIS relire le Kanban ou le ticket après l'écriture pour « vérifier » que la modification a pris. Le retour de l'outil d'écriture fait foi.
+4. **Protection du Bloc Technique** : Ne JAMAIS modifier, reformater ou supprimer le bloc de configuration en bas de `Avancement du projet.md` :
    ```markdown
    %% kanban:settings
    ```...```
    %%
    ```
-4. **Pas de Traitement en Rafale Silencieux** : Traiter exactement le ou les tickets demandés. Ne jamais enchaîner de manière autonome sur « le ticket suivant » de la colonne sans ordre explicite de l'utilisateur.
+5. **Pas de Traitement en Rafale Silencieux** : Traiter exactement le ou les tickets demandés. Ne jamais enchaîner de manière autonome sur « le ticket suivant » de la colonne sans ordre explicite de l'utilisateur.
 
 ## 📋 Format Canonique d'un Ticket (`Tickets/<Nom>.md`)
 

@@ -39,9 +39,11 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
    uv run python script/verify.py
    ```
    Exécute la chaîne complète (ruff check/format, mypy strict, bandit, tests rapides).
-2. **Revue de code à deux axes** :
-   - Déclencher **`/code-review`** pour confronter le diff aux standards du projet et aux critères d'acceptation du ticket.
-3. **Mise à jour du statut Obsidian** :
+2. **Revue de code à deux axes (Obligatoire)** :
+   - Déclencher systématiquement **`/code-review`** (deux sous-agents parallèles : Standards & Spécification) pour confronter le diff aux exigences avant toute clôture.
+   > [!IMPORTANT]
+   > ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT de clore le ticket, de modifier son statut en `✅ Terminé`, de toucher au Kanban ou de formuler une proposition de commit avant d'avoir formellement restitué le rapport de code-review à deux axes à l'utilisateur.
+3. **Mise à jour du statut Obsidian (Post-Revue)** :
    - Mettre à jour l'en-tête du ticket : `**Statut :** ✅ Terminé`.
    - Déplacer la carte dans `ankiforge_obsidian/Avancement du projet.md` vers `## ✅ Terminé (Fonctionnalités Livrées)`.
    - Si la colonne `Terminé` dépasse 15 items, archiver les plus anciens dans `Archives - Tickets Terminés.md`.

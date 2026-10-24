@@ -1,6 +1,6 @@
 ## Catalogue des Compétences Agentiques (`.agents/skills/`)
 
-Le dépôt héberge 50 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
+Le dépôt héberge 51 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
 
 > [!IMPORTANT]
 > **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les compétences dont la spécification ou les déclencheurs emploient l'anglais.
@@ -8,6 +8,7 @@ Le dépôt héberge 50 compétences agentiques autonomes conformes au standard i
 ### 1. Méta & Maintenance du Dépôt
 - `mise-a-jour-metadonnees` (`.agents/skills/mise-a-jour-metadonnees/SKILL.md`) : Synchronisation des 15 fichiers de documentation et métadonnées post-feature (`GEMINI.md`, `AGENTS.md`, `DESIGN.md`, `docs/Dossier_architecture/`, etc.).
 - `gouvernance-skills` (`.agents/skills/gouvernance-skills/SKILL.md`) : Méta-gouverneur du parc de skills, audit statique (`auditer_coherence_skills.py`), détection des collisions Jaccard et grille de maturité 5 axes.
+- `session-retrospective` (`.agents/skills/session-retrospective/SKILL.md`) : Rétrospective critique de session et auto-amélioration continue du catalogue de compétences agentiques face aux dérives et erreurs constatées.
 - `documentation-zensical` (`.agents/skills/documentation-zensical/SKILL.md`) : Audit proactif, enrichissement et validation de la documentation Zensical (`uv run zensical build`).
 - `audit-ankiforge` (`.agents/skills/audit-ankiforge/SKILL.md`) : Orchestration de la batterie complète d'audits et de tests du projet avec consolidation de rapport.
 - `obsidian-vault` (`.agents/skills/obsidian-vault/SKILL.md`) : Gestionnaire du vault Obsidian (`ankiforge_obsidian/`), Kanban (`Avancement du projet.md`) et tickets en mode atomique one-shot anti-boucle.
