@@ -33,6 +33,9 @@ MAX_SKILL_LINES = 150
 TRIGGER_KEYWORDS = ["use when", "activer", "activat", "invoqu", "lorsque", "demande"]
 REFERENCED_FILE_RE = re.compile(r"(?:references/[A-Za-z0-9_./-]+\.md|scripts/[A-Za-z0-9_./-]+\.py)")
 PROFILE_LINK_RE = re.compile(r"(?m)^\s*-\s*[\"']?(\.agents/skills/[^\"'\n]+)[\"']?")
+ADR_REF_RE = re.compile(r"docs/adr/([0-9]{4}-[a-z0-9_-]+\.md)")
+MD_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+FOREIGN_CODE_RE = re.compile(r"```(?:typescript|javascript|jsx|tsx)\b")
 STOPWORDS = {
     "skill",
     "skills",
@@ -240,6 +243,42 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
                 script_text = script.read_text(encoding="utf-8")
                 if re.search(r"(?m)^(?!.*def _print)\s*print\(", script_text):
                     results["warnings"].append(f"Skill '{skill_name}' : 'print(' détecté dans {script.name} (utiliser _print / sys.stdout.write).")
+
+        # Contrôles approfondis sur l'ensemble des fichiers Markdown du skill
+        for md_file in sorted(skill_path.rglob("*.md")):
+            md_text = md_file.read_text(encoding="utf-8", errors="ignore")
+            # Détection de snippets TypeScript/JavaScript résiduels
+            if FOREIGN_CODE_RE.search(md_text):
+                warn = f"Skill '{skill_name}' ({md_file.name}) : snippet TypeScript/JavaScript interdit détecté (projet pur Python 3.12)."
+                skill_info["issues"].append(warn)
+                results["warnings"].append(warn)
+
+            # Liens Markdown relatifs internes [label](url)
+            for _, url in MD_LINK_RE.findall(md_text):
+                if url.startswith(("http://", "https://", "mailto:", "#", "file:")):
+                    continue
+                clean_url = url.split("#")[0].split("?")[0]
+                if not clean_url or clean_url in {"fichier.md", "target.md", "ancre"}:
+                    continue
+                candidates = [
+                    md_file.parent / clean_url,
+                    skill_path / clean_url,
+                    repo_root / clean_url,
+                ]
+                if not any(c.exists() for c in candidates):
+                    err = f"Skill '{skill_name}' ({md_file.name}) : lien Markdown brisé vers '{url}'."
+                    skill_info["issues"].append(err)
+                    results["errors"].append(err)
+
+            # Validité des références d'ADR
+            for adr_file in ADR_REF_RE.findall(md_text):
+                if "titre" in adr_file:
+                    continue
+                adr_target = repo_root / "docs" / "adr" / adr_file
+                if not adr_target.exists():
+                    err = f"Skill '{skill_name}' ({md_file.name}) : référence un ADR inexistant 'docs/adr/{adr_file}'."
+                    skill_info["issues"].append(err)
+                    results["errors"].append(err)
 
         results["skills"][skill_name] = skill_info
 

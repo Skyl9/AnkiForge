@@ -47,6 +47,11 @@ Le script valide :
 - **Scission de compétences** : lorsqu'un skill cumule deux responsabilités opérationnelles distinctes (ex: extraction brute vs RAG, ou sync doc vs audit skills), le scinder en deux modules autonomes avec redirection mutuelle.
 - **Admission de nouveaux skills** : soumise à la fiche candidat (`references/analyse_besoins_skills.md`), exigeant une récurrence prouvée (≥ 3 occurrences réelles dans le code/commits) et un gain agentique démontré.
 
+## 4. Règle d'Incrémentalité & Questionnement Natif
+
+- **Modification unitaire obligatoire** : toute refonte de catalogue s'exécute axe par axe, sans regroupement hâtif en vrac (prévention du biais T-5).
+- **Interaction native Antigravity (`ask_question`)** : formuler systématiquement les questions de choix via l'outil interactif natif avec option recommandée en tête `(Recommended)`. En cas de contexte de conversation volumineux ou de réflexion ouverte complexe, expliciter la contrainte et basculer sur le format texte Markdown structuré par rounds (`❓ Q1` / `➡️ Recommandation`).
+
 ## When NOT to use this skill
 
 - L'objectif est de mettre à jour les 15 fichiers de documentation après une modification de code → utiliser `mise-a-jour-metadonnees`.

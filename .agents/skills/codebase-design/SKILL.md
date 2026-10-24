@@ -61,6 +61,7 @@ class ExtractionService:
     def __init__(self, provider: LLMProvider | None = None) -> None:
         self.provider = provider or create_default_provider()
 
+
 # DIFFICILE À TESTER : instanciation interne d'un client externe
 class ExtractionService:
     def __init__(self) -> None:
@@ -70,8 +71,8 @@ class ExtractionService:
 ### 2. Retourner des résultats purs plutôt que produire des effets de bord
 ```python
 # TESTABLE : fonction pure retournant un rapport
-def evaluate_coverage(document: Document, notes: list[Note]) -> CoverageReport:
-    ...
+def evaluate_coverage(document: Document, notes: list[Note]) -> CoverageReport: ...
+
 
 # DIFFICILE À TESTER : modifie directement l'état global ou l'UI
 def evaluate_coverage(document: Document, notes: list[Note]) -> None:

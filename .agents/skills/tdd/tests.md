@@ -47,11 +47,12 @@ def test_linter_flags_non_atomic_card():
 # MAUVAIS : mocke l'ORM Peewee, ne teste aucune contrainte réelle de schéma
 from unittest.mock import MagicMock
 
+
 def test_create_note_saves_to_db():
     mock_model = MagicMock()
     # Ce mock ne teste ni les contraintes NOT NULL, ni les ForeignKey, ni SQLite
     mock_model.create.return_value = MagicMock(id=42)
-    
+
     note = create_note(mock_model, title="Test")
     assert note.id == 42
     mock_model.create.assert_called_once()
@@ -97,15 +98,16 @@ def test_tag_input_widget():
 # BON : utilise qtbot, nettoie le widget et vérifie l'événement et le signal émis
 from PySide6.QtCore import Qt
 
+
 def test_tag_input_emits_signal_on_enter(qtbot, cleanup_qt_widgets):
     widget = TagInputWidget()
     cleanup_qt_widgets(widget)
     qtbot.addWidget(widget)
-    
+
     with qtbot.waitSignal(widget.tags_changed, timeout=1000) as blocker:
         qtbot.keyClicks(widget.line_edit, "biologie, medecine")
         qtbot.keyClick(widget.line_edit, Qt.Key.Key_Return)
-        
+
     assert blocker.args[0] == ["biologie", "medecine"]
     assert widget.line_edit.text() == ""
 ```

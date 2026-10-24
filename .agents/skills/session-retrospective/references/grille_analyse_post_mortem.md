@@ -27,6 +27,16 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Confusion avec les méthodes de formatage classiques.
 - **Remédiation** : Audit automatisé fail-fast (`tests/utils/test_i18n_audit.py`) et rappel strict de l'ADR 0013 dans les skills UI.
 
+### T-5 : Biais de Regroupement Hâtif / Cadrage en Vrac (Bulk Decision Bias)
+- **Symptôme** : Face à plusieurs axes de refonte ou plusieurs décisions architecturales, l'agent regroupe tout en bloc dans le chat textuel au lieu d'interroger l'utilisateur de manière unitaire et méthodique.
+- **Cause racine** : Précipitation à vouloir solder l'ensemble du périmètre en une passe conversationnelle, négligeant l'outil natif interactif de choix.
+- **Remédiation** : Imposer la règle d'incrémentalité stricte (une modification = une série de questions ciblées) via l'outil interactif natif (`ask_question` dans Antigravity) avec option recommandée en tête et repli texte si le contexte sature.
+
+### T-6 : Cécité de l'Audit Statique Superficiel (Shallow Audit Blindness)
+- **Symptôme** : Un script de gouvernance valide le statut `PASS` en se basant sur des métriques superficielles (présence de balises, longueur), masquant des liens cassés, des références décalées ou du code issu d'autres langages/stacks.
+- **Cause racine** : Absence de validation des cibles réelles sur disque (liens Markdown, chemins d'ADRs, détection de patterns de langages interdits).
+- **Remédiation** : Enrichir le script d'audit statique (`auditer_coherence_skills.py`) pour vérifier l'existence physique de chaque ADR et lien relatif, et interdire les blocs de langages étrangers (TypeScript/JSX dans un repo Python).
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident

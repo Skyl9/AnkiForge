@@ -16,10 +16,11 @@ Dans AnkiForge, on mocke exclusivement aux **frontières externes réelles** que
 # Exemple canonique : mock déterministe d'un appel d'extraction de cartes
 from unittest.mock import MagicMock, patch
 
+
 def test_extraction_pipeline_with_mocked_llm():
     mock_provider = MagicMock()
     mock_provider.generate_text.return_value = '{"cards": [{"front": "Q", "back": "A"}]}'
-    
+
     with patch("ankiforge.services.ai.flexible_service.create_provider", return_value=mock_provider):
         result = run_extraction_step(text="Source document")
         assert len(result.cards) == 1
