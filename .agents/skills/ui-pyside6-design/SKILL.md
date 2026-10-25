@@ -52,7 +52,7 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
    - Ajouter les widgets/cartes, puis insérer `layout.addStretch()` **à la toute fin** pour maintenir l'alignement vers le haut (*top-aligned*).
 7. **Puits d'affichage i18n & Symboles typographiques (`ADR 0013`)** :
    - Tout puits d'affichage (`QLabel`, `QPushButton`, etc.) recevant une chaîne constante (même un symbole comme `➔` ou `•`) doit être wrappé dans `tr()` ou instancié sans argument puis configuré via `.setText("...")` pour satisfaire le test d'audit `test_every_display_sink_wraps_its_literal`.
-   - Lors de l'ajout ou de la modification de chaînes `tr()`, toujours exécuter `uv run python script/extract_translations.py` pour régénérer et compiler les catalogues `.ts` / `.qm` avant le passage de la porte canonique `script/verify.py`.
+   - Lors de l'ajout, de la modification ou du **retrait/suppression** de chaînes `tr()` (y compris lors du remplacement d'un bouton texte `QPushButton(tr("+"))` par un bouton d'icône `QToolButton`), toujours exécuter `uv run python script/extract_translations.py` pour régénérer et compiler les catalogues `.ts` / `.qm` avant le passage de la porte canonique `script/verify.py`.
 8. **Interdiction stricte des émojis dans l'UI** :
    - Ne **JAMAIS** préfixer ou décorer les boutons (`PrimaryButton`, `SecondaryButton`, `QPushButton`), cartes ou en-têtes avec des émojis texte (ex: `📖 Ouvrir`, `⌨️ Raccourcis`).
    - Utiliser exclusivement les icônes Phosphor vectorielles (`load_phosphor_icon("ph.<nom>", color=...)`) ou un libellé textuel sobre traduit sans symbole superflu.

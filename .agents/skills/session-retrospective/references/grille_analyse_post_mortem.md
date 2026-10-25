@@ -77,6 +77,11 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Biais de familiarité web/CSS où l'agent présume de l'existence de jetons plausibles (`BG_SECONDARY`, `BORDER_HOVER`, `BG_CARD`) sans vérifier la définition réelle dans `src/ankiforge/ui/theme.py`.
 - **Remédiation** : Formalisation dans `ui-pyside6-design/SKILL.md` et `implement/SKILL.md` du catalogue exhaustif des jetons réels de `DesignTokens` (`BG_MAIN`, `BG_SIDEBAR`, `BG_PANEL`, `BG_INPUT`, `BG_HOVER`, `BG_ACTIVE`, `BORDER_COLOR`, `BORDER_FOCUS`, `BORDER_LIGHT`) et interdiction d'utiliser un jeton sans inspection préalable de `theme.py`.
 
+### T-15 : Désynchronisation Silencieuse des Catalogues de Traduction `.ts` (Translation Catalog Drift on `tr()` Alteration or Removal)
+- **Symptôme** : Échec inattendu en fin de suite de tests sur `tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction` avec `AssertionError: Catalogues périmés (ankiforge_fr.ts, ankiforge_en.ts). Régénérer : uv run python script/extract_translations.py`.
+- **Cause racine** : L'agent ajoute, modifie OU supprime un appel `tr("...")` (par exemple lors du remplacement d'un bouton textuel `QPushButton(self.tr("+"))` par un bouton d'icône `QToolButton`), mais oublie que la suppression d'une chaîne du code source invalide immédiatement l'exactitude du catalogue `.ts` versionné par rapport à l'extraction à chaud.
+- **Remédiation** : Règle impérative dans `ui-pyside6-design/SKILL.md`, `implement/SKILL.md`, `verification-environnement/SKILL.md` et `diagnosing-bugs/SKILL.md` : dès qu'une chaîne traduisible `tr()` est ajoutée, modifiée ou **supprimée/retirée**, ré-exécuter obligatoirement `uv run python script/extract_translations.py` AVANT de lancer la porte `script/verify.py`.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -95,4 +100,5 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Confusion de substitution de paramètres i18n (`self.tr` vs `tr`) | Garde-fou bloquant sur l'utilisation exclusive de `tr()` racine pour `%1` | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
 | Typage brisé par `.tuples()` / `.dicts()` Peewee | Convention d'accès direct aux attributs typés | `peewee-expert/SKILL.md` |
 | Altération de contexte de traduction Linguist | Directive stricte `cls.tr()` vs `instance.tr()` | `ui-pyside6-design/SKILL.md` |
+| Désynchronisation des catalogues `.ts` après modification/suppression `tr()` | Régénération obligatoire via `script/extract_translations.py` | `ui-pyside6-design/SKILL.md`, `verification-environnement/SKILL.md`, `diagnosing-bugs/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

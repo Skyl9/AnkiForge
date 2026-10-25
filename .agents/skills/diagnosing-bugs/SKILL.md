@@ -135,6 +135,9 @@ Required before declaring done:
 - [ ] Regression test passes (or absence of seam is documented)
 - [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
 - [ ] The hypothesis that turned out correct is stated in the commit / PR message, so the next debugger learns
+- [ ] Pré-nettoyage linter et formatage : `uv run ruff check --fix . && uv run ruff format .` (élimine les imports orphelins avant la porte)
+- [ ] Si des chaînes `tr()` ont été touchées ou retirées : `uv run python script/extract_translations.py`
+- [ ] Porte de vérification canonique passée avec succès : `uv run python script/verify.py`
 
 ## When NOT to use this skill
 

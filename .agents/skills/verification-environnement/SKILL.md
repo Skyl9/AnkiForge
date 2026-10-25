@@ -47,6 +47,10 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
    - *Pourquoi* : Même avec un conteneur audio valide, dès que `setSource()` est invoqué sur une vraie instance `QMediaPlayer`, QtMultimedia initialise des threads de décodage asynchrones natifs (FFmpeg / AVFoundation sous macOS). Lorsque l'instance du widget ou du player est détruite au teardown du test, le thread d'arrière-plan C++ tente d'accéder à l'objet désalloué, provoquant un `Fatal Python error: Segmentation fault` natif qui tue le worker pytest-xdist et le fait redémarrer indéfiniment.
    - *Garantie automatique* : Dans tout test unitaire ou UI pilotant la synthèse ou la lecture vocale, mocker systématiquement `setSource` (et `play`) sur `QMediaPlayer` pour empêcher tout démarrage de threads natifs asynchrones non maîtrisés.
 
+9. **Synchronisation des catalogues de traduction `.ts` (Zéro dérive Linguist)** :
+   - *Pourquoi* : Le test d'intégrité i18n (`tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction`) vérifie rigoureusement que les fichiers versionnés `src/ankiforge/resources/translations/ankiforge_{fr,en}.ts` sont strictement identiques à une extraction fraîche du code source. Tout ajout, modification ou **retrait/suppression** d'un appel `tr(...)` (ex: remplacement d'un bouton texte `QPushButton(tr("+"))` par un bouton d'icône `QToolButton`) sans régénération des catalogues entraîne l'échec immédiat de la suite de tests.
+   - *Garantie automatique* : Exécuter systématiquement `uv run python script/extract_translations.py` dès qu'un appel `tr(...)` est touché ou retiré.
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :
