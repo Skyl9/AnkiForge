@@ -55,6 +55,7 @@ Lors de l'ajout d'un nouvel outil décoré `@mcp.tool()` sur le serveur in-proce
    - `TOOL_DOMAIN_MAP` : affectation au domaine métier (`DOMAIN_CARDS`, `DOMAIN_DOCS`, `DOMAIN_KNOWLEDGE`, `DOMAIN_PIPELINES`, `DOMAIN_MCP`, etc.).
    - `TOOL_SAFEGUARDS_MAP` : affectation du niveau de garde-fou (`SAFEGUARD_TWO_PHASE_COMMIT` pour toute mutation/staging, ou `SAFEGUARD_DIRECT_EXECUTION` pour la consultation en lecture seule).
 2. **Synchronisation des assertions de tests d'introspection** : mettre à jour le décompte d'outils attendu dans `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`assert len(tools) == N`).
+3. **Contrat d'invocation de test FastMCP (`mcp.call_tool`)** : `await mcp.call_tool(tool_name, arguments)` renvoie une instance typée `CallToolResult` et non une liste. Pour extraire la réponse textuelle, utiliser `res.content[0].text` (ou un helper `_extract_text`) sans jamais tenter d'indexer directement `res[0]` ou d'appeler `len(res)`.
 
 ## When NOT to use this skill
 

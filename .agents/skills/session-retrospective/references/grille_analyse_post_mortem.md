@@ -122,6 +122,18 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Sélection de cibles `Target` multi-lignes englobant des espacements inter-sections variables ou non canoniques.
 - **Remédiation** : Règle impérative dans `obsidian-vault/SKILL.md` et `implement/SKILL.md` : restreindre strictement la cible `Target` aux seules lignes stables de l'élément à déplacer ou modifier (ex: uniquement la ligne de la carte `- [ ] [[...]]` et le titre immédiat de la section cible), sans englober les sauts de ligne intermédiaires, ou recourir à une substitution par script Python ciblé en cas de décalage de blanc.
 
+### T-24 : Présomption de Signature sur le Contrat FastMCP `call_tool()` (`CallToolResult` vs Liste Indexable)
+- **Symptôme** : Un test d'intégration pilotant directement FastMCP (`await mcp.call_tool(...)`) échoue avec `TypeError: object of type 'CallToolResult' has no len()` ou `TypeError: 'CallToolResult' object is not subscriptable` en tentant d'accéder à `res[0].text`.
+- **Cause racine** : Présomption erronée que `mcp.call_tool()` retourne une liste brute de blocs de contenu, alors que le SDK FastMCP encapsule la réponse dans un conteneur typé `CallToolResult` dont la liste des blocs textuels réside sur l'attribut `.content` (ex: `res.content[0].text`).
+- **Remédiation** : Formalisation dans `implement/SKILL.md`, `pipeline-dag-ia/SKILL.md` et `verification-environnement/SKILL.md` : dans tout test pilotant `mcp.call_tool()`, utiliser systématiquement le helper canonique d'extraction :
+  ```python
+  def _extract_text(tool_result: Any) -> str:
+      if hasattr(tool_result, "content") and tool_result.content:
+          return str(tool_result.content[0].text)
+      return str(tool_result)
+  ```
+  et ne jamais tenter de mesurer `len(tool_result)` ou d'indexer `tool_result[0]`.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -150,4 +162,5 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Surcharge Qt à arité incompatible sous Mypy Strict | Respect du sous-typage Liskov et signatures d'arité identiques | `ui-pyside6-design/SKILL.md`, `verification-environnement/SKILL.md` |
 | Présomption de clés de retour de service (`T-22`) | Inspection obligatoire du contrat de fonction avant assertion de test | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
 | Décalage d'espacements Markdown sous edit_file (`T-23`) | Cibles mono-lignes strictes sans sauts de lignes inter-sections variables | `obsidian-vault/SKILL.md`, `implement/SKILL.md` |
+| Présomption de retour liste sur `mcp.call_tool()` (`T-24`) | Extraction obligatoire via `res.content[0].text` / helper `_extract_text` | `implement/SKILL.md`, `pipeline-dag-ia/SKILL.md`, `verification-environnement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |
