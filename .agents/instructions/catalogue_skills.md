@@ -1,6 +1,6 @@
 ## Catalogue des Compétences Agentiques (`.agents/skills/`)
 
-Le dépôt héberge 49 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
+Le dépôt héberge 50 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
 
 > [!IMPORTANT]
 > **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les compétences dont la spécification ou les déclencheurs emploient l'anglais.
@@ -19,6 +19,8 @@ Le dépôt héberge 49 compétences agentiques autonomes conformes au standard i
 ### 2. Socle Technique & Piliers d'Architecture
 - `peewee-expert` (`.agents/skills/peewee-expert/SKILL.md`) : Modélisation Peewee ORM, intégrité référentielle, migrations SQLite et élimination des requêtes N+1.
 - `ui-pyside6-design` (`.agents/skills/ui-pyside6-design/SKILL.md`) : Développement d'interfaces PySide6, dockings JetBrains, respect des tokens `DESIGN.md`, et internationalisation `tr()` (`ADR 0013`).
+- `ui-anti-slop` (`.agents/skills/ui-anti-slop/SKILL.md`) : Direction artistique et conception UX anti-slop, avec propositions ancrées dans le métier AnkiForge.
+- `ui-visual-polish` (`.agents/skills/ui-visual-polish/SKILL.md`) : Diagnostic et correction ciblée des défauts graphiques PySide6, avec validation des états et régressions visuelles.
 - `ui-screenshot` (`.agents/skills/ui-screenshot/SKILL.md`) : Capture d'écrans haute résolution en mode headless/offscreen et inspection visuelle des vues.
 - `ingestion-multimedia` (`.agents/skills/ingestion-multimedia/SKILL.md`) : Parsing et extraction multimédia de sources brutes (Marker OCR, PDF, YouTube, audio, docx, epub) vers Markdown.
 - `rag-smart-coverage` (`.agents/skills/rag-smart-coverage/SKILL.md`) : Découpage sémantique (`ChunkingService`), vecteurs FAISS/ChromaDB et alignement déterministe de couverture (`ADR 0009` et `ADR 0010`).
