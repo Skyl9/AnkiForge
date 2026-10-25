@@ -45,6 +45,7 @@ from ankiforge.database.models import (
     PromptModel,
     PythonToolModel,
     SettingModel,
+    StagedBundleModel,
     StagedPatchModel,
     TokenUsageModel,
     db,
@@ -193,6 +194,7 @@ def mock_db():
         AuditRecordModel,
         SettingModel,
         TokenUsageModel,
+        StagedBundleModel,
         StagedPatchModel,
         JobModel,  # Ajouté pour aligner avec ALL_MODELS et éviter les tests cassés
     ]

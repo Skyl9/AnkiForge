@@ -14,11 +14,65 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
+    StagedBundleModel,
     StagedPatchModel,
     db,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class StagedOverlay:
+    """Contexte virtuel intra-bundle permettant la résolution des dépendances avant écriture physique."""
+
+    def __init__(self, bundle_id: str) -> None:
+        self.bundle_id = bundle_id
+        self.created_decks: set[str] = set()
+        self.renamed_decks: dict[str, str] = {}
+        self.created_notes_first_fields: dict[str, list[str]] = {}
+        self.deleted_notes: set[int] = set()
+
+    def register_created_deck(self, deck_name: str) -> None:
+        clean = deck_name.strip()
+        if clean:
+            self.created_decks.add(clean)
+
+    def register_renamed_deck(self, old_name: str, new_name: str) -> None:
+        old_clean = old_name.strip()
+        new_clean = new_name.strip()
+        if old_clean and new_clean:
+            self.renamed_decks[old_clean] = new_clean
+
+    def register_created_note_first_field(self, deck_name: str, first_field_value: str) -> None:
+        dk_clean = deck_name.strip()
+        val_clean = first_field_value.strip().lower()
+        if dk_clean and val_clean:
+            self.created_notes_first_fields.setdefault(dk_clean, []).append(val_clean)
+
+    def register_deleted_note(self, note_id: int) -> None:
+        if note_id > 0:
+            self.deleted_notes.add(note_id)
+
+    def is_deck_available(self, deck_name: str) -> bool:
+        clean = deck_name.strip()
+        if not clean:
+            return False
+        return clean in self.created_decks or clean in self.renamed_decks.values()
+
+    def has_duplicate_first_field(self, deck_name: str, first_field_value: str) -> bool:
+        dk_clean = deck_name.strip()
+        val_clean = first_field_value.strip().lower()
+        existing = self.created_notes_first_fields.get(dk_clean, [])
+        return val_clean in existing
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "bundle_id": self.bundle_id,
+            "created_decks": sorted(list(self.created_decks)),
+            "renamed_decks": dict(self.renamed_decks),
+            "created_notes_count": sum(len(v) for v in self.created_notes_first_fields.values()),
+            "deleted_notes": sorted(list(self.deleted_notes)),
+        }
 
 
 def staged_patch_id(payload: dict[str, Any]) -> str | None:
@@ -53,6 +107,9 @@ def staged_payload_of(staged: StagedPatchModel) -> dict[str, Any]:
 class StagedPatchRegistry:
     """Gère le cycle de vie des propositions de patchs chirurgicaux avec verrouillage optimiste."""
 
+    _active_bundles: dict[str, StagedOverlay] = {}
+    _current_bundle_id: str | None = None
+
     @classmethod
     def create_patch(
         cls,
@@ -60,6 +117,7 @@ class StagedPatchRegistry:
         target_id: int = 0,
         original_version_id: int | None = None,
         diff_payload: dict[str, Any] | None = None,
+        bundle_id: str | None = None,
     ) -> StagedPatchModel:
         """Enregistre un nouveau patch en attente de validation humaine."""
         p_id = f"patch_{uuid.uuid4().hex[:10]}"
@@ -74,9 +132,26 @@ class StagedPatchRegistry:
                 if active_v:
                     original_version_id = active_v.id
 
+        # Résolution du bundle (uniquement s'il est en cours de construction)
+        target_bundle_id = bundle_id or cls._current_bundle_id
+        bundle_obj: StagedBundleModel | None = None
+        step_order = 1
+
+        if target_bundle_id:
+            candidate = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == target_bundle_id.strip())
+            if candidate and candidate.status == "building":
+                bundle_obj = candidate
+
         with db.atomic():
+            if bundle_obj:
+                step_order = bundle_obj.total_steps + 1
+                bundle_obj.total_steps = step_order
+                bundle_obj.save()
+
             patch = StagedPatchModel.create(
                 patch_id=p_id,
+                bundle=bundle_obj,
+                step_order=step_order,
                 patch_type=patch_type,
                 target_id=target_id,
                 original_version_id=original_version_id,
@@ -85,14 +160,45 @@ class StagedPatchRegistry:
                 created_at=datetime.datetime.now(),
             )
 
-        logger.info("Patch en attente créé : %s (type: %s, cible: %s)", p_id, patch_type, target_id)
-        cls._notify_staged_patch(
-            patch_id=p_id,
-            patch_type=patch_type,
-            target_id=target_id,
-            title=str(payload.get("title") or f"Proposition — {patch_type} #{target_id}"),
-            details=payload,
-        )
+        # Alimentation du StagedOverlay si rattaché à un bundle
+        if bundle_obj:
+            overlay = cls._active_bundles.get(bundle_obj.bundle_id)
+            if overlay:
+                if patch_type in ("deck_create", "create_deck"):
+                    dk = payload.get("deck_name") or payload.get("deck")
+                    if dk:
+                        overlay.register_created_deck(str(dk))
+                elif patch_type == "note_create":
+                    dk = payload.get("deck_name") or payload.get("deck")
+                    f_dict = payload.get("fields") or {}
+                    first_f = next(iter(f_dict.values()), "") if isinstance(f_dict, dict) and f_dict else ""
+                    if dk and first_f:
+                        overlay.register_created_note_first_field(str(dk), str(first_f))
+                elif patch_type == "batch_note_create":
+                    notes = payload.get("notes") or []
+                    for n in notes:
+                        if isinstance(n, dict):
+                            dk = n.get("deck") or payload.get("default_deck")
+                            f_dict = n.get("fields") or {}
+                            first_f = next(iter(f_dict.values()), "") if isinstance(f_dict, dict) and f_dict else ""
+                            if dk and first_f:
+                                overlay.register_created_note_first_field(str(dk), str(first_f))
+                elif patch_type in ("note_delete", "card_delete"):
+                    t_id = target_id or payload.get("note_id") or 0
+                    if t_id:
+                        overlay.register_deleted_note(int(t_id))
+
+        logger.info("Patch en attente créé : %s (type: %s, cible: %s, bundle: %s, step: %s)", p_id, patch_type, target_id, bundle_obj.bundle_id if bundle_obj else None, step_order)
+
+        # Les patchs individuels hors bundle ou scellés notifient immédiatement l'IHM
+        if not bundle_obj or bundle_obj.status != "building":
+            cls._notify_staged_patch(
+                patch_id=p_id,
+                patch_type=patch_type,
+                target_id=target_id,
+                title=str(payload.get("title") or f"Proposition — {patch_type} #{target_id}"),
+                details=payload,
+            )
         return patch
 
     @classmethod
@@ -468,6 +574,33 @@ class StagedPatchRegistry:
                 "message": f"Nettoyage HTML appliqué avec succès sur {len(applied_notes)} note(s).",
             }
 
+        # 7bis. Type DECK_CREATE (Création d'un paquet)
+        if p_type in ("deck_create", "create_deck"):
+            from ankiforge.repositories.deck_repository import DeckRepository
+
+            deck_name = str(diff_data.get("deck_name") or diff_data.get("deck") or "").strip()
+            description = str(diff_data.get("description") or "").strip()
+            if not deck_name:
+                return {"status": "error", "message": "Nom de paquet manquant pour 'deck_create'.", "patch_id": patch_id}
+
+            repo = DeckRepository()
+            created_deck = repo.get_or_create_deck_hierarchical(deck_name, description=description)
+
+            with db.atomic():
+                patch.target_id = created_deck.id
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+
+            cls._notify_mutation("create_deck", created_deck.id, {"deck_id": created_deck.id, "deck_name": created_deck.name, "is_new": True})
+            return {
+                "status": "applied",
+                "patch_id": patch_id,
+                "deck_id": created_deck.id,
+                "deck_name": created_deck.name,
+                "message": f"Paquet '{created_deck.name}' créé avec succès.",
+            }
+
         # 8. Type NOTE_CREATE (Création unitaire d'une note)
         if p_type == "note_create":
             from ankiforge.services.cards.note_manager import NoteManager
@@ -487,11 +620,11 @@ class StagedPatchRegistry:
 
             deck_id = payload.get("deck_id") or diff_data.get("deck_id")
             deck_name = str(payload.get("deck_name") or payload.get("deck") or diff_data.get("deck_name") or diff_data.get("deck") or "").strip()
-            deck = DeckModel.get_or_none(DeckModel.id == int(deck_id)) if deck_id else None
-            if not deck and deck_name:
-                deck = DeckModel.get_or_none(DeckModel.name == deck_name)
+            target_deck = DeckModel.get_or_none(DeckModel.id == int(deck_id)) if deck_id else None
+            if not target_deck and deck_name:
+                target_deck = DeckModel.get_or_none(DeckModel.name == deck_name)
 
-            if not deck:
+            if not target_deck:
                 return {"status": "error", "message": f"Paquet '{deck_name or deck_id}' introuvable.", "patch_id": patch_id}
 
             fields = payload.get("fields") or payload.get("fields_dict") or payload.get("content_dict") or diff_data.get("fields") or {}
@@ -518,7 +651,7 @@ class StagedPatchRegistry:
                 with db.atomic():
                     created_note = NoteManager.create_note(
                         note_type=nt,
-                        deck=deck,
+                        deck=target_deck,
                         content_dict=fields,
                         tags=tags_list,
                         source=source,
@@ -528,14 +661,14 @@ class StagedPatchRegistry:
                     patch.applied_at = datetime.datetime.now()
                     patch.save()
 
-                cls._notify_mutation("note_create", created_note.id, {"note_id": created_note.id, "patch_id": patch_id, "deck_id": deck.id})
+                cls._notify_mutation("note_create", created_note.id, {"note_id": created_note.id, "patch_id": patch_id, "deck_id": target_deck.id})
                 return {
                     "status": "applied",
                     "patch_id": patch_id,
                     "note_id": created_note.id,
-                    "deck_name": deck.name,
+                    "deck_name": target_deck.name,
                     "note_type_name": nt.name,
-                    "message": f"Note #{created_note.id} créée avec succès dans '{deck.name}'.",
+                    "message": f"Note #{created_note.id} créée avec succès dans '{target_deck.name}'.",
                 }
             except Exception as err:
                 logger.error("Erreur application note_create : %s", err)
@@ -666,6 +799,305 @@ class StagedPatchRegistry:
 
         logger.info("Patch %s synchronisé avec l'édition directe utilisateur.", patch_id)
         return True
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Moteur de Session & Staged Bundles (ADR 0043)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    @classmethod
+    def begin_bundle(cls, title: str, explanation: str = "") -> str:
+        """Démarre une session de groupe (Staged Bundle) en statut 'building'."""
+        b_id = f"bundle_{uuid.uuid4().hex[:10]}"
+        clean_title = title.strip() or "Nouveau Bundle"
+        clean_exp = explanation.strip()
+
+        with db.atomic():
+            StagedBundleModel.create(
+                bundle_id=b_id,
+                title=clean_title,
+                explanation=clean_exp,
+                status="building",
+                total_steps=0,
+                current_step=1,
+                created_at=datetime.datetime.now(),
+            )
+
+        cls._active_bundles[b_id] = StagedOverlay(bundle_id=b_id)
+        cls._current_bundle_id = b_id
+        logger.info("Session de bundle ouverte : %s ('%s')", b_id, clean_title)
+        return b_id
+
+    @classmethod
+    def get_active_bundle_id(cls) -> str | None:
+        """Retourne l'identifiant du bundle actif en cours de construction."""
+        return cls._current_bundle_id
+
+    @classmethod
+    def get_active_bundle(cls) -> StagedBundleModel | None:
+        """Retourne l'instance du bundle actif en cours de construction."""
+        if not cls._current_bundle_id:
+            return None
+        return StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == cls._current_bundle_id)
+
+    @classmethod
+    def get_active_overlay(cls, bundle_id: str | None = None) -> StagedOverlay | None:
+        """Retourne l'overlay virtuel du bundle spécifié ou du bundle actif."""
+        target_id = bundle_id or cls._current_bundle_id
+        if not target_id:
+            return None
+        return cls._active_bundles.get(target_id)
+
+    @classmethod
+    def commit_bundle(cls, bundle_id: str) -> dict[str, Any]:
+        """Scelle un bundle au statut 'pending' et notifie l'IHM."""
+        b_id = bundle_id.strip()
+        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == b_id)
+        if not bundle:
+            raise ValueError(f"Bundle '{b_id}' introuvable.")
+
+        if bundle.status != "building":
+            raise ValueError(f"Le bundle '{b_id}' ne peut pas être scellé (statut actuel: '{bundle.status}').")
+
+        if bundle.total_steps < 1:
+            raise ValueError(f"Le bundle '{b_id}' ne contient aucune étape et ne peut pas être scellé.")
+
+        with db.atomic():
+            bundle.status = "pending"
+            bundle.created_at = datetime.datetime.now()
+            bundle.save()
+
+        if cls._current_bundle_id == b_id:
+            cls._current_bundle_id = None
+
+        logger.info("Bundle scellé avec succès : %s ('%s', %d étapes)", bundle.bundle_id, bundle.title, bundle.total_steps)
+
+        cls._notify_bundle_staged(
+            bundle_id=bundle.bundle_id,
+            title=bundle.title,
+            total_steps=bundle.total_steps,
+            details={
+                "bundle_id": bundle.bundle_id,
+                "title": bundle.title,
+                "explanation": bundle.explanation,
+                "total_steps": bundle.total_steps,
+            },
+        )
+
+        return {
+            "status": "staged",
+            "bundle_id": bundle.bundle_id,
+            "title": bundle.title,
+            "total_steps": bundle.total_steps,
+        }
+
+    @classmethod
+    def abort_bundle(cls, bundle_id: str) -> bool:
+        """Supprime le bundle en cours et toutes ses étapes."""
+        b_id = bundle_id.strip()
+        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == b_id)
+        if not bundle:
+            return False
+
+        with db.atomic():
+            StagedPatchModel.delete().where(StagedPatchModel.bundle == bundle).execute()
+            bundle.delete_instance()
+
+        cls._active_bundles.pop(b_id, None)
+        if cls._current_bundle_id == b_id:
+            cls._current_bundle_id = None
+
+        logger.info("Bundle %s annulé et supprimé.", b_id)
+        return True
+
+    @classmethod
+    def reject_bundle_step(cls, bundle_id: str, step_order: int, reason: str = "") -> dict[str, Any]:
+        """Arrêt en cascade (Fail-Fast Reject) : rejette l'étape courante et toutes les suivantes."""
+        b_id = bundle_id.strip()
+        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == b_id)
+        if not bundle:
+            return {"status": "error", "message": f"Bundle '{b_id}' introuvable."}
+
+        with db.atomic():
+            patches_to_reject = list(StagedPatchModel.select().where((StagedPatchModel.bundle == bundle) & (StagedPatchModel.step_order >= step_order) & (StagedPatchModel.status == "pending")))
+            for p in patches_to_reject:
+                p.status = "rejected"
+                p.save()
+
+            rejected_count = len(patches_to_reject)
+
+            applied_count = StagedPatchModel.select().where((StagedPatchModel.bundle == bundle) & (StagedPatchModel.status == "applied")).count()
+            pending_count = StagedPatchModel.select().where((StagedPatchModel.bundle == bundle) & (StagedPatchModel.status == "pending")).count()
+
+            if pending_count == 0:
+                bundle.status = "applied" if (applied_count == bundle.total_steps and bundle.total_steps > 0) else ("partial" if applied_count > 0 else "rejected")
+            else:
+                bundle.status = "partial" if (applied_count > 0 or rejected_count > 0) else "pending"
+            bundle.save()
+
+        logger.info(
+            "Fail-Fast Reject sur bundle %s (étape >= %d) : %d étapes rejetées. Raison: %s",
+            b_id,
+            step_order,
+            rejected_count,
+            reason,
+        )
+        return {
+            "status": "rejected",
+            "bundle_id": b_id,
+            "rejected_steps_count": rejected_count,
+            "reason": reason,
+        }
+
+    @classmethod
+    def apply_bundle_step(cls, bundle_id: str, step_order: int) -> dict[str, Any]:
+        """Applique l'étape ordonnée spécifiée du bundle et met à jour l'avancement."""
+        b_id = bundle_id.strip()
+        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == b_id)
+        if not bundle:
+            return {"status": "error", "message": f"Bundle '{b_id}' introuvable."}
+
+        patch = StagedPatchModel.get_or_none((StagedPatchModel.bundle == bundle) & (StagedPatchModel.step_order == step_order))
+        if not patch:
+            return {"status": "error", "message": f"Étape {step_order} introuvable dans le bundle '{b_id}'."}
+
+        res = cls.apply_staged_patch(patch.patch_id)
+        if res.get("status") == "applied":
+            bundle.current_step = step_order + 1
+            all_applied = not StagedPatchModel.select().where((StagedPatchModel.bundle == bundle) & (StagedPatchModel.status != "applied")).exists()
+            if all_applied:
+                bundle.status = "applied"
+                bundle.applied_at = datetime.datetime.now()
+            bundle.save()
+        return res
+
+    @classmethod
+    def apply_bundle_all(cls, bundle_id: str) -> dict[str, Any]:
+        """Applique l'intégralité des étapes restantes du bundle sous transaction atomique SQLite unique."""
+        b_id = bundle_id.strip()
+        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == b_id)
+        if not bundle:
+            return {"status": "error", "message": f"Bundle '{b_id}' introuvable."}
+
+        patches = list(StagedPatchModel.select().where((StagedPatchModel.bundle == bundle) & (StagedPatchModel.status == "pending")).order_by(StagedPatchModel.step_order.asc()))
+
+        if not patches:
+            return {"status": "error", "message": f"Aucune étape en attente à appliquer dans le bundle '{b_id}'."}
+
+        applied_count = 0
+        with db.atomic() as txn:
+            for p in patches:
+                res = cls.apply_staged_patch(p.patch_id)
+                if res.get("status") != "applied":
+                    txn.rollback()
+                    return {
+                        "status": "error",
+                        "message": f"Échec application étape #{p.step_order} ({p.patch_id}) : {res.get('message')}",
+                        "failed_step": p.step_order,
+                        "patch_id": p.patch_id,
+                    }
+                applied_count += 1
+
+            bundle.status = "applied"
+            bundle.applied_at = datetime.datetime.now()
+            bundle.current_step = bundle.total_steps + 1
+            bundle.save()
+
+        return {
+            "status": "applied",
+            "bundle_id": b_id,
+            "applied_steps_count": applied_count,
+        }
+
+    @classmethod
+    def get_staged_pending_operations(cls, bundle_id: str = "") -> dict[str, Any]:
+        """Consulte les propositions d'opérations et bundles en attente."""
+        b_id = bundle_id.strip()
+        if b_id:
+            bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == b_id)
+            if not bundle:
+                return {"status": "error", "message": f"Bundle '{b_id}' introuvable."}
+            patches = list(StagedPatchModel.select().where(StagedPatchModel.bundle == bundle).order_by(StagedPatchModel.step_order.asc()))
+            overlay = cls.get_active_overlay(bundle.bundle_id)
+            return {
+                "status": "success",
+                "bundle": {
+                    "bundle_id": bundle.bundle_id,
+                    "title": bundle.title,
+                    "explanation": bundle.explanation,
+                    "status": bundle.status,
+                    "total_steps": bundle.total_steps,
+                    "current_step": bundle.current_step,
+                },
+                "steps": [
+                    {
+                        "patch_id": p.patch_id,
+                        "step_order": p.step_order,
+                        "patch_type": p.patch_type,
+                        "status": p.status,
+                        "payload": staged_payload_of(p),
+                    }
+                    for p in patches
+                ],
+                "overlay": overlay.to_dict() if overlay else None,
+            }
+
+        bundles = list(StagedBundleModel.select().where(StagedBundleModel.status.in_(["building", "pending"])).order_by(StagedBundleModel.created_at.desc()))
+        standalone_patches = list(StagedPatchModel.select().where(StagedPatchModel.bundle.is_null(), StagedPatchModel.status == "pending").order_by(StagedPatchModel.created_at.asc()))
+        return {
+            "status": "success",
+            "active_bundle_id": cls._current_bundle_id,
+            "bundles": [
+                {
+                    "bundle_id": b.bundle_id,
+                    "title": b.title,
+                    "explanation": b.explanation,
+                    "status": b.status,
+                    "total_steps": b.total_steps,
+                    "current_step": b.current_step,
+                }
+                for b in bundles
+            ],
+            "standalone_patches": [
+                {
+                    "patch_id": p.patch_id,
+                    "patch_type": p.patch_type,
+                    "status": p.status,
+                    "payload": staged_payload_of(p),
+                }
+                for p in standalone_patches
+            ],
+        }
+
+    @classmethod
+    def _notify_bundle_staged(cls, bundle_id: str, title: str, total_steps: int, details: dict[str, Any]) -> None:
+        """Déclenche la notification de scellement d'un staged bundle."""
+        try:
+            from ankiforge.utils.event_bus import MCPBundleStagedEvent, event_bus
+
+            event_bus.publish(
+                MCPBundleStagedEvent(
+                    bundle_id=bundle_id,
+                    title=title,
+                    total_steps=total_steps,
+                    details=details,
+                )
+            )
+        except Exception as e:
+            logger.debug("Erreur publication event_bus MCPBundleStagedEvent : %s", e)
+
+        try:
+            from ankiforge.services.ai.mcp_server import _notify_mcp_bundle_staged
+
+            _notify_mcp_bundle_staged(
+                {
+                    "bundle_id": bundle_id,
+                    "title": title,
+                    "total_steps": total_steps,
+                    **details,
+                }
+            )
+        except Exception as e:
+            logger.debug("Erreur notification listeners MCP bundle staged : %s", e)
 
     @classmethod
     def _notify_mutation(cls, mutation_type: str, target_id: int, details: dict[str, Any]) -> None:

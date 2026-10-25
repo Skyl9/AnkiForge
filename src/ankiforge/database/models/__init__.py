@@ -18,6 +18,7 @@ from ankiforge.database.models.ai import (
     PersonaModel,
     PersonaVersionModel,
     PromptModel,
+    StagedBundleModel,
     StagedPatchModel,
 )
 from ankiforge.database.models.audit import (
@@ -74,6 +75,7 @@ ALL_MODELS = [
     PersonaFolderModel,
     PersonaModel,
     PersonaVersionModel,
+    StagedBundleModel,
     StagedPatchModel,
     PipelineModel,
     PipelineRunModel,
@@ -119,6 +121,7 @@ __all__ = [
     "PersonaFolderModel",
     "PersonaModel",
     "PersonaVersionModel",
+    "StagedBundleModel",
     "StagedPatchModel",
     # Batch Factory
     "BatchRunModel",

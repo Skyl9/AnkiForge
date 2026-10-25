@@ -178,6 +178,11 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "sanitize_fields_html": DOMAIN_CARDS,
     "list_empty_cards": DOMAIN_CARDS,
     "delete_empty_cards": DOMAIN_CARDS,
+    # Staged Bundles & Sessions 2PC (4)
+    "begin_staged_bundle": DOMAIN_CARDS,
+    "commit_staged_bundle": DOMAIN_CARDS,
+    "abort_staged_bundle": DOMAIN_CARDS,
+    "get_staged_pending_operations": DOMAIN_CARDS,
 }
 
 # Garde-fous et directives de sécurité spécifiques
@@ -240,6 +245,16 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     ],
     "create_deck": [
         "Écriture directe et idempotente : crée le paquet et toute son arborescence hiérarchique Parent::Enfant.",
+    ],
+    "begin_staged_bundle": [
+        "Session transactionnelle groupée : initialise le contexte virtuel Staged Overlay pour résolution intra-bloc.",
+    ],
+    "commit_staged_bundle": [
+        "Two-Phase Commit obligatoire : scelle le bundle au statut pending et le transmet au Garde-Fou.",
+        "Contrôle de complétude : impose au moins une étape pour être scellé.",
+    ],
+    "abort_staged_bundle": [
+        "Nettoyage transactionnel : supprime le bundle en cours de construction et toutes ses étapes associées.",
     ],
 }
 

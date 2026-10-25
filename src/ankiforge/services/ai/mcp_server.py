@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+from collections import namedtuple
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -23,10 +24,12 @@ __all__ = [
     "mcp",
     "normalize_mutation_type",
     "register_mutation_listener",
+    "register_staged_bundle_listener",
     "register_staged_patch_listener",
     "resolve_mcp_mutation_domain",
     "run_server",
     "unregister_mutation_listener",
+    "unregister_staged_bundle_listener",
     "unregister_staged_patch_listener",
 ]
 
@@ -37,6 +40,12 @@ _mutation_listeners: list[Callable[[dict[str, Any]], None]] = []
 
 # Écouteurs de propositions de patchs en attente (Two-Phase Commit)
 _staged_patch_listeners: list[Callable[[dict[str, Any]], None]] = []
+
+# Écouteurs de propositions de bundles en attente (Staged Bundles)
+_staged_bundle_listeners: list[Callable[[dict[str, Any]], None]] = []
+
+# Représentation légère d'un paquet virtuel intra-bundle avant écriture physique
+VirtualDeck = namedtuple("VirtualDeck", ["id", "name"])
 
 # Domaines fonctionnels exposés par une mutation MCP.
 MCP_MUTATION_DOMAINS: frozenset[str] = frozenset({"cards", "decks", "models", "docs"})
@@ -200,6 +209,45 @@ def _notify_mcp_patch_staged(data: dict[str, Any]) -> None:
             logger.warning("Erreur dans l'écouteur de patch staged MCP : %s", e)
 
 
+def register_staged_bundle_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Enregistre un écouteur appelé lors du scellement d'un Staged Bundle."""
+    if callback not in _staged_bundle_listeners:
+        _staged_bundle_listeners.append(callback)
+
+
+def unregister_staged_bundle_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Retire un écouteur de Staged Bundle."""
+    if callback in _staged_bundle_listeners:
+        _staged_bundle_listeners.remove(callback)
+
+
+def _notify_mcp_bundle_staged(data: dict[str, Any]) -> None:
+    """Notifie les écouteurs enregistrés et le bus d'événements lors du commit d'un Staged Bundle."""
+    from ankiforge.utils.event_bus import MCPBundleStagedEvent, event_bus
+
+    b_id = str(data.get("bundle_id", ""))
+    title = str(data.get("title", ""))
+    total_steps = int(data.get("total_steps", 0))
+
+    try:
+        event_bus.publish(
+            MCPBundleStagedEvent(
+                bundle_id=b_id,
+                title=title,
+                total_steps=total_steps,
+                details=data,
+            )
+        )
+    except Exception as e:
+        logger.debug("Erreur publication event_bus MCPBundleStagedEvent : %s", e)
+
+    for listener in list(_staged_bundle_listeners):
+        try:
+            listener(data)
+        except Exception as e:
+            logger.warning("Erreur dans l'écouteur de bundle staged MCP : %s", e)
+
+
 # Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
 _PROMPT_ENV = create_prompt_environment()
 
@@ -305,6 +353,97 @@ def apply_patch(
 def preview_and_apply_patch(patch_id: str) -> str:
     """Valide et applique un patch chirurgical en attente (Two-Phase Commit) avec vérification de version optimiste."""
     return MCPToolRegistry.preview_and_apply_patch(patch_id)
+
+
+@mcp.tool()
+def begin_staged_bundle(title: str, explanation: str = "") -> str:
+    """Ouvre une session transactionnelle groupée (Staged Bundle) permettant d'enchaîner plusieurs mutations sans interruption.
+
+    Retourne l'identifiant du bundle ouvert ('bundle_id') et initialise le contexte virtuel (Staged Overlay).
+    """
+    try:
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        bundle_id = StagedPatchRegistry.begin_bundle(title=title, explanation=explanation)
+        return json.dumps(
+            {
+                "status": "bundle_opened",
+                "bundle_id": bundle_id,
+                "title": title.strip() or "Nouveau Bundle",
+                "explanation": explanation.strip(),
+                "message": (
+                    f"Session de bundle '{bundle_id}' ouverte avec succès. Toutes les mutations subséquentes seront "
+                    f"enregistrées comme étapes de ce bundle avec résolution virtuelle intra-bloc (Staged Overlay) jusqu'à l'appel de 'commit_staged_bundle'."
+                ),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur begin_staged_bundle : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def commit_staged_bundle(bundle_id: str) -> str:
+    """Scelle un Staged Bundle au statut 'pending' et le transmet au Garde-Fou pour validation humaine.
+
+    Vérifie que le bundle contient au moins une étape.
+    """
+    try:
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        res = StagedPatchRegistry.commit_bundle(bundle_id=bundle_id)
+        return json.dumps(
+            {
+                "status": "staged",
+                "bundle_id": res["bundle_id"],
+                "title": res["title"],
+                "total_steps": res["total_steps"],
+                "message": (f"Bundle '{res['bundle_id']}' scellé avec succès avec {res['total_steps']} étape(s). Transmis au Garde-Fou pour validation humaine séquentielle ou tout-en-un."),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur commit_staged_bundle : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def abort_staged_bundle(bundle_id: str) -> str:
+    """Annule et supprime un Staged Bundle en cours de construction ainsi que toutes ses étapes associées."""
+    try:
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        ok = StagedPatchRegistry.abort_bundle(bundle_id=bundle_id)
+        if not ok:
+            return json.dumps({"status": "error", "message": f"Bundle '{bundle_id}' introuvable ou déjà supprimé."}, ensure_ascii=False)
+        return json.dumps(
+            {
+                "status": "aborted",
+                "bundle_id": bundle_id,
+                "message": f"Bundle '{bundle_id}' et toutes ses étapes associées ont été supprimés avec succès.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur abort_staged_bundle : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def get_staged_pending_operations(bundle_id: str = "") -> str:
+    """Consulte les bundles et propositions d'opérations en attente de validation humaine avec l'état virtuel de l'overlay."""
+    try:
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        res = StagedPatchRegistry.get_staged_pending_operations(bundle_id=bundle_id)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Erreur get_staged_pending_operations : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
 
 
 @mcp.tool()
@@ -439,8 +578,36 @@ def create_deck(deck_name: str, description: str = "") -> str:
         if not dk_clean:
             return json.dumps({"status": "error", "message": "Le nom du paquet ne peut pas être vide."}, ensure_ascii=False)
 
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
         existing = DeckModel.get_or_none(DeckModel.name == dk_clean)
         is_new = existing is None
+
+        # Si un bundle est actif et que le paquet est nouveau, enregistrer l'étape staged dans le bundle
+        bundle_id = StagedPatchRegistry.get_active_bundle_id()
+        if bundle_id and is_new:
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="deck_create",
+                diff_payload={
+                    "deck_name": dk_clean,
+                    "description": description.strip(),
+                    "title": f"Création du paquet '{dk_clean}'",
+                    "explanation": f"Proposition de création du paquet hiérarchique '{dk_clean}' (étape de bundle).",
+                },
+                bundle_id=bundle_id,
+            )
+            return json.dumps(
+                {
+                    "status": "staged",
+                    "patch_id": patch.patch_id,
+                    "bundle_id": bundle_id,
+                    "step_order": patch.step_order,
+                    "deck_name": dk_clean,
+                    "message": f"Création du paquet '{dk_clean}' enregistrée comme étape {patch.step_order} du bundle {bundle_id}.",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
 
         repo = DeckRepository()
         deck = repo.get_or_create_deck_hierarchical(dk_clean, description=description.strip())
@@ -508,26 +675,34 @@ def _validate_note_creation_data(
     note_type_name: str,
     deck_name: str,
     fields_input: str | dict[str, Any],
+    bundle_id: str | None = None,
 ) -> tuple[NoteTypeModel, Any, dict[str, str], list[str]]:
     """Valide les paramètres d'une note. Lève ValueError si invalide.
 
     Retourne (NoteTypeModel, DeckModel, sanitized_fields, warnings).
     """
-    from ankiforge.database.models import DeckModel, NoteTypeModel
 
-    # 1. Contrôle du deck (anti-hallucination)
+    from ankiforge.database.models import DeckModel, NoteTypeModel
+    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+    # 1. Contrôle du deck (anti-hallucination avec support Staged Overlay)
     dk_clean = deck_name.strip()
     if not dk_clean:
         raise ValueError("Le nom du paquet cible ne peut pas être vide.")
 
-    deck = DeckModel.get_or_none(DeckModel.name == dk_clean)
-    if not deck:
+    db_deck = DeckModel.get_or_none(DeckModel.name == dk_clean)
+    overlay = StagedPatchRegistry.get_active_overlay(bundle_id)
+    is_in_overlay = overlay is not None and overlay.is_deck_available(dk_clean)
+
+    if not db_deck and not is_in_overlay:
         avail = [d.name for d in DeckModel.select().limit(5)]
         avail_str = f" Exemples de paquets existants : {avail}." if avail else ""
         raise ValueError(
             f"Paquet '{dk_clean}' introuvable en base.{avail_str} Pour éviter toute création de paquet fantôme par hallucination, "
             f"veuillez utiliser un paquet existant ou le créer préalablement via 'create_deck'."
         )
+
+    deck: Any = db_deck if db_deck is not None else VirtualDeck(id=0, name=dk_clean)
 
     # 2. Contrôle du type de note
     nt_clean = note_type_name.strip()
@@ -562,13 +737,22 @@ def _validate_note_creation_data(
     if not any(v for v in sanitized.values()):
         raise ValueError(f"Tous les champs de la note pour le type '{nt.name}' sont vides.")
 
-    # 4. Warnings (doublons sur premier champ)
+    # 4. Warnings (doublons sur premier champ physique et virtuel)
     warnings: list[str] = []
     first_field_name = schema[0] if schema else None
     if first_field_name and sanitized.get(first_field_name):
-        dup_id = _check_first_field_duplicate(deck.id, nt.id, sanitized[first_field_name])
-        if dup_id:
-            warnings.append(f"Doublon potentiel : la note #{dup_id} dans le paquet '{deck.name}' possède déjà la valeur '{sanitized[first_field_name][:50]}' pour le champ '{first_field_name}'.")
+        val_first = sanitized[first_field_name]
+        deck_id = int(getattr(deck, "id", 0))
+        deck_name_str = str(getattr(deck, "name", dk_clean))
+        if deck_id > 0:
+            dup_id = _check_first_field_duplicate(deck_id, nt.id, val_first)
+            if dup_id:
+                warnings.append(f"Doublon potentiel : la note #{dup_id} dans le paquet '{deck_name_str}' possède déjà la valeur '{val_first[:50]}' pour le champ '{first_field_name}'.")
+        if overlay and overlay.has_duplicate_first_field(deck_name_str, val_first):
+            warnings.append(
+                f"Doublon potentiel intra-bundle : une note créée plus tôt dans ce bundle dans le paquet '{deck_name_str}' "
+                f"possède déjà la valeur '{val_first[:50]}' pour le champ '{first_field_name}'."
+            )
 
     return nt, deck, sanitized, warnings
 

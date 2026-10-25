@@ -167,11 +167,29 @@ class PersonaVersionModel(BaseModel):
         table_name = "persona_versions"
 
 
+class StagedBundleModel(BaseModel):
+    """Regroupement transactionnel d'opérations staged ordonnées."""
+
+    bundle_id = CharField(unique=True, index=True)
+    title = CharField(max_length=255)
+    explanation = TextField(default="")
+    status = CharField(default="pending", index=True)  # "building", "pending", "applied", "rejected", "partial"
+    total_steps = IntegerField(default=0)
+    current_step = IntegerField(default=1)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    applied_at = DateTimeField(null=True)
+
+    class Meta:
+        table_name = "staged_bundles"
+
+
 class StagedPatchModel(BaseModel):
     """Patch chirurgical en attente de validation humaine (Two-Phase Commit)."""
 
     patch_id = CharField(unique=True, index=True)
-    patch_type = CharField()  # "card", "split", "css", "model"
+    bundle = ForeignKeyField(StagedBundleModel, backref="patches", null=True, on_delete="CASCADE")
+    step_order = IntegerField(default=1)
+    patch_type = CharField()  # "card", "split", "css", "model", etc.
     target_id = IntegerField(default=0)
     original_version_id = IntegerField(null=True)
     diff_payload = TextField()  # JSON sérialisé

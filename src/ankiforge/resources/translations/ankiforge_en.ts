@@ -572,7 +572,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+521"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+536"/>
         <location filename="../../ui/views/edition_view/view.py" line="-604"/>
         <location line="+212"/>
         <location line="+8"/>

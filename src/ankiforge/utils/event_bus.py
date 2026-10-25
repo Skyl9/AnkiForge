@@ -321,6 +321,16 @@ class MCPPatchStagedEvent(AppEvent):
     details: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class MCPBundleStagedEvent(AppEvent):
+    """Événement émis lors du scellement d'un Staged Bundle par un agent MCP."""
+
+    bundle_id: str = ""
+    title: str = ""
+    total_steps: int = 0
+    details: dict[str, Any] = field(default_factory=dict)
+
+
 # LLM Model Catalog Events
 @dataclass(frozen=True)
 class LLMModelsChangedEvent(AppEvent):
@@ -370,6 +380,7 @@ _EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
     "flag_labels_updated": FlagLabelsUpdatedEvent,
     "mcp_data_mutated": MCPDataMutatedEvent,
     "mcp_patch_staged": MCPPatchStagedEvent,
+    "mcp_bundle_staged": MCPBundleStagedEvent,
     "llm_models_changed": LLMModelsChangedEvent,
     "open_consultant_requested": OpenConsultantRequestedEvent,
     "open_feedback_requested": OpenFeedbackRequestedEvent,
