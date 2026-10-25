@@ -45,6 +45,7 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Contrats de retour d'API et dictionnaires : ne jamais présumer des clés de retour d'une méthode de service ou d'un registre (`apply_bundle_all()`, `to_dict()`) ; toujours inspecter la définition de la fonction ou du modèle avant d'écrire une assertion de test ou d'extraire une valeur.
   - Invocations FastMCP en test : `mcp.call_tool()` retourne une instance typée `CallToolResult` et non une liste ; utiliser obligatoirement le helper d'extraction `def _extract_text(res: Any) -> str: return str(res.content[0].text) if hasattr(res, "content") and res.content else str(res)` pour extraire le texte sans jamais tenter d'indexer `res[0]` ou d'appeler `len(res)`.
   - Édition chirurgicale Markdown : sur les fichiers Markdown vivants (`Avancement du projet.md`), limiter la chaîne `Target` aux seules lignes strictes de l'élément à déplacer sans englober les sauts de lignes inter-sections variables (`\n\n\n`), ou recourir à un remplacement par script pour prévenir les rejets de correspondance exacte.
+  - Collision de variables locales sous Mypy Strict (`T-28`) : dans les grands répartiteurs et blocs de dispatch (`ConsultantEngine._execute_tool_call()`, etc.), employer impérativement des variables locales qualifiées et contextuelles (`plate_target_id`, `card_id_int`, `patch_id_str`) au lieu d'identifiants courts partagés (`p_id`, `data`, `res`) pour prévenir toute erreur de type incompatible `[assignment]` sous Mypy.
 
 ## 3. Clôture, Vérification Canonique & Revue
 

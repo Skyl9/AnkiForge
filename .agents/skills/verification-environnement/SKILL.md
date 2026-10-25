@@ -84,6 +84,10 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
     - *Pourquoi* : L'agent conversationnel interne `ConsultantEngine` utilise son propre routeur local vers `mcp_tool_registry.py` sans passer par le socket FastMCP. Déclarer un outil uniquement dans FastMCP ou omettre son dispatch local provoque l'exception `Tool not found` lors des interactions utilisateur avec l'agent Consultant.
     - *Garantie automatique* : Tout nouvel outil FastMCP `@mcp.tool()` doit être synchronisé simultanément dans : (1) `mcp_server.py`, (2) `mcp_tool_catalog_widget.py` (`TOOL_DOMAIN_MAP`/`TOOL_SAFEGUARDS_MAP`), et (3) `consultant_engine.py` (`DEFAULT_CONSULTANT_TOOLS` + `ConsultantEngine._execute_tool_call()`).
 
+19. **Variables locales contextuelles qualifiées dans les grands répartiteurs (Zéro collision Mypy `[assignment]`)** :
+    - *Pourquoi* : Dans une longue méthode de dispatching ou de routage (`ConsultantEngine._execute_tool_call()`, `_apply_patch_step()`, etc.), réutiliser un nom de variable court ou générique (`p_id`, `data`, `res`) assigné plus haut dans une autre branche avec un type distinct (`str` vs `int`) déclenche l'erreur bloquante Mypy strict `Incompatible types in assignment`.
+    - *Garantie automatique* : Employer systématiquement des noms de variables qualifiés et contextuels (`plate_target_id`, `card_id_int`, `patch_id_str`) pour immuniser le typage statique.
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :

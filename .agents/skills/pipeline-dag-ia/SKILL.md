@@ -60,6 +60,7 @@ Lors de l'ajout d'un nouvel outil décoré `@mcp.tool()` sur le serveur in-proce
 3. **Synchronisation des assertions de tests d'introspection** : mettre à jour le décompte d'outils attendu dans `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`assert len(tools) == N`) et dans `test_mcp_dashboard_widget_integration_catalog_tab`.
 4. **Contrat d'invocation de test FastMCP (`mcp.call_tool`) (`T-24`)** : `await mcp.call_tool(tool_name, arguments)` renvoie une instance typée `CallToolResult` et non une liste. Pour extraire la réponse textuelle, utiliser `res.content[0].text` (ou un helper `_extract_text`) sans jamais tenter d'indexer directement `res[0]` ou d'appeler `len(res)`.
 5. **Couverture d'overlay virtuel (`StagedOverlay`)** : pour tout patch 2PC modifiant la structure des données (création/renommage de paquets, création/suppression de notes), enregistrer l'effet dans `overlay.register_*` au sein de `StagedPatchRegistry.create_patch()` afin que les lectures virtuelles consécutives dans un même bundle reflètent l'état projeté.
+6. **Variables locales qualifiées sous Mypy Strict (`T-28`)** : dans `ConsultantEngine._execute_tool_call()` et les répartiteurs d'étapes, employer impérativement des variables locales qualifiées (ex: `plate_target_id`, `card_id_int`, `patch_id_str`) au lieu d'abréviations courtes partagées (`p_id`, `res`) pour prévenir tout conflit d'assignation de type sous Mypy.
 
 ## 6. Mutations Destructives & Paquets Hiérarchiques 2PC (`T-27`)
 

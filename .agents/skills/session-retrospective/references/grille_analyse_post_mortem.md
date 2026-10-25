@@ -155,6 +155,11 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
   2. Réassigner l'arborescence entière (paquet source et tous ses sous-paquets issus de `get_descendant_decks()`) ;
   3. Exécuter l'intégralité de la séquence (validation, réassignation, suppression, enregistrement du patch 2PC) dans un bloc unique `with db.atomic():`.
 
+### T-28 : Collision de Noms de Variables Locales à Typages Incompatibles dans les Grands Blocs de Dispatch
+- **Symptôme** : Dans une grande méthode procédurale de routage ou de dispatch (`_execute_tool_call()`, `_apply_patch_step()`, etc.), l'ajout d'une nouvelle branche `elif` réutilise un identifiant court ou générique (`p_id`, `res`, `data`, `target`) assigné plus haut dans une autre branche avec un type distinct (`str` vs `int`). Mypy strict infère le premier type dans la portée locale et échoue avec `Incompatible types in assignment (expression has type "int", variable has type "str") [assignment]`.
+- **Cause racine** : En Python standard, la réassignation d'une variable à un type différent dans des branches disjointes est valide, mais Mypy strict (`disallow_untyped_defs = true`) interdit de masquer ou d'écraser le type inféré d'une variable locale.
+- **Remédiation** : Dans les grands répartiteurs et blocs de dispatch, utiliser impérativement des variables locales qualifiées et contextuelles (`plate_target_id`, `patch_id_str`, `card_id_int`, etc.) au lieu d'abréviations courtes partagées, pour prévenir toute collision de type statique.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -187,4 +192,5 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Omission de parité de dispatch `ConsultantEngine` (`T-25`) | Synchronisation FastMCP + `DEFAULT_CONSULTANT_TOOLS` + `_execute_tool_call` | `pipeline-dag-ia/SKILL.md`, `implement/SKILL.md` |
 | Concaténation de fragments traduits `tr()` (`T-26`) | Interdiction de `tr() + tr()` et phrases complètes indépendantes par branche | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
 | Destruction récursive de sous-paquets (`T-27`) | Vérification de non-descendance, arborescence complète et `db.atomic()` | `peewee-expert/SKILL.md`, `pipeline-dag-ia/SKILL.md`, `implement/SKILL.md` |
+| Collision de variable locale sous Mypy Strict (`T-28`) | Variables locales contextuelles qualifiées dans les grands blocs de dispatch | `implement/SKILL.md`, `pipeline-dag-ia/SKILL.md`, `verification-environnement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |
