@@ -25,12 +25,17 @@ from .delegates import (
 )
 from .note_table_model import NoteRowData, NoteVirtualTableModel, strip_html
 from .paginated_model import BasePaginatedPeeweeModel
+from .sorting import SortCriterion, SortDirection, SortOrder, apply_query_sorting
 
 __all__ = [
     "BasePaginatedPeeweeModel",
     "NoteVirtualTableModel",
     "NoteRowData",
     "strip_html",
+    "SortCriterion",
+    "SortDirection",
+    "SortOrder",
+    "apply_query_sorting",
     "VirtualChunkListModel",
     "ChunkItemData",
     "BadgeItemDelegate",

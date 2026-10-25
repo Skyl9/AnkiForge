@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import peewee
-from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt, Signal
 from PySide6.QtGui import QColor, QFont
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
@@ -31,6 +31,7 @@ from ankiforge.ui.models.delegates import (
     TEMPLATE_INDEX_ROLE,
 )
 from ankiforge.ui.models.paginated_model import BasePaginatedPeeweeModel
+from ankiforge.ui.models.sorting import SortOrder, apply_query_sorting
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.anki_renderer import render_card_text
 from ankiforge.utils.tags import parse_note_tags, serialize_note_tags
@@ -110,6 +111,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
     Fournit un rendu instantané, virtualisation totale compatible 100 000+ items à 60 FPS.
     """
 
+    sort_changed = Signal(object)
+
     def __init__(
         self,
         query: peewee.Query | None = None,
@@ -117,10 +120,13 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
         active_model_fields: list[str] | None = None,
         display_mode: Literal["notes", "cards"] = "notes",
         chunk_size: int = 100,
+        sort_order: SortOrder | None = None,
         parent: Any | None = None,
     ) -> None:
         self._display_mode: Literal["notes", "cards"] = display_mode
         self._active_model_fields: list[str] | None = active_model_fields
+        self._sort_order: SortOrder = sort_order or SortOrder.default_for_mode(self._display_mode)
+        self._unfiltered_query: peewee.Query | None = query
         self._checked_note_ids: set[int] = set()
         self._all_checked_mode: bool = False
         self._unchecked_note_ids: set[int] = set()
@@ -134,6 +140,30 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
     def display_mode(self) -> Literal["notes", "cards"]:
         return self._display_mode
 
+    @property
+    def sort_order(self) -> SortOrder:
+        """Retourne l'ordre de tri actif."""
+        return self._sort_order
+
+    def apply_sort(self, sort_order: SortOrder) -> None:
+        """Applique un nouvel ordre de tri et réinitialise de façon fluide la pagination."""
+        self._sort_order = sort_order
+        target_query = self._unfiltered_query if self._unfiltered_query is not None else self._base_query
+        if target_query is not None:
+            self._base_query = apply_query_sorting(target_query, sort_order, self._display_mode)
+
+        self.beginResetModel()
+        self._loaded_rows.clear()
+        self._checked_note_ids.clear()
+        self._all_checked_mode = False
+        self._unchecked_note_ids.clear()
+        self.endResetModel()
+
+        if self._total_count > 0:
+            self._load_initial_batch()
+
+        self.sort_changed.emit(sort_order)
+
     def set_display_mode(self, mode: Literal["notes", "cards"]) -> None:
         """Change le mode d'affichage entre 'notes' et 'cards'."""
         if self._display_mode != mode:
@@ -143,6 +173,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
             self._checked_note_ids.clear()
             self._all_checked_mode = False
             self._unchecked_note_ids.clear()
+            self._sort_order = SortOrder.default_for_mode(mode)
             self._update_headers()
             self.endResetModel()
 
@@ -184,10 +215,15 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
         total_count: int | None = None,
         active_model_fields: list[str] | None = None,
         display_mode: Literal["notes", "cards"] | None = None,
+        sort_order: SortOrder | None = None,
+        unfiltered_query: peewee.Query | None = None,
     ) -> None:
         """Met à jour la requête de filtrage et recharge le premier lot."""
         self.beginResetModel()
         self._base_query = query
+        self._unfiltered_query = unfiltered_query if unfiltered_query is not None else query
+        if sort_order is not None:
+            self._sort_order = sort_order
         self._loaded_rows.clear()
         self._checked_note_ids.clear()
         self._all_checked_mode = False
