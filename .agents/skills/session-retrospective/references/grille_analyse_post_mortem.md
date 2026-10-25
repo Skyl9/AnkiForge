@@ -160,6 +160,21 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : En Python standard, la réassignation d'une variable à un type différent dans des branches disjointes est valide, mais Mypy strict (`disallow_untyped_defs = true`) interdit de masquer ou d'écraser le type inféré d'une variable locale.
 - **Remédiation** : Dans les grands répartiteurs et blocs de dispatch, utiliser impérativement des variables locales qualifiées et contextuelles (`plate_target_id`, `patch_id_str`, `card_id_int`, etc.) au lieu d'abréviations courtes partagées, pour prévenir toute collision de type statique.
 
+### T-29 : Typage Invalide des Fixtures Pytest (`tmp_path: any` vs `Path`)
+- **Symptôme** : Dans un test unitaire ou d'intégration, l'utilisation de `tmp_path: any` déclenche une erreur Mypy : `Function "builtins.any" is not valid as a type [valid-type]` et `Unsupported left operand type for / (any?) [operator]`.
+- **Cause racine** : Utilisation du nom de la fonction intégrée `builtins.any` en minuscule au lieu de la classe `pathlib.Path` ou `typing.Any`.
+- **Remédiation** : Dans tout test acceptant la fixture `tmp_path`, importer impérativement `from pathlib import Path` et annoter `tmp_path: Path`. Proscrire rigoureusement l'utilisation du builtin `any` comme type.
+
+### T-30 : Émojis Décoratifs dans les Valeurs Métier Persistées ou Indexées
+- **Symptôme** : Injection d'emojis décoratifs (ex: `🖼️`, `🔊`) dans des fonctions de nettoyage textuel (`strip_html`) dont le résultat est persisté en base SQLite ou utilisé dans des clauses de tri (`ORDER BY sort_field ASC`), corrompant le tri alphabétique SQL en regroupant artificiellement tous les éléments multimédias sous les mêmes points de code Unicode.
+- **Cause racine** : Copie d'un pattern de nettoyage conçu exclusivement pour le rendu visuel dans les cellules d'interface Qt vers un service backend ou une colonne indexée de modèle Peewee.
+- **Remédiation** : Différencier formellement le nettoyage pour affichage UI du nettoyage pour indexation / tri SQL. Pour les colonnes persistées (`sort_field`, index FTS5), préserver strictement le texte brut sans injection d'emojis décoratifs. Rappel strict de la règle "Zéro emoji dans le code source".
+
+### T-31 : Suppression Incomplète d'Index lors du Rollback de Migration Peewee-Migrate
+- **Symptôme** : Le rollback d'une migration Peewee échoue avec `sqlite3.OperationalError` lors de `ALTER TABLE ... DROP COLUMN` parce qu'un index résiduel fait encore référence à la colonne à supprimer.
+- **Cause racine** : Peewee-migrate nomme automatiquement les index créés via `migrator.add_fields(..., index=True)` sous la forme `<table_name>_<column_name>` (sans préfixe `idx_`), alors qu'un `DROP INDEX IF EXISTS idx_<table_name>_<column_name>` ne cible que la variante avec préfixe.
+- **Remédiation** : Dans toute fonction `rollback()`, supprimer systématiquement les deux variantes de noms (`idx_<table_name>_<column_name>` et `<table_name>_<column_name>`), et tester obligatoirement l'aller-retour complet (`migrate` suivi de `rollback`) dans le test d'intégration de la migration.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -193,4 +208,7 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Concaténation de fragments traduits `tr()` (`T-26`) | Interdiction de `tr() + tr()` et phrases complètes indépendantes par branche | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
 | Destruction récursive de sous-paquets (`T-27`) | Vérification de non-descendance, arborescence complète et `db.atomic()` | `peewee-expert/SKILL.md`, `pipeline-dag-ia/SKILL.md`, `implement/SKILL.md` |
 | Collision de variable locale sous Mypy Strict (`T-28`) | Variables locales contextuelles qualifiées dans les grands blocs de dispatch | `implement/SKILL.md`, `pipeline-dag-ia/SKILL.md`, `verification-environnement/SKILL.md` |
+| Typage invalide de fixture pytest (`tmp_path: any`) (`T-29`) | Annotation `tmp_path: Path` via `from pathlib import Path` et interdiction du builtin `any` | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
+| Émojis dans valeurs persistées ou indexées (`T-30`) | Texte brut sans émojis pour les colonnes en base (`sort_field`, FTS5) | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
+| Rollback de migration avec index incomplet (`T-31`) | Suppression des deux variantes de noms d'index et test obligatoire de rollback | `peewee-expert/SKILL.md`, `implement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

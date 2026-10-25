@@ -88,6 +88,18 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
     - *Pourquoi* : Dans une longue méthode de dispatching ou de routage (`ConsultantEngine._execute_tool_call()`, `_apply_patch_step()`, etc.), réutiliser un nom de variable court ou générique (`p_id`, `data`, `res`) assigné plus haut dans une autre branche avec un type distinct (`str` vs `int`) déclenche l'erreur bloquante Mypy strict `Incompatible types in assignment`.
     - *Garantie automatique* : Employer systématiquement des noms de variables qualifiés et contextuels (`plate_target_id`, `card_id_int`, `patch_id_str`) pour immuniser le typage statique.
 
+20. **Typage strict des fixtures pytest (`tmp_path: Path`) (`T-29`)** :
+    - *Pourquoi* : Dans un test acceptant la fixture pytest `tmp_path`, l'annotation `tmp_path: any` en minuscules invoque la fonction native intégrée `builtins.any` et non un type, provoquant l'échec immédiat de Mypy strict (`Function "builtins.any" is not valid as a type [valid-type]`).
+    - *Garantie automatique* : Importer systématiquement `from pathlib import Path` et annoter rigoureusement `tmp_path: Path`.
+
+21. **Zéro émoji dans les colonnes persistées ou indexées (`T-30`)** :
+    - *Pourquoi* : Injecter des émojis décoratifs (ex: `🖼️`, `🔊`) dans des colonnes textuelles persistées en base SQLite (`sort_field`, FTS5) ou utilisées dans des clauses de tri (`ORDER BY sort_field ASC`) pollue le tri alphabétique SQL en regroupant artificiellement tous les éléments contenant des médias sous les mêmes points de code Unicode. Les émojis sont réservés à l'affichage IHM et strictement interdits dans les valeurs métier stockées.
+    - *Garantie automatique* : Les fonctions d'extraction ou d'indexation (`strip_html_for_sort`, `compute_sort_field`) doivent produire du texte brut nu sans émojis.
+
+22. **Nettoyage exhaustif d'index et test de rollback de migration (`T-31`)** :
+    - *Pourquoi* : Peewee-migrate nomme automatiquement les index créés par `migrator.add_fields(..., index=True)` sous la forme `<table_name>_<column_name>` (sans le préfixe `idx_`). Un `DROP INDEX IF EXISTS idx_<table_name>_<column_name>` n'élimine pas l'index réel, ce qui fait échouer `ALTER TABLE ... DROP COLUMN` lors du rollback avec une erreur SQLite.
+    - *Garantie automatique* : Dans tout `rollback()`, supprimer systématiquement les deux variantes (`idx_<table_name>_<column_name>` et `<table_name>_<column_name>`), et tester obligatoirement l'aller-retour (`migrate` puis `rollback`) dans le test d'intégration de la migration.
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :

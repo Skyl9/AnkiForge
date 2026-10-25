@@ -60,6 +60,10 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
 - Toute modification de schéma (ajout/suppression de colonne, nouvel index) doit s'accompagner d'une **migration peewee-migrate** dans `src/ankiforge/database/migrations/`.
 - Les migrations doivent être **idempotentes** (`IF NOT EXISTS` ou `try/except`) pour survivre à un re-démarrage.
 - La migration est **appliquée automatiquement au démarrage** dans `__main__.py` — ne pas demander à l'utilisateur de la lancer manuellement.
+- **Rollback robuste et double suppression d'index (`T-31`)** :
+  - Peewee-migrate nomme automatiquement les index ajoutés via `migrator.add_fields(..., index=True)` sous la forme `<table_name>_<column_name>` (sans préfixe `idx_`).
+  - Dans la fonction `rollback()`, supprimer systématiquement les deux variantes de noms (`idx_<table_name>_<column_name>` et `<table_name>_<column_name>`) avant d'exécuter `migrator.drop_columns(...)` pour éviter une erreur SQLite bloquante.
+  - Tout test de migration sous `tests/database/` doit obligatoirement tester l'aller-retour complet : application de `migrate(migrator, router.database, fake=False)` suivie de l'exécution de `rollback(migrator, router.database, fake=False)`.
 
 ## 5. Isolation des Tests
 
