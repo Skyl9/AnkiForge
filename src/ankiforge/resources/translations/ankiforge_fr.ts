@@ -225,7 +225,17 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/deck_select_window.py" line="+336"/>
+        <location filename="../../ui/components/deck_select_window.py" line="+345"/>
+        <source>Paquet racine : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Dans : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+245"/>
         <source>Un paquet nommé « %1 » existe déjà.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10736,18 +10746,39 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DeckSelectWindow</name>
     <message>
-        <location filename="../../ui/components/deck_select_window.py" line="-291"/>
+        <location filename="../../ui/components/deck_select_window.py" line="-518"/>
         <source>Rechercher un dossier (ex: Informatique, C++)...</source>
-        <extracomment>Identifiant du nœud racine virtuel « Tous les paquets » (aucun DeckModel réel ne porte cet id).</extracomment>
+        <extracomment>Identifiant du nœud racine virtuel « Tous les paquets » (aucun DeckModel réel ne porte cet id). Mémoire de session des identifiants de paquets actuellement dépliés (None au tout premier affichage)</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+103"/>
+        <location line="+26"/>
+        <source>Tout déplier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Tout replier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <location line="+164"/>
+        <source>Aucun paquet sélectionné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Tous les paquets (Collection entière)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
         <source>Tous les paquets</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+124"/>
+        <location line="+189"/>
         <source>Nouveau sous-paquet</source>
         <translation type="unfinished"></translation>
     </message>

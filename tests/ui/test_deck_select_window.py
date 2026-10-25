@@ -267,3 +267,154 @@ def test_deck_select_window_subdeck_prefills_parent(qtbot: Any, mock_db: Any, mo
     win._build_context_menu(parent.id).actions()[0].trigger()
 
     assert captured["initial_name"] == f"Parent_{uid}::"
+
+
+def test_deck_select_window_displays_leaf_only_and_emits_full_name(qtbot: Any, mock_db: Any) -> None:
+    """L'arborescence n'affiche que le nom de la feuille (sans préfixe), et le signal émet le chemin complet."""
+    DeckSelectWindow.reset_session_expanded_state()
+    uid = uuid.uuid4().hex[:6]
+    gp = DeckModel.create(name=f"Sciences_{uid}")
+    parent = DeckModel.create(name=f"Sciences_{uid}::Physique", parent_deck=gp)
+    child = DeckModel.create(name=f"Sciences_{uid}::Physique::Mecanique", parent_deck=parent)
+
+    win = DeckSelectWindow(allow_all=False, selected_deck_id=child.id)
+    qtbot.addWidget(win)
+
+    item_gp = win._items_by_id[gp.id]
+    item_parent = win._items_by_id[parent.id]
+    item_child = win._items_by_id[child.id]
+
+    assert item_gp.text(0) == f"Sciences_{uid}"
+    assert item_parent.text(0) == "Physique"
+    assert item_child.text(0) == "Mecanique"
+
+    emitted: list[tuple[int, str]] = []
+    win.deck_selected.connect(lambda did, name: emitted.append((did, name)))
+    win.btn_confirm.click()
+
+    assert len(emitted) == 1
+    assert emitted[0] == (child.id, f"Sciences_{uid}::Physique::Mecanique")
+
+
+def test_deck_select_window_sticky_header_shows_container_context(qtbot: Any, mock_db: Any) -> None:
+    """Le bandeau sticky au-dessus de l'arbre affiche le paquet conteneur de la sélection active."""
+    DeckSelectWindow.reset_session_expanded_state()
+    uid = uuid.uuid4().hex[:6]
+    gp = DeckModel.create(name=f"Sciences_{uid}")
+    parent = DeckModel.create(name=f"Sciences_{uid}::Physique", parent_deck=gp)
+    child = DeckModel.create(name=f"Sciences_{uid}::Physique::Mecanique", parent_deck=parent)
+
+    win = DeckSelectWindow(allow_all=True, selected_deck_id=child.id)
+    qtbot.addWidget(win)
+
+    # 1. Sélection du sous-paquet : le sticky header affiche son conteneur parent
+    sticky_text = win.lbl_sticky_container.text()
+    assert f"Sciences_{uid}" in sticky_text
+    assert "Physique" in sticky_text
+    assert "Mecanique" not in sticky_text or "Dans :" in sticky_text
+
+    # 2. Sélection d'un paquet racine : indique le niveau racine
+    win.tree.setCurrentItem(win._items_by_id[gp.id])
+    assert "racine" in win.lbl_sticky_container.text().lower()
+
+    # 3. Sélection de « Tous les paquets »
+    all_item = win._items_by_id[dsw.ALL_DECKS_NODE_ID]
+    win.tree.setCurrentItem(all_item)
+    assert "tous les paquets" in win.lbl_sticky_container.text().lower() or "collection" in win.lbl_sticky_container.text().lower()
+
+
+def test_deck_select_window_search_matches_full_path_and_restores_expansion(qtbot: Any, mock_db: Any) -> None:
+    """La recherche trouve par préfixe ou feuille, et l'effacement restaure l'expansion précédente."""
+    DeckSelectWindow.reset_session_expanded_state()
+    uid = uuid.uuid4().hex[:6]
+    root1 = DeckModel.create(name=f"Root1_{uid}")
+    child1 = DeckModel.create(name=f"Root1_{uid}::SubAlpha", parent_deck=root1)
+    root2 = DeckModel.create(name=f"Root2_{uid}")
+    child2 = DeckModel.create(name=f"Root2_{uid}::SubBeta", parent_deck=root2)
+
+    win = DeckSelectWindow(allow_all=False)
+    qtbot.addWidget(win)
+
+    # État initial : root1 et root2 sont repliés
+    item_root1 = win._items_by_id[root1.id]
+    item_root2 = win._items_by_id[root2.id]
+    item_child1 = win._items_by_id[child1.id]
+    item_child2 = win._items_by_id[child2.id]
+
+    item_root1.setExpanded(False)
+    item_root2.setExpanded(False)
+
+    # Recherche sur "Alpha"
+    win.search_input.setText("SubAlpha")
+    assert not item_child1.isHidden()
+    assert not item_root1.isHidden()
+    assert item_root1.isExpanded()
+    assert item_root2.isHidden()
+
+    # Recherche par préfixe "Root2" trouve child2
+    win.search_input.setText(f"Root2_{uid}")
+    assert not item_child2.isHidden()
+    assert not item_root2.isHidden()
+    assert item_root2.isExpanded()
+    assert item_root1.isHidden()
+
+    # Effacement de la recherche -> Restauration de l'état d'expansion antérieur
+    win.search_input.setText("")
+    assert not item_root1.isHidden()
+    assert not item_root2.isHidden()
+    assert not item_root1.isExpanded()
+    assert not item_root2.isExpanded()
+
+
+def test_deck_select_window_persists_expansion_state_across_reopenings(qtbot: Any, mock_db: Any) -> None:
+    """L'état d'expansion est préservé entre les réouvertures successives sans tout redéplier."""
+    DeckSelectWindow.reset_session_expanded_state()
+    uid = uuid.uuid4().hex[:6]
+    root1 = DeckModel.create(name=f"R1_{uid}")
+    DeckModel.create(name=f"R1_{uid}::C1", parent_deck=root1)
+    root2 = DeckModel.create(name=f"R2_{uid}")
+    DeckModel.create(name=f"R2_{uid}::C2", parent_deck=root2)
+
+    # Première ouverture
+    win1 = DeckSelectWindow(allow_all=False)
+    qtbot.addWidget(win1)
+
+    item_r1 = win1._items_by_id[root1.id]
+    item_r2 = win1._items_by_id[root2.id]
+
+    # Déplier root1 mais replier root2
+    item_r1.setExpanded(True)
+    item_r2.setExpanded(False)
+
+    win1.close()
+
+    # Deuxième ouverture : l'état doit être exactement restauré !
+    win2 = DeckSelectWindow(allow_all=False)
+    qtbot.addWidget(win2)
+
+    item2_r1 = win2._items_by_id[root1.id]
+    item2_r2 = win2._items_by_id[root2.id]
+
+    assert item2_r1.isExpanded()
+    assert not item2_r2.isExpanded()
+
+
+def test_deck_select_window_expand_and_collapse_all_buttons(qtbot: Any, mock_db: Any) -> None:
+    """Les boutons Tout déplier et Tout replier modifient l'ensemble de l'arborescence."""
+    DeckSelectWindow.reset_session_expanded_state()
+    uid = uuid.uuid4().hex[:6]
+    root = DeckModel.create(name=f"Arbre_{uid}")
+    DeckModel.create(name=f"Arbre_{uid}::Branche", parent_deck=root)
+
+    win = DeckSelectWindow(allow_all=False)
+    qtbot.addWidget(win)
+
+    item_root = win._items_by_id[root.id]
+
+    # Clic Tout replier
+    win.btn_collapse_all.click()
+    assert not item_root.isExpanded()
+
+    # Clic Tout déplier
+    win.btn_expand_all.click()
+    assert item_root.isExpanded()

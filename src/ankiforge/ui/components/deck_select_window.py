@@ -6,8 +6,21 @@ Reproduit la maquette `folder_select_modal.html`.
 from typing import cast
 
 from PySide6.QtCore import QEvent, QPoint, Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent, QPalette
-from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QInputDialog, QLineEdit, QMessageBox, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent, QPalette
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QFrame,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ankiforge.database.models import DeckModel
 from ankiforge.repositories.deck_repository import DeckRepository
@@ -26,6 +39,14 @@ class DeckSelectWindow(QWidget):
 
     deck_selected = Signal(int, str)  # (deck_id, deck_name)
 
+    #: Mémoire de session des identifiants de paquets actuellement dépliés (None au tout premier affichage)
+    _session_expanded_deck_ids: set[int] | None = None
+
+    @classmethod
+    def reset_session_expanded_state(cls) -> None:
+        """Réinitialise la mémoire de session des paquets dépliés (utilisé en tests ou changement de profil)."""
+        cls._session_expanded_deck_ids = None
+
     def __init__(
         self,
         title: str = "Sélectionner un Dossier / Deck (Collection)",
@@ -38,9 +59,14 @@ class DeckSelectWindow(QWidget):
         self.selected_deck_id = selected_deck_id
         self._deck_repo = DeckRepository()
 
+        self._is_restoring_expansion: bool = False
+        self._pre_search_expanded_ids: set[int] | None = None
+        self._items_by_id: dict[int, QTreeWidgetItem] = {}
+        self._full_names_by_id: dict[int, str] = {}
+
         self.setWindowTitle(title)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setFixedSize(480, 520)
+        self.setFixedSize(500, 540)
 
         self.setStyleSheet(f"""
             QWidget {{
@@ -53,16 +79,22 @@ class DeckSelectWindow(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(14, 14, 14, 14)
-        content_layout.setSpacing(12)
+        content_layout.setSpacing(10)
+
+        # Ligne de recherche & contrôles d'expansion
+        search_row = QHBoxLayout()
+        search_row.setContentsMargins(0, 0, 0, 0)
+        search_row.setSpacing(6)
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(self.tr("Rechercher un dossier (ex: Informatique, C++)..."))
         search_icon = load_phosphor_icon("magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.search_input.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
+        self.search_input.setClearButtonEnabled(True)
         self.search_input.setFixedHeight(32)
 
         self.search_input.setStyleSheet(f"""
@@ -80,8 +112,78 @@ class DeckSelectWindow(QWidget):
             }}
         """)
         self.search_input.textChanged.connect(self._on_search_changed)
+        search_row.addWidget(self.search_input, 1)
 
-        content_layout.addWidget(self.search_input)
+        self.btn_expand_all = QPushButton()
+        self.btn_expand_all.setFixedSize(32, 32)
+        self.btn_expand_all.setIcon(load_phosphor_icon("arrows-out", color=DesignTokens.TEXT_MUTED))
+        self.btn_expand_all.setToolTip(self.tr("Tout déplier"))
+        self.btn_expand_all.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border: 1px solid {DesignTokens.BORDER_FOCUS};
+            }}
+        """)
+        self.btn_expand_all.clicked.connect(self.expand_all_nodes)
+        search_row.addWidget(self.btn_expand_all)
+
+        self.btn_collapse_all = QPushButton()
+        self.btn_collapse_all.setFixedSize(32, 32)
+        self.btn_collapse_all.setIcon(load_phosphor_icon("arrows-in", color=DesignTokens.TEXT_MUTED))
+        self.btn_collapse_all.setToolTip(self.tr("Tout replier"))
+        self.btn_collapse_all.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border: 1px solid {DesignTokens.BORDER_FOCUS};
+            }}
+        """)
+        self.btn_collapse_all.clicked.connect(self.collapse_all_nodes)
+        search_row.addWidget(self.btn_collapse_all)
+
+        content_layout.addLayout(search_row)
+
+        # Bandeau Sticky Conteneur au-dessus de l'arborescence
+        self.sticky_header = QFrame()
+        self.sticky_header.setObjectName("DeckSelectStickyHeader")
+        sticky_layout = QHBoxLayout(self.sticky_header)
+        sticky_layout.setContentsMargins(10, 6, 10, 6)
+        sticky_layout.setSpacing(8)
+
+        self.ico_sticky_container = QLabel()
+        self.ico_sticky_container.setFixedSize(16, 16)
+        self.ico_sticky_container.setPixmap(load_phosphor_icon("folder", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
+
+        self.lbl_sticky_container = QLabel(self.tr("Aucun paquet sélectionné"))
+        self.lbl_sticky_container.setTextFormat(Qt.TextFormat.RichText)
+        self.lbl_sticky_container.setStyleSheet(f"""
+            QLabel {{
+                color: {DesignTokens.TEXT_MUTED};
+                font-size: 11px;
+                font-family: '{DesignTokens.FONT_MAIN}';
+            }}
+        """)
+        sticky_layout.addWidget(self.ico_sticky_container)
+        sticky_layout.addWidget(self.lbl_sticky_container, 1)
+
+        self.sticky_header.setStyleSheet(f"""
+            QFrame#DeckSelectStickyHeader {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                min-height: 28px;
+            }}
+        """)
+        content_layout.addWidget(self.sticky_header)
 
         # TreeWidget
         self.tree = QTreeWidget()
@@ -148,6 +250,9 @@ class DeckSelectWindow(QWidget):
         layout.addWidget(footer)
 
         self.tree.itemSelectionChanged.connect(self._on_selection_changed)
+        self.tree.currentItemChanged.connect(self._on_current_item_changed)
+        self.tree.itemExpanded.connect(self._on_item_expanded)
+        self.tree.itemCollapsed.connect(self._on_item_collapsed)
         self.tree.itemDoubleClicked.connect(self._on_confirm)
 
         # Installation des raccourcis et navigation clavier
@@ -156,25 +261,119 @@ class DeckSelectWindow(QWidget):
 
         self._load_decks()
 
+    def get_deck_full_name(self, deck_id: int) -> str:
+        """Retourne le nom hiérarchique complet d'un paquet à partir de son identifiant."""
+        return self._full_names_by_id.get(deck_id, "")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Enregistre l'état d'expansion courant à la fermeture."""
+        self._sync_session_expanded_state()
+        super().closeEvent(event)
+
+    def _sync_session_expanded_state(self) -> None:
+        """Sauvegarde les identifiants de paquets actuellement dépliés dans la session."""
+        if not self._is_restoring_expansion and self._pre_search_expanded_ids is None:
+            DeckSelectWindow._session_expanded_deck_ids = {did for did, it in self._items_by_id.items() if it.isExpanded()}
+
+    def _on_item_expanded(self, item: QTreeWidgetItem) -> None:
+        if self._is_restoring_expansion or self._pre_search_expanded_ids is not None:
+            return
+        deck_id = item.data(0, Qt.ItemDataRole.UserRole)
+        if isinstance(deck_id, int):
+            if DeckSelectWindow._session_expanded_deck_ids is None:
+                DeckSelectWindow._session_expanded_deck_ids = set()
+            DeckSelectWindow._session_expanded_deck_ids.add(deck_id)
+
+    def _on_item_collapsed(self, item: QTreeWidgetItem) -> None:
+        if self._is_restoring_expansion or self._pre_search_expanded_ids is not None:
+            return
+        deck_id = item.data(0, Qt.ItemDataRole.UserRole)
+        if isinstance(deck_id, int):
+            if DeckSelectWindow._session_expanded_deck_ids is None:
+                DeckSelectWindow._session_expanded_deck_ids = set()
+            DeckSelectWindow._session_expanded_deck_ids.discard(deck_id)
+
+    def expand_all_nodes(self) -> None:
+        """Déplie l'ensemble des noeuds de l'arborescence."""
+        self._is_restoring_expansion = True
+        try:
+            self.tree.expandAll()
+            if DeckSelectWindow._session_expanded_deck_ids is None:
+                DeckSelectWindow._session_expanded_deck_ids = set()
+            for did in self._items_by_id:
+                DeckSelectWindow._session_expanded_deck_ids.add(did)
+        finally:
+            self._is_restoring_expansion = False
+
+    def collapse_all_nodes(self) -> None:
+        """Replie l'ensemble des noeuds de l'arborescence."""
+        self._is_restoring_expansion = True
+        try:
+            self.tree.collapseAll()
+            if DeckSelectWindow._session_expanded_deck_ids is not None:
+                DeckSelectWindow._session_expanded_deck_ids.clear()
+            if self.allow_all and ALL_DECKS_NODE_ID in self._items_by_id:
+                self._items_by_id[ALL_DECKS_NODE_ID].setExpanded(True)
+                if DeckSelectWindow._session_expanded_deck_ids is not None:
+                    DeckSelectWindow._session_expanded_deck_ids.add(ALL_DECKS_NODE_ID)
+        finally:
+            self._is_restoring_expansion = False
+
+    def _update_sticky_header(self, item: QTreeWidgetItem | None = None) -> None:
+        """Met à jour le bandeau sticky affichant le conteneur du paquet sélectionné."""
+        if item is None:
+            selected = self.tree.selectedItems()
+            item = selected[0] if selected else self.tree.currentItem()
+
+        if item is None:
+            self.ico_sticky_container.setPixmap(load_phosphor_icon("folder", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
+            self.lbl_sticky_container.setText(self.tr("Aucun paquet sélectionné"))
+            return
+
+        deck_id = item.data(0, Qt.ItemDataRole.UserRole)
+        if deck_id == ALL_DECKS_NODE_ID:
+            self.ico_sticky_container.setPixmap(load_phosphor_icon("folders", color=DesignTokens.COLOR_BLUE).pixmap(16, 16))
+            self.lbl_sticky_container.setText(self.tr("Tous les paquets (Collection entière)"))
+            return
+
+        full_name = self.get_deck_full_name(deck_id) if isinstance(deck_id, int) else item.text(0)
+        parts = split_hierarchy(full_name)
+
+        if len(parts) <= 1:
+            self.ico_sticky_container.setPixmap(load_phosphor_icon("folder", color=DesignTokens.COLOR_BLUE).pixmap(16, 16))
+            root_title = parts[0] if parts else full_name
+            self.lbl_sticky_container.setText(tr("Paquet racine : %1", root_title))
+        else:
+            container_path = " › ".join(parts[:-1])
+            self.ico_sticky_container.setPixmap(load_phosphor_icon("folder-open", color=DesignTokens.COLOR_BLUE).pixmap(16, 16))
+            self.lbl_sticky_container.setText(tr("Dans : %1", container_path))
+
     def _load_decks(self) -> None:
-        """Charge l'arborescence des paquets depuis DeckModel."""
+        """Charge l'arborescence des paquets sans préfixes avec restauration de l'état d'expansion."""
         self.tree.clear()
-        self._items_by_id: dict[int, QTreeWidgetItem] = {}
+        self._items_by_id = {}
+        self._full_names_by_id = {}
 
         global_item: QTreeWidgetItem | None = None
         if self.allow_all:
-            global_item = QTreeWidgetItem([self.tr("Tous les paquets")])
+            all_title = self.tr("Tous les paquets")
+            global_item = QTreeWidgetItem([all_title])
             global_item.setData(0, Qt.ItemDataRole.UserRole, ALL_DECKS_NODE_ID)
+            global_item.setData(0, Qt.ItemDataRole.UserRole + 1, all_title)
             global_item.setIcon(0, load_phosphor_icon("folders", color=DesignTokens.COLOR_BLUE))
             self.tree.addTopLevelItem(global_item)
             self._items_by_id[ALL_DECKS_NODE_ID] = global_item
+            self._full_names_by_id[ALL_DECKS_NODE_ID] = all_title
 
         decks = list(DeckModel.select().order_by(DeckModel.name.asc()))
 
-        # 1. Créer tous les items
+        # 1. Créer tous les items avec leaf_name uniquement
         for deck in decks:
-            item = QTreeWidgetItem([deck.name])
+            display_title = leaf_name(deck.name)
+            item = QTreeWidgetItem([display_title])
             item.setData(0, Qt.ItemDataRole.UserRole, deck.id)
+            item.setData(0, Qt.ItemDataRole.UserRole + 1, deck.name)
+            self._full_names_by_id[deck.id] = deck.name
 
             icon = load_phosphor_icon("folder", color=DesignTokens.COLOR_BLUE)
             item.setIcon(0, icon)
@@ -192,42 +391,94 @@ class DeckSelectWindow(QWidget):
             else:
                 self.tree.addTopLevelItem(item)
 
-        self.tree.expandAll()
+        # 3. Restauration fidèle de l'état d'expansion sans tout redéplier
+        self._is_restoring_expansion = True
+        try:
+            if DeckSelectWindow._session_expanded_deck_ids is not None:
+                for did, it in self._items_by_id.items():
+                    it.setExpanded(did in DeckSelectWindow._session_expanded_deck_ids)
+            else:
+                DeckSelectWindow._session_expanded_deck_ids = set()
+                # Premier affichage : déplier uniquement les racines
+                for i in range(self.tree.topLevelItemCount()):
+                    top_it = self.tree.topLevelItem(i)
+                    if top_it:
+                        top_it.setExpanded(True)
+                        top_id = top_it.data(0, Qt.ItemDataRole.UserRole)
+                        if isinstance(top_id, int):
+                            DeckSelectWindow._session_expanded_deck_ids.add(top_id)
 
-        if self.selected_deck_id is not None and self.selected_deck_id in self._items_by_id:
-            item = self._items_by_id[self.selected_deck_id]
-            self.tree.setCurrentItem(item)
-            self.btn_confirm.setEnabled(True)
+            # Si un paquet spécifique est présélectionné, s'assurer que ses ancêtres sont dépliés
+            if self.selected_deck_id is not None and self.selected_deck_id in self._items_by_id:
+                target_item = self._items_by_id[self.selected_deck_id]
+                parent_node = target_item.parent()
+                while parent_node:
+                    parent_node.setExpanded(True)
+                    p_id = parent_node.data(0, Qt.ItemDataRole.UserRole)
+                    if isinstance(p_id, int) and DeckSelectWindow._session_expanded_deck_ids is not None:
+                        DeckSelectWindow._session_expanded_deck_ids.add(p_id)
+                    parent_node = parent_node.parent()
+
+                self.tree.setCurrentItem(target_item)
+                self.tree.scrollToItem(target_item, QAbstractItemView.ScrollHint.PositionAtCenter)
+                self.btn_confirm.setEnabled(True)
+            elif global_item and self.allow_all:
+                self.tree.setCurrentItem(global_item)
+        finally:
+            self._is_restoring_expansion = False
+
+        self._update_sticky_header()
 
     def _on_search_changed(self, text: str) -> None:
-        """Filtre l'arborescence : affiche les noeuds correspondants ET leurs parents."""
+        """Filtre l'arborescence : cherche dans la feuille ET le chemin complet, restaure l'expansion post-recherche."""
         query = text.lower().strip()
 
         if not query:
             # Réafficher tout
+            self._is_restoring_expansion = True
+            try:
+                for i in range(self.tree.topLevelItemCount()):
+                    item = self.tree.topLevelItem(i)
+                    if item:
+                        self._set_item_visibility_recursive(item, True)
+
+                # Restaurer fidèlement l'état d'expansion antérieur à la recherche
+                if self._pre_search_expanded_ids is not None:
+                    for did, it in self._items_by_id.items():
+                        it.setExpanded(did in self._pre_search_expanded_ids)
+                    self._pre_search_expanded_ids = None
+            finally:
+                self._is_restoring_expansion = False
+            self._update_sticky_header()
+            return
+
+        # Début de recherche : sauvegarder l'état d'expansion actif
+        if self._pre_search_expanded_ids is None:
+            self._pre_search_expanded_ids = {did for did, it in self._items_by_id.items() if it.isExpanded()}
+
+        self._is_restoring_expansion = True
+        try:
+            # Cacher tous les noeuds d'abord
             for i in range(self.tree.topLevelItemCount()):
                 item = self.tree.topLevelItem(i)
                 if item:
-                    self._set_item_visibility_recursive(item, True)
-            return
+                    self._set_item_visibility_recursive(item, False)
 
-        # Sinon, cacher tout d'abord
-        for i in range(self.tree.topLevelItemCount()):
-            item = self.tree.topLevelItem(i)
-            if item:
-                self._set_item_visibility_recursive(item, False)
+            # Rendre visibles les correspondances (nom de feuille OU chemin complet) et leurs ancêtres
+            for did, item in self._items_by_id.items():
+                full_name = self.get_deck_full_name(did).lower()
+                display_name = item.text(0).lower()
+                if query in display_name or query in full_name:
+                    item.setHidden(False)
+                    parent = item.parent()
+                    while parent:
+                        parent.setHidden(False)
+                        parent.setExpanded(True)
+                        parent = parent.parent()
+        finally:
+            self._is_restoring_expansion = False
 
-        # Parcourir et afficher les correspondances et remonter pour afficher les parents
-        for item in self._items_by_id.values():
-            if query in item.text(0).lower():
-                # On le rend visible
-                item.setHidden(False)
-                # Et tous ses parents
-                parent = item.parent()
-                while parent:
-                    parent.setHidden(False)
-                    parent.setExpanded(True)
-                    parent = parent.parent()
+        self._update_sticky_header()
 
     def _set_item_visibility_recursive(self, item: QTreeWidgetItem, visible: bool) -> None:
         item.setHidden(not visible)
@@ -238,6 +489,7 @@ class DeckSelectWindow(QWidget):
         selected = self.tree.selectedItems()
         if not selected:
             self.btn_confirm.setEnabled(False)
+            self._update_sticky_header(None)
             return
 
         item = selected[0]
@@ -246,6 +498,10 @@ class DeckSelectWindow(QWidget):
             self.btn_confirm.setEnabled(False)
         else:
             self.btn_confirm.setEnabled(True)
+        self._update_sticky_header(item)
+
+    def _on_current_item_changed(self, current: QTreeWidgetItem | None, previous: QTreeWidgetItem | None) -> None:
+        self._update_sticky_header(current)
 
     def _on_confirm(self) -> None:
         selected = self.tree.selectedItems()
@@ -254,7 +510,9 @@ class DeckSelectWindow(QWidget):
             deck_id = item.data(0, Qt.ItemDataRole.UserRole)
             if not self.allow_all and deck_id == ALL_DECKS_NODE_ID:
                 return
-            deck_name = item.text(0)
+            deck_name = self.get_deck_full_name(deck_id)
+            if not deck_name:
+                deck_name = item.text(0)
             self.deck_selected.emit(deck_id, deck_name)
             self.close()
 
@@ -380,6 +638,9 @@ class DeckSelectWindow(QWidget):
                 return True
 
             if key == Qt.Key.Key_Escape:
+                if obj is self.search_input and self.search_input.text():
+                    self.search_input.clear()
+                    return True
                 self.close()
                 return True
 
