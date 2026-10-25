@@ -70,7 +70,8 @@ Le dépôt héberge 49 compétences agentiques autonomes conformes au standard i
 - `wayfinder` (`.agents/skills/wayfinder/SKILL.md`) : Cartographie de feuilles de route et d'arbres décisionnels pour chantiers complexes.
 - `domain-modeling` (`.agents/skills/domain-modeling/SKILL.md`), `codebase-design` (`.agents/skills/codebase-design/SKILL.md`) : Modélisation du domaine (`CONTEXT.md`, ADRs) et conception de modules profonds.
 - `improve-codebase-architecture` (`.agents/skills/improve-codebase-architecture/SKILL.md`) : Analyse structurelle pour approfondir les interfaces et réduire les couplages.
-- `handoff` (`.agents/skills/handoff/SKILL.md`), `prototype` (`.agents/skills/prototype/SKILL.md`), `research` (`.agents/skills/research/SKILL.md`) : Compaction de contexte pour reprise de session, spikes jetables et investigation de sources primaires.
+- `handoff` (`.agents/skills/handoff/SKILL.md`), `prototype` (`.agents/skills/prototype/SKILL.md`) : Compaction de contexte pour reprise de session et spikes jetables.
+- `research` (`.agents/skills/research/SKILL.md`) : Investigation documentaire et recherche adaptée au besoin (recherche web, sources primaires) sans interview prématurée `grill-with-docs`.
 - `doubt-driven-development` (`.agents/skills/doubt-driven-development/SKILL.md`), `source-driven-development` (`.agents/skills/source-driven-development/SKILL.md`) : Contre-revue contradictoire en contexte neutre et ancrage dans les documentations officielles vérifiées.
 - `resolving-merge-conflicts` (`.agents/skills/resolving-merge-conflicts/SKILL.md`), `code-simplification` (`.agents/skills/code-simplification/SKILL.md`) : Résolution d'intentions de fusion et simplification de clarté de code.
 - `wait-what` (`.agents/skills/wait-what/SKILL.md`), `writing-for-agents` (`.agents/skills/writing-for-agents/SKILL.md`), `to-questionnaire` (`.agents/skills/to-questionnaire/SKILL.md`), `setup-forge-workflow` (`.agents/skills/setup-forge-workflow/SKILL.md`) : Réparation de compréhension, rédaction de compétences, aide au choix éclairé et initialisation de workflow.
@@ -179,6 +180,12 @@ L'agent ne doit **JAMAIS** exécuter de `git commit` ou `git push` de manière a
 ### 8. Respect du Design System (`DESIGN.md`)
 - `DESIGN.md` est la source unique de vérité pour les 12 familles de thèmes et les 4 dispositions d'interface (layouts).
 - Zéro couleur en dur dans le code : toutes les teintes et métriques dérivent des jetons sémantiques `DesignTokens` / `ThemeProfile` injectés par `StyleEngine.generate_stylesheet()`.
+
+### 9. Prise en Charge des Tickets de Recherche (Interdiction de `/grill-with-docs` Prématuré)
+- **Interdiction formelle** : Lorsqu'un ticket ou une tâche affiche « rechercher » (ou relève d'une investigation, d'un état de l'art ou d'un benchmark), il est formellement interdit de déclencher un `/grill-with-docs` d'emblée. Une interview d'architecture ou un interrogatoire de cadrage est inutile et contre-productif tant que la matière documentaire n'a pas été rassemblée.
+- **Clarification préalable** : L'agent doit d'abord demander explicitement à l'utilisateur le sujet précis de la recherche, ses attentes et le périmètre d'investigation souhaité.
+- **Recherche web & apport documentaire** : Effectuer les recherches documentaires nécessaires (notamment via la recherche sur le web et l'exploration des documentations officielles et sources primaires), puis adapter et structurer la documentation existante directement en réponse ciblée aux besoins de l'utilisateur et aux contraintes d'AnkiForge.
+- **Orientation aval conditionnelle** : Ce n'est qu'une fois la documentation existante amenée, synthétisée et validée avec l'utilisateur qu'il convient d'orienter la suite (ex. arbitrage d'architecture via `/grill-with-docs`, spécification via `/to-spec`, ou spike via `/prototype`).
 <!-- CANONICAL:END:regles_ingenierie -->
 
 <!-- CANONICAL:START:architecture_points_cles -->

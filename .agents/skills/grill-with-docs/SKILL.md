@@ -61,6 +61,7 @@ Dès qu'un palier de décision est validé par l'utilisateur :
 
 ## When NOT to use this skill
 
+- **Ne JAMAIS utiliser d'emblée lorsqu'un ticket ou une demande affiche « rechercher »** (investigation documentaire, état de l'art, veille technique) : interdiction formelle de lancer un `/grill-with-docs` tout de suite. Demander d'abord le sujet précis de la recherche et apporter la documentation existante adaptée (via `/research` et recherche web) avant tout cadrage ultérieur.
 - Ne pas utiliser lorsque l'idée est déjà totalement arrêtée et prête pour spécification technique structurée → utiliser `/to-spec`.
 - Ne pas utiliser pour découper une spécification validée en tickets traçables → utiliser `/to-tickets`.
 - Ne pas utiliser pour implémenter directement du code en TDD → utiliser `/implement`.

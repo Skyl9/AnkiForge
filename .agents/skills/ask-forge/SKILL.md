@@ -17,7 +17,7 @@ Un **flux** est un parcours cohérent à travers les compétences. La majorité 
 
 Le trajet naturel d'une fonctionnalité ou d'une évolution :
 
-1. **`/grill-with-docs`** : affûte l'idée par interview contradictoire. Point de départ dans le dépôt : c'est un processus avec persistance dans `CONTEXT.md` et les ADRs (`docs/adr/`).
+1. **`/grill-with-docs`** : affûte l'idée par interview contradictoire. Point de départ dans le dépôt : c'est un processus avec persistance dans `CONTEXT.md` et les ADRs (`docs/adr/`). *(Exception formelle : si le ticket affiche « rechercher », interdiction de lancer `/grill-with-docs` tout de suite ; passer par la rampe `/research`).*
 2. **Embranchement : peut-on trancher toutes les questions en discussion ?** Si une question nécessite une réponse exécutable (état complexe, règle métier incertaine, ergonomie d'UI), faire un détour par un prototype, relié par **`/handoff`** :
    - `/handoff` sortant vers un dossier isolé,
    - **`/prototype`** pour répondre avec du code jetable exploratoire,
@@ -33,6 +33,7 @@ Dans tous les cas, **`/implement`** s'appuie en interne sur **`/tdd`** (cycle re
 Situations initiales générant du travail avant d'intégrer le flux principal :
 
 - **Demandes ou tickets bruts à qualifier** → **`/triage`**. Évalue les besoins arrivants, qualifie leur criticité et met à jour les fiches et colonnes du Kanban Obsidian (`ready-for-agent`, `needs-info`, `wontfix`).
+- **Tickets ou besoins de recherche (« Rechercher »)** → **`/research`**. Pour tout ticket ou sujet affichant « rechercher » : **ne JAMAIS lancer `/grill-with-docs` tout de suite**. Demander le sujet précis de la recherche à l'utilisateur, rechercher et amener la documentation existante (via web et sources primaires) et l'adapter au besoin avant tout cadrage ultérieur.
 - **Comportement cassé ou régression** → **`/diagnosing-bugs`**. Pour les anomalies résistantes : reproduction stricte en une commande rouge, isolation du composant et correction par test de non-régression.
 - **Chantier exploratoire vaste ou brumeux** → **`/wayfinder`**. Pour les efforts de grande envergure : cartographie progressive des décisions avant de basculer sur `/to-spec`.
 
@@ -53,6 +54,7 @@ Situations initiales générant du travail avant d'intégrer le flux principal :
 
 ## When NOT to use this skill
 
+- Ne pas utiliser pour traiter un ticket affichant « rechercher » sans clarification préalable → utiliser directement `/research`.
 - Ne pas utiliser pour coder directement une fonctionnalité → utiliser `/implement` ou `/tdd`.
 - Ne pas utiliser pour diagnostiquer un bogue précis → utiliser `/diagnosing-bugs`.
 - Ne pas utiliser pour manipuler manuellement le Kanban Obsidian sans routage → utiliser `obsidian-vault`.
