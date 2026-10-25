@@ -11,7 +11,13 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel, StagedPatchModel
+from ankiforge.database.models import (
+    DeckModel,
+    NoteModel,
+    NoteTypeModel,
+    NoteVersionModel,
+    StagedPatchModel,
+)
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
 
@@ -355,3 +361,270 @@ def test_mcp_garde_fou_widget_apply_note_type_change(qtbot, sample_note) -> None
     assert widget.count() == 0
     reloaded_note = NoteModel.get_by_id(sample_note.id)
     assert reloaded_note.note_type.id == target_nt.id
+
+
+def test_mcp_garde_fou_bundle_hierarchical_display(qtbot) -> None:
+    """Vérifie l'affichage groupé des bundles et de leurs sous-étapes dans le volet maître."""
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Restructuration Neurologie",
+        explanation="Création du paquet et insertion de cartes.",
+    )
+    p1 = StagedPatchRegistry.create_patch(
+        patch_type="deck_create",
+        diff_payload={"deck_name": "Médecine::Neurologie", "title": "Créer Paquet Neuro"},
+    )
+    StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Carte Synapse", "original": {"Front": "Q1"}, "modified": {"Front": "Q1 mod"}},
+    )
+    StagedPatchRegistry.commit_bundle(bundle_id)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    # Le widget contient 2 étapes en attente
+    assert widget.count() == 2
+
+    # Le volet maître affiche l'arborescence
+    assert hasattr(widget, "patch_tree")
+    assert widget.patch_tree.topLevelItemCount() == 1
+    bundle_item = widget.patch_tree.topLevelItem(0)
+    assert bundle_item is not None
+    assert bundle_item.childCount() == 2
+
+    # L'étape 1 est sélectionnée automatiquement
+    assert widget.current_patch_id == p1.patch_id
+    # La zone de détail polymorphe est à l'index 1 (vue paquet)
+    assert widget.polymorphic_stack.currentIndex() == 1
+    assert widget.btn_apply.text() == "Valider cette étape"
+    assert widget.btn_reject.text() == "Rejeter la suite du bloc"
+    assert widget.btn_apply_bundle_all.isVisible()
+
+
+def test_mcp_garde_fou_polymorphic_stack_views(qtbot, sample_note) -> None:
+    """Vérifie la commutation des 4 pages du QStackedWidget polymorphe selon le type d'opération."""
+    p_card = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={"title": "Diff Carte", "original": {"Front": "A"}, "modified": {"Front": "B"}},
+    )
+    p_deck = StagedPatchRegistry.create_patch(
+        patch_type="deck_create",
+        diff_payload={"deck_name": "Sciences::Biologie::Cellule", "title": "Nouveau Paquet"},
+    )
+    p_tags = StagedPatchRegistry.create_patch(
+        patch_type="set_tags",
+        diff_payload={
+            "title": "Ajustement Tags",
+            "note_ids": [sample_note.id],
+            "tags_added": ["neuro", "anatomie"],
+            "tags_removed": ["brouillon"],
+        },
+    )
+    p_del = StagedPatchRegistry.create_patch(
+        patch_type="card_delete",
+        target_id=sample_note.id,
+        diff_payload={"title": "Suppression Carte", "reason": "Doublon obsolète"},
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    # 1. Sélectionner patch carte -> Page 0 (Diff sémantique)
+    widget.select_patch_by_id(p_card.patch_id)
+    assert widget.polymorphic_stack.currentIndex() == 0
+    assert widget.polymorphic_stack.currentWidget() is widget.diff_viewer
+
+    # 2. Sélectionner patch deck -> Page 1 (Arborescence paquet)
+    widget.select_patch_by_id(p_deck.patch_id)
+    assert widget.polymorphic_stack.currentIndex() == 1
+    assert widget.polymorphic_stack.currentWidget() is widget.deck_view
+    assert "Cellule" in widget.deck_view.get_deck_name()
+
+    # 3. Sélectionner patch tags -> Page 2 (Tableau comparatif tags)
+    widget.select_patch_by_id(p_tags.patch_id)
+    assert widget.polymorphic_stack.currentIndex() == 2
+    assert widget.polymorphic_stack.currentWidget() is widget.tag_view
+    assert "neuro" in widget.tag_view.get_added_tags()
+    assert "brouillon" in widget.tag_view.get_removed_tags()
+
+    # 4. Sélectionner patch suppression -> Page 3 (Bannière rouge vif)
+    widget.select_patch_by_id(p_del.patch_id)
+    assert widget.polymorphic_stack.currentIndex() == 3
+    assert widget.polymorphic_stack.currentWidget() is widget.deletion_view
+    assert "Doublon obsolète" in widget.deletion_view.get_reason()
+
+
+def test_mcp_garde_fou_bundle_step_by_step_and_cascade(qtbot) -> None:
+    """Vérifie la validation séquentielle pas-à-pas et la cascade de rejet sur un bundle."""
+    deck_name = f"Deck_Seq_{uuid.uuid4().hex[:6]}"
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Bundle Séquentiel Test",
+        explanation="Test de validation pas-à-pas et rejet en cascade.",
+    )
+    p1 = StagedPatchRegistry.create_patch(
+        patch_type="deck_create",
+        diff_payload={"deck_name": deck_name, "title": "Étape 1 Deck"},
+    )
+    p2 = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Étape 2 Carte", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+    )
+    p3 = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Étape 3 Carte", "original": {"Front": "Q"}, "modified": {"Front": "Q3"}},
+    )
+    StagedPatchRegistry.commit_bundle(bundle_id)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 3
+    assert widget.current_patch_id == p1.patch_id
+
+    # 1. Validation étape 1
+    widget.btn_apply.click()
+    assert DeckModel.get_or_none(DeckModel.name == deck_name) is not None
+    assert widget.count() == 2
+    assert widget.current_patch_id == p2.patch_id
+
+    # 2. Rejet en cascade à l'étape 2 -> doit rejeter l'étape 2 ET l'étape 3
+    widget.btn_reject.click()
+    assert widget.count() == 0
+    assert widget.detail_stack.currentWidget() is widget.empty_view
+
+    # Vérification BDD : étape 1 appliquée, étapes 2 et 3 rejetées
+    assert StagedPatchRegistry.get_patch(p1.patch_id).status == "applied"
+    assert StagedPatchRegistry.get_patch(p2.patch_id).status == "rejected"
+    assert StagedPatchRegistry.get_patch(p3.patch_id).status == "rejected"
+
+
+def test_mcp_garde_fou_bundle_apply_all(qtbot) -> None:
+    """Vérifie l'action 'Tout valider le bloc' en une transaction atomique."""
+    d1 = f"Deck_All1_{uuid.uuid4().hex[:6]}"
+    d2 = f"Deck_All2_{uuid.uuid4().hex[:6]}"
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Tout Valider")
+    StagedPatchRegistry.create_patch(patch_type="deck_create", diff_payload={"deck_name": d1})
+    StagedPatchRegistry.create_patch(patch_type="deck_create", diff_payload={"deck_name": d2})
+    StagedPatchRegistry.commit_bundle(bundle_id)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 2
+    widget.btn_apply_bundle_all.click()
+
+    assert widget.count() == 0
+    assert DeckModel.get_or_none(DeckModel.name == d1) is not None
+    assert DeckModel.get_or_none(DeckModel.name == d2) is not None
+
+
+def test_mcp_garde_fou_direct_edit_deck_create(qtbot) -> None:
+    """Vérifie que la retouche du nom de paquet dans l'IHM est synchronisée et appliquée en base."""
+    d_initial = f"Deck_Orig_{uuid.uuid4().hex[:6]}"
+    d_retouche = f"Deck_Retouche_{uuid.uuid4().hex[:6]}"
+
+    StagedPatchRegistry.create_patch(
+        patch_type="deck_create",
+        diff_payload={"deck_name": d_initial, "title": "Créer paquet"},
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.polymorphic_stack.currentIndex() == 1
+    # Modification directe dans l'éditeur de nom de paquet
+    widget.deck_view.deck_name_input.setText(d_retouche)
+
+    widget.btn_apply.click()
+
+    assert widget.count() == 0
+    assert DeckModel.get_or_none(DeckModel.name == d_retouche) is not None
+    assert DeckModel.get_or_none(DeckModel.name == d_initial) is None
+
+
+def test_mcp_garde_fou_direct_edit_set_tags(qtbot, sample_note) -> None:
+    """Vérifie que la retouche des tags dans l'IHM est synchronisée et appliquée."""
+    StagedPatchRegistry.create_patch(
+        patch_type="set_tags",
+        diff_payload={
+            "title": "Ajout tags",
+            "note_ids": [sample_note.id],
+            "tags_added": ["tag_a"],
+        },
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.polymorphic_stack.currentIndex() == 2
+    # Retouche utilisateur : ajoute tag_b
+    widget.tag_view.tags_input.setText("tag_a, tag_b")
+
+    widget.btn_apply.click()
+
+    assert widget.count() == 0
+    reloaded_note = NoteModel.get_by_id(sample_note.id)
+    assert "tag_a" in reloaded_note.tags
+    assert "tag_b" in reloaded_note.tags
+
+
+def test_mcp_garde_fou_deck_rename(qtbot) -> None:
+    """Vérifie la visualisation et validation d'un renommage de paquet."""
+    old_name = f"Deck_Old_{uuid.uuid4().hex[:6]}"
+    new_name = f"Deck_New_{uuid.uuid4().hex[:6]}"
+    deck = DeckModel.create(name=old_name)
+
+    StagedPatchRegistry.create_patch(
+        patch_type="deck_rename",
+        target_id=deck.id,
+        diff_payload={"old_name": old_name, "new_name": new_name, "title": "Renommer deck"},
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.polymorphic_stack.currentIndex() == 1
+    assert widget.deck_view.get_deck_name() == new_name
+
+    widget.btn_apply.click()
+
+    assert widget.count() == 0
+    reloaded_deck = DeckModel.get_by_id(deck.id)
+    assert reloaded_deck.name == new_name
+
+
+def test_mcp_garde_fou_deletion_impact_and_apply(qtbot, sample_note) -> None:
+    """Vérifie la vue d'avertissement de suppression et son application."""
+    StagedPatchRegistry.create_patch(
+        patch_type="card_delete",
+        target_id=sample_note.id,
+        diff_payload={"title": "Supprimer note test", "note_ids": [sample_note.id], "reason": "Test motif"},
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.polymorphic_stack.currentIndex() == 3
+    assert "Test motif" in widget.deletion_view.get_reason()
+
+    widget.btn_apply.click()
+
+    assert widget.count() == 0
+    assert NoteModel.get_or_none(NoteModel.id == sample_note.id) is None

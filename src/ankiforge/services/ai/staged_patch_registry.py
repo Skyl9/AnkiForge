@@ -757,6 +757,90 @@ class StagedPatchRegistry:
                 logger.error("Erreur application batch_note_create : %s", err)
                 return {"status": "error", "message": str(err), "patch_id": patch_id}
 
+        # 10. Type DECK_RENAME
+        if p_type in ("deck_rename", "rename_deck"):
+            from ankiforge.repositories.deck_repository import DeckRepository
+
+            old_name = str(diff_data.get("old_name") or diff_data.get("deck_name") or "").strip()
+            new_name = str(diff_data.get("new_name") or "").strip()
+            if not old_name or not new_name:
+                return {"status": "error", "message": "Noms d'origine et de destination requis pour 'deck_rename'.", "patch_id": patch_id}
+
+            deck = DeckModel.get_or_none(DeckModel.name == old_name)
+            if not deck:
+                return {"status": "error", "message": f"Paquet '{old_name}' introuvable.", "patch_id": patch_id}
+
+            repo = DeckRepository()
+            repo.rename_deck(deck.id, new_name)
+            with db.atomic():
+                patch.target_id = deck.id
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+
+            cls._notify_mutation("deck_rename", deck.id, {"deck_id": deck.id, "old_name": old_name, "new_name": new_name})
+            return {"status": "applied", "patch_id": patch_id, "deck_id": deck.id, "new_name": new_name}
+
+        # 11. Type SET_TAGS / SET_TAGS_BULK
+        if p_type in ("set_tags", "set_tags_bulk", "tag_add", "tag_remove", "tags"):
+            from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService
+
+            note_ids = diff_data.get("note_ids") or ([patch.target_id] if patch.target_id else [])
+            tags = diff_data.get("tags") or diff_data.get("tags_added") or []
+            mode = str(diff_data.get("mode") or ("add" if p_type == "tag_add" else ("remove" if p_type == "tag_remove" else "add")))
+
+            res = BulkHygieneService.set_tags_bulk(note_ids=note_ids, tags=tags, mode=mode)
+            if res.get("status") == "error":
+                return {"status": "error", "message": res.get("message", "Erreur tagging"), "patch_id": patch_id}
+
+            with db.atomic():
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+
+            cls._notify_mutation("set_tags_bulk", patch.target_id, {"note_ids": note_ids, "tags": tags, "mode": mode})
+            return {"status": "applied", "patch_id": patch_id, "note_ids": note_ids, "tags": tags}
+
+        # 12. Type CARD_DELETE / NOTE_DELETE
+        if p_type in ("card_delete", "note_delete", "batch_card_deletion"):
+            target_ids = diff_data.get("note_ids") or ([patch.target_id] if patch.target_id else [])
+            if not target_ids:
+                return {"status": "error", "message": "Aucune note ciblée pour suppression.", "patch_id": patch_id}
+
+            with db.atomic():
+                deleted_count = NoteModel.delete().where(NoteModel.id.in_(target_ids)).execute()
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+
+            cls._notify_mutation("card_delete", patch.target_id, {"deleted_count": deleted_count, "note_ids": target_ids})
+            return {"status": "applied", "patch_id": patch_id, "deleted_count": deleted_count}
+
+        # 13. Type DECK_DELETE
+        if p_type in ("deck_delete", "delete_deck"):
+            from ankiforge.repositories.deck_repository import DeckRepository
+
+            deck_name = str(diff_data.get("deck_name") or diff_data.get("deck") or "").strip()
+            move_to = str(diff_data.get("move_cards_to_deck") or "").strip()
+
+            deck = DeckModel.get_or_none(DeckModel.name == deck_name)
+            if not deck:
+                return {"status": "error", "message": f"Paquet '{deck_name}' introuvable.", "patch_id": patch_id}
+
+            repo = DeckRepository()
+            if move_to:
+                target_deck = repo.get_or_create_deck_hierarchical(move_to)
+                CardModel.update(deck=target_deck).where(CardModel.deck == deck).execute()
+
+            repo.delete_deck(deck.id)
+            with db.atomic():
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+
+            cls._notify_mutation("deck_delete", deck.id, {"deck_id": deck.id, "deck_name": deck_name})
+            return {"status": "applied", "patch_id": patch_id, "deck_id": deck.id}
+
         return {"status": "error", "message": f"Type de patch non supporté : '{patch.patch_type}'."}
 
     @classmethod
@@ -780,7 +864,7 @@ class StagedPatchRegistry:
 
     @classmethod
     def sync_direct_edit(cls, patch_id: str, new_modified: Any) -> bool:
-        """Met à jour le contenu proposé (modified) dans le diff_payload d'un patch en attente."""
+        """Met à jour le contenu proposé (modified ou payload complet) dans le diff_payload d'un patch en attente."""
         patch = cls.get_patch(patch_id)
         if not patch or patch.status != "pending":
             return False
@@ -789,10 +873,17 @@ class StagedPatchRegistry:
         if not data:
             return False
 
-        if data.get("modified") == new_modified:
-            return True
+        if isinstance(new_modified, dict):
+            # Si le patch contient déjà une section 'modified' pour les cartes
+            if "modified" in data and not any(k in new_modified for k in ("deck_name", "tags", "tags_added", "new_name", "reason")):
+                data["modified"] = new_modified
+            else:
+                data.update(new_modified)
+                if "modified" in data and isinstance(data["modified"], dict):
+                    data["modified"].update(new_modified)
+        else:
+            data["modified"] = new_modified
 
-        data["modified"] = new_modified
         with db.atomic():
             patch.diff_payload = json.dumps(data, ensure_ascii=False)
             patch.save()
