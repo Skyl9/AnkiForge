@@ -47,9 +47,9 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
    - *Pourquoi* : Même avec un conteneur audio valide, dès que `setSource()` est invoqué sur une vraie instance `QMediaPlayer`, QtMultimedia initialise des threads de décodage asynchrones natifs (FFmpeg / AVFoundation sous macOS). Lorsque l'instance du widget ou du player est détruite au teardown du test, le thread d'arrière-plan C++ tente d'accéder à l'objet désalloué, provoquant un `Fatal Python error: Segmentation fault` natif qui tue le worker pytest-xdist et le fait redémarrer indéfiniment.
    - *Garantie automatique* : Dans tout test unitaire ou UI pilotant la synthèse ou la lecture vocale, mocker systématiquement `setSource` (et `play`) sur `QMediaPlayer` pour empêcher tout démarrage de threads natifs asynchrones non maîtrisés.
 
-9. **Synchronisation des catalogues de traduction `.ts` (Zéro dérive Linguist)** :
-   - *Pourquoi* : Le test d'intégrité i18n (`tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction`) vérifie rigoureusement que les fichiers versionnés `src/ankiforge/resources/translations/ankiforge_{fr,en}.ts` sont strictement identiques à une extraction fraîche du code source. Tout ajout, modification ou **retrait/suppression** d'un appel `tr(...)` (ex: remplacement d'un bouton texte `QPushButton(tr("+"))` par un bouton d'icône `QToolButton`) sans régénération des catalogues entraîne l'échec immédiat de la suite de tests.
-   - *Garantie automatique* : Exécuter systématiquement `uv run python script/extract_translations.py` dès qu'un appel `tr(...)` est touché ou retiré.
+9. **Synchronisation des catalogues de traduction `.ts` (Zéro dérive Linguist) (`T-32`)** :
+   - *Pourquoi* : Le test d'intégrité i18n (`tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction`) vérifie rigoureusement que les fichiers versionnés `src/ankiforge/resources/translations/ankiforge_{fr,en}.ts` sont strictement identiques à une extraction fraîche du code source. Tout ajout, modification ou **retrait/suppression** d'un appel `tr(...)` sans régénération des catalogues entraîne l'échec immédiat de la suite de tests. De plus, `ruff format` modifie les sauts de lignes et réordonne les imports, décalant les balises `<location line="N"/>` si l'extraction a eu lieu avant le formatage.
+   - *Garantie automatique* : Toujours exécuter `uv run python script/extract_translations.py` **APRÈS** `uv run ruff format .` et dès qu'un appel `tr(...)` est touché ou retiré.
 
 10. **Exécution des tests asynchrones via `asyncio.run()` (Zéro `@pytest.mark.asyncio`)** :
     - *Pourquoi* : Le projet n'active pas le plugin `pytest-asyncio` avec marqueur personnalisé. L'usage de `@pytest.mark.asyncio` déclenche des avertissements `PytestUnknownMarkWarning` ou des erreurs de collection. La convention unifiée du dépôt est d'encapsuler la coroutine dans une fonction de test synchrone classique `def test_...(): asyncio.run(_run())`.
@@ -99,6 +99,18 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
 22. **Nettoyage exhaustif d'index et test de rollback de migration (`T-31`)** :
     - *Pourquoi* : Peewee-migrate nomme automatiquement les index créés par `migrator.add_fields(..., index=True)` sous la forme `<table_name>_<column_name>` (sans le préfixe `idx_`). Un `DROP INDEX IF EXISTS idx_<table_name>_<column_name>` n'élimine pas l'index réel, ce qui fait échouer `ALTER TABLE ... DROP COLUMN` lors du rollback avec une erreur SQLite.
     - *Garantie automatique* : Dans tout `rollback()`, supprimer systématiquement les deux variantes (`idx_<table_name>_<column_name>` et `<table_name>_<column_name>`), et tester obligatoirement l'aller-retour (`migrate` puis `rollback`) dans le test d'intégration de la migration.
+
+23. **Ordre séquentiel strict de pré-nettoyage avant vérification (`T-32`)** :
+    - *Pourquoi* : L'extraction des catalogues de traduction `.ts` capture les numéros de ligne exacts des chaînes `tr()` dans les fichiers sources. Lancer l'extraction avant `ruff format` expose à une invalidation immédiate dès que Ruff réaligne ou reformate le code.
+    - *Garantie automatique* : Respecter rigoureusement la séquence : `1. uv run ruff check --fix . && uv run ruff format .` ➔ `2. uv run python script/extract_translations.py` ➔ `3. uv run python script/verify.py`.
+
+24. **Peuplement préalable des tables virtuelles en test unitaire (`T-33`)** :
+    - *Pourquoi* : Les vues et composants basés sur `VirtualTableView` et `BasePaginatedPeeweeModel` diffèrent le chargement des enregistrements pour optimiser les performances de démarrage. Dans les tests unitaires ou d'interaction (clics d'en-tête, menus contextuels, sélection de lignes), la table est vide si aucun rafraîchissement n'est commandé.
+    - *Garantie automatique* : Appeler impérativement `view.refresh_data()` au début de tout test simulant une interaction avec les lignes d'une vue tabulaire virtuelle.
+
+25. **Validation matérielle des icônes prescrites dans les tickets (`T-34`)** :
+    - *Pourquoi* : Les spécifications ou tickets rédigés en amont peuvent recommander une icône intuitive mais absente du catalogue physique Phosphor Icons embarqué dans le projet (ex: `sort-ascending` au lieu de `funnel`). Adopter aveuglément cette suggestion provoque des anomalies visuelles ou des échecs d'audit d'icônes.
+    - *Garantie automatique* : Toujours confronter le nom de l'icône prescrite au manifeste `src/ressources/icons_manifest.txt` et substituer immédiatement l'icône canonique existante la plus proche.
 
 ## 3. Commande Canonique Unique de Vérification
 

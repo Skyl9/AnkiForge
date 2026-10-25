@@ -175,6 +175,24 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Peewee-migrate nomme automatiquement les index créés via `migrator.add_fields(..., index=True)` sous la forme `<table_name>_<column_name>` (sans préfixe `idx_`), alors qu'un `DROP INDEX IF EXISTS idx_<table_name>_<column_name>` ne cible que la variante avec préfixe.
 - **Remédiation** : Dans toute fonction `rollback()`, supprimer systématiquement les deux variantes de noms (`idx_<table_name>_<column_name>` et `<table_name>_<column_name>`), et tester obligatoirement l'aller-retour complet (`migrate` suivi de `rollback`) dans le test d'intégration de la migration.
 
+### T-32 : Décalage de Coordonnées des Catalogues `.ts` suite au Formatage Ruff (Post-Formatting Translation Catalog Drift)
+- **Symptôme** : `script/verify.py` échoue sur `tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction` avec `AssertionError: Catalogues périmés (ankiforge_fr.ts, ankiforge_en.ts). Régénérer : uv run python script/extract_translations.py`.
+- **Cause racine** : Exécution de `script/extract_translations.py` AVANT le formatage automatique du code (`ruff check --fix . && ruff format .`). Le formateur Ruff réordonne les imports ou réajuste les sauts de lignes, décalant les numéros de ligne réels des chaînes `tr()` par rapport aux balises `<location line="N"/>` inscrites dans les fichiers `.ts`.
+- **Remédiation** : Respecter impérativement l'ordre séquentiel à 3 phases avant toute porte de vérification :
+  1. `uv run ruff check --fix . && uv run ruff format .` (figer la géométrie du code source) ;
+  2. `uv run python script/extract_translations.py` (extraire les coordonnées exactes) ;
+  3. `uv run python script/verify.py` (exécuter la porte de contrôle).
+
+### T-33 : Absence d'Initialisation des Données en Test de Vue Virtuelle Paginée (Unpopulated Virtual Table in Unit Tests)
+- **Symptôme** : Un test unitaire ou d'intégration simulant une action contextuelle ou un clic sur une vue tabulaire paginée (ex: `view._show_card_context_menu(pos)`) retourne silencieusement sans effet ou échoue sur un index invalide (`assert len(captured_menus) == 1` échoue avec `0 == 1`).
+- **Cause racine** : Les vues basées sur `VirtualTableView` et `BasePaginatedPeeweeModel` ne chargent pas leurs données dans `__init__` pour préserver le temps de démarrage. Sans appel explicite à `view.refresh_data()` au début du test, la table est vide et tout calcul géométrique `visualRect()` pointe vers une zone non indexée.
+- **Remédiation** : Règle formelle dans les tests PySide6 : dans tout test impliquant une vue à chargement virtuel/paginé (`EditionView`, etc.), appeler impérativement `view.refresh_data()` avant de simuler des clics de souris, des ouvertures de menus contextuels ou des sélections de lignes.
+
+### T-34 : Présomption d'Icône Suggérée dans un Ticket d'Exigences (Ticket Spec Icon Hallucination)
+- **Symptôme** : L'énoncé d'un ticket rédigé en amont prescrit une icône plausible mais absente du catalogue du projet (ex: `sort-ascending` au lieu de `funnel`), provoquant des boutons vides ou des erreurs d'icônes.
+- **Cause racine** : Biais d'obéissance aveugle au ticket où l'agent d'implémentation adopte la chaîne textuelle du ticket sans vérifier son existence matérielle dans le dépôt.
+- **Remédiation** : Toute référence d'icône dans un ticket doit être validée contre le manifeste réel `src/ressources/icons_manifest.txt` avant implémentation. En cas d'absence, l'icône canonique existante la plus proche doit être substituée immédiatement et le critère d'acceptation du ticket mis à jour.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -211,4 +229,7 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Typage invalide de fixture pytest (`tmp_path: any`) (`T-29`) | Annotation `tmp_path: Path` via `from pathlib import Path` et interdiction du builtin `any` | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
 | Émojis dans valeurs persistées ou indexées (`T-30`) | Texte brut sans émojis pour les colonnes en base (`sort_field`, FTS5) | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
 | Rollback de migration avec index incomplet (`T-31`) | Suppression des deux variantes de noms d'index et test obligatoire de rollback | `peewee-expert/SKILL.md`, `implement/SKILL.md` |
+| Décalage `.ts` après `ruff format` (`T-32`) | Ordre séquentiel strict : `ruff format` D'ABORD, puis `extract_translations.py` | `implement/SKILL.md`, `verification-environnement/SKILL.md` |
+| Table virtuelle vide en test unitaire (`T-33`) | Appel obligatoire de `view.refresh_data()` avant simulation d'interaction de cellule | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
+| Hallucination d'icône dans un ticket (`T-34`) | Validation préalable contre `src/ressources/icons_manifest.txt` | `implement/SKILL.md`, `ui-pyside6-design/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

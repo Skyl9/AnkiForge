@@ -49,19 +49,22 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Typage strict des fixtures pytest (`T-29`) : annoter systématiquement `tmp_path: Path` (`from pathlib import Path`) et ne jamais utiliser le builtin `any` comme annotation de type.
   - Zéro émoji dans les valeurs métier persistées ou indexées (`T-30`) : bannir tout émoji des fonctions de nettoyage (`strip_html_for_sort`, `compute_sort_field`) alimentant les colonnes de base SQLite (`sort_field`, FTS5) ou les clauses de tri SQL (`ORDER BY sort_field`).
   - Rollback de migration complet avec double suppression d'index (`T-31`) : dans tout `rollback()` Peewee-migrate, détruire systématiquement les deux variantes de nom d'index (`idx_<table_name>_<column_name>` et `<table_name>_<column_name>`), et valider l'aller-retour complet (`migrate` + `rollback`) dans le test de la migration.
+  - Initialisation de table virtuelle en test (`T-33`) : dans tout test PySide6 impliquant une vue tabulaire à modèle paginé virtuel (`EditionView`, etc.), appeler impérativement `view.refresh_data()` avant de simuler des clics de souris, des ouvertures de menus contextuels ou des résolutions géométriques de cellules (`visualRect()`), les données n'étant pas peuplées de manière synchrone dans `__init__`.
+  - Validation matérielle des icônes de ticket (`T-34`) : ne jamais implémenter aveuglément un nom d'icône suggéré dans un ticket sans vérifier au préalable son existence dans `src/ressources/icons_manifest.txt` (ex: `funnel` retenu à la place de `sort-ascending` inexistant). En cas d'écart, adopter l'icône canonique la plus proche et rectifier le critère d'acceptation du ticket.
 
 ## 3. Clôture, Vérification Canonique & Revue
 
-1. **Pré-nettoyage Linter, Formatage & i18n (`ADR 0013`)** :
-   - Exécuter la passe rapide de formatage et de nettoyage des imports :
+1. **Pré-nettoyage Linter, Formatage & i18n (`ADR 0013`) — Ordre séquentiel strict (`T-32`)** :
+   - **Étape 1a (Formatage prioritaire)** : Exécuter la passe rapide de formatage et de nettoyage des imports pour stabiliser la géométrie et les sauts de lignes du code source :
      ```bash
      uv run ruff check --fix . && uv run ruff format .
      ```
-   - Si des chaînes utilisateur ont été ajoutées ou modifiées avec `tr()` dans l'UI :
+   - **Étape 1b (Extraction post-formatage)** : Si des chaînes utilisateur ont été ajoutées, modifiées ou retirées avec `tr()` dans l'UI :
      ```bash
      uv run python script/extract_translations.py
      ```
-     Cette étape met à jour les catalogues `.ts` (`ankiforge_fr.ts`, `ankiforge_en.ts`) et compile les `.qm`, prévenant tout échec de `test_committed_catalog_matches_a_fresh_extraction`.
+     > [!IMPORTANT]
+     > L'extraction doit impérativement s'exécuter **après** `ruff format`. Si `ruff format` intervient après l'extraction, il décale les numéros de ligne des chaînes sources et rend immédiatement obsolètes les balises `<location line="N"/>` des fichiers `.ts` versionnés (`ankiforge_fr.ts`, `ankiforge_en.ts`), provoquant l'échec de `test_committed_catalog_matches_a_fresh_extraction`.
 2. **Porte de vérification canonique** :
    ```bash
    uv run python script/verify.py
