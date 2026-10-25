@@ -64,10 +64,16 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
 
 - **Jamais de `MagicMock`** sur les modèles Peewee en test. Utiliser la fixture `mock_db` de `conftest.py` (SQLite in-memory `mode=memory&cache=shared`).
 - Les tests BDD doivent s'exécuter dans un contexte `db.atomic()` rollbacké après chaque test pour garantir l'isolation.
+- **Enregistrement obligatoire des nouveaux modèles dans `tests/conftest.py`** :
+  - Dès qu'un nouveau modèle Peewee (`*Model`) est créé sous `src/ankiforge/database/models/` :
+    1. L'exporter dans `src/ankiforge/database/models/__init__.py` (`ALL_MODELS` et `__all__`).
+    2. Déclarer sa migration dans `src/ankiforge/database/migrations/`.
+    3. **ET l'ajouter impérativement dans la liste `models = [...]` de la fixture `mock_db()` dans `tests/conftest.py`**. Sans cet ajout, la base SQLite in-memory ne crée pas la table correspondante, provoquant un échec immédiat `sqlite3.OperationalError: no such table: <table_name>` dans les tests de service et d'intégration.
 
 ## 6. Règles Métier AnkiForge
 
 - Les modèles **ne font jamais appel à la logique UI** et ne contiennent pas de `print()` — lever des exceptions métier claires (`ValueError`, `IntegrityError`).
+- **Rechargement d'une instance Peewee** : ne jamais appeler `instance.refresh_from_db()` (syntaxe Django absente de Peewee qui lève un `AttributeError`). Utiliser systématiquement l'idiome Peewee : `instance = MyModel.get_by_id(instance.id)`.
 - Multi-profils : chaque profil a sa propre instance `db` sous `profiles/<name>/ankiforge.db` — ne jamais croiser les instances.
 - Référence complémentaire : skill `audit-donnees` pour l'audit d'intégrité global.
 

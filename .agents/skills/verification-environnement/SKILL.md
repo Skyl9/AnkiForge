@@ -51,6 +51,15 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
    - *Pourquoi* : Le test d'intégrité i18n (`tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction`) vérifie rigoureusement que les fichiers versionnés `src/ankiforge/resources/translations/ankiforge_{fr,en}.ts` sont strictement identiques à une extraction fraîche du code source. Tout ajout, modification ou **retrait/suppression** d'un appel `tr(...)` (ex: remplacement d'un bouton texte `QPushButton(tr("+"))` par un bouton d'icône `QToolButton`) sans régénération des catalogues entraîne l'échec immédiat de la suite de tests.
    - *Garantie automatique* : Exécuter systématiquement `uv run python script/extract_translations.py` dès qu'un appel `tr(...)` est touché ou retiré.
 
+10. **Exécution des tests asynchrones via `asyncio.run()` (Zéro `@pytest.mark.asyncio`)** :
+    - *Pourquoi* : Le projet n'active pas le plugin `pytest-asyncio` avec marqueur personnalisé. L'usage de `@pytest.mark.asyncio` déclenche des avertissements `PytestUnknownMarkWarning` ou des erreurs de collection. La convention unifiée du dépôt est d'encapsuler la coroutine dans une fonction de test synchrone classique `def test_...(): asyncio.run(_run())`.
+
+11. **Miroir strict des répertoires de tests (Zéro collision pytest `import file mismatch`)** :
+    - *Pourquoi* : Pour tout module sous `src/ankiforge/path/subpath/module.py`, le fichier de test correspondant doit se situer dans `tests/path/subpath/test_module.py`. Créer des fichiers de même nom dans des répertoires racourcis (ex: `tests/ai/test_staged_bundles.py` en parallèle de `tests/services/ai/test_staged_bundles.py`) provoque une erreur bloquante `import file mismatch` de pytest due à la collision de cache de bytecode `__pycache__`.
+
+12. **Cession de tour sur commande en tâche de fond (Zéro boucle de polling)** :
+    - *Pourquoi* : Lorsque la porte canonique ou une commande lourde passe en tâche d'arrière-plan, la plateforme assure un réveil réactif (Reactive Wakeup) automatique dès la fin du processus. Interroger manuellement le statut via des outils de polling consomme des tours de boucle et de l'énergie inutilement. L'agent doit informer brièvement l'utilisateur et terminer son tour sans outil supplémentaire.
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :

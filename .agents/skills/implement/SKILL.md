@@ -34,6 +34,9 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Mocks LLM obligatoires (zéro appel API payant en test).
   - Design Tokens réels : ne jamais présumer de tokens stylistiques non définis (`BG_SECONDARY`, `BORDER_HOVER` n'existent pas) ; se référer exclusivement à `src/ankiforge/ui/theme.py`.
   - Internationalisation paramétrée : `self.tr()` ne réalisant pas de substitution `%1`, tout message paramétré emploie la fonction globale `tr("Message : %1", val)` de `ankiforge.utils.i18n`.
+  - Nouveaux modèles Peewee : ajouter impérativement toute nouvelle classe `*Model` dans la liste `models` de la fixture `mock_db` dans `tests/conftest.py` pour éviter l'erreur `no such table`. Recharger via `Model.get_by_id()` (jamais `refresh_from_db`).
+  - Nouveaux outils FastMCP : enregistrer tout `@mcp.tool()` dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `mcp_tool_catalog_widget.py`, et actualiser le décompte de tests dans `tests/ui/test_mcp_tool_catalog_widget.py`.
+  - Tests asynchrones : encapsuler toujours dans `def test_...(): asyncio.run(_run())` synchrone (zéro `@pytest.mark.asyncio`).
 
 ## 3. Clôture, Vérification Canonique & Revue
 

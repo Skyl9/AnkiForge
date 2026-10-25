@@ -48,6 +48,14 @@ La surcharge locale est **un réglage de l'étape du pipeline**, jamais une muta
 - **Aucun appel réseau ou API LLM réel en test** (règle 21 `GEMINI.md`).
 - Tous les fournisseurs (OpenAI, Gemini, Anthropic, Ollama) sont mockés de manière déterministe dans la suite pytest (`mock_llm_response`).
 
+## 5. Extension FastMCP & Synchronisation du Catalogue IHM
+
+Lors de l'ajout d'un nouvel outil décoré `@mcp.tool()` sur le serveur in-process (`src/ankiforge/services/ai/mcp_server.py`) :
+1. **Classification IHM obligatoire** : enregistrer l'outil dans les deux dictionnaires de `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py` :
+   - `TOOL_DOMAIN_MAP` : affectation au domaine métier (`DOMAIN_CARDS`, `DOMAIN_DOCS`, `DOMAIN_KNOWLEDGE`, `DOMAIN_PIPELINES`, `DOMAIN_MCP`, etc.).
+   - `TOOL_SAFEGUARDS_MAP` : affectation du niveau de garde-fou (`SAFEGUARD_TWO_PHASE_COMMIT` pour toute mutation/staging, ou `SAFEGUARD_DIRECT_EXECUTION` pour la consultation en lecture seule).
+2. **Synchronisation des assertions de tests d'introspection** : mettre à jour le décompte d'outils attendu dans `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`assert len(tools) == N`).
+
 ## When NOT to use this skill
 
 - L'objectif est uniquement d'auditer la sécurité des prompts et la gestion des coûts sans coder → utiliser `audit-ia-pipeline`.

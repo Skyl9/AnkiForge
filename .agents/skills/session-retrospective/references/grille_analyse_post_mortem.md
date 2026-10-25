@@ -82,6 +82,26 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : L'agent ajoute, modifie OU supprime un appel `tr("...")` (par exemple lors du remplacement d'un bouton textuel `QPushButton(self.tr("+"))` par un bouton d'icône `QToolButton`), mais oublie que la suppression d'une chaîne du code source invalide immédiatement l'exactitude du catalogue `.ts` versionné par rapport à l'extraction à chaud.
 - **Remédiation** : Règle impérative dans `ui-pyside6-design/SKILL.md`, `implement/SKILL.md`, `verification-environnement/SKILL.md` et `diagnosing-bugs/SKILL.md` : dès qu'une chaîne traduisible `tr()` est ajoutée, modifiée ou **supprimée/retirée**, ré-exécuter obligatoirement `uv run python script/extract_translations.py` AVANT de lancer la porte `script/verify.py`.
 
+### T-16 : Couplage du Catalogue d'Outils MCP et Tests d'Introspection (MCP Catalog Drift on New Tool Addition)
+- **Symptôme** : L'ajout d'un nouvel outil FastMCP `@mcp.tool()` dans `src/ankiforge/services/ai/mcp_server.py` fait échouer `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`AssertionError: assert N == M`) et laisse l'outil orphelin sans domaine ni niveau de garde-fou.
+- **Cause racine** : Omission de la synchronisation entre le serveur FastMCP et le widget de catalogue d'outils IHM lors de l'extension de l'API MCP.
+- **Remédiation** : Règle impérative dans `pipeline-dag-ia/SKILL.md` et `implement/SKILL.md` : tout nouvel outil FastMCP doit être enregistré dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py`, et l'assertion de décompte dans les tests UI doit être actualisée.
+
+### T-17 : Omission du Nouveau Modèle Peewee dans la Fixture de Test `mock_db` (Missing Model in Shared In-Memory Test DB)
+- **Symptôme** : Lors de l'implémentation d'un nouveau modèle Peewee, les tests unitaires ou d'intégration échouent avec `sqlite3.OperationalError: no such table: <table_name>`.
+- **Cause racine** : Le modèle a bien été déclaré dans `database/models/` et dans une migration, mais a été omis dans la liste `models` de la fixture `mock_db()` dans `tests/conftest.py`.
+- **Remédiation** : Garde-fou explicite dans `peewee-expert/SKILL.md` et `implement/SKILL.md` : tout nouveau modèle Peewee doit être ajouté dans `tests/conftest.py` (`mock_db`) dès sa création. De plus, pour recharger une instance Peewee, utiliser exclusivement `Model.get_by_id(instance.id)` (jamais `refresh_from_db()` hérité de Django).
+
+### T-18 : Test Asynchrone sous Pytest sans Marqueur Déclaré (Undeclared Asyncio Marker in Pytest)
+- **Symptôme** : Utilisation du décorateur `@pytest.mark.asyncio` déclenchant des avertissements de marqueurs inconnus ou des erreurs de collection.
+- **Cause racine** : Présomption de configuration du plugin pytest-asyncio alors que la convention du dépôt AnkiForge est l'encapsulation synchrone déterministe via `asyncio.run(...)`.
+- **Remédiation** : Règle formelle dans `verification-environnement/SKILL.md` et `implement/SKILL.md` : encapsuler systématiquement les tests de coroutines asynchrones dans une fonction synchrone standard `def test_...(): asyncio.run(_run())`.
+
+### T-19 : Boucle de Polling Inutile sur Tâche d'Arrière-Plan (Pointless Background Task Polling)
+- **Symptôme** : L'agent appelle `manage_task(Action='status')` à répétition après avoir lancé une commande asynchrone (ex: `script/verify.py`), consommant des tours d'inférence inutiles.
+- **Cause racine** : Omission du mécanisme de réveil réactif (Reactive Wakeup) où la plateforme notifie automatiquement l'agent dès la fin d'une tâche d'arrière-plan.
+- **Remédiation** : Règle comportementale dans les instructions de vérification : dès qu'une commande est passée en tâche d'arrière-plan, l'agent doit informer brièvement l'utilisateur et clore son tour sans appeler d'outil de polling.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -101,4 +121,8 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Typage brisé par `.tuples()` / `.dicts()` Peewee | Convention d'accès direct aux attributs typés | `peewee-expert/SKILL.md` |
 | Altération de contexte de traduction Linguist | Directive stricte `cls.tr()` vs `instance.tr()` | `ui-pyside6-design/SKILL.md` |
 | Désynchronisation des catalogues `.ts` après modification/suppression `tr()` | Régénération obligatoire via `script/extract_translations.py` | `ui-pyside6-design/SKILL.md`, `verification-environnement/SKILL.md`, `diagnosing-bugs/SKILL.md` |
+| Omission de modèle Peewee dans `tests/conftest.py` ou `refresh_from_db` erroné | Inscription obligatoire dans `mock_db` et `get_by_id()` | `peewee-expert/SKILL.md`, `implement/SKILL.md` |
+| Dérive du catalogue FastMCP ou décompte de tests non synchronisé | Enregistrement `TOOL_DOMAIN_MAP`/`TOOL_SAFEGUARDS_MAP` et maj de test | `pipeline-dag-ia/SKILL.md`, `implement/SKILL.md` |
+| Collision de nom de tests pytest ou syntaxe `@pytest.mark.asyncio` non supportée | Miroir strict d'arborescence et encapsulation `asyncio.run()` | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
+| Polling actif répété sur commande asynchrone | Règle de cession de tour pour réveil réactif (Reactive Wakeup) | `verification-environnement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |
