@@ -397,7 +397,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+1091"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+1139"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -573,8 +573,8 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
         <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+608"/>
-        <location filename="../../ui/views/edition_view/view.py" line="-604"/>
-        <location line="+212"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-623"/>
+        <location line="+213"/>
         <location line="+8"/>
         <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+85"/>
         <location line="+45"/>
@@ -3037,7 +3037,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
         <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+740"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+758"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5149,13 +5149,13 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+109"/>
+        <location line="+112"/>
         <location line="+16"/>
         <location line="+10"/>
         <location line="+7"/>
         <location line="+8"/>
         <location line="+7"/>
-        <location line="+28"/>
+        <location line="+34"/>
         <location line="+10"/>
         <location line="+23"/>
         <location line="+10"/>
@@ -5163,7 +5163,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-116"/>
+        <location line="-122"/>
         <source>Modifier le groupe (%1 cartes)...	(%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5193,7 +5193,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+41"/>
         <source>%1%2	(%3)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5260,6 +5260,11 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="+10"/>
         <source>Supprimer définitivement %1 note(s) ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+170"/>
+        <source>Tri : %1 %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12841,7 +12846,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-2053"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-2270"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12852,18 +12857,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+33"/>
-        <location line="+1072"/>
+        <location line="+1110"/>
         <source>Dossier : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1053"/>
-        <location line="+1339"/>
+        <location line="-1091"/>
+        <location line="+1377"/>
         <source>Type de note : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1320"/>
+        <location line="-1358"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12873,7 +12878,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+43"/>
         <source>TAGS :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12909,27 +12914,27 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+421"/>
+        <location line="+440"/>
         <location line="+13"/>
-        <location line="+1428"/>
-        <location line="+100"/>
+        <location line="+1679"/>
+        <location line="+110"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1958"/>
+        <location line="-2238"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+413"/>
+        <location line="+432"/>
         <location line="+7"/>
         <source>Modifier le groupe</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-416"/>
+        <location line="-435"/>
         <source>Appliquer une modification sur les cartes sélectionnées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12944,7 +12949,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+172"/>
+        <location line="+173"/>
         <source>Déplier la liste des cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12954,13 +12959,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+396"/>
-        <location line="+710"/>
+        <location line="+414"/>
+        <location line="+713"/>
         <source>Changer le type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-577"/>
+        <location line="-580"/>
         <source>Modifications non enregistrées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12983,7 +12988,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="-53"/>
-        <location line="+229"/>
+        <location line="+232"/>
         <source>Déplacer vers un paquet...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13025,6 +13030,11 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+4"/>
         <source>Exporter en texte ou JSON...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Trier par...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13116,6 +13126,157 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="+7"/>
         <source>Notes supprimées.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+48"/>
+        <location line="+29"/>
+        <location line="+135"/>
+        <source>Date de création</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-162"/>
+        <location line="+163"/>
+        <source>Date de modification</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-161"/>
+        <location line="+166"/>
+        <source>Question</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-166"/>
+        <location line="+169"/>
+        <source>Recto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-167"/>
+        <location line="+165"/>
+        <source>Réponse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-165"/>
+        <source>Verso</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Champ spécifique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+171"/>
+        <source>Paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-169"/>
+        <location line="+170"/>
+        <source>Type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-168"/>
+        <location line="+169"/>
+        <source>Tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-167"/>
+        <location line="+171"/>
+        <source>Drapeaux</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-169"/>
+        <location line="+170"/>
+        <source>Statut suspendu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-168"/>
+        <location line="+173"/>
+        <source>Erreurs / Sangsues</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-171"/>
+        <location line="+172"/>
+        <source>Intervalle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-170"/>
+        <location line="+171"/>
+        <source>Répétitions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-169"/>
+        <location line="+170"/>
+        <source>Stabilité (FSRS)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-168"/>
+        <location line="+169"/>
+        <source>Difficulté (FSRS)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-34"/>
+        <source>Dates</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Contenu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Verso / Autres champs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Organisation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Statuts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>SRS / FSRS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Direction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ordre croissant (▲)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Ordre décroissant (▼)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Réinitialiser le tri par défaut</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -16839,7 +17000,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NoteVirtualTableModel</name>
     <message>
-        <location filename="../../ui/models/note_table_model.py" line="+154"/>
+        <location filename="../../ui/models/note_table_model.py" line="+185"/>
         <source>Question</source>
         <translation type="unfinished"></translation>
     </message>

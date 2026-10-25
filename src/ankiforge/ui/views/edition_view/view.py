@@ -5,7 +5,7 @@ import logging
 from typing import Any, Literal
 
 import peewee
-from PySide6.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMenu,
     QMessageBox,
     QProgressDialog,
     QPushButton,
@@ -37,6 +38,7 @@ from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
 from ankiforge.services.cards.flag_service import FlagService
 from ankiforge.services.cards.store_manager import StoreManager
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
 from ankiforge.ui.components.buttons import IconButton, SecondaryButton
@@ -50,8 +52,12 @@ from ankiforge.ui.models import (
     CheckboxItemDelegate,
     FlagItemDelegate,
     NoteVirtualTableModel,
+    SortCriterion,
+    SortDirection,
+    SortOrder,
     TagItemDelegate,
     TextSnippetDelegate,
+    apply_query_sorting,
 )
 from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope, get_shortcut_sequence
 from ankiforge.ui.theme import DesignTokens, StyledMenu
@@ -138,6 +144,10 @@ class EditionView(QWidget):
         self._preview_visible: bool = True
         self._saved_preview_width: int = 400
         self._display_mode: Literal["notes", "cards"] = "notes"
+        saved_notes = SettingsService.get("edition/sort_notes", None)
+        self._sort_notes: SortOrder = SortOrder.from_dict(saved_notes) if saved_notes else SortOrder.default_for_mode("notes")
+        saved_cards = SettingsService.get("edition/sort_cards", None)
+        self._sort_cards: SortOrder = SortOrder.from_dict(saved_cards) if saved_cards else SortOrder.default_for_mode("cards")
 
         self._deck_modal: DeckSelectWindow | None = None
         self._move_deck_modal: DeckSelectWindow | None = None
@@ -373,6 +383,25 @@ class EditionView(QWidget):
         self.btn_filter_status.clicked.connect(self._show_status_filter_menu)
         filter_layout.addWidget(self.btn_filter_status)
 
+        self.btn_sort_order = QPushButton()
+        self.btn_sort_order.setIcon(load_phosphor_icon("funnel", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_sort_order.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: bold;
+                color: {DesignTokens.TEXT_SECONDARY};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+        """)
+        self.btn_sort_order.clicked.connect(self._on_show_sort_menu)
+        filter_layout.addWidget(self.btn_sort_order)
+
         separator = QFrame()
         separator.setFixedSize(1, 14)
         separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
@@ -601,6 +630,7 @@ class EditionView(QWidget):
         main_layout.addWidget(self.main_panel)
 
         self.editor_stack.setCurrentIndex(0)
+        self._update_sort_button_and_headers()
 
     def _setup_shortcuts(self) -> None:
         """Configure l'ensemble des raccourcis déclaratifs de la vue Édition via ShortcutManager."""
@@ -767,12 +797,30 @@ class EditionView(QWidget):
         self._update_nav_ribbon_info()
 
     def _on_header_section_clicked(self, logical_index: int) -> None:
-        """Au clic sur l'en-tête de la colonne 0 (case à cocher), bascule tout cocher / tout décocher."""
+        """Au clic sur l'en-tête de la colonne 0 (case à cocher), bascule tout cocher / tout décocher.
+
+        Sur les colonnes > 0, applique ou inverse le tri sur le critère associé avec cycle binaire (ASC ➔ DESC ➔ ASC).
+        """
         if logical_index == 0:
             if self.card_table.get_selected_rows():
                 self.deselect_all_cards()
             else:
                 self.select_all_cards()
+            return
+
+        mapping = self._get_sort_criterion_for_column(logical_index)
+        if not mapping:
+            return
+
+        target_criterion, target_field = mapping
+        current_order = self.get_current_sort_order()
+
+        if current_order.criterion == target_criterion and current_order.field_name == target_field:
+            new_order = current_order.toggled()
+        else:
+            new_order = SortOrder(criterion=target_criterion, direction=SortDirection.ASC, field_name=target_field)
+
+        self.set_sort_order(new_order)
 
     def select_all_cards(self) -> None:
         """Coche et sélectionne (souligne) l'ensemble des cartes de la vue."""
@@ -1709,6 +1757,7 @@ class EditionView(QWidget):
 
             self.card_table.setColumnWidth(7, 140)
             self.card_table.setItemDelegateForColumn(7, self.tag_delegate)
+            self._update_sort_button_and_headers()
             return
 
         if self._active_model_id:
@@ -1738,6 +1787,7 @@ class EditionView(QWidget):
                     self.card_table.setColumnWidth(tags_col, 130)
                     self.card_table.setItemDelegateForColumn(deck_col, self.badge_delegate)
                     self.card_table.setItemDelegateForColumn(tags_col, self.tag_delegate)
+                    self._update_sort_button_and_headers()
                     return
             except Exception as e:
                 logger.warning("Erreur lors de la mise à jour des en-têtes du tableau : %s", e)
@@ -1759,6 +1809,7 @@ class EditionView(QWidget):
         self.card_table.setItemDelegateForColumn(4, self.badge_delegate)
         self.card_table.setItemDelegateForColumn(5, self.badge_delegate)
         self.card_table.setItemDelegateForColumn(6, self.tag_delegate)
+        self._update_sort_button_and_headers()
 
     def _show_card_context_menu(self, pos: Any) -> None:
         index = self.card_table.indexAt(pos)
@@ -1846,6 +1897,12 @@ class EditionView(QWidget):
         export_text = tr("Exporter en texte ou JSON (%1 cartes)...", count) if count > 1 else self.tr("Exporter en texte ou JSON...")
         action_quick_export = menu.addAction(load_phosphor_icon("file-text", color=DesignTokens.TEXT_PRIMARY), export_text)
         action_quick_export.triggered.connect(lambda: self.open_quick_export_dialog(target_note_ids))
+
+        menu.addSeparator()
+
+        sort_submenu = menu.addMenu(self.tr("Trier par..."))
+        sort_submenu.setIcon(load_phosphor_icon("funnel", color=DesignTokens.TEXT_PRIMARY))
+        self._populate_sort_menu(sort_submenu)
 
         menu.addSeparator()
 
@@ -2323,6 +2380,248 @@ class EditionView(QWidget):
                 logger.warning("Erreur parsing contenu note pour rendu dynamique : %s", e)
         return data
 
+    def get_current_sort_order(self) -> SortOrder:
+        """Retourne l'ordre de tri configuré pour le mode courant (notes ou cartes)."""
+        return self._sort_cards if self._display_mode == "cards" else self._sort_notes
+
+    def set_sort_order(self, sort_order: SortOrder) -> None:
+        """Met à jour l'ordre de tri pour le mode courant, persiste le choix et rafraîchit les données."""
+        if self._display_mode == "cards":
+            self._sort_cards = sort_order
+            SettingsService.set("edition/sort_cards", sort_order.to_dict(), category="ui")
+        else:
+            self._sort_notes = sort_order
+            SettingsService.set("edition/sort_notes", sort_order.to_dict(), category="ui")
+        self.refresh_data()
+
+    def reset_sort_order_to_default(self) -> None:
+        """Rétablit l'ordre de tri par défaut (date de création, ascendant)."""
+        default_order = SortOrder.default_for_mode(self._display_mode)
+        self.set_sort_order(default_order)
+
+    def _get_sort_criterion_label(self, order: SortOrder) -> str:
+        """Retourne le libellé utilisateur pour le critère de tri actif."""
+        crit = order.criterion
+        if crit == SortCriterion.CREATED_AT:
+            return self.tr("Date de création")
+        if crit == SortCriterion.MODIFIED_AT:
+            return self.tr("Date de modification")
+        if crit == SortCriterion.RECTO:
+            return self.tr("Question") if self._display_mode == "cards" else self.tr("Recto")
+        if crit == SortCriterion.VERSO:
+            return self.tr("Réponse") if self._display_mode == "cards" else self.tr("Verso")
+        if crit == SortCriterion.SPECIFIC_FIELD:
+            return order.field_name or self.tr("Champ spécifique")
+        if crit == SortCriterion.DECK:
+            return self.tr("Paquet")
+        if crit == SortCriterion.NOTE_TYPE:
+            return self.tr("Type de note")
+        if crit == SortCriterion.TAGS:
+            return self.tr("Tags")
+        if crit == SortCriterion.FLAGS:
+            return self.tr("Drapeaux")
+        if crit == SortCriterion.SUSPENDED:
+            return self.tr("Statut suspendu")
+        if crit == SortCriterion.LAPSES:
+            return self.tr("Erreurs / Sangsues")
+        if crit == SortCriterion.IVL:
+            return self.tr("Intervalle")
+        if crit == SortCriterion.REPS:
+            return self.tr("Répétitions")
+        if crit == SortCriterion.STABILITY:
+            return self.tr("Stabilité (FSRS)")
+        if crit == SortCriterion.DIFFICULTY:
+            return self.tr("Difficulté (FSRS)")
+        return self.tr("Date de création")
+
+    def _get_sort_criterion_for_column(self, col: int) -> tuple[SortCriterion, str | None] | None:
+        """Résout le critère de tri et le champ éventuel associés à une colonne de la table."""
+        if col <= 0:
+            return None
+
+        if col == 1:
+            return SortCriterion.FLAGS, None
+
+        if self._display_mode == "cards":
+            mapping: dict[int, SortCriterion] = {
+                2: SortCriterion.RECTO,
+                3: SortCriterion.VERSO,
+                5: SortCriterion.DECK,
+                6: SortCriterion.NOTE_TYPE,
+                7: SortCriterion.TAGS,
+            }
+            crit = mapping.get(col)
+            return (crit, None) if crit else None
+
+        if self._current_table_fields:
+            nb_fields = len(self._current_table_fields)
+            if col == 2:
+                return SortCriterion.RECTO, None
+            if 2 < col < 2 + nb_fields:
+                field_name = self._current_table_fields[col - 2]
+                return SortCriterion.SPECIFIC_FIELD, field_name
+            deck_col = 2 + nb_fields
+            if col == deck_col:
+                return SortCriterion.DECK, None
+            if col == deck_col + 1:
+                return SortCriterion.TAGS, None
+            return None
+
+        notes_mapping: dict[int, SortCriterion] = {
+            2: SortCriterion.RECTO,
+            3: SortCriterion.VERSO,
+            4: SortCriterion.NOTE_TYPE,
+            5: SortCriterion.DECK,
+            6: SortCriterion.TAGS,
+        }
+        crit = notes_mapping.get(col)
+        return (crit, None) if crit else None
+
+    def _get_column_for_sort_criterion(self, criterion: SortCriterion, field_name: str | None = None) -> int | None:
+        """Trouve l'index de colonne correspondant à un critère de tri donné dans la vue actuelle."""
+        if criterion == SortCriterion.FLAGS:
+            return 1
+
+        if self._display_mode == "cards":
+            crit_to_col: dict[SortCriterion, int] = {
+                SortCriterion.RECTO: 2,
+                SortCriterion.VERSO: 3,
+                SortCriterion.DECK: 5,
+                SortCriterion.NOTE_TYPE: 6,
+                SortCriterion.TAGS: 7,
+            }
+            return crit_to_col.get(criterion)
+
+        if self._current_table_fields:
+            nb_fields = len(self._current_table_fields)
+            if criterion == SortCriterion.RECTO:
+                return 2
+            if criterion == SortCriterion.SPECIFIC_FIELD and field_name in self._current_table_fields:
+                return 2 + self._current_table_fields.index(field_name)
+            if criterion == SortCriterion.DECK:
+                return 2 + nb_fields
+            if criterion == SortCriterion.TAGS:
+                return 2 + nb_fields + 1
+            return None
+
+        crit_to_col_notes: dict[SortCriterion, int] = {
+            SortCriterion.RECTO: 2,
+            SortCriterion.VERSO: 3,
+            SortCriterion.NOTE_TYPE: 4,
+            SortCriterion.DECK: 5,
+            SortCriterion.TAGS: 6,
+        }
+        return crit_to_col_notes.get(criterion)
+
+    def _update_sort_button_and_headers(self) -> None:
+        """Met à jour le texte du bouton de tri et l'indicateur d'en-tête de la table."""
+        order = self.get_current_sort_order()
+        chevron = "▲" if order.direction.is_asc else "▼"
+        label = self._get_sort_criterion_label(order)
+        if hasattr(self, "btn_sort_order"):
+            self.btn_sort_order.setText(tr("Tri : %1 %2", label, chevron))
+
+        if hasattr(self, "card_table"):
+            header = self.card_table.horizontalHeader()
+            col = self._get_column_for_sort_criterion(order.criterion, order.field_name)
+            if col is not None and col >= 0:
+                header.setSortIndicatorShown(True)
+                qt_order = Qt.SortOrder.AscendingOrder if order.direction.is_asc else Qt.SortOrder.DescendingOrder
+                header.setSortIndicator(col, qt_order)
+            else:
+                header.setSortIndicatorShown(False)
+
+    def _build_sort_menu(self) -> StyledMenu:
+        """Construit et retourne le menu complet de tri catégorisé."""
+        menu = StyledMenu(self)
+        self._populate_sort_menu(menu)
+        return menu
+
+    def _on_show_sort_menu(self) -> None:
+        """Affiche le menu déroulant de tri ancré sous le bouton de barre de filtre."""
+        menu = self._build_sort_menu()
+        menu.exec(self.btn_sort_order.mapToGlobal(QPoint(0, self.btn_sort_order.height())))
+
+    def _populate_sort_menu(self, menu: QMenu) -> None:
+        """Peuple un menu (barre de filtre ou contextuel) avec les critères catégorisés de tri."""
+        current_order = self.get_current_sort_order()
+
+        def add_crit_action(
+            target_menu: QMenu,
+            label: str,
+            criterion: SortCriterion,
+            field_name: str | None = None,
+        ) -> None:
+            action = target_menu.addAction(label)
+            action.setCheckable(True)
+            is_checked = current_order.criterion == criterion and current_order.field_name == field_name
+            action.setChecked(is_checked)
+
+            def on_triggered() -> None:
+                if current_order.criterion == criterion and current_order.field_name == field_name:
+                    self.set_sort_order(current_order.toggled())
+                else:
+                    self.set_sort_order(current_order.with_criterion(criterion, field_name))
+
+            action.triggered.connect(on_triggered)
+
+        # 1. Catégorie Dates
+        menu.addSection(self.tr("Dates"))
+        add_crit_action(menu, self.tr("Date de création"), SortCriterion.CREATED_AT)
+        add_crit_action(menu, self.tr("Date de modification"), SortCriterion.MODIFIED_AT)
+
+        # 2. Catégorie Contenu
+        menu.addSection(self.tr("Contenu"))
+        if self._display_mode == "cards":
+            add_crit_action(menu, self.tr("Question"), SortCriterion.RECTO)
+            add_crit_action(menu, self.tr("Réponse"), SortCriterion.VERSO)
+        else:
+            add_crit_action(menu, self.tr("Recto"), SortCriterion.RECTO)
+            add_crit_action(menu, self.tr("Verso / Autres champs"), SortCriterion.VERSO)
+            if self._current_table_fields and len(self._current_table_fields) > 1:
+                for field in self._current_table_fields[1:]:
+                    add_crit_action(menu, field, SortCriterion.SPECIFIC_FIELD, field_name=field)
+
+        # 3. Catégorie Organisation
+        menu.addSection(self.tr("Organisation"))
+        add_crit_action(menu, self.tr("Paquet"), SortCriterion.DECK)
+        add_crit_action(menu, self.tr("Type de note"), SortCriterion.NOTE_TYPE)
+        add_crit_action(menu, self.tr("Tags"), SortCriterion.TAGS)
+
+        # 4. Catégorie Statuts
+        menu.addSection(self.tr("Statuts"))
+        add_crit_action(menu, self.tr("Drapeaux"), SortCriterion.FLAGS)
+        add_crit_action(menu, self.tr("Statut suspendu"), SortCriterion.SUSPENDED)
+
+        # 5. Catégorie SRS / FSRS (Mode Cartes uniquement)
+        if self._display_mode == "cards":
+            menu.addSection(self.tr("SRS / FSRS"))
+            add_crit_action(menu, self.tr("Erreurs / Sangsues"), SortCriterion.LAPSES)
+            add_crit_action(menu, self.tr("Intervalle"), SortCriterion.IVL)
+            add_crit_action(menu, self.tr("Répétitions"), SortCriterion.REPS)
+            add_crit_action(menu, self.tr("Stabilité (FSRS)"), SortCriterion.STABILITY)
+            add_crit_action(menu, self.tr("Difficulté (FSRS)"), SortCriterion.DIFFICULTY)
+
+        # 6. Direction du tri
+        menu.addSection(self.tr("Direction"))
+        act_asc = menu.addAction(self.tr("Ordre croissant (▲)"))
+        act_asc.setCheckable(True)
+        act_asc.setChecked(current_order.direction.is_asc)
+        act_asc.triggered.connect(lambda: self.set_sort_order(SortOrder(current_order.criterion, SortDirection.ASC, current_order.field_name)))
+
+        act_desc = menu.addAction(self.tr("Ordre décroissant (▼)"))
+        act_desc.setCheckable(True)
+        act_desc.setChecked(current_order.direction.is_desc)
+        act_desc.triggered.connect(lambda: self.set_sort_order(SortOrder(current_order.criterion, SortDirection.DESC, current_order.field_name)))
+
+        # 7. Réinitialisation
+        menu.addSeparator()
+        act_reset = menu.addAction(
+            load_phosphor_icon("arrow-counter-clockwise", color=DesignTokens.TEXT_SECONDARY),
+            self.tr("Réinitialiser le tri par défaut"),
+        )
+        act_reset.triggered.connect(self.reset_sort_order_to_default)
+
     def _load_next_card_batch(self) -> None:
         if self.note_table_model.canFetchMore():
             self.note_table_model.fetchMore()
@@ -2342,7 +2641,6 @@ class EditionView(QWidget):
                     .join(NoteTypeModel, peewee.JOIN.LEFT_OUTER)
                     .switch(CardModel)
                     .join(DeckModel, peewee.JOIN.LEFT_OUTER)
-                    .order_by(CardModel.id.asc())
                 )
                 if self._active_folder_id is not None:
                     active_deck = DeckModel.get_or_none(DeckModel.id == self._active_folder_id)
@@ -2362,14 +2660,19 @@ class EditionView(QWidget):
                 if self._active_suspended is not None:
                     query = query.where(CardModel.is_suspended == self._active_suspended)
 
+                sort_order = self.get_current_sort_order()
+                ordered_query = apply_query_sorting(query, sort_order, display_mode="cards")
+
                 self.note_table_model.set_filter_query(
-                    query,
+                    ordered_query,
                     active_model_fields=None,
                     display_mode="cards",
+                    sort_order=sort_order,
+                    unfiltered_query=query,
                 )
                 self._update_table_headers()
             else:
-                query = NoteModel.select().order_by(NoteModel.id.asc())
+                query = NoteModel.select()
                 if self._active_folder_id is not None:
                     active_deck = DeckModel.get_or_none(DeckModel.id == self._active_folder_id)
                     if active_deck:
@@ -2399,15 +2702,21 @@ class EditionView(QWidget):
                     else:
                         query = query.where(NoteModel.id.in_(active_card_note_ids))
 
+                sort_order = self.get_current_sort_order()
+                ordered_query = apply_query_sorting(query, sort_order, display_mode="notes")
+
                 self.note_table_model.set_filter_query(
-                    query,
+                    ordered_query,
                     active_model_fields=self._current_table_fields,
                     display_mode="notes",
+                    sort_order=sort_order,
+                    unfiltered_query=query,
                 )
                 self._update_table_headers()
 
         except Exception as e:
             logger.warning("Erreur lors du rafraîchissement d'EditionView: %s", e)
+        self._update_sort_button_and_headers()
 
     def apply_mcp_mutation(self, mutation: dict[str, Any]) -> None:
         """Applique une mutation MCP au périmètre de la vue sans recharger tout le tableau.

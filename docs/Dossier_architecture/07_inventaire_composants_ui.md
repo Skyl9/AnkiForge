@@ -34,6 +34,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
   * `note_editor_widget.py` : Éditeur complet de notes avec gestion multi-champs dynamique.
   * `cloze_manager.py` : Outil de création rapide d'occlusions (Cloze deletion `{{c1::...}}`).
   * `drop_image_text_edit.py` : Zone de texte enrichie avec gestion du drag & drop d'images vers le `MediaManager`.
+  * `sorting.py` (dans `models/`) & contrôleur `EditionView` : Moteur et contrôleur de tri multi-critères synchronisé (triple accès : bouton dynamique, en-têtes interactifs et menu contextuel) avec persistance par profil et mode (ADR 0044).
 * **Visualisation, Diff & Rendu :**
   * `card_preview_widget.py` & `safe_web_preview.py` : Moteur de rendu WebEngine fidèle au comportement d'Anki officiel.
   * `card_semantic_diff_widget.py` : Comparateur sémantique de cartes champ par champ (diff intra-ligne au mot près, édition directe réactive, onglet Anki Live).

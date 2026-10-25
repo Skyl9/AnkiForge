@@ -54,6 +54,7 @@ classDiagram
     class NoteModel {
         +BigInteger anki_id
         +String guid
+        +String sort_field
         +String tags
     }
     class CardModel {
