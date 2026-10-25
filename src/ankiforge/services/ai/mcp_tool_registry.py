@@ -2572,6 +2572,7 @@ class MCPToolRegistry:
                         var_summary[k] = (str(v)[:100] + "...") if len(str(v)) > 100 else v
 
             pipe_id = int(run.pipeline.id) if hasattr(run.pipeline, "id") else int(getattr(run, "pipeline_id", 0))
+            bundle_id = state_dict.get("bundle_id") or variables.get("bundle_id")
             run_dict = {
                 "run_id": run.id,
                 "pipeline_id": pipe_id,
@@ -2581,6 +2582,7 @@ class MCPToolRegistry:
                 "error_message": run.error_message,
                 "created_at": run.created_at.isoformat() if run.created_at else None,
                 "updated_at": run.updated_at.isoformat() if run.updated_at else None,
+                "bundle_id": bundle_id,
                 "state_summary": {
                     "total_tokens": state_dict.get("total_tokens", 0),
                     "completed_steps": state_dict.get("completed_steps", []),
@@ -2591,11 +2593,152 @@ class MCPToolRegistry:
                 },
             }
 
-            header = f"📊 Détails du Run DAG #{run.id} — Pipeline '{run_dict['pipeline_name']}' [{run.status.upper()}] :"
+            status_label = run.status.upper()
+            if bundle_id:
+                header = f"📊 Détails du Run DAG #{run.id} — Pipeline '{run_dict['pipeline_name']}' [{status_label}] (Bundle: {bundle_id}) :"
+            else:
+                header = f"📊 Détails du Run DAG #{run.id} — Pipeline '{run_dict['pipeline_name']}' [{status_label}] :"
             return header + "\n" + json.dumps(run_dict, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error("Erreur get_pipeline_run : %s", e)
             return f"Erreur lors de la récupération du run de pipeline : {e}"
+
+    @staticmethod
+    def trigger_pipeline_run(
+        pipeline_id: int,
+        deck_name: str,
+        cards_json: str,
+        note_type_name: str = "",
+        document_id: int | None = None,
+        variables_json: str = "{}",
+    ) -> str:
+        """Déclenche l'exécution asynchrone d'un pipeline DAG de finition sur un lot de cartes pré-générées avec sortie staged (Two-Phase Commit)."""
+        try:
+            from PySide6.QtCore import QThreadPool
+
+            from ankiforge.database.models import DeckModel, DocumentModel, PipelineModel, PipelineRunModel, db
+            from ankiforge.repositories.deck_repository import DeckRepository
+            from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+            from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+            from ankiforge.services.ai.state import PipelineRunState
+
+            # 1. Validation de pipeline_id
+            pipeline = PipelineModel.get_or_none(PipelineModel.id == int(pipeline_id))
+            if not pipeline:
+                return json.dumps(
+                    {"status": "error", "message": f"Pipeline #{pipeline_id} introuvable en base."},
+                    ensure_ascii=False,
+                )
+
+            # 2. Contrôle anti-hallucination strict sur le deck cible
+            clean_deck_name = deck_name.strip()
+            if not clean_deck_name:
+                return json.dumps(
+                    {"status": "error", "message": "Le nom du paquet cible ne peut pas être vide."},
+                    ensure_ascii=False,
+                )
+
+            deck_repo = DeckRepository()
+            deck = deck_repo.get_deck_by_name(clean_deck_name)
+            overlay = StagedPatchRegistry.get_active_overlay()
+            is_in_overlay = overlay is not None and overlay.is_deck_available(clean_deck_name)
+
+            if not deck and not is_in_overlay:
+                avail = [d.name for d in DeckModel.select().limit(5)]
+                avail_str = f" Exemples de paquets existants : {avail}." if avail else ""
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": (
+                            f"Paquet cible '{clean_deck_name}' introuvable en base.{avail_str} "
+                            "Pour prévenir les hallucinations, veuillez utiliser un paquet existant "
+                            "ou le créer au préalable via 'create_deck'."
+                        ),
+                    },
+                    ensure_ascii=False,
+                )
+
+            # 3. Contrôle et désérialisation de cards_json
+            try:
+                cards_data = json.loads(cards_json) if isinstance(cards_json, str) else cards_json
+            except Exception as e:
+                return json.dumps(
+                    {"status": "error", "message": f"Format JSON invalide pour cards_json : {e}"},
+                    ensure_ascii=False,
+                )
+
+            if not isinstance(cards_data, list) or not cards_data:
+                return json.dumps(
+                    {"status": "error", "message": "cards_json doit être une liste JSON non vide de cartes."},
+                    ensure_ascii=False,
+                )
+
+            # 4. Contrôle et désérialisation de variables_json
+            try:
+                vars_data = json.loads(variables_json) if isinstance(variables_json, str) else variables_json
+                if not isinstance(vars_data, dict):
+                    vars_data = {}
+            except Exception as e:
+                return json.dumps(
+                    {"status": "error", "message": f"Format JSON invalide pour variables_json : {e}"},
+                    ensure_ascii=False,
+                )
+
+            # 5. Validation optionnelle de document_id
+            if document_id is not None and int(document_id) > 0:
+                doc = DocumentModel.get_or_none(DocumentModel.id == int(document_id))
+                if not doc:
+                    return json.dumps(
+                        {"status": "error", "message": f"Document #{document_id} introuvable en base."},
+                        ensure_ascii=False,
+                    )
+
+            # 6. Préparation de l'état d'exécution DAG
+            state = PipelineRunState()
+            state.set_variable("generated_cards", cards_data)
+            state.set_variable("deck_name", clean_deck_name)
+            if note_type_name.strip():
+                state.set_variable("note_type_name", note_type_name.strip())
+            if document_id is not None and int(document_id) > 0:
+                state.set_variable("document_id", int(document_id))
+            for k, v in vars_data.items():
+                state.set_variable(k, v)
+            state.set_variable("auto_stage_bundle", True)
+
+            # 7. Persistance de l'enregistrement PipelineRunModel
+            with db.atomic():
+                run = PipelineRunModel.create(
+                    pipeline=pipeline,
+                    status="running",
+                    current_step_order=1,
+                    state_data=json.dumps(state.to_dict()),
+                )
+
+            # 8. Instanciation de l'orchestrateur et démarrage asynchrone non-bloquant
+            orchestrator = PipelineOrchestrator(
+                pipeline_id=pipeline.id,
+                initial_state=state,
+                run_id=run.id,
+            )
+            QThreadPool.globalInstance().start(orchestrator)
+
+            # 9. Retour immédiat à l'appelant
+            return json.dumps(
+                {
+                    "status": "started",
+                    "run_id": run.id,
+                    "pipeline_name": pipeline.name,
+                    "cards_count": len(cards_data),
+                },
+                ensure_ascii=False,
+            )
+
+        except Exception as e:
+            logger.exception("Erreur lors du déclenchement du pipeline via MCP : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur inattendue : {e}"},
+                ensure_ascii=False,
+            )
 
 
 # =====================================================================

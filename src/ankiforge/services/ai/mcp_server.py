@@ -1488,6 +1488,26 @@ def get_pipeline_run(run_id: int = 0, pipeline_id: int = 0) -> str:
     return MCPToolRegistry.get_pipeline_run(run_id=run_id, pipeline_id=pipeline_id)
 
 
+@mcp.tool()
+def trigger_pipeline_run(
+    pipeline_id: int,
+    deck_name: str,
+    cards_json: str,
+    note_type_name: str = "",
+    document_id: int | None = None,
+    variables_json: str = "{}",
+) -> str:
+    """Déclenche l'exécution asynchrone d'un pipeline DAG de finition sur un lot de cartes pré-générées avec sortie staged (Two-Phase Commit)."""
+    return MCPToolRegistry.trigger_pipeline_run(
+        pipeline_id=pipeline_id,
+        deck_name=deck_name,
+        cards_json=cards_json,
+        note_type_name=note_type_name,
+        document_id=document_id,
+        variables_json=variables_json,
+    )
+
+
 # =====================================================================
 # GESTION DES AGENTS DÉDIÉS AU SERVEUR MCP
 # =====================================================================

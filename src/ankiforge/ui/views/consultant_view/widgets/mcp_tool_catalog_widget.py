@@ -1,6 +1,6 @@
 """Sous-onglet interactif Catalogue des Outils MCP (Model Context Protocol).
 
-Permet d'explorer, de filtrer par catégorie et de rechercher parmi les 58 outils
+Permet d'explorer, de filtrer par catégorie et de rechercher parmi les 63 outils
 exposés par le serveur MCP local d'AnkiForge, avec affichage détaillé des schémas
 JSON de paramètres, des règles de Two-Phase Commit et des garde-fous associés.
 """
@@ -144,9 +144,10 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     # 5. Albums & Planches (2)
     "list_albums": DOMAIN_ALBUMS,
     "get_album_plates": DOMAIN_ALBUMS,
-    # 6. Pipelines & DAG (2)
+    # 6. Pipelines & DAG (3)
     "list_pipelines": DOMAIN_PIPELINES,
     "get_pipeline_run": DOMAIN_PIPELINES,
+    "trigger_pipeline_run": DOMAIN_PIPELINES,
     # 7. Agents MCP & Workspaces (6)
     "list_mcp_agents": DOMAIN_AGENTS,
     "get_mcp_agent_details": DOMAIN_AGENTS,
@@ -255,6 +256,11 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     ],
     "abort_staged_bundle": [
         "Nettoyage transactionnel : supprime le bundle en cours de construction et toutes ses étapes associées.",
+    ],
+    "trigger_pipeline_run": [
+        "Déclenchement asynchrone non-bloquant : exécution découplée dans QThreadPool avec sortie Staged.",
+        "Contrôle anti-hallucination strict : le paquet cible (deck_name) doit impérativement exister dans la base.",
+        "Finalisation Staged automatique : conversion automatique des cartes traitées en StagedBundle (batch_note_create).",
     ],
 }
 

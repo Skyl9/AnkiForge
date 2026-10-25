@@ -468,7 +468,9 @@ class PipelineOrchestrator(QRunnable):
 
             if not self._is_cancelled:
                 logger.info("[Orchestrateur DAG] Pipeline terminé avec succès.")
-                if run_record is not None:
+                if self.state.get_variable("auto_stage_bundle"):
+                    self._create_staged_bundle_from_results(run_record)
+                elif run_record is not None:
                     try:
                         run_record.status = "completed"
                         run_record.state_data = json.dumps(self.state.to_dict())
@@ -490,6 +492,121 @@ class PipelineOrchestrator(QRunnable):
                     logger.debug("Mise à jour fatal error BDD ignorée : %s", db_err)
             self.state.add_error(str(e))
             self.signals.error_occurred.emit(str(e))
+
+    def _create_staged_bundle_from_results(self, run_record: PipelineRunModel | None) -> None:
+        """Convertit les cartes résultantes du pipeline en un StagedBundle transactionnel scellé."""
+        from ankiforge.database.models import NoteTypeModel, PipelineModel
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        cards = self.state.get_variable("generated_cards", [])
+        deck_name = str(self.state.get_variable("deck_name", "")).strip()
+        note_type_name = str(self.state.get_variable("note_type_name", "")).strip()
+
+        pipe_name = ""
+        if self.pipeline_id:
+            p_obj = PipelineModel.get_or_none(PipelineModel.id == self.pipeline_id)
+            if p_obj:
+                pipe_name = p_obj.name
+        if not pipe_name:
+            pipe_name = f"Pipeline #{self.pipeline_id or 'Inconnu'}"
+
+        if not note_type_name:
+            nt_def = NoteTypeModel.get_or_none(NoteTypeModel.name == "Basic") or NoteTypeModel.get_or_none(NoteTypeModel.name == "Basique") or NoteTypeModel.select().first()
+            if nt_def:
+                note_type_name = nt_def.name
+
+        validated_notes: list[dict[str, Any]] = []
+        if isinstance(cards, list):
+            for c in cards:
+                if not isinstance(c, dict):
+                    continue
+                c_deck = str(c.get("deck") or c.get("deck_name") or deck_name).strip()
+                c_model = str(c.get("model") or c.get("note_type") or c.get("note_type_name") or note_type_name).strip()
+
+                if "fields" in c and isinstance(c["fields"], dict):
+                    c_fields = {str(k): str(v) for k, v in c["fields"].items()}
+                else:
+                    c_fields = {str(k): str(v) for k, v in c.items() if k not in ("deck", "deck_name", "model", "note_type", "note_type_name", "tags", "section", "page_number", "guid")}
+
+                c_tags = c.get("tags") or []
+                if isinstance(c_tags, str):
+                    tags_list = [t.strip() for t in c_tags.split(",") if t.strip()]
+                elif isinstance(c_tags, (list, tuple)):
+                    tags_list = [str(t).strip() for t in c_tags if str(t).strip()]
+                else:
+                    tags_list = []
+
+                item_dict: dict[str, Any] = {
+                    "deck": c_deck,
+                    "note_type": c_model,
+                    "fields": c_fields,
+                    "tags": tags_list,
+                }
+                if "section" in c:
+                    item_dict["section"] = c["section"]
+                if "page_number" in c:
+                    item_dict["page_number"] = c["page_number"]
+
+                validated_notes.append(item_dict)
+
+        if not validated_notes:
+            logger.warning("[Orchestrateur DAG] Aucune carte valide à convertir en StagedBundle.")
+            if run_record is not None:
+                try:
+                    run_record.status = "completed"
+                    run_record.state_data = json.dumps(self.state.to_dict())
+                    run_record.save()
+                except Exception as db_err:
+                    logger.debug("Mise à jour BDD ignorée : %s", db_err)
+            return
+
+        try:
+            bundle_title = f"Génération Pipeline '{pipe_name}' ({len(validated_notes)} cartes)"
+            bundle_desc = f"Lot de {len(validated_notes)} cartes finalisées via le pipeline DAG #{self.pipeline_id}."
+            bundle_id = StagedPatchRegistry.begin_bundle(title=bundle_title, explanation=bundle_desc)
+
+            diff_payload: dict[str, Any] = {
+                "type": "batch_note_create",
+                "notes": validated_notes,
+                "count": len(validated_notes),
+                "default_deck": deck_name,
+                "default_note_type": note_type_name,
+                "title": f"Création par lot de {len(validated_notes)} note(s)",
+                "explanation": bundle_desc,
+                "modified": {
+                    "notes": validated_notes,
+                    "count": len(validated_notes),
+                },
+            }
+
+            StagedPatchRegistry.create_patch(
+                patch_type="batch_note_create",
+                diff_payload=diff_payload,
+                bundle_id=bundle_id,
+            )
+
+            StagedPatchRegistry.commit_bundle(bundle_id)
+
+            self.state.set_variable("bundle_id", bundle_id)
+
+            if run_record is not None:
+                run_record.status = "staged"
+                run_record.state_data = json.dumps(self.state.to_dict())
+                run_record.save()
+
+            logger.info(
+                "[Orchestrateur DAG] Finalisation Staged réussie : Bundle %s créé pour le run %s",
+                bundle_id,
+                run_record.id if run_record else "N/A",
+            )
+
+        except Exception as bundle_err:
+            logger.exception("[Orchestrateur DAG] Échec de création du StagedBundle : %s", bundle_err)
+            if run_record is not None:
+                run_record.status = "failed"
+                run_record.error_message = f"Erreur de finalisation Staged : {bundle_err}"
+                run_record.state_data = json.dumps(self.state.to_dict())
+                run_record.save()
 
     # ==========================================
     # MÉTHODES DE TRAITEMENT SPÉCIFIQUES
