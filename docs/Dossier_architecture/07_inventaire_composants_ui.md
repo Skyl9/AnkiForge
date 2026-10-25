@@ -32,6 +32,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 * **Édition & Mathématiques :**
   * `katex_editor.py` : Éditeur mathématique LaTeX avec rendu live KaTeX et autocomplétion.
   * `note_editor_widget.py` : Éditeur complet de notes avec gestion multi-champs dynamique.
+  * `editor_toolbar_widget.py` : Barre d'outils extensible et personnalisable pour le formatage des champs actifs, avec actions regroupées, raccourcis, noms accessibles en français, repli d'icônes Phosphor indisponibles et recoloration au changement de thème.
   * `cloze_manager.py` : Outil de création rapide d'occlusions (Cloze deletion `{{c1::...}}`).
   * `drop_image_text_edit.py` : Zone de texte enrichie avec gestion du drag & drop d'images vers le `MediaManager`.
   * `sorting.py` (dans `models/`) & contrôleur `EditionView` : Moteur et contrôleur de tri multi-critères synchronisé (triple accès : bouton dynamique, en-têtes interactifs et menu contextuel) avec persistance par profil et mode (ADR 0044).

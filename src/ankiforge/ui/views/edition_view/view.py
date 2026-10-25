@@ -384,7 +384,7 @@ class EditionView(QWidget):
         filter_layout.addWidget(self.btn_filter_status)
 
         self.btn_sort_order = QPushButton()
-        self.btn_sort_order.setIcon(load_phosphor_icon("sort-ascending", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_sort_order.setIcon(load_phosphor_icon("funnel", color=DesignTokens.TEXT_SECONDARY))
         self.btn_sort_order.setAccessibleName(self.tr("Trier les notes et les cartes"))
         self.btn_sort_order.setToolTip(self.tr("Trier les notes et les cartes"))
         self.btn_sort_order.setStyleSheet(f"""

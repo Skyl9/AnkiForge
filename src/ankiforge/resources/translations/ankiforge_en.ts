@@ -397,7 +397,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+1149"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+1139"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -573,11 +573,11 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
         <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+608"/>
-        <location filename="../../ui/views/edition_view/view.py" line="-631"/>
-        <location line="+213"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-621"/>
+        <location line="+212"/>
         <location line="+8"/>
         <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+101"/>
-        <location line="+30"/>
+        <location line="+29"/>
         <location line="+16"/>
         <location line="+15"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+468"/>
@@ -3037,7 +3037,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
         <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+766"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+740"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4542,7 +4542,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+16"/>
         <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+940"/>
-        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+170"/>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+179"/>
         <location line="+143"/>
         <source>%1%2</source>
         <translation type="unfinished"></translation>
@@ -5058,13 +5058,13 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-577"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-551"/>
         <source>%1 cartes sélectionnées (sur %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+2"/>
-        <location line="+10"/>
+        <location line="+8"/>
         <source>Modifier le groupe (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5074,7 +5074,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+30"/>
         <source>Carte #%1 %2 [%3] (Note #%4) : %5</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5105,12 +5105,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+28"/>
-        <source>Note #%1 transmise au Consultant IA !</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+50"/>
+        <location line="+61"/>
         <source>Dossier : %1 ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12847,7 +12842,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-2280"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-2253"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12858,18 +12853,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+33"/>
-        <location line="+1120"/>
+        <location line="+1093"/>
         <source>Dossier : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1101"/>
-        <location line="+1387"/>
+        <location line="-1074"/>
+        <location line="+1360"/>
         <source>Type de note : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1368"/>
+        <location line="-1341"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12921,27 +12916,27 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+444"/>
-        <location line="+17"/>
-        <location line="+1679"/>
+        <location line="+439"/>
+        <location line="+12"/>
+        <location line="+1662"/>
         <location line="+110"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-2246"/>
+        <location line="-2219"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+436"/>
-        <location line="+9"/>
+        <location line="+431"/>
+        <location line="+7"/>
         <source>Modifier le groupe</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-441"/>
+        <location line="-434"/>
         <source>Appliquer une modification sur les cartes sélectionnées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12956,7 +12951,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+173"/>
+        <location line="+172"/>
         <source>Déplier la liste des cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12966,23 +12961,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+422"/>
-        <location line="+713"/>
+        <location line="+413"/>
+        <location line="+696"/>
         <source>Changer le type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-580"/>
+        <location line="-563"/>
         <source>Modifications non enregistrées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+93"/>
-        <source>Sélectionnez une carte à analyser par le Consultant IA.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+155"/>
+        <location line="+231"/>
         <source>Filtrer par type de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13290,7 +13280,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditorToolbarWidget</name>
     <message>
-        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="-374"/>
+        <location filename="../../ui/widgets/editor_toolbar_widget.py" line="-382"/>
         <source>Replier la liste des cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13310,7 +13300,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+8"/>
         <source>Historique</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13346,7 +13336,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+303"/>
+        <location line="+312"/>
         <source>Actions masquées :</source>
         <translation type="unfinished"></translation>
     </message>

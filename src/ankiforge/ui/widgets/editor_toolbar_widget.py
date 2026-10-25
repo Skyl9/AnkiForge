@@ -122,7 +122,6 @@ class EditorToolbarWidget(QWidget):
 
         self.main_layout.addStretch()
 
-
         # Boutons système à droite : Historique + Sauvegarder + Toggle Preview
         seq_history = get_shortcut_sequence(ShortcutId.VIEW_HISTORY)
         self.btn_history = SecondaryButton(self.tr("Historique"))
