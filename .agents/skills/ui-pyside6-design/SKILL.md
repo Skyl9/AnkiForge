@@ -17,13 +17,19 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
 
 ## 1. Règles Cardinales de Conception UI
 
-1. **Zéro couleur ou style codé en dur** :
-   - Tout style passe par `StyleEngine.generate_stylesheet()` et les tokens sémantiques de `DesignTokens` (`bg_primary`, `border_focus`, `text_secondary`, etc.).
+1. **Zéro couleur ou style codé en dur & Catalogue strict de `DesignTokens`** :
+   - Tout style passe par `StyleEngine.generate_stylesheet()` et les tokens sémantiques de `DesignTokens` (`src/ankiforge/ui/theme.py`).
+   - **Catalogue exhaustif des jetons réels** :
+     - Fonds : `BG_MAIN`, `BG_SIDEBAR`, `BG_PANEL`, `BG_INPUT`, `BG_HOVER`, `BG_ACTIVE`. Des jetons comme `BG_SECONDARY`, `BG_CARD` ou `BG_SURFACE` n'existent PAS dans `DesignTokens` et déclenchent une `AttributeError`.
+     - Bordures : `BORDER_COLOR`, `BORDER_FOCUS`, `BORDER_LIGHT`. Le jeton `BORDER_HOVER` n'existe PAS.
+     - Textes : `TEXT_PRIMARY`, `TEXT_MUTED`, `TEXT_SECONDARY`, `TEXT_ON_ACCENT`.
+     - Accents et statuts : `ACCENT_PRIMARY`, `COLOR_BLUE`, `COLOR_RED`, `COLOR_GREEN`, `COLOR_YELLOW`, `COLOR_PURPLE`.
+   - ⛔ **Garde-fou bloquant tokens** : Interdiction formelle d'inventer des jetons stylistiques par présomption. Toujours inspecter la définition de `DesignTokens` dans `src/ankiforge/ui/theme.py` avant tout usage dans une feuille de style ou un widget.
    - Tout nouveau composant doit être déclaré dans `DESIGN.md` et stylé dans `StyleEngine`.
-2. **Internationalisation stricte (`ADR 0013`)** :
-   - Toute chaîne affichée à l'utilisateur passe par `self.tr("...")` (dans un `QObject`) ou `tr("...")` (ailleurs).
+2. **Internationalisation stricte (`ADR 0013`) & Règle impérative de substitution** :
+   - Toute chaîne affichée à l'utilisateur passe par `self.tr("...")` (dans un `QObject` pour les libellés statiques) ou `tr("...")` (ailleurs).
    - **`tr(f"...")` est strictement interdit** (l'expression est évaluée avant l'appel et n'entre pas au catalogue).
-   - Les valeurs interpolées utilisent les marqueurs Qt Linguist : `tr("Enregistré : %1/%2", faits, total)`.
+   - ⛔ **Garde-fou substitution Qt Linguist** : La méthode `self.tr()` de `QObject` ne réalise **AUCUNE** substitution de paramètres `%1`, `%2` (son second paramètre étant réservé au contexte de désambiguïsation). Tout message paramétré avec marqueurs de position **DOIT IMPÉRATIVEMENT** utiliser la fonction globale `tr("Enregistré : %1/%2", faits, total)` importée de `ankiforge.utils.i18n`. L'emploi de `self.tr("... %1", var)` laisse le marqueur `%1` brut non substitué à l'affichage.
 3. **Multi-fenêtrage & Layouts** :
    - Panneaux détachables style JetBrains via `IdePanel`.
    - Compatibilité totale avec les 4 dispositions d'interface (`ide`, `macos`, `dashboard`, `glassmorphism`).

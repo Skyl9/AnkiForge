@@ -72,6 +72,11 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Appel direct de méthodes modales synchrones (`QMessageBox.information(self, ...)`, `QMessageBox.warning(...)` ou `box.exec()`) sans possibilité de simulation ou d'interception dans les tests headless.
 - **Remédiation** : Découpler systématiquement les dialogues sous forme de méthodes auxiliaires de classe (`_notify_info(title, text)`, `_confirm_delete(...)`) permettant un mock immédiat via `monkeypatch` sans bloquer la boucle Qt.
 
+### T-14 : Présomption de Jetons de Design System Inexistants (DesignTokens Phantom Keys)
+- **Symptôme** : Crash à l'exécution ou en test UI avec `AttributeError: type object 'DesignTokens' has no attribute 'BORDER_HOVER'` ou `BG_SECONDARY`.
+- **Cause racine** : Biais de familiarité web/CSS où l'agent présume de l'existence de jetons plausibles (`BG_SECONDARY`, `BORDER_HOVER`, `BG_CARD`) sans vérifier la définition réelle dans `src/ankiforge/ui/theme.py`.
+- **Remédiation** : Formalisation dans `ui-pyside6-design/SKILL.md` et `implement/SKILL.md` du catalogue exhaustif des jetons réels de `DesignTokens` (`BG_MAIN`, `BG_SIDEBAR`, `BG_PANEL`, `BG_INPUT`, `BG_HOVER`, `BG_ACTIVE`, `BORDER_COLOR`, `BORDER_FOCUS`, `BORDER_LIGHT`) et interdiction d'utiliser un jeton sans inspection préalable de `theme.py`.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -86,7 +91,8 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Crash natif QtMultimedia / Segfault xdist | Mock obligatoire de `setSource` et `play` sur `QMediaPlayer` | `verification-environnement/SKILL.md`, `ui-pyside6-design/SKILL.md` |
 | Blocage modal synchrone en test Qt | Découplage obligatoire des dialogues (`_notify_info`, `_confirm_*`) | `ui-pyside6-design/SKILL.md` |
 | Conflit / écrasement dans le vault Obsidian | Clarification du sous-repo Git et renforcement des règles atomiques | `obsidian-vault/SKILL.md` |
-| Erreur de Design System ou couleur codée en dur | Rappel de la règle 8, interdiction des émojis et tokens CSS | `ui-pyside6-design/SKILL.md` |
+| Erreur de Design System ou couleur codée en dur | Rappel de la règle 8, interdiction des émojis et catalogue exhaustif des tokens | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
+| Confusion de substitution de paramètres i18n (`self.tr` vs `tr`) | Garde-fou bloquant sur l'utilisation exclusive de `tr()` racine pour `%1` | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
 | Typage brisé par `.tuples()` / `.dicts()` Peewee | Convention d'accès direct aux attributs typés | `peewee-expert/SKILL.md` |
 | Altération de contexte de traduction Linguist | Directive stricte `cls.tr()` vs `instance.tr()` | `ui-pyside6-design/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

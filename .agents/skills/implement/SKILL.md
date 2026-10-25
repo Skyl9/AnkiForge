@@ -32,6 +32,8 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Tests UI Qt 100% headless (`pytest-qt`, `QT_QPA_PLATFORM=offscreen`).
   - Attente impérative des threads : tout test pilotant un widget démarrant un worker en tâche de fond (`QThread`, worker d'arrière-plan) doit obligatoirement attendre sa fin (`if widget.worker and widget.worker.isRunning(): widget.worker.wait()` ou `qtbot.waitUntil(widget.worker.isFinished)`) pour immuniser le teardown de `mock_db` contre tout verrou SQLite concurrent.
   - Mocks LLM obligatoires (zéro appel API payant en test).
+  - Design Tokens réels : ne jamais présumer de tokens stylistiques non définis (`BG_SECONDARY`, `BORDER_HOVER` n'existent pas) ; se référer exclusivement à `src/ankiforge/ui/theme.py`.
+  - Internationalisation paramétrée : `self.tr()` ne réalisant pas de substitution `%1`, tout message paramétré emploie la fonction globale `tr("Message : %1", val)` de `ankiforge.utils.i18n`.
 
 ## 3. Clôture, Vérification Canonique & Revue
 
