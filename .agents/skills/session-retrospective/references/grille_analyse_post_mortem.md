@@ -83,9 +83,9 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Remédiation** : Règle impérative dans `ui-pyside6-design/SKILL.md`, `implement/SKILL.md`, `verification-environnement/SKILL.md` et `diagnosing-bugs/SKILL.md` : dès qu'une chaîne traduisible `tr()` est ajoutée, modifiée ou **supprimée/retirée**, ré-exécuter obligatoirement `uv run python script/extract_translations.py` AVANT de lancer la porte `script/verify.py`.
 
 ### T-16 : Couplage du Catalogue d'Outils MCP et Tests d'Introspection (MCP Catalog Drift on New Tool Addition)
-- **Symptôme** : L'ajout d'un nouvel outil FastMCP `@mcp.tool()` dans `src/ankiforge/services/ai/mcp_server.py` fait échouer `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`AssertionError: assert N == M`) et laisse l'outil orphelin sans domaine ni niveau de garde-fou.
-- **Cause racine** : Omission de la synchronisation entre le serveur FastMCP et le widget de catalogue d'outils IHM lors de l'extension de l'API MCP.
-- **Remédiation** : Règle impérative dans `pipeline-dag-ia/SKILL.md` et `implement/SKILL.md` : tout nouvel outil FastMCP doit être enregistré dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py`, et l'assertion de décompte dans les tests UI doit être actualisée.
+- **Symptôme** : L'ajout d'un nouvel outil FastMCP `@mcp.tool()` dans `src/ankiforge/services/ai/mcp_server.py` fait échouer `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`AssertionError: assert N == M`) ou `test_mcp_dashboard_widget_integration_catalog_tab` (`assert tool_list.count() == M`), et laisse l'outil orphelin sans domaine ni niveau de garde-fou.
+- **Cause racine** : Omission de la synchronisation entre le serveur FastMCP et le widget de catalogue d'outils IHM lors de l'extension de l'API MCP, et mise à jour partielle des assertions de décompte sans recherche exhaustive par grep.
+- **Remédiation** : Règle impérative dans `pipeline-dag-ia/SKILL.md` et `implement/SKILL.md` : tout nouvel outil FastMCP doit être enregistré dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py`, et une recherche grep systématique de l'ancien décompte (`grep -rn "== <ancien_compte>" tests/`) doit être menée pour actualiser simultanément l'ensemble des tests couplés au cardinal du catalogue.
 
 ### T-17 : Omission du Nouveau Modèle Peewee dans la Fixture de Test `mock_db` (Missing Model in Shared In-Memory Test DB)
 - **Symptôme** : Lors de l'implémentation d'un nouveau modèle Peewee, les tests unitaires ou d'intégration échouent avec `sqlite3.OperationalError: no such table: <table_name>`.
@@ -111,6 +111,16 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Symptôme** : L'outil `edit_file` applique plusieurs remplacements non souhaités (`Made 2 replacements`) car la chaîne cible `Target` existe à l'identique dans plusieurs classes ou méthodes du même fichier, écrasant silencieusement une autre méthode.
 - **Cause racine** : Sélection d'une cible `Target` trop courte sans contexte englobant (ex: signature générique `def refresh_theme(self, profile: Any) -> None: pass` dupliquée entre widgets voisins).
 - **Remédiation** : Règle stricte dans `verification-environnement/SKILL.md` et `implement/SKILL.md` : toujours inclure le nom de la classe parente ou la méthode précédente dans `Target` pour garantir un remplacement unique et univoque (`Made 1 replacement`).
+
+### T-22 : Présomption de Clés de Dictionnaires et Contrats de Retour (`API Return Key Guessing`)
+- **Symptôme** : Les tests d'intégration ou le code métier échouent avec `KeyError` ou assertion sur `None` car l'agent devine le nom des clés de retour d'une méthode (ex: `applied_steps` vs `applied_steps_count`) ou présume de l'emplacement d'une valeur dans une structure hiérarchique (ex: variable dans `state_dict['variables']` vs `state_dict`).
+- **Cause racine** : Biais d'intuition rapide où l'agent invente une clé plausible sans inspecter au préalable la définition de la fonction appelée ou le modèle de données.
+- **Remédiation** : Règle impérative dans `verification-environnement/SKILL.md` et `implement/SKILL.md` : avant d'écrire une assertion sur un dictionnaire renvoyé ou d'extraire une valeur, toujours vérifier la structure réelle dans la définition du service ou de la méthode appelante (`read_file` ou inspection).
+
+### T-23 : Rejet de Correspondance Exacte sur Fichiers Markdown Vivants (`Markdown Whitespace Mismatch`)
+- **Symptôme** : L'outil `edit_file` échoue avec `target content not found in the file` lors de modifications dans le Kanban (`Avancement du projet.md`) ou les notes de tickets, à cause de variations invisibles dans les sauts de lignes consécutifs (`\n\n\n`) ou espaces de fin de ligne.
+- **Cause racine** : Sélection de cibles `Target` multi-lignes englobant des espacements inter-sections variables ou non canoniques.
+- **Remédiation** : Règle impérative dans `obsidian-vault/SKILL.md` et `implement/SKILL.md` : restreindre strictement la cible `Target` aux seules lignes stables de l'élément à déplacer ou modifier (ex: uniquement la ligne de la carte `- [ ] [[...]]` et le titre immédiat de la section cible), sans englober les sauts de ligne intermédiaires, ou recourir à une substitution par script Python ciblé en cas de décalage de blanc.
 
 ---
 
@@ -138,4 +148,6 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Présomption d'icône Phosphor non manifestée (`T-20`) | Vérification obligatoire dans `src/ressources/icons_manifest.txt` | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
 | Remplacement ambigu multiple sous edit_file (`T-21`) | Contexte englobant strict pour ciblage univoque | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
 | Surcharge Qt à arité incompatible sous Mypy Strict | Respect du sous-typage Liskov et signatures d'arité identiques | `ui-pyside6-design/SKILL.md`, `verification-environnement/SKILL.md` |
+| Présomption de clés de retour de service (`T-22`) | Inspection obligatoire du contrat de fonction avant assertion de test | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
+| Décalage d'espacements Markdown sous edit_file (`T-23`) | Cibles mono-lignes strictes sans sauts de lignes inter-sections variables | `obsidian-vault/SKILL.md`, `implement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

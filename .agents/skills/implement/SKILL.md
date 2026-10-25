@@ -35,11 +35,13 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Design Tokens réels : ne jamais présumer de tokens stylistiques non définis (`BG_SECONDARY`, `BORDER_HOVER` n'existent pas) ; se référer exclusivement à `src/ankiforge/ui/theme.py`.
   - Internationalisation paramétrée : `self.tr()` ne réalisant pas de substitution `%1`, tout message paramétré emploie la fonction globale `tr("Message : %1", val)` de `ankiforge.utils.i18n`.
   - Nouveaux modèles Peewee : ajouter impérativement toute nouvelle classe `*Model` dans la liste `models` de la fixture `mock_db` dans `tests/conftest.py` pour éviter l'erreur `no such table`. Recharger via `Model.get_by_id()` (jamais `refresh_from_db`).
-  - Nouveaux outils FastMCP : enregistrer tout `@mcp.tool()` dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `mcp_tool_catalog_widget.py`, et actualiser le décompte de tests dans `tests/ui/test_mcp_tool_catalog_widget.py`.
+  - Nouveaux outils FastMCP : enregistrer tout `@mcp.tool()` dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `mcp_tool_catalog_widget.py`, et actualiser de manière exhaustive l'ensemble des assertions de décompte dans les tests (recherche grep systématique `grep -rn "== <ancien_compte>" tests/` pour inclure les tests d'introspection et d'intégration du widget).
   - Tests asynchrones : encapsuler toujours dans `def test_...(): asyncio.run(_run())` synchrone (zéro `@pytest.mark.asyncio`).
   - Icônes Phosphor réelles : ne jamais présumer du nom d'une icône vectorielle ; vérifier impérativement son existence dans le manifeste `src/ressources/icons_manifest.txt` avant tout appel à `load_phosphor_icon("ph.<nom>")`.
   - Remplacements univoques sous `edit_file` : inclure systématiquement un contexte englobant suffisant (classe parente, méthode précédente) pour garantir un remplacement ciblé unique (`Made 1 replacement`).
   - Surcharges de méthodes Qt : ne jamais surcharger une méthode native de widget Qt (`QTreeWidget`, `QTableWidget`, etc.) en altérant son arité ou ses types de paramètres pour préserver le sous-typage Liskov sous `mypy strict` (`[override]`).
+  - Contrats de retour d'API et dictionnaires : ne jamais présumer des clés de retour d'une méthode de service ou d'un registre (`apply_bundle_all()`, `to_dict()`) ; toujours inspecter la définition de la fonction ou du modèle avant d'écrire une assertion de test ou d'extraire une valeur.
+  - Édition chirurgicale Markdown : sur les fichiers Markdown vivants (`Avancement du projet.md`), limiter la chaîne `Target` aux seules lignes strictes de l'élément à déplacer sans englober les sauts de lignes inter-sections variables (`\n\n\n`), ou recourir à un remplacement par script pour prévenir les rejets de correspondance exacte.
 
 ## 3. Clôture, Vérification Canonique & Revue
 

@@ -27,6 +27,10 @@ Les agents risquent d'écraser des colonnes réorganisées par l'utilisateur ou 
    - Ne JAMAIS remplacer de blocs multi-colonnes ou des sections entières de `Avancement du projet.md`.
    - Toujours effectuer un ciblage strict d'une seule ligne à supprimer et d'une seule ligne à insérer.
    - Ne jamais écraser ou déplacer les tickets modifiés ou créés en parallèle par l'utilisateur.
+   - **Garde-fou anti-rejet d'espacement (`edit_file`)** : Les fichiers Markdown vivants accumulent souvent des sauts de lignes consécutifs (`\n\n\n`). Ne jamais inclure d'espaces inter-sections dans `Target`. Procéder en deux remplacements mono-lignes distincts :
+     1. Retrait de l'élément de sa colonne d'origine : `Target: "- [ ] [[...]]\n"`, `Replacement: ""`.
+     2. Insertion sous le titre de destination : `Target: "## <Colonne Cible>\n\n"`, `Replacement: "## <Colonne Cible>\n\n- [ ] [[...]]\n"`.
+     En cas d'échec de correspondance exacte dû au formattage d'espaces, recourir immédiatement à une substitution Python chirurgicale.
 2. **Cycle Atomique Strict (One-Shot Pass)** :
    - Étape 1 : Lire la note ciblée (`Tickets/<Nom>.md`) ou la section précise du Kanban.
    - Étape 2 : Modifier ou créer la note du ticket.

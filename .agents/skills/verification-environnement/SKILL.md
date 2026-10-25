@@ -68,6 +68,14 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
     - *Pourquoi* : L'outil `edit_file` remplace sans avertissement l'intégralité des occurrences correspondant à la chaîne `Target`. Si une signature ou un corps de méthode générique (ex: `def refresh_theme(self, profile: Any) -> None: pass`) est dupliqué entre plusieurs classes voisines, une cible trop restreinte écrase silencieusement des classes tierces.
     - *Garantie automatique* : Toujours englober dans `Target` le nom de la classe parente ou la méthode contiguë pour garantir un remplacement unique et univoque (`Made 1 replacement`).
 
+15. **Vérification des contrats de retour de service (Zéro présomption de clé de dictionnaire)** :
+    - *Pourquoi* : Deviner le nom d'une clé de dictionnaire renvoyée par un service ou un registre (ex: `applied_steps` vs `applied_steps_count`, ou chercher une variable à la racine plutôt que sous `variables`) provoque des `KeyError` ou des assertions sur `None` en test.
+    - *Garantie automatique* : Toujours inspecter la définition physique de la méthode ou du modèle retourné avant d'écrire une assertion ou d'extraire une valeur.
+
+16. **Ciblage chirurgical sur fichiers Markdown vivants (Zéro rejet de correspondance exacte)** :
+    - *Pourquoi* : Les fichiers Markdown vivants (comme le Kanban `Avancement du projet.md`) accumulent des sauts de lignes consécutifs (`\n\n\n`) invisibles à la lecture simple, provoquant l'erreur `target content not found in the file` sous `edit_file`.
+    - *Garantie automatique* : Restreindre la cible `Target` aux seules lignes strictes de l'élément à déplacer sans englober les espaces blancs ou sauts de ligne inter-sections variables, ou recourir à un script Python chirurgical si nécessaire.
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :
