@@ -44,6 +44,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.database.note_type_catalog import is_basic_note_type_name
 from ankiforge.services.settings_service import SettingsService
+from ankiforge.utils.anki_renderer import compute_sort_field
 from ankiforge.utils.archive_utils import ArchiveSizeLimitError, safe_extract_zip
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.hierarchy import from_anki_unit_separator, join_hierarchy, split_hierarchy
@@ -1230,6 +1231,7 @@ class ImportManager:
                     note_type=note_type_model,
                     tags=serialize_note_tags(n_info.get("tags", [])),
                     status="imported",
+                    sort_field=compute_sort_field(raw_incoming),
                 )
                 NoteVersionModel.create(
                     note=note,
@@ -1590,6 +1592,7 @@ class ImportManager:
                     note_type=note_type_model,
                     tags=serialize_note_tags(n_info.get("tags", [])),
                     status="imported",
+                    sort_field=compute_sort_field(raw_incoming),
                 )
                 NoteVersionModel.create(
                     note=note,

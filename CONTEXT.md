@@ -389,6 +389,20 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Guide visuel du cycle de vie distribué** : documentation pédagogique embarquée illustrée de 5 diagrammes vectoriels (SVG), guidant l'utilisateur dans l'articulation de ses sessions de travail entre la création dans le Studio AnkiForge et les révisions quotidiennes dans Anki, clarifiant la sanctuarisation des périmètres et l'élimination des cartes zombies sans jargon technique développeur.
   _Avoid_ : manuel technique, spec cycle de vie, doc interne
 
+## Navigation, Tableau virtuel & Système de Tri
+
+- **Champ de tri de note (`sort_field`)** : valeur textuelle indexée dénormalisée sur `NoteModel`, reflet épuré de HTML du premier champ non vide de la version active d'une note, conforme au contrat canonique `sfld` d'Anki, assurant des tris SQL instantanés et un défilement 60 FPS sur de grands volumes.
+  _Avoid_ : premier champ brut, sfld non indexé, tri virtuel mémoire
+- **Ordre de tri d'édition (Edition Sort Order)** : état d'ordonnancement actif (critère métier, direction croissante ou décroissante et clé de départage) gouvernant la requête Peewee et le modèle paginé `NoteVirtualTableModel`, persisté de manière isolée par profil et par mode d'affichage (`Notes` vs `Cartes`).
+  _Avoid_ : filtre d'édition, tri global figé, ordre arbitraire
+- **Triple accès de tri (Triple Sort Access)** : patron ergonomique unifié proposant le tri selon trois modalités complémentaires et synchronisées : le bouton-menu de la barre de filtres (`Trier par ▾`), le clic direct sur les en-têtes de colonnes avec chevron visuel (▲ / ▼), et le sous-menu du clic droit sur la table (`Trier par...`).
+  _Avoid_ : tri mono-colonne, tri masqué, tri par raccourci seul
+- **Cycle de tri binaire (Binary Sort Cycle)** : bascule au clic sur un en-tête de colonne alternant de manière fluide entre l'ordre ascendant (▲) et l'ordre descendant (▼), la remise à zéro étant dévolue à une action explicite (« Réinitialiser le tri par défaut »).
+  _Avoid_ : cycle ternaire imprévisible, perte de tri au 3e clic
+- **Clé de départage déterministe (Secondary Sort Key)** : tri secondaire SQL automatique appliqué lors des égalités sur le critère principal (ex. même paquet, même type de note ou même couleur de drapeau), ordonnant secondairement par `sort_field` (A → Z) puis par date de création (`id` décroissant).
+  _Avoid_ : ordre indéterminé SQLite, pagination vacillante
+
+
 
 
 

@@ -108,12 +108,16 @@ class NoteRepository(BaseRepository):
     ) -> NoteModel:
         """Crée une note, sa version active initiale et la carte correspondante."""
         tags_str = serialize_note_tags(tags)
+        from ankiforge.utils.anki_renderer import compute_sort_field
+
+        sort_field_val = compute_sort_field(fields_data)
 
         with self.atomic():
             note = NoteModel.create(
                 note_type=note_type,
                 tags=tags_str,
                 status=status,
+                sort_field=sort_field_val,
             )
             NoteVersionModel.create(
                 note=note,

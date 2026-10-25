@@ -63,6 +63,7 @@ class NoteModel(BaseModel):
     status = CharField(default="new")
     last_synced_at = DateTimeField(null=True)
     anki_content_hash = CharField(null=True)
+    sort_field = CharField(max_length=512, default="", index=True)
 
     @db.atomic()
     def add_version(self, new_content_dict: dict, source: str = "manual") -> "NoteVersionModel":
@@ -85,6 +86,14 @@ class NoteModel(BaseModel):
             source=source,
             is_active=True,
         )
+        try:
+            from ankiforge.utils.anki_renderer import compute_sort_field
+
+            self.sort_field = compute_sort_field(new_content_dict)
+            self.save()
+        except Exception as e:
+            logger.debug("Remarque calcul sort_field dans add_version: %s", e)
+
         try:
             from ankiforge.services.search.fts_service import FTSService
 

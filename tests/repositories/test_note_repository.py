@@ -34,6 +34,7 @@ def test_note_repository_crud() -> None:
     )
 
     assert note is not None
+    assert note.sort_field == "What is mitochondria?"
     assert repo.get_note_by_id(note.id) is not None
     assert repo.get_note_by_guid(note.guid) is not None
     assert repo.count_notes() == 1
@@ -52,6 +53,7 @@ def test_note_repository_crud() -> None:
         tags=["biology", "cellular"],
     )
     assert updated is not None
+    assert updated.sort_field == "What is mitochondria (updated)?"
     versions = repo.get_versions(note)
     assert len(versions) == 2
     active_ver2 = repo.get_active_version(note)
@@ -78,3 +80,36 @@ def test_note_repository_crud() -> None:
     assert repo.get_note_by_id(note.id) is None
     assert repo.count_notes() == 0
     assert repo.count_cards() == 0
+
+
+def test_note_repository_sort_field_html_stripping_and_fallback() -> None:
+    """Vérifie l'épuration HTML et le repli sur le premier champ non vide de sort_field."""
+    repo = NoteRepository()
+    deck = DeckModel.create(name="Science")
+    note_type = repo.create_note_type(
+        name="Science Model",
+        fields_schema=["Front", "Back"],
+        templates=[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+    )
+
+    # 1. Épuration HTML
+    note_html = repo.create_note(
+        note_type=note_type,
+        deck=deck,
+        fields_data={"Front": "<b>Atome</b> &amp; <i>Molécule</i><br>", "Back": "Physique"},
+    )
+    assert note_html.sort_field == "Atome & Molécule"
+
+    # 2. Repli si le premier champ est vide
+    note_fallback = repo.create_note(
+        note_type=note_type,
+        deck=deck,
+        fields_data={"Front": "   ", "Back": "Définition de secours"},
+    )
+    assert note_fallback.sort_field == "Définition de secours"
+
+    # 3. Mise à jour via add_version
+    note_fallback.add_version({"Front": "Nouveau Front Renseigné", "Back": "Suite"})
+    reloaded = repo.get_note_by_id(note_fallback.id)
+    assert reloaded is not None
+    assert reloaded.sort_field == "Nouveau Front Renseigné"

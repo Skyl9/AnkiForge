@@ -1,5 +1,7 @@
 """Rendu et assainissement des modèles de cartes Anki (champs, médias, mathématiques KaTeX)."""
 
+import html
+import json
 import logging
 import re
 from collections.abc import Mapping
@@ -8,6 +10,59 @@ from typing import Any
 from ankiforge.utils.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
+
+_SORT_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_SORT_BLOCK_TAG_RE = re.compile(r"<(?:br|/p|/div|/li|tr|/tr)[^>]*>", re.IGNORECASE)
+_SORT_IMG_RE = re.compile(r'<img[^>]+src=["\']?([^"\'>\s]+)["\']?[^>]*>', re.IGNORECASE)
+_SORT_SOUND_RE = re.compile(r"\[sound:([^\]]+)\]", re.IGNORECASE)
+
+
+def strip_html_for_sort(text: Any) -> str:
+    """Épure le balisage HTML d'une chaîne pour indexation et tri déterministe (sfld Anki)."""
+    if text is None:
+        return ""
+    s = str(text)
+    s = _SORT_IMG_RE.sub(r"\1", s)
+    s = _SORT_SOUND_RE.sub(r"\1", s)
+    s = _SORT_BLOCK_TAG_RE.sub(" ", s)
+    s = _SORT_HTML_TAG_RE.sub("", s)
+    s = html.unescape(s)
+    return " ".join(s.split()).strip()
+
+
+def compute_sort_field(content: dict[str, Any] | list[Any] | str | None) -> str:
+    """Calcule la valeur canonique du champ de tri d'une note (sort_field / sfld).
+
+    Retourne la valeur épurée de HTML du premier champ non vide (ou le premier champ si tous sont vides),
+    tronquée à 512 caractères.
+    """
+    if not content:
+        return ""
+    if isinstance(content, str):
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, (dict, list)):
+                content = parsed
+            else:
+                return strip_html_for_sort(content)[:512]
+        except Exception:
+            return strip_html_for_sort(content)[:512]
+
+    if isinstance(content, dict):
+        vals = [str(v) for k, v in content.items() if not str(k).startswith("_")]
+    elif isinstance(content, (list, tuple)):
+        vals = [str(v) for v in content]
+    else:
+        vals = [str(content)]
+
+    for val in vals:
+        cleaned = strip_html_for_sort(val)
+        if cleaned:
+            return cleaned[:512]
+
+    if vals:
+        return strip_html_for_sort(vals[0])[:512]
+    return ""
 
 
 class AnkiFields(dict[str, Any]):
