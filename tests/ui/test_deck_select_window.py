@@ -418,3 +418,15 @@ def test_deck_select_window_expand_and_collapse_all_buttons(qtbot: Any, mock_db:
     # Clic Tout déplier
     win.btn_expand_all.click()
     assert item_root.isExpanded()
+
+
+def test_deck_select_window_resizable(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la fenêtre n'est pas bloquée à une taille fixe et peut être redimensionnée."""
+    win = DeckSelectWindow()
+    qtbot.addWidget(win)
+
+    assert win.minimumWidth() <= 450
+    assert win.minimumHeight() <= 400
+    assert win.maximumWidth() > win.minimumWidth()
+    assert win.maximumHeight() > win.minimumHeight()
+

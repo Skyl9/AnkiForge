@@ -66,7 +66,8 @@ class DeckSelectWindow(QWidget):
 
         self.setWindowTitle(title)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setFixedSize(500, 540)
+        self.resize(500, 540)
+        self.setMinimumSize(450, 400)
 
         self.setStyleSheet(f"""
             QWidget {{
