@@ -61,7 +61,10 @@ def test_note_tags_editor_tag_picker_integration(qtbot: QtBot) -> None:
     widget = NoteTagsEditorWidget(note=note)
     qtbot.addWidget(widget)
 
+    assert hasattr(widget, "btn_add_tag")
+    assert not widget.btn_add_tag.icon().isNull(), "Le bouton Ajouter le tag doit avoir une icône affichée"
     assert hasattr(widget, "btn_browse_tag")
+    assert not widget.btn_browse_tag.icon().isNull()
 
     tags_emitted: list[list[str]] = []
     widget.tags_changed.connect(tags_emitted.append)

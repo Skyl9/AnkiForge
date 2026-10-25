@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -240,22 +239,19 @@ class NoteTagsEditorWidget(QFrame):
         top_layout.addWidget(self.input_new_tag)
 
         # Bouton d'ajout
-        self.btn_add_tag = QPushButton(self.tr("+"))
+        self.btn_add_tag = QToolButton(self)
+        self.btn_add_tag.setIcon(load_phosphor_icon("plus", color=DesignTokens.TEXT_MUTED))
         self.btn_add_tag.setFixedSize(24, 24)
         self.btn_add_tag.setToolTip(self.tr("Ajouter le tag"))
         self.btn_add_tag.setStyleSheet(f"""
-            QPushButton {{
+            QToolButton {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                font-size: 13px;
-                font-weight: bold;
-                color: {DesignTokens.TEXT_PRIMARY};
             }}
-            QPushButton:hover {{
+            QToolButton:hover {{
                 background-color: {DesignTokens.BG_HOVER};
                 border-color: {DesignTokens.ACCENT_PRIMARY};
-                color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
         self.btn_add_tag.clicked.connect(self._on_add_tag_clicked)

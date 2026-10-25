@@ -4772,12 +4772,12 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+77"/>
+        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="+76"/>
         <source>Tag de traçabilité documentaire : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+228"/>
+        <location line="+225"/>
         <source>(%1 tag%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16428,7 +16428,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NoteTagChipWidget</name>
     <message>
-        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="-305"/>
+        <location filename="../../ui/views/edition_view/note_tags_editor.py" line="-302"/>
         <source>Déplacer vers la gauche</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16456,17 +16456,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
-        <source>+</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
+        <location line="+25"/>
         <source>Ajouter le tag</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+19"/>
         <source>Parcourir et sélectionner un tag existant</source>
         <translation type="unfinished"></translation>
     </message>
