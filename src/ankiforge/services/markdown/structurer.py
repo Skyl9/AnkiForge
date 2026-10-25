@@ -367,7 +367,7 @@ class MarkdownStructurer:
         return new_text, True
 
     @classmethod
-    def extract_sections(cls, text: str, max_tokens: int | None = None) -> list[DocumentSection]:
+    def extract_sections(cls, text: str, max_tokens: int | None = None, overlap: int | None = None) -> list[DocumentSection]:
         """Découpe un document Markdown en sections sémantiques autonomes avec fil d'Ariane.
 
         Chaque section regroupe le titre et son corps jusqu'au titre suivant de niveau équivalent ou supérieur.
@@ -381,6 +381,7 @@ class MarkdownStructurer:
         Args:
             text: Contenu Markdown brut.
             max_tokens: Seuil optionnel de tokens maximum par chunk (1 token ~= 4 caractères).
+            overlap: Seuil optionnel de tokens de recouvrement entre sous-sections consécutives.
 
         Returns:
             Liste ordonnée de DocumentSection.
@@ -396,8 +397,8 @@ class MarkdownStructurer:
         # Si le document ne comporte aucun titre, retourne une section unique ou découpe par paragraphes
         if not outline:
             if toc is not None:
-                return cls._fallback_sections(TableOfContentsDetector.strip_span(text, toc), max_tokens)
-            return cls._fallback_sections(text, max_tokens)
+                return cls._fallback_sections(TableOfContentsDetector.strip_span(text, toc), max_tokens, overlap)
+            return cls._fallback_sections(text, max_tokens, overlap)
 
         sections: list[DocumentSection] = []
 
@@ -424,6 +425,7 @@ class MarkdownStructurer:
                     section_content,
                     start_line,
                     max_tokens,
+                    overlap,
                 )
                 sections.extend(sub_sections)
             else:
@@ -534,6 +536,7 @@ class MarkdownStructurer:
         content: str,
         base_line: int,
         max_tokens: int,
+        overlap: int | None = None,
     ) -> list[DocumentSection]:
         """Scinde une section volumineuse en préservant le fil d'Ariane."""
         paragraphs = content.split("\n\n")
@@ -566,8 +569,21 @@ class MarkdownStructurer:
                 )
                 part_idx += 1
                 current_start_line += line_span
-                current_parts = [p_strip]
-                current_len = p_tokens
+                if overlap and overlap > 0:
+                    kept_overlap: list[str] = []
+                    kept_len = 0
+                    for prev_p in reversed(current_parts):
+                        prev_tokens = max(1, int(len(prev_p) / 4))
+                        if kept_len + prev_tokens <= overlap:
+                            kept_overlap.insert(0, prev_p)
+                            kept_len += prev_tokens
+                        else:
+                            break
+                    current_parts = kept_overlap + [p_strip]
+                    current_len = kept_len + p_tokens
+                else:
+                    current_parts = [p_strip]
+                    current_len = p_tokens
             else:
                 current_parts.append(p_strip)
                 current_len += p_tokens
@@ -593,7 +609,7 @@ class MarkdownStructurer:
         return sub_sections
 
     @classmethod
-    def _fallback_sections(cls, text: str, max_tokens: int | None) -> list[DocumentSection]:
+    def _fallback_sections(cls, text: str, max_tokens: int | None, overlap: int | None = None) -> list[DocumentSection]:
         """Découpe un texte sans titres structurés."""
         paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
         if not paragraphs:
@@ -639,8 +655,21 @@ class MarkdownStructurer:
                 )
                 part_idx += 1
                 line_counter += span
-                current_parts = [p]
-                current_len = p_tokens
+                if overlap and overlap > 0:
+                    kept_overlap: list[str] = []
+                    kept_len = 0
+                    for prev_p in reversed(current_parts):
+                        prev_tokens = max(1, int(len(prev_p) / 4))
+                        if kept_len + prev_tokens <= overlap:
+                            kept_overlap.insert(0, prev_p)
+                            kept_len += prev_tokens
+                        else:
+                            break
+                    current_parts = kept_overlap + [p]
+                    current_len = kept_len + p_tokens
+                else:
+                    current_parts = [p]
+                    current_len = p_tokens
             else:
                 current_parts.append(p)
                 current_len += p_tokens

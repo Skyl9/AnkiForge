@@ -148,6 +148,8 @@ class ChunkingService:
         file_type: str | None = None,
         strategy: str | None = None,
         declared_addresses: Iterable[RegionAddress | str] | None = None,
+        chunk_size: int | None = None,
+        overlap: int | None = None,
     ) -> list[dict[str, Any]]:
         """Découpe un document en chunks cohérents et exploitables pour la Forge et le RAG.
 
@@ -164,6 +166,8 @@ class ChunkingService:
                 l'utilisateur. Elles sont réévaluées à chaque extraction : la neutralisation est
                 une règle attachée au document, jamais un drapeau mémorisé sur un fragment dont
                 l'identifiant est réattribué à la réingestion suivante.
+            chunk_size: Taille cible maximale d'un chunk en tokens (optionnel).
+            overlap: Nombre de tokens de recouvrement entre chunks consécutifs (optionnel).
 
         Returns:
             Liste des fragments avec :
@@ -204,7 +208,7 @@ class ChunkingService:
         )
 
         if strategy == cls.STRATEGY_MARKDOWN_AST:
-            result = cls.extract_chunks_markdown_ast(content)
+            result = cls.extract_chunks_markdown_ast(content, max_tokens=chunk_size, overlap=overlap)
             log_msg = "Extraction AST Markdown achevée : %d fragments créés"
         else:
             result = cls._extract_by_page(content, markers) if is_paginated and markers else cls._extract_by_section(content)
@@ -371,7 +375,12 @@ class ChunkingService:
         )
 
     @classmethod
-    def extract_chunks_markdown_ast(cls, content: str, max_tokens: int | None = None) -> list[dict[str, Any]]:
+    def extract_chunks_markdown_ast(
+        cls,
+        content: str,
+        max_tokens: int | None = None,
+        overlap: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Découpe un document Markdown en utilisant l'analyseur structurel AST MarkdownStructurer.
 
         Garantit la préservation rigoureuse du fil d'Ariane (heading_path) pour chaque section,
@@ -386,7 +395,7 @@ class ChunkingService:
             return []
 
         line_to_page = cls.build_line_to_page_map(content)
-        sections = MarkdownStructurer.extract_sections(content, max_tokens=max_tokens)
+        sections = MarkdownStructurer.extract_sections(content, max_tokens=max_tokens, overlap=overlap)
         sec_pages = cls._assign_pages_to_sections(sections, line_to_page)
         chunks: list[dict[str, Any]] = []
         for idx, sec in enumerate(sections):

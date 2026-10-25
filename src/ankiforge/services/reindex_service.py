@@ -83,6 +83,8 @@ def reindex_document(
     llm_config_id: int | None = None,
     progress_cb: ProgressCallback | None = None,
     fragment_cb: FragmentCallback | None = None,
+    chunk_size: int | None = None,
+    overlap: int | None = None,
 ) -> str:
     """Re-structure, re-indexe (FAISS + BM25) et re-synchronise un document complet.
 
@@ -94,6 +96,8 @@ def reindex_document(
         progress_cb: Callback de progression (message).
         fragment_cb: Callback opportuniste de micro-progression ``(traités, total)``.
             Il ne doit jamais faire échouer la ré-indexation ni retarder le niveau macro.
+        chunk_size: Taille cible maximale d'un chunk en tokens (optionnel).
+        overlap: Nombre de tokens de recouvrement entre chunks consécutifs (optionnel).
 
     Returns:
         Statut de l'opération — ``REINDEX_OK``, ``REINDEX_EMPTY`` ou ``REINDEX_ERROR``.
@@ -167,6 +171,8 @@ def reindex_document(
             file_type=doc.file_type,
             strategy=strategy,
             declared_addresses=DocumentRepository.get_neutralized_regions(doc),
+            chunk_size=chunk_size,
+            overlap=overlap,
         )
         if not extracted_chunks:
             logger.warning("Document '%s' vide ou trop court pour générer des chunks.", doc.title)

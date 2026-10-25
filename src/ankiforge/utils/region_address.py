@@ -43,6 +43,7 @@ __all__ = [
     "parse_region_address",
     "parse_region_addresses",
     "render_region_addresses",
+    "validate_canonical_region_address",
 ]
 
 
@@ -219,3 +220,31 @@ def render_region_addresses(addresses: Iterable[RegionAddress] | str | None) -> 
 def covers_region(addresses: Iterable[RegionAddress] | str | None, *, heading_path: str | None, page_number: int | None) -> bool:
     """Prédicat d'appartenance unique : la région est-elle couverte par l'une de ces adresses ?"""
     return any(address.covers(heading_path=heading_path, page_number=page_number) for address in parse_region_addresses(addresses))
+
+
+def validate_canonical_region_address(raw: str | None) -> tuple[RegionAddress | None, str | None]:
+    """Valide strictement une adresse de région canonique ('node:', 'heading:', 'page:').
+
+    Contrairement à :func:`parse_region_address` qui tolère les entrées nues sans préfixe
+    (interprétées comme 'heading:'), cette validation impose le préfixe explicite
+    canonique pour les outils d'édition et de mutation MCP (ADR 0010, ADR 0042).
+
+    :returns: ``(RegionAddress, None)`` si valide, ``(None, message_erreur)`` sinon.
+    """
+    if not raw or not str(raw).strip():
+        return None, "L'adresse de région ne peut pas être vide."
+    text = str(raw).strip()
+    matched = _ADDRESS_RE.match(text)
+    if matched is None:
+        return (
+            None,
+            f"Format d'adresse de région invalide '{text}'. L'adresse doit impérativement débuter par un préfixe canonique "
+            "('node:', 'heading:' ou 'page:'). Exemple : 'heading:Chapitre 1', 'node:Introduction', 'page:12'.",
+        )
+    value = matched.group("value").strip()
+    if not value:
+        return None, f"La valeur de la région ne peut pas être vide dans l'adresse '{text}'."
+    scope = RegionScope(matched.group("scope").lower())
+    if scope is RegionScope.PAGE and (not value.isdigit() or int(value) < 1):
+        return None, f"Numéro de page invalide '{value}' dans l'adresse '{text}'. Un entier positif supérieur à 0 est requis."
+    return RegionAddress(scope, value), None

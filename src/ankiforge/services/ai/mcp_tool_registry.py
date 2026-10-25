@@ -2134,6 +2134,327 @@ class MCPToolRegistry:
             return f"Erreur lors de la restructuration IA du document : {e}"
 
     @staticmethod
+    def exclude_document_region(
+        document_id: int,
+        region_address: str,
+        reason: str = "",
+    ) -> str:
+        """Écarte une région du document (titre, fil d'Ariane ou page) du dénominateur de couverture et du RAG sans destruction physique (ADR 0010)."""
+        import json
+
+        from ankiforge.database.models import DocumentModel
+        from ankiforge.repositories.document_repository import DocumentRepository
+        from ankiforge.utils.region_address import validate_canonical_region_address
+
+        try:
+            doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+            if not doc:
+                return json.dumps(
+                    {"status": "error", "message": f"Aucun document trouvé avec l'identifiant #{document_id}."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            addr, err = validate_canonical_region_address(region_address)
+            if err or addr is None:
+                return json.dumps(
+                    {"status": "error", "message": err or "Adresse de région invalide."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            repo = DocumentRepository()
+            success = repo.set_region_excluded(document_id, addr, True)
+            if not success:
+                return json.dumps(
+                    {"status": "error", "message": f"Échec de l'application de l'exclusion pour le document #{document_id}."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            # Notification MCP
+            try:
+                from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+                _notify_mcp_mutation(
+                    {
+                        "type": "exclude_document_region",
+                        "domain": "docs",
+                        "target_id": document_id,
+                        "document_id": document_id,
+                        "document_title": doc.title,
+                        "region_address": addr.render(),
+                        "reason": reason,
+                    }
+                )
+            except Exception as e:
+                logger.debug("Notification MCP exclude_document_region ignorée : %s", e)
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "message": f"Région '{addr.render()}' écartée avec succès pour le document '{doc.title}'.",
+                    "document_id": document_id,
+                    "document_title": doc.title,
+                    "region_address": addr.render(),
+                    "action": "excluded",
+                    "reason": reason,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.error("Erreur exclude_document_region : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur lors de l'exclusion de la région : {e}"}, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def neutralize_document_region(
+        document_id: int,
+        region_address: str,
+        neutralized: bool = True,
+    ) -> str:
+        """Neutralise une région pour la retirer du dénominateur de couverture sans l'écarter du document ni des générations (ADR 0010)."""
+        import json
+
+        from ankiforge.database.models import DocumentModel
+        from ankiforge.repositories.document_repository import DocumentRepository
+        from ankiforge.utils.region_address import validate_canonical_region_address
+
+        try:
+            doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+            if not doc:
+                return json.dumps(
+                    {"status": "error", "message": f"Aucun document trouvé avec l'identifiant #{document_id}."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            addr, err = validate_canonical_region_address(region_address)
+            if err or addr is None:
+                return json.dumps(
+                    {"status": "error", "message": err or "Adresse de région invalide."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            repo = DocumentRepository()
+            success = repo.set_region_neutralized(document_id, addr, neutralized)
+            if not success:
+                return json.dumps(
+                    {"status": "error", "message": f"Échec de la neutralisation pour le document #{document_id}."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            # Notification MCP
+            try:
+                from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+                _notify_mcp_mutation(
+                    {
+                        "type": "neutralize_document_region",
+                        "domain": "docs",
+                        "target_id": document_id,
+                        "document_id": document_id,
+                        "document_title": doc.title,
+                        "region_address": addr.render(),
+                        "neutralized": neutralized,
+                    }
+                )
+            except Exception as e:
+                logger.debug("Notification MCP neutralize_document_region ignorée : %s", e)
+
+            action_desc = "neutralisée" if neutralized else "réintégrée au dénominateur"
+            return json.dumps(
+                {
+                    "status": "success",
+                    "message": f"Région '{addr.render()}' {action_desc} avec succès pour le document '{doc.title}'.",
+                    "document_id": document_id,
+                    "document_title": doc.title,
+                    "region_address": addr.render(),
+                    "neutralized": neutralized,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.error("Erreur neutralize_document_region : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur lors de la neutralisation de la région : {e}"}, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def update_document_content(
+        document_id: int,
+        content: str,
+        reason: str = "",
+    ) -> str:
+        """Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0042)."""
+        import json
+
+        from ankiforge.database.models import DocumentModel
+        from ankiforge.repositories.document_repository import DocumentRepository
+        from ankiforge.services.parsing.chunking_service import ChunkingService
+
+        try:
+            doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+            if not doc:
+                return json.dumps(
+                    {"status": "error", "message": f"Aucun document trouvé avec l'identifiant #{document_id}."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            if not content or not content.strip():
+                return json.dumps(
+                    {"status": "error", "message": "Le contenu du document ne peut pas être vide."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            repo = DocumentRepository()
+            with repo.atomic():
+                doc.content = content
+                doc.save()
+
+            # Alignement différentiel des fragments pour préserver les rattachements de cartes de couverture existantes
+            strategy = ChunkingService.preferred_strategy(doc.file_type)
+            extracted = ChunkingService.extract_chunks(
+                content,
+                file_type=doc.file_type,
+                strategy=strategy,
+                declared_addresses=DocumentRepository.get_neutralized_regions(doc),
+            )
+            chunk_report = repo.sync_extracted_chunks(doc, extracted) if extracted else None
+
+            # Notification MCP
+            try:
+                from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+                _notify_mcp_mutation(
+                    {
+                        "type": "update_document_content",
+                        "domain": "docs",
+                        "target_id": document_id,
+                        "document_id": document_id,
+                        "document_title": doc.title,
+                        "reason": reason,
+                        "chunks_preserved": chunk_report.preserved if chunk_report else 0,
+                        "chunks_created": chunk_report.created if chunk_report else 0,
+                        "chunks_deleted": chunk_report.deleted if chunk_report else 0,
+                    }
+                )
+            except Exception as e:
+                logger.debug("Notification MCP update_document_content ignorée : %s", e)
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "message": f"Contenu du document '{doc.title}' mis à jour avec succès.",
+                    "document_id": document_id,
+                    "document_title": doc.title,
+                    "content_length": len(content),
+                    "chunks_preserved": chunk_report.preserved if chunk_report else 0,
+                    "chunks_created": chunk_report.created if chunk_report else 0,
+                    "chunks_deleted": chunk_report.deleted if chunk_report else 0,
+                    "reason": reason,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.error("Erreur update_document_content : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur lors de la mise à jour du contenu du document : {e}"}, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def reindex_document(
+        document_id: int,
+        chunk_size: int = 500,
+        overlap: int = 50,
+    ) -> str:
+        """Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0042)."""
+        import json
+
+        from ankiforge.database.models import DocumentChunkModel, DocumentModel
+        from ankiforge.services.reindex_service import REINDEX_EMPTY, REINDEX_OK
+        from ankiforge.services.reindex_service import reindex_document as run_reindex
+
+        try:
+            doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+            if not doc:
+                return json.dumps(
+                    {"status": "error", "message": f"Aucun document trouvé avec l'identifiant #{document_id}."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            valid_chunk_size = max(50, int(chunk_size))
+            valid_overlap = max(0, min(int(overlap), valid_chunk_size // 2))
+
+            status = run_reindex(
+                document_id=document_id,
+                chunk_size=valid_chunk_size,
+                overlap=valid_overlap,
+            )
+
+            if status == REINDEX_OK:
+                chunks_count = DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count()
+
+                # Notification MCP
+                try:
+                    from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+                    _notify_mcp_mutation(
+                        {
+                            "type": "reindex_document",
+                            "domain": "docs",
+                            "target_id": document_id,
+                            "document_id": document_id,
+                            "document_title": doc.title,
+                            "chunks_count": chunks_count,
+                            "chunk_size": valid_chunk_size,
+                            "overlap": valid_overlap,
+                        }
+                    )
+                except Exception as e:
+                    logger.debug("Notification MCP reindex_document ignorée : %s", e)
+
+                return json.dumps(
+                    {
+                        "status": "success",
+                        "message": f"Document '{doc.title}' réindexé avec succès.",
+                        "document_id": document_id,
+                        "document_title": doc.title,
+                        "chunks_count": chunks_count,
+                        "chunk_size": valid_chunk_size,
+                        "overlap": valid_overlap,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            elif status == REINDEX_EMPTY:
+                return json.dumps(
+                    {
+                        "status": "empty",
+                        "message": f"Le document '{doc.title}' est vide ou ne contient aucune matière indexable.",
+                        "document_id": document_id,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            else:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Échec de la réindexation du document '{doc.title}'.",
+                        "document_id": document_id,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+        except Exception as e:
+            logger.error("Erreur reindex_document : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur lors de la réindexation du document : {e}"}, ensure_ascii=False, indent=2)
+
+    @staticmethod
     def sanitize_fields_html(
         note_ids: list[int] | str,
         strip_tags: list[str] | str = "",
@@ -3417,6 +3738,70 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "run_id": {"type": "integer", "description": "Identifiant du run à consulter"},
                     "pipeline_id": {"type": "integer", "description": "Identifiant du pipeline pour obtenir son dernier run (optionnel si run_id fourni)"},
                 },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "exclude_document_region",
+            "description": "Écarte une région du document (titre, fil d'Ariane ou page) du dénominateur de couverture et du RAG sans destruction physique (ADR 0010).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "Identifiant du document cible"},
+                    "region_address": {"type": "string", "description": "Adresse canonique ('node:...', 'heading:...', ou 'page:N')"},
+                    "reason": {"type": "string", "description": "Motif de l'exclusion (optionnel)"},
+                },
+                "required": ["document_id", "region_address"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "neutralize_document_region",
+            "description": "Neutralise une région pour la retirer du dénominateur de couverture sans l'écarter du document ni des générations (ADR 0010).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "Identifiant du document cible"},
+                    "region_address": {"type": "string", "description": "Adresse canonique ('node:...', 'heading:...', ou 'page:N')"},
+                    "neutralized": {"type": "boolean", "description": "True pour neutraliser, False pour réintégrer au dénominateur (défaut: true)"},
+                },
+                "required": ["document_id", "region_address"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_document_content",
+            "description": "Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0042).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "Identifiant du document cible"},
+                    "content": {"type": "string", "description": "Nouveau contenu Markdown complet"},
+                    "reason": {"type": "string", "description": "Motif de la modification (optionnel)"},
+                },
+                "required": ["document_id", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "reindex_document",
+            "description": "Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0042).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "Identifiant du document cible"},
+                    "chunk_size": {"type": "integer", "description": "Taille maximale cible par fragment en tokens (défaut: 500)"},
+                    "overlap": {"type": "integer", "description": "Recouvrement en tokens entre fragments consécutifs (défaut: 50)"},
+                },
+                "required": ["document_id"],
             },
         },
     },

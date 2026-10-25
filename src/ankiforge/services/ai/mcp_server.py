@@ -87,6 +87,10 @@ _MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
     "document_update": "docs",
     "document_delete": "docs",
     "document_index": "docs",
+    "exclude_document_region": "docs",
+    "neutralize_document_region": "docs",
+    "update_document_content": "docs",
+    "reindex_document": "docs",
 }
 
 DEFAULT_MCP_MUTATION_DOMAIN = "cards"
@@ -1364,6 +1368,62 @@ def structure_transcript_for_ai(
         normalize_latex=normalize_latex,
         add_summary=add_summary,
         add_key_takeaways=add_key_takeaways,
+    )
+
+
+@mcp.tool()
+def exclude_document_region(
+    document_id: int,
+    region_address: str,
+    reason: str = "",
+) -> str:
+    """Écarte une région du document (titre, fil d'Ariane ou page) du dénominateur de couverture et du RAG sans destruction physique (ADR 0010)."""
+    return MCPToolRegistry.exclude_document_region(
+        document_id=document_id,
+        region_address=region_address,
+        reason=reason,
+    )
+
+
+@mcp.tool()
+def neutralize_document_region(
+    document_id: int,
+    region_address: str,
+    neutralized: bool = True,
+) -> str:
+    """Neutralise une région pour la retirer du dénominateur de couverture sans l'écarter du document ni des générations (ADR 0010)."""
+    return MCPToolRegistry.neutralize_document_region(
+        document_id=document_id,
+        region_address=region_address,
+        neutralized=neutralized,
+    )
+
+
+@mcp.tool()
+def update_document_content(
+    document_id: int,
+    content: str,
+    reason: str = "",
+) -> str:
+    """Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0042)."""
+    return MCPToolRegistry.update_document_content(
+        document_id=document_id,
+        content=content,
+        reason=reason,
+    )
+
+
+@mcp.tool()
+def reindex_document(
+    document_id: int,
+    chunk_size: int = 500,
+    overlap: int = 50,
+) -> str:
+    """Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0042)."""
+    return MCPToolRegistry.reindex_document(
+        document_id=document_id,
+        chunk_size=chunk_size,
+        overlap=overlap,
     )
 
 

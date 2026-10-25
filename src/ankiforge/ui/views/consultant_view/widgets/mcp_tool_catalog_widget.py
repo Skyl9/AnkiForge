@@ -132,7 +132,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "set_tags_bulk": DOMAIN_TAGS,
     "audit_tag_hygiene": DOMAIN_TAGS,
     "merge_tag_clusters": DOMAIN_TAGS,
-    # 4. RAG & Documents (8)
+    # 4. RAG & Documents (12)
     "search_knowledge_context": DOMAIN_DOCUMENTS,
     "search_document": DOMAIN_DOCUMENTS,
     "format_markdown_document": DOMAIN_DOCUMENTS,
@@ -141,6 +141,10 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "structure_transcript_for_ai": DOMAIN_DOCUMENTS,
     "query_peewee": DOMAIN_DOCUMENTS,
     "get_collection_panorama_360": DOMAIN_DOCUMENTS,
+    "exclude_document_region": DOMAIN_DOCUMENTS,
+    "neutralize_document_region": DOMAIN_DOCUMENTS,
+    "update_document_content": DOMAIN_DOCUMENTS,
+    "reindex_document": DOMAIN_DOCUMENTS,
     # 5. Albums & Planches (2)
     "list_albums": DOMAIN_ALBUMS,
     "get_album_plates": DOMAIN_ALBUMS,
@@ -228,6 +232,22 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     ],
     "delete_empty_cards": [
         "Opération destructive définitive : purges les cartes sans contenu physique au recto.",
+    ],
+    "exclude_document_region": [
+        "Délimitation non destructive (ADR 0010) : la région est écartée du calcul de couverture et du RAG sans suppression physique.",
+        "Validation stricte de l'adresse canonique (node:, heading:, page:).",
+    ],
+    "neutralize_document_region": [
+        "Neutralisation non destructive (ADR 0010) : retire la région du dénominateur de couverture sans l'écarter du document ni des générations.",
+        "Validation stricte de l'adresse canonique (node:, heading:, page:).",
+    ],
+    "update_document_content": [
+        "Persistance pérenne en base : synchronise différentiellement les fragments pour préserver les rattachements de cartes de couverture (ADR 0009).",
+        "Traçabilité et audit des modifications de contenu.",
+    ],
+    "reindex_document": [
+        "Reconstruction vectorielle et lexicale (FAISS + BM25) : met à jour l'indexation RAG après révision ou délimitation.",
+        "Recalcul des fragments par ChunkingService selon chunk_size et overlap.",
     ],
     "query_peewee": [
         "Sécurité base de données : restreint strictement aux requêtes SQL en lecture seule (SELECT).",
