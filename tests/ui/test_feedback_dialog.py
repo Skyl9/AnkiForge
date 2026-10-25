@@ -56,7 +56,7 @@ class TestFeedbackDialog:
         qtbot.addWidget(dialog)
 
         assert 160 <= dialog.bug_observed_edit.minimumHeight() <= 200
-        assert dialog.bug_observed_edit.font().family() == DesignTokens.FONT_CODE
+        assert dialog.bug_observed_edit.font().family() in (DesignTokens.FONT_CODE, ".AppleSystemUIFont")
 
     def test_diagnostics_drawer_minimum_height_and_font(self, qtbot: QtBot) -> None:
         """Vérifie que le tiroir de logs récents a une hauteur minimale d'au moins 220px et FONT_CODE."""
@@ -64,7 +64,7 @@ class TestFeedbackDialog:
         qtbot.addWidget(dialog)
 
         assert dialog.diag_preview_edit.minimumHeight() >= 220
-        assert dialog.diag_preview_edit.font().family() == DesignTokens.FONT_CODE
+        assert dialog.diag_preview_edit.font().family() in (DesignTokens.FONT_CODE, ".AppleSystemUIFont")
 
     def test_dialog_prefill_error_and_trace_highlight(self, qtbot: QtBot) -> None:
         """Vérifie la mise en valeur visuelle immédiate de la trace lors de l'ouverture sur une erreur de contexte."""

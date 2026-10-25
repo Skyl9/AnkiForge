@@ -48,6 +48,19 @@ class NoteTypeService:
         return cls._CLOZE_CLEAN_RE.sub(r"\1", str(text))
 
     @classmethod
+    def is_cloze_model(cls, note_type: NoteTypeModel) -> bool:
+        """Détermine si un type de note est de type Cloze."""
+        if not note_type or not note_type.templates:
+            return False
+        try:
+            tmpls = json.loads(str(note_type.templates))
+            if isinstance(tmpls, list):
+                return any("{{cloze:" in str(t.get("qfmt", "")).lower() or "{{cloze:" in str(t.get("afmt", "")).lower() for t in tmpls if isinstance(t, dict))
+        except Exception:
+            pass
+        return False
+
+    @classmethod
     def suggest_field_mapping(
         cls,
         source_fields: list[str],
@@ -158,15 +171,26 @@ class NoteTypeService:
                 except Exception:
                     content = {"Front": active_v.content}
 
+                norm_mapping_keys = {_norm(k) for k in mapping_champs} if mapping_champs is not None else set()
+
                 for src_field, val in content.items():
                     if val is not None and str(val).strip():
-                        target_assigned = effective.get(src_field, "")
-                        if (mapping_champs is None or src_field not in mapping_champs) and not target_assigned:
-                            return (
-                                False,
-                                f"Des données non vides dans le champ source '{src_field}' risquent d'être perdues sans correspondance explicite.",
-                                suggested,
-                            )
+                        if mapping_champs is not None:
+                            # Si un mapping explicite est fourni, le champ doit y être mentionné (insensible à la casse)
+                            if _norm(src_field) not in norm_mapping_keys:
+                                return (
+                                    False,
+                                    f"Des données non vides dans le champ source '{src_field}' risquent d'être perdues sans correspondance explicite.",
+                                    suggested,
+                                )
+                        else:
+                            # Si aucun mapping n'est fourni, la suggestion doit lui avoir trouvé une cible non vide
+                            if not suggested.get(src_field):
+                                return (
+                                    False,
+                                    f"Des données non vides dans le champ source '{src_field}' risquent d'être perdues sans correspondance explicite.",
+                                    suggested,
+                                )
 
         return (True, "", suggested)
 

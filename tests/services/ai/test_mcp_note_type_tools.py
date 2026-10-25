@@ -213,8 +213,8 @@ def test_mcp_change_note_type_flow(sample_mcp_setup):
         c1_stability = c1.stability
         c1_reps = c1.reps
 
-        # 1. Proposer la migration
-        mapping = {"Symptome": "Front", "Diagnostic": "Back"}
+        # 1. Proposer la migration (avec consigne explicite pour Traitement et Audio)
+        mapping = {"Symptome": "Front", "Diagnostic": "Back", "Traitement": "", "Audio": ""}
         res_prop = await mcp.call_tool(
             "change_note_type",
             {
@@ -393,5 +393,158 @@ def test_mcp_preview_card_render(sample_mcp_setup):
         data_o = json.loads(_extract_text(res_override))
         assert "coup de tonnerre" in data_o["front_html"]
         assert "Hémorragie" in data_o["back_html"]
+
+    asyncio.run(_run())
+
+
+def test_mcp_change_note_type_polymorphic_args(sample_mcp_setup) -> None:
+    """Vérifie que change_note_type accepte des listes et dictionnaires Python natifs et renvoie sample_diff et card_metrics."""
+
+    async def _run() -> None:
+        n1 = sample_mcp_setup["notes"][0]
+        nt_target = sample_mcp_setup["nt_simple"]
+
+        # Appel avec types Python natifs (mentionnant explicitement les champs non retenus)
+        res = await mcp.call_tool(
+            "change_note_type",
+            {
+                "note_ids": [n1.id],
+                "target_model": nt_target.name,
+                "mapping_champs": {"Symptome": "Front", "Diagnostic": "Back", "Traitement": "", "Audio": ""},
+            },
+        )
+        data = json.loads(_extract_text(res))
+        assert data["status"] == "staged_diff"
+        assert data["count"] == 1
+        assert "sample_diff" in data
+        assert data["sample_diff"]["note_id"] == n1.id
+        assert "before" in data["sample_diff"]
+        assert "after" in data["sample_diff"]
+        assert "card_metrics" in data
+        assert data["card_metrics"]["preserved"] >= 1
+
+    asyncio.run(_run())
+
+
+def test_mcp_change_note_type_fail_fast_unknown_field(sample_mcp_setup) -> None:
+    """Vérifie le rejet instructif immédiat si un champ cible inexistant est spécifié."""
+
+    async def _run() -> None:
+        n1 = sample_mcp_setup["notes"][0]
+        nt_target = sample_mcp_setup["nt_simple"]
+
+        res = await mcp.call_tool(
+            "change_note_type",
+            {
+                "note_ids": [n1.id],
+                "target_model": nt_target.name,
+                "mapping_champs": {"Symptome": "ChampInexistant"},
+            },
+        )
+        data = json.loads(_extract_text(res))
+        assert data["status"] == "error"
+        assert data["error_code"] == "FIELD_MAPPING_REQUIRED"
+        assert "available_target_fields" in data
+        assert "Front" in data["available_target_fields"]
+        assert "Back" in data["available_target_fields"]
+        assert "suggested_mapping" in data
+
+    asyncio.run(_run())
+
+
+def test_mcp_change_note_type_fail_fast_data_loss(sample_mcp_setup) -> None:
+    """Vérifie le rejet instructif si des données non vides risquent d'être perdues sans consigne."""
+
+    async def _run() -> None:
+        # Créer un modèle source à 3 champs et une note remplie
+        nt_source_3 = NoteTypeModel.create(
+            name="Source 3 Champs MCP",
+            fields_schema=json.dumps(["Q", "R", "Observation"]),
+            templates=json.dumps([{"name": "C1", "qfmt": "{{Q}}", "afmt": "{{R}}"}]),
+        )
+        n = NoteModel.create(note_type=nt_source_3)
+        n.add_version({"Q": "Question test", "R": "Reponse test", "Observation": "Donnee importante"}, source="init")
+        nt_target = sample_mcp_setup["nt_simple"]  # a 2 champs Front et Back
+
+        # Appel avec mapping partiel n'associant pas Observation
+        res = await mcp.call_tool(
+            "change_note_type",
+            {
+                "note_ids": [n.id],
+                "target_model": nt_target.name,
+                "mapping_champs": {"Q": "Front", "R": "Back"},
+            },
+        )
+        data = json.loads(_extract_text(res))
+        assert data["status"] == "error"
+        assert data["error_code"] == "FIELD_MAPPING_REQUIRED"
+        assert "Observation" in data["active_source_fields"] or "observation" in data["message"].lower()
+
+    asyncio.run(_run())
+
+
+def test_mcp_change_note_type_fail_fast_no_mapping_provided(sample_mcp_setup) -> None:
+    """Vérifie le rejet avec suggestion quand aucun mapping n'est fourni et que des champs sont orphelins."""
+
+    async def _run() -> None:
+        nt_source_3 = NoteTypeModel.create(
+            name="Source 3 Champs Orphelins",
+            fields_schema=json.dumps(["Q", "R", "Observation"]),
+            templates=json.dumps([{"name": "C1", "qfmt": "{{Q}}", "afmt": "{{R}}"}]),
+        )
+        n = NoteModel.create(note_type=nt_source_3)
+        n.add_version({"Q": "Question", "R": "Reponse", "Observation": "Details"}, source="init")
+        nt_target = sample_mcp_setup["nt_simple"]
+
+        # Appel sans mapping
+        res = await mcp.call_tool(
+            "change_note_type",
+            {
+                "note_ids": [n.id],
+                "target_model": nt_target.name,
+            },
+        )
+        data = json.loads(_extract_text(res))
+        assert data["status"] == "error"
+        assert data["error_code"] == "FIELD_MAPPING_REQUIRED"
+        assert "suggested_mapping" in data
+        assert data["suggested_mapping"]["Q"] == "Front"
+        assert data["suggested_mapping"]["R"] == "Back"
+        assert data["suggested_mapping"]["Observation"] == ""
+
+    asyncio.run(_run())
+
+
+def test_mcp_change_note_type_with_null_and_template_mapping(sample_mcp_setup) -> None:
+    """Vérifie le support des valeurs None/null pour ignorer un champ et l'application 2PC avec template_mapping."""
+
+    async def _run() -> None:
+        n1 = sample_mcp_setup["notes"][0]
+        nt_target = sample_mcp_setup["nt_simple"]
+
+        # Note 1 a 1 carte existante (template_index=0).
+        # On passe Traitement: None (valeur nulle pour signifier ignorer), Audio: ""
+        # et template_mapping={"0": 0}
+        res_prop = await mcp.call_tool(
+            "change_note_type",
+            {
+                "note_ids": [n1.id],
+                "target_model": nt_target.name,
+                "mapping_champs": {"symptome": "Front", "diagnostic": "Back", "Traitement": None, "Audio": ""},
+                "template_mapping": {"0": 0},
+                "clean_cloze": True,
+            },
+        )
+        prop_data = json.loads(_extract_text(res_prop))
+        assert prop_data["status"] == "staged_diff"
+        patch_id = prop_data["patch_id"]
+
+        # 2. Application du patch et vérification des métriques de retour
+        res_apply = await mcp.call_tool("preview_and_apply_patch", {"patch_id": patch_id})
+        apply_data = json.loads(_extract_text(res_apply))
+        assert apply_data["status"] == "applied"
+        assert apply_data["cards_preserved"] >= 1
+        assert apply_data["cards_created"] == 0
+        assert apply_data["cards_deleted"] == 0
 
     asyncio.run(_run())

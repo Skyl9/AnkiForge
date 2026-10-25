@@ -12,7 +12,7 @@ from jinja2 import FileSystemLoader
 from jinja2.sandbox import SandboxedEnvironment
 from mcp.server.mcpserver import MCPServer
 
-from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, db
+from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, NoteVersionModel, db
 from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
 from ankiforge.services.ai.rag_service import RAGService
@@ -1046,66 +1046,191 @@ def create_note_type(
 
 @mcp.tool()
 def change_note_type(
-    note_ids_json: str,
-    target_model: str,
+    note_ids: list[int] | str = "",
+    target_model: str = "",
+    mapping_champs: dict[str, str | None] | str = "",
+    template_mapping: dict[str, Any] | str = "",
+    clean_cloze: bool = True,
+    note_ids_json: str = "",
     mapping_champs_json: str = "",
 ) -> str:
     """Propose la migration d'un lot de notes vers un autre type de note via un StagedPatch (Two-Phase Commit)."""
     try:
         from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+        from ankiforge.services.cards.bulk_hygiene_service import parse_id_list
         from ankiforge.services.cards.note_type_service import NoteTypeService
 
-        try:
-            if isinstance(note_ids_json, list):
-                note_ids = [int(x) for x in note_ids_json]
-            else:
-                raw_parsed = json.loads(note_ids_json)
-                note_ids = [int(x) for x in raw_parsed] if isinstance(raw_parsed, list) else [int(raw_parsed)]
-        except Exception:
-            try:
-                note_ids = [int(x.strip()) for x in str(note_ids_json).replace("[", "").replace("]", "").split(",") if x.strip()]
-            except Exception as e:
-                return json.dumps({"status": "error", "message": f"Format invalide pour note_ids_json : {e}"}, ensure_ascii=False)
+        # 1. Résolution polymorphe des note_ids
+        raw_ids = note_ids if note_ids != "" else note_ids_json
+        parsed_ids = parse_id_list(raw_ids)
 
-        if not note_ids:
+        if not parsed_ids:
             return json.dumps({"status": "error", "message": "Aucun identifiant de note valide fourni."}, ensure_ascii=False)
+
+        # 2. Résolution du modèle cible
+        if not target_model:
+            return json.dumps({"status": "error", "message": "Modèle cible non spécifié."}, ensure_ascii=False)
 
         try:
             target_nt = NoteTypeService.resolve_target_model(target_model)
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
 
-        mapping_champs = None
-        if mapping_champs_json:
+        # Extraction des champs cibles
+        target_fields: list[str] = ["Front", "Back"]
+        if target_nt.fields_schema:
             try:
-                mapping_champs = json.loads(mapping_champs_json) if isinstance(mapping_champs_json, str) else mapping_champs_json
-            except Exception as e:
-                return json.dumps({"status": "error", "message": f"mapping_champs_json invalide : {e}"}, ensure_ascii=False)
+                loaded_fields = json.loads(str(target_nt.fields_schema))
+                if isinstance(loaded_fields, list) and loaded_fields:
+                    target_fields = [str(f) for f in loaded_fields]
+            except Exception:
+                target_fields = ["Front", "Back"]
 
-        warnings = []
-        target_tmpls_count = len(json.loads(target_nt.templates)) if target_nt.templates else 0
-        warned_sources = set()
-        for nid in note_ids:
+        # Extraction des gabarits cibles
+        target_tmpls: list[dict[str, Any]] = []
+        if target_nt.templates:
+            try:
+                t_loaded = json.loads(str(target_nt.templates))
+                if isinstance(t_loaded, list):
+                    target_tmpls = [t for t in t_loaded if isinstance(t, dict)]
+            except Exception:
+                target_tmpls = []
+        target_tmpls_count = len(target_tmpls)
+
+        # 3. Résolution de mapping_champs
+        raw_mapping = mapping_champs if mapping_champs != "" else mapping_champs_json
+        parsed_mapping: dict[str, str] | None = None
+        if raw_mapping:
+            if isinstance(raw_mapping, dict):
+                parsed_mapping = {str(k): (str(v).strip() if v is not None else "") for k, v in raw_mapping.items()}
+            elif isinstance(raw_mapping, str) and raw_mapping.strip():
+                try:
+                    loaded_m = json.loads(raw_mapping)
+                    if isinstance(loaded_m, dict):
+                        parsed_mapping = {str(k): (str(v).strip() if v is not None else "") for k, v in loaded_m.items()}
+                    else:
+                        return json.dumps({"status": "error", "message": "mapping_champs doit être un dictionnaire de correspondances."}, ensure_ascii=False)
+                except Exception as e:
+                    return json.dumps({"status": "error", "message": f"mapping_champs invalide : {e}"}, ensure_ascii=False)
+
+        # 4. Résolution de template_mapping
+        parsed_tmpl_mapping: dict[str, Any] | None = None
+        if template_mapping:
+            if isinstance(template_mapping, dict):
+                parsed_tmpl_mapping = template_mapping
+            elif isinstance(template_mapping, str) and template_mapping.strip():
+                try:
+                    loaded_tm = json.loads(template_mapping)
+                    if isinstance(loaded_tm, dict):
+                        parsed_tmpl_mapping = loaded_tm
+                    else:
+                        return json.dumps({"status": "error", "message": "template_mapping doit être un dictionnaire de correspondances."}, ensure_ascii=False)
+                except Exception as e:
+                    return json.dumps({"status": "error", "message": f"template_mapping invalide : {e}"}, ensure_ascii=False)
+
+        # 5. Chargement et contrôle des notes
+        notes: list[NoteModel] = []
+        source_fields: list[str] = []
+        warnings: list[str] = []
+        warned_sources: set[int] = set()
+
+        for nid in parsed_ids:
             n = NoteModel.get_or_none(NoteModel.id == nid)
             if not n:
                 return json.dumps({"status": "error", "message": f"Note #{nid} introuvable en base."}, ensure_ascii=False)
+            notes.append(n)
             if n.note_type and n.note_type.id not in warned_sources:
                 warned_sources.add(n.note_type.id)
-                s_tmpls_count = len(json.loads(n.note_type.templates)) if n.note_type.templates else 0
+                s_tmpls_count = 0
+                if n.note_type.templates:
+                    try:
+                        tmpls_list = json.loads(str(n.note_type.templates))
+                        if isinstance(tmpls_list, list):
+                            s_tmpls_count = len(tmpls_list)
+                    except Exception:
+                        pass
                 if s_tmpls_count != target_tmpls_count:
                     warnings.append(f"Le modèle source '{n.note_type.name}' possède {s_tmpls_count} gabarit(s) vs {target_tmpls_count} pour '{target_nt.name}'.")
+            if n.note_type and n.note_type.fields_schema:
+                try:
+                    f_list = json.loads(str(n.note_type.fields_schema))
+                    if isinstance(f_list, list):
+                        for f in f_list:
+                            f_str = str(f)
+                            if f_str not in source_fields:
+                                source_fields.append(f_str)
+                except Exception:
+                    pass
+
+        # 6. Validation pré-vol fail-fast guidée
+        is_valid, err_msg, suggested_mapping = NoteTypeService.validate_field_mapping(
+            source_fields=source_fields,
+            target_fields=target_fields,
+            mapping_champs=parsed_mapping,
+            sample_notes=notes,
+        )
+        if not is_valid:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "error_code": "FIELD_MAPPING_REQUIRED",
+                    "message": err_msg,
+                    "available_target_fields": target_fields,
+                    "active_source_fields": source_fields,
+                    "suggested_mapping": suggested_mapping,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        # 7. Échantillonnage d'une note témoin pour le diff
+        effective_mapping = dict(suggested_mapping)
+        if parsed_mapping is not None:
+            effective_mapping.update(parsed_mapping)
+        sample_note = notes[0]
+        active_v = sample_note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+        sample_before: dict[str, Any] = {}
+        if active_v and active_v.content:
+            try:
+                parsed_c = json.loads(active_v.content)
+                if isinstance(parsed_c, dict):
+                    sample_before = parsed_c
+            except Exception:
+                sample_before = {"Front": active_v.content}
+        sample_after = NoteTypeService.remap_fields(sample_before, target_fields, mapping_champs=effective_mapping)
+        if clean_cloze and not NoteTypeService.is_cloze_model(target_nt) and sample_note.note_type and NoteTypeService.is_cloze_model(sample_note.note_type):
+            sample_after = {k: NoteTypeService.clean_cloze_markers(str(v)) if isinstance(v, str) else v for k, v in sample_after.items()}
+        sample_diff = {
+            "note_id": sample_note.id,
+            "before": sample_before,
+            "after": sample_after,
+        }
+
+        # 8. Calcul prévisionnel des cartes physiques
+        cards_preserved = sum(min(len(n.cards), target_tmpls_count) for n in notes)
+        cards_created = sum(max(0, target_tmpls_count - len(n.cards)) for n in notes)
+        cards_deleted = sum(max(0, len(n.cards) - target_tmpls_count) for n in notes)
+        card_metrics = {
+            "preserved": cards_preserved,
+            "created": cards_created,
+            "deleted": cards_deleted,
+        }
 
         patch = StagedPatchRegistry.create_patch(
             patch_type="note_type_change",
             diff_payload={
                 "type": "note_type_change",
-                "note_ids": note_ids,
+                "note_ids": parsed_ids,
                 "target_model": target_nt.name,
                 "target_model_id": target_nt.id,
-                "mapping_champs": mapping_champs,
+                "mapping_champs": effective_mapping,
+                "template_mapping": parsed_tmpl_mapping,
+                "clean_cloze": clean_cloze,
+                "sample_diff": sample_diff,
+                "card_metrics": card_metrics,
                 "warnings": warnings,
-                "title": f"Proposition de Migration de {len(note_ids)} note(s) vers '{target_nt.name}'",
-                "explanation": f"Migration atomique de {len(note_ids)} note(s) vers le type de note '{target_nt.name}'.",
+                "title": f"Proposition de Migration de {len(parsed_ids)} note(s) vers '{target_nt.name}'",
+                "explanation": f"Migration atomique de {len(parsed_ids)} note(s) vers le type de note '{target_nt.name}'.",
             },
         )
 
@@ -1114,10 +1239,12 @@ def change_note_type(
                 "status": "staged_diff",
                 "patch_id": patch.patch_id,
                 "type": "note_type_change",
-                "count": len(note_ids),
+                "count": len(parsed_ids),
                 "target_model": target_nt.name,
+                "sample_diff": sample_diff,
+                "card_metrics": card_metrics,
                 "warnings": warnings,
-                "message": f"Proposition de migration de {len(note_ids)} note(s) vers '{target_nt.name}' enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+                "message": f"Proposition de migration de {len(parsed_ids)} note(s) vers '{target_nt.name}' enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
             },
             ensure_ascii=False,
             indent=2,

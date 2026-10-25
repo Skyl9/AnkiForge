@@ -516,6 +516,8 @@ class StagedPatchRegistry:
                 or (diff_data.get("target_model_id") if isinstance(diff_data, dict) else None)
             )
             mapping_champs = payload.get("mapping_champs") if "mapping_champs" in payload else (diff_data.get("mapping_champs") if isinstance(diff_data, dict) else None)
+            template_mapping = payload.get("template_mapping") if "template_mapping" in payload else (diff_data.get("template_mapping") if isinstance(diff_data, dict) else None)
+            clean_cloze = payload.get("clean_cloze", True) if "clean_cloze" in payload else (diff_data.get("clean_cloze", True) if isinstance(diff_data, dict) else True)
 
             if not note_ids:
                 return {"status": "error", "message": "Aucune note spécifiée pour la migration.", "patch_id": patch_id}
@@ -527,6 +529,8 @@ class StagedPatchRegistry:
                     note_ids=note_ids,
                     target_model=target_model,
                     mapping_champs=mapping_champs,
+                    template_mapping=template_mapping,
+                    clean_cloze=clean_cloze,
                 )
                 with db.atomic():
                     patch.target_id = res["target_model_id"]
@@ -550,6 +554,9 @@ class StagedPatchRegistry:
                     "count": res["migrated_count"],
                     "note_type_id": res["target_model_id"],
                     "target_model_name": res["target_model_name"],
+                    "cards_preserved": res.get("cards_preserved", 0),
+                    "cards_created": res.get("cards_created", 0),
+                    "cards_deleted": res.get("cards_deleted", 0),
                     "warnings": res.get("warnings", []),
                     "message": f"{res['migrated_count']} note(s) migrée(s) vers '{res['target_model_name']}'.",
                 }

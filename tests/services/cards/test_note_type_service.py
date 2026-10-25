@@ -336,7 +336,7 @@ def test_validate_field_mapping(sample_models_and_notes) -> None:
     assert "remarque" in err_loss.lower()
 
     # 2b. Mapping partiel n'assignant pas Remarque (contenant du texte)
-    valid_partial, err_partial, _ = NoteTypeService.validate_field_mapping(src_fields, tgt_fields, mapping_champs={"Question": "Front"}, sample_notes=[n1])
+    valid_partial, err_partial, _ = NoteTypeService.validate_field_mapping(src_fields, tgt_fields, mapping_champs={"Question": "Front", "Reponse": "Back"}, sample_notes=[n1])
     assert valid_partial is False
     assert "remarque" in err_partial.lower()
 
