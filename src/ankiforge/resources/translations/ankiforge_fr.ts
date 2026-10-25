@@ -397,7 +397,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+1139"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+1149"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -573,8 +573,8 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
         <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+608"/>
-        <location filename="../../ui/views/edition_view/view.py" line="-621"/>
-        <location line="+212"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-625"/>
+        <location line="+211"/>
         <location line="+8"/>
         <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+101"/>
         <location line="+29"/>
@@ -699,6 +699,74 @@ Cliquer pour voir les détails</source>
         <location line="+10"/>
         <source>Impossible d&apos;exporter les cartes :
 %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/dialogs/change_note_type_dialog.py" line="+178"/>
+        <source>Migration de la note #%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Migration de %1 note(s) sélectionnée(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+164"/>
+        <source>Note #%1 (%2/%3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+62"/>
+        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="+144"/>
+        <source>Annuler</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+146"/>
+        <location line="+60"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1231"/>
+        <location line="+77"/>
+        <source>➔</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-9"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-221"/>
+        <location line="+888"/>
+        <source>Carte %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>%1 : %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Gabarit %1 : %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+72"/>
+        <source>⚠️ Avertissement : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Bilan prévisionnel des cartes : %1 carte(s) conservée(s) avec historique SRS, %2 créée(s), %3 supprimée(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+63"/>
+        <source>%1
+
+Souhaitez-vous tout de même appliquer la migration vers &apos;%2&apos; ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Une erreur est survenue lors de la migration : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1162,7 +1230,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+192"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1783"/>
         <location line="+137"/>
         <source>Identique</source>
         <translation type="unfinished"></translation>
@@ -1253,7 +1321,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="-280"/>
+        <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="-424"/>
         <location line="+334"/>
         <source>Casse</source>
         <translation type="unfinished"></translation>
@@ -1341,12 +1409,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
-        <source>Annuler</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
+        <location line="+10"/>
         <source>Appliquer la fusion</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3037,7 +3100,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
         <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+740"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+745"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5115,13 +5178,9 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+76"/>
-        <source>Changer le type de note de la note #%1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+51"/>
-        <source>Type de note de la note #%1 changé pour &apos;%2&apos;.</source>
+        <location line="+91"/>
+        <location line="+30"/>
+        <source>Migration réussie : %1 note(s) convertie(s) vers &apos;%2&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5148,7 +5207,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <location line="+112"/>
         <location line="+16"/>
         <location line="+10"/>
-        <location line="+7"/>
+        <location line="+8"/>
         <location line="+8"/>
         <location line="+7"/>
         <location line="+34"/>
@@ -5159,12 +5218,17 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-122"/>
+        <location line="-123"/>
         <source>Modifier le groupe (%1 cartes)...	(%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+28"/>
+        <source>Changer le type de note (%1 cartes)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
         <source>Déplacer vers un paquet (%1 cartes)...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5611,13 +5675,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+18"/>
-        <location line="+888"/>
-        <source>Carte %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-884"/>
+        <location line="+22"/>
         <source>Nom du gabarit %1 :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5652,13 +5710,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <location line="+77"/>
-        <source>➔</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-73"/>
+        <location line="+8"/>
         <source>Modèle Cible</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10105,6 +10157,109 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
 </context>
 <context>
+    <name>ChangeNoteTypeDialog</name>
+    <message>
+        <location filename="../../ui/dialogs/change_note_type_dialog.py" line="-759"/>
+        <source>(Ignorer / Supprimer)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>(Supprimer la carte)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Changer le type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+54"/>
+        <source>1. Correspondance des champs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>2. Correspondance des cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Nettoyer les balises de trous {{c1::...}} si le modèle de destination est Standard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+43"/>
+        <source>Nouveau type de note :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>Champ source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Champ de destination</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+48"/>
+        <source>Carte / Gabarit source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Gabarit de destination</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>Prévisualisation en direct :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+32"/>
+        <source>Avant (Modèle actuel)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Après (Modèle migré)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+31"/>
+        <source>Appliquer la migration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+136"/>
+        <source>Contenu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+226"/>
+        <source>Erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Veuillez sélectionner un type de note de destination.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Avertissement de perte de données</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Échec de la migration</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>CommandPalette</name>
     <message>
         <location filename="../../ui/widgets/command_palette.py" line="-203"/>
@@ -12842,7 +12997,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>EditionView</name>
     <message>
-        <location filename="../../ui/views/edition_view/view.py" line="-2253"/>
+        <location filename="../../ui/views/edition_view/view.py" line="-2257"/>
         <source>📝 Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12853,18 +13008,18 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+33"/>
-        <location line="+1093"/>
+        <location line="+1102"/>
         <source>Dossier : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1074"/>
-        <location line="+1360"/>
+        <location line="-1083"/>
+        <location line="+1363"/>
         <source>Type de note : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1341"/>
+        <location line="-1344"/>
         <source>Drapeau : Tous ▾</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12895,7 +13050,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+4"/>
+        <source>Changer le type de note pour la sélection...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
         <source>Importer un paquet Anki (.apkg)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12916,27 +13076,27 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+439"/>
+        <location line="+443"/>
         <location line="+12"/>
-        <location line="+1662"/>
+        <location line="+1657"/>
         <location line="+110"/>
         <source>Aucune carte sélectionnée</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-2219"/>
+        <location line="-2218"/>
         <source>Carte suivante (Alt+Down)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+431"/>
+        <location line="+435"/>
         <location line="+7"/>
         <source>Modifier le groupe</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-434"/>
+        <location line="-438"/>
         <source>Appliquer une modification sur les cartes sélectionnées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12951,7 +13111,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+172"/>
+        <location line="+171"/>
         <source>Déplier la liste des cartes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12961,13 +13121,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+413"/>
-        <location line="+696"/>
+        <location line="+418"/>
+        <location line="+688"/>
         <source>Changer le type de note...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-563"/>
+        <location line="-555"/>
         <source>Modifications non enregistrées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12978,19 +13138,19 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+11"/>
-        <location line="+146"/>
+        <location line="+140"/>
         <location line="+1"/>
         <source>Tous les types de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="-53"/>
-        <location line="+232"/>
+        <location line="+233"/>
         <source>Déplacer vers un paquet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-38"/>
+        <location line="-39"/>
         <source>Éditer cette carte</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13005,7 +13165,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+23"/>
         <source>Nouveau paquet...</source>
         <translation type="unfinished"></translation>
     </message>

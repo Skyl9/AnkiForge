@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QDialog, QMessageBox
 
 from ankiforge.database.models import (
     CardModel,
@@ -304,9 +304,9 @@ def test_edition_view_model_filter_modal(qtbot: Any, mock_db: Any) -> None:
     assert "Tous" in view.btn_open_model.text()
 
 
-def test_edition_view_change_note_model_modal(qtbot: Any, mock_db: Any) -> None:
-    """Vérifie le changement de modèle d'une note via la modale dans l'éditeur."""
-    from ankiforge.ui.components.model_select_window import ModelSelectWindow
+def test_edition_view_change_note_model_modal(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
+    """Vérifie le changement de modèle d'une note via le dialogue ChangeNoteTypeDialog dans l'éditeur."""
+    from ankiforge.ui.dialogs.change_note_type_dialog import ChangeNoteTypeDialog
 
     uid = uuid.uuid4().hex[:6]
     nt_old = NoteTypeModel.create(name=f"OldModel {uid}", fields_schema='["Front", "Back"]')
@@ -328,11 +328,11 @@ def test_edition_view_change_note_model_modal(qtbot: Any, mock_db: Any) -> None:
     assert "Front" in view.dynamic_field_widgets
     assert "Back" in view.dynamic_field_widgets
 
-    # Déclencher l'ouverture de la modale de changement de modèle
+    # Déclencher l'ouverture du dialogue de changement de modèle
+    monkeypatch.setattr(ChangeNoteTypeDialog, "exec", lambda self: QDialog.DialogCode.Rejected)
     view._open_change_model_modal(note)
     assert view._change_model_modal is not None
-    assert isinstance(view._change_model_modal, ModelSelectWindow)
-    assert view._change_model_modal.allow_all is False
+    assert isinstance(view._change_model_modal, ChangeNoteTypeDialog)
 
     # Appliquer le nouveau modèle
     view._on_note_model_changed(note, nt_new.id, nt_new.name)

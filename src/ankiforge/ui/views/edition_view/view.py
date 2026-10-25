@@ -9,6 +9,7 @@ from PySide6.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, QPo
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -155,7 +156,7 @@ class EditionView(QWidget):
         self._move_target_note_ids: list[int] = []
         self._tag_modal: TagSelectWindow | None = None
         self._model_modal: ModelSelectWindow | None = None
-        self._change_model_modal: ModelSelectWindow | None = None
+        self._change_model_modal: QWidget | None = None
         self._import_dialog: QWidget | None = None
         self._export_dialog: QWidget | None = None
         self._quick_export_dialog: QWidget | None = None
@@ -441,6 +442,11 @@ class EditionView(QWidget):
         self.btn_tag_hygiene = IconButton("broom", tooltip=self.tr("Hygiène et fusion des tags..."), size=22)
         self.btn_tag_hygiene.clicked.connect(self.open_tag_hygiene_dialog)
         filter_layout.addWidget(self.btn_tag_hygiene)
+
+        self.btn_change_note_type = IconButton("arrows-clockwise", tooltip=self.tr("Changer le type de note pour la sélection..."), size=22)
+        self.btn_change_note_type.setEnabled(False)
+        self.btn_change_note_type.clicked.connect(lambda: self._open_change_note_type_dialog())
+        filter_layout.addWidget(self.btn_change_note_type)
         filter_layout.addStretch()
 
         self.btn_import_apkg = IconButton("download-simple", tooltip=self.tr("Importer un paquet Anki (.apkg)"), size=22)
@@ -693,14 +699,13 @@ class EditionView(QWidget):
                 first_widget.editor.setFocus()
 
     def _on_shortcut_change_note_model(self) -> None:
-        """Ouvre la modale pour changer le modèle de la note ciblée."""
+        """Ouvre le dialogue pour changer le type de note ciblée ou sélectionnée."""
         note = self._current_note
         if not note:
             selected_rows = self.card_table.get_selected_rows()
             if selected_rows:
                 note = self.note_table_model.get_note_at(selected_rows[0])
-        if note:
-            self._open_change_model_modal(note)
+        self._open_change_note_type_dialog(fallback_note_id=note.id if note else None)
 
     def _toggle_display_mode(self) -> None:
         """Alterne entre le mode Cartes et le mode Notes."""
@@ -921,7 +926,12 @@ class EditionView(QWidget):
 
     def _update_nav_ribbon_info(self) -> None:
         selected_rows = self.card_table.get_selected_rows()
+        checked_note_ids = self.note_table_model.get_checked_note_ids()
         total_rows = self.note_table_model.rowCount()
+
+        has_selection = bool(selected_rows or checked_note_ids or self._current_note)
+        if hasattr(self, "btn_change_note_type"):
+            self.btn_change_note_type.setEnabled(has_selection)
 
         if len(selected_rows) > 1:
             self.lbl_card_ribbon_info.setText(tr("%1 cartes sélectionnées (sur %2)", len(selected_rows), total_rows))
@@ -1166,7 +1176,7 @@ class EditionView(QWidget):
                 color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
-        btn_change_model.clicked.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
+        btn_change_model.clicked.connect(lambda checked=False, n=note: self._open_change_note_type_dialog(fallback_note_id=n.id))
         mb_layout.addWidget(btn_change_model)
 
         self.fields_layout.addWidget(model_bar)
@@ -1527,70 +1537,64 @@ class EditionView(QWidget):
         else:
             self._on_model_selected(model_id, model_name)
 
-    @Slot(object)
-    def _open_change_model_modal(self, note: NoteModel) -> None:
-        try:
-            if self._change_model_modal and self._change_model_modal.isVisible():
-                self._change_model_modal.raise_()
-                self._change_model_modal.activateWindow()
-                return
-        except RuntimeError:
-            self._change_model_modal = None
+    @Slot()
+    @Slot(int)
+    def _open_change_note_type_dialog(self, fallback_note_id: int | None = None) -> None:
+        """Ouvre le dialogue interactif ChangeNoteTypeDialog pour la sélection active ou la note ciblée."""
+        target_note_ids = self.get_target_note_ids(fallback_note_id=fallback_note_id)
+        if not target_note_ids:
+            return
 
-        curr_id = getattr(note, "note_type_id", None) or (note.note_type.id if note.note_type else None)
-        self._change_model_modal = ModelSelectWindow(
-            title=tr("Changer le type de note de la note #%1", note.id),
-            allow_all=False,
-            current_model_id=curr_id,
-            parent=self,
-        )
-        self._change_model_modal.model_selected.connect(lambda mid, mname, n=note: self._on_note_model_changed(n, mid, mname))
-        self._change_model_modal.show()
+        from ankiforge.ui.dialogs.change_note_type_dialog import ChangeNoteTypeDialog
+
+        dialog = ChangeNoteTypeDialog(note_ids=target_note_ids, parent=self)
+        self._change_model_modal = dialog
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh_data()
+            if self._current_note and self._current_note.id in target_note_ids:
+                refreshed = NoteModel.get_or_none(NoteModel.id == self._current_note.id)
+                if refreshed:
+                    self._current_note = refreshed
+                    self._build_dynamic_editors(refreshed, self._get_note_content_dynamic(refreshed))
+                    self._update_preview()
+                    self._update_nav_ribbon_info()
+
+            count = getattr(dialog, "migrated_count", len(target_note_ids))
+            target_name = getattr(dialog, "target_model_name", "")
+            if not target_name and hasattr(dialog, "_selected_target_model") and dialog._selected_target_model:
+                target_name = dialog._selected_target_model.name
+
+            show_toast(self, tr("Migration réussie : %1 note(s) convertie(s) vers '%2'.", count, target_name))
+
+    def _open_change_model_modal(self, note: NoteModel | None = None) -> None:
+        """Alias de compatibilité pour ouvrir le dialogue de migration de type de note."""
+        fallback_id = note.id if note else None
+        self._open_change_note_type_dialog(fallback_note_id=fallback_id)
 
     def _on_note_model_changed(self, note: NoteModel, new_model_id: int, new_model_name: str) -> None:
+        """Méthode de secours/compatibilité migrant une note via NoteTypeService.change_note_type."""
         curr_id = getattr(note, "note_type_id", None) or (note.note_type.id if note.note_type else None)
         if curr_id == new_model_id:
             return
 
-        new_model = NoteTypeModel.get_or_none(NoteTypeModel.id == new_model_id)
-        if not new_model:
-            return
-
-        # Récupérer les données textuelles actuelles
-        current_data: dict[str, str] = {}
-        if self._current_note and self._current_note.id == note.id and self.dynamic_field_widgets:
-            for k, w in self.dynamic_field_widgets.items():
-                current_data[k] = w.get_text()
-        if not current_data:
-            current_data = self._get_note_content_dynamic(note)
-
-        # Analyser les champs cibles du nouveau modèle
-        new_fields: list[str] = ["Front", "Back"]
-        if new_model.fields_schema:
-            try:
-                loaded = json.loads(str(new_model.fields_schema))
-                if isinstance(loaded, list):
-                    new_fields = [str(f) for f in loaded]
-            except Exception:
-                new_fields = ["Front", "Back"]
-
-        # Remappage intelligent des champs via NoteTypeService
         from ankiforge.services.cards.note_type_service import NoteTypeService
 
-        mapped_data = NoteTypeService.remap_fields(current_data, new_fields)
+        res = NoteTypeService.change_note_type(
+            note_ids=[note.id],
+            target_model=new_model_id,
+        )
+        if res.get("status") != "applied":
+            return
 
-        with db.atomic():
-            note.note_type = new_model
-            note.save()
-            note.add_version(mapped_data, source="manual_model_change")
-
-        if self._current_note and self._current_note.id == note.id:
-            self._current_note = note
-            self._build_dynamic_editors(note, mapped_data)
+        refreshed = NoteModel.get_or_none(NoteModel.id == note.id)
+        if refreshed and self._current_note and self._current_note.id == note.id:
+            self._current_note = refreshed
+            self._build_dynamic_editors(refreshed, self._get_note_content_dynamic(refreshed))
             self._update_preview()
+            self._update_nav_ribbon_info()
 
         self.refresh_data()
-        show_toast(self, tr("Type de note de la note #%1 changé pour '%2'.", note.id, new_model_name))
+        show_toast(self, tr("Migration réussie : %1 note(s) convertie(s) vers '%2'.", 1, new_model_name))
 
     def _open_move_to_deck_modal(self, fallback_note_id: int | None = None) -> None:
         """Ouvre la modale pour déplacer les cartes ou notes sélectionnées vers un autre paquet."""
@@ -1842,11 +1846,12 @@ class EditionView(QWidget):
         action_history.triggered.connect(lambda: self.show_version_history(note.id))
 
         seq_change_model = get_shortcut_sequence(ShortcutId.EDITION_CHANGE_MODEL)
+        change_base = tr("Changer le type de note (%1 cartes)...", count) if count > 1 else self.tr("Changer le type de note...")
         action_change_model = menu.addAction(
             load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY),
-            tr("%1\t(%2)", self.tr("Changer le type de note..."), seq_change_model),
+            tr("%1\t(%2)", change_base, seq_change_model),
         )
-        action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
+        action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_note_type_dialog(fallback_note_id=n.id))
 
         seq_move = get_shortcut_sequence(ShortcutId.EDITION_MOVE_TO_DECK)
         move_base = tr("Déplacer vers un paquet (%1 cartes)...", count) if count > 1 else self.tr("Déplacer vers un paquet...")
