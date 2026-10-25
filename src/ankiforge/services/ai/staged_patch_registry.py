@@ -168,6 +168,11 @@ class StagedPatchRegistry:
                     dk = payload.get("deck_name") or payload.get("deck")
                     if dk:
                         overlay.register_created_deck(str(dk))
+                elif patch_type in ("deck_rename", "rename_deck"):
+                    old_dk = payload.get("old_name") or payload.get("deck_name")
+                    new_dk = payload.get("new_name")
+                    if old_dk and new_dk:
+                        overlay.register_renamed_deck(str(old_dk), str(new_dk))
                 elif patch_type == "note_create":
                     dk = payload.get("deck_name") or payload.get("deck")
                     f_dict = payload.get("fields") or {}
@@ -183,10 +188,13 @@ class StagedPatchRegistry:
                             first_f = next(iter(f_dict.values()), "") if isinstance(f_dict, dict) and f_dict else ""
                             if dk and first_f:
                                 overlay.register_created_note_first_field(str(dk), str(first_f))
-                elif patch_type in ("note_delete", "card_delete"):
+                elif patch_type in ("note_delete", "card_delete", "batch_note_delete", "batch_card_deletion"):
                     t_id = target_id or payload.get("note_id") or 0
                     if t_id:
                         overlay.register_deleted_note(int(t_id))
+                    for n_id in payload.get("note_ids", []):
+                        if n_id:
+                            overlay.register_deleted_note(int(n_id))
 
         logger.info("Patch en attente créé : %s (type: %s, cible: %s, bundle: %s, step: %s)", p_id, patch_type, target_id, bundle_obj.bundle_id if bundle_obj else None, step_order)
 
@@ -355,7 +363,13 @@ class StagedPatchRegistry:
             snippet = meta.get("snippet", "") or diff_data.get("snippet", "")
             modified_css = diff_data.get("modified") if isinstance(diff_data.get("modified"), str) else ""
 
-            nt = NoteTypeModel.get_or_none(NoteTypeModel.name == model_name) if model_name else NoteTypeModel.select().first()
+            nt = None
+            if patch.target_id and patch.target_id > 0:
+                nt = NoteTypeModel.get_or_none(NoteTypeModel.id == patch.target_id)
+            if not nt and model_name:
+                nt = NoteTypeModel.get_or_none(NoteTypeModel.name == model_name)
+            if not nt:
+                nt = NoteTypeModel.select().first()
             if not nt:
                 return {"status": "error", "message": f"Modèle de note '{model_name}' introuvable."}
 
@@ -771,8 +785,8 @@ class StagedPatchRegistry:
                 return {"status": "error", "message": f"Paquet '{old_name}' introuvable.", "patch_id": patch_id}
 
             repo = DeckRepository()
-            repo.rename_deck(deck.id, new_name)
             with db.atomic():
+                repo.rename_deck(deck.id, new_name)
                 patch.target_id = deck.id
                 patch.status = "applied"
                 patch.applied_at = datetime.datetime.now()
@@ -802,19 +816,57 @@ class StagedPatchRegistry:
             return {"status": "applied", "patch_id": patch_id, "note_ids": note_ids, "tags": tags}
 
         # 12. Type CARD_DELETE / NOTE_DELETE
-        if p_type in ("card_delete", "note_delete", "batch_card_deletion"):
+        if p_type in ("card_delete", "note_delete", "batch_card_deletion", "batch_note_delete"):
             target_ids = diff_data.get("note_ids") or ([patch.target_id] if patch.target_id else [])
             if not target_ids:
                 return {"status": "error", "message": "Aucune note ciblée pour suppression.", "patch_id": patch_id}
 
+            # Verrouillage optimiste sur note_delete si original_version_id
+            if len(target_ids) == 1 and patch.original_version_id is not None:
+                note = NoteModel.get_or_none(NoteModel.id == target_ids[0])
+                if note:
+                    active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                    if active_v and active_v.id != patch.original_version_id:
+                        return {
+                            "status": "conflict",
+                            "message": f"Conflit de version : la note #{note.id} a été modifiée après la proposition de suppression.",
+                            "patch_id": patch_id,
+                            "current_version_id": active_v.id,
+                            "expected_version_id": patch.original_version_id,
+                        }
+
             with db.atomic():
-                deleted_count = NoteModel.delete().where(NoteModel.id.in_(target_ids)).execute()
+                notes_to_delete = list(NoteModel.select().where(NoteModel.id.in_(target_ids)))
+                for note in notes_to_delete:
+                    note.delete_instance(recursive=True)
+                deleted_count = len(notes_to_delete)
                 patch.status = "applied"
                 patch.applied_at = datetime.datetime.now()
                 patch.save()
 
-            cls._notify_mutation("card_delete", patch.target_id, {"deleted_count": deleted_count, "note_ids": target_ids})
-            return {"status": "applied", "patch_id": patch_id, "deleted_count": deleted_count}
+            cls._notify_mutation("note_delete", patch.target_id, {"deleted_count": deleted_count, "note_ids": target_ids, "patch_id": patch_id})
+            return {"status": "applied", "patch_id": patch_id, "deleted_count": deleted_count, "note_ids": target_ids}
+
+        # 12bis. Type EMPTY_CARDS_DELETE
+        if p_type in ("empty_cards_delete", "delete_empty_cards"):
+            card_ids = diff_data.get("card_ids") or []
+            if not card_ids:
+                return {"status": "error", "message": "Aucune carte vide ciblée pour suppression.", "patch_id": patch_id}
+
+            with db.atomic():
+                deleted_count = CardModel.delete().where(CardModel.id.in_(card_ids)).execute()
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+
+            cls._notify_mutation("delete_empty_cards", 0, {"card_ids": card_ids, "deleted_count": deleted_count, "patch_id": patch_id})
+            return {
+                "status": "applied",
+                "patch_id": patch_id,
+                "deleted_count": deleted_count,
+                "card_ids": card_ids,
+                "message": f"{deleted_count} carte(s) vide(s) supprimée(s) avec succès.",
+            }
 
         # 13. Type DECK_DELETE
         if p_type in ("deck_delete", "delete_deck"):
@@ -828,12 +880,14 @@ class StagedPatchRegistry:
                 return {"status": "error", "message": f"Paquet '{deck_name}' introuvable.", "patch_id": patch_id}
 
             repo = DeckRepository()
-            if move_to:
-                target_deck = repo.get_or_create_deck_hierarchical(move_to)
-                CardModel.update(deck=target_deck).where(CardModel.deck == deck).execute()
+            descendant_ids = [d.id for d in repo.get_descendant_decks(deck.name)]
 
-            repo.delete_deck(deck.id)
             with db.atomic():
+                if move_to:
+                    target_deck = repo.get_or_create_deck_hierarchical(move_to)
+                    CardModel.update(deck=target_deck).where(CardModel.deck.in_(descendant_ids)).execute()
+
+                repo.delete_deck(deck.id)
                 patch.status = "applied"
                 patch.applied_at = datetime.datetime.now()
                 patch.save()

@@ -573,11 +573,26 @@ class DeletionImpactWidget(QWidget):
         self.lbl_reason.setText(tr("Motif formulé par l'agent : %1", reason))
 
         if p_type in ("deck_delete", "delete_deck"):
+            from ankiforge.repositories.deck_repository import DeckRepository
+
             deck_name = str(payload.get("deck_name") or payload.get("deck") or "")
             deck = DeckModel.get_or_none(DeckModel.name == deck_name)
-            card_count = CardModel.select().where(CardModel.deck == deck).count() if deck else 0
+            if deck:
+                repo = DeckRepository()
+                descendant_ids = [d.id for d in repo.get_descendant_decks(deck.name)]
+                card_count = CardModel.select().where(CardModel.deck.in_(descendant_ids)).count()
+            else:
+                card_count = int(payload.get("cards_count") or 0)
             self.lbl_target_info.setText(tr("Paquet ciblé : '%1'", deck_name))
             self.lbl_cards_count.setText(tr("Cartes contenues qui seront détruites ou déplacées : %1 carte(s)", card_count))
+        elif p_type in ("empty_cards_delete", "delete_empty_cards"):
+            card_ids = payload.get("card_ids") or []
+            deck_name = str(payload.get("deck_name") or "")
+            if deck_name:
+                self.lbl_target_info.setText(tr("Cartes vides ciblées : %1 carte(s) dans le paquet '%2'", len(card_ids), deck_name))
+            else:
+                self.lbl_target_info.setText(tr("Cartes vides ciblées : %1 carte(s)", len(card_ids)))
+            self.lbl_cards_count.setText(tr("Cartes physiques sans recto qui seront purgées : %1 carte(s)", len(card_ids)))
         else:
             note_ids = payload.get("note_ids") or ([patch.target_id] if patch.target_id else [])
             cards_affected = CardModel.select().where(CardModel.note_id.in_(note_ids)).count() if note_ids else 1

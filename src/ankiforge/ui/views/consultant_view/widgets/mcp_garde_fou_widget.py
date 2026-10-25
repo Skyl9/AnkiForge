@@ -149,7 +149,7 @@ class PatchListItemWidget(QWidget):
         elif p_type in ("set_tags", "set_tags_bulk", "tag_add", "tag_remove"):
             type_variant = "success"
             type_label = tr("TAGS")
-        elif p_type in ("card_delete", "deck_delete", "delete_empty_cards"):
+        elif p_type in ("card_delete", "deck_delete", "delete_empty_cards", "empty_cards_delete", "note_delete", "batch_card_deletion", "batch_note_delete"):
             type_variant = "danger"
             type_label = tr("SUPPR")
         else:
@@ -702,7 +702,7 @@ class MCPGardeFouWidget(QWidget):
         elif p_type in ("set_tags", "set_tags_bulk", "tag_add", "tag_remove", "tags") or (isinstance(payload, dict) and ("tags_added" in payload or "tags_removed" in payload)):
             self.polymorphic_stack.setCurrentIndex(2)
             self.tag_view.set_patch(patch)
-        elif p_type in ("card_delete", "deck_delete", "delete_empty_cards", "empty_cards_delete", "note_delete", "batch_card_deletion"):
+        elif p_type in ("card_delete", "deck_delete", "delete_empty_cards", "empty_cards_delete", "note_delete", "batch_card_deletion", "batch_note_delete"):
             self.polymorphic_stack.setCurrentIndex(3)
             self.deletion_view.set_patch(patch)
         else:

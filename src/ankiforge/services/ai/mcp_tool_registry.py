@@ -519,6 +519,290 @@ class MCPToolRegistry:
             return f"Erreur lors de la préparation de la scission : {e}"
 
     @staticmethod
+    def propose_card_deletion(note_id: int, reason: str = "") -> str:
+        """Garde-fou : Propose la suppression définitive d'une note et de ses cartes filles sous Two-Phase Commit."""
+        from ankiforge.database.models import CardModel, NoteModel, NoteVersionModel
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        try:
+            note = NoteModel.get_or_none(NoteModel.id == note_id)
+            if not note:
+                return json.dumps(
+                    {"status": "error", "message": f"Note #{note_id} introuvable en base."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+            orig_v_id = active_v.id if active_v else None
+
+            cards_count = CardModel.select().where(CardModel.note == note).count()
+            first_field = ""
+            if active_v and active_v.content:
+                try:
+                    c_dict = json.loads(active_v.content)
+                    if isinstance(c_dict, dict) and c_dict:
+                        first_field = str(next(iter(c_dict.values())))
+                    elif isinstance(c_dict, str):
+                        first_field = c_dict
+                except Exception:
+                    first_field = str(active_v.content)
+
+            tags = note.tags or ""
+
+            diff_payload = {
+                "status": "staged_diff",
+                "type": "note_delete",
+                "title": f"Suppression de la note #{note_id}",
+                "explanation": reason or f"Demande de suppression de la note #{note_id} et de ses {cards_count} carte(s) fille(s).",
+                "note_id": note_id,
+                "note_ids": [note_id],
+                "cards_count": cards_count,
+                "preview": first_field[:80],
+                "reason": reason,
+                "tags": tags,
+            }
+
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="note_delete",
+                target_id=note_id,
+                original_version_id=orig_v_id,
+                diff_payload=diff_payload,
+            )
+
+            return json.dumps(
+                {
+                    "status": "staged",
+                    "patch_id": patch.patch_id,
+                    "patch_type": "note_delete",
+                    "note_id": note_id,
+                    "cards_count": cards_count,
+                    "reason": reason,
+                    "message": (f"Suppression de la note #{note_id} enregistrée sous le patch {patch.patch_id} (Two-Phase Commit). Validez dans le Garde-Fou ou via preview_and_apply_patch."),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.error("Erreur propose_card_deletion : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur lors de la préparation de la suppression : {e}"}, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def propose_batch_card_deletion(note_ids_json: str, reason: str = "") -> str:
+        """Garde-fou : Propose la suppression groupée d'un lot de notes sous Two-Phase Commit."""
+        from ankiforge.database.models import CardModel, NoteModel
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+        from ankiforge.services.cards.bulk_hygiene_service import parse_id_list
+
+        try:
+            target_ids = parse_id_list(note_ids_json)
+            if not target_ids:
+                return json.dumps(
+                    {"status": "error", "message": "Aucun identifiant de note valide fourni."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            existing_notes = list(NoteModel.select().where(NoteModel.id.in_(target_ids)))
+            if not existing_notes:
+                return json.dumps(
+                    {"status": "error", "message": "Aucune des notes spécifiées n'existe en base."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            existing_ids = [n.id for n in existing_notes]
+            total_cards = CardModel.select().where(CardModel.note.in_(existing_notes)).count()
+
+            diff_payload = {
+                "status": "staged_diff",
+                "type": "batch_note_delete",
+                "title": f"Suppression groupée de {len(existing_ids)} note(s)",
+                "explanation": reason or f"Demande de suppression groupée de {len(existing_ids)} note(s) et {total_cards} carte(s) associées.",
+                "note_ids": existing_ids,
+                "cards_count": total_cards,
+                "reason": reason,
+            }
+
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="batch_note_delete",
+                target_id=existing_ids[0],
+                diff_payload=diff_payload,
+            )
+
+            return json.dumps(
+                {
+                    "status": "staged",
+                    "patch_id": patch.patch_id,
+                    "patch_type": "batch_note_delete",
+                    "notes_count": len(existing_ids),
+                    "note_ids": existing_ids,
+                    "cards_count": total_cards,
+                    "reason": reason,
+                    "message": (
+                        f"Suppression groupée de {len(existing_ids)} note(s) enregistrée sous le patch {patch.patch_id} (Two-Phase Commit). Validez dans le Garde-Fou ou via preview_and_apply_patch."
+                    ),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.error("Erreur propose_batch_card_deletion : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur lors de la préparation de la suppression groupée : {e}"}, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def propose_deck_rename(old_name: str, new_name: str, reason: str = "") -> str:
+        """Garde-fou : Propose le renommage d'un paquet sous Two-Phase Commit."""
+        from ankiforge.database.models import CardModel, DeckModel
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        try:
+            old = old_name.strip()
+            new = new_name.strip()
+            if not old or not new:
+                return json.dumps(
+                    {"status": "error", "message": "Les noms source et cible du paquet doivent être non vides."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            if old == new:
+                return json.dumps(
+                    {"status": "error", "message": "Le nouveau nom est identique au nom actuel."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            deck = DeckModel.get_or_none(DeckModel.name == old)
+            if not deck:
+                overlay = StagedPatchRegistry.get_active_overlay()
+                if not (overlay and overlay.is_deck_available(old)):
+                    return json.dumps(
+                        {"status": "error", "message": f"Le paquet '{old}' n'existe pas en base."},
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+
+            target_deck = DeckModel.get_or_none(DeckModel.name == new)
+            if target_deck:
+                return json.dumps(
+                    {"status": "error", "message": f"Un paquet nommé '{new}' existe déjà."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            cards_count = CardModel.select().where(CardModel.deck == deck).count() if deck else 0
+
+            diff_payload = {
+                "status": "staged_diff",
+                "type": "deck_rename",
+                "title": f"Renommage du paquet '{old}' → '{new}'",
+                "explanation": reason or f"Renommage du paquet '{old}' vers '{new}'.",
+                "old_name": old,
+                "new_name": new,
+                "deck_name": old,
+                "cards_count": cards_count,
+                "reason": reason,
+            }
+
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="deck_rename",
+                target_id=deck.id if deck else 0,
+                diff_payload=diff_payload,
+            )
+
+            return json.dumps(
+                {
+                    "status": "staged",
+                    "patch_id": patch.patch_id,
+                    "patch_type": "deck_rename",
+                    "old_name": old,
+                    "new_name": new,
+                    "cards_count": cards_count,
+                    "reason": reason,
+                    "message": (f"Renommage du paquet '{old}' vers '{new}' enregistré sous le patch {patch.patch_id} (Two-Phase Commit). Validez dans le Garde-Fou ou via preview_and_apply_patch."),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.error("Erreur propose_deck_rename : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur lors de la préparation du renommage : {e}"}, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def propose_deck_deletion(deck_name: str, move_cards_to_deck: str = "", reason: str = "") -> str:
+        """Garde-fou : Propose la suppression d'un paquet sous Two-Phase Commit avec réassignation optionnelle des cartes."""
+        from ankiforge.database.models import CardModel, DeckModel
+        from ankiforge.repositories.deck_repository import DeckRepository
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+        from ankiforge.utils.hierarchy import descendants_prefix
+
+        try:
+            dk_clean = deck_name.strip()
+            move_clean = move_cards_to_deck.strip()
+
+            if not dk_clean:
+                return json.dumps(
+                    {"status": "error", "message": "Le nom du paquet à supprimer ne peut pas être vide."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            deck = DeckModel.get_or_none(DeckModel.name == dk_clean)
+            if not deck:
+                return json.dumps(
+                    {"status": "error", "message": f"Le paquet '{dk_clean}' n'existe pas en base."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            if move_clean and (move_clean == dk_clean or move_clean.startswith(descendants_prefix(dk_clean))):
+                return json.dumps(
+                    {"status": "error", "message": "Le paquet de destination des cartes ne peut pas être le paquet supprimé ni un de ses sous-paquets."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            repo = DeckRepository()
+            descendant_ids = [d.id for d in repo.get_descendant_decks(deck.name)]
+            cards_count = CardModel.select().where(CardModel.deck.in_(descendant_ids)).count()
+
+            diff_payload = {
+                "status": "staged_diff",
+                "type": "deck_delete",
+                "title": f"Suppression du paquet '{dk_clean}'",
+                "explanation": reason or f"Demande de suppression du paquet '{dk_clean}' ({cards_count} carte(s) associées).",
+                "deck_name": dk_clean,
+                "deck": dk_clean,
+                "move_cards_to_deck": move_clean,
+                "cards_count": cards_count,
+                "reason": reason,
+            }
+
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="deck_delete",
+                target_id=deck.id,
+                diff_payload=diff_payload,
+            )
+
+            return json.dumps(
+                {
+                    "status": "staged",
+                    "patch_id": patch.patch_id,
+                    "patch_type": "deck_delete",
+                    "deck_name": dk_clean,
+                    "move_cards_to_deck": move_clean,
+                    "cards_count": cards_count,
+                    "reason": reason,
+                    "message": (f"Suppression du paquet '{dk_clean}' enregistrée sous le patch {patch.patch_id} (Two-Phase Commit). Validez dans le Garde-Fou ou via preview_and_apply_patch."),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.error("Erreur propose_deck_deletion : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur lors de la préparation de la suppression du paquet : {e}"}, ensure_ascii=False, indent=2)
+
+    @staticmethod
     def preview_and_apply_patch(patch_id: str) -> str:
         """Valide et applique un patch chirurgical en attente (Two-Phase Commit) après vérification optimiste de l'intégrité de version."""
         from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
@@ -989,6 +1273,8 @@ class MCPToolRegistry:
             if selector and not snippet.startswith(selector):
                 snippet = f"{selector} {{\n  {snippet}\n}}"
 
+            from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
             staged_payload = {
                 "status": "staged_diff",
                 "type": "css",
@@ -997,6 +1283,13 @@ class MCPToolRegistry:
                 "modified": current_css + f"\n\n/* Consultant IA */\n{snippet}",
                 "metadata": {"note_type_name": nt.name, "snippet": snippet},
             }
+
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="css",
+                target_id=nt.id,
+                diff_payload=staged_payload,
+            )
+            staged_payload["patch_id"] = patch.patch_id
 
             return json.dumps(staged_payload, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -2462,7 +2755,7 @@ class MCPToolRegistry:
         force_apply: bool = False,
         stage_threshold: int = 5,
     ) -> str:
-        """Nettoie le HTML inline des champs d'un lot de notes. Si le volume dépasse stage_threshold, génère un StagedPatch."""
+        """Garde-fou : Nettoie le HTML inline des champs d'un lot de notes sous Two-Phase Commit systématique (StagedPatch bulk_html_sanitize)."""
         from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, parse_id_list, parse_str_list
 
         n_ids = parse_id_list(note_ids)
@@ -2638,12 +2931,57 @@ class MCPToolRegistry:
         deck_name: str = "",
         confirm: bool = False,
     ) -> str:
-        """Supprime définitivement les cartes à front vide (détection auto ou par identifiants). Action destructive nécessitant confirm=True."""
+        """Garde-fou : Propose la suppression des cartes à front vide sous Two-Phase Commit (patch_type='empty_cards_delete')."""
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
         from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService, parse_id_list
 
-        c_ids = parse_id_list(card_ids) if card_ids else None
-        res = BulkHygieneService.delete_empty_cards(card_ids=c_ids, deck_name=deck_name, confirm=confirm)
-        return json.dumps(res, ensure_ascii=False, indent=2)
+        if card_ids:
+            c_ids = parse_id_list(card_ids)
+            target_ids = list(c_ids)
+        else:
+            list_res = BulkHygieneService.list_empty_cards(deck_name=deck_name, limit=10000, offset=0)
+            if list_res.get("status") == "error":
+                return json.dumps(list_res, ensure_ascii=False, indent=2)
+            empty_list = list_res.get("empty_cards", [])
+            target_ids = [c["card_id"] for c in empty_list if isinstance(c, dict) and "card_id" in c]
+
+        if not target_ids:
+            return json.dumps(
+                {
+                    "status": "no_op",
+                    "deleted_count": 0,
+                    "card_ids": [],
+                    "message": "Aucune carte vide trouvée à supprimer.",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="empty_cards_delete",
+            target_id=0,
+            diff_payload={
+                "type": "empty_cards_delete",
+                "card_ids": target_ids,
+                "deck_name": deck_name,
+                "empty_cards_count": len(target_ids),
+                "title": f"Suppression de {len(target_ids)} carte(s) vide(s)",
+                "explanation": f"Suppression sécurisée de {len(target_ids)} carte(s) dont le recto est vide.",
+            },
+        )
+
+        return json.dumps(
+            {
+                "status": "staged",
+                "patch_id": patch.patch_id,
+                "patch_type": "empty_cards_delete",
+                "empty_cards_count": len(target_ids),
+                "card_ids": target_ids,
+                "message": (f"Suppression de {len(target_ids)} carte(s) vide(s) préparée sous le patch {patch.patch_id} (Two-Phase Commit). Validez dans le Garde-Fou ou via preview_and_apply_patch."),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
 
     @staticmethod
     def list_albums(limit: int = 50, offset: int = 0, folder_name: str = "") -> str:
@@ -3548,7 +3886,7 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "sanitize_fields_html",
-            "description": "Nettoie le HTML inline des champs d'un lot de notes. Si le volume dépasse stage_threshold, génère un StagedPatch (Two-Phase Commit).",
+            "description": "Garde-fou : Nettoie le HTML inline des champs d'un lot de notes sous Two-Phase Commit systématique (StagedPatch bulk_html_sanitize).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -3670,7 +4008,7 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "delete_empty_cards",
-            "description": "Supprime définitivement les cartes à front vide (détection auto ou par identifiants). Action destructive nécessitant confirm=True.",
+            "description": "Garde-fou : Propose la suppression des cartes à front vide sous Two-Phase Commit (patch_type='empty_cards_delete').",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -3678,6 +4016,68 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "deck_name": {"type": "string", "description": "Nom du paquet à filtrer si détection auto (optionnel)"},
                     "confirm": {"type": "boolean", "description": "Confirmation explicite de l'action destructive (défaut: false)"},
                 },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_card_deletion",
+            "description": "Garde-fou : Propose la suppression définitive d'une note et de ses cartes filles sous Two-Phase Commit (patch_type='note_delete').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note_id": {"type": "integer", "description": "Identifiant de la note à supprimer"},
+                    "reason": {"type": "string", "description": "Justification de la suppression soumise à validation humaine"},
+                },
+                "required": ["note_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_batch_card_deletion",
+            "description": "Garde-fou : Propose la suppression groupée d'un lot de notes sous Two-Phase Commit (patch_type='batch_note_delete').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note_ids_json": {"type": "string", "description": "Liste JSON des identifiants de notes à supprimer en bloc (ex: '[1, 2, 3]')"},
+                    "reason": {"type": "string", "description": "Justification du nettoyage en masse"},
+                },
+                "required": ["note_ids_json"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_deck_rename",
+            "description": "Garde-fou : Propose le renommage d'un paquet sous Two-Phase Commit (patch_type='deck_rename').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "old_name": {"type": "string", "description": "Nom actuel du paquet"},
+                    "new_name": {"type": "string", "description": "Nouveau nom souhaité"},
+                    "reason": {"type": "string", "description": "Motif de la restructuration"},
+                },
+                "required": ["old_name", "new_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_deck_deletion",
+            "description": "Garde-fou : Propose la suppression d'un paquet sous Two-Phase Commit avec réassignation optionnelle des cartes (patch_type='deck_delete').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "deck_name": {"type": "string", "description": "Nom du paquet à supprimer"},
+                    "move_cards_to_deck": {"type": "string", "description": "Nom du paquet cible pour réassigner préventivement les cartes (optionnel)"},
+                    "reason": {"type": "string", "description": "Justification de la suppression"},
+                },
+                "required": ["deck_name"],
             },
         },
     },

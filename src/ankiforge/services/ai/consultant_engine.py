@@ -214,6 +214,24 @@ class ConsultantEngine:
                 nc_json = tool_args.get("new_cards_json", "[]")
                 expl = tool_args.get("explanation", "")
                 return ConsultantToolRegistry.propose_card_split(n_id, nc_json, expl), False
+            elif tool_name == "propose_card_deletion":
+                n_id = int(tool_args.get("note_id", 0))
+                reason = str(tool_args.get("reason", ""))
+                return ConsultantToolRegistry.propose_card_deletion(n_id, reason), False
+            elif tool_name == "propose_batch_card_deletion":
+                ids_json = str(tool_args.get("note_ids_json", "[]"))
+                reason = str(tool_args.get("reason", ""))
+                return ConsultantToolRegistry.propose_batch_card_deletion(ids_json, reason), False
+            elif tool_name == "propose_deck_rename":
+                old_n = str(tool_args.get("old_name", ""))
+                new_n = str(tool_args.get("new_name", ""))
+                reason = str(tool_args.get("reason", ""))
+                return ConsultantToolRegistry.propose_deck_rename(old_n, new_n, reason), False
+            elif tool_name == "propose_deck_deletion":
+                d_name = str(tool_args.get("deck_name", ""))
+                move_to = str(tool_args.get("move_cards_to_deck", ""))
+                reason = str(tool_args.get("reason", ""))
+                return ConsultantToolRegistry.propose_deck_deletion(d_name, move_to, reason), False
             elif tool_name == "preview_and_apply_patch":
                 p_id = str(tool_args.get("patch_id", "")).strip()
                 return ConsultantToolRegistry.preview_and_apply_patch(p_id), False

@@ -572,7 +572,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+562"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+582"/>
         <location filename="../../ui/views/edition_view/view.py" line="-604"/>
         <location line="+212"/>
         <location line="+8"/>
@@ -3689,13 +3689,28 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+13"/>
         <source>Paquet ciblé : &apos;%1&apos;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Cartes contenues qui seront détruites ou déplacées : %1 carte(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Cartes vides ciblées : %1 carte(s) dans le paquet &apos;%2&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Cartes vides ciblées : %1 carte(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Cartes physiques sans recto qui seront purgées : %1 carte(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

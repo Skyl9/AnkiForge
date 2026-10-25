@@ -120,7 +120,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "get_note_type_details": DOMAIN_NOTE_TYPES,
     "propose_note_type_refactor": DOMAIN_NOTE_TYPES,
     "delete_unused_note_type": DOMAIN_NOTE_TYPES,
-    # 2. Paquets (7)
+    # 2. Paquets (9)
     "audit_deck_wozniak": DOMAIN_DECKS,
     "inspect_deck_deep_scan": DOMAIN_DECKS,
     "diagnose_deck_weaknesses": DOMAIN_DECKS,
@@ -128,6 +128,8 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "list_decks": DOMAIN_DECKS,
     "create_deck": DOMAIN_DECKS,
     "move_cards_to_deck": DOMAIN_DECKS,
+    "propose_deck_rename": DOMAIN_DECKS,
+    "propose_deck_deletion": DOMAIN_DECKS,
     # 3. Tags (3)
     "set_tags_bulk": DOMAIN_TAGS,
     "audit_tag_hygiene": DOMAIN_TAGS,
@@ -164,11 +166,13 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "read_app_doc_page": DOMAIN_DOCS,
     "list_app_doc_topics": DOMAIN_DOCS,
     "get_feature_quick_help": DOMAIN_DOCS,
-    # 9. Notes & Cartes (18)
+    # 9. Notes & Cartes (20)
     "audit_card_wozniak": DOMAIN_CARDS,
     "find_duplicate_cards": DOMAIN_CARDS,
     "propose_card_refactor": DOMAIN_CARDS,
     "propose_card_split": DOMAIN_CARDS,
+    "propose_card_deletion": DOMAIN_CARDS,
+    "propose_batch_card_deletion": DOMAIN_CARDS,
     "apply_patch": DOMAIN_CARDS,
     "preview_and_apply_patch": DOMAIN_CARDS,
     "propose_css_tune": DOMAIN_CARDS,
@@ -218,20 +222,36 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     "propose_card_split": [
         "Two-Phase Commit obligatoire : propose la scission atomique en préservant la carte mère.",
     ],
+    "propose_card_deletion": [
+        "Two-Phase Commit obligatoire : enregistre une proposition staged (note_delete) soumise à validation humaine.",
+        "Verrouillage optimiste de version : empêche la suppression si la note a été modifiée concurremment.",
+    ],
+    "propose_batch_card_deletion": [
+        "Two-Phase Commit obligatoire : enregistre une proposition groupée staged (batch_note_delete).",
+        "Transaction atomique : validation et suppression de l'ensemble du lot sous un unique verrou.",
+    ],
+    "propose_deck_rename": [
+        "Two-Phase Commit obligatoire : enregistre une proposition staged (deck_rename) avant altération de l'arborescence.",
+        "Contrôle anti-collision : vérifie l'existence du paquet source et la disponibilité du nom cible.",
+    ],
+    "propose_deck_deletion": [
+        "Two-Phase Commit obligatoire : proposition staged (deck_delete) avec réassignation optionnelle des cartes.",
+        "Préservation des cartes : autorise le déplacement préventif vers un paquet de repli avant suppression.",
+    ],
     "propose_note_type_refactor": [
         "Two-Phase Commit obligatoire : modélisation de gabarit soumise à révision préalable.",
     ],
     "propose_css_tune": [
-        "Two-Phase Commit obligatoire : prévisualisation du rendu stylistique avant injection.",
+        "Two-Phase Commit obligatoire : prévisualisation du rendu stylistique et persistance d'un StagedPatch avant injection.",
     ],
     "sanitize_fields_html": [
-        "Two-Phase Commit pour mutations larges : nettoyage sécurisé du balisage HTML inline.",
+        "Two-Phase Commit systématique (100% 2PC) : nettoyage sécurisé du balisage HTML inline sans seuil empirique.",
     ],
     "delete_unused_note_type": [
         "Intégrité référentielle stricte : la suppression est formellement rejetée si au moins une note y est rattachée.",
     ],
     "delete_empty_cards": [
-        "Opération destructive définitive : purges les cartes sans contenu physique au recto.",
+        "Two-Phase Commit obligatoire : proposition staged (empty_cards_delete) des cartes à front vide sans suppression directe.",
     ],
     "exclude_document_region": [
         "Délimitation non destructive (ADR 0010) : la région est écartée du calcul de couverture et du RAG sans suppression physique.",

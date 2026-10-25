@@ -57,6 +57,10 @@ _MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
     "note_create": "cards",
     "batch_note_create": "cards",
     "card_split": "cards",
+    "card_delete": "cards",
+    "note_delete": "cards",
+    "batch_note_delete": "cards",
+    "empty_cards_delete": "cards",
     # Types historiques émis par `MCPToolRegistry.apply_patch`.
     "card": "cards",
     "split": "cards",
@@ -81,6 +85,7 @@ _MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
     "deck_create": "decks",
     "deck_update": "decks",
     "deck_delete": "decks",
+    "deck_rename": "decks",
     "rename_deck": "decks",
     # Bibliothèque documentaire.
     "document_create": "docs",
@@ -317,6 +322,30 @@ def propose_card_refactor(note_id: int, new_fields_json: str, explanation: str =
 def propose_card_split(note_id: int, new_cards_json: str, explanation: str = "") -> str:
     """Propose de scinder une carte dense en N cartes atomiques avec Diff comparatif pour validation humaine."""
     return MCPToolRegistry.propose_card_split(note_id, new_cards_json, explanation)
+
+
+@mcp.tool()
+def propose_card_deletion(note_id: int, reason: str = "") -> str:
+    """Garde-fou : Propose la suppression définitive d'une note et de ses cartes filles sous Two-Phase Commit."""
+    return MCPToolRegistry.propose_card_deletion(note_id=note_id, reason=reason)
+
+
+@mcp.tool()
+def propose_batch_card_deletion(note_ids_json: str, reason: str = "") -> str:
+    """Garde-fou : Propose la suppression groupée d'un lot de notes sous Two-Phase Commit (format JSON)."""
+    return MCPToolRegistry.propose_batch_card_deletion(note_ids_json=note_ids_json, reason=reason)
+
+
+@mcp.tool()
+def propose_deck_rename(old_name: str, new_name: str, reason: str = "") -> str:
+    """Garde-fou : Propose le renommage d'un paquet sous Two-Phase Commit avant modification de l'arborescence."""
+    return MCPToolRegistry.propose_deck_rename(old_name=old_name, new_name=new_name, reason=reason)
+
+
+@mcp.tool()
+def propose_deck_deletion(deck_name: str, move_cards_to_deck: str = "", reason: str = "") -> str:
+    """Garde-fou : Propose la suppression d'un paquet sous Two-Phase Commit avec réassignation optionnelle des cartes."""
+    return MCPToolRegistry.propose_deck_deletion(deck_name=deck_name, move_cards_to_deck=move_cards_to_deck, reason=reason)
 
 
 @mcp.tool()
@@ -1212,7 +1241,7 @@ def sanitize_fields_html(
     force_apply: bool = False,
     stage_threshold: int = 5,
 ) -> str:
-    """Nettoie le HTML inline des champs d'un lot de notes. Si le volume dépasse stage_threshold, génère un StagedPatch (Two-Phase Commit)."""
+    """Garde-fou : Nettoie le HTML inline des champs d'un lot de notes sous Two-Phase Commit systématique (StagedPatch bulk_html_sanitize)."""
     return MCPToolRegistry.sanitize_fields_html(
         note_ids=note_ids,
         strip_tags=strip_tags,
@@ -1300,7 +1329,7 @@ def delete_empty_cards(
     deck_name: str = "",
     confirm: bool = False,
 ) -> str:
-    """Supprime définitivement les cartes à front vide (détection auto ou par identifiants). Action destructive nécessitant confirm=True."""
+    """Garde-fou : Propose la suppression des cartes à front vide sous Two-Phase Commit (StagedPatch empty_cards_delete)."""
     return MCPToolRegistry.delete_empty_cards(card_ids=card_ids, deck_name=deck_name, confirm=confirm)
 
 

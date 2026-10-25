@@ -260,15 +260,19 @@ def test_mcp_list_and_delete_empty_cards(mcp_hygiene_setup):
         found_ids = [item["card_id"] for item in data_list["empty_cards"]]
         assert c_empty.id in found_ids
 
-        # 2. Confirmation requise pour delete_empty_cards
-        res_req = await mcp.call_tool("delete_empty_cards", {"confirm": False})
-        data_req = json.loads(_extract_text(res_req))
-        assert data_req["status"] == "confirmation_required"
-
-        # 3. Suppression avec confirm=True
+        # 2. Sécurité Two-Phase Commit : delete_empty_cards prépare un StagedPatch sans suppression directe
         res_del = await mcp.call_tool("delete_empty_cards", {"confirm": True})
         data_del = json.loads(_extract_text(res_del))
-        assert data_del["status"] == "deleted"
+        assert data_del["status"] == "staged"
+        assert data_del["patch_type"] == "empty_cards_delete"
+        patch_id = data_del["patch_id"]
+        assert patch_id.startswith("patch_")
+        assert CardModel.get_or_none(CardModel.id == c_empty.id) is not None
+
+        # 3. Application du patch via preview_and_apply_patch
+        res_apply = await mcp.call_tool("preview_and_apply_patch", {"patch_id": patch_id})
+        data_apply = json.loads(_extract_text(res_apply))
+        assert data_apply["status"] == "applied"
         assert CardModel.get_or_none(CardModel.id == c_empty.id) is None
 
     asyncio.run(_run())

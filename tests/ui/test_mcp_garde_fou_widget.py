@@ -428,6 +428,10 @@ def test_mcp_garde_fou_polymorphic_stack_views(qtbot, sample_note) -> None:
         target_id=sample_note.id,
         diff_payload={"title": "Suppression Carte", "reason": "Doublon obsolète"},
     )
+    p_empty = StagedPatchRegistry.create_patch(
+        patch_type="empty_cards_delete",
+        diff_payload={"title": "Suppression Cartes Vides", "card_ids": [101, 102], "reason": "Recto vide"},
+    )
 
     widget = MCPGardeFouWidget()
     qtbot.addWidget(widget)
@@ -457,6 +461,12 @@ def test_mcp_garde_fou_polymorphic_stack_views(qtbot, sample_note) -> None:
     assert widget.polymorphic_stack.currentIndex() == 3
     assert widget.polymorphic_stack.currentWidget() is widget.deletion_view
     assert "Doublon obsolète" in widget.deletion_view.get_reason()
+
+    # 5. Sélectionner patch cartes vides -> Page 3 (Bannière rouge vif)
+    widget.select_patch_by_id(p_empty.patch_id)
+    assert widget.polymorphic_stack.currentIndex() == 3
+    assert widget.polymorphic_stack.currentWidget() is widget.deletion_view
+    assert "Recto vide" in widget.deletion_view.get_reason()
 
 
 def test_mcp_garde_fou_bundle_step_by_step_and_cascade(qtbot) -> None:

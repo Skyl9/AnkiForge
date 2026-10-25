@@ -240,8 +240,8 @@ class BulkHygieneService:
     ) -> dict[str, Any]:
         """Nettoie le HTML inline des champs d'un lot de notes.
 
-        Si le nombre de notes modifiées dépasse stage_threshold et que force_apply est faux,
-        l'opération est enregistrée sous forme de StagedPatch (Two-Phase Commit).
+        L'opération est systématiquement enregistrée sous forme de StagedPatch (Two-Phase Commit),
+        sauf si force_apply est explicitement défini à True.
         """
         if not note_ids:
             return {"status": "error", "message": "Aucun identifiant de note fourni."}
@@ -292,8 +292,8 @@ class BulkHygieneService:
                 "message": "Aucune modification nécessaire : les champs sont déjà sains.",
             }
 
-        # Two-Phase Commit si mutation large
-        if len(diffs) > stage_threshold and not force_apply:
+        # Two-Phase Commit systématique (100% 2PC) sauf forçage explicite (force_apply=True)
+        if not force_apply:
             patch = StagedPatchRegistry.create_patch(
                 patch_type="bulk_html_sanitize",
                 target_id=0,
