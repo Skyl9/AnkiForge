@@ -248,6 +248,27 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : logs MCP, journal d'appels, historique brut
 - **Espace Guides & Workspaces MCP** : interface d'amorçage et de suivi des environnements de travail d'agents, permettant de générer les adaptateurs méthodologiques (`init_agent_workspace`), d'auditer la dérive de version des guides (`check_guide_version`) et de visualiser les personas MCP configurées.
   _Avoid_ : setup agents, dossier guides, onboarding mcp
+- **Déclenchement de pipeline MCP (`trigger_pipeline_run`)** : capacité pour un agent externe de démarrer l'exécution asynchrone d'un pipeline DAG en lui fournissant un paquet cible validé et des cartes candidates générées hors API, en vue de leur traitement par la chaîne de finition et de leur mise en attente sous forme de patch.
+  _Avoid_ : run direct, création non contrôlée, exécution sauvage de pipeline
+- **Chaîne de finition de pipeline (Pipeline Finishing Chain)** : sous-ensemble des étapes déterministes d'un pipeline DAG (nettoyage HTML/LaTeX, linter des 20 règles de Wozniak, déduplication Levenshtein, synthèse vocale AUDIO_TTS) appliqué aux cartes candidates soumises par un agent externe avant mise en StagedPatch.
+  _Avoid_ : post-processing opaque, validation silencieuse
+- **Génération hors API (External Reasoning / Non-API Model)** : production de cartes ou de contenu par un agent externe exploitant son propre modèle de langage (forfait, abonnement CLI, modèle local avancé) sans solliciter les clés d'API configurées dans AnkiForge.
+  _Avoid_ : génération non officielle, modèle pirate
+- **Patch staged de suppression (Staged Deletion Patch)** : proposition de suppression chirurgicale d'une ou plusieurs notes ou d'un paquet émise par un agent MCP (`note_delete`, `batch_note_delete`, `deck_delete`), soumise obligatoirement au Two-Phase Commit pour interdire toute destruction accidentelle de collection.
+  _Avoid_ : suppression directe mcp, drop note, delete immédiat
+- **Exclusion documentaire MCP** : application directe par un agent externe d'une règle de délimitation de portée (ADR 0010) via `exclude_document_region` ou `neutralize_document_region` pour affiner le dénominateur de couverture et l'index RAG sans altérer le document source physique.
+  _Avoid_ : découpage destructif, suppression de texte source
+- **Export autonome de paquet (`export_deck_apkg`)** : compilation et génération par l'agent MCP d'une archive `.apkg` complète à identifiants stables et médias associés, prête à être importée dans Anki Desktop sans recourir à l'interface graphique.
+  _Avoid_ : export silencieux, dump anki, export sync direct
+- **Staged Bundle (Bloc d'opérations staged)** : conteneur transactionnel regroupant une séquence ordonnée d'opérations de mutation formulées par un agent MCP (`begin_staged_bundle` / `commit_staged_bundle`), examiné et validé pas-à-pas par l'utilisateur dans l'onglet `Garde_fou_validation`.
+  _Avoid_ : macro-patch, lot non ordonné, patch composite libre
+- **Staged Overlay (Contexte virtuel intra-bundle)** : couche d'état transitoire permettant au validateur MCP d'autoriser des références logiques (ex: nom de paquet) créées par une étape antérieure au sein du même bundle, sans exiger leur existence physique préalable en base.
+  _Avoid_ : mock bdd, base virtuelle, shadow db
+- **Règle d'arrêt en cascade (Fail-Fast Reject)** : principe d'intégrité selon lequel le rejet d'une étape d'un Staged Bundle entraîne automatiquement l'annulation et le rejet de la totalité des étapes subséquentes de ce bloc.
+  _Avoid_ : rejet partiel libre, saut d'étape défaillante
+
+
+
 
 
 ## Profils, Sauvegardes & Durcissement
