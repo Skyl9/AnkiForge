@@ -447,6 +447,28 @@ class ConsultantEngine:
                 run_id = int(tool_args.get("run_id", 0))
                 pipeline_id = int(tool_args.get("pipeline_id", 0))
                 return ConsultantToolRegistry.get_pipeline_run(run_id=run_id, pipeline_id=pipeline_id), False
+            elif tool_name == "export_deck_apkg":
+                d_name = str(tool_args.get("deck_name", ""))
+                out_path = str(tool_args.get("output_path", ""))
+                inc_med = bool(tool_args.get("include_media", True))
+                return ConsultantToolRegistry.export_deck_apkg(deck_name=d_name, output_path=out_path, include_media=inc_med), False
+            elif tool_name == "set_card_flag":
+                n_id = int(tool_args.get("note_id", 0))
+                flg = str(tool_args.get("flag", "none"))
+                return ConsultantToolRegistry.set_card_flag(note_id=n_id, flag=flg), False
+            elif tool_name == "suspend_card":
+                c_id = int(tool_args.get("card_id", 0))
+                return ConsultantToolRegistry.suspend_card(card_id=c_id), False
+            elif tool_name == "unsuspend_card":
+                c_id = int(tool_args.get("card_id", 0))
+                return ConsultantToolRegistry.unsuspend_card(card_id=c_id), False
+            elif tool_name == "correct_plate_ocr":
+                plate_target_id = int(tool_args.get("plate_id", 0))
+                c_txt = str(tool_args.get("corrected_text", ""))
+                return ConsultantToolRegistry.correct_plate_ocr(plate_id=plate_target_id, corrected_text=c_txt), False
+            elif tool_name == "trigger_manual_backup":
+                rsn = str(tool_args.get("reason", ""))
+                return ConsultantToolRegistry.trigger_manual_backup(reason=rsn), False
             elif tool_name in MCPHooksAPI.get_registered_tools():
                 plugin_tool = MCPHooksAPI.get_registered_tools()[tool_name]
                 handler = plugin_tool["handler"]

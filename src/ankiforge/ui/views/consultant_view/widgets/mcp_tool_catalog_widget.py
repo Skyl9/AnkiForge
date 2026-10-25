@@ -130,6 +130,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "move_cards_to_deck": DOMAIN_DECKS,
     "propose_deck_rename": DOMAIN_DECKS,
     "propose_deck_deletion": DOMAIN_DECKS,
+    "export_deck_apkg": DOMAIN_DECKS,
     # 3. Tags (3)
     "set_tags_bulk": DOMAIN_TAGS,
     "audit_tag_hygiene": DOMAIN_TAGS,
@@ -147,9 +148,11 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "neutralize_document_region": DOMAIN_DOCUMENTS,
     "update_document_content": DOMAIN_DOCUMENTS,
     "reindex_document": DOMAIN_DOCUMENTS,
-    # 5. Albums & Planches (2)
+    "trigger_manual_backup": DOMAIN_DOCUMENTS,
+    # 5. Albums & Planches (3)
     "list_albums": DOMAIN_ALBUMS,
     "get_album_plates": DOMAIN_ALBUMS,
+    "correct_plate_ocr": DOMAIN_ALBUMS,
     # 6. Pipelines & DAG (3)
     "list_pipelines": DOMAIN_PIPELINES,
     "get_pipeline_run": DOMAIN_PIPELINES,
@@ -187,6 +190,9 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "sanitize_fields_html": DOMAIN_CARDS,
     "list_empty_cards": DOMAIN_CARDS,
     "delete_empty_cards": DOMAIN_CARDS,
+    "set_card_flag": DOMAIN_CARDS,
+    "suspend_card": DOMAIN_CARDS,
+    "unsuspend_card": DOMAIN_CARDS,
     # Staged Bundles & Sessions 2PC (4)
     "begin_staged_bundle": DOMAIN_CARDS,
     "commit_staged_bundle": DOMAIN_CARDS,
@@ -301,6 +307,26 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
         "Déclenchement asynchrone non-bloquant : exécution découplée dans QThreadPool avec sortie Staged.",
         "Contrôle anti-hallucination strict : le paquet cible (deck_name) doit impérativement exister dans la base.",
         "Finalisation Staged automatique : conversion automatique des cartes traitées en StagedBundle (batch_note_create).",
+    ],
+    "export_deck_apkg": [
+        "Vérification d'existence du paquet cible avant génération du paquet.",
+        "Production d'un fichier .apkg autonome à IDs stables préservant la compatibilité Anki.",
+    ],
+    "set_card_flag": [
+        "Contrôle strict des couleurs de drapeau supportées (red, orange, green, blue, pink, turquoise, purple, none).",
+        "Mutation directe et cohérente sur l'ensemble des cartes physiques liées à la note.",
+    ],
+    "suspend_card": [
+        "Bascule immédiate de la carte physique à l'état suspendu (queue SRS -1).",
+    ],
+    "unsuspend_card": [
+        "Réactivation immédiate de la carte dans le cycle de révision SRS.",
+    ],
+    "correct_plate_ocr": [
+        "Mise à jour directe de la couche textuelle OCR sans altération de l'image source.",
+    ],
+    "trigger_manual_backup": [
+        "Création d'un instantané atomique SQLite compatible WAL exclu de la rotation standard.",
     ],
 }
 

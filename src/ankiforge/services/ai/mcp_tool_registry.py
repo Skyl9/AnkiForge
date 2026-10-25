@@ -7,11 +7,13 @@ entièrement découplées de toute session de chat conversationnel in-app.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import json
 import logging
 import re
 import sqlite3
 import uuid
+from pathlib import Path
 from typing import Any
 
 from peewee import fn
@@ -38,6 +40,7 @@ from ankiforge.services.ai.linter import WozniakLinterEngine
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.utils.c_bridge import get_similarity
+from ankiforge.utils.paths import get_active_profile
 
 logger = logging.getLogger(__name__)
 
@@ -3399,6 +3402,338 @@ class MCPToolRegistry:
                 ensure_ascii=False,
             )
 
+    @staticmethod
+    def export_deck_apkg(
+        deck_name: str,
+        output_path: str = "",
+        include_media: bool = True,
+    ) -> str:
+        """Exporte un paquet de cartes au format Anki .apkg autonome à IDs stables."""
+        try:
+            from ankiforge.services.cards.export_manager import ExportManager
+            from ankiforge.services.profile_manager import ProfileManager
+
+            dk_clean = deck_name.strip()
+            if not dk_clean:
+                return json.dumps(
+                    {"status": "error", "message": "Le nom du paquet ne peut pas être vide."},
+                    ensure_ascii=False,
+                )
+
+            deck = DeckModel.get_or_none(DeckModel.name == dk_clean)
+            if not deck:
+                return json.dumps(
+                    {"status": "error", "message": f"Paquet '{dk_clean}' introuvable."},
+                    ensure_ascii=False,
+                )
+
+            safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", dk_clean.replace("::", "_"))
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            if output_path and output_path.strip():
+                dest_path = Path(output_path.strip()).expanduser().resolve()
+                if dest_path.is_dir():
+                    dest_path = dest_path / f"{safe_name}_{timestamp}.apkg"
+                elif dest_path.suffix.lower() != ".apkg":
+                    dest_path = dest_path.with_suffix(".apkg")
+            else:
+                pm = ProfileManager()
+                active_profile = get_active_profile()
+                exports_dir = pm.PROFILES_DIR / active_profile / "exports"
+                exports_dir.mkdir(parents=True, exist_ok=True)
+                dest_path = exports_dir / f"{safe_name}_{timestamp}.apkg"
+
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+            manager = ExportManager()
+            exported_notes_count = manager.export_package(
+                output_path=str(dest_path),
+                deck_id=deck.id,
+                status_filter="all",
+                include_media=include_media,
+            )
+
+            file_size = dest_path.stat().st_size if dest_path.exists() else 0
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "deck_name": deck.name,
+                    "deck_id": deck.id,
+                    "exported_notes_count": exported_notes_count,
+                    "output_path": str(dest_path),
+                    "file_size_bytes": file_size,
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur export_deck_apkg : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de l'exportation .apkg : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
+    def set_card_flag(
+        note_id: int,
+        flag: str,
+    ) -> str:
+        """Assigne un drapeau de couleur Anki (red, orange, green, blue, pink, turquoise, purple, none) à toutes les cartes d'une note."""
+        try:
+            from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+            flag_clean = flag.strip().lower()
+            flag_map: dict[str, int] = {
+                "none": 0,
+                "0": 0,
+                "red": 1,
+                "1": 1,
+                "orange": 2,
+                "2": 2,
+                "green": 3,
+                "3": 3,
+                "blue": 4,
+                "4": 4,
+                "pink": 5,
+                "5": 5,
+                "turquoise": 6,
+                "6": 6,
+                "purple": 7,
+                "7": 7,
+            }
+            if flag_clean not in flag_map:
+                allowed_keys = ["none", "red", "orange", "green", "blue", "pink", "turquoise", "purple"]
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Couleur de drapeau '{flag}' invalide. Valeurs autorisées : {', '.join(allowed_keys)}.",
+                    },
+                    ensure_ascii=False,
+                )
+
+            note = NoteModel.get_or_none(NoteModel.id == int(note_id))
+            if not note:
+                return json.dumps(
+                    {"status": "error", "message": f"Note #{note_id} introuvable."},
+                    ensure_ascii=False,
+                )
+
+            cards = list(CardModel.select().where(CardModel.note == note))
+            if not cards:
+                return json.dumps(
+                    {"status": "error", "message": f"Aucune carte associée à la note #{note_id}."},
+                    ensure_ascii=False,
+                )
+
+            flag_val = flag_map[flag_clean]
+            canonical_names = {0: "none", 1: "red", 2: "orange", 3: "green", 4: "blue", 5: "pink", 6: "turquoise", 7: "purple"}
+            canonical_flag = canonical_names.get(flag_val, "none")
+
+            with db.atomic():
+                for c in cards:
+                    c.flags = flag_val
+                    c.save()
+
+            _notify_mcp_mutation(
+                {
+                    "type": "note_flag_update",
+                    "mutation_type": "note_update",
+                    "note_id": note.id,
+                    "flag": canonical_flag,
+                    "flag_value": flag_val,
+                    "updated_cards_count": len(cards),
+                }
+            )
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "note_id": note.id,
+                    "flag": canonical_flag,
+                    "flag_value": flag_val,
+                    "updated_cards_count": len(cards),
+                    "card_ids": [c.id for c in cards],
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur set_card_flag : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la modification du drapeau : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
+    def suspend_card(card_id: int) -> str:
+        """Suspend une carte physique dans l'ordonnanceur SRS (queue == -1 dans Anki)."""
+        try:
+            from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+            card = CardModel.get_or_none(CardModel.id == int(card_id))
+            if not card:
+                return json.dumps(
+                    {"status": "error", "message": f"Carte #{card_id} introuvable."},
+                    ensure_ascii=False,
+                )
+
+            card.is_suspended = True
+            card.save()
+
+            _notify_mcp_mutation(
+                {
+                    "type": "card_suspend",
+                    "mutation_type": "card_update",
+                    "card_id": card.id,
+                    "note_id": card.note_id,
+                    "deck_id": card.deck_id,
+                    "is_suspended": True,
+                }
+            )
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "card_id": card.id,
+                    "note_id": card.note_id,
+                    "deck_id": card.deck_id,
+                    "is_suspended": True,
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur suspend_card : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la suspension de la carte : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
+    def unsuspend_card(card_id: int) -> str:
+        """Réactive une carte suspendue dans l'ordonnanceur SRS pour reprendre les révisions."""
+        try:
+            from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+            card = CardModel.get_or_none(CardModel.id == int(card_id))
+            if not card:
+                return json.dumps(
+                    {"status": "error", "message": f"Carte #{card_id} introuvable."},
+                    ensure_ascii=False,
+                )
+
+            card.is_suspended = False
+            card.save()
+
+            _notify_mcp_mutation(
+                {
+                    "type": "card_unsuspend",
+                    "mutation_type": "card_update",
+                    "card_id": card.id,
+                    "note_id": card.note_id,
+                    "deck_id": card.deck_id,
+                    "is_suspended": False,
+                }
+            )
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "card_id": card.id,
+                    "note_id": card.note_id,
+                    "deck_id": card.deck_id,
+                    "is_suspended": False,
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur unsuspend_card : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la réactivation de la carte : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
+    def correct_plate_ocr(
+        plate_id: int,
+        corrected_text: str,
+    ) -> str:
+        """Corrige la couche textuelle OCR d'une planche d'album visuel sans altérer le fichier image sous-jacent."""
+        try:
+            from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+            plate = DocumentPageModel.get_or_none(DocumentPageModel.id == int(plate_id))
+            if not plate:
+                return json.dumps(
+                    {"status": "error", "message": f"Planche #{plate_id} introuvable."},
+                    ensure_ascii=False,
+                )
+
+            plate.ocr_text = corrected_text
+            plate.save()
+
+            _notify_mcp_mutation(
+                {
+                    "type": "plate_ocr_update",
+                    "mutation_type": "document_update",
+                    "plate_id": plate.id,
+                    "page_number": plate.page_number,
+                    "document_id": plate.document_id,
+                }
+            )
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "plate_id": plate.id,
+                    "page_number": plate.page_number,
+                    "document_id": plate.document_id,
+                    "ocr_text_length": len(corrected_text),
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur correct_plate_ocr : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la correction de l'OCR : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
+    def trigger_manual_backup(reason: str = "") -> str:
+        """Déclenche un instantané de sécurité atomique SQLite horodaté de la collection dans le profil actif."""
+        try:
+            from ankiforge.database.backup import _snapshot_database
+
+            prefix = "ankiforge_backup_manual"
+            clean_reason = re.sub(r"[^a-zA-Z0-9_-]", "_", reason.strip().lower())[:30]
+            if clean_reason:
+                prefix = f"ankiforge_backup_manual_{clean_reason}"
+
+            active_profile = get_active_profile()
+            backup_path = _snapshot_database(profile_name=None, filename_prefix=prefix)
+            if not backup_path or not backup_path.exists():
+                return json.dumps(
+                    {"status": "error", "message": "Échec de la création de la sauvegarde manuelle."},
+                    ensure_ascii=False,
+                )
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "backup_path": str(backup_path),
+                    "filename": backup_path.name,
+                    "file_size_bytes": backup_path.stat().st_size,
+                    "profile": active_profile,
+                    "reason": reason.strip(),
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur trigger_manual_backup : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la création de la sauvegarde : {e}"},
+                ensure_ascii=False,
+            )
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -4202,6 +4537,93 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "overlap": {"type": "integer", "description": "Recouvrement en tokens entre fragments consécutifs (défaut: 50)"},
                 },
                 "required": ["document_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "export_deck_apkg",
+            "description": "Exporte un paquet de cartes au format Anki .apkg autonome à IDs stables (préservant flags et suspension).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "deck_name": {"type": "string", "description": "Nom exact du paquet à exporter"},
+                    "output_path": {"type": "string", "description": "Chemin de destination du fichier .apkg (optionnel, dossier exports du profil par défaut)"},
+                    "include_media": {"type": "boolean", "description": "Inclure ou non les fichiers médias liés (défaut: true)"},
+                },
+                "required": ["deck_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_card_flag",
+            "description": "Assigne un drapeau de couleur Anki (red, orange, green, blue, pink, turquoise, purple, none) à toutes les cartes d'une note.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note_id": {"type": "integer", "description": "ID de la note cible"},
+                    "flag": {"type": "string", "description": "Couleur du drapeau (red, orange, green, blue, pink, turquoise, purple, none)"},
+                },
+                "required": ["note_id", "flag"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "suspend_card",
+            "description": "Suspend une carte physique dans l'ordonnanceur SRS (queue == -1 dans Anki).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "card_id": {"type": "integer", "description": "ID de la carte physique à suspendre"},
+                },
+                "required": ["card_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "unsuspend_card",
+            "description": "Réactive une carte suspendue dans l'ordonnanceur SRS pour reprendre les révisions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "card_id": {"type": "integer", "description": "ID de la carte physique à réactiver"},
+                },
+                "required": ["card_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "correct_plate_ocr",
+            "description": "Corrige la couche textuelle OCR d'une planche d'album visuel sans altérer le fichier image sous-jacent.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "plate_id": {"type": "integer", "description": "ID de la planche (DocumentPageModel) à corriger"},
+                    "corrected_text": {"type": "string", "description": "Texte corrigé pour la planche"},
+                },
+                "required": ["plate_id", "corrected_text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "trigger_manual_backup",
+            "description": "Déclenche un instantané de sécurité atomique SQLite horodaté de la collection dans le profil actif.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {"type": "string", "description": "Motif explicatif de la sauvegarde (optionnel)"},
+                },
             },
         },
     },

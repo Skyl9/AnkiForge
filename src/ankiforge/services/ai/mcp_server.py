@@ -54,6 +54,9 @@ MCP_MUTATION_DOMAINS: frozenset[str] = frozenset({"cards", "decks", "models", "d
 _MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
     # Notes, cartes et opérations d'hygiène en masse.
     "note_update": "cards",
+    "note_flag_update": "cards",
+    "card_suspend": "cards",
+    "card_unsuspend": "cards",
     "note_create": "cards",
     "batch_note_create": "cards",
     "card_split": "cards",
@@ -90,6 +93,8 @@ _MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
     # Bibliothèque documentaire.
     "document_create": "docs",
     "document_update": "docs",
+    "plate_ocr_update": "docs",
+    "database_backup": "docs",
     "document_delete": "docs",
     "document_index": "docs",
     "exclude_document_region": "docs",
@@ -1775,6 +1780,59 @@ def init_agent_workspace(
         logger.info("Guide d'amorçage généré : %s", target_file)
 
     return content
+
+
+@mcp.tool()
+def export_deck_apkg(
+    deck_name: str,
+    output_path: str = "",
+    include_media: bool = True,
+) -> str:
+    """Exporte un paquet de cartes au format Anki .apkg autonome à IDs stables (préservant flags et suspension)."""
+    return MCPToolRegistry.export_deck_apkg(
+        deck_name=deck_name,
+        output_path=output_path,
+        include_media=include_media,
+    )
+
+
+@mcp.tool()
+def set_card_flag(
+    note_id: int,
+    flag: str,
+) -> str:
+    """Assigne un drapeau de couleur Anki (red, orange, green, blue, pink, turquoise, purple, none) à toutes les cartes d'une note."""
+    return MCPToolRegistry.set_card_flag(note_id=note_id, flag=flag)
+
+
+@mcp.tool()
+def suspend_card(card_id: int) -> str:
+    """Suspend une carte physique dans l'ordonnanceur SRS (queue == -1 dans Anki)."""
+    return MCPToolRegistry.suspend_card(card_id=card_id)
+
+
+@mcp.tool()
+def unsuspend_card(card_id: int) -> str:
+    """Réactive une carte suspendue dans l'ordonnanceur SRS pour reprendre les révisions."""
+    return MCPToolRegistry.unsuspend_card(card_id=card_id)
+
+
+@mcp.tool()
+def correct_plate_ocr(
+    plate_id: int,
+    corrected_text: str,
+) -> str:
+    """Corrige la couche textuelle OCR d'une planche d'album visuel sans altérer le fichier image sous-jacent."""
+    return MCPToolRegistry.correct_plate_ocr(
+        plate_id=plate_id,
+        corrected_text=corrected_text,
+    )
+
+
+@mcp.tool()
+def trigger_manual_backup(reason: str = "") -> str:
+    """Déclenche un instantané de sécurité atomique SQLite horodaté de la collection dans le profil actif."""
+    return MCPToolRegistry.trigger_manual_backup(reason=reason)
 
 
 @mcp.tool()
