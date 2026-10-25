@@ -53,15 +53,19 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
 7. **Puits d'affichage i18n & Symboles typographiques (`ADR 0013`)** :
    - Tout puits d'affichage (`QLabel`, `QPushButton`, etc.) recevant une chaîne constante (même un symbole comme `➔` ou `•`) doit être wrappé dans `tr()` ou instancié sans argument puis configuré via `.setText("...")` pour satisfaire le test d'audit `test_every_display_sink_wraps_its_literal`.
    - Lors de l'ajout, de la modification ou du **retrait/suppression** de chaînes `tr()` (y compris lors du remplacement d'un bouton texte `QPushButton(tr("+"))` par un bouton d'icône `QToolButton`), toujours exécuter `uv run python script/extract_translations.py` pour régénérer et compiler les catalogues `.ts` / `.qm` avant le passage de la porte canonique `script/verify.py`.
-8. **Interdiction stricte des émojis dans l'UI** :
+8. **Interdiction stricte des émojis dans l'UI & Vérification des icônes Phosphor** :
    - Ne **JAMAIS** préfixer ou décorer les boutons (`PrimaryButton`, `SecondaryButton`, `QPushButton`), cartes ou en-têtes avec des émojis texte (ex: `📖 Ouvrir`, `⌨️ Raccourcis`).
    - Utiliser exclusivement les icônes Phosphor vectorielles (`load_phosphor_icon("ph.<nom>", color=...)`) ou un libellé textuel sobre traduit sans symbole superflu.
+   - **Vérification obligatoire du manifeste Phosphor** : ne jamais présumer de l'existence d'une icône Phosphor (`ph.folder-star` n'existe pas). Vérifier impérativement son existence dans `src/ressources/icons_manifest.txt` (ex: `grep "<nom>" src/ressources/icons_manifest.txt`) avant tout usage dans le code.
 9. **CSS embarqué dans `QTextBrowser` et `QTextDocument`** :
    - Les styles HTML/CSS injectés dans les documents textuels doivent dériver rigoureusement de `DesignTokens` via interpolation (ex: `background-color: {DesignTokens.BG_PANEL};`, `border: 1px solid {DesignTokens.BORDER_COLOR};`).
    - Interdiction formelle de coder des couleurs hexadécimales en dur (ex: `#181825`, `#ffffff`) dans ces blocs.
 10. **Contextes d'internationalisation dans les méthodes de classe (`@classmethod`)** :
     - Dans une `@classmethod` d'un composant Qt (`QDialog`, `QWidget`), utiliser `cls.tr("...")` ou la fonction racine `tr("...")`.
     - Ne **JAMAIS** utiliser `instance.tr("...")` sur une variable locale : cela corrompt le contexte Linguist en nommant le contexte d'extraction d'après le nom de variable (`<name>dlg</name>`) au lieu de la classe réelle.
+11. **Respect des signatures natives Qt sous typage strict (`mypy`)** :
+    - Ne jamais sous-classer un widget natif (`QTreeWidget`, `QTableWidget`, etc.) en surchargeant une méthode (`setItemWidget`, `item`, etc.) avec une arité ou des types incompatibles avec la classe parente. Cela brise le principe de substitution de Liskov et déclenche l'erreur `mypy strict` `[override]`.
+    - Préférer des méthodes d'aide dédiées avec un nom distinct ou passer explicitement les arguments attendus par la classe mère (`column=0`).
 
 ## 2. Composants Clés & Bonnes Pratiques
 

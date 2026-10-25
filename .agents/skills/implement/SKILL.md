@@ -37,6 +37,9 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Nouveaux modèles Peewee : ajouter impérativement toute nouvelle classe `*Model` dans la liste `models` de la fixture `mock_db` dans `tests/conftest.py` pour éviter l'erreur `no such table`. Recharger via `Model.get_by_id()` (jamais `refresh_from_db`).
   - Nouveaux outils FastMCP : enregistrer tout `@mcp.tool()` dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `mcp_tool_catalog_widget.py`, et actualiser le décompte de tests dans `tests/ui/test_mcp_tool_catalog_widget.py`.
   - Tests asynchrones : encapsuler toujours dans `def test_...(): asyncio.run(_run())` synchrone (zéro `@pytest.mark.asyncio`).
+  - Icônes Phosphor réelles : ne jamais présumer du nom d'une icône vectorielle ; vérifier impérativement son existence dans le manifeste `src/ressources/icons_manifest.txt` avant tout appel à `load_phosphor_icon("ph.<nom>")`.
+  - Remplacements univoques sous `edit_file` : inclure systématiquement un contexte englobant suffisant (classe parente, méthode précédente) pour garantir un remplacement ciblé unique (`Made 1 replacement`).
+  - Surcharges de méthodes Qt : ne jamais surcharger une méthode native de widget Qt (`QTreeWidget`, `QTableWidget`, etc.) en altérant son arité ou ses types de paramètres pour préserver le sous-typage Liskov sous `mypy strict` (`[override]`).
 
 ## 3. Clôture, Vérification Canonique & Revue
 

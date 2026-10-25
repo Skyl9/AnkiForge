@@ -102,6 +102,16 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Omission du mécanisme de réveil réactif (Reactive Wakeup) où la plateforme notifie automatiquement l'agent dès la fin d'une tâche d'arrière-plan.
 - **Remédiation** : Règle comportementale dans les instructions de vérification : dès qu'une commande est passée en tâche d'arrière-plan, l'agent doit informer brièvement l'utilisateur et clore son tour sans appeler d'outil de polling.
 
+### T-20 : Présomption d'Icônes Phosphor Inexistantes (Phosphor Icon Phantom References)
+- **Symptôme** : Échec en fin de chaîne de tests sur `tests/utils/test_icons_audit.py::test_all_codebase_icons_are_manifested` avec `AssertionError: Icônes appelées dans le code mais introuvables dans Phosphor : <nom> (regular)`.
+- **Cause racine** : Biais de présomption où l'agent invente un nom plausible d'icône vectorielle (`ph.folder-star`, `ph.deck-edit`) sans vérifier au préalable le catalogue physique des icônes réelles embarquées.
+- **Remédiation** : Règle impérative dans `ui-pyside6-design/SKILL.md` et `implement/SKILL.md` : avant tout appel à `load_phosphor_icon("ph.<nom>")`, vérifier impérativement l'existence du fichier SVG dans le manifeste `src/ressources/icons_manifest.txt` (ex: `grep "<nom>" src/ressources/icons_manifest.txt`).
+
+### T-21 : Remplacement Non Unique sous `edit_file` (Ambiguous Context Overwrite)
+- **Symptôme** : L'outil `edit_file` applique plusieurs remplacements non souhaités (`Made 2 replacements`) car la chaîne cible `Target` existe à l'identique dans plusieurs classes ou méthodes du même fichier, écrasant silencieusement une autre méthode.
+- **Cause racine** : Sélection d'une cible `Target` trop courte sans contexte englobant (ex: signature générique `def refresh_theme(self, profile: Any) -> None: pass` dupliquée entre widgets voisins).
+- **Remédiation** : Règle stricte dans `verification-environnement/SKILL.md` et `implement/SKILL.md` : toujours inclure le nom de la classe parente ou la méthode précédente dans `Target` pour garantir un remplacement unique et univoque (`Made 1 replacement`).
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -125,4 +135,7 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Dérive du catalogue FastMCP ou décompte de tests non synchronisé | Enregistrement `TOOL_DOMAIN_MAP`/`TOOL_SAFEGUARDS_MAP` et maj de test | `pipeline-dag-ia/SKILL.md`, `implement/SKILL.md` |
 | Collision de nom de tests pytest ou syntaxe `@pytest.mark.asyncio` non supportée | Miroir strict d'arborescence et encapsulation `asyncio.run()` | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
 | Polling actif répété sur commande asynchrone | Règle de cession de tour pour réveil réactif (Reactive Wakeup) | `verification-environnement/SKILL.md` |
+| Présomption d'icône Phosphor non manifestée (`T-20`) | Vérification obligatoire dans `src/ressources/icons_manifest.txt` | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
+| Remplacement ambigu multiple sous edit_file (`T-21`) | Contexte englobant strict pour ciblage univoque | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
+| Surcharge Qt à arité incompatible sous Mypy Strict | Respect du sous-typage Liskov et signatures d'arité identiques | `ui-pyside6-design/SKILL.md`, `verification-environnement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

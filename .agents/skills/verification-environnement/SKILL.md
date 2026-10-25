@@ -60,6 +60,14 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
 12. **Cession de tour sur commande en tâche de fond (Zéro boucle de polling)** :
     - *Pourquoi* : Lorsque la porte canonique ou une commande lourde passe en tâche d'arrière-plan, la plateforme assure un réveil réactif (Reactive Wakeup) automatique dès la fin du processus. Interroger manuellement le statut via des outils de polling consomme des tours de boucle et de l'énergie inutilement. L'agent doit informer brièvement l'utilisateur et terminer son tour sans outil supplémentaire.
 
+13. **Vérification obligatoire des icônes Phosphor (Zéro icône fantôme non manifestée)** :
+    - *Pourquoi* : Le test d'audit `tests/utils/test_icons_audit.py::test_all_codebase_icons_are_manifested` vérifie rigoureusement que toute icône appelée dans le code via `load_phosphor_icon("ph.<nom>")` figure dans le manifeste canonique `src/ressources/icons_manifest.txt`. Présumer de l'existence d'une icône vectorielle plausible sans vérification préalable (ex: `folder-star`) entraîne un échec immédiat de la suite de tests.
+    - *Garantie automatique* : Toujours vérifier l'existence dans le manifeste (`grep "<nom>" src/ressources/icons_manifest.txt`) avant d'introduire une nouvelle référence d'icône.
+
+14. **Ciblage univoque sous `edit_file` (Zéro remplacement accidentel multiple)** :
+    - *Pourquoi* : L'outil `edit_file` remplace sans avertissement l'intégralité des occurrences correspondant à la chaîne `Target`. Si une signature ou un corps de méthode générique (ex: `def refresh_theme(self, profile: Any) -> None: pass`) est dupliqué entre plusieurs classes voisines, une cible trop restreinte écrase silencieusement des classes tierces.
+    - *Garantie automatique* : Toujours englober dans `Target` le nom de la classe parente ou la méthode contiguë pour garantir un remplacement unique et univoque (`Made 1 replacement`).
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :
