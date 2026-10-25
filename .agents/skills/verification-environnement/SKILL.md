@@ -76,6 +76,14 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
     - *Pourquoi* : Les fichiers Markdown vivants (comme le Kanban `Avancement du projet.md`) accumulent des sauts de lignes consécutifs (`\n\n\n`) invisibles à la lecture simple, provoquant l'erreur `target content not found in the file` sous `edit_file`.
     - *Garantie automatique* : Restreindre la cible `Target` aux seules lignes strictes de l'élément à déplacer sans englober les espaces blancs ou sauts de ligne inter-sections variables, ou recourir à un script Python chirurgical si nécessaire.
 
+17. **Phrases traduisibles complètes et autonomes (Zéro concaténation `tr() + tr()`)** :
+    - *Pourquoi* : Concaténer des fragments traduits (ex: `tr("Cartes : %1", n) + tr(" dans le paquet '%1'", p)`) produit une syntaxe grammaticalement invalide dans les langues cibles dont l'ordre des mots diffère (SOV en japonais/turc, VSO en arabe, verbe rejeté en allemand) et isole des fragments incompréhensibles pour les traducteurs.
+    - *Garantie automatique* : Formuler systématiquement des phrases entières complètes pour chaque branche conditionnelle (`tr("Cartes ciblées : %1 carte(s) dans le paquet '%2'.", n, p)` vs `tr("Cartes ciblées : %1 carte(s).", n)`).
+
+18. **Triple synchronisation des outils FastMCP (Zéro déconnexion du dispatch)** :
+    - *Pourquoi* : L'agent conversationnel interne `ConsultantEngine` utilise son propre routeur local vers `mcp_tool_registry.py` sans passer par le socket FastMCP. Déclarer un outil uniquement dans FastMCP ou omettre son dispatch local provoque l'exception `Tool not found` lors des interactions utilisateur avec l'agent Consultant.
+    - *Garantie automatique* : Tout nouvel outil FastMCP `@mcp.tool()` doit être synchronisé simultanément dans : (1) `mcp_server.py`, (2) `mcp_tool_catalog_widget.py` (`TOOL_DOMAIN_MAP`/`TOOL_SAFEGUARDS_MAP`), et (3) `consultant_engine.py` (`DEFAULT_CONSULTANT_TOOLS` + `ConsultantEngine._execute_tool_call()`).
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :

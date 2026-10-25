@@ -40,6 +40,7 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
   audit_record.create(...)
   ```
 - Les *context managers* `db.atomic()` sont imbriquables (savepoints SQLite) — les utiliser sans crainte dans les services.
+- **Transactions complexes multi-tables & restructurations hiérarchiques (`T-27`)** : toute opération combinant réassignation (ex: déplacement de cartes d'un paquet) et suppression (ex: suppression de paquet) **doit être impérativement enveloppée** dans un unique bloc `with db.atomic():` pour garantir un rollback total si l'une des étapes échoue.
 
 ## 3. Performance des Requêtes
 
@@ -74,6 +75,9 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
 
 - Les modèles **ne font jamais appel à la logique UI** et ne contiennent pas de `print()` — lever des exceptions métier claires (`ValueError`, `IntegrityError`).
 - **Rechargement d'une instance Peewee** : ne jamais appeler `instance.refresh_from_db()` (syntaxe Django absente de Peewee qui lève un `AttributeError`). Utiliser systématiquement l'idiome Peewee : `instance = MyModel.get_by_id(instance.id)`.
+- **Paquets hiérarchiques (`Parent::Enfant`) et relocalisation (`T-27`)** :
+  - Tout déplacement de cartes avant suppression d'un paquet doit interdire une cible qui est un sous-paquet de la source (`target.name.startswith(f"{source.name}::")`).
+  - La réassignation doit englober le paquet source ET l'ensemble de ses sous-paquets descendants (`where(CardModel.deck << all_decks_to_delete)`) avant d'appeler `DeckRepository.delete_deck()`.
 - Multi-profils : chaque profil a sa propre instance `db` sous `profiles/<name>/ankiforge.db` — ne jamais croiser les instances.
 - Référence complémentaire : skill `audit-donnees` pour l'audit d'intégrité global.
 

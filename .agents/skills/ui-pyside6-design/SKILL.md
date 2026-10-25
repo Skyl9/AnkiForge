@@ -30,6 +30,7 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
    - Toute chaîne affichée à l'utilisateur passe par `self.tr("...")` (dans un `QObject` pour les libellés statiques) ou `tr("...")` (ailleurs).
    - **`tr(f"...")` est strictement interdit** (l'expression est évaluée avant l'appel et n'entre pas au catalogue).
    - ⛔ **Garde-fou substitution Qt Linguist** : La méthode `self.tr()` de `QObject` ne réalise **AUCUNE** substitution de paramètres `%1`, `%2` (son second paramètre étant réservé au contexte de désambiguïsation). Tout message paramétré avec marqueurs de position **DOIT IMPÉRATIVEMENT** utiliser la fonction globale `tr("Enregistré : %1/%2", faits, total)` importée de `ankiforge.utils.i18n`. L'emploi de `self.tr("... %1", var)` laisse le marqueur `%1` brut non substitué à l'affichage.
+   - ⛔ **Garde-fou concaténation de fragments traduits (`T-26`)** : Ne **JAMAIS** concaténer des morceaux de phrases traduits (ex: `tr("Cartes : %1", n) + tr(" dans le paquet '%1'", p)`). Cette pratique brise l'ordre des mots dans les langues à syntaxe différente (allemand, japonais, turc, arabe) et isole les fragments hors contexte. Chaque branche conditionnelle doit former une phrase entière, autonome et univoque (`tr("Cartes ciblées : %1 carte(s) dans le paquet '%2'.", n, p)` vs `tr("Cartes ciblées : %1 carte(s).", n)`).
 3. **Multi-fenêtrage & Layouts** :
    - Panneaux détachables style JetBrains via `IdePanel`.
    - Compatibilité totale avec les 4 dispositions d'interface (`ide`, `macos`, `dashboard`, `glassmorphism`).

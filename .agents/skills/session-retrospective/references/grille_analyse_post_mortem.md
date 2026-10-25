@@ -134,6 +134,27 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
   ```
   et ne jamais tenter de mesurer `len(tool_result)` ou d'indexer `tool_result[0]`.
 
+### T-25 : Omission de Parité entre Outils FastMCP et Dispatch ConsultantEngine
+- **Symptôme** : Un nouvel outil FastMCP est ajouté à `mcp_server.py` et listé dans `DEFAULT_CONSULTANT_TOOLS` de `consultant_engine.py`, mais son cas de routage est omis dans `ConsultantEngine._execute_tool_call()`. À l'exécution par l'agent Consultant conversationnel, l'appel échoue immédiatement avec `Tool execution failed: Tool <nom> not found`.
+- **Cause racine** : Découplage entre l'exécution FastMCP (protocole MCP externe/in-process) et le moteur d'exécution local de l'agent Consultant qui route manuellement les appels de fonction vers `mcp_tool_registry.py`.
+- **Remédiation** : Formalisation dans `pipeline-dag-ia/SKILL.md` et `implement/SKILL.md` : tout nouvel outil MCP doit être synchronisé sur 3 points :
+  1. Définition `@mcp.tool()` dans `mcp_server.py` ;
+  2. Classification dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` (`mcp_tool_catalog_widget.py`) ;
+  3. Déclaration dans `DEFAULT_CONSULTANT_TOOLS` **ET** branchement explicite dans `ConsultantEngine._execute_tool_call()` (`consultant_engine.py`).
+
+### T-26 : Concaténation de Fragments Traduits Qt Linguist (Broken Sentence Structure / Word Order)
+- **Symptôme** : Construction d'un message affiché en concaténant des fragments `tr("...") + tr("...")`, par exemple `info_txt = tr("Cartes : %1", n) + (tr(" dans le paquet '%1'", p) if p else "")`.
+- **Cause racine** : Optimisation prématurée du code cherchant à réutiliser un fragment commun. Dans les langues cibles où l'ordre des mots diffère (SOV en japonais/turc, VSO en arabe, verbe en fin de proposition subordonnée en allemand), l'assemblage linéaire de morceaux de phrases produit une syntaxe incompréhensible et empêche le traducteur de traduire des fragments hors contexte.
+- **Remédiation** : Règle stricte dans `ui-pyside6-design/SKILL.md` et `implement/SKILL.md` : interdiction absolue de concaténer des appels `tr()`. Chaque variante conditionnelle doit constituer une phrase entière, autonome et grammaticalement complète avec ses propres marqueurs positionnels `%1`, `%2` (`tr("Cartes ciblées : %1 carte(s) dans le paquet '%2'.", n, p)` vs `tr("Cartes ciblées : %1 carte(s).", n)`).
+
+### T-27 : Destruction Silencieuse de Sous-Paquets Hiérarchiques en Mutation Destructive
+- **Symptôme** : Lors d'une suppression de paquet avec réassignation de cartes (`move_to`), seules les cartes directes du paquet sont déplacées (`where(CardModel.deck == deck)`), tandis que les cartes de l'ensemble de ses sous-paquets (`deck_parent::sous_paquet`) sont détruites en cascade lors du `DeckRepository.delete_deck()`. De surcroît, le déplacement de cartes vers un paquet descendant du paquet supprimé conduit à la destruction immédiate des cartes déplacées.
+- **Cause racine** : Méconnaissance de la logique hiérarchique des paquets Anki séparés par `::` et absence d'encapsulation transactionnelle atomique couvrant la validation de non-descendance, le déplacement de l'arborescence complète et la suppression.
+- **Remédiation** : Règles impératives dans `peewee-expert/SKILL.md`, `pipeline-dag-ia/SKILL.md` et `implement/SKILL.md` :
+  1. Interdire formellement le déplacement vers un paquet cible qui est un sous-paquet de la source (`target.name.startswith(f"{source.name}::")`) ;
+  2. Réassigner l'arborescence entière (paquet source et tous ses sous-paquets issus de `get_descendant_decks()`) ;
+  3. Exécuter l'intégralité de la séquence (validation, réassignation, suppression, enregistrement du patch 2PC) dans un bloc unique `with db.atomic():`.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -163,4 +184,7 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Présomption de clés de retour de service (`T-22`) | Inspection obligatoire du contrat de fonction avant assertion de test | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
 | Décalage d'espacements Markdown sous edit_file (`T-23`) | Cibles mono-lignes strictes sans sauts de lignes inter-sections variables | `obsidian-vault/SKILL.md`, `implement/SKILL.md` |
 | Présomption de retour liste sur `mcp.call_tool()` (`T-24`) | Extraction obligatoire via `res.content[0].text` / helper `_extract_text` | `implement/SKILL.md`, `pipeline-dag-ia/SKILL.md`, `verification-environnement/SKILL.md` |
+| Omission de parité de dispatch `ConsultantEngine` (`T-25`) | Synchronisation FastMCP + `DEFAULT_CONSULTANT_TOOLS` + `_execute_tool_call` | `pipeline-dag-ia/SKILL.md`, `implement/SKILL.md` |
+| Concaténation de fragments traduits `tr()` (`T-26`) | Interdiction de `tr() + tr()` et phrases complètes indépendantes par branche | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
+| Destruction récursive de sous-paquets (`T-27`) | Vérification de non-descendance, arborescence complète et `db.atomic()` | `peewee-expert/SKILL.md`, `pipeline-dag-ia/SKILL.md`, `implement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

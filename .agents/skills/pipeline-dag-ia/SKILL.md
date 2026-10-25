@@ -54,8 +54,19 @@ Lors de l'ajout d'un nouvel outil décoré `@mcp.tool()` sur le serveur in-proce
 1. **Classification IHM obligatoire** : enregistrer l'outil dans les deux dictionnaires de `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py` :
    - `TOOL_DOMAIN_MAP` : affectation au domaine métier (`DOMAIN_CARDS`, `DOMAIN_DOCS`, `DOMAIN_KNOWLEDGE`, `DOMAIN_PIPELINES`, `DOMAIN_MCP`, etc.).
    - `TOOL_SAFEGUARDS_MAP` : affectation du niveau de garde-fou (`SAFEGUARD_TWO_PHASE_COMMIT` pour toute mutation/staging, ou `SAFEGUARD_DIRECT_EXECUTION` pour la consultation en lecture seule).
-2. **Synchronisation des assertions de tests d'introspection** : mettre à jour le décompte d'outils attendu dans `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`assert len(tools) == N`).
-3. **Contrat d'invocation de test FastMCP (`mcp.call_tool`)** : `await mcp.call_tool(tool_name, arguments)` renvoie une instance typée `CallToolResult` et non une liste. Pour extraire la réponse textuelle, utiliser `res.content[0].text` (ou un helper `_extract_text`) sans jamais tenter d'indexer directement `res[0]` ou d'appeler `len(res)`.
+2. **Parité de dispatch `ConsultantEngine` obligatoire (`T-25`)** :
+   - Déclarer l'outil dans `DEFAULT_CONSULTANT_TOOLS` de `src/ankiforge/services/ai/consultant_engine.py`.
+   - Ajouter impérativement son cas de traitement dans `ConsultantEngine._execute_tool_call()` avec routage vers `mcp_tool_registry.py` pour que l'agent conversationnel interne puisse l'invoquer sans déclencher `Tool execution failed: Tool <nom> not found`.
+3. **Synchronisation des assertions de tests d'introspection** : mettre à jour le décompte d'outils attendu dans `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`assert len(tools) == N`) et dans `test_mcp_dashboard_widget_integration_catalog_tab`.
+4. **Contrat d'invocation de test FastMCP (`mcp.call_tool`) (`T-24`)** : `await mcp.call_tool(tool_name, arguments)` renvoie une instance typée `CallToolResult` et non une liste. Pour extraire la réponse textuelle, utiliser `res.content[0].text` (ou un helper `_extract_text`) sans jamais tenter d'indexer directement `res[0]` ou d'appeler `len(res)`.
+5. **Couverture d'overlay virtuel (`StagedOverlay`)** : pour tout patch 2PC modifiant la structure des données (création/renommage de paquets, création/suppression de notes), enregistrer l'effet dans `overlay.register_*` au sein de `StagedPatchRegistry.create_patch()` afin que les lectures virtuelles consécutives dans un même bundle reflètent l'état projeté.
+
+## 6. Mutations Destructives & Paquets Hiérarchiques 2PC (`T-27`)
+
+Lors de la conception d'opérations de suppression ou restructuration de paquets sous 2PC (`deck_delete`, etc.) :
+- **Interdiction de déplacement vers un descendant** : vérifier rigoureusement que le paquet cible `move_to` n'est pas un sous-paquet du paquet à supprimer (`target.name.startswith(f"{source.name}::")`), sous peine de détruire immédiatement les cartes déplacées.
+- **Réassignation récursive de l'arborescence** : identifier tous les sous-paquets descendants (`DeckRepository.get_descendant_decks(deck.id)`) et réassigner leurs cartes en cascade vers le paquet de repli avant d'exécuter la suppression de la branche.
+- **Atomicité stricte `with db.atomic():`** : encapsuler le déplacement des cartes, la suppression du paquet et l'enregistrement du statut de patch dans une transaction SQLite unique pour garantir un état intègre même en cas d'erreur intermédiaire.
 
 ## When NOT to use this skill
 
