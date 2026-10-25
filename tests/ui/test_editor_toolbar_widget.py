@@ -36,6 +36,10 @@ def test_editor_toolbar_init_and_default_actions(qtbot: Any, mock_db: Any) -> No
     assert "cloze" in action_ids
     assert "link" in action_ids
     assert "bullet_list" in action_ids
+    assert toolbar._actions["strikethrough"].icon_name == "text-t"
+    assert toolbar._actions["code_block"].icon_name == "article"
+    assert toolbar._actions["quote"].icon_name == "chat-centered-text"
+    assert toolbar._action_buttons["bold"].accessibleName() == "Gras (Ctrl+B)"
 
 
 def test_editor_toolbar_hide_and_show_action(qtbot: Any, mock_db: Any) -> None:

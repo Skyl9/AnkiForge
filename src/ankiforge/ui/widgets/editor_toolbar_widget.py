@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QWidget
@@ -28,6 +29,22 @@ ACTION_SHORTCUT_MAP: dict[str, ShortcutId] = {
     "cloze": ShortcutId.EDITION_FORMAT_CLOZE,
     "math": ShortcutId.EDITION_FORMAT_MATH,
     "code_inline": ShortcutId.EDITION_FORMAT_CODE,
+}
+
+ICON_FALLBACKS: dict[str, str] = {
+    "text-strikethrough": "text-t",
+    "code-block": "article",
+    "quotes": "chat-centered-text",
+}
+
+GROUP_ICON_COLORS: dict[str, str] = {
+    "text": DesignTokens.TEXT_PRIMARY,
+    "code": DesignTokens.COLOR_BLUE,
+    "math": DesignTokens.COLOR_GREEN,
+    "cloze": DesignTokens.COLOR_PURPLE,
+    "media": DesignTokens.COLOR_CYAN,
+    "list": DesignTokens.TEXT_SECONDARY,
+    "custom": DesignTokens.TEXT_PRIMARY,
 }
 
 
@@ -51,7 +68,6 @@ class EditorToolbarWidget(QWidget):
     action_triggered = Signal(str)  # action_id
     save_requested = Signal()
     history_requested = Signal()
-    consult_ai_requested = Signal()
     toggle_preview_requested = Signal()
     toggle_table_requested = Signal()
     customization_changed = Signal(list)  # list[str] of hidden_action_ids
@@ -86,6 +102,7 @@ class EditorToolbarWidget(QWidget):
             size=24,
             parent=self,
         )
+        self.btn_toggle_table.setAccessibleName(self.tr("Replier ou déplier la liste des cartes"))
         self.btn_toggle_table.clicked.connect(self.toggle_table_requested.emit)
         self.main_layout.addWidget(self.btn_toggle_table)
 
@@ -99,33 +116,17 @@ class EditorToolbarWidget(QWidget):
 
         # Bouton Menu Trois Points (Personnalisation & Overflow)
         self.btn_customize = IconButton("dots-three-vertical", tooltip=self.tr("Personnaliser la barre d'outils..."), size=24, parent=self)
+        self.btn_customize.setAccessibleName(self.tr("Personnaliser la barre d'outils"))
         self.btn_customize.clicked.connect(self._open_customize_menu)
         self.main_layout.addWidget(self.btn_customize)
 
         self.main_layout.addStretch()
 
-        # Bouton Dé-silotage : Consulter l'IA sur la note courante
-        self.btn_consult_ai = SecondaryButton("Consulter l'IA")
-        self.btn_consult_ai.setIcon(load_phosphor_icon("sparkle", color=DesignTokens.COLOR_PURPLE))
-        self.btn_consult_ai.setToolTip(self.tr("Ouvrir le Consultant IA pour auditer ou optimiser cette note"))
-        self.btn_consult_ai.setFixedHeight(26)
-        self.btn_consult_ai.setStyleSheet(f"""
-            QPushButton {{
-                padding: 2px 10px;
-                font-size: 11px;
-                font-weight: 600;
-                border-color: {DesignTokens.COLOR_PURPLE};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
-        self.btn_consult_ai.clicked.connect(self.consult_ai_requested.emit)
-        self.main_layout.addWidget(self.btn_consult_ai)
 
         # Boutons système à droite : Historique + Sauvegarder + Toggle Preview
         seq_history = get_shortcut_sequence(ShortcutId.VIEW_HISTORY)
-        self.btn_history = SecondaryButton("Historique")
+        self.btn_history = SecondaryButton(self.tr("Historique"))
+        self.btn_history.setAccessibleName(self.tr("Ouvrir l'historique de la note"))
         self.btn_history.setIcon(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY))
         self.btn_history.setToolTip(tr("%1 (%2)", self.tr("Machine à Remonter le Temps"), seq_history))
         self.btn_history.setFixedHeight(26)
@@ -140,7 +141,8 @@ class EditorToolbarWidget(QWidget):
         self.main_layout.addWidget(self.btn_history)
 
         seq_save = get_shortcut_sequence(ShortcutId.APP_SAVE)
-        self.btn_save = PrimaryButton("Sauvegarder")
+        self.btn_save = PrimaryButton(self.tr("Sauvegarder"))
+        self.btn_save.setAccessibleName(self.tr("Sauvegarder les modifications"))
         self.btn_save.setIcon(load_on_accent_icon("floppy-disk"))
         self.btn_save.setToolTip(tr("%1 (%2)", self.tr("Sauvegarder les modifications"), seq_save))
         self.btn_save.setFixedHeight(26)
@@ -161,6 +163,7 @@ class EditorToolbarWidget(QWidget):
             size=24,
             parent=self,
         )
+        self.btn_toggle_preview.setAccessibleName(self.tr("Afficher ou masquer l'aperçu"))
         self.btn_toggle_preview.clicked.connect(self.toggle_preview_requested.emit)
         self.main_layout.addWidget(self.btn_toggle_preview)
 
@@ -171,6 +174,15 @@ class EditorToolbarWidget(QWidget):
         sep.setFixedWidth(1)
         sep.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none; margin: 4px 2px;")
         return sep
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        """Réapplique les teintes sémantiques des icônes après un changement de thème."""
+        for action_id, button in self._action_buttons.items():
+            action = self._actions.get(action_id)
+            if action is None:
+                continue
+            color = GROUP_ICON_COLORS.get(action.group, DesignTokens.TEXT_PRIMARY)
+            button.setIcon(load_phosphor_icon(action.icon_name, color=color))
 
     def _register_default_actions(self) -> None:
         # --- Groupe Mise en Forme ---
@@ -313,6 +325,7 @@ class EditorToolbarWidget(QWidget):
             elif "(" not in tooltip:
                 effective_tooltip = f"{tooltip} ({effective_shortcut})"
 
+        icon_name = ICON_FALLBACKS.get(icon_name, icon_name)
         action = ToolbarAction(
             action_id=action_id,
             icon_name=icon_name,
@@ -325,6 +338,8 @@ class EditorToolbarWidget(QWidget):
         self._actions[action_id] = action
 
         btn = IconButton(icon_name, tooltip=effective_tooltip, size=24, parent=self)
+        btn.setAccessibleName(tr("%1%2", label, f" ({effective_shortcut})" if effective_shortcut else ""))
+        btn.setIcon(load_phosphor_icon(icon_name, color=GROUP_ICON_COLORS.get(group, DesignTokens.TEXT_PRIMARY)))
         btn.clicked.connect(cb)
         btn.setVisible(action_id not in self._hidden_action_ids)
         self._action_buttons[action_id] = btn
@@ -472,7 +487,7 @@ class EditorToolbarWidget(QWidget):
             menu.addSeparator()
 
         # 2. Sous-menu "Boutons visibles"
-        submenu_visible = menu.addMenu("Boutons visibles")
+        submenu_visible = menu.addMenu(self.tr("Boutons visibles"))
         submenu_visible.setIcon(load_phosphor_icon("eye", color=DesignTokens.TEXT_PRIMARY))
 
         last_grp: str | None = None

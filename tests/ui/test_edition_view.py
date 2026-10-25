@@ -272,29 +272,6 @@ def test_edition_view_card_selection_smart_cloze_and_saving(qtbot, mock_db):
     assert "c1::" in latest_v.content
 
 
-def test_edition_view_consult_ai_button(qtbot):
-    """Vérifie que le clic sur 'Consulter l'IA' émet l'événement OpenConsultantRequestedEvent."""
-    from ankiforge.utils.event_bus import OpenConsultantRequestedEvent, event_bus
-
-    uid = uuid.uuid4().hex[:6]
-    nt = NoteTypeModel.create(name=f"NT_Cons_{uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
-    note = NoteModel.create(guid=f"g_cons_{uid}", note_type=nt)
-    NoteVersionModel.create(note=note, version_number=1, content='{"Front": "Card to consult"}', is_active=True)
-
-    view = EditionView()
-    qtbot.addWidget(view)
-    view.select_note_by_id(note.id)
-
-    received_events = []
-    event_bus.subscribe(OpenConsultantRequestedEvent, lambda e: received_events.append(e))
-
-    view.editor_toolbar.btn_consult_ai.click()
-
-    assert len(received_events) == 1
-    assert received_events[0].context_item == f"card_{note.id}"
-    assert f"#{note.id}" in received_events[0].initial_prompt
-
-
 def test_edition_view_model_filter_modal(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'ouverture de ModelSelectWindow depuis la barre de filtres et l'application du filtre."""
     from ankiforge.ui.components.model_select_window import ModelSelectWindow

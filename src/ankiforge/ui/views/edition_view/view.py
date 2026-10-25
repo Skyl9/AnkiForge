@@ -384,7 +384,9 @@ class EditionView(QWidget):
         filter_layout.addWidget(self.btn_filter_status)
 
         self.btn_sort_order = QPushButton()
-        self.btn_sort_order.setIcon(load_phosphor_icon("funnel", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_sort_order.setIcon(load_phosphor_icon("sort-ascending", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_sort_order.setAccessibleName(self.tr("Trier les notes et les cartes"))
+        self.btn_sort_order.setToolTip(self.tr("Trier les notes et les cartes"))
         self.btn_sort_order.setStyleSheet(f"""
             QPushButton {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -575,7 +577,6 @@ class EditionView(QWidget):
         self.editor_toolbar.history_requested.connect(self._open_history_modal)
         self.editor_toolbar.toggle_preview_requested.connect(self._toggle_preview_pane)
         self.editor_toolbar.toggle_table_requested.connect(self._toggle_table_collapsed)
-        self.editor_toolbar.consult_ai_requested.connect(self._on_consult_ai_clicked)
         editor_layout.addWidget(self.editor_toolbar)
 
         self.fields_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -950,7 +951,6 @@ class EditionView(QWidget):
         if hasattr(self, "btn_group_edit"):
             self.btn_group_edit.setText(self.tr("Modifier le groupe"))
             self.btn_group_edit.setEnabled(bool(self._current_note or selected_rows or checked_note_ids))
-
         if not self._current_note:
             self.lbl_card_ribbon_info.setText(self.tr("Aucune carte sélectionnée"))
             return
@@ -1369,23 +1369,6 @@ class EditionView(QWidget):
         dialog = TimeMachineDialog(note=self._current_note, parent=self)
         dialog.version_restored.connect(self._on_version_restored)
         dialog.exec()
-
-    @Slot()
-    def _on_consult_ai_clicked(self) -> None:
-        """Transmet la note courante au Consultant IA et bascule immédiatement sur son onglet."""
-        if not self._current_note:
-            show_toast(self, self.tr("Sélectionnez une carte à analyser par le Consultant IA."), is_error=True)
-            return
-
-        from ankiforge.utils.event_bus import OpenConsultantRequestedEvent, event_bus
-
-        event_bus.publish(
-            OpenConsultantRequestedEvent(
-                context_item=f"card_{self._current_note.id}",
-                initial_prompt=f"Analyse la note #{self._current_note.id} : vérifie son atomicité et propose des optimisations de formulation.",
-            )
-        )
-        show_toast(self, tr("Note #%1 transmise au Consultant IA !", self._current_note.id))
 
     def _on_version_restored(self, note_id: int, restored_dict: dict[str, str]) -> None:
         for field, widget in self.dynamic_field_widgets.items():
