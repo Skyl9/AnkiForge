@@ -429,4 +429,3 @@ def test_deck_select_window_resizable(qtbot: Any, mock_db: Any) -> None:
     assert win.minimumHeight() <= 400
     assert win.maximumWidth() > win.minimumWidth()
     assert win.maximumHeight() > win.minimumHeight()
-

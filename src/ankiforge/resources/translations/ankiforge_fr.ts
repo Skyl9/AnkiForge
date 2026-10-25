@@ -225,7 +225,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/deck_select_window.py" line="+345"/>
+        <location filename="../../ui/components/deck_select_window.py" line="+346"/>
         <source>Paquet racine : %1</source>
         <translation type="unfinished"></translation>
     </message>
