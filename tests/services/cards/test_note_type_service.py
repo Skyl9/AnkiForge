@@ -292,3 +292,246 @@ def test_preview_card_render(sample_models_and_notes):
     )
     assert "Espagne" in res_override["front_html"]
     assert "Madrid" in res_override["back_html"]
+
+
+def test_suggest_field_mapping_heuristics() -> None:
+    # 1. Exact et insensible à la casse/accents
+    src = ["Question", "Réponse", "Remarque"]
+    tgt = ["question", "reponse", "remarque"]
+    sugg = NoteTypeService.suggest_field_mapping(src, tgt)
+    assert sugg["Question"] == "question"
+    assert sugg["Réponse"] == "reponse"
+    assert sugg["Remarque"] == "remarque"
+
+    # 2. Synonymes canoniques
+    src2 = ["Question", "Réponse", "Notes"]
+    tgt2 = ["Front", "Back", "Extra"]
+    sugg2 = NoteTypeService.suggest_field_mapping(src2, tgt2)
+    assert sugg2["Question"] == "Front"
+    assert sugg2["Réponse"] == "Back"
+    assert sugg2["Notes"] == "Extra"
+
+    # 3. Positionnel de repli
+    src3 = ["ChampA", "ChampB"]
+    tgt3 = ["Target1", "Target2"]
+    sugg3 = NoteTypeService.suggest_field_mapping(src3, tgt3)
+    assert sugg3["ChampA"] == "Target1"
+    assert sugg3["ChampB"] == "Target2"
+
+
+def test_validate_field_mapping(sample_models_and_notes) -> None:
+    src_fields = ["Question", "Reponse", "Remarque"]
+    tgt_fields = ["Front", "Back"]
+
+    # 1. Champ cible inexistant
+    valid, err, sugg = NoteTypeService.validate_field_mapping(src_fields, tgt_fields, mapping_champs={"Question": "Inexistant"})
+    assert valid is False
+    assert "introuvable" in err.lower() or "inexistant" in err.lower()
+
+    # 2. Perte de données non vide sans mapping explicite
+    n1 = sample_models_and_notes["notes"][0]
+    valid_loss, err_loss, _ = NoteTypeService.validate_field_mapping(src_fields, tgt_fields, mapping_champs=None, sample_notes=[n1])
+    # n1 a "Remarque": "Europe" (non vide) et tgt_fields n'a que Front et Back -> Remarque est perdue
+    assert valid_loss is False
+    assert "remarque" in err_loss.lower()
+
+    # 2b. Mapping partiel n'assignant pas Remarque (contenant du texte)
+    valid_partial, err_partial, _ = NoteTypeService.validate_field_mapping(src_fields, tgt_fields, mapping_champs={"Question": "Front"}, sample_notes=[n1])
+    assert valid_partial is False
+    assert "remarque" in err_partial.lower()
+
+    # 3. Mapping explicite autorisant l'omission ou associant le champ
+    valid_ok, err_ok, _ = NoteTypeService.validate_field_mapping(src_fields, tgt_fields, mapping_champs={"Question": "Front", "Reponse": "Back", "Remarque": ""}, sample_notes=[n1])
+    assert valid_ok is True
+    assert err_ok == ""
+
+
+def test_clean_cloze_markers() -> None:
+    raw = "La capitale de la {{c1::France::pays}} est {{c2::Paris}}."
+    cleaned = NoteTypeService.clean_cloze_markers(raw)
+    assert cleaned == "La capitale de la France est Paris."
+
+
+def test_change_note_type_creates_additional_card(sample_models_and_notes) -> None:
+    n1 = sample_models_and_notes["notes"][0]
+    c1 = sample_models_and_notes["cards"][0]
+    c1_id = c1.id
+    target_diff = sample_models_and_notes["nt_target_diff_tmpl"]  # a 2 templates C1 et C2
+
+    initial_cards = CardModel.select().where(CardModel.note == n1).count()
+    assert initial_cards == 1
+
+    result = NoteTypeService.change_note_type(
+        note_ids=[n1.id],
+        target_model=target_diff,
+        mapping_champs={"Question": "Front", "Reponse": "Back"},
+    )
+
+    assert result["status"] == "applied"
+    assert result["cards_preserved"] == 1
+    assert result["cards_created"] == 1
+    assert result["cards_deleted"] == 0
+
+    # 2 cartes pour n1 maintenant
+    cards = list(CardModel.select().where(CardModel.note == n1).order_by(CardModel.template_index.asc()))
+    assert len(cards) == 2
+    assert cards[0].id == c1_id  # 1ère carte préservée
+    assert cards[0].template_index == 0
+    assert cards[0].ivl == 42  # SRS conservé
+    assert cards[1].template_index == 1  # 2ème carte créée
+
+
+def test_change_note_type_deletes_surnumerary_cards(sample_models_and_notes) -> None:
+    deck = DeckModel.create(name="Deck::TwoTemplates")
+    nt_2tmpl = sample_models_and_notes["nt_target_diff_tmpl"]
+    nt_1tmpl = sample_models_and_notes["nt_source"]
+
+    # Créer une note avec 2 cartes
+    note_2c = NoteModel.create(note_type=nt_2tmpl, tags="two")
+    note_2c.add_version({"Front": "F", "Back": "B"}, source="init")
+    c1 = CardModel.create(note=note_2c, deck=deck, template_index=0, ivl=50)
+    c2 = CardModel.create(note=note_2c, deck=deck, template_index=1, ivl=20)
+
+    assert CardModel.select().where(CardModel.note == note_2c).count() == 2
+
+    result = NoteTypeService.change_note_type(
+        note_ids=[note_2c.id],
+        target_model=nt_1tmpl,
+        mapping_champs={"Front": "Question", "Back": "Reponse"},
+    )
+
+    assert result["status"] == "applied"
+    assert result["cards_preserved"] == 1
+    assert result["cards_deleted"] == 1
+
+    remaining_cards = list(CardModel.select().where(CardModel.note == note_2c))
+    assert len(remaining_cards) == 1
+    assert remaining_cards[0].id == c1.id
+    assert remaining_cards[0].ivl == 50
+    # c2 a été supprimée
+    assert CardModel.get_or_none(CardModel.id == c2.id) is None
+
+
+def test_change_note_type_explicit_template_mapping(sample_models_and_notes) -> None:
+    deck = DeckModel.create(name="Deck::TmplRemap")
+    nt_source = sample_models_and_notes["nt_source"]  # 1 template C1
+    nt_target = sample_models_and_notes["nt_target_diff_tmpl"]  # 2 templates C1, C2
+
+    n = NoteModel.create(note_type=nt_source)
+    n.add_version({"Question": "Q", "Reponse": "R"}, source="init")
+    c = CardModel.create(note=n, deck=deck, template_index=0, ivl=99)
+
+    # Mapper explicitement la carte 0 vers le gabarit 1 avec tolérance clé chaîne
+    result = NoteTypeService.change_note_type(
+        note_ids=[n.id],
+        target_model=nt_target,
+        mapping_champs={"Question": "Front", "Reponse": "Back"},
+        template_mapping={"0": 1},
+    )
+
+    assert result["status"] == "applied"
+    c_reloaded = CardModel.get_by_id(c.id)
+    assert c_reloaded.template_index == 1
+    assert c_reloaded.ivl == 99
+
+
+def test_change_note_type_cloze_to_standard() -> None:
+    deck = DeckModel.create(name="Deck::ClozeTest")
+    nt_cloze = NoteTypeModel.create(
+        name="Model Cloze Test",
+        fields_schema=json.dumps(["Text", "Extra"]),
+        templates=json.dumps([{"name": "Cloze", "qfmt": "{{cloze:Text}}", "afmt": "{{cloze:Text}}<br>{{Extra}}"}]),
+    )
+    nt_standard = NoteTypeModel.create(
+        name="Model Standard Test",
+        fields_schema=json.dumps(["Front", "Back"]),
+        templates=json.dumps([{"name": "Standard", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+    )
+
+    note = NoteModel.create(note_type=nt_cloze)
+    note.add_version({"Text": "L'oxygène a le symbole {{c1::O}} et le numéro {{c2::8}}.", "Extra": "Chimie"}, source="init")
+    CardModel.create(note=note, deck=deck, template_index=0, ivl=10)
+    CardModel.create(note=note, deck=deck, template_index=1, ivl=20)
+
+    result = NoteTypeService.change_note_type(
+        note_ids=[note.id],
+        target_model=nt_standard,
+        mapping_champs={"Text": "Front", "Extra": "Back"},
+        clean_cloze=True,
+    )
+
+    assert result["status"] == "applied"
+    note_reloaded = NoteModel.get_by_id(note.id)
+    active_v = note_reloaded.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+    assert active_v is not None
+    content = json.loads(active_v.content)
+    # Marqueurs de trous nettoyés
+    assert content["Front"] == "L'oxygène a le symbole O et le numéro 8."
+    assert content["Back"] == "Chimie"
+    # 1 seule carte conservée
+    cards = list(CardModel.select().where(CardModel.note == note))
+    assert len(cards) == 1
+
+
+def test_change_note_type_standard_to_cloze() -> None:
+    deck = DeckModel.create(name="Deck::StdToCloze")
+    nt_standard = NoteTypeModel.create(
+        name="Model Std Test 2",
+        fields_schema=json.dumps(["Question", "Reponse"]),
+        templates=json.dumps([{"name": "Standard", "qfmt": "{{Question}}", "afmt": "{{Reponse}}"}]),
+    )
+    nt_cloze = NoteTypeModel.create(
+        name="Model Cloze Test 2",
+        fields_schema=json.dumps(["Text", "Extra"]),
+        templates=json.dumps([{"name": "Cloze", "qfmt": "{{cloze:Text}}", "afmt": "{{cloze:Text}}<br>{{Extra}}"}]),
+    )
+
+    note = NoteModel.create(note_type=nt_standard)
+    note.add_version({"Question": "{{c1::Paris}} et {{c2::Lyon}} sont en {{c3::France}}.", "Reponse": "Géographie"}, source="init")
+    c0 = CardModel.create(note=note, deck=deck, template_index=0, ivl=35)
+
+    result = NoteTypeService.change_note_type(
+        note_ids=[note.id],
+        target_model=nt_cloze,
+        mapping_champs={"Question": "Text", "Reponse": "Extra"},
+    )
+
+    assert result["status"] == "applied"
+    assert result["cards_preserved"] == 1
+    assert result["cards_created"] == 2  # pour couvrir c1, c2, c3
+
+    cards = list(CardModel.select().where(CardModel.note == note).order_by(CardModel.template_index.asc()))
+    assert len(cards) == 3
+    assert cards[0].id == c0.id
+    assert cards[0].template_index == 0
+    assert cards[0].ivl == 35  # SRS préservé
+    assert cards[1].template_index == 1
+    assert cards[2].template_index == 2
+
+
+def test_change_note_type_cloze_without_occlusion_warning() -> None:
+    deck = DeckModel.create(name="Deck::ClozeNoOcclusion")
+    nt_std = NoteTypeModel.create(
+        name="Std No Occ",
+        fields_schema=json.dumps(["Question", "Reponse"]),
+        templates=json.dumps([{"name": "S", "qfmt": "{{Question}}", "afmt": "{{Reponse}}"}]),
+    )
+    nt_cloze = NoteTypeModel.create(
+        name="Cloze No Occ",
+        fields_schema=json.dumps(["Text", "Extra"]),
+        templates=json.dumps([{"name": "C", "qfmt": "{{cloze:Text}}", "afmt": "{{cloze:Text}}"}]),
+    )
+
+    note = NoteModel.create(note_type=nt_std)
+    note.add_version({"Question": "Texte sans occlusion.", "Reponse": "Rien"}, source="init")
+    CardModel.create(note=note, deck=deck, template_index=0)
+
+    result = NoteTypeService.change_note_type(
+        note_ids=[note.id],
+        target_model=nt_cloze,
+        mapping_champs={"Question": "Text", "Reponse": "Extra"},
+    )
+
+    assert result["status"] == "applied"
+    # Doit contenir un avertissement explicite
+    assert any("occlusion" in w.lower() for w in result["warnings"])

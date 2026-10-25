@@ -41,6 +41,12 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : champ supprimé, purge silencieuse, troncature de note
 - **Enveloppement de balise (Wrapping)** : opération d'encadrement non destructif d'une sélection textuelle au sein d'un gabarit de type de note par une balise HTML (`<span>` en ligne, `<div>` en bloc), une règle CSS ou une directive conditionnelle Anki (`{{#Champ}}...{{/Champ}}`), préservant l'intégrité du contenu existant.
   _Avoid_ : remplacement de sélection, écrasement de balise, injection destructrice
+- **Migration de type de note** : opération transactionnelle réassignant une ou plusieurs notes d'un type de note source vers un type de note cible, effectuant la correspondance champ-à-champ, la préservation des statistiques SRS des cartes physiques réassignées et la création ou neutralisation des cartes physiques conditionnelles selon les gabarits cibles.
+  _Avoid_ : déplacement de type de carte, conversion de note, transfert de modèle, change note type bricolé
+- **Remappage de gabarits (de cartes)** : table d'association explicite liant chaque gabarit de carte du type de note source à un gabarit de carte du type de note cible lors d'une migration de type de note, garantissant la continuité de l'historique de révision de chaque carte physique.
+  _Avoid_ : mapping de carte, réattribution aveugle, ord remap
+- **Correspondance de champs (Field Mapping)** : association unitaire liant un champ du type de note cible soit à un champ du type de note source (avec heuristique par nom, synonyme ou ordre), soit à une valeur vide/ignorée, garantissant qu'aucune donnée textuelle n'est perdue silencieusement lors de la migration.
+  _Avoid_ : remapping aveugle, troncature de champs, copie brute
 
 ## Rétention SRS & Charge
 

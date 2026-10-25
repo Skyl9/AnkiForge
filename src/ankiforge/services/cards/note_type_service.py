@@ -11,14 +11,18 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from typing import Any
 
 from ankiforge.database.models import (
+    CardModel,
+    DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
     db,
 )
+from ankiforge.utils.anki_renderer import get_max_cloze_index, should_generate_card
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,144 @@ class NoteTypeService:
     """Service centralisé pour la manipulation et la migration des types de note."""
 
     ANKI_BUILTIN_TAGS = {"frontside", "tags", "deck", "subdeck", "card", "type", "cardflag"}
+
+    _CLOZE_CLEAN_RE = re.compile(r"\{\{c\d+::(.*?)(?:::.*?)?\}\}", re.DOTALL | re.IGNORECASE)
+
+    SYNONYM_GROUPS: list[set[str]] = [
+        {"front", "recto", "question", "prompt", "text", "texte", "mot", "expression", "term", "terme"},
+        {"back", "verso", "reponse", "answer", "solution", "definition", "traduction", "meaning"},
+        {"extra", "notes", "note", "remarque", "remarques", "commentaire", "commentaires", "addendum", "source", "contexte", "context", "hint", "indice"},
+    ]
+
+    @classmethod
+    def clean_cloze_markers(cls, text: str) -> str:
+        """Nettoie les marqueurs d'occlusion Anki ({{c1::texte::indice}}) pour ne conserver que le texte visible."""
+        if not text:
+            return ""
+        return cls._CLOZE_CLEAN_RE.sub(r"\1", str(text))
+
+    @classmethod
+    def suggest_field_mapping(
+        cls,
+        source_fields: list[str],
+        target_fields: list[str],
+    ) -> dict[str, str]:
+        """Suggère automatiquement un mapping optimal de champs entre un modèle source et cible.
+
+        Heuristique en 4 étapes :
+        1. Correspondance exacte insensible à la casse et aux accents.
+        2. Correspondance par synonymes sémantiques canoniques.
+        3. Correspondance positionnelle selon l'ordre d'apparition.
+        4. Chaîne vide par défaut pour les champs non assignés.
+        """
+        mapping: dict[str, str] = {}
+        assigned_targets: set[str] = set()
+
+        def _norm(name: str) -> str:
+            return unicodedata.normalize("NFKD", str(name)).encode("ASCII", "ignore").decode("utf-8").strip().lower()
+
+        # Étape 1 : Correspondance exacte
+        for sf in source_fields:
+            sf_norm = _norm(sf)
+            for tf in target_fields:
+                if tf not in assigned_targets and sf_norm == _norm(tf):
+                    mapping[sf] = tf
+                    assigned_targets.add(tf)
+                    break
+
+        # Étape 2 : Synonymes canoniques
+        for sf in source_fields:
+            if sf in mapping:
+                continue
+            sf_norm = _norm(sf)
+            for group in cls.SYNONYM_GROUPS:
+                if sf_norm in group:
+                    for tf in target_fields:
+                        if tf not in assigned_targets and _norm(tf) in group:
+                            mapping[sf] = tf
+                            assigned_targets.add(tf)
+                            break
+                    if sf in mapping:
+                        break
+
+        # Étape 3 : Correspondance positionnelle de repli
+        for idx, sf in enumerate(source_fields):
+            if sf in mapping:
+                continue
+            if idx < len(target_fields):
+                cand = target_fields[idx]
+                if cand not in assigned_targets:
+                    mapping[sf] = cand
+                    assigned_targets.add(cand)
+
+        # Étape 4 : Pour tout champ source restant non mappé, chaîne vide
+        for sf in source_fields:
+            if sf not in mapping:
+                mapping[sf] = ""
+
+        return mapping
+
+    @classmethod
+    def validate_field_mapping(
+        cls,
+        source_fields: list[str],
+        target_fields: list[str],
+        mapping_champs: dict[str, str] | None = None,
+        sample_notes: list[NoteModel] | None = None,
+    ) -> tuple[bool, str, dict[str, str]]:
+        """Valide la cohérence d'un mapping de champs avec diagnostic d'erreur pré-vol.
+
+        Retourne :
+            (is_valid, error_message, suggested_mapping)
+        """
+        suggested = cls.suggest_field_mapping(source_fields, target_fields)
+        effective = dict(suggested)
+        if mapping_champs:
+            for k, v in mapping_champs.items():
+                effective[k] = v
+
+        def _norm(name: str) -> str:
+            return unicodedata.normalize("NFKD", str(name)).encode("ASCII", "ignore").decode("utf-8").strip().lower()
+
+        norm_targets = {_norm(tf): tf for tf in target_fields}
+
+        # 1. Vérifier si les champs cibles demandés existent
+        if mapping_champs:
+            for _src_k, tgt_v in mapping_champs.items():
+                if tgt_v and str(tgt_v).strip():
+                    norm_v = _norm(str(tgt_v))
+                    if norm_v not in norm_targets:
+                        return (
+                            False,
+                            f"Champ cible '{tgt_v}' introuvable dans le modèle cible (champs disponibles : {target_fields}).",
+                            suggested,
+                        )
+
+        # 2. Vérifier si des données non vides risquent d'être perdues sans consigne explicite
+        if sample_notes:
+            for note in sample_notes:
+                active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                if not active_v or not active_v.content:
+                    continue
+                content: dict[str, Any] = {}
+                try:
+                    parsed = json.loads(active_v.content)
+                    if isinstance(parsed, dict):
+                        content = parsed
+                except Exception:
+                    content = {"Front": active_v.content}
+
+                for src_field, val in content.items():
+                    if val is not None and str(val).strip():
+                        target_assigned = effective.get(src_field, "")
+                        if (mapping_champs is None or src_field not in mapping_champs) and not target_assigned:
+                            return (
+                                False,
+                                f"Des données non vides dans le champ source '{src_field}' risquent d'être perdues sans correspondance explicite.",
+                                suggested,
+                            )
+
+        return (True, "", suggested)
 
     @classmethod
     def validate_structure(cls, model_data: dict[str, Any]) -> tuple[bool, list[str]]:
@@ -185,14 +327,17 @@ class NoteTypeService:
         note_ids: list[int],
         target_model: NoteTypeModel | str | int,
         mapping_champs: dict[str, str] | None = None,
+        template_mapping: dict[int, int | None] | None = None,
+        clean_cloze: bool = True,
     ) -> dict[str, Any]:
         """Migre un lot de notes vers un autre type de note.
 
         Garanties :
-        - Transaction unique (atomicité totale : tout ou rien).
-        - Les cartes physiques ne sont JAMAIS supprimées ni recréées.
-        - L'historique et les statistiques de révision SRS restent intacts.
-        - Génère un avertissement non-bloquant en cas de divergence du nombre de gabarits.
+        - Transaction unique (atomicité totale : tout ou rien sous db.atomic()).
+        - Synchronisation dynamique des cartes physiques : préservation des stats SRS pour les cartes
+          réassignées, suppression transactionnelle des cartes surnuméraires, et création conditionnelle
+          des nouveaux gabarits non vides (ADR 0045).
+        - Prise en charge native des types Cloze et assainissement optionnel du texte.
         """
         if not note_ids:
             return {
@@ -201,6 +346,9 @@ class NoteTypeService:
                 "note_ids": [],
                 "target_model_id": 0,
                 "target_model_name": "",
+                "cards_preserved": 0,
+                "cards_created": 0,
+                "cards_deleted": 0,
                 "warnings": [],
             }
 
@@ -215,14 +363,28 @@ class NoteTypeService:
             except Exception:
                 target_fields = ["Front", "Back"]
 
-        target_tmpl_count = 0
+        target_templates: list[dict[str, Any]] = []
         if target_nt.templates:
             try:
                 loaded_tmpls = json.loads(str(target_nt.templates))
                 if isinstance(loaded_tmpls, list):
-                    target_tmpl_count = len(loaded_tmpls)
+                    target_templates = [t for t in loaded_tmpls if isinstance(t, dict)]
             except Exception:
-                target_tmpl_count = 0
+                target_templates = []
+        target_tmpl_count = len(target_templates)
+        is_target_cloze = any("{{cloze:" in str(t.get("qfmt", "")).lower() or "{{cloze:" in str(t.get("afmt", "")).lower() for t in target_templates)
+
+        # Normalisation défensive du mapping de templates (tolérance clés/valeurs entières ou chaînes)
+        normalized_tmpl_mapping: dict[int, int | None] | None = None
+        if template_mapping is not None:
+            normalized_tmpl_mapping = {}
+            for k_raw, v_raw in template_mapping.items():
+                try:
+                    k_int = int(k_raw)
+                    v_int = int(v_raw) if v_raw is not None and str(v_raw).strip() != "" else None
+                    normalized_tmpl_mapping[k_int] = v_int
+                except (ValueError, TypeError):
+                    continue
 
         # Vérification préalable de l'existence de toutes les notes
         notes_to_migrate: list[NoteModel] = []
@@ -251,9 +413,24 @@ class NoteTypeService:
                 if src_tmpl_count != target_tmpl_count:
                     warnings.append(f"Le modèle source '{src_nt.name}' possède {src_tmpl_count} gabarit(s) alors que le modèle cible '{target_nt.name}' en possède {target_tmpl_count}.")
 
+        cards_preserved = 0
+        cards_created = 0
+        cards_deleted = 0
+
         # Exécution atomique
         with db.atomic():
             for note in notes_to_migrate:
+                src_nt = note.note_type
+                src_templates: list[dict[str, Any]] = []
+                if src_nt and src_nt.templates:
+                    try:
+                        s_tmpls = json.loads(str(src_nt.templates))
+                        if isinstance(s_tmpls, list):
+                            src_templates = [t for t in s_tmpls if isinstance(t, dict)]
+                    except Exception:
+                        src_templates = []
+                is_src_cloze = any("{{cloze:" in str(t.get("qfmt", "")).lower() or "{{cloze:" in str(t.get("afmt", "")).lower() for t in src_templates)
+
                 active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
                 current_data: dict[str, Any] = {}
                 if active_v and active_v.content:
@@ -266,14 +443,75 @@ class NoteTypeService:
 
                 mapped_data = cls.remap_fields(current_data, target_fields, mapping_champs=mapping_champs)
 
+                # Nettoyage des balises cloze lors du passage Cloze -> Standard
+                if clean_cloze and is_src_cloze and not is_target_cloze:
+                    for k in list(mapped_data.keys()):
+                        mapped_data[k] = cls.clean_cloze_markers(str(mapped_data[k]))
+
                 note.note_type = target_nt
                 note.save()
                 note.add_version(mapped_data, source="note_type_change")
 
+                # Synchronisation des cartes physiques
+                existing_cards = list(note.cards.order_by(CardModel.template_index.asc()))
+                default_deck = existing_cards[0].deck if existing_cards else DeckModel.select().first()
+                if default_deck is None:
+                    default_deck = DeckModel.create(name="Default")
+
+                if is_target_cloze:
+                    max_cloze = get_max_cloze_index(mapped_data)
+                    if max_cloze == 0:
+                        warnings.append(f"La note #{note.id} ne contient aucune balise d'occlusion '{{{{c1::...}}}}' pour le type Cloze '{target_nt.name}'.")
+                    needed_cards = max(1, max_cloze)
+                    for i in range(needed_cards):
+                        if i < len(existing_cards):
+                            if existing_cards[i].template_index != i:
+                                existing_cards[i].template_index = i
+                                existing_cards[i].save()
+                            cards_preserved += 1
+                        else:
+                            CardModel.create(note=note, deck=default_deck, template_index=i)
+                            cards_created += 1
+                    for i in range(needed_cards, len(existing_cards)):
+                        existing_cards[i].delete_instance()
+                        cards_deleted += 1
+                else:
+                    covered_target_indices: set[int] = set()
+                    for c in existing_cards:
+                        if normalized_tmpl_mapping is not None:
+                            tgt_idx = normalized_tmpl_mapping.get(c.template_index)
+                            if tgt_idx is not None and 0 <= tgt_idx < target_tmpl_count:
+                                if c.template_index != tgt_idx:
+                                    c.template_index = tgt_idx
+                                    c.save()
+                                cards_preserved += 1
+                                covered_target_indices.add(tgt_idx)
+                            else:
+                                c.delete_instance()
+                                cards_deleted += 1
+                        else:
+                            if c.template_index < target_tmpl_count:
+                                cards_preserved += 1
+                                covered_target_indices.add(c.template_index)
+                            else:
+                                c.delete_instance()
+                                cards_deleted += 1
+
+                    # Génération conditionnelle des cartes pour les gabarits cibles non couverts
+                    for t_idx, tmpl in enumerate(target_templates):
+                        if t_idx not in covered_target_indices:
+                            qfmt = str(tmpl.get("qfmt", ""))
+                            if should_generate_card(qfmt, mapped_data):
+                                CardModel.create(note=note, deck=default_deck, template_index=t_idx)
+                                cards_created += 1
+
         logger.info(
-            "Migration de %d note(s) vers le type de note '%s' effectuée avec succès.",
+            "Migration de %d note(s) vers le type de note '%s' effectuée avec succès (préservées: %d, créées: %d, supprimées: %d).",
             len(notes_to_migrate),
             target_nt.name,
+            cards_preserved,
+            cards_created,
+            cards_deleted,
         )
 
         return {
@@ -282,6 +520,9 @@ class NoteTypeService:
             "note_ids": [n.id for n in notes_to_migrate],
             "target_model_id": target_nt.id,
             "target_model_name": target_nt.name,
+            "cards_preserved": cards_preserved,
+            "cards_created": cards_created,
+            "cards_deleted": cards_deleted,
             "warnings": warnings,
         }
 
