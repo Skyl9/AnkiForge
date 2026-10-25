@@ -7,11 +7,48 @@ description: >-
 disable-model-invocation: true
 ---
 
-# Ask Forge — Flux d'Ingénierie AnkiForge
+# Ask Forge — Routeur de Tickets et Flux d'Ingénierie AnkiForge
 
-Tu ne peux pas mémoriser chaque compétence : consulte l'aiguilleur.
+Tu ne peux pas mémoriser chaque compétence : consulte l'aiguilleur. **Le
+Kanban Obsidian est la source de vérité du routage dès qu'un ticket existe.**
+Ne commence pas par un parcours générique de conception si l'utilisateur
+désigne une carte du Kanban ou un ticket existant.
 
-Un **flux** est un parcours cohérent à travers les compétences. La majorité des tâches empruntent le **flux principal**, alimenté par **deux rampes d'accès**. Les autres compétences sont autonomes ou constituent un socle de vocabulaire sous-jacent. Le gestionnaire de tickets et de suivi exclusif du projet est le vault Obsidian (`ankiforge_obsidian/`).
+## Point d'entrée obligatoire : ticket existant
+
+1. Lire `ankiforge_obsidian/Avancement du projet.md`, identifier la carte
+   ciblée et relever sa colonne.
+2. Lire la note correspondante dans `Tickets/ticket-actif/` ou
+   `Tickets/Archives/` avec le skill **`/obsidian-vault`**. Vérifier le statut,
+   les prérequis et les critères d'acceptation.
+3. Router vers **un seul prochain skill** selon l'état constaté :
+
+| État Kanban / ticket | Skill à utiliser ensuite |
+| --- | --- |
+| `needs-triage` ou demande brute sans fiche | `/triage` |
+| `needs-info` | Demander les informations manquantes, puis `/triage` |
+| `ready-for-spec` | `/grill-with-docs` si des décisions restent ouvertes, sinon `/to-spec` |
+| `ready-for-agent` | `/implement` |
+| `in-progress` | Reprendre `/implement` sans recréer le cadrage |
+| `ready-for-review` | `/code-review` |
+| `ready-for-human` | Stopper et restituer l'action attendue de l'utilisateur |
+| `done` ou `wontfix` | Ne pas relancer de travail ; restituer l'état |
+
+Un ticket marqué `rechercher` ou relevant d'une investigation passe d'abord
+par `/research`, après clarification du sujet, et jamais directement par
+`/grill-with-docs`. La manipulation du ticket ou du Kanban reste du ressort de
+`/obsidian-vault`, pas de ce routeur.
+
+## Sortie attendue du routage
+
+Restituer brièvement : le ticket détecté, son statut, ses prérequis bloquants,
+le skill recommandé et la raison. Ne pas exécuter automatiquement plusieurs
+skills en chaîne ; le skill recommandé devient la prochaine étape explicite.
+
+Un **flux** est un parcours cohérent à travers les compétences. En l'absence
+de ticket existant, la majorité des tâches empruntent le flux principal,
+alimenté par deux rampes d'accès. Les autres compétences sont autonomes ou
+constituent un socle de vocabulaire sous-jacent.
 
 ## Le flux principal : de l'idée à la livraison
 
