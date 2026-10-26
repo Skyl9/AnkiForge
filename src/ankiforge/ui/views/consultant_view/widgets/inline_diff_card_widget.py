@@ -879,7 +879,14 @@ class InlineDiffCardWidget(QFrame):
                         show_toast(self, result.get("message", "Conflit de version détecté."), is_error=True)
                         self.status_badge.setText(self.tr("⚠️ Conflit de version"))
                         return
-                    elif result.get("status") == "applied":
+                    if result.get("status") != "applied":
+                        show_toast(
+                            self,
+                            result.get("message") or self.tr("Échec lors de l'application du patch."),
+                            is_error=True,
+                        )
+                        return
+                    else:
                         self.is_applied = True
                         self.patch_data["is_applied"] = True
                         self.status_badge.setText(self.tr("✅ Appliqué en BDD"))

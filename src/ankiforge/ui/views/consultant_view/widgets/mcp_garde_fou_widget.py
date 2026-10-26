@@ -833,6 +833,7 @@ class MCPGardeFouWidget(QWidget):
             return
 
         applied_count = 0
+        failures: list[str] = []
         handled_bundles: set[str] = set()
 
         for patch in list(self._patches):
@@ -845,13 +846,24 @@ class MCPGardeFouWidget(QWidget):
                 if res.get("status") == "applied":
                     applied_count += res.get("applied_steps_count", 1)
                     self.patch_applied.emit(b_id)
+                else:
+                    failures.append(str(res.get("message") or tr("Échec lors de l'application du bundle '%1'.", b_id)))
             else:
                 res = StagedPatchRegistry.apply_staged_patch(patch.patch_id)
                 if res.get("status") == "applied":
                     applied_count += 1
                     self.patch_applied.emit(patch.patch_id)
+                else:
+                    failures.append(str(res.get("message") or tr("Échec lors de l'application du patch '%1'.", patch.patch_id[:8])))
 
-        show_toast(self, tr("%1 proposition(s) appliquée(s).", applied_count), level="success")
+        if failures:
+            if applied_count:
+                message = tr("%1 proposition(s) appliquée(s), %2 échec(s) : %3", applied_count, len(failures), failures[0])
+            else:
+                message = tr("Échec de l'application des propositions : %1", failures[0])
+            show_toast(self, message, level="error")
+        else:
+            show_toast(self, tr("%1 proposition(s) appliquée(s).", applied_count), level="success")
         self.reload_pending_patches()
 
     def _reject_all_patches(self) -> None:

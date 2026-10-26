@@ -3824,7 +3824,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+207"/>
+        <location line="+214"/>
         <source>Style CSS appliqué sur &apos;%1&apos; !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4055,7 +4055,27 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+23"/>
+        <source>Échec lors de l&apos;application du bundle &apos;%1&apos;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Échec lors de l&apos;application du patch &apos;%1&apos;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>%1 proposition(s) appliquée(s), %2 échec(s) : %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Échec de l&apos;application des propositions : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>%1 proposition(s) appliquée(s).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13914,7 +13934,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FieldDiffWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="-828"/>
+        <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="-835"/>
         <source>🔍 Ratures</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15010,7 +15030,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+42"/>
-        <location line="+184"/>
+        <location line="+191"/>
         <location line="+23"/>
         <location line="+33"/>
         <location line="+51"/>
@@ -15018,7 +15038,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-220"/>
+        <location line="-227"/>
         <source>Éditeur ↗</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15029,18 +15049,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+25"/>
-        <location line="+86"/>
+        <location line="+93"/>
         <location line="+56"/>
         <source>Annuler (Revert)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-62"/>
+        <location line="-69"/>
         <source>⚠️ Conflit de version</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+151"/>
+        <location line="+5"/>
+        <source>Échec lors de l&apos;application du patch.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+153"/>
         <source>↩️ Annulé</source>
         <translation type="unfinished"></translation>
     </message>

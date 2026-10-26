@@ -19,6 +19,7 @@ from ankiforge.database.models import (
     StagedPatchModel,
 )
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankiforge.ui.views.consultant_view.widgets import mcp_garde_fou_widget
 from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
 
 pytestmark = [pytest.mark.ui]
@@ -535,6 +536,95 @@ def test_mcp_garde_fou_bundle_apply_all(qtbot) -> None:
     assert widget.count() == 0
     assert DeckModel.get_or_none(DeckModel.name == d1) is not None
     assert DeckModel.get_or_none(DeckModel.name == d2) is not None
+
+
+def test_mcp_garde_fou_apply_failure_keeps_patch_pending_and_reports_error(qtbot, sample_note, monkeypatch) -> None:
+    """Un échec d'application unitaire ne doit jamais être présenté comme un succès."""
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={"title": "Échec attendu", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+    )
+    toasts: list[tuple[str, str | None]] = []
+    monkeypatch.setattr(
+        mcp_garde_fou_widget,
+        "show_toast",
+        lambda _parent, message, **kwargs: toasts.append((str(message), kwargs.get("level"))),
+    )
+    monkeypatch.setattr(
+        StagedPatchRegistry,
+        "apply_staged_patch",
+        classmethod(lambda _cls, _patch_id: {"status": "error", "message": "Échec MCP simulé."}),
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.reload_pending_patches()
+    applied_signals: list[str] = []
+    widget.patch_applied.connect(applied_signals.append)
+
+    widget.btn_apply.click()
+
+    assert applied_signals == []
+    assert widget.current_patch_id == patch.patch_id
+    assert toasts == [("Échec MCP simulé.", "error")]
+
+
+def test_mcp_garde_fou_apply_bundle_failure_reports_error(qtbot, monkeypatch) -> None:
+    """Un échec de bundle doit rester visible comme une erreur dans l'IHM."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle en échec")
+    StagedPatchRegistry.create_patch(patch_type="deck_create", diff_payload={"deck_name": "Deck failure"})
+    StagedPatchRegistry.commit_bundle(bundle_id)
+    toasts: list[tuple[str, str | None]] = []
+    monkeypatch.setattr(
+        mcp_garde_fou_widget,
+        "show_toast",
+        lambda _parent, message, **kwargs: toasts.append((str(message), kwargs.get("level"))),
+    )
+    monkeypatch.setattr(
+        StagedPatchRegistry,
+        "apply_bundle_all",
+        classmethod(lambda _cls, _bundle_id: {"status": "error", "message": "Bundle MCP refusé."}),
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.reload_pending_patches()
+    widget.btn_apply_bundle_all.click()
+
+    assert widget.count() == 1
+    assert toasts == [("Bundle MCP refusé.", "error")]
+
+
+def test_mcp_garde_fou_apply_all_reports_partial_failure(qtbot, monkeypatch) -> None:
+    """L'application globale ne doit pas afficher un succès si une étape échoue."""
+    first = StagedPatchRegistry.create_patch(patch_type="deck_create", diff_payload={"deck_name": "Deck OK"})
+    second = StagedPatchRegistry.create_patch(patch_type="deck_create", diff_payload={"deck_name": "Deck KO"})
+    results = {
+        first.patch_id: {"status": "applied"},
+        second.patch_id: {"status": "error", "message": "Étape MCP refusée."},
+    }
+    toasts: list[tuple[str, str | None]] = []
+    monkeypatch.setattr(
+        mcp_garde_fou_widget,
+        "show_toast",
+        lambda _parent, message, **kwargs: toasts.append((str(message), kwargs.get("level"))),
+    )
+    monkeypatch.setattr(
+        StagedPatchRegistry,
+        "apply_staged_patch",
+        classmethod(lambda _cls, patch_id: results[patch_id]),
+    )
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.reload_pending_patches()
+    widget.btn_apply_all.click()
+
+    assert widget.count() == 2
+    assert toasts
+    assert toasts[-1][1] == "error"
+    assert "Étape MCP refusée." in toasts[-1][0]
 
 
 def test_mcp_garde_fou_direct_edit_deck_create(qtbot) -> None:
