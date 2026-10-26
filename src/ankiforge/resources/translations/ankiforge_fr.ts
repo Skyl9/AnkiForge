@@ -725,7 +725,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location line="+146"/>
         <location line="+60"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1259"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1260"/>
         <location line="+77"/>
         <source>➔</source>
         <translation type="unfinished"></translation>
@@ -733,7 +733,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location line="-9"/>
         <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-221"/>
-        <location line="+907"/>
+        <location line="+915"/>
         <source>Carte %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1230,7 +1230,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1830"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1839"/>
         <location line="+137"/>
         <source>Identique</source>
         <translation type="unfinished"></translation>
@@ -4613,7 +4613,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+10"/>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1557"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1566"/>
         <location line="+2"/>
         <source>%1 mots</source>
         <translation type="unfinished"></translation>
@@ -5510,7 +5510,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1824"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1833"/>
         <source>Règle #4 (Atomicité) : Question trop verbeuse (%1 mots &gt; 25).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5552,7 +5552,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+148"/>
+        <location line="+149"/>
         <source>Carte atomique :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5595,12 +5595,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+1480"/>
+        <location line="+1488"/>
         <source>Voir Verso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1429"/>
+        <location line="-1437"/>
         <source>Originale (BDD)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5818,13 +5818,13 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+52"/>
+        <location line="+53"/>
         <location filename="../../ui/widgets/note_table_widget.py" line="+196"/>
         <source>Tags</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+170"/>
+        <location line="+177"/>
         <source>Nouveau Modèle</source>
         <translation type="unfinished"></translation>
     </message>

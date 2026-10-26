@@ -362,6 +362,7 @@ class CardSemanticDiffWidget(QWidget):
         self._css_data: dict[str, Any] = {}
         self._original_tags: list[str] = []
         self._modified_tags: list[str] = []
+        self._tags_row: FieldSemanticDiffRow | None = None
         self._create_template_editors: list[tuple[QLineEdit, QPlainTextEdit, QPlainTextEdit]] = []
         self._mapping_combos: dict[str, StyledComboBox] = {}
 
@@ -1692,6 +1693,7 @@ class CardSemanticDiffWidget(QWidget):
             if w:
                 w.deleteLater()
         self._field_rows.clear()
+        self._tags_row = None
 
         # Fusion ordonnée des noms de champs
         all_field_names: list[str] = []
@@ -1738,12 +1740,13 @@ class CardSemanticDiffWidget(QWidget):
                 parent=self.scroll_content,
             )
             tags_row.content_changed.connect(self._on_tags_content_changed)
-            self._field_rows["_tags"] = tags_row
+            self._tags_row = tags_row
             self.fields_layout.insertWidget(self.fields_layout.count() - 1, tags_row)
 
     def _on_tags_content_changed(self, field_name: str, new_val: str) -> None:
         """Gère la retouche utilisateur sur la ligne des tags."""
         self._modified_tags = [t.strip() for t in new_val.split() if t.strip()]
+        self.content_edited.emit(self.get_modified_content())
 
     def _on_row_content_changed(self, field_name: str, new_val: str) -> None:
         """Gère la répercussion d'une retouche utilisateur."""
@@ -1843,8 +1846,13 @@ class CardSemanticDiffWidget(QWidget):
 
         res = dict(self._modified) if isinstance(self._modified, dict) else {}
         for f_name, row in self._field_rows.items():
-            res[f_name] = row.current_modified_value
+            if not f_name.startswith("_"):
+                res[f_name] = row.current_modified_value
         return res
+
+    def get_modified_tags(self) -> list[str]:
+        """Retourne la liste des tags modifiés."""
+        return list(self._modified_tags)
 
     def get_original_fields_dict(self) -> dict[str, str]:
         """Retourne les champs de la note originale (Base active BDD)."""
@@ -1859,7 +1867,8 @@ class CardSemanticDiffWidget(QWidget):
         """Retourne les champs de la carte actuellement inspectée pour le rendu Anki."""
         res: dict[str, str] = {}
         for f_name, row in self._field_rows.items():
-            res[f_name] = row.current_modified_value
+            if not f_name.startswith("_"):
+                res[f_name] = row.current_modified_value
         return res
 
     def _refresh_preview(self) -> None:

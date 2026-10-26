@@ -22,7 +22,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def batch_refactor_setup():
+def batch_refactor_setup() -> dict[str, Any]:
     """Initialise un deck, un modèle et plusieurs notes pour tester la refactorisation par lot."""
     with db.atomic():
         deck = DeckModel.create(name="Sciences::Physique")
@@ -59,7 +59,7 @@ def _extract_text(tool_result: Any) -> str:
     return str(tool_result)
 
 
-def test_propose_cards_batch_refactor_nominal_creates_sealed_bundle(batch_refactor_setup):
+def test_propose_cards_batch_refactor_nominal_creates_sealed_bundle(batch_refactor_setup: dict[str, Any]) -> None:
     """Vérifie le cas nominal : un lot valide crée un StagedBundle scellé avec N étapes unitaires."""
     notes = batch_refactor_setup["notes"]
 
@@ -123,7 +123,7 @@ def test_propose_cards_batch_refactor_nominal_creates_sealed_bundle(batch_refact
     assert "physique" in payload_1["modified_tags"]  # tag conservé
 
 
-def test_propose_cards_batch_refactor_inside_existing_bundle(batch_refactor_setup):
+def test_propose_cards_batch_refactor_inside_existing_bundle(batch_refactor_setup: dict[str, Any]) -> None:
     """Vérifie que si un bundle est déjà ouvert, les étapes y sont ajoutées sans scellement prématuré."""
     notes = batch_refactor_setup["notes"]
 
@@ -160,7 +160,7 @@ def test_propose_cards_batch_refactor_inside_existing_bundle(batch_refactor_setu
     StagedPatchRegistry.abort_bundle(b_id)
 
 
-def test_propose_cards_batch_refactor_tolerant_to_missing_ids(batch_refactor_setup):
+def test_propose_cards_batch_refactor_tolerant_to_missing_ids(batch_refactor_setup: dict[str, Any]) -> None:
     """Vérifie la tolérance : les cartes valides sont stagées et les IDs introuvables sont rapportés dans warnings."""
     notes = batch_refactor_setup["notes"]
 
@@ -194,7 +194,7 @@ def test_propose_cards_batch_refactor_tolerant_to_missing_ids(batch_refactor_set
     assert "999999" in data["warnings"][0]
 
 
-def test_propose_cards_batch_refactor_rejects_unknown_fields(batch_refactor_setup):
+def test_propose_cards_batch_refactor_rejects_unknown_fields(batch_refactor_setup: dict[str, Any]) -> None:
     """Vérifie le rejet strict des clés de champs non déclarées dans fields_schema."""
     notes = batch_refactor_setup["notes"]
 
@@ -221,7 +221,7 @@ def test_propose_cards_batch_refactor_rejects_unknown_fields(batch_refactor_setu
     assert any("ChampInconnu" in w for w in data.get("warnings", [data.get("message", "")]))
 
 
-def test_propose_cards_batch_refactor_limit_exceeded():
+def test_propose_cards_batch_refactor_limit_exceeded() -> None:
     """Vérifie qu'un lot supérieur à 100 cartes est rejeté d'emblée."""
     fake_refactors = [{"note_id": i, "fields": {"Recto": f"Q{i}"}} for i in range(101)]
 
@@ -241,7 +241,7 @@ def test_propose_cards_batch_refactor_limit_exceeded():
     assert "100" in data["message"]
 
 
-def test_apply_staged_patch_and_bundle_with_tags(batch_refactor_setup):
+def test_apply_staged_patch_and_bundle_with_tags(batch_refactor_setup: dict[str, Any]) -> None:
     """Vérifie que l'application d'un patch avec modified_tags met à jour NoteVersionModel ET note.tags."""
     notes = batch_refactor_setup["notes"]
     target_note = notes[2]
@@ -287,8 +287,8 @@ def test_apply_staged_patch_and_bundle_with_tags(batch_refactor_setup):
     assert content["Recto"] == "Question 3 Finale"
 
 
-def test_card_semantic_diff_widget_displays_tags(batch_refactor_setup, qtbot):
-    """Vérifie que CardSemanticDiffWidget instancie une rangée pour les tags modifiés."""
+def test_card_semantic_diff_widget_displays_tags(batch_refactor_setup: dict[str, Any], qtbot: Any) -> None:
+    """Vérifie que CardSemanticDiffWidget instancie une rangée pour les tags modifiés sans polluer get_modified_content."""
     from ankiforge.ui.widgets.card_semantic_diff_widget import CardSemanticDiffWidget
 
     notes = batch_refactor_setup["notes"]
@@ -305,7 +305,14 @@ def test_card_semantic_diff_widget_displays_tags(batch_refactor_setup, qtbot):
     }
     widget.set_patch(diff_payload)
 
-    field_rows = widget.get_field_rows()
-    assert "_tags" in field_rows
-    assert "physique" in field_rows["_tags"].orig_browser.toPlainText()
-    assert "appliquee" in field_rows["_tags"].mod_editor.toPlainText()
+    # Vérification que la rangée des tags existe bien et est correctement isolée
+    assert widget._tags_row is not None
+    assert "physique" in widget._tags_row.orig_browser.toPlainText()
+    assert "appliquee" in widget._tags_row.mod_editor.toPlainText()
+    assert widget.get_modified_tags() == ["physique", "appliquee"]
+
+    # Garantie anti-pollution : _tags n'entre jamais dans le dictionnaire des champs
+    mod_content = widget.get_modified_content()
+    assert "_tags" not in mod_content
+    assert mod_content["Recto"] == "Q1 mod"
+    assert mod_content["Verso"] == "R1 mod"

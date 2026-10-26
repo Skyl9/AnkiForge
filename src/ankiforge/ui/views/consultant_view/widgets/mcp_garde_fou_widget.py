@@ -760,10 +760,12 @@ class MCPGardeFouWidget(QWidget):
         bundle = self._current_patch.bundle
         step_order = self._current_patch.step_order
 
-        # 1. Synchronisation de l'édition directe
-        edited_content = self._get_current_modified_content()
-        if edited_content is not None:
-            StagedPatchRegistry.sync_direct_edit(patch_id, edited_content)
+        # 1. Synchronisation de l'édition directe (uniquement pour les patchs unitaires ou scissions, pas les lots bruts)
+        p_type = getattr(self._current_patch, "patch_type", "")
+        if p_type not in ("batch_note_create", "batch_create"):
+            edited_content = self._get_current_modified_content()
+            if edited_content is not None:
+                StagedPatchRegistry.sync_direct_edit(patch_id, edited_content)
 
         # 2. Application transactionnelle
         res = StagedPatchRegistry.apply_bundle_step(bundle.bundle_id, step_order) if bundle else StagedPatchRegistry.apply_staged_patch(patch_id)
@@ -808,10 +810,12 @@ class MCPGardeFouWidget(QWidget):
 
         bundle_id = self._current_patch.bundle.bundle_id
 
-        # Synchronisation de l'édition directe de l'étape active avant l'application globale
-        edited_content = self._get_current_modified_content()
-        if edited_content is not None:
-            StagedPatchRegistry.sync_direct_edit(self._current_patch.patch_id, edited_content)
+        # Synchronisation de l'édition directe de l'étape active avant l'application globale (sauf lots)
+        p_type = getattr(self._current_patch, "patch_type", "")
+        if p_type not in ("batch_note_create", "batch_create"):
+            edited_content = self._get_current_modified_content()
+            if edited_content is not None:
+                StagedPatchRegistry.sync_direct_edit(self._current_patch.patch_id, edited_content)
 
         res = StagedPatchRegistry.apply_bundle_all(bundle_id)
         if res.get("status") == "applied":
