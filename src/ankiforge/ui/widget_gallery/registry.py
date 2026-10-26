@@ -32,7 +32,14 @@ def gallery_widget(family: str, name: str) -> Callable[[Callable[[], QWidget]], 
     """Décorateur enregistrant une factory de widget dans la galerie."""
 
     def decorator(factory: Callable[[], QWidget]) -> Callable[[], QWidget]:
-        _registry.append(GalleryEntry(family=family, name=name, factory=factory, module=factory.__module__))
+        entry = GalleryEntry(family=family, name=name, factory=factory, module=factory.__module__)
+        for index, existing in enumerate(_registry):
+            if existing.family == family and existing.name == name:
+                if existing.factory is not factory:
+                    logger.warning("Factory de galerie remplacée pour « %s/%s »", family, name)
+                    _registry[index] = entry
+                return factory
+        _registry.append(entry)
         return factory
 
     return decorator

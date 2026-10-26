@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.style_engine.themes import get_theme_families
+from ankiforge.ui.widget_gallery.families import load_families
 from ankiforge.ui.widget_gallery.preview_container import PreviewContainer
 from ankiforge.ui.widget_gallery.registry import GalleryEntry, WidgetGalleryRegistry
 from ankiforge.utils.i18n import tr
@@ -38,6 +39,11 @@ class WidgetGalleryWindow(QDialog):
         self.setWindowTitle(tr("Galerie de widgets (mode développeur)"))
         self.resize(1000, 700)
         self._current_entry: GalleryEntry | None = None
+        self._loaded_families = load_families()
+        if not self._loaded_families:
+            logger.warning("Aucune famille de galerie n'a pu être chargée")
+        else:
+            logger.debug("Familles de galerie chargées : %s", ", ".join(self._loaded_families))
         self._setup_ui()
         self._populate()
 
