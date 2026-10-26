@@ -67,3 +67,29 @@ def test_gallery_search_filters(qtbot):
     qtbot.addWidget(win)
     win.search_edit.setText("inexistant")
     assert win.tree.topLevelItemCount() == 0
+
+
+def test_gallery_theme_and_layout_combo_present(qtbot):
+    win = WidgetGalleryWindow()
+    qtbot.addWidget(win)
+    win.show()
+    assert win.theme_combo.count() >= 1
+    assert win.layout_combo.count() == 4
+
+
+def test_gallery_theme_change_does_not_crash(qtbot):
+    win = WidgetGalleryWindow()
+    qtbot.addWidget(win)
+    win.show()
+    if win.theme_combo.count() > 1:
+        win.theme_combo.setCurrentIndex(1)
+    else:
+        win.theme_combo.setCurrentIndex(0)
+
+
+def test_gallery_layout_change_does_not_crash(qtbot):
+    win = WidgetGalleryWindow()
+    qtbot.addWidget(win)
+    win.show()
+    for idx in range(win.layout_combo.count()):
+        win.layout_combo.setCurrentIndex(idx)
