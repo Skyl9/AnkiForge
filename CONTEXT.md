@@ -204,6 +204,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : largeur minimale rigide, setFixedWidth, sidebar élargie, conteneur adaptatif
 - **Lecteur de documentation embarqué (`DocReaderDialog`)** : boîte de dialogue autonome native basée sur `QTextBrowser` et `AppDocumentationService`, permettant de consulter les guides et la documentation officielle de l'application hors-ligne, avec rendu des illustrations vectorielles SVG locales, recherche textuelle incrémentale et zoom typographique, sans dépendre d'un moteur Chromium lourd ni d'une connexion réseau.
   _Avoid_ : webview de doc, browser externe obligatoire, aide en ligne, visionneuse web
+- **Galerie de widgets (mode développeur)** : fenêtre dédiée (`WidgetGalleryWindow`) permettant d'observer visuellement l'ensemble des widgets de l'application alimentés par des données factices déterministes, activée uniquement en mode développeur (`--dev`). Les widgets sont enregistrés via un registre déclaratif par famille ; les données factices vivent dans `src/ankiforge/dev/`.
+  _Avoid_ : mocks d'interface, Storybook, bac à sable UI, galerie de tests
 
 ## Clavier & Raccourcis
 
