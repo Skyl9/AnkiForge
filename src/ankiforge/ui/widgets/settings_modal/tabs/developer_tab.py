@@ -33,6 +33,7 @@ from ankiforge.ui.dialogs.dialog_gallery_dialog import (
 from ankiforge.ui.dialogs.feedback_dialog import FeedbackDialog
 from ankiforge.ui.dialogs.note_type_role_guide_dialog import NoteTypeRoleGuideDialog
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widget_gallery.widget_gallery_window import WidgetGalleryWindow
 from ankiforge.ui.widgets.settings_modal.components import apply_pill_badge_style
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.utils.environment import (
@@ -183,6 +184,13 @@ class DeveloperTab(QWidget):
         btn_open_gallery.clicked.connect(self.open_full_gallery_dialog)
         header_gal.addWidget(btn_open_gallery)
 
+        btn_open_widget_gallery = ActionButton(self.tr("Galerie de widgets"))
+        btn_open_widget_gallery.setMinimumWidth(0)
+        btn_open_widget_gallery.setIcon(load_phosphor_icon("ph.squares-four", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(btn_open_widget_gallery, height=28)
+        btn_open_widget_gallery.clicked.connect(self.open_widget_gallery)
+        header_gal.addWidget(btn_open_widget_gallery)
+
         gallery_card_layout.addLayout(header_gal)
 
         # Grille des 6 dialogues recensés
@@ -324,6 +332,11 @@ class DeveloperTab(QWidget):
         """Ouvre la boîte de dialogue de galerie modale complète."""
         self._gallery_dialog = DialogGalleryDialog(parent=self.window())
         self._gallery_dialog.exec()
+
+    def open_widget_gallery(self) -> None:
+        """Ouvre la galerie de widgets (mode développeur)."""
+        dlg = WidgetGalleryWindow(parent=self.window())
+        dlg.exec()
 
     def open_crash_report(self) -> None:
         dlg = IsolatedCrashReportDialog(parent=self.window())
