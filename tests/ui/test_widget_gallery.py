@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import os
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,11 @@ from ankiforge.ui.widget_gallery import (
     gallery_widget,
 )
 from ankiforge.ui.widget_gallery.families import family_names, load_families
+from ankiforge.ui.widget_gallery.families.components import (
+    COMPONENT_CLASS_IDS,
+    COMPONENT_FACTORIES,
+    component_labels,
+)
 from ankiforge.ui.widget_gallery.families.dialogs import DIALOG_FACTORIES, dialog_labels
 
 pytestmark = pytest.mark.ui
@@ -41,11 +47,27 @@ def dev_mode():
 
 @pytest.fixture(autouse=True)
 def sample_entry():
-    @gallery_widget(family="components", name="Label factice")
+    # Famille neutre : la famille « components » doit rester mesurable par les tests dédiés.
+    @gallery_widget(family="fixtures", name="Label factice")
     def _make_label() -> QWidget:
         return QLabel("Widget factice")
 
     return None
+
+
+@pytest.fixture(autouse=True)
+def isolated_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isole la galerie du dossier de données du développeur (snippets personnalisés)."""
+    monkeypatch.setenv("ANKIFORGE_DATA_DIR", str(tmp_path / "data"))
+
+
+def _assert_no_pending_worker(widget: QWidget, label: str) -> None:
+    """Attend tout worker lancé à la construction pour immuniser le teardown de ``mock_db``."""
+    worker = getattr(widget, "worker", None)
+    if worker is None:
+        worker = getattr(widget, "_worker", None)
+    if worker is not None and hasattr(worker, "wait"):
+        assert worker.wait(10_000), f"Le worker de {label} n'a pas terminé"
 
 
 def test_is_dev_mode_active_in_tests(dev_mode):
@@ -172,12 +194,109 @@ def test_each_dialog_instantiates_without_crash(qtbot, class_name, factory):
 
     assert isinstance(widget, QDialog), f"{class_name} n'est pas un QDialog"
 
-    # Aucun dialogue n'ouvre de worker à la construction ; la garde couvre les deux
-    # conventions d'attribut du dépôt pour immuniser le teardown de ``mock_db``.
-    worker = getattr(widget, "worker", None)
-    if worker is None:
-        worker = getattr(widget, "_worker", None)
-    if worker is not None and hasattr(worker, "wait"):
-        assert worker.wait(10_000), f"Le worker de {class_name} n'a pas terminé"
+    _assert_no_pending_worker(widget, class_name)
+
+    widget.close()
+
+
+# ── Famille « components » ─────────────────────────────────────────────────────
+
+# Aucune exclusion : tous les composants ``QWidget`` déclarés doivent être
+# prévisualisables. Les composants non ``QWidget`` (``QCompleter``, surligneurs, …)
+# ne sont pas des aperçus de widget et sortent donc du périmètre de cette famille.
+
+
+def _component_classes_declared_in_package() -> dict[str, type[QWidget]]:
+    """Index des classes QWidget de ``ui/components`` par nom simple et identifiant qualifié.
+
+    Les homonymes inter-modules ne sont accessibles que par leur identifiant qualifié,
+    afin qu'aucun d'eux ne puisse être couvert par l'autre.
+    """
+    package = importlib.import_module("ankiforge.ui.components")
+    package_dir = Path(next(iter(package.__path__)))
+    declared: list[type[QWidget]] = []
+    for module_path in sorted(package_dir.rglob("*.py")):
+        if module_path.stem.startswith("_"):
+            continue
+        relative = module_path.relative_to(package_dir).with_suffix("")
+        module = importlib.import_module("ankiforge.ui.components." + ".".join(relative.parts))
+        for name, obj in inspect.getmembers(module, inspect.isclass):
+            if obj.__module__ == module.__name__ and issubclass(obj, QWidget) and not name.startswith("_"):
+                declared.append(obj)
+
+    homonyms = Counter(cls.__qualname__ for cls in declared)
+    index: dict[str, type[QWidget]] = {}
+    for cls in declared:
+        index[f"{cls.__module__}.{cls.__qualname__}"] = cls
+        if homonyms[cls.__qualname__] == 1:
+            index[cls.__qualname__] = cls
+    return index
+
+
+@pytest.fixture(scope="module")
+def declared_components() -> dict[str, type[QWidget]]:
+    return _component_classes_declared_in_package()
+
+
+def _component_class(key: str, declared: dict[str, type[QWidget]]) -> type[QWidget]:
+    class_id = COMPONENT_CLASS_IDS[key]
+    cls = declared.get(class_id)
+    assert cls is not None, f"Classe introuvable pour l'entrée « {key} » : {class_id}"
+    return cls
+
+
+def test_components_family_covers_every_widget_class(declared_components):
+    qualified_ids = {class_id for class_id in declared_components if "." in class_id}
+    covered = {_component_class(key, declared_components) for key in COMPONENT_FACTORIES}
+
+    missing = sorted(class_id for class_id in qualified_ids if declared_components[class_id] not in covered)
+    extra = sorted(cls.__name__ for cls in covered - {declared_components[class_id] for class_id in qualified_ids})
+
+    assert not missing, f"Composants non enregistrés dans la galerie : {missing}"
+    assert not extra, f"Factories sans composant déclaré : {extra}"
+    assert set(component_labels()) == set(COMPONENT_FACTORIES), "Chaque composant doit avoir un libellé de galerie"
+    assert set(COMPONENT_CLASS_IDS) == set(COMPONENT_FACTORIES), "Chaque composant doit déclarer sa classe"
+
+
+def test_components_family_is_registered_in_gallery():
+    load_families()
+
+    entries = WidgetGalleryRegistry.list(family="components")
+
+    assert len(entries) == len(COMPONENT_FACTORIES)
+    assert {entry.factory for entry in entries} == set(COMPONENT_FACTORIES.values())
+    assert {entry.name for entry in entries} == set(component_labels().values())
+
+
+def test_components_family_registration_is_idempotent():
+    load_families()
+    first_pass = len(WidgetGalleryRegistry.list(family="components"))
+
+    load_families()
+
+    assert len(WidgetGalleryRegistry.list(family="components")) == first_pass
+
+
+def test_gallery_window_exposes_components_family(qtbot):
+    win = WidgetGalleryWindow()
+    qtbot.addWidget(win)
+
+    families = {win.tree.topLevelItem(index).text(0) for index in range(win.tree.topLevelItemCount())}
+
+    assert "components" in families
+
+
+@pytest.mark.parametrize(("key", "factory"), list(COMPONENT_FACTORIES.items()))
+def test_each_component_instantiates_without_crash(qtbot, declared_components, key, factory):
+    expected_class = _component_class(key, declared_components)
+
+    widget = factory()
+    qtbot.addWidget(widget)
+
+    # Les aperçus contextualisés (gouttière, barre d'état, voile de panneau) renvoient un
+    # conteneur : le composant annoncé doit alors y être réellement présent.
+    assert isinstance(widget, expected_class) or widget.findChild(expected_class) is not None, f"L'aperçu « {key} » n'instancie pas {expected_class.__name__}"
+
+    _assert_no_pending_worker(widget, key)
 
     widget.close()
