@@ -179,6 +179,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "propose_batch_card_deletion": DOMAIN_CARDS,
     "apply_patch": DOMAIN_CARDS,
     "preview_and_apply_patch": DOMAIN_CARDS,
+    "abort_staged_patch": DOMAIN_CARDS,
     "propose_css_tune": DOMAIN_CARDS,
     "list_card_models_manifest": DOMAIN_CARDS,
     "refactor_cards_by_criteria": DOMAIN_CARDS,
@@ -203,6 +204,10 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
 
 # Garde-fous et directives de sécurité spécifiques
 TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
+    "abort_staged_patch": [
+        "Annulation unitaire : ne modifie que le patch ciblé et conserve le bundle ainsi que ses patches frères.",
+        "Le patch doit être en attente ; les patchs déjà appliqués, rejetés ou annulés sont refusés explicitement.",
+    ],
     "create_note": [
         "Two-Phase Commit obligatoire : génère une proposition (StagedPatch note_create) soumise à validation humaine.",
         "Contrôle d'anti-hallucination : le paquet cible (deck_name) doit impérativement exister dans la base.",
@@ -211,6 +216,7 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     "create_notes_batch": [
         "Two-Phase Commit universel : génère un unique patch groupé (batch_note_create).",
         "Transaction atomique Tout-ou-Rien : inséré via une seule transaction db.atomic().",
+        "Plafond dur de sécurité : limité à 100 notes et 32 000 caractères par appel (recommandation : 5 à 8 notes / 8 000 car.).",
         "Contrôle d'anti-hallucination : validation stricte des paquets et types de note avant création.",
     ],
     "create_note_type": [
@@ -229,7 +235,7 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     "propose_cards_batch_refactor": [
         "Two-Phase Commit obligatoire : génère un StagedBundle multi-étapes avec diff unitaire par carte.",
         "Validation granulaire : revue carte par carte ou validation groupée en un clic (Tout valider le bloc).",
-        "Plafond de sécurité strict : limité à 100 cartes maximum par appel.",
+        "Plafond dur de sécurité : limité à 100 cartes et 32 000 caractères par appel (recommandation : 5 à 8 cartes / 8 000 car.).",
         "Gestion hybride des tags : supporte le remplacement complet (tags) ou incrémental (add_tags/remove_tags).",
     ],
     "propose_card_split": [

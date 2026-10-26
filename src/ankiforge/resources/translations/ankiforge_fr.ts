@@ -572,7 +572,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+615"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+621"/>
         <location filename="../../ui/views/edition_view/view.py" line="-625"/>
         <location line="+211"/>
         <location line="+8"/>
@@ -725,7 +725,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location line="+146"/>
         <location line="+60"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1260"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1292"/>
         <location line="+77"/>
         <source>➔</source>
         <translation type="unfinished"></translation>
@@ -733,7 +733,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location line="-9"/>
         <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-221"/>
-        <location line="+915"/>
+        <location line="+917"/>
         <source>Carte %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1230,7 +1230,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1839"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1871"/>
         <location line="+137"/>
         <source>Identique</source>
         <translation type="unfinished"></translation>
@@ -1285,6 +1285,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1898"/>
         <source>%1 / %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4025,7 +4026,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+84"/>
+        <location line="+94"/>
         <source>Étape %1 appliquée avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4633,7 +4634,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+10"/>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1566"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-300"/>
         <location line="+2"/>
         <source>%1 mots</source>
         <translation type="unfinished"></translation>
@@ -5530,7 +5531,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1833"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1865"/>
         <source>Règle #4 (Atomicité) : Question trop verbeuse (%1 mots &gt; 25).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5572,18 +5573,18 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+149"/>
+        <location line="+150"/>
         <source>Carte atomique :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+8"/>
-        <location line="+1230"/>
+        <location line="+1259"/>
         <source>Conforme Wozniak (Atomicité R4/R5)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1182"/>
+        <location line="-1211"/>
         <location line="+242"/>
         <source>Comparaison champ par champ</source>
         <translation type="unfinished"></translation>
@@ -5615,12 +5616,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+1488"/>
+        <location line="+1519"/>
         <source>Voir Verso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1437"/>
+        <location line="-1468"/>
         <source>Originale (BDD)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5645,7 +5646,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+140"/>
+        <location line="+24"/>
+        <source>Lot de création</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+145"/>
         <source>Création de type de note — &apos;%1&apos;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5844,7 +5850,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+177"/>
+        <location line="+179"/>
         <source>Nouveau Modèle</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5886,6 +5892,56 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="+56"/>
         <source>Masquer Verso</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+66"/>
+        <source>Lot de création — 0 note(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>0 / 0</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Précédent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Suivant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Champ</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Valeur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Tags du lot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>tag1, tag2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Lot de création — %1 note(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Métadonnées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

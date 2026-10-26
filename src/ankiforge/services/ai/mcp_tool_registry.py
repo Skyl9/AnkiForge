@@ -471,36 +471,19 @@ class MCPToolRegistry:
 
     @staticmethod
     def propose_cards_batch_refactor(refactors_json: str | list[dict[str, Any]], title: str = "", reason: str = "") -> str:
-        """Garde-fou : Propose la refactorisation atomique d'un lot de cartes sous forme de Staged Bundle multi-étapes."""
+        """Garde-fou : Propose la refactorisation atomique d'un lot de cartes sous forme de Staged Bundle multi-étapes.
+
+        Plafond dur de sécurité : maximum 100 cartes et 32 000 caractères par appel (bornes cumulatives).
+        Recommandation : fractionner en sous-lots de 5 à 8 cartes (≈ 8 000 caractères) sur un Staged Bundle ouvert.
+        """
         from ankiforge.database.models import NoteModel, NoteVersionModel
+        from ankiforge.services.ai.mcp_batch_safeguard import MCPBatchSafeguard
         from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 
         try:
-            if isinstance(refactors_json, str):
-                refactors_data: Any = robust_json_loads(refactors_json)
-            else:
-                refactors_data = refactors_json
-
-            if not isinstance(refactors_data, list):
-                return json.dumps(
-                    {"status": "error", "message": "Le format d'entrée doit être une liste JSON d'objets de refactorisation."},
-                    ensure_ascii=False,
-                    indent=2,
-                )
-
-            # Contrôle strict du plafond volumétrique de sécurité (100 cartes)
-            if len(refactors_data) > 100:
-                return json.dumps(
-                    {
-                        "status": "error",
-                        "message": (
-                            f"Plafond de sécurité dépassé : {len(refactors_data)} cartes demandées (limite stricte : 100 cartes par appel). "
-                            "Veuillez scinder la requête en plusieurs sous-lots de 50 à 100 cartes."
-                        ),
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                )
+            refactors_data, err_json = MCPBatchSafeguard.validate_batch_payload("propose_cards_batch_refactor", refactors_json)
+            if err_json is not None or refactors_data is None:
+                return err_json or json.dumps({"status": "error", "message": "Échec de validation du lot."}, ensure_ascii=False)
 
             if not refactors_data:
                 return json.dumps(
@@ -1022,6 +1005,14 @@ class MCPToolRegistry:
         from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 
         result = StagedPatchRegistry.apply_staged_patch(patch_id.strip())
+        return json.dumps(result, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def abort_staged_patch(patch_id: str, reason: str = "") -> str:
+        """Annule un patch staged précis sans purger son bundle ni ses patches frères."""
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        result = StagedPatchRegistry.abort_staged_patch(patch_id.strip(), reason=reason)
         return json.dumps(result, ensure_ascii=False, indent=2)
 
     @staticmethod
@@ -4156,6 +4147,21 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "patch_id": {"type": "string", "description": "Identifiant unique du patch (ex: 'patch_4b84720930')"},
+                },
+                "required": ["patch_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "abort_staged_patch",
+            "description": "Annule un patch chirurgical staged précis sans purger son bundle ni ses patches frères.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "patch_id": {"type": "string", "description": "Identifiant unique du patch à annuler"},
+                    "reason": {"type": "string", "description": "Raison de l'annulation (optionnelle)"},
                 },
                 "required": ["patch_id"],
             },

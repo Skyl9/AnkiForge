@@ -7,4 +7,5 @@ Contraintes que l'agent doit anticiper en amont (pas celles appliquées par le s
 - Utiliser `list_card_models_manifest` pour découvrir les types de notes disponibles avant toute création.
 - Éviter les doublons : passer par `find_duplicate_cards` et `audit_deck_wozniak` avant de proposer un refactoring.
 - Ne jamais supposer l'existence d'un champ ou d'un deck : interroger le serveur via `list_note_types` / `list_decks`.
+- **Plafond dur volumétrique des lots (ADR 0048)** : `create_notes_batch` et `propose_cards_batch_refactor` appliquent un plafond strict de **100 notes** et **32 000 caractères** par appel. En cas de dépassement ou de JSON tronqué, le serveur refuse immédiatement la requête (`PAYLOAD_TOO_LARGE`, `INVALID_JSON`, `TOO_MANY_NOTES`) sans écrire d'état partiel. Fractionne toujours en **sous-lots de 5 à 8 notes (≈ 8 000 caractères)** sur un Staged Bundle ouvert.
 - En début de session, appeler `init_agent_workspace` pour t'assurer que ce guide est à jour.

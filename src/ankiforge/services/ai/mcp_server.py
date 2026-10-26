@@ -325,7 +325,11 @@ def propose_card_refactor(note_id: int, new_fields_json: str, explanation: str =
 
 @mcp.tool()
 def propose_cards_batch_refactor(refactors_json: str, title: str = "", reason: str = "") -> str:
-    """Garde-fou : Propose la refactorisation atomique d'un lot de cartes (jusqu'à 100) sous forme de Staged Bundle multi-étapes."""
+    """Garde-fou : Propose la refactorisation atomique d'un lot de cartes sous forme de Staged Bundle multi-étapes.
+
+    Plafond dur de sécurité : maximum 100 cartes et 32 000 caractères par appel (bornes cumulatives).
+    Recommandation : fractionner en sous-lots de 5 à 8 cartes (≈ 8 000 caractères) sur un Staged Bundle ouvert.
+    """
     return MCPToolRegistry.propose_cards_batch_refactor(refactors_json=refactors_json, title=title, reason=reason)
 
 
@@ -397,6 +401,16 @@ def apply_patch(
 def preview_and_apply_patch(patch_id: str) -> str:
     """Valide et applique un patch chirurgical en attente (Two-Phase Commit) avec vérification de version optimiste."""
     return MCPToolRegistry.preview_and_apply_patch(patch_id)
+
+
+@mcp.tool()
+def abort_staged_patch(patch_id: str, reason: str = "") -> str:
+    """Annule un patch staged précis sans purger son bundle ni ses patches frères."""
+    try:
+        return MCPToolRegistry.abort_staged_patch(patch_id=patch_id, reason=reason)
+    except Exception as e:
+        logger.error("Erreur abort_staged_patch : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
 
 
 @mcp.tool()
@@ -874,17 +888,24 @@ def create_notes_batch(
     default_note_type: str = "",
     default_tags: str = "",
 ) -> str:
-    """Propose la création d'un lot de notes via un StagedPatch groupé atomique (Two-Phase Commit, validation Tout-ou-Rien)."""
+    """Propose la création d'un lot de notes via un StagedPatch groupé atomique (Two-Phase Commit, validation Tout-ou-Rien).
+
+    Plafond dur de sécurité : maximum 100 notes et 32 000 caractères par appel (bornes cumulatives).
+    Recommandation : fractionner en sous-lots de 5 à 8 notes (≈ 8 000 caractères) sur un Staged Bundle ouvert.
+    """
     try:
+        from ankiforge.services.ai.mcp_batch_safeguard import MCPBatchSafeguard
         from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 
-        try:
-            notes_raw = json.loads(notes_json) if isinstance(notes_json, str) else notes_json
-        except Exception as e:
-            return json.dumps({"status": "error", "message": f"Format JSON invalide pour notes_json : {e}"}, ensure_ascii=False)
+        notes_raw, err_json = MCPBatchSafeguard.validate_batch_payload("create_notes_batch", notes_json)
+        if err_json is not None or notes_raw is None:
+            return err_json or json.dumps({"status": "error", "message": "Échec de validation du lot."}, ensure_ascii=False)
 
-        if not isinstance(notes_raw, list) or not notes_raw:
-            return json.dumps({"status": "error", "message": "notes_json doit être une liste JSON non vide de notes."}, ensure_ascii=False)
+        if not notes_raw:
+            return json.dumps(
+                {"status": "error", "message": "notes_json doit être une liste JSON non vide de notes."},
+                ensure_ascii=False,
+            )
 
         def_tags_list = [t.strip() for t in default_tags.split(",") if t.strip()] if isinstance(default_tags, str) else list(default_tags)
 

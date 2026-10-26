@@ -954,6 +954,34 @@ class StagedPatchRegistry:
         }
 
     @classmethod
+    def abort_staged_patch(cls, patch_id: str, reason: str = "") -> dict[str, Any]:
+        """Annule un patch staged précis sans modifier ses éventuels patches frères."""
+        patch = cls.get_patch(patch_id)
+        if not patch:
+            return {"status": "error", "message": f"Patch '{patch_id}' introuvable."}
+
+        if patch.status != "pending":
+            return {
+                "status": "error",
+                "patch_id": patch.patch_id,
+                "message": f"Le patch '{patch.patch_id}' ne peut pas être annulé (statut actuel: {patch.status}).",
+            }
+
+        bundle_id = patch.bundle.bundle_id if patch.bundle else None
+        with db.atomic():
+            patch.status = "aborted"
+            patch.save()
+
+        logger.info("Patch annulé : %s (raison: %s)", patch.patch_id, reason)
+        return {
+            "status": "aborted",
+            "patch_id": patch.patch_id,
+            "bundle_id": bundle_id,
+            "reason": reason,
+            "message": f"Le patch '{patch.patch_id}' a été annulé.",
+        }
+
+    @classmethod
     def sync_direct_edit(cls, patch_id: str, new_modified: Any) -> bool:
         """Met à jour le contenu proposé (modified ou payload complet) dans le diff_payload d'un patch en attente."""
         patch = cls.get_patch(patch_id)

@@ -3,6 +3,9 @@
 > **💡 Bonne pratique — Débruitage Markdown avant génération de cartes :**
 > Avant de générer des cartes, restructure le contenu source en Markdown propre pour éliminer le bruit (artefacts OCR, en-têtes/pieds de page parasites, numérotation résiduelle, formules mal extraites) et focaliser l'extraction sur le contenu pertinent. Si les concepts de la source sont flous ou approximatifs, produis un résumé structuré qui les clarifie. Cette étape intermédiaire de structuration Markdown améliore significativement la qualité, la précision et la couverture des cartes générées par rapport à une extraction JSON directe.
 
+> **⚡ Traitement par lot et sous-lots de génération (ADR 0048) :**
+> Les outils de lot (`create_notes_batch`, `propose_cards_batch_refactor`) appliquent un **plafond dur cumulatif de 100 notes et 32 000 caractères** d'argument. Pour prévenir toute troncature en amont (saturation de sortie du modèle ou coupure client), génère toujours par **sous-lots de 5 à 8 notes (≈ 8 000 caractères)**. Ouvre préalablement un bundle via `begin_staged_bundle`, enchaîne les sous-lots successifs sur ce même bundle ouvert, puis finalise avec `commit_staged_bundle`. Ne réémets jamais un lot refusé à l'identique : fractionne-le immédiatement en sous-lots plus réduits.
+
 Les séquences ci-dessous décrivent l'enchaînement optimal des outils pour les tâches les plus fréquentes. Respecte l'ordre indiqué et prévois toujours l'étape `apply_patch` lorsque des notes sont modifiées (Two-Phase Commit / StagedPatch).
 
 1. 🎴 **Création de cartes** : `list_decks` → `create_deck` → `list_note_types` → `create_note` / `create_notes_batch` → `apply_patch`

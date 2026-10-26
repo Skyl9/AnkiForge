@@ -162,6 +162,56 @@ def test_reject_staged_patch(sample_data):
     assert active_v.id == v1.id
 
 
+def test_abort_staged_patch_is_unitary(sample_data):
+    """Vérifie l'annulation MCP d'un patch sans suppression du bundle ni des patches frères."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Annulation Unitaire")
+    first_patch = StagedPatchRegistry.create_patch(patch_type="card", diff_payload={"modified": {"Back": "Paris"}})
+    sibling_patch = StagedPatchRegistry.create_patch(patch_type="card", diff_payload={"modified": {"Back": "Lyon"}})
+    StagedPatchRegistry.commit_bundle(bundle_id)
+
+    result = StagedPatchRegistry.abort_staged_patch(first_patch.patch_id, reason="Correction ciblée")
+
+    assert result == {
+        "status": "aborted",
+        "patch_id": first_patch.patch_id,
+        "bundle_id": bundle_id,
+        "reason": "Correction ciblée",
+        "message": f"Le patch '{first_patch.patch_id}' a été annulé.",
+    }
+    assert StagedPatchRegistry.get_patch(first_patch.patch_id).status == "aborted"
+    assert StagedPatchRegistry.get_patch(sibling_patch.patch_id).status == "pending"
+
+
+def test_abort_staged_patch_tool_returns_structured_result(sample_data):
+    """Vérifie l'exposition FastMCP de l'annulation unitaire."""
+    import asyncio
+
+    patch = StagedPatchRegistry.create_patch(patch_type="card", diff_payload={"modified": {"Back": "Paris"}})
+
+    async def _run():
+        raw_result = await mcp.call_tool("abort_staged_patch", {"patch_id": patch.patch_id, "reason": "Invalidé"})
+        return json.loads(raw_result.content[0].text)
+
+    result = asyncio.run(_run())
+
+    assert result["status"] == "aborted"
+    assert result["patch_id"] == patch.patch_id
+    assert result["reason"] == "Invalidé"
+
+
+def test_abort_staged_patch_rejects_missing_or_terminal_patch(sample_data):
+    """Vérifie les erreurs explicites pour un patch inexistant ou déjà annulé."""
+    missing_result = StagedPatchRegistry.abort_staged_patch("patch_missing")
+    assert missing_result["status"] == "error"
+    assert "introuvable" in missing_result["message"]
+
+    patch = StagedPatchRegistry.create_patch(patch_type="card", diff_payload={"modified": {"Back": "Paris"}})
+    StagedPatchRegistry.abort_staged_patch(patch.patch_id)
+    terminal_result = StagedPatchRegistry.abort_staged_patch(patch.patch_id)
+    assert terminal_result["status"] == "error"
+    assert "aborted" in terminal_result["message"]
+
+
 def test_list_pending_exposes_only_pending_patches(sample_data):
     """list_pending() n'expose que les patchs encore en attente, du plus ancien au plus récent."""
     note = sample_data["note"]
