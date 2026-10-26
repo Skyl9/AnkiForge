@@ -161,6 +161,10 @@ def test_tool_schemas_pagination_and_apply_patch():
     assert "limit" in gc["parameters"]["properties"]
     assert "offset" in gc["parameters"]["properties"]
 
+    flagged = tools_by_name["get_flagged_cards"]
+    assert flagged["parameters"]["properties"]["flag"]["type"] == ["string", "integer"]
+    assert flagged["parameters"]["required"] == ["flag"]
+
     # 4. apply_patch
     assert "apply_patch" in tools_by_name
     ap = tools_by_name["apply_patch"]

@@ -668,6 +668,11 @@ class MCPToolRegistry:
                 indent=2,
             )
         except Exception as e:
+            if auto_seal and bundle_id:
+                try:
+                    StagedPatchRegistry.abort_bundle(bundle_id)
+                except Exception:
+                    pass
             logger.error("Erreur propose_cards_batch_refactor : %s", e)
             return json.dumps(
                 {"status": "error", "message": f"Erreur lors de la préparation de la refactorisation par lot : {e}"},
@@ -2164,7 +2169,8 @@ class MCPToolRegistry:
                     flag_name = next((name for name, value in flag_map.items() if value == flag_value), None)
                 else:
                     flag_name = normalized_flag
-                    flag_value = flag_map.get(flag_name)
+                    mapped_val = flag_map.get(flag_name)
+                    flag_value = mapped_val if mapped_val is not None else -1
             else:
                 raise ValueError("Le drapeau doit être une couleur ou un entier de 0 à 7.")
 

@@ -7,9 +7,11 @@ des outils clés.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from ankiforge.database.models import DeckModel
+from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.ai.mcp_tool_registry import (
     MCP_TOOLS,
     ConsultantToolRegistry,
@@ -32,6 +34,31 @@ def test_mcp_tool_registry_alias_and_catalogue():
     assert "list_pipelines" in tool_names
     assert "list_albums" in tool_names
     assert "search_app_documentation" in tool_names
+    assert "get_flagged_cards" in tool_names
+
+
+def test_mcp_tool_registry_get_flagged_cards(mock_db):
+    """Retourne les cartes par couleur ou valeur, sans exclure les suspendues."""
+    note_type = NoteTypeModel.create(name="Flagged NT", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    deck = DeckModel.create(name="Flagged Deck")
+    subdeck = DeckModel.create(name="Flagged Deck::Child")
+    note = NoteModel.create(guid="flagged-guid", note_type=note_type, tags="")
+    NoteVersionModel.create(note=note, version_number=1, is_active=True, content='{"Front": "Question", "Back": "Réponse"}')
+    red_card = CardModel.create(note=note, deck=deck, flags=1, is_suspended=True)
+    CardModel.create(note=note, deck=subdeck, flags=1)
+    CardModel.create(note=note, deck=deck, flags=0)
+
+    by_name = json.loads(MCPToolRegistry.get_flagged_cards("RED", deck_name=deck.name))
+    by_value = json.loads(MCPToolRegistry.get_flagged_cards(1, deck_name=deck.name))
+
+    assert by_name == by_value
+    assert by_name["total"] == 1
+    assert by_name["items"][0]["card_id"] == red_card.id
+    assert by_name["items"][0]["fields"]["Front"] == "Question"
+    assert by_name["items"][0]["flag"] == "red"
+    assert json.loads(MCPToolRegistry.get_flagged_cards("none", deck_name=deck.name))["total"] == 1
+    assert json.loads(MCPToolRegistry.get_flagged_cards("purple"))["items"] == []
+    assert json.loads(MCPToolRegistry.get_flagged_cards("magenta"))["status"] == "error"
 
 
 def test_mcp_tool_registry_get_deck_stats(mock_db):
