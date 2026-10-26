@@ -193,6 +193,16 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Cause racine** : Biais d'obéissance aveugle au ticket où l'agent d'implémentation adopte la chaîne textuelle du ticket sans vérifier son existence matérielle dans le dépôt.
 - **Remédiation** : Toute référence d'icône dans un ticket doit être validée contre le manifeste réel `src/ressources/icons_manifest.txt` avant implémentation. En cas d'absence, l'icône canonique existante la plus proche doit être substituée immédiatement et le critère d'acceptation du ticket mis à jour.
 
+### T-35 : Caractères Réservés Unix et Slash dans les Titres de Tickets Obsidian (Slash in Ticket Note Names)
+- **Symptôme** : Un ticket créé ou référencé avec un slash dans son libellé (ex: `... (vue tabulaire / pagination unitaire).md`) scinde le chemin de fichier sur le système de fichiers Unix/macOS, générant un sous-dossier parasite non valide et rendant le ticket tronqué ou inatteignable.
+- **Cause racine** : En Unix/POSIX et dans les wikilinks Obsidian, le caractère `/` est réservé comme séparateur de sous-répertoire.
+- **Remédiation** : Interdiction formelle d'inclure des caractères séparateurs de chemin (`/`, `\`, `:`) dans les titres et noms de fichiers Markdown sous `ankiforge_obsidian/Tickets/`. Remplacer systématiquement par un tiret `-` ou une virgule. Règle inscrite dans `obsidian-vault/SKILL.md` et `to-tickets/SKILL.md`.
+
+### T-36 : Capture Indifférenciée des Requêtes SQL Peewee en Test de Journalisation Sentinelle (Peewee SQL Query Leaks on `caplog`)
+- **Symptôme** : Un test validant qu'une valeur sentinelle secrète ou un contenu de carte ne fuite pas dans les logs (`assert sentinel not in caplog.text`) échoue avec une fausse fuite parce que `caplog.set_level(logging.DEBUG)` capture les requêtes SQL `INSERT INTO ...` brutes émises par le logger racine de `peewee`.
+- **Cause racine** : Au niveau `DEBUG`, le logger Peewee trace l'intégralité du texte SQL de chaque insertion, ce qui n'a rien à voir avec les logs applicatifs du service testé.
+- **Remédiation** : Dans tout test d'audit de fuite de logs par sentinelle, cibler explicitement les records du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankiforge.<service>")]`), ou isoler/désactiver le logger Peewee (`logging.getLogger("peewee").setLevel(logging.INFO)`). Règle inscrite dans `verification-environnement/SKILL.md` et `implement/SKILL.md`.
+
 ---
 
 ## 2. Matrice d'Évolution des Compétences Post-Incident
@@ -232,4 +242,6 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Décalage `.ts` après `ruff format` (`T-32`) | Ordre séquentiel strict : `ruff format` D'ABORD, puis `extract_translations.py` | `implement/SKILL.md`, `verification-environnement/SKILL.md` |
 | Table virtuelle vide en test unitaire (`T-33`) | Appel obligatoire de `view.refresh_data()` avant simulation d'interaction de cellule | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
 | Hallucination d'icône dans un ticket (`T-34`) | Validation préalable contre `src/ressources/icons_manifest.txt` | `implement/SKILL.md`, `ui-pyside6-design/SKILL.md` |
+| Caractères slash dans les titres Obsidian (`T-35`) | Bannir `/` et `:` des noms de fichiers de tickets et wikilinks | `obsidian-vault/SKILL.md`, `to-tickets/SKILL.md` |
+| Faux positif de fuite sur requêtes SQL Peewee (`T-36`) | Filtrer sur le logger applicatif `ankiforge.*` en test de sentinelle caplog | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

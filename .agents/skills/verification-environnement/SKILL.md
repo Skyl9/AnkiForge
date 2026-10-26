@@ -112,6 +112,10 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
     - *Pourquoi* : Les spécifications ou tickets rédigés en amont peuvent recommander une icône intuitive mais absente du catalogue physique Phosphor Icons embarqué dans le projet (ex: `sort-ascending` au lieu de `funnel`). Adopter aveuglément cette suggestion provoque des anomalies visuelles ou des échecs d'audit d'icônes.
     - *Garantie automatique* : Toujours confronter le nom de l'icône prescrite au manifeste `src/ressources/icons_manifest.txt` et substituer immédiatement l'icône canonique existante la plus proche.
 
+26. **Isolation du logger Peewee SQL en test de sentinelle caplog (`T-36`)** :
+    - *Pourquoi* : Dans les tests vérifiant l'absence de fuite de données sensibles ou de contenu de cartes dans les logs (`assert sentinel not in caplog.text`), l'activation de `caplog.set_level(logging.DEBUG)` capture les requêtes SQL `INSERT INTO ...` générées par Peewee qui contiennent littéralement les valeurs des colonnes enregistrées en base. Cette capture produit des faux positifs d'audit de fuite en confondant le traçage SQL avec les journaux applicatifs.
+    - *Garantie automatique* : Dans tout test d'audit de fuite de logs par sentinelle, filtrer explicitement sur les enregistrements du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankiforge.<service>")]`) ou isoler le logger Peewee (`logging.getLogger("peewee").setLevel(logging.INFO)`).
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :
