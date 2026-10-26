@@ -27,6 +27,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : fiche, item
 - **Carte** : l'unité de révision dérivée d'une note à partir d'un gabarit de son type de note. Elle appartient à un paquet et **héberge** les compteurs SRS d'observation (`ivl`, `reps`, `lapses`, drapeaux, suspension) importés d'Anki, dont l'ordonnancement relève exclusivement d'Anki (voir *Ordonnancement*).
   _Avoid_ : flashcard, question, verso
+- **Drapeau de carte** : marqueur de couleur porté par une carte Anki, représenté par une valeur canonique de `0` à `7` (`none`, `red`, `orange`, `green`, `blue`, `pink`, `turquoise`, `purple`). Un filtrage par drapeau peut viser une couleur ou sa valeur numérique, sans modifier l'état d'ordonnancement de la carte.
+  _Avoid_ : couleur de note, tag de couleur, statut de carte
 - **Carte sangsue (ou Sangsue)** : carte dont le nombre d'échecs répétés lors des révisions (`lapses`) atteint ou dépasse le seuil critique configuré, signalant une anomalie cognitive ou de formulation (surcharge informationnelle, ambiguïté, interférence) nécessitant un diagnostic et une scission atomique.
   _Avoid_ : carte difficile, carte échouée, leech, mauvaise carte
 - **Rôle IA (d'un type de note)** : directive sémantique et heuristique attachée à un type de note (`NoteTypeModel.description`), injectée dans la balise `{{ available_card_models }}` des prompts d'extraction pour orienter le choix du type de note le plus pertinent face à chaque concept identifié.
@@ -272,6 +274,15 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : mock bdd, base virtuelle, shadow db
 - **Règle d'arrêt en cascade (Fail-Fast Reject)** : principe d'intégrité selon lequel le rejet d'une étape d'un Staged Bundle entraîne automatiquement l'annulation et le rejet de la totalité des étapes subséquentes de ce bloc.
   _Avoid_ : rejet partiel libre, saut d'étape défaillante
+- **Refactorisation par lot (Batch Cards Refactor)** : opération atomique permettant à un agent externe de soumettre en un seul appel MCP (`propose_cards_batch_refactor`) une campagne de refactorisation ciblant jusqu'à 100 cartes, matérialisée sous forme d'un `Staged Bundle` multi-étapes dont chaque note constitue une étape unitaire inspectable et éditable dans le Garde-Fou.
+  _Avoid_ : refactor en masse direct, batch update sauvage, modification non-staged
+- **Troncature d'arguments tool-call** : altération d'un appel d'outil MCP se produisant en amont de la trame JSON-RPC, lorsque le modèle ou le client interrompt la génération de l'argument textuel (`notes_json`, `refactors_json`) avant sa fermeture ; l'outil reçoit alors un JSON incomplet et doit le refuser explicitement plutôt que tenter une réparation silencieuse.
+  _Avoid_ : buffer JSON-RPC plafonné à 10k, limite de transport, payload coupé par AnkiForge, requête tronquée côté serveur
+- **Plafond volumétrique serveur (Garde-fou de lot)** : double borne appliquée par le serveur MCP avant toute mise en attente, combinant un nombre maximal de notes et un volume textuel maximal par appel (100 notes et 32 000 caractères) ; tout dépassement d'une seule des deux bornes produit un refus structuré et immédiat, sans état partiel.
+  _Avoid_ : limite de buffer, quota de message, taille maximale du JSON-RPC
+- **Sous-lot de génération** : fraction d'un lot cible dimensionnée pour rester dans la fenêtre de génération fiable de l'agent appelant (recommandation de 5 à 8 notes et 8 000 caractères), successivement soumise via des appels MCP distincts sur un même Staged Bundle maintenu ouvert.
+  _Avoid_ : mini-batch, chunk réseau, lot technique, pagination d'écriture
+
 
 
 
@@ -407,7 +418,6 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : cycle ternaire imprévisible, perte de tri au 3e clic
 - **Clé de départage déterministe (Secondary Sort Key)** : tri secondaire SQL automatique appliqué lors des égalités sur le critère principal (ex. même paquet, même type de note ou même couleur de drapeau), ordonnant secondairement par `sort_field` (A → Z) puis par date de création (`id` décroissant).
   _Avoid_ : ordre indéterminé SQLite, pagination vacillante
-
 
 
 
