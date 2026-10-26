@@ -1194,6 +1194,7 @@ class StagedPatchRegistry:
             return {"status": "error", "message": f"Aucune étape en attente à appliquer dans le bundle '{b_id}'."}
 
         applied_count = 0
+        terminal_count = StagedPatchModel.select().where((StagedPatchModel.bundle == bundle) & (StagedPatchModel.status.in_(("aborted", "rejected")))).count()
         with db.atomic() as txn:
             for p in patches:
                 res = cls.apply_staged_patch(p.patch_id)
@@ -1207,15 +1208,16 @@ class StagedPatchRegistry:
                     }
                 applied_count += 1
 
-            bundle.status = "applied"
+            bundle.status = "partial" if terminal_count else "applied"
             bundle.applied_at = datetime.datetime.now()
             bundle.current_step = bundle.total_steps + 1
             bundle.save()
 
         return {
-            "status": "applied",
+            "status": "partial" if terminal_count else "applied",
             "bundle_id": b_id,
             "applied_steps_count": applied_count,
+            "aborted_or_rejected_steps_count": terminal_count,
         }
 
     @classmethod

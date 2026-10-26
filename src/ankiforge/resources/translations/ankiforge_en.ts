@@ -1285,7 +1285,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1898"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1904"/>
         <source>%1 / %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4634,7 +4634,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+10"/>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-300"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-306"/>
         <location line="+2"/>
         <source>%1 mots</source>
         <translation type="unfinished"></translation>
@@ -5925,7 +5925,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+10"/>
         <source>Tags du lot</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5935,12 +5935,13 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+18"/>
         <source>Lot de création — %1 note(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="+32"/>
+        <location line="+33"/>
         <source>Métadonnées</source>
         <translation type="unfinished"></translation>
     </message>

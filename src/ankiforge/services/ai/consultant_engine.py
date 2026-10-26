@@ -243,7 +243,7 @@ class ConsultantEngine:
             elif tool_name == "abort_staged_patch":
                 patch_id_str = str(tool_args.get("patch_id", "")).strip()
                 abort_reason = str(tool_args.get("reason", ""))
-                return json.dumps(ConsultantToolRegistry.abort_staged_patch(patch_id_str, abort_reason), ensure_ascii=False), False
+                return ConsultantToolRegistry.abort_staged_patch(patch_id_str, abort_reason), False
             elif tool_name == "apply_patch":
                 p_json = tool_args.get("patch_json", "")
                 p_type = tool_args.get("patch_type", "")

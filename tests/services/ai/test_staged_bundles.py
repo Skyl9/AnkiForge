@@ -221,6 +221,25 @@ def test_bundle_atomic_apply_all(test_setup):
     assert DeckModel.get_or_none(DeckModel.name == "Chimie::Organique") is not None
 
 
+def test_bundle_apply_all_reports_partial_after_unit_abort(test_setup):
+    """Vérifie qu'un bundle contenant un patch annulé n'est jamais déclaré entièrement appliqué."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Partiel après Annulation")
+    first_patch = StagedPatchRegistry.create_patch(patch_type="deck_create", diff_payload={"deck_name": "Deck Annulé"})
+    StagedPatchRegistry.create_patch(patch_type="deck_create", diff_payload={"deck_name": "Deck Conservé"})
+    StagedPatchRegistry.commit_bundle(bundle_id)
+    StagedPatchRegistry.abort_staged_patch(first_patch.patch_id, reason="Suppression ciblée")
+
+    result = StagedPatchRegistry.apply_bundle_all(bundle_id)
+
+    assert result["status"] == "partial"
+    assert result["applied_steps_count"] == 1
+    assert result["aborted_or_rejected_steps_count"] == 1
+    bundle = StagedBundleModel.get(StagedBundleModel.bundle_id == bundle_id)
+    assert bundle.status == "partial"
+    assert DeckModel.get_or_none(DeckModel.name == "Deck Annulé") is None
+    assert DeckModel.get_or_none(DeckModel.name == "Deck Conservé") is not None
+
+
 def test_mcp_fastmcp_bundle_endpoints(test_setup):
     """Vérifie les endpoints FastMCP : begin, create_deck, create_note avec overlay, inspect, commit."""
     nt = test_setup["note_type"]

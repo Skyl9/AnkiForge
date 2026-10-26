@@ -2189,6 +2189,7 @@ class BatchNoteCreateView(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked | QTableWidget.EditTrigger.SelectedClicked)
         self.table.verticalHeader().setVisible(False)
         self.table.setAlternatingRowColors(True)
+        self.table.cellChanged.connect(self._on_cell_changed)
         layout.addWidget(self.table)
 
         tags_header = QHBoxLayout()
@@ -2210,12 +2211,16 @@ class BatchNoteCreateView(QWidget):
         self._patch_payload = payload or {}
         notes = payload.get("notes") or payload.get("modified", {}).get("notes") or []
         if isinstance(notes, list):
-            self._notes = [n for n in notes if isinstance(n, dict)]
+            self._notes = [dict(n) if isinstance(n, dict) else n for n in notes if isinstance(n, dict)]
         else:
             self._notes = []
+        if isinstance(self._patch_payload.get("notes"), list) or "notes" not in self._patch_payload:
+            self._patch_payload["notes"] = self._notes
+        if isinstance(self._patch_payload.get("modified"), dict):
+            self._patch_payload["modified"]["notes"] = self._notes
         self._current_index = 0
         self.lbl_title.setText(tr("Lot de création — %1 note(s)", len(self._notes)))
-        tags = payload.get("tags") or payload.get("default_tags") or []
+        tags = payload.get("tags") or payload.get("default_tags") or payload.get("modified", {}).get("tags") or []
         if isinstance(tags, list):
             self.tags_edit.setText(", ".join(str(t) for t in tags))
         elif isinstance(tags, str):
@@ -2225,11 +2230,13 @@ class BatchNoteCreateView(QWidget):
         self._render_current()
 
     def _render_current(self) -> None:
+        self.table.blockSignals(True)
         self.table.clearContents()
         self.lbl_count.setText(tr("%1 / %2", self._current_index + 1, max(1, len(self._notes))))
         self._update_nav()
         if not self._notes:
             self.table.setRowCount(0)
+            self.table.blockSignals(False)
             return
         note = self._notes[self._current_index]
         fields = note.get("fields") or {}
@@ -2238,14 +2245,18 @@ class BatchNoteCreateView(QWidget):
         rows = list(fields.items())
         self.table.setRowCount(len(rows))
         for r, (k, v) in enumerate(rows):
-            self.table.setItem(r, 0, QTableWidgetItem(str(k)))
+            key_item = QTableWidgetItem(str(k))
+            key_item.setFlags(key_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.table.setItem(r, 0, key_item)
             self.table.setItem(r, 1, QTableWidgetItem(str(v)))
         info_item = QTableWidgetItem(f"Type: {note.get('note_type', '')} | Deck: {note.get('deck', '')}")
         self.table.setRowCount(len(rows) + 1)
-        self.table.setItem(len(rows), 0, QTableWidgetItem(tr("Métadonnées")))
+        meta_key = QTableWidgetItem(tr("Métadonnées"))
+        meta_key.setFlags(meta_key.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        self.table.setItem(len(rows), 0, meta_key)
         self.table.setItem(len(rows), 1, info_item)
-        self.table.item(len(rows), 0).setFlags(self.table.item(len(rows), 0).flags() & ~Qt.ItemFlag.ItemIsEditable)
         self.table.item(len(rows), 1).setFlags(self.table.item(len(rows), 1).flags() & ~Qt.ItemFlag.ItemIsEditable)
+        self.table.blockSignals(False)
 
     def _update_nav(self) -> None:
         total = len(self._notes)
@@ -2261,6 +2272,34 @@ class BatchNoteCreateView(QWidget):
         if self._current_index < len(self._notes) - 1:
             self._current_index += 1
             self._render_current()
+
+    def _on_cell_changed(self, row: int, column: int) -> None:
+        if not self._notes or column != 1:
+            return
+        if self._current_index < 0 or self._current_index >= len(self._notes):
+            return
+        note = self._notes[self._current_index]
+        fields = note.get("fields") if isinstance(note.get("fields"), dict) else {}
+        item_key = self.table.item(row, 0)
+        if not item_key:
+            return
+        key = item_key.text()
+        if key == tr("Métadonnées"):
+            return
+        item_val = self.table.item(row, column)
+        if not item_val:
+            return
+        fields[key] = item_val.text()
+        note["fields"] = fields
+        self._notes[self._current_index] = note
+        if "notes" not in self._patch_payload or not isinstance(self._patch_payload.get("notes"), list):
+            self._patch_payload["notes"] = self._notes
+        else:
+            self._patch_payload["notes"] = self._notes
+        if "modified" not in self._patch_payload or not isinstance(self._patch_payload.get("modified"), dict):
+            self._patch_payload["modified"] = {}
+        self._patch_payload["modified"]["notes"] = self._notes
+        self.content_changed.emit(self._patch_payload)
 
     def _on_tags_changed(self, text: str) -> None:
         tags = [t.strip() for t in text.split(",") if t.strip()]
