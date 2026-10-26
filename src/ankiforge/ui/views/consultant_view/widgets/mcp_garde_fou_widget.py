@@ -696,7 +696,10 @@ class MCPGardeFouWidget(QWidget):
         self.lbl_detail_meta.setText(meta_str)
 
         # Routage vers la page polymorphe du QStackedWidget
-        if p_type in ("deck_create", "create_deck", "deck_rename", "rename_deck"):
+        if p_type == "batch_note_create":
+            self.polymorphic_stack.setCurrentIndex(0)
+            self.diff_viewer.set_patch(patch)
+        elif p_type in ("deck_create", "create_deck", "deck_rename", "rename_deck"):
             self.polymorphic_stack.setCurrentIndex(1)
             self.deck_view.set_patch(patch)
         elif p_type in ("set_tags", "set_tags_bulk", "tag_add", "tag_remove", "tags") or (isinstance(payload, dict) and ("tags_added" in payload or "tags_removed" in payload)):
@@ -711,6 +714,13 @@ class MCPGardeFouWidget(QWidget):
 
     def _get_current_modified_content(self) -> Any:
         """Extrait le contenu retouché de la vue polymorphe active."""
+        if self._current_patch and getattr(self._current_patch, "patch_type", "").lower() == "batch_note_create" and hasattr(self, "diff_viewer"):
+            try:
+                res = self.diff_viewer.get_modified_content()
+                if res is not None:
+                    return res
+            except Exception:
+                pass
         idx = self.polymorphic_stack.currentIndex()
         if idx == 0:
             return self.diff_viewer.get_modified_content()

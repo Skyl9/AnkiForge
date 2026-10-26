@@ -24,6 +24,8 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSplitter,
     QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
     QTabWidget,
     QTextBrowser,
     QVBoxLayout,
@@ -365,6 +367,7 @@ class CardSemanticDiffWidget(QWidget):
         self._tags_row: FieldSemanticDiffRow | None = None
         self._create_template_editors: list[tuple[QLineEdit, QPlainTextEdit, QPlainTextEdit]] = []
         self._mapping_combos: dict[str, StyledComboBox] = {}
+        self._batch_view: BatchNoteCreateView | None = None
 
         self._setup_ui()
 
@@ -814,6 +817,28 @@ class CardSemanticDiffWidget(QWidget):
         self.model_layout.addStretch()
         self._refresh_preview()
 
+    def _setup_batch_note_create_view(self, payload: dict[str, Any]) -> None:
+        if hasattr(self, "diff_stack"):
+            self.diff_stack.setCurrentIndex(1)
+        if hasattr(self, "tab_widget"):
+            self.tab_widget.setTabText(0, tr("Lot de création"))
+        while hasattr(self, "model_layout") and self.model_layout.count() > 0:
+            item = self.model_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+        if self._batch_view is None:
+            self._batch_view = BatchNoteCreateView()
+        if hasattr(self._batch_view, "set_payload"):
+            self._batch_view.set_payload(payload)
+        if hasattr(self, "model_layout"):
+            self.model_layout.addWidget(self._batch_view)
+            self.model_layout.addStretch()
+        try:
+            self._refresh_preview()
+        except Exception:
+            pass
+
     def set_patch(self, patch: StagedPatchModel | dict[str, Any]) -> None:
         """Extrait automatiquement les composantes d'un patch staged et configure le visualiseur."""
         if isinstance(patch, StagedPatchModel):
@@ -843,6 +868,13 @@ class CardSemanticDiffWidget(QWidget):
         # 1. Type Modèle de Note / CSS / Migration
         if p_type in ("note_type_create", "note_type_change", "model", "note_type", "css", "css_tune"):
             self.set_model_diff(p_type=p_type, payload=payload, target_id=target_id, is_applied=is_applied)
+            return
+
+        # 2b. Lot de création de notes
+        if p_type == "batch_note_create":
+            self._patch_type = p_type
+            self._is_applied = is_applied
+            self._setup_batch_note_create_view(payload)
             return
 
         # 2. Type Carte / Scission / Création unitaire ou par lot
@@ -1778,8 +1810,10 @@ class CardSemanticDiffWidget(QWidget):
         if index == 1:
             self._refresh_preview()
 
-    def get_modified_content(self) -> dict[str, Any] | list[dict[str, Any]] | str:
+    def get_modified_content(self) -> dict[str, Any] | list[dict[str, Any]] | str | None:
         """Retourne la structure complète modifiée (dict unitaire, liste de dicts scindés ou modèle)."""
+        if self._patch_type == "batch_note_create" and self._batch_view is not None and hasattr(self._batch_view, "get_modified_content"):
+            return self._batch_view.get_modified_content()
         if self._patch_type in ("split", "card_split") and self._split_cards:
             curr = dict(self._split_cards[self._active_split_index])
             for f_name, row in self._field_rows.items():
@@ -2107,3 +2141,134 @@ class CardSemanticDiffWidget(QWidget):
             self.preview_orig.cleanup()
         if hasattr(self, "preview_mod") and hasattr(self.preview_mod, "cleanup"):
             self.preview_mod.cleanup()
+
+
+class BatchNoteCreateView(QWidget):
+    """Vue tabulaire paginée pour les lots batch_note_create dans le Garde-Fou."""
+
+    content_changed = Signal(object)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._notes: list[dict[str, Any]] = []
+        self._current_index: int = 0
+        self._patch_payload: dict[str, Any] = {}
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        self.lbl_title = QLabel(tr("Lot de création — 0 note(s)"))
+        self.lbl_title.setStyleSheet(f"font-size: 12px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
+        header.addWidget(self.lbl_title)
+        header.addStretch()
+        self.lbl_count = QLabel(tr("0 / 0"))
+        self.lbl_count.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
+        header.addWidget(self.lbl_count)
+        layout.addLayout(header)
+
+        nav = QHBoxLayout()
+        nav.setContentsMargins(0, 0, 0, 0)
+        self.btn_prev = SecondaryButton(tr("Précédent"))
+        self.btn_prev.clicked.connect(self._go_prev)
+        self.btn_next = SecondaryButton(tr("Suivant"))
+        self.btn_next.clicked.connect(self._go_next)
+        nav.addWidget(self.btn_prev)
+        nav.addStretch()
+        nav.addWidget(self.btn_next)
+        layout.addLayout(nav)
+
+        self.table = QTableWidget()
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels([tr("Champ"), tr("Valeur")])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked | QTableWidget.EditTrigger.SelectedClicked)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setAlternatingRowColors(True)
+        layout.addWidget(self.table)
+
+        tags_header = QHBoxLayout()
+        tags_header.setContentsMargins(0, 4, 0, 0)
+        lbl_tags = QLabel(tr("Tags du lot"))
+        lbl_tags.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY};")
+        tags_header.addWidget(lbl_tags)
+        tags_header.addStretch()
+        layout.addLayout(tags_header)
+
+        self.tags_edit = QLineEdit()
+        self.tags_edit.setPlaceholderText(tr("tag1, tag2"))
+        self.tags_edit.textChanged.connect(self._on_tags_changed)
+        layout.addWidget(self.tags_edit)
+
+        self._update_nav()
+
+    def set_payload(self, payload: dict[str, Any]) -> None:
+        self._patch_payload = payload or {}
+        notes = payload.get("notes") or payload.get("modified", {}).get("notes") or []
+        if isinstance(notes, list):
+            self._notes = [n for n in notes if isinstance(n, dict)]
+        else:
+            self._notes = []
+        self._current_index = 0
+        self.lbl_title.setText(tr("Lot de création — %1 note(s)", len(self._notes)))
+        tags = payload.get("tags") or payload.get("default_tags") or []
+        if isinstance(tags, list):
+            self.tags_edit.setText(", ".join(str(t) for t in tags))
+        elif isinstance(tags, str):
+            self.tags_edit.setText(tags)
+        else:
+            self.tags_edit.setText("")
+        self._render_current()
+
+    def _render_current(self) -> None:
+        self.table.clearContents()
+        self.lbl_count.setText(tr("%1 / %2", self._current_index + 1, max(1, len(self._notes))))
+        self._update_nav()
+        if not self._notes:
+            self.table.setRowCount(0)
+            return
+        note = self._notes[self._current_index]
+        fields = note.get("fields") or {}
+        if not isinstance(fields, dict):
+            fields = {}
+        rows = list(fields.items())
+        self.table.setRowCount(len(rows))
+        for r, (k, v) in enumerate(rows):
+            self.table.setItem(r, 0, QTableWidgetItem(str(k)))
+            self.table.setItem(r, 1, QTableWidgetItem(str(v)))
+        info_item = QTableWidgetItem(f"Type: {note.get('note_type', '')} | Deck: {note.get('deck', '')}")
+        self.table.setRowCount(len(rows) + 1)
+        self.table.setItem(len(rows), 0, QTableWidgetItem(tr("Métadonnées")))
+        self.table.setItem(len(rows), 1, info_item)
+        self.table.item(len(rows), 0).setFlags(self.table.item(len(rows), 0).flags() & ~Qt.ItemFlag.ItemIsEditable)
+        self.table.item(len(rows), 1).setFlags(self.table.item(len(rows), 1).flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+    def _update_nav(self) -> None:
+        total = len(self._notes)
+        self.btn_prev.setEnabled(total > 1 and self._current_index > 0)
+        self.btn_next.setEnabled(total > 1 and self._current_index < total - 1)
+
+    def _go_prev(self) -> None:
+        if self._current_index > 0:
+            self._current_index -= 1
+            self._render_current()
+
+    def _go_next(self) -> None:
+        if self._current_index < len(self._notes) - 1:
+            self._current_index += 1
+            self._render_current()
+
+    def _on_tags_changed(self, text: str) -> None:
+        tags = [t.strip() for t in text.split(",") if t.strip()]
+        if "modified" not in self._patch_payload or not isinstance(self._patch_payload.get("modified"), dict):
+            self._patch_payload["modified"] = {}
+        self._patch_payload["modified"]["tags"] = tags
+        self._patch_payload["tags"] = tags
+        self.content_changed.emit(self._patch_payload)
+
+    def get_modified_content(self) -> dict[str, Any]:
+        return self._patch_payload
