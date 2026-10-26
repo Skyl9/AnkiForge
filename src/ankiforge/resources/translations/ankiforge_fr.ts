@@ -719,6 +719,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location line="+62"/>
         <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="+144"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="+149"/>
         <source>Annuler</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1772,6 +1773,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+7"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="-4"/>
         <source>Enregistrer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2121,6 +2123,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+7"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="+58"/>
         <location filename="../../ui/widget_gallery/families/dialogs.py" line="+335"/>
         <source>Gras</source>
         <translation type="unfinished"></translation>
@@ -2132,6 +2135,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+7"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="+0"/>
         <source>Italique</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2142,6 +2146,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+7"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="+0"/>
         <source>Souligné</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2230,6 +2235,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     </message>
     <message>
         <location line="+9"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="-70"/>
         <source>Éditer la carte</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3078,6 +3084,8 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+51"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="+239"/>
+        <location line="+65"/>
         <source>Documents</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3372,6 +3380,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+1"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="-324"/>
         <source>Validé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3680,6 +3689,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+31"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="-4"/>
         <source>Nouveau</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5517,7 +5527,744 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widget_gallery/families/dialogs.py" line="-249"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="+8"/>
+        <source>biologie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Lancer l&apos;analyse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Supprimer la carte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Action irréversible</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Cartes à revoir</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Génération assistée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Forgez un lot de cartes à partir d&apos;un document indexé.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Saisissez le gabarit HTML...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Sélecteur CSS...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <location filename="../../ui/widget_gallery/families/dialogs.py" line="-35"/>
+        <source>Sélectionner un paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Sélectionner un cours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Un titre de document volontairement très long pour éprouver la troncature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Biologie</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Décrivez le concept à forger...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Rechercher une carte...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Occulter automatiquement les champs vides</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Masque les champs non renseignés à la génération.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Tous les paquets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <location line="+57"/>
+        <source>Biologie::Cellule</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-52"/>
+        <source>Filtrer les cartes...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+39"/>
+        <source>Atomicité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>18 cartes à scinder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Lot de 12 cartes généré</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>il y a 4 min</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <location line="+164"/>
+        <source>Qu&apos;est-ce que la mitose ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-160"/>
+        <source>Chapitre 1 — Introduction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Sélectionner un paquet...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Sélectionner un type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Vision</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Ce modèle accepte les images en entrée.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>Aucune carte sélectionnée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Choisissez un paquet pour afficher ses cartes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <location line="+120"/>
+        <source>Aperçu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-115"/>
+        <source>Cartes révisées</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Panneau source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Panneau libre</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Sélectionner un agent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Sélectionner un pipeline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+16"/>
+        <source>Lien de navigation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Étape</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Statut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Durée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Succès</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Recto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Verso</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <location filename="../../ui/widgets/note_table_widget.py" line="+160"/>
+        <source>Paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Une division cellulaire.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Quelles sont les phases de la mitose ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Prophase, métaphase, anaphase, télophase.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+42"/>
+        <source>Brouillon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Nouvelle carte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Sélectionner des tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+131"/>
+        <source>Bouton d&apos;action</source>
+        <extracomment>Correspondance clé de galerie → factory, source unique de la couverture. Identifiants des classes incarnées par chaque entrée. La valeur est le nom simple de la classe ; les homonymes inter-modules sont qualifiés par leur module afin que les deux ``ClickableLabel`` restent contrôlés séparément. Identifiant de classe déclaré par chaque entrée (les homonymes restent traçables).</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Élément d&apos;activité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Zone de texte auto-extensible</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Badge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Segment de fil d&apos;Ariane</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Pastille de capacité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Tableau CI/CD</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Libellé cliquable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Libellé cliquable (barre supérieure)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Éditeur de code avec gouttière</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Élément de contexte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Liste déroulante liée à la base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>État du démon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bouton destructif</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélection de paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Élément d&apos;arborescence documentaire</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bouton de sélection de document</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélection de document</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Matrice des doublons</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Inspecteur de fusion des doublons</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Libellé tronqué</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>État vide</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Inspecteur de champs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Puce de filtre</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Fenêtre de dock flottante</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Conteneur fluide</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Panneau vitré</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre de titre globale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Champ de recherche lumineux</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Fil d&apos;Ariane hiérarchique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bouton icône</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Panneau IDE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre d&apos;onglets IDE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Aperçu KaTeX en direct</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Gouttière de numéros de ligne (dans l&apos;éditeur)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre d&apos;état du linter (sous l&apos;éditeur)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Gestionnaire des règles du linter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte de métrique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Champ modal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Badges de capacités du modèle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte de modèle IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Liste déroulante de modèles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Exploration des modèles IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélection de type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélecteur de modèle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Éditeur de code natif</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bouton de navigation avec badge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ligne d&apos;option à bascule</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Superposition de glissement de panneau</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Emplacement de panneau</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélection d&apos;agent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre d&apos;onglets pastilles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélection de pipeline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte d&apos;action premium</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bouton principal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre d&apos;onglets défilante</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bouton secondaire</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre d&apos;onglets segmentée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bouton d&apos;onglet segmenté</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre d&apos;onglets de réglages</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre latérale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Élément de barre latérale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Élément de profil de barre latérale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte de snippet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bibliothèque de snippets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte de diagnostic de source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte de statistique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Badge d&apos;état avec icône</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Liste déroulante stylisée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Champ de saisie stylisé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Élément de liste stylisé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Tableau stylisé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Zone de texte stylisée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre d&apos;outils stylisée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sous-onglet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bouton d&apos;onglet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Conteneur d&apos;onglets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Puce de tag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Élément d&apos;autocomplétion de tag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Pop-up d&apos;autocomplétion de tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sélection de tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Interrupteur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Barre supérieure</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Avatar utilisateur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Liste virtuelle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Tableau virtuel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Badge de capacité visuelle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Avis de capacité visuelle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte problème Wozniak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hub d&apos;audit Wozniak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Carte KPI Wozniak</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widget_gallery/families/dialogs.py" line="-214"/>
         <source>[Galerie Dev] Transfert entre espaces de travail</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5563,12 +6310,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+15"/>
-        <source>Sélectionner un paquet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+36"/>
+        <location line="+51"/>
         <source>Mettre le texte en gras</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6108,7 +6850,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+53"/>
-        <location filename="../../ui/widgets/note_table_widget.py" line="+196"/>
+        <location filename="../../ui/widgets/note_table_widget.py" line="+36"/>
         <source>Tags</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6545,11 +7287,6 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="-36"/>
-        <source>Paquet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+0"/>
         <source>Template</source>
         <translation type="unfinished"></translation>
     </message>

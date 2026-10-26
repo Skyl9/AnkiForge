@@ -26,6 +26,9 @@ class PreviewContainer(QWidget):
     def set_entry(self, entry: GalleryEntry | None) -> None:
         if self._current is not None:
             self._layout.removeWidget(self._current)
+            # Fermer avant de supprimer libère les abonnements (bus d'événements) des
+            # composants qui ne se désabonnent que dans ``closeEvent``.
+            self._current.close()
             self._current.deleteLater()
             self._current = None
         self._error_label.hide()

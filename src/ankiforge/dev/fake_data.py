@@ -25,9 +25,11 @@ if TYPE_CHECKING:
         PersonaVersionModel,
         PythonToolModel,
     )
+    from ankiforge.services.ai.model_catalog import ModelSpec
     from ankiforge.services.ai.state import PipelineRunState
     from ankiforge.services.cards.bulk_hygiene_service import TagClustersReport
     from ankiforge.services.cards.import_manager import ConflictItem
+    from ankiforge.services.cards.snippet_library import SnippetItem
     from ankiforge.services.crash_reporter_service import CrashReport
     from ankiforge.services.markdown.models import HeadingRepairItem
     from ankiforge.services.update_checker import UpdateInfo
@@ -528,3 +530,88 @@ def make_fake_tag_clusters_report() -> TagClustersReport:
         inspected_tags_count=42,
         inspected_notes_count=25,
     )
+
+
+# ── Charges utiles pour la galerie de composants ─────────────────────────────
+
+
+def make_fake_snippet() -> SnippetItem:
+    """Snippet HTML/CSS non persisté, prêt à être prévisualisé dans la galerie."""
+    from ankiforge.services.cards.snippet_library import SnippetItem
+
+    return SnippetItem(
+        id="gallery_callout",
+        name="Encadré pédagogique",
+        category="Callouts & Remarques",
+        description="Encadré sobre pour les remarques et informations clés.",
+        icon_name="ph.info",
+        html_template='<div class="af-callout af-callout-info">\n  {{Remarque}}\n</div>',
+        css_style=".af-callout {\n  margin: 14px 0;\n  padding: 12px 16px;\n  border-radius: 8px;\n}",
+        preview_html='<div class="af-callout">Information clé</div>',
+        tags=["callout", "remarque"],
+    )
+
+
+def make_fake_model_spec() -> ModelSpec:
+    """Spécification de modèle IA déterministe, dérivée du catalogue livré avec l'application.
+
+    Dériver du catalogue évite qu'un modèle fictif affiche des capacités ou des tarifs
+    qui divergeraient des données réelles au fil des mises à jour.
+    """
+    from dataclasses import replace
+
+    from ankiforge.services.ai.model_catalog import ModelCatalog, ModelSpec
+
+    curated = ModelCatalog.get_curated_catalog()
+    if curated:
+        return replace(curated[0])
+    return ModelSpec(provider="ollama", model_id="modele-factice", display_name="Modèle factice")
+
+
+def make_fake_linter_comparison() -> tuple[dict[str, str], dict[str, str]]:
+    """Couple (carte actuelle, proposition IA) pour l'inspecteur de champs."""
+    original = {
+        "NoteType": "Biologie Fondamentale",
+        "Recto": "Qu'est-ce que la mitose et quelles sont ses phases ?",
+        "Verso": "La mitose est une division cellulaire composée de la prophase, la métaphase, l'anaphase et la télophase.",
+        "Champ Annexe Extra": "Manuel de biologie cellulaire, chapitre 4.",
+        "Tags": "biologie mitose division",
+    }
+    proposal = {
+        "NoteType": "Biologie Fondamentale",
+        "Recto": "Quelles sont les quatre phases de la mitose ?",
+        "Verso": "Prophase, métaphase, anaphase et télophase.",
+        "Champ Annexe Extra": "Manuel de biologie cellulaire, p. 12.",
+        "Tags": "biologie mitose phases",
+    }
+    return original, proposal
+
+
+def make_fake_wozniak_item() -> dict[str, Any]:
+    """Carte problème Wozniak complète, avec sa proposition de refactorisation."""
+    original, proposal = make_fake_linter_comparison()
+    return {
+        "note_id": 9001,
+        "title": "Qu'est-ce que la mitose et quelles sont ses phases ?",
+        "badge": "Défaut d'atomicité",
+        "proposal_summary": "PROPOSITION ATOMIQUE IA :",
+        "original": original,
+        "proposal": proposal,
+    }
+
+
+def make_fake_source_diagnostic() -> dict[str, Any]:
+    """Diagnostic de santé documentaire pour la carte de source du menu Analyse."""
+    return {
+        "doc_id": 4242,
+        "title": "Cours de statistiques",
+        "extension": "pdf",
+        "coverage_pct": 68.5,
+        "is_indexed": True,
+        "total_chunks": 42,
+        "covered_chunks": 29,
+        "orphan_chunks": 4,
+        "total_cards": 57,
+        "density": 1.36,
+        "word_count": 8_420,
+    }
