@@ -209,6 +209,11 @@ class ConsultantEngine:
                 nf_json = tool_args.get("new_fields_json", "{}")
                 expl = tool_args.get("explanation", "")
                 return ConsultantToolRegistry.propose_card_refactor(n_id, nf_json, expl), False
+            elif tool_name == "propose_cards_batch_refactor":
+                batch_refactors_json = str(tool_args.get("refactors_json", "[]"))
+                batch_title = str(tool_args.get("title", ""))
+                batch_reason = str(tool_args.get("reason", ""))
+                return ConsultantToolRegistry.propose_cards_batch_refactor(batch_refactors_json, batch_title, batch_reason), False
             elif tool_name == "propose_card_split":
                 n_id = int(tool_args.get("note_id", 0))
                 nc_json = tool_args.get("new_cards_json", "[]")

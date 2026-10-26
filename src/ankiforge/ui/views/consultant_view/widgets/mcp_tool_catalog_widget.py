@@ -173,6 +173,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "audit_card_wozniak": DOMAIN_CARDS,
     "find_duplicate_cards": DOMAIN_CARDS,
     "propose_card_refactor": DOMAIN_CARDS,
+    "propose_cards_batch_refactor": DOMAIN_CARDS,
     "propose_card_split": DOMAIN_CARDS,
     "propose_card_deletion": DOMAIN_CARDS,
     "propose_batch_card_deletion": DOMAIN_CARDS,
@@ -224,6 +225,12 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     "propose_card_refactor": [
         "Two-Phase Commit obligatoire : produit un StagedPatch avec diff mot-à-mot intra-ligne.",
         "Validation humaine requise avant application physique sur les cartes SRS.",
+    ],
+    "propose_cards_batch_refactor": [
+        "Two-Phase Commit obligatoire : génère un StagedBundle multi-étapes avec diff unitaire par carte.",
+        "Validation granulaire : revue carte par carte ou validation groupée en un clic (Tout valider le bloc).",
+        "Plafond de sécurité strict : limité à 100 cartes maximum par appel.",
+        "Gestion hybride des tags : supporte le remplacement complet (tags) ou incrémental (add_tags/remove_tags).",
     ],
     "propose_card_split": [
         "Two-Phase Commit obligatoire : propose la scission atomique en préservant la carte mère.",

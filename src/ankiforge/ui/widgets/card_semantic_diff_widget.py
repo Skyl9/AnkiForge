@@ -360,6 +360,8 @@ class CardSemanticDiffWidget(QWidget):
         self._model_data: dict[str, Any] = {}
         self._migration_data: dict[str, Any] = {}
         self._css_data: dict[str, Any] = {}
+        self._original_tags: list[str] = []
+        self._modified_tags: list[str] = []
         self._create_template_editors: list[tuple[QLineEdit, QPlainTextEdit, QPlainTextEdit]] = []
         self._mapping_combos: dict[str, StyledComboBox] = {}
 
@@ -709,11 +711,27 @@ class CardSemanticDiffWidget(QWidget):
         note_type: NoteTypeModel | None = None,
         is_applied: bool = False,
         patch_type: str = "card",
+        original_tags: list[str] | str | None = None,
+        modified_tags: list[str] | str | None = None,
     ) -> None:
         """Injecte les données d'origine et modifiées à comparer."""
         self._note_type = note_type
         self._is_applied = is_applied
         self._patch_type = patch_type.lower().strip()
+
+        if isinstance(original_tags, list):
+            self._original_tags = [str(t) for t in original_tags if str(t).strip()]
+        elif isinstance(original_tags, str):
+            self._original_tags = [t for t in original_tags.split() if t]
+        else:
+            self._original_tags = []
+
+        if isinstance(modified_tags, list):
+            self._modified_tags = [str(t) for t in modified_tags if str(t).strip()]
+        elif isinstance(modified_tags, str):
+            self._modified_tags = [t for t in modified_tags.split() if t]
+        else:
+            self._modified_tags = []
 
         if hasattr(self, "diff_stack"):
             self.diff_stack.setCurrentIndex(0)
@@ -850,7 +868,17 @@ class CardSemanticDiffWidget(QWidget):
                         except Exception:
                             orig = {"Front": active_v.content}
 
-        self.set_diff(original=orig, modified=mod, note_type=note_type, is_applied=is_applied, patch_type=p_type)
+        orig_tags = payload.get("original_tags")
+        mod_tags = payload.get("modified_tags")
+        self.set_diff(
+            original=orig,
+            modified=mod,
+            note_type=note_type,
+            is_applied=is_applied,
+            patch_type=p_type,
+            original_tags=orig_tags,
+            modified_tags=mod_tags,
+        )
 
     def _setup_note_type_create_view(self, payload: dict[str, Any]) -> None:
         """Construit l'interface de révision pour la création d'un type de note."""
@@ -1697,6 +1725,25 @@ class CardSemanticDiffWidget(QWidget):
             self._field_rows[f_name] = row
             # Insère avant le stretch final
             self.fields_layout.insertWidget(self.fields_layout.count() - 1, row)
+
+        # Prise en charge des tags si spécifiés dans le patch
+        if self._original_tags or self._modified_tags:
+            orig_tags_str = " ".join(self._original_tags) if isinstance(self._original_tags, list) else str(self._original_tags)
+            mod_tags_str = " ".join(self._modified_tags) if isinstance(self._modified_tags, list) else str(self._modified_tags)
+            tags_row = FieldSemanticDiffRow(
+                field_name=tr("Tags"),
+                original_value=orig_tags_str,
+                modified_value=mod_tags_str,
+                is_applied=self._is_applied,
+                parent=self.scroll_content,
+            )
+            tags_row.content_changed.connect(self._on_tags_content_changed)
+            self._field_rows["_tags"] = tags_row
+            self.fields_layout.insertWidget(self.fields_layout.count() - 1, tags_row)
+
+    def _on_tags_content_changed(self, field_name: str, new_val: str) -> None:
+        """Gère la retouche utilisateur sur la ligne des tags."""
+        self._modified_tags = [t.strip() for t in new_val.split() if t.strip()]
 
     def _on_row_content_changed(self, field_name: str, new_val: str) -> None:
         """Gère la répercussion d'une retouche utilisateur."""

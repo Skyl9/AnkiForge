@@ -470,6 +470,212 @@ class MCPToolRegistry:
             return f"Erreur lors de la préparation du diff de refactorisation : {e}"
 
     @staticmethod
+    def propose_cards_batch_refactor(refactors_json: str | list[dict[str, Any]], title: str = "", reason: str = "") -> str:
+        """Garde-fou : Propose la refactorisation atomique d'un lot de cartes sous forme de Staged Bundle multi-étapes."""
+        from ankiforge.database.models import NoteModel, NoteVersionModel
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        try:
+            if isinstance(refactors_json, str):
+                refactors_data: Any = robust_json_loads(refactors_json)
+            else:
+                refactors_data = refactors_json
+
+            if not isinstance(refactors_data, list):
+                return json.dumps(
+                    {"status": "error", "message": "Le format d'entrée doit être une liste JSON d'objets de refactorisation."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            # Contrôle strict du plafond volumétrique de sécurité (100 cartes)
+            if len(refactors_data) > 100:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": (
+                            f"Plafond de sécurité dépassé : {len(refactors_data)} cartes demandées (limite stricte : 100 cartes par appel). "
+                            "Veuillez scinder la requête en plusieurs sous-lots de 50 à 100 cartes."
+                        ),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            if not refactors_data:
+                return json.dumps(
+                    {"status": "error", "message": "La liste des cartes à refactoriser est vide."},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            # Gestion de session de bundle
+            active_bundle_id = StagedPatchRegistry.get_active_bundle_id()
+            auto_seal = False
+            bundle_id = active_bundle_id
+
+            clean_title = title.strip() or f"Refactorisation groupée ({len(refactors_data)} cartes)"
+            clean_reason = reason.strip() or "Refactorisation par lot de cartes"
+
+            if not bundle_id:
+                bundle_id = StagedPatchRegistry.begin_bundle(title=clean_title, explanation=clean_reason)
+                auto_seal = True
+
+            staged_patches: list[dict[str, Any]] = []
+            warnings: list[str] = []
+
+            for idx, item in enumerate(refactors_data, start=1):
+                if not isinstance(item, dict):
+                    warnings.append(f"Élément #{idx} ignoré car il ne s'agit pas d'un objet JSON valide.")
+                    continue
+
+                raw_note_id = item.get("note_id", item.get("id"))
+                try:
+                    target_note_id = int(raw_note_id) if raw_note_id is not None else 0
+                except (ValueError, TypeError):
+                    target_note_id = 0
+
+                if target_note_id <= 0:
+                    warnings.append(f"Élément #{idx} ignoré : 'note_id' manquant ou invalide ({raw_note_id}).")
+                    continue
+
+                note = NoteModel.get_or_none(NoteModel.id == target_note_id)
+                if not note:
+                    warnings.append(f"Note #{target_note_id} introuvable en base.")
+                    continue
+
+                active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                orig_content = active_v.content if active_v else "{}"
+                try:
+                    orig_dict = robust_json_loads(orig_content)
+                except Exception:
+                    orig_dict = {"Front": orig_content}
+
+                nt = note.note_type
+                model_name = nt.name if nt else "Inconnu"
+                fields_schema: list[str] = []
+                if nt and nt.fields_schema:
+                    try:
+                        raw_schema = robust_json_loads(nt.fields_schema)
+                        fields_schema = list(raw_schema) if isinstance(raw_schema, list) else [str(raw_schema)]
+                    except Exception:
+                        fields_schema = [str(nt.fields_schema)]
+
+                raw_fields = item.get("fields", item.get("modified_fields", item.get("new_fields", {})))
+                if isinstance(raw_fields, str):
+                    try:
+                        new_fields = robust_json_loads(raw_fields)
+                    except Exception:
+                        new_fields = {"Front": raw_fields}
+                elif isinstance(raw_fields, dict):
+                    new_fields = dict(raw_fields)
+                else:
+                    new_fields = {}
+
+                # Validation stricte des schémas de champs (rejet des clés fantômes)
+                if fields_schema and isinstance(new_fields, dict):
+                    unknown_fields = [k for k in new_fields if k not in fields_schema]
+                    if unknown_fields:
+                        warnings.append(f"Note #{target_note_id} rejetée : champ(s) inconnu(s) {unknown_fields} non déclaré(s) dans le modèle '{model_name}' (champs déclarés : {fields_schema}).")
+                        continue
+
+                final_modified = dict(orig_dict)
+                final_modified.update(new_fields)
+
+                current_tags_str = note.tags or ""
+                current_tags_list = [t for t in current_tags_str.split() if t]
+
+                if "tags" in item:
+                    raw_new_tags = item["tags"]
+                    if isinstance(raw_new_tags, list):
+                        new_tags_list = [str(t).strip() for t in raw_new_tags if str(t).strip()]
+                    elif isinstance(raw_new_tags, str):
+                        new_tags_list = [t for t in raw_new_tags.split() if t]
+                    else:
+                        new_tags_list = list(current_tags_list)
+                else:
+                    tags_set = set(current_tags_list)
+                    add_tags = item.get("add_tags", [])
+                    if isinstance(add_tags, str):
+                        add_tags = [t for t in add_tags.split() if t]
+                    for t in add_tags:
+                        tags_set.add(str(t).strip())
+
+                    remove_tags = item.get("remove_tags", [])
+                    if isinstance(remove_tags, str):
+                        remove_tags = [t for t in remove_tags.split() if t]
+                    for t in remove_tags:
+                        tags_set.discard(str(t).strip())
+                    new_tags_list = sorted(tags_set)
+
+                item_explanation = str(item.get("explanation") or clean_reason)
+
+                patch_diff = {
+                    "type": "card",
+                    "note_id": note.id,
+                    "model_name": model_name,
+                    "fields_schema": fields_schema,
+                    "title": f"Refactorisation — Note #{note.id} ({model_name})",
+                    "original": orig_dict,
+                    "modified": final_modified,
+                    "original_tags": current_tags_list,
+                    "modified_tags": new_tags_list,
+                    "explanation": item_explanation,
+                    "metadata": {"note_id": note.id, "model_name": model_name},
+                }
+
+                patch = StagedPatchRegistry.create_patch(
+                    patch_type="card",
+                    target_id=note.id,
+                    original_version_id=active_v.id if active_v else None,
+                    diff_payload=patch_diff,
+                    bundle_id=bundle_id,
+                )
+                staged_patches.append({"patch_id": patch.patch_id, "note_id": note.id, "step_order": patch.step_order})
+
+            if not staged_patches:
+                if auto_seal:
+                    StagedPatchRegistry.abort_bundle(bundle_id)
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": "Aucune carte valide n'a pu être préparée dans le lot.",
+                        "total_staged": 0,
+                        "total_requested": len(refactors_data),
+                        "warnings": warnings,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            if auto_seal:
+                StagedPatchRegistry.commit_bundle(bundle_id)
+
+            return json.dumps(
+                {
+                    "status": "staged",
+                    "bundle_id": bundle_id,
+                    "total_staged": len(staged_patches),
+                    "total_requested": len(refactors_data),
+                    "warnings": warnings,
+                    "patches": staged_patches,
+                    "message": (
+                        f"Lot de {len(staged_patches)} carte(s) enregistré avec succès dans le bundle '{bundle_id}' "
+                        f"(Two-Phase Commit). Examinez et validez dans l'onglet Garde-Fou ou via apply_bundle_all."
+                    ),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.error("Erreur propose_cards_batch_refactor : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la préparation de la refactorisation par lot : {e}"},
+                ensure_ascii=False,
+                indent=2,
+            )
+
+    @staticmethod
     def propose_card_split(note_id: int, new_cards_json: str, explanation: str = "") -> str:
         """Garde-fou : Propose de scinder une carte dense en plusieurs cartes atomiques sans écriture directe."""
         try:
@@ -1926,6 +2132,97 @@ class MCPToolRegistry:
             return output
         except Exception as e:
             return f"Erreur de récupération des cartes : {e}"
+
+    @staticmethod
+    def get_flagged_cards(
+        flag: str | int,
+        deck_name: str = "",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> str:
+        """Retourne les cartes portant un drapeau Anki, avec pagination bornée."""
+        flag_map = {
+            "none": 0,
+            "red": 1,
+            "orange": 2,
+            "green": 3,
+            "blue": 4,
+            "pink": 5,
+            "turquoise": 6,
+            "purple": 7,
+        }
+        try:
+            if isinstance(flag, bool):
+                raise ValueError("Le drapeau doit être une couleur ou un entier de 0 à 7.")
+            if isinstance(flag, int):
+                flag_value = flag
+                flag_name = next((name for name, value in flag_map.items() if value == flag_value), None)
+            elif isinstance(flag, str):
+                normalized_flag = flag.strip().lower()
+                if normalized_flag.isdigit():
+                    flag_value = int(normalized_flag)
+                    flag_name = next((name for name, value in flag_map.items() if value == flag_value), None)
+                else:
+                    flag_name = normalized_flag
+                    flag_value = flag_map.get(flag_name)
+            else:
+                raise ValueError("Le drapeau doit être une couleur ou un entier de 0 à 7.")
+
+            if flag_name is None or flag_value not in flag_map.values():
+                raise ValueError("Drapeau invalide. Valeurs autorisées : none, red, orange, green, blue, pink, turquoise, purple, ou 0 à 7.")
+
+            effective_limit = max(1, min(limit, 50))
+            effective_offset = max(0, offset)
+            cleaned_deck = deck_name.strip()
+            query = CardModel.select().where(CardModel.flags == flag_value)
+            if cleaned_deck:
+                query = query.join(DeckModel).where(DeckModel.name == cleaned_deck)
+
+            total = query.count()
+            cards = list(query.order_by(CardModel.id.asc()).offset(effective_offset).limit(effective_limit))
+            items: list[dict[str, Any]] = []
+            for card in cards:
+                active_version = NoteVersionModel.get_or_none(note=card.note, is_active=True)
+                fields: Any = {}
+                if active_version and active_version.content:
+                    try:
+                        fields = robust_json_loads(active_version.content)
+                    except (ValueError, TypeError):
+                        fields = {"raw": active_version.content}
+                items.append(
+                    {
+                        "card_id": card.id,
+                        "note_id": card.note_id,
+                        "deck_name": card.deck.name,
+                        "flag": flag_name,
+                        "flag_value": flag_value,
+                        "fields": fields,
+                    }
+                )
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "filters": {
+                        "flag": flag_name,
+                        "flag_value": flag_value,
+                        "deck_name": cleaned_deck or None,
+                        "limit": effective_limit,
+                        "offset": effective_offset,
+                    },
+                    "total": total,
+                    "items": items,
+                },
+                ensure_ascii=False,
+            )
+        except (TypeError, ValueError) as e:
+            return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+        except Exception as e:
+            logger.exception("Erreur get_flagged_cards : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur de récupération des cartes : {e}"},
+                ensure_ascii=False,
+            )
 
     @staticmethod
     def search_attached_documents(query: str, document_title: str = "", top_k: int = 4) -> str:
@@ -3797,6 +4094,22 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "propose_cards_batch_refactor",
+            "description": "Propose la refactorisation atomique d'un lot de cartes (jusqu'à 100) sous forme de Staged Bundle multi-étapes pour validation humaine.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "refactors_json": {"type": "string", "description": 'Tableau JSON des refactorisations (ex: [{"note_id": 1, "fields": {"Front": "..."}, "tags": [...]}, ...])'},
+                    "title": {"type": "string", "description": "Titre du lot / bundle de refactorisation"},
+                    "reason": {"type": "string", "description": "Raison ou justification globale de la campagne"},
+                },
+                "required": ["refactors_json"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "propose_card_split",
             "description": "Propose de scinder une note surchargée en plusieurs cartes atomiques avec Diff comparatif pour validation humaine.",
             "parameters": {
@@ -3970,6 +4283,26 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "limit": {"type": "integer", "description": "Nombre max de cartes (défaut: 20, max: 50)"},
                     "offset": {"type": "integer", "description": "Index de départ pour la pagination (défaut: 0)"},
                 },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_flagged_cards",
+            "description": "Retourne les cartes filtrées par drapeau Anki, couleur ou valeur 0 à 7, avec pagination.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "flag": {
+                        "type": ["string", "integer"],
+                        "description": "Drapeau : none, red, orange, green, blue, pink, turquoise, purple ou entier 0 à 7.",
+                    },
+                    "deck_name": {"type": "string", "description": "Nom exact du paquet (optionnel, sans sous-paquets)"},
+                    "limit": {"type": "integer", "description": "Nombre maximum de cartes (défaut : 20, maximum : 50)"},
+                    "offset": {"type": "integer", "description": "Position de départ (défaut : 0)"},
+                },
+                "required": ["flag"],
             },
         },
     },

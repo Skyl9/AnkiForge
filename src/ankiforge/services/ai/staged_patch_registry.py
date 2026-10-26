@@ -284,6 +284,15 @@ class StagedPatchRegistry:
                     is_active=True,
                 )
 
+                # Prise en charge des tags modifiés (remplacement ou incrémental)
+                if "modified_tags" in diff_data:
+                    raw_tags = diff_data["modified_tags"]
+                    if isinstance(raw_tags, list):
+                        note.tags = " ".join(t.strip() for t in raw_tags if t and str(t).strip())
+                    elif isinstance(raw_tags, str):
+                        note.tags = raw_tags.strip()
+                    note.save()
+
                 patch.status = "applied"
                 patch.applied_at = datetime.datetime.now()
                 patch.save()
@@ -703,7 +712,28 @@ class StagedPatchRegistry:
             if not isinstance(payload, dict):
                 return {"status": "error", "message": "Payload invalide pour la création de notes par lot.", "patch_id": patch_id}
 
-            notes_list = payload.get("notes") or diff_data.get("notes", [])
+            raw_notes = payload.get("notes")
+            if isinstance(raw_notes, list) and raw_notes:
+                notes_list = raw_notes
+            elif isinstance(diff_data.get("notes"), list) and diff_data["notes"]:
+                notes_list = diff_data["notes"]
+            elif isinstance(raw_notes, str):
+                try:
+                    from ankiforge.services.ai.mcp_tool_registry import robust_json_loads
+
+                    parsed = robust_json_loads(raw_notes)
+                    if isinstance(parsed, list):
+                        notes_list = parsed
+                    else:
+                        import ast
+
+                        parsed_ast = ast.literal_eval(raw_notes)
+                        notes_list = parsed_ast if isinstance(parsed_ast, list) else []
+                except Exception:
+                    notes_list = diff_data.get("notes", []) if isinstance(diff_data.get("notes"), list) else []
+            else:
+                notes_list = diff_data.get("notes", []) if isinstance(diff_data.get("notes"), list) else []
+
             if not isinstance(notes_list, list) or not notes_list:
                 return {"status": "error", "message": "Aucune note valide fournie dans le lot.", "patch_id": patch_id}
 

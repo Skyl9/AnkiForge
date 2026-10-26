@@ -572,7 +572,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+608"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+615"/>
         <location filename="../../ui/views/edition_view/view.py" line="-625"/>
         <location line="+211"/>
         <location line="+8"/>
@@ -725,7 +725,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location line="+146"/>
         <location line="+60"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1231"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1259"/>
         <location line="+77"/>
         <source>➔</source>
         <translation type="unfinished"></translation>
@@ -733,7 +733,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location line="-9"/>
         <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-221"/>
-        <location line="+888"/>
+        <location line="+907"/>
         <source>Carte %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1230,7 +1230,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1783"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1830"/>
         <location line="+137"/>
         <source>Identique</source>
         <translation type="unfinished"></translation>
@@ -4025,7 +4025,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+82"/>
+        <location line="+84"/>
         <source>Étape %1 appliquée avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4045,7 +4045,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+21"/>
+        <location line="+23"/>
         <source>Bundle appliqué avec succès (%1 étapes) !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4613,7 +4613,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+10"/>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1510"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1557"/>
         <location line="+2"/>
         <source>%1 mots</source>
         <translation type="unfinished"></translation>
@@ -5510,7 +5510,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1777"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1824"/>
         <source>Règle #4 (Atomicité) : Question trop verbeuse (%1 mots &gt; 25).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5552,24 +5552,24 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+146"/>
+        <location line="+148"/>
         <source>Carte atomique :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+8"/>
-        <location line="+1204"/>
+        <location line="+1230"/>
         <source>Conforme Wozniak (Atomicité R4/R5)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1156"/>
-        <location line="+226"/>
+        <location line="-1182"/>
+        <location line="+242"/>
         <source>Comparaison champ par champ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-199"/>
+        <location line="-215"/>
         <source>Aperçu dédoublé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5595,12 +5595,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+1435"/>
+        <location line="+1480"/>
         <source>Voir Verso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1384"/>
+        <location line="-1429"/>
         <source>Originale (BDD)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5615,7 +5615,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+51"/>
+        <location line="+67"/>
         <source>Carte atomique %1 sur %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5625,7 +5625,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+130"/>
+        <location line="+140"/>
         <source>Création de type de note — &apos;%1&apos;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5818,7 +5818,13 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+203"/>
+        <location line="+52"/>
+        <location filename="../../ui/widgets/note_table_widget.py" line="+196"/>
+        <source>Tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+170"/>
         <source>Nouveau Modèle</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6136,7 +6142,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/note_table_widget.py" line="-16"/>
+        <location filename="../../ui/widgets/note_table_widget.py" line="-212"/>
         <source>MODE D&apos;AFFICHAGE :</source>
         <extracomment>Modes d&apos;affichage du tableau. Ce sont des **identifiants** : ils sont comparés, indexés et servent de clef d&apos;état, donc jamais traduits. Le libellé affiché est résolu par `tr()` au remplissage de la combo et le mode se lit via `currentData()` — lire `currentText()` rendrait la logique de filtrage dépendante de la langue de l&apos;interface.</extracomment>
         <translation type="unfinished"></translation>
@@ -6215,11 +6221,6 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="+0"/>
         <source>Réponse (Aperçu)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+0"/>
-        <source>Tags</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

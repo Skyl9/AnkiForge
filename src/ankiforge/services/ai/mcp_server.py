@@ -324,6 +324,12 @@ def propose_card_refactor(note_id: int, new_fields_json: str, explanation: str =
 
 
 @mcp.tool()
+def propose_cards_batch_refactor(refactors_json: str, title: str = "", reason: str = "") -> str:
+    """Garde-fou : Propose la refactorisation atomique d'un lot de cartes (jusqu'à 100) sous forme de Staged Bundle multi-étapes."""
+    return MCPToolRegistry.propose_cards_batch_refactor(refactors_json=refactors_json, title=title, reason=reason)
+
+
+@mcp.tool()
 def propose_card_split(note_id: int, new_cards_json: str, explanation: str = "") -> str:
     """Propose de scinder une carte dense en N cartes atomiques avec Diff comparatif pour validation humaine."""
     return MCPToolRegistry.propose_card_split(note_id, new_cards_json, explanation)
