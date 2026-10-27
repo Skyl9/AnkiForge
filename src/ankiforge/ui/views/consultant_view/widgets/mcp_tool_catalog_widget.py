@@ -853,7 +853,7 @@ class MCPToolCatalogWidget(QWidget):
         sg_header.addWidget(icon_sg)
 
         lbl_sg_title = QLabel(tr("GARDE-FOUS & SÉCURITÉ"), self.frame_safeguards)
-        lbl_sg_title.setStyleSheet(f"color: {DesignTokens.COLOR_ORANGE}; font-size: 11px; font-weight: 700; border: none;")
+        lbl_sg_title.setStyleSheet(f"color: {DesignTokens.COLOR_ORANGE_TEXT}; font-size: 11px; font-weight: 700; border: none;")
         sg_header.addWidget(lbl_sg_title)
         sg_header.addStretch()
         sg_layout.addLayout(sg_header)

@@ -168,7 +168,7 @@ class DeckOperationWidget(QWidget):
             row_old = QHBoxLayout()
             row_old.setSpacing(8)
             lbl_from = QLabel(tr("Ancien chemin : %1", old_name))
-            lbl_from.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-weight: 600; font-size: 12px;")
+            lbl_from.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-weight: 600; font-size: 12px;")
             row_old.addWidget(lbl_from)
             row_old.addStretch()
             badge_old = Badge(tr("Actuel"), variant="danger")
@@ -178,7 +178,7 @@ class DeckOperationWidget(QWidget):
             row_new = QHBoxLayout()
             row_new.setSpacing(8)
             lbl_to = QLabel(tr("Nouveau chemin : %1", new_name))
-            lbl_to.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-weight: 600; font-size: 12px;")
+            lbl_to.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN_TEXT}; font-weight: 600; font-size: 12px;")
             row_new.addWidget(lbl_to)
             row_new.addStretch()
             badge_new = Badge(tr("Proposé"), variant="success")
@@ -400,7 +400,7 @@ class TagDiffWidget(QWidget):
 
         # Section Tags Ajoutés
         lbl_add = QLabel(tr("Tags ajoutés (+%1) :", len(self._added_tags)))
-        lbl_add.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_GREEN};")
+        lbl_add.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_GREEN_TEXT};")
         self.tags_layout.addWidget(lbl_add)
 
         row_add = QHBoxLayout()
@@ -418,7 +418,7 @@ class TagDiffWidget(QWidget):
 
         # Section Tags Retirés
         lbl_rem = QLabel(tr("Tags retirés (-%1) :", len(self._removed_tags)))
-        lbl_rem.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_RED};")
+        lbl_rem.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_RED_TEXT};")
         self.tags_layout.addWidget(lbl_rem)
 
         row_rem = QHBoxLayout()
@@ -505,14 +505,14 @@ class DeletionImpactWidget(QWidget):
         banner_layout.setSpacing(12)
 
         icon_alert = QLabel()
-        icon_alert.setPixmap(load_phosphor_icon("ph.warning-octagon", color=DesignTokens.COLOR_RED).pixmap(36, 36))
+        icon_alert.setPixmap(load_phosphor_icon("ph.warning-octagon", color=DesignTokens.TEXT_ON_ACCENT).pixmap(36, 36))
         banner_layout.addWidget(icon_alert)
 
         banner_text_layout = QVBoxLayout()
         banner_text_layout.setSpacing(2)
 
         lbl_danger_title = QLabel(tr("AVERTISSEMENT : SUPPRESSION DÉFINITIVE"))
-        lbl_danger_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {DesignTokens.COLOR_RED};")
+        lbl_danger_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {DesignTokens.COLOR_RED_TEXT};")
         banner_text_layout.addWidget(lbl_danger_title)
 
         lbl_danger_desc = QLabel(tr("Cette action détruira définitivement les enregistrements sélectionnés de votre collection."))
@@ -545,7 +545,7 @@ class DeletionImpactWidget(QWidget):
         self.impact_layout.addWidget(self.lbl_target_info)
 
         self.lbl_cards_count = QLabel()
-        self.lbl_cards_count.setStyleSheet(f"font-size: 11px; color: {DesignTokens.COLOR_RED}; font-weight: 600;")
+        self.lbl_cards_count.setStyleSheet(f"font-size: 11px; color: {DesignTokens.COLOR_RED_TEXT}; font-weight: 600;")
         self.impact_layout.addWidget(self.lbl_cards_count)
 
         self.lbl_reason = QLabel()

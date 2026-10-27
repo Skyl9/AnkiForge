@@ -142,7 +142,7 @@ class MCPActivityDetailDialog(QDialog):
         self.edit_result.setObjectName("mcp_detail_edit_result")
         self.edit_result.setReadOnly(True)
         self.edit_result.setPlainText(self._record.result_full or self.tr("(aucun contenu retourné)"))
-        res_color = DesignTokens.COLOR_RED if self._record.status == "error" else DesignTokens.TEXT_PRIMARY
+        res_color = DesignTokens.COLOR_RED_TEXT if self._record.status == "error" else DesignTokens.TEXT_PRIMARY
         self.edit_result.setStyleSheet(f"""
             QPlainTextEdit#mcp_detail_edit_result {{
                 background-color: {DesignTokens.BG_INPUT};

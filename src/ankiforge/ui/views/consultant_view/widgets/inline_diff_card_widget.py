@@ -120,7 +120,7 @@ def compute_word_diff_html(original: str, modified: str, show_deletions: bool = 
             elif tag in ("insert", "replace"):
                 ins_text = html.escape("".join(mod_tokens[j1:j2]))
                 result.append(
-                    f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
+                    f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
                 )
         return "".join(result).replace("\n", "<br>")
 
@@ -136,21 +136,27 @@ def compute_word_diff_html(original: str, modified: str, show_deletions: bool = 
         elif tag == "delete":
             del_text = html.escape("".join(orig_tokens[i1:i2]))
             result_diff.append(
-                f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; text-decoration: line-through; border-radius: 2px; padding: 1px 2px;'>{del_text}</span>"
+                f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; "
+                f"color: {DesignTokens.COLOR_RED_TEXT}; "
+                f"text-decoration: line-through; "
+                f"border-radius: 2px; padding: 1px 2px;'>{del_text}</span>"
             )
         elif tag == "insert":
             ins_text = html.escape("".join(mod_tokens[j1:j2]))
             result_diff.append(
-                f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
+                f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
             )
         elif tag == "replace":
             del_text = html.escape("".join(orig_tokens[i1:i2]))
             ins_text = html.escape("".join(mod_tokens[j1:j2]))
             result_diff.append(
-                f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; text-decoration: line-through; border-radius: 2px; padding: 1px 2px;'>{del_text}</span> "
+                f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; "
+                f"color: {DesignTokens.COLOR_RED_TEXT}; "
+                f"text-decoration: line-through; "
+                f"border-radius: 2px; padding: 1px 2px;'>{del_text}</span> "
             )
             result_diff.append(
-                f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
+                f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
             )
 
     return "".join(result_diff).replace("\n", "<br>")
@@ -233,7 +239,7 @@ class FieldDiffWidget(QFrame):
             QPushButton[active="true"] {{
                 background-color: {DesignTokens.COLOR_RED_BG};
                 border-color: {DesignTokens.COLOR_RED};
-                color: {DesignTokens.COLOR_RED};
+                color: {DesignTokens.COLOR_RED_TEXT};
                 font-weight: 600;
             }}
         """)
@@ -309,7 +315,7 @@ class FieldDiffWidget(QFrame):
         col_orig_layout.setContentsMargins(6, 6, 6, 6)
         col_orig_layout.setSpacing(4)
         lbl_orig_header = QLabel(self.tr("⏮️ Actuel (Original)"))
-        lbl_orig_header.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.COLOR_RED}; border: none; background: transparent;")
+        lbl_orig_header.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.COLOR_RED_TEXT}; border: none; background: transparent;")
         col_orig_layout.addWidget(lbl_orig_header)
 
         self.orig_text_browser = QTextBrowser()
@@ -339,7 +345,7 @@ class FieldDiffWidget(QFrame):
         col_mod_layout.setContentsMargins(6, 6, 6, 6)
         col_mod_layout.setSpacing(4)
         lbl_mod_header = QLabel(self.tr("✨ Proposition IA (Éditable)"))
-        lbl_mod_header.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.COLOR_GREEN}; border: none; background: transparent;")
+        lbl_mod_header.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.COLOR_GREEN_TEXT}; border: none; background: transparent;")
         col_mod_layout.addWidget(lbl_mod_header)
 
         self.sbs_editor = QTextEdit()
@@ -798,7 +804,7 @@ class InlineDiffCardWidget(QFrame):
 
         if self.is_applied:
             self.btn_apply.setText(self.tr("Annuler (Revert)"))
-            self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
+            self.btn_apply.setIcon(load_on_accent_icon("ph.arrow-u-up-left"))
             try:
                 self.btn_apply.clicked.disconnect()
             except RuntimeError:
@@ -891,7 +897,7 @@ class InlineDiffCardWidget(QFrame):
                         self.patch_data["is_applied"] = True
                         self.status_badge.setText(self.tr("✅ Appliqué en BDD"))
                         self.btn_apply.setText(self.tr("Annuler (Revert)"))
-                        self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
+                        self.btn_apply.setIcon(load_on_accent_icon("ph.arrow-u-up-left"))
                         try:
                             self.btn_apply.clicked.disconnect()
                         except RuntimeError:
@@ -947,7 +953,7 @@ class InlineDiffCardWidget(QFrame):
                     self.patch_data["is_applied"] = True
                     self.status_badge.setText(self.tr("✅ Appliqué en BDD"))
                     self.btn_apply.setText(self.tr("Annuler (Revert)"))
-                    self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
+                    self.btn_apply.setIcon(load_on_accent_icon("ph.arrow-u-up-left"))
                     try:
                         self.btn_apply.clicked.disconnect()
                     except RuntimeError:
