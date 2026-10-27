@@ -38,6 +38,7 @@ from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import (
     COMPACT_BUTTON_HEIGHT,
     FilterChipButton,
+    PrimaryButton,
     SecondaryButton,
     apply_compact_style,
 )
@@ -752,6 +753,41 @@ class MCPToolCatalogWidget(QWidget):
         self.detail_scroll.setWidget(self.detail_container)
         self.detail_stack.addWidget(self.detail_scroll)
 
+        # Page 2 : État vide après filtrage sans résultat
+        self.page_no_results = QWidget(self.detail_stack)
+        no_results_layout = QVBoxLayout(self.page_no_results)
+        no_results_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        no_results_layout.setSpacing(14)
+
+        icon_no_results = QLabel(self.page_no_results)
+        icon_no_results.setPixmap(load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_MUTED).pixmap(52, 52))
+        icon_no_results.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_no_results.setStyleSheet("border: none; background: transparent; opacity: 0.6;")
+        no_results_layout.addWidget(icon_no_results)
+
+        self.lbl_no_results_title = QLabel(tr("Aucun outil ne correspond à votre recherche"), self.page_no_results)
+        self.lbl_no_results_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_no_results_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: 700; border: none;")
+        no_results_layout.addWidget(self.lbl_no_results_title)
+
+        self.lbl_no_results_desc = QLabel(
+            tr("Essayez de modifier vos termes de recherche ou de réinitialiser les filtres pour afficher tous les outils."),
+            self.page_no_results,
+        )
+        self.lbl_no_results_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_no_results_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none;")
+        self.lbl_no_results_desc.setWordWrap(True)
+        self.lbl_no_results_desc.setMaximumWidth(360)
+        no_results_layout.addWidget(self.lbl_no_results_desc)
+
+        self.btn_reset_filters = PrimaryButton(tr("Réinitialiser les filtres"), parent=self.page_no_results)
+        self.btn_reset_filters.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.TEXT_ON_ACCENT))
+        self.btn_reset_filters.setAccessibleName(tr("Réinitialiser les filtres de recherche et de domaine"))
+        self.btn_reset_filters.clicked.connect(self._reset_filters)
+        no_results_layout.addWidget(self.btn_reset_filters, 0, Qt.AlignmentFlag.AlignCenter)
+
+        self.detail_stack.addWidget(self.page_no_results)
+
         right_layout.addWidget(self.detail_stack)
         self.splitter.addWidget(self.right_pane)
 
@@ -979,6 +1015,13 @@ class MCPToolCatalogWidget(QWidget):
         self._filtered_tools = filtered
         self._populate_list()
 
+    def _reset_filters(self) -> None:
+        """Réinitialise les filtres de recherche et de domaine."""
+        self._active_domain = None
+        self.chip_all.setChecked(True)
+        self.edit_search.clear()
+        # _apply_filters sera appelé via textChanged et le clic sur chip_all
+
     def _populate_list(self) -> None:
         """Remplit la liste gauche avec les outils filtrés."""
         self.tool_list.blockSignals(True)
@@ -998,19 +1041,32 @@ class MCPToolCatalogWidget(QWidget):
         # Mise à jour du libellé de comptage
         total = len(self._tools)
         visible = len(self._filtered_tools)
+        has_active_filter = self._active_domain is not None or self.edit_search.text().strip() != ""
+
         if visible == total:
             self.lbl_tool_count.setText(tr("%1 outils disponibles", total))
+        elif visible == 0:
+            if has_active_filter:
+                self.lbl_tool_count.setText(tr("Aucun outil ne correspond à votre recherche"))
+            else:
+                self.lbl_tool_count.setText(tr("%1 / %2 outils", visible, total))
         else:
             self.lbl_tool_count.setText(tr("%1 / %2 outils", visible, total))
 
-        # Sélection par défaut du premier élément s'il y en a
+        # Gestion de l'affichage du volet droit selon l'état
         if self._filtered_tools:
             self.tool_list.setCurrentRow(0)
             self._display_tool_detail(self._filtered_tools[0])
             self.detail_stack.setCurrentIndex(1)
+            self.btn_reset_filters.setVisible(has_active_filter)
         else:
             self._current_tool = None
-            self.detail_stack.setCurrentIndex(0)
+            if has_active_filter:
+                self.detail_stack.setCurrentIndex(2)  # Page "Aucun résultat"
+                self.btn_reset_filters.setVisible(True)
+            else:
+                self.detail_stack.setCurrentIndex(0)  # Page "Sélectionnez un outil"
+                self.btn_reset_filters.setVisible(False)
 
     def _on_item_selection_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         """Réagit à la sélection d'un outil dans la liste gauche."""
@@ -1218,6 +1274,26 @@ class MCPToolCatalogWidget(QWidget):
         # Actualisation de l'icône de détail
         if self._current_tool and hasattr(self, "lbl_detail_icon"):
             self.lbl_detail_icon.setPixmap(load_phosphor_icon(self._current_tool.domain_icon, color=accent_primary).pixmap(24, 24))
+
+        # Actualisation de la page "Aucun résultat" (page 2)
+        text_muted = getattr(profile, "text_muted", DesignTokens.TEXT_MUTED)
+        text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
+        text_on_accent = getattr(profile, "text_on_accent", DesignTokens.TEXT_ON_ACCENT)
+
+        if hasattr(self, "page_no_results") and self.page_no_results is not None:
+            # Icône de loupe
+            icon_label = self.page_no_results.findChild(QLabel)
+            if icon_label:
+                icon_label.setPixmap(load_phosphor_icon("ph.magnifying-glass", color=text_muted).pixmap(52, 52))
+
+            if hasattr(self, "lbl_no_results_title") and self.lbl_no_results_title is not None:
+                self.lbl_no_results_title.setStyleSheet(f"color: {text_primary}; font-size: 15px; font-weight: 700; border: none;")
+
+            if hasattr(self, "lbl_no_results_desc") and self.lbl_no_results_desc is not None:
+                self.lbl_no_results_desc.setStyleSheet(f"color: {text_muted}; font-size: 12px; border: none;")
+
+            if hasattr(self, "btn_reset_filters") and self.btn_reset_filters is not None:
+                self.btn_reset_filters.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=text_on_accent))
 
         # Actualisation du volet droit de détail
         color_orange = getattr(profile, "color_orange", DesignTokens.COLOR_ORANGE)

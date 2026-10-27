@@ -213,6 +213,7 @@ def test_mcp_tool_catalog_filter_by_search_text(qtbot: Any, dummy_tools: list[Du
     """Vérifie le filtrage instantané via la barre de recherche textuelle."""
     widget = MCPToolCatalogWidget(raw_tools=dummy_tools)
     qtbot.addWidget(widget)
+    widget.show()  # Ensure widget is visible in headless mode
 
     # Recherche par nom canonique
     widget.edit_search.setText("wozniak")
@@ -228,12 +229,22 @@ def test_mcp_tool_catalog_filter_by_search_text(qtbot: Any, dummy_tools: list[Du
     assert widget.current_selected_tool is not None
     assert widget.current_selected_tool.name == "init_agent_workspace"
 
-    # Recherche sans résultat : état vide dans la fiche
+    # Recherche sans résultat : état explicite "Aucun résultat"
     widget.edit_search.setText("mot_qui_n_existe_pas_12345")
     qtbot.wait(20)
     assert widget.tool_list.count() == 0
     assert widget.current_selected_tool is None
-    assert widget.detail_stack.currentIndex() == 0  # Page vide
+    assert widget.detail_stack.currentIndex() == 2  # Page "Aucun outil ne correspond à votre recherche"
+    assert widget.btn_reset_filters.isVisible()
+    assert widget.lbl_tool_count.text() == "Aucun outil ne correspond à votre recherche"
+
+    # Clic sur le bouton de réinitialisation : la liste doit se repeupler
+    widget.btn_reset_filters.click()
+    qtbot.wait(20)
+    assert widget.tool_list.count() == 9
+    assert widget.detail_stack.currentIndex() == 1
+    assert widget.current_selected_tool is not None
+    assert not widget.btn_reset_filters.isVisible()  # Bouton masqué quand aucun filtre n'est actif
 
 
 def test_mcp_tool_catalog_parameters_table(qtbot: Any, dummy_tools: list[DummyTool]) -> None:

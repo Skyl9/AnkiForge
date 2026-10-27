@@ -571,34 +571,48 @@ def get_cards_by_deck_or_tag(
     limit: int = 20,
     offset: int = 0,
     note_type_name: str = "",
-    include_subdecks: bool = True,
+    recursive: bool = True,
+    include_subdecks: bool | None = None,
 ) -> str:
-    """Récupère une liste de cartes filtrée par nom de paquet (avec sous-paquets optionnels), tag ou type de note avec pagination."""
+    """Récupère une liste de cartes filtrée par nom de paquet (avec sous-paquets optionnels), tag ou type de note avec pagination.
+
+    Args:
+        recursive: Inclure les sous-paquets (nom canonique, défaut True). Alias déprécié: include_subdecks.
+        include_subdecks: [Déprécié] Utilisez `recursive` à la place.
+    """
+    effective_recursive = recursive if include_subdecks is None else include_subdecks
     return MCPToolRegistry.get_cards_by_deck_or_tag(
         deck_name=deck_name,
         tag=tag,
         limit=limit,
         offset=offset,
         note_type_name=note_type_name,
-        include_subdecks=include_subdecks,
+        include_subdecks=effective_recursive,
     )
 
 
 @mcp.tool()
 def get_notes_by_model(
     note_type_name: str,
-    include_subdecks: bool = True,
+    recursive: bool = True,
     deck_name: str = "",
     limit: int = 20,
     offset: int = 0,
+    include_subdecks: bool | None = None,
 ) -> str:
-    """Liste les notes rattachées à un type de note spécifique, avec descente optionnelle dans les sous-paquets et pagination."""
+    """Liste les notes rattachées à un type de note spécifique, avec descente optionnelle dans les sous-paquets et pagination.
+
+    Args:
+        recursive: Inclure les sous-paquets (nom canonique, défaut True). Alias déprécié: include_subdecks.
+        include_subdecks: [Déprécié] Utilisez `recursive` à la place.
+    """
+    effective_recursive = recursive if include_subdecks is None else include_subdecks
     return MCPToolRegistry.get_cards_by_deck_or_tag(
         deck_name=deck_name,
         limit=limit,
         offset=offset,
         note_type_name=note_type_name,
-        include_subdecks=include_subdecks,
+        include_subdecks=effective_recursive,
     )
 
 

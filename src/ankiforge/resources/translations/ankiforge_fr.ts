@@ -399,6 +399,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     <message>
         <location line="+6"/>
         <location filename="../../ui/views/edition_view/view.py" line="+1149"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="+435"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -573,7 +574,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+621"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+622"/>
         <location filename="../../ui/views/edition_view/view.py" line="-625"/>
         <location line="+211"/>
         <location line="+8"/>
@@ -610,7 +611,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location filename="../../ui/dialogs/addon_manager_dialog.py" line="+104"/>
         <location filename="../../ui/dialogs/human_validation_dialog.py" line="+72"/>
-        <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+203"/>
+        <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+209"/>
         <location filename="../../ui/views/pipelines_view/view.py" line="+739"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="+323"/>
         <source>&lt;b&gt;%1&lt;/b&gt;</source>
@@ -1287,6 +1288,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="+58"/>
         <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1904"/>
         <source>%1 / %2</source>
         <translation type="unfinished"></translation>
@@ -1370,6 +1372,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <location line="+5"/>
         <location line="+261"/>
         <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1275"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="-59"/>
         <source>Paquet : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3635,13 +3638,13 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/garde_fou_views.py" line="+66"/>
+        <location filename="../../ui/views/consultant_view/widgets/garde_fou_views.py" line="+67"/>
         <source>Opération sur les paquets</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+148"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+160"/>
         <source>PAQUET</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3692,6 +3695,8 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+1"/>
+        <location filename="../../ui/views/consultant_view/widgets/note_creation_view.py" line="+148"/>
+        <location line="+173"/>
         <source>CRÉATION</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3869,7 +3874,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+58"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="+57"/>
         <source>Détail de l&apos;appel MCP : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3880,7 +3885,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_telemetry_widget.py" line="+568"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_telemetry_widget.py" line="+566"/>
         <location line="+19"/>
         <location line="+114"/>
         <source>%1 ms</source>
@@ -3921,7 +3926,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-74"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-84"/>
         <source>Bloc d&apos;opérations</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3936,24 +3941,25 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
-        <location line="+559"/>
+        <location line="+36"/>
+        <location line="+575"/>
         <source>Étape %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-557"/>
-        <location line="+569"/>
+        <location line="-573"/>
+        <location line="+585"/>
         <source>Proposition — %1 #%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-542"/>
+        <location line="-555"/>
         <source>CARTE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+6"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="-167"/>
         <source>TAGS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3963,12 +3969,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+15"/>
         <source>Étape %1 · %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+148"/>
+        <location line="+153"/>
         <source>PROPOSITIONS EN ATTENTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4008,19 +4014,19 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+32"/>
-        <location line="+197"/>
+        <location line="+36"/>
+        <location line="+200"/>
         <source>Rejeter la proposition</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-175"/>
+        <location line="-178"/>
         <source>Tout valider le bloc</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+21"/>
-        <location line="+153"/>
+        <location line="+156"/>
         <source>Appliquer la modification</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4045,7 +4051,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+94"/>
+        <location line="+89"/>
         <source>Étape %1 appliquée avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4111,7 +4117,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location filename="../../ui/views/consultant_view/widgets/mcp_supervision_widget.py" line="+247"/>
-        <location line="+239"/>
+        <location line="+246"/>
         <source>Port : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4196,7 +4202,28 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+67"/>
+        <location line="+37"/>
+        <location line="+282"/>
+        <source>Aucun outil ne correspond à votre recherche</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-276"/>
+        <source>Essayez de modifier vos termes de recherche ou de réinitialiser les filtres pour afficher tous les outils.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Réinitialiser les filtres</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Réinitialiser les filtres de recherche et de domaine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+48"/>
         <source>Copier le nom</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4251,17 +4278,18 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+76"/>
+        <location line="+85"/>
         <source>%1 outils disponibles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+5"/>
         <location line="+2"/>
         <source>%1 / %2 outils</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+61"/>
+        <location line="+67"/>
         <source>PARAMÈTRES D&apos;APPEL (0)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4323,6 +4351,85 @@ Gabarits : %3</source>
     <message>
         <location line="+60"/>
         <source>%1 outils autorisés</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/views/consultant_view/widgets/note_creation_view.py" line="-242"/>
+        <source>%1 mot(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+65"/>
+        <location line="+176"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="+407"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="-81"/>
+        <location line="+180"/>
+        <source>Nouvelle carte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-154"/>
+        <source>Carte :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Paquet :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Type de note :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Tags :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>Retouches rapides (optionnel) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Tags (séparés par des virgules)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+44"/>
+        <location line="+5"/>
+        <location line="+73"/>
+        <location line="+5"/>
+        <source>—</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-68"/>
+        <location line="+88"/>
+        <source>Aucun</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-66"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1411"/>
+        <source>Lot de création</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>CRÉATION PAR LOT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Carte %1 / %2 — %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>%1 carte(s) dans ce lot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4653,7 +4760,8 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     <message>
         <location line="+10"/>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-306"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="-258"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1105"/>
         <location line="+2"/>
         <source>%1 mots</source>
         <translation type="unfinished"></translation>
@@ -5535,7 +5643,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widget_gallery/families/components.py" line="+8"/>
+        <location filename="../../ui/widget_gallery/families/components.py" line="-399"/>
         <source>biologie</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5809,12 +5917,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Nouvelle carte</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+16"/>
+        <location line="+20"/>
         <source>Sélectionner des tags</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6825,7 +6928,61 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1865"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="+90"/>
+        <source>Changer le paquet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Changer le type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+245"/>
+        <source>Précédent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+2"/>
+        <source>Suivant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+51"/>
+        <source>Ajouter un tag…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>APERÇU</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+49"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+44"/>
+        <source>Lot de création — %1 note(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>Aucun champ défini</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <location line="+1"/>
+        <source>Non défini</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Aperçu temporaire</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-2156"/>
         <source>Règle #4 (Atomicité) : Question trop verbeuse (%1 mots &gt; 25).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6940,12 +7097,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
-        <source>Lot de création</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+145"/>
+        <location line="+169"/>
         <source>Création de type de note — &apos;%1&apos;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7199,17 +7351,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>Précédent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Suivant</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
+        <location line="+18"/>
         <source>Champ</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7229,12 +7371,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+18"/>
-        <source>Lot de création — %1 note(s)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+32"/>
+        <location line="+50"/>
         <location line="+33"/>
         <source>Métadonnées</source>
         <translation type="unfinished"></translation>
@@ -17098,7 +17235,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MCPSupervisionWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_supervision_widget.py" line="-480"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_supervision_widget.py" line="-487"/>
         <source>Serveur MCP Local (Model Context Protocol)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17139,12 +17276,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     </message>
     <message>
         <location line="+4"/>
-        <location line="+239"/>
+        <location line="+246"/>
         <source>Arrêté</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-232"/>
+        <location line="-239"/>
         <source>Protocole : Streamable HTTP 2.x + SSE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17211,7 +17348,47 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+8"/>
+        <source>Claude</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Antigravity (agy)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Cursor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>cURL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Onglet configuration Claude Desktop et Code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Onglet configuration Antigravity CLI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Onglet configuration Cursor et Windsurf</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Onglet configuration cURL et CLI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
         <source>Claude (Desktop &amp; Code)</source>
         <translation type="unfinished"></translation>
     </message>

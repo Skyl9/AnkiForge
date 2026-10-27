@@ -92,6 +92,10 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Fil d'Ariane prévisionnel (de création)** : composant d'interface décomposant en temps réel les segments d'un chemin hiérarchique en cours de saisie, distinguant visuellement les conteneurs déjà existants de ceux qui seront créés à la validation.
   _Avoid_ : breadcrumb passif, prévisualisation texte, indicateur de chemin
 - **Surface documentaire** : ensemble cohérent des interactions permettant de sélectionner, importer, structurer, consulter, délimiter, indexer ou auditer un document. Une surface peut traverser plusieurs vues, widgets et dialogues.
+- **Requête récursive de paquet (recursive deck query)** : paramètre booléen (`recursive: bool = True`) des outils MCP de consultation (`get_cards_by_deck_or_tag`, `get_notes_by_model`) qui, quand il est vrai, étend automatiquement le filtre `deck_name` à l'ensemble de la sous-arborescence (`Nom::%`). Par défaut à `True` pour correspondre à l'intuition utilisateur : interroger un paquet parent inclut sa descendance.
+  _Avoid_ : include_subdecks, récursivité optionnelle, paramètre d'arborescence
+- **Paramètre `recursive` (MCP)** : nom canonique unifié pour le paramètre d'inclusion des sous-paquets dans les outils de consultation MCP, remplacé l'ancien `include_subdecks` pour cohérence avec les conventions d'API hiérarchiques (GitHub, AWS) et le vocabulaire arbre du domaine.
+  _Avoid_ : include_subdecks, recursive_flag, subdecks_param
 
 ## Ingestion & Parsing documentaire
 
