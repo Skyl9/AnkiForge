@@ -15,6 +15,7 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
 
 1. **Prise en charge du ticket** :
    - Lire la note du ticket ciblée dans `ankiforge_obsidian/Tickets/`.
+   - **Vérification préalable de l'état réel** : exécuter `git status` et `git log --oneline -5` sur le dépôt principal pour déterminer si l'implémentation existe déjà (code et tests déjà présents). Si c'est le cas, ne pas réimplémenter — passer directement à la vérification canonique (`script/verify.py`) puis à la clôture du ticket.
    - Dans le tableau Kanban `ankiforge_obsidian/Avancement du projet.md`, déplacer la carte correspondante vers la colonne `## 🏃 En cours`.
    - **Règle anti-boucle** : appliquer la modification en une seule passe atomique (One-shot pass) sans relecture circulaire.
 2. **Clarifier la couture (Seam)** :
