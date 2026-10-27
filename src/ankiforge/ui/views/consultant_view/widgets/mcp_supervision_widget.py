@@ -21,13 +21,13 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QSizePolicy,
-    QTabBar,
     QVBoxLayout,
     QWidget,
 )
 
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
@@ -371,14 +371,21 @@ class MCPSupervisionWidget(QWidget):
         header_snippets_row.addWidget(self.btn_copy_snippet)
         snippets_layout.addLayout(header_snippets_row)
 
-        self.tab_bar_clients = QTabBar()
-        self.tab_bar_clients.setDrawBase(False)
-        self.tab_bar_clients.setStyleSheet("QTabBar { border: none; background: transparent; font-size: 12px; }")
-        self.tab_bar_clients.addTab(self.tr("Claude (Desktop & Code)"))
-        self.tab_bar_clients.addTab(self.tr("Antigravity CLI (agy)"))
-        self.tab_bar_clients.addTab(self.tr("Cursor / Windsurf"))
-        self.tab_bar_clients.addTab(self.tr("cURL / CLI"))
-        self.tab_bar_clients.currentChanged.connect(self._on_client_tab_changed)
+        self.tab_bar_clients = SegmentedTabBar(variant="subtab", parent=self)
+        self.tab_bar_clients.setObjectName("mcp_tab_bar_clients")
+        btn_claude = self.tab_bar_clients.add_tab("claude", self.tr("Claude"), icon_name="ph.app-window")
+        btn_agy = self.tab_bar_clients.add_tab("agy", self.tr("Antigravity (agy)"), icon_name="ph.terminal")
+        btn_cursor = self.tab_bar_clients.add_tab("cursor", self.tr("Cursor"), icon_name="ph.cursor")
+        btn_curl = self.tab_bar_clients.add_tab("curl", self.tr("cURL"), icon_name="ph.terminal-window")
+        btn_claude.setAccessibleName(self.tr("Onglet configuration Claude Desktop et Code"))
+        btn_agy.setAccessibleName(self.tr("Onglet configuration Antigravity CLI"))
+        btn_cursor.setAccessibleName(self.tr("Onglet configuration Cursor et Windsurf"))
+        btn_curl.setAccessibleName(self.tr("Onglet configuration cURL et CLI"))
+        btn_claude.setToolTip(self.tr("Claude (Desktop & Code)"))
+        btn_agy.setToolTip(self.tr("Antigravity CLI (agy)"))
+        btn_cursor.setToolTip(self.tr("Cursor / Windsurf"))
+        btn_curl.setToolTip(self.tr("cURL / CLI"))
+        self.tab_bar_clients.tab_index_changed.connect(self._on_client_tab_changed)
         snippets_layout.addWidget(self.tab_bar_clients)
 
         self.lbl_snippet_hint = QLabel(self.tr("Collez ce bloc dans votre fichier claude_desktop_config.json :"))
@@ -666,6 +673,9 @@ class MCPSupervisionWidget(QWidget):
             self.lbl_transport_info.setStyleSheet(f"color: {text_muted}; font-size: 12px; margin-left: 6px; background: transparent; border: none;")
         if hasattr(self, "lbl_snippet_hint"):
             self.lbl_snippet_hint.setStyleSheet(f"color: {text_secondary}; font-size: 12px; background: transparent; border: none;")
+
+        if hasattr(self, "tab_bar_clients") and hasattr(self.tab_bar_clients, "refresh_theme"):
+            self.tab_bar_clients.refresh_theme(profile)
 
 
 __all__ = ["MCPSupervisionWidget"]

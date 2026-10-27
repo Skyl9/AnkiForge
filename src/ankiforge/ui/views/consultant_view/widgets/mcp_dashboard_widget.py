@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QStackedWidget,
-    QTabBar,
     QVBoxLayout,
     QWidget,
 )
@@ -314,7 +313,7 @@ class MCPServerDashboardWidget(QWidget):
         return self.supervision_widget.lbl_transport_info
 
     @property
-    def tab_bar_clients(self) -> QTabBar:
+    def tab_bar_clients(self) -> SegmentedTabBar:
         return self.supervision_widget.tab_bar_clients
 
     @property
