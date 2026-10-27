@@ -40,7 +40,7 @@ from ankiforge.ui.components.buttons import (
     PrimaryButton,
     SecondaryButton,
 )
-from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -73,15 +73,15 @@ class MCPTelemetryKpiCard(QFrame):
 
     def _setup_ui(self, initial_value: str, subtitle: str) -> None:
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 8, 14, 8)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(10)
 
         text_layout = QVBoxLayout()
         text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(2)
+        text_layout.setSpacing(1)
 
         self.lbl_title = QLabel(self.title_text)
-        self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 700; border: none; text-transform: uppercase; letter-spacing: 0.5px;")
+        self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; border: none; text-transform: uppercase; letter-spacing: 0.5px;")
         text_layout.addWidget(self.lbl_title)
 
         val_row = QHBoxLayout()
@@ -89,7 +89,7 @@ class MCPTelemetryKpiCard(QFrame):
         val_row.setSpacing(8)
 
         self.lbl_val = QLabel(initial_value)
-        self.lbl_val.setStyleSheet(f"color: {self.accent_color}; font-size: 17px; font-weight: 700; border: none; font-family: '{DesignTokens.FONT_CODE}';")
+        self.lbl_val.setStyleSheet(f"color: {self.accent_color}; font-size: 17px; font-weight: 600; border: none; font-family: '{DesignTokens.FONT_CODE}';")
         val_row.addWidget(self.lbl_val)
 
         self.lbl_sub = QLabel(subtitle)
@@ -103,11 +103,9 @@ class MCPTelemetryKpiCard(QFrame):
         layout.addLayout(text_layout, 1)
 
         self.lbl_icon = QLabel()
-        self.lbl_icon.setPixmap(load_phosphor_icon(self.icon_name, color=self.accent_color).pixmap(22, 22))
-        self.lbl_icon.setStyleSheet("border: none; background: transparent; opacity: 0.85;")
+        self.lbl_icon.setPixmap(load_phosphor_icon(self.icon_name, color=self.accent_color).pixmap(20, 20))
+        self.lbl_icon.setStyleSheet("border: none; background: transparent; opacity: 0.7;")
         layout.addWidget(self.lbl_icon)
-
-        apply_shadow(self, blur=6, offset_y=2)
 
     def set_value(self, value: str, subtitle: str | None = None) -> None:
         """Met à jour la valeur et le sous-titre de l'indicateur."""
@@ -118,13 +116,13 @@ class MCPTelemetryKpiCard(QFrame):
 
     def _apply_style(self, profile: Any = None) -> None:
         bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
-        border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
-        radius_md = profile.radius_md if profile else DesignTokens.RADIUS_MD
+        border_light = profile.border_light if profile else DesignTokens.BORDER_LIGHT
+        radius_sm = profile.radius_sm if profile else DesignTokens.RADIUS_SM
         self.setStyleSheet(f"""
             QFrame#mcp_telemetry_kpi_card {{
                 background-color: {bg_panel};
-                border: 1px solid {border_col};
-                border-radius: {radius_md}px;
+                border: 1px solid {border_light};
+                border-radius: {radius_sm}px;
             }}
         """)
 
