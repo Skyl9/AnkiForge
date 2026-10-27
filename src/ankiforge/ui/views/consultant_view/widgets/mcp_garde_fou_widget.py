@@ -43,6 +43,7 @@ from ankiforge.ui.views.consultant_view.widgets.garde_fou_views import (
     DeletionImpactWidget,
     TagDiffWidget,
 )
+from ankiforge.ui.widgets.card_create_view_widget import CardCreateViewWidget
 from ankiforge.ui.widgets.card_semantic_diff_widget import CardSemanticDiffWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
@@ -502,6 +503,10 @@ class MCPGardeFouWidget(QWidget):
         self.deletion_view = DeletionImpactWidget()
         self.polymorphic_stack.addWidget(self.deletion_view)
 
+        # Page 4 : Affichage dédié de création de carte (note_create / batch_note_create)
+        self.create_view = CardCreateViewWidget()
+        self.polymorphic_stack.addWidget(self.create_view)
+
         detail_view_layout.addWidget(self.polymorphic_stack, 1)
 
         # ── Barre d'Action Séquentielle Inférieure ───────────────────────────
@@ -716,9 +721,9 @@ class MCPGardeFouWidget(QWidget):
         self.lbl_detail_meta.setText(meta_str)
 
         # Routage vers la page polymorphe du QStackedWidget
-        if p_type == "batch_note_create":
-            self.polymorphic_stack.setCurrentIndex(0)
-            self.diff_viewer.set_patch(patch)
+        if p_type in ("note_create", "batch_note_create"):
+            self.polymorphic_stack.setCurrentIndex(4)
+            self.create_view.set_patch(patch)
         elif p_type in ("deck_create", "create_deck", "deck_rename", "rename_deck"):
             self.polymorphic_stack.setCurrentIndex(1)
             self.deck_view.set_patch(patch)
@@ -734,13 +739,6 @@ class MCPGardeFouWidget(QWidget):
 
     def _get_current_modified_content(self) -> Any:
         """Extrait le contenu retouché de la vue polymorphe active."""
-        if self._current_patch and getattr(self._current_patch, "patch_type", "").lower() == "batch_note_create" and hasattr(self, "diff_viewer"):
-            try:
-                res = self.diff_viewer.get_modified_content()
-                if res is not None:
-                    return res
-            except Exception:
-                pass
         idx = self.polymorphic_stack.currentIndex()
         if idx == 0:
             return self.diff_viewer.get_modified_content()
@@ -750,6 +748,8 @@ class MCPGardeFouWidget(QWidget):
             return self.tag_view.get_modified_content()
         elif idx == 3:
             return self.deletion_view.get_modified_content()
+        elif idx == 4:
+            return self.create_view.get_modified_content()
         return None
 
     def _filter_list(self, text: str) -> None:
@@ -790,9 +790,9 @@ class MCPGardeFouWidget(QWidget):
         bundle = self._current_patch.bundle
         step_order = self._current_patch.step_order
 
-        # 1. Synchronisation de l'édition directe (uniquement pour les patchs unitaires ou scissions, pas les lots bruts)
+        # 1. Synchronisation de l'édition directe (uniquement pour les modifications, pas les créations ni lots bruts)
         p_type = getattr(self._current_patch, "patch_type", "")
-        if p_type not in ("batch_note_create", "batch_create"):
+        if p_type not in ("note_create", "batch_note_create", "batch_create"):
             edited_content = self._get_current_modified_content()
             if edited_content is not None:
                 StagedPatchRegistry.sync_direct_edit(patch_id, edited_content)
@@ -840,9 +840,9 @@ class MCPGardeFouWidget(QWidget):
 
         bundle_id = self._current_patch.bundle.bundle_id
 
-        # Synchronisation de l'édition directe de l'étape active avant l'application globale (sauf lots)
+        # Synchronisation de l'édition directe de l'étape active avant l'application globale (sauf créations et lots bruts)
         p_type = getattr(self._current_patch, "patch_type", "")
-        if p_type not in ("batch_note_create", "batch_create"):
+        if p_type not in ("note_create", "batch_note_create", "batch_create"):
             edited_content = self._get_current_modified_content()
             if edited_content is not None:
                 StagedPatchRegistry.sync_direct_edit(self._current_patch.patch_id, edited_content)
@@ -967,8 +967,12 @@ class MCPGardeFouWidget(QWidget):
             self.tag_view.refresh_theme(profile)
         if hasattr(self, "deletion_view") and hasattr(self.deletion_view, "refresh_theme"):
             self.deletion_view.refresh_theme(profile)
+        if hasattr(self, "create_view") and hasattr(self.create_view, "refresh_theme"):
+            self.create_view.refresh_theme(profile)
 
     def cleanup(self) -> None:
         """Arrête les chargements Chromium et libère les ressources WebEngine."""
         if hasattr(self, "diff_viewer") and hasattr(self.diff_viewer, "cleanup"):
             self.diff_viewer.cleanup()
+        if hasattr(self, "create_view") and hasattr(self.create_view, "cleanup"):
+            self.create_view.cleanup()
