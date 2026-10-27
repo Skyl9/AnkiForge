@@ -178,6 +178,7 @@ class DesignTokens:
         "dense": 4,
         "none": 0,
     }
+
     @classmethod
     def apply_theme_profile(cls, profile: Any) -> None:
         """Applique l'intégralité d'un ThemeProfile aux variables de classe DesignTokens."""
