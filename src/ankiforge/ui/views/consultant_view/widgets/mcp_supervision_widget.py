@@ -107,8 +107,8 @@ class MCPSupervisionWidget(QWidget):
 
     def _setup_ui(self) -> None:
         root_layout = QVBoxLayout(self)
-        root_layout.setContentsMargins(24, 18, 24, 20)
-        root_layout.setSpacing(14)
+        root_layout.setContentsMargins(*DesignTokens.DESIGN_SYSTEM_MARGES["mcp_root"])
+        root_layout.setSpacing(DesignTokens.DESIGN_SYSTEM_SPACING["mcp_root"])
 
         # ── 1. En-tête compact ─────────────────────────────────────────────
         header_layout = QVBoxLayout()

@@ -1,9 +1,10 @@
 """Vues spécialisées pour la zone de détail polymorphe du Garde-Fou MCP.
 
-Fournit les 3 vues dédiées intégrées dans le QStackedWidget polymorphe :
+Fournit les 4 vues dédiées intégrées dans le QStackedWidget polymorphe :
 - DeckOperationWidget : Arborescence de paquets avec badges parent/enfant (deck_create, deck_rename)
 - TagDiffWidget : Tableau comparatif des tags ajoutés/retirés (set_tags, set_tags_bulk)
 - DeletionImpactWidget : Bannière rouge vif avec décompte d'impact (card_delete, deck_delete)
+- NoteCreationWidget : Affichage de création de note(s) sans diff (note_create, batch_note_create)
 """
 
 from __future__ import annotations

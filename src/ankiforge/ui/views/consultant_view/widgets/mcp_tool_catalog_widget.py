@@ -517,8 +517,8 @@ class MCPToolCatalogWidget(QWidget):
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 12, 16, 12)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(*DesignTokens.DESIGN_SYSTEM_MARGES["mcp_root"])
+        main_layout.setSpacing(DesignTokens.DESIGN_SYSTEM_SPACING["mcp_root"])
 
         # ── 1. EN-TÊTE : RECHERCHE ET RUBAN DE PUCES ─────────────────────
         top_header_layout = QHBoxLayout()

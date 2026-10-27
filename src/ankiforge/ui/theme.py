@@ -161,6 +161,23 @@ class DesignTokens:
     INPUT_AUTO_EXPAND_MIN_HEIGHT = 54
     INPUT_AUTO_EXPAND_MAX_HEIGHT = 160
 
+    # Design System - Grille d'espacements unifiée (Cockpit MCP)
+    DESIGN_SYSTEM_MARGES = {
+        "mcp_root": (16, 18, 16, 20),
+        "panel_card": (16, 14, 16, 14),
+        "panel_internal": (12, 12, 12, 12),
+        "compact": (8, 8, 8, 8),
+        "zero": (0, 0, 0, 0),
+    }
+    DESIGN_SYSTEM_SPACING = {
+        "mcp_root": 12,
+        "card_internal": 10,
+        "row_controls": 8,
+        "section": 14,
+        "tight": 6,
+        "dense": 4,
+        "none": 0,
+    }
     @classmethod
     def apply_theme_profile(cls, profile: Any) -> None:
         """Applique l'intégralité d'un ThemeProfile aux variables de classe DesignTokens."""

@@ -305,8 +305,8 @@ class MCPGardeFouWidget(QWidget):
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(8, 8, 8, 8)
-        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(*DesignTokens.DESIGN_SYSTEM_MARGES["mcp_root"])
+        main_layout.setSpacing(DesignTokens.DESIGN_SYSTEM_SPACING["mcp_root"])
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
