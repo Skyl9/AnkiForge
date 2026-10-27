@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import importlib
 import inspect
-import os
 from collections import Counter
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
-from PySide6.QtWidgets import QDialog, QLabel, QWidget
+from PySide6.QtCore import QAbstractItemModel
+from PySide6.QtWidgets import QAbstractItemDelegate, QDialog, QLabel, QMainWindow, QWidget
 
 from ankiforge.dev import is_dev_mode
+from ankiforge.ui.layouts.base_layout import BaseLayout
+from ankiforge.ui.layouts.layout_manager import LayoutManager
+from ankiforge.ui.viewmodels.base import BaseViewModel
 from ankiforge.ui.widget_gallery import (
     WidgetGalleryRegistry,
     WidgetGalleryWindow,
@@ -24,8 +28,31 @@ from ankiforge.ui.widget_gallery.families.components import (
     component_labels,
 )
 from ankiforge.ui.widget_gallery.families.dialogs import DIALOG_FACTORIES, dialog_labels
+from ankiforge.ui.widget_gallery.families.layouts import LAYOUT_FACTORIES, layout_labels
+from ankiforge.ui.widget_gallery.families.models import (
+    EXCLUDED_QT_MODEL_CLASSES,
+    MODEL_FACTORIES,
+    model_labels,
+)
+from ankiforge.ui.widget_gallery.families.shell import SHELL_CLASS_IDS, SHELL_FACTORIES, shell_labels
+from ankiforge.ui.widget_gallery.families.viewmodels import VIEWMODEL_FACTORIES, viewmodel_labels
+from ankiforge.ui.widget_gallery.previews import ObjectPreview, ShellPreviewWindow
+from ankiforge.ui.widget_gallery.registry import GalleryEntry
 
 pytestmark = pytest.mark.ui
+
+#: Familles attendues dans la galerie (l'ordre d'affichage est alphabétique).
+EXPECTED_FAMILIES = frozenset({"components", "dialogs", "layouts", "models", "shell", "viewmodels"})
+
+
+def _collect_all_entries() -> list[GalleryEntry]:
+    """Photographie le registre complet avant que la fixture d'isolation ne le purge."""
+    load_families()
+    return WidgetGalleryRegistry.list()
+
+
+#: Paramétrage figé à la collecte : les factories restent valides après la purge du registre.
+ALL_ENTRIES = _collect_all_entries()
 
 
 @pytest.fixture(autouse=True)
@@ -36,11 +63,14 @@ def reset_registry():
 
 
 @pytest.fixture(autouse=True)
-def dev_mode():
-    os.environ["ANKIFORGE_ENV"] = "development"
+def dev_mode(monkeypatch: pytest.MonkeyPatch):
+    # ``monkeypatch`` restaure ``ANKIFORGE_ENV`` en fin de test : sans cela la variable
+    # fuiterait vers les tests suivants du même worker xdist et réveillerait le démarrage
+    # différé du démon MCP de ``MainWindow`` (timer non annulable).
+    monkeypatch.setenv("ANKIFORGE_ENV", "development")
     import ankiforge.utils.environment as env_mod
 
-    env_mod._current_env = None
+    monkeypatch.setattr(env_mod, "_current_env", None)
     yield
     env_mod._current_env = None
 
@@ -62,12 +92,27 @@ def isolated_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _assert_no_pending_worker(widget: QWidget, label: str) -> None:
-    """Attend tout worker lancé à la construction pour immuniser le teardown de ``mock_db``."""
-    worker = getattr(widget, "worker", None)
-    if worker is None:
-        worker = getattr(widget, "_worker", None)
-    if worker is not None and hasattr(worker, "wait"):
-        assert worker.wait(10_000), f"Le worker de {label} n'a pas terminé"
+    """Attend tout worker lancé à la construction pour immuniser le teardown de ``mock_db``.
+
+    Les aperçus non visuels (ViewModel encapsulé dans un ``ObjectPreview``) portent leur
+    cible sur ``_target`` : le worker peut donc être lancé par l'objet observé et non par
+    le conteneur.
+    """
+    for candidate in (widget, getattr(widget, "_target", None)):
+        if candidate is None:
+            continue
+        worker = getattr(candidate, "worker", None)
+        if worker is None:
+            worker = getattr(candidate, "_worker", None)
+        if worker is not None and hasattr(worker, "wait"):
+            assert worker.wait(10_000), f"Le worker de {label} n'a pas terminé"
+
+
+def _select_entry(win: WidgetGalleryWindow, family: str, name: str) -> None:
+    """Sélectionne une entrée de l'arbre et laisse la fenêtre construire son aperçu."""
+    root = next(win.tree.topLevelItem(index) for index in range(win.tree.topLevelItemCount()) if win.tree.topLevelItem(index).text(0) == family)
+    item = next(root.child(index) for index in range(root.childCount()) if root.child(index).text(0) == name)
+    win.tree.setCurrentItem(item)
 
 
 def test_is_dev_mode_active_in_tests(dev_mode):
@@ -82,11 +127,48 @@ def test_gallery_window_opens(qtbot):
     assert win.tree.topLevelItemCount() >= 1
 
 
-def test_gallery_instanciates_each_entry(qtbot):
-    for entry in WidgetGalleryRegistry.list():
-        widget = entry.factory()
-        qtbot.addWidget(widget)
-        assert isinstance(widget, QWidget)
+def test_registry_covers_expected_families():
+    load_families()
+
+    assert set(WidgetGalleryRegistry.families()) >= EXPECTED_FAMILIES
+
+
+def test_collected_snapshot_matches_expected_families():
+    # Invariant de collecte : la photographie paramétrée doit couvrir exactement les
+    # familles annoncées, faute de quoi une famille entière échapperait aux tests.
+    assert {entry.family for entry in ALL_ENTRIES} == EXPECTED_FAMILIES
+    assert len({(entry.family, entry.name) for entry in ALL_ENTRIES}) == len(ALL_ENTRIES)
+
+
+def test_gallery_window_exposes_every_registered_family(qtbot):
+    load_families()
+    win = WidgetGalleryWindow()
+    qtbot.addWidget(win)
+
+    families = {win.tree.topLevelItem(index).text(0): win.tree.topLevelItem(index).childCount() for index in range(win.tree.topLevelItemCount())}
+
+    assert set(families) == set(WidgetGalleryRegistry.families())
+    # La famille « fixtures » est ajoutée par la fixture autouse : elle complète
+    # l'ensemble attendu sans jamais le remplacer.
+    assert set(families) == EXPECTED_FAMILIES | {"fixtures"}
+    for family, child_count in families.items():
+        assert child_count == len(WidgetGalleryRegistry.list(family=family)), f"Famille incomplète dans l'arbre : {family}"
+
+
+@pytest.mark.parametrize(
+    ("family", "name", "factory"),
+    [(entry.family, entry.name, entry.factory) for entry in ALL_ENTRIES],
+    ids=[f"{entry.family}-{index:03d}" for index, entry in enumerate(ALL_ENTRIES)],
+)
+def test_every_registered_entry_instantiates_without_crash(qtbot, family, name, factory):
+    widget = factory()
+    qtbot.addWidget(widget)
+
+    assert isinstance(widget, QWidget), f"L'entrée « {family}/{name} » n'instancie pas un widget"
+
+    _assert_no_pending_worker(widget, f"{family}/{name}")
+
+    widget.close()
 
 
 def test_gallery_search_filters(qtbot):
@@ -120,6 +202,69 @@ def test_gallery_layout_change_does_not_crash(qtbot):
     win.show()
     for idx in range(win.layout_combo.count()):
         win.layout_combo.setCurrentIndex(idx)
+
+
+# ── Câblage de la barre d'outils ───────────────────────────────────────────────
+
+
+def test_gallery_modal_button_follows_the_selected_entry(qtbot):
+    load_families()
+    win = WidgetGalleryWindow()
+    qtbot.addWidget(win)
+    win.show()
+
+    _select_entry(win, "shell", shell_labels()["SettingsModal"])
+    assert win.open_modal_btn.isEnabled(), "Les paramètres doivent pouvoir s'ouvrir en modal"
+
+    _select_entry(win, "dialogs", dialog_labels()[next(iter(DIALOG_FACTORIES))])
+    assert win.open_modal_btn.isEnabled(), "Les dialogues doivent pouvoir s'ouvrir en modal"
+
+    _select_entry(win, "layouts", layout_labels()["IdeLayout"])
+    assert not win.open_modal_btn.isEnabled(), "Un layout n'a pas de sens en modal"
+
+
+def test_gallery_layout_combo_targets_the_shell_preview(qtbot):
+    load_families()
+    win = WidgetGalleryWindow()
+    qtbot.addWidget(win)
+    win.show()
+
+    assert win.layout_combo.count() == len(LayoutManager.get_available_layouts())
+
+    _select_entry(win, "shell", shell_labels()["MainWindow"])
+    preview = win.preview.current_widget
+    assert isinstance(preview, ShellPreviewWindow)
+    assert win.layout_combo.isEnabled(), "La disposition doit être applicable à la coquille"
+
+    target_index = next(index for index in range(win.layout_combo.count()) if win.layout_combo.itemData(index) == "macos")
+    win.layout_combo.setCurrentIndex(target_index)
+
+    assert preview.current_layout is not None
+    assert preview.current_layout.get_layout_id() == LayoutManager.resolve_layout_id("macos")
+
+    _select_entry(win, "viewmodels", viewmodel_labels()["BaseViewModel"])
+    assert not win.layout_combo.isEnabled(), "Un ViewModel n'applique aucune disposition"
+
+
+def test_gallery_closing_releases_the_current_viewmodel(qtbot):
+    load_families()
+    win = WidgetGalleryWindow()
+    qtbot.addWidget(win)
+    win.show()
+
+    _select_entry(win, "viewmodels", viewmodel_labels()["BaseViewModel"])
+    preview = win.preview.current_widget
+    assert isinstance(preview, ObjectPreview)
+
+    received: list[str] = []
+    preview.target.subscribe_event("galerie-test", received.append)
+    preview.target.publish_event("galerie-test", "avant fermeture")
+
+    win.close()
+    preview.target.publish_event("galerie-test", "apres fermeture")
+
+    assert received == ["avant fermeture"], "La fermeture de la galerie doit libérer les abonnements du ViewModel"
+    assert win.preview.current_widget is None, "L'aperçu courant doit être libéré à la fermeture"
 
 
 # ── Famille « dialogs » ────────────────────────────────────────────────────────
@@ -300,3 +445,135 @@ def test_each_component_instantiates_without_crash(qtbot, declared_components, k
     _assert_no_pending_worker(widget, key)
 
     widget.close()
+
+
+# ── Familles « layouts », « viewmodels », « models » et « shell » ──────────────
+
+
+def _classes_declared_in_package(package_name: str, base: type[object], *, include_base: bool = False) -> dict[str, type[object]]:
+    """Indexe les classes concrètes déclarées par les modules d'un paquet.
+
+    La classe de base elle-même est exclue par défaut : les bases Qt du projet
+    (``BaseLayout``, ``BasePaginatedPeeweeModel``) ne fixent pas de métaclasse ABC et
+    ne sont donc pas détectées comme abstraites par :func:`inspect.isabstract`.
+    """
+    package = importlib.import_module(package_name)
+    package_dir = Path(next(iter(package.__path__)))
+    declared: dict[str, type[object]] = {}
+    for module_path in sorted(package_dir.glob("*.py")):
+        if module_path.stem.startswith("_"):
+            continue
+        module = importlib.import_module(f"{package_name}.{module_path.stem}")
+        for name, obj in inspect.getmembers(module, inspect.isclass):
+            if obj is base and not include_base:
+                continue
+            if obj.__module__ == module.__name__ and issubclass(obj, base) and not inspect.isabstract(obj):
+                declared[name] = obj
+    return declared
+
+
+def test_layouts_family_covers_every_layout_class():
+    declared = _classes_declared_in_package("ankiforge.ui.layouts", BaseLayout)
+
+    assert set(LAYOUT_FACTORIES) == set(declared)
+    assert set(layout_labels()) == set(LAYOUT_FACTORIES)
+
+
+def test_layouts_family_is_registered_in_gallery():
+    load_families()
+
+    entries = WidgetGalleryRegistry.list(family="layouts")
+
+    assert {entry.name for entry in entries} == set(layout_labels().values())
+    assert {entry.factory for entry in entries} == set(LAYOUT_FACTORIES.values())
+
+
+def test_viewmodels_family_covers_every_viewmodel_class():
+    declared = _classes_declared_in_package("ankiforge.ui.viewmodels", BaseViewModel, include_base=True)
+
+    assert set(VIEWMODEL_FACTORIES) == set(declared)
+    assert set(viewmodel_labels()) == set(VIEWMODEL_FACTORIES)
+
+
+def test_viewmodels_family_is_registered_in_gallery():
+    load_families()
+
+    entries = WidgetGalleryRegistry.list(family="viewmodels")
+
+    assert {entry.name for entry in entries} == set(viewmodel_labels().values())
+    assert {entry.factory for entry in entries} == set(VIEWMODEL_FACTORIES.values())
+
+
+def test_models_family_covers_every_qt_model_and_delegate_class():
+    declared: dict[str, type[object]] = {}
+    for package_name in ("ankiforge.ui.models",):
+        for base in (QAbstractItemModel, QAbstractItemDelegate):
+            declared.update(_classes_declared_in_package(package_name, base))
+
+    covered = set(MODEL_FACTORIES) | EXCLUDED_QT_MODEL_CLASSES
+
+    assert set(declared) == covered
+    assert set(model_labels()) == set(MODEL_FACTORIES)
+
+
+def test_models_family_is_registered_in_gallery():
+    load_families()
+
+    entries = WidgetGalleryRegistry.list(family="models")
+
+    assert {entry.name for entry in entries} == set(model_labels().values())
+    assert {entry.factory for entry in entries} == set(MODEL_FACTORIES.values())
+
+
+def test_shell_family_covers_main_window_and_settings():
+    main_window_module = importlib.import_module("ankiforge.ui.main_window")
+    preferences_module = importlib.import_module("ankiforge.ui.preferences_dialog")
+
+    main_windows = {name for name, obj in inspect.getmembers(main_window_module, inspect.isclass) if obj.__module__ == main_window_module.__name__ and issubclass(obj, QMainWindow)}
+
+    assert main_windows == {"MainWindow"}
+    assert preferences_module.PreferencesDialog is preferences_module.SettingsModal
+    assert set(SHELL_CLASS_IDS) == set(SHELL_FACTORIES) == {"MainWindow", "SettingsModal"}
+    assert set(shell_labels()) == set(SHELL_FACTORIES)
+
+
+def test_shell_preview_renders_the_real_main_window_registry(qtbot):
+    from ankiforge.ui.main_window import MainWindow
+
+    load_families()
+    entry = next(item for item in WidgetGalleryRegistry.list(family="shell") if item.name == shell_labels()["MainWindow"])
+
+    widget = entry.factory()
+    qtbot.addWidget(widget)
+
+    assert isinstance(widget, QMainWindow)
+    assert set(widget.navigation_ids()) == set(MainWindow.view_registry())
+    assert widget.current_layout is not None
+    assert widget.current_layout.get_layout_id() == "ide"
+
+
+def test_shell_settings_entry_opens_in_modal(qtbot):
+    load_families()
+    entries = {item.name: item for item in WidgetGalleryRegistry.list(family="shell")}
+
+    assert entries[shell_labels()["SettingsModal"]].modal is True
+    assert entries[shell_labels()["MainWindow"]].modal is False
+
+    dialogs = {item.name: item for item in WidgetGalleryRegistry.list(family="dialogs")}
+    assert all(item.modal for item in dialogs.values())
+
+
+def test_settings_modal_exposes_developer_tab_only_in_dev_mode(qtbot):
+    from ankiforge.ui.widgets.settings_modal.modal import SettingsModal
+
+    modal = SettingsModal()
+    qtbot.addWidget(modal)
+    assert modal.dev_tab is not None, "Le mode développement doit exposer l'onglet Développeur"
+    assert modal.stacked_widget.count() == 10
+
+    with patch("ankiforge.ui.widgets.settings_modal.modal.is_development", return_value=False):
+        standard = SettingsModal()
+        qtbot.addWidget(standard)
+
+        assert standard.dev_tab is None, "Hors mode développement, l'onglet Développeur doit être absent"
+        assert standard.stacked_widget.count() == 9
