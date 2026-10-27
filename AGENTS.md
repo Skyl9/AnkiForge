@@ -175,6 +175,7 @@ Le dépôt héberge 50 compétences agentiques autonomes conformes au standard i
 - `audit-qualite-code` (`.agents/skills/audit-qualite-code/SKILL.md`) : Typage strict `mypy`, conformité `ruff`, code mort et interdiction de `print()`.
 - `audit-securite` (`.agents/skills/audit-securite/SKILL.md`) : Audit statique Bandit, masquage des secrets et sécurité de la sandbox d'exécution.
 - `audit-tests-ci` (`.agents/skills/audit-tests-ci/SKILL.md`) : Discipline de mock des LLM, contraintes headless Qt et fiabilité des pipelines CI/CD.
+- `audit-ui-ux-holistique` (`.agents/skills/audit-ui-ux-holistique/SKILL.md`) : Audit transversal Senior UI/UX et architecture front PySide6, détection de dérive de design face à DESIGN.md et génération de tickets Obsidian.
 
 ### 4. Flux d'Ingénierie Agentique (Workflow AnkiForge)
 - `ask-forge` (`.agents/skills/ask-forge/SKILL.md`) : Aiguilleur et routeur de tâches d'ingénierie articulé avec le suivi Kanban Obsidian.
