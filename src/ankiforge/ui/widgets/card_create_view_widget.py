@@ -363,9 +363,7 @@ class CardCreateViewWidget(QWidget):
             self._notes_list = []
             self._display_single(content, payload)
 
-        self.lbl_title.setText(
-            tr("Lot de création — %1 note(s)", len(self._notes_list)) if is_batch else tr("Nouvelle carte")
-        )
+        self.lbl_title.setText(tr("Lot de création — %1 note(s)", len(self._notes_list)) if is_batch else tr("Nouvelle carte"))
 
     def _display_single(self, content: dict[str, Any], payload: dict[str, Any]) -> None:
         """Affiche une création de note unitaire."""
@@ -374,22 +372,10 @@ class CardCreateViewWidget(QWidget):
             fields = {}
         self._fields = {str(k): str(v) for k, v in fields.items()}
 
-        deck_name = (
-            content.get("deck_name")
-            or content.get("deck")
-            or payload.get("deck_name")
-            or payload.get("deck")
-            or ""
-        )
+        deck_name = content.get("deck_name") or content.get("deck") or payload.get("deck_name") or payload.get("deck") or ""
         self._deck = DeckModel.get_or_none(DeckModel.name == str(deck_name).strip()) if deck_name else None
 
-        nt_name = (
-            content.get("note_type_name")
-            or content.get("note_type")
-            or payload.get("note_type_name")
-            or payload.get("note_type")
-            or ""
-        )
+        nt_name = content.get("note_type_name") or content.get("note_type") or payload.get("note_type_name") or payload.get("note_type") or ""
         self._note_type = NoteTypeModel.get_or_none(NoteTypeModel.name == str(nt_name).strip()) if nt_name else None
 
         raw_tags = content.get("tags") or payload.get("tags") or []
