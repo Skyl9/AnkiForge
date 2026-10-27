@@ -224,6 +224,11 @@ def main(argv: list[str] | None = None) -> None:
 
     app = QApplication(sys.argv)
 
+    # Initialiser l'invoker de thread principal pour le bus d'événements (cross-thread)
+    from ankiforge.utils.event_bus import ensure_main_thread_invoker
+
+    ensure_main_thread_invoker()
+
     # ── Traduction : avant toute fenêtre, dialogue ou message ────────────────────
     # ``install_translator`` ne lève jamais : un catalogue absent ou illisible laisse
     # l'application parler français, langue source, sans faire échouer le démarrage.

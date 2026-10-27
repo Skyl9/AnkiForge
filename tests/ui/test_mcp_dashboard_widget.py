@@ -401,6 +401,7 @@ def test_mcp_dashboard_auto_selection_on_empty_queue(qtbot: Any) -> None:
     """Vérifie que si la file était vide et l'utilisateur sur l'onglet Garde-Fou, le premier patch est sélectionné."""
     from ankiforge.database.models import StagedPatchModel
     from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
 
     StagedPatchModel.delete().execute()
 
@@ -420,7 +421,16 @@ def test_mcp_dashboard_auto_selection_on_empty_queue(qtbot: Any) -> None:
     )
     patch_id = patch.patch_id
 
-    widget.on_patch_staged({"patch_id": patch_id, "note_id": 303, "title": "Atomisation note #303"})
+    # Publier l'événement directement sur le bus (le Garde-Fou s'abonne maintenant directement)
+    event_bus.publish(
+        MCPPatchStagedEvent(
+            patch_id=patch_id,
+            patch_type="card",
+            target_id=303,
+            title="Atomisation note #303",
+            details={},
+        )
+    )
     qtbot.wait(50)
 
     # Vérification que le patch a été automatiquement sélectionné

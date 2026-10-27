@@ -13,7 +13,53 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal, TypeVar
 
+from PySide6.QtCore import QCoreApplication, QObject, QThread, Signal
+
 logger = logging.getLogger(__name__)
+
+
+class _MainThreadInvoker(QObject):
+    """QObject vivant dans le thread principal pour invoquer des callables via signal/slot cross-thread."""
+
+    invoke_requested = Signal(object)  # Signal portant un callable à exécuter
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Connexion automatique : le slot sera appelé dans le thread de ce QObject (thread principal)
+        self.invoke_requested.connect(self._execute_callable)
+
+    def _execute_callable(self, func: Callable) -> None:
+        try:
+            func()
+        except Exception as e:
+            logger.error("Erreur dans _MainThreadInvoker: %s", e)
+
+    def invoke(self, func: Callable) -> None:
+        """Émet le signal pour exécuter func dans le thread principal."""
+        self.invoke_requested.emit(func)
+
+
+# Instance unique créée au premier accès (lazy) pour être dans le thread principal
+_main_thread_invoker: _MainThreadInvoker | None = None
+
+
+def _get_main_thread_invoker() -> _MainThreadInvoker:
+    global _main_thread_invoker
+    if _main_thread_invoker is None:
+        app = QCoreApplication.instance()
+        if app is None:
+            raise RuntimeError("QCoreApplication non initialisé")
+        _main_thread_invoker = _MainThreadInvoker()
+        # S'assurer qu'il vit dans le thread principal
+        _main_thread_invoker.moveToThread(app.thread())
+    return _main_thread_invoker
+
+
+# Créer l'invoker dès le chargement du module (dans le thread principal)
+# Cela doit être appelé après la création de QApplication
+def ensure_main_thread_invoker() -> _MainThreadInvoker:
+    """À appeler explicitement au démarrage de l'application pour initialiser l'invoker."""
+    return _get_main_thread_invoker()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -456,6 +502,7 @@ class AppEventBus:
         """Publie un événement auprès de tous les listeners abonnés.
 
         Intercepte et journalise les exceptions de chaque gestionnaire afin d'éviter les défaillances en cascade.
+        Marshalle l'exécution des handlers vers le thread principal Qt si on n'y est pas déjà.
         """
         results: list[Any] = []
         matching_handlers: list[EventHandler] = []
@@ -477,27 +524,41 @@ class AppEventBus:
                     matching_handlers.extend(self._listeners.get(AppEvent, []))
                 matching_handlers.extend(self._listeners.get(_event_name(event_cls), []))
 
-        for handler in matching_handlers:
-            try:
-                res = handler(event) if isinstance(event, AppEvent) else handler(*args, **kwargs)
-                results.append(res)
-            except Exception as e:
-                try:
-                    handler_name = getattr(handler, "__qualname__", "unknown_handler")
-                except Exception:
-                    handler_name = "deleted_shiboken_handler"
+        if not matching_handlers:
+            return results
 
-                logger.debug(
-                    "Error executing event handler %s for event %s: %s",
-                    handler_name,
-                    event,
-                    e,
-                )
-                if "already deleted" in str(e):
-                    with self._rw_lock:
-                        for listeners in self._listeners.values():
-                            if handler in listeners:
-                                listeners.remove(handler)
+        def _execute_handlers() -> None:
+            for handler in matching_handlers:
+                try:
+                    res = handler(event) if isinstance(event, AppEvent) else handler(*args, **kwargs)
+                    results.append(res)
+                except Exception as e:
+                    try:
+                        handler_name = getattr(handler, "__qualname__", "unknown_handler")
+                    except Exception:
+                        handler_name = "deleted_shiboken_handler"
+
+                    logger.debug(
+                        "Error executing event handler %s for event %s: %s",
+                        handler_name,
+                        event,
+                        e,
+                    )
+                    if "already deleted" in str(e):
+                        with self._rw_lock:
+                            for listeners in self._listeners.values():
+                                if handler in listeners:
+                                    listeners.remove(handler)
+
+        # Si on est déjà dans le thread principal Qt, exécuter directement
+        app = QCoreApplication.instance()
+        if app is not None and QThread.currentThread() == app.thread():
+            _execute_handlers()
+        else:
+            # Sinon, marshaller vers le thread principal via _MainThreadInvoker
+            # QTimer.singleShot(0) NE FONCTIONNE PAS depuis un thread sans boucle d'événements Qt
+            # QMetaObject.invokeMethod ne prend pas de callable Python
+            _get_main_thread_invoker().invoke(_execute_handlers)
 
         return results
 

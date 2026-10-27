@@ -425,6 +425,19 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Clé de départage déterministe (Secondary Sort Key)** : tri secondaire SQL automatique appliqué lors des égalités sur le critère principal (ex. même paquet, même type de note ou même couleur de drapeau), ordonnant secondairement par `sort_field` (A → Z) puis par date de création (`id` décroissant).
   _Avoid_ : ordre indéterminé SQLite, pagination vacillante
 
+## Bus d'Événements & MCP (Event Bus & MCP Protocol)
+
+- **Bus d'événements typé (Typed Event Bus)** : bus central `event_bus` singleton thread-safe (`src/ankiforge/utils/event_bus.py`) supportant publication/abonnement d'événements typés (`AppEvent` dataclasses). Garantit le découplage entre producteurs (services, MCP) et consommateurs (vues, widgets) avec marshalling automatique vers le thread principal Qt.
+  _Avoid_ : signaux Qt directs entre services, callbacks globaux, event loop custom
+- **Événement Patch Stagé MCP (`MCPPatchStagedEvent`)** : événement émis lors de la proposition d'un patch en attente par un agent MCP externe (Two-Phase Commit). Contient `patch_id`, `patch_type`, `target_id`, `title`, `details`. Déclenche le rafraîchissement réactif de l'inspecteur Garde-Fou.
+  _Avoid_ : notification patch, signal staged, event patch
+- **Événement Bundle Stagé MCP (`MCPBundleStagedEvent`)** : événement émis lors du scellement (commit) d'un Staged Bundle par un agent MCP. Contient `bundle_id`, `title`, `total_steps`, `details`. Utilisé pour créer le nœud parent bundle dans l'arbre hiérarchique du Garde-Fou.
+  _Avoid_ : event bundle, notification lot, signal bundle
+- **Rafraîchissement incrémental (Incremental Refresh)** : stratégie de mise à jour UI où seul le delta (nouvel item, suppression, modification) est appliqué au widget cible sans rechargement complet (`clear()` + rebuild). Préserve l'état d'expansion, la sélection et la position de scroll.
+  _Avoid_ : rechargement complet, full reload, rafraîchissement global
+- **Snapshot d'état d'arbre (Tree State Snapshot)** : capture sérialisable de l'état visuel d'un `QTreeWidget` (items expandus, item sélectionné, position scrollbar verticale) avant une mutation structurelle, restaurée après pour préserver le contexte utilisateur.
+  _Avoid_ : sauvegarde état UI, persistance sélection, scroll position
+
 
 
 

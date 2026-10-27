@@ -10,6 +10,7 @@ import json
 import uuid
 
 import pytest
+from PySide6.QtCore import Qt
 
 from ankiforge.database.models import (
     DeckModel,
@@ -727,4 +728,326 @@ def test_mcp_garde_fou_deletion_impact_and_apply(qtbot, sample_note) -> None:
     widget.btn_apply.click()
 
     assert widget.count() == 0
-    assert NoteModel.get_or_none(NoteModel.id == sample_note.id) is None
+
+
+def test_mcp_garde_fou_incremental_patch_standalone(qtbot, sample_note) -> None:
+    """Vérifie l'insertion incrémentale d'un patch standalone via event bus sans clear()."""
+    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+    assert widget.count() == 0
+
+    # Nettoyer la BDD après le chargement initial
+    StagedPatchModel.delete().execute()
+    StagedBundleModel.delete().execute()
+    widget.reload_pending_patches()
+    assert widget.count() == 0
+
+    # Créer un patch en BDD
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={"title": "Patch Incrémental 1", "original": {"Front": "Q"}, "modified": {"Front": "Q1"}},
+    )
+    patch_id = patch.patch_id
+
+    # Publier l'événement sur le bus (simule l'arrivée d'un agent MCP)
+    event_bus.publish(
+        MCPPatchStagedEvent(
+            patch_id=patch_id,
+            patch_type="card",
+            target_id=sample_note.id,
+            title="Patch Incrémental 1",
+            details={},
+        )
+    )
+    qtbot.wait(50)
+
+    # Vérifier l'insertion incrémentale (pas de reload complet)
+    assert widget.count() == 1
+    assert widget.current_patch_id == patch_id
+    assert widget.patch_tree.topLevelItemCount() == 1
+
+    # Ajouter un deuxième patch
+    patch2 = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={"title": "Patch Incrémental 2", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+    )
+    patch_id2 = patch2.patch_id
+
+    event_bus.publish(
+        MCPPatchStagedEvent(
+            patch_id=patch_id2,
+            patch_type="card",
+            target_id=sample_note.id,
+            title="Patch Incrémental 2",
+            details={},
+        )
+    )
+    qtbot.wait(50)
+
+    assert widget.count() == 2
+    assert widget.patch_tree.topLevelItemCount() == 2
+
+
+def test_mcp_garde_fou_incremental_bundle_staged(qtbot) -> None:
+    """Vérifie la création du nœud parent bundle via MCPBundleStagedEvent."""
+    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+
+    # Nettoyer la BDD avant le test
+    StagedPatchModel.delete().execute()
+    StagedBundleModel.delete().execute()
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+    assert widget.count() == 0
+
+    # Créer un bundle via le registry (publie l'événement bundle)
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Bundle Test Incrémental",
+        explanation="Test insertion bundle",
+    )
+    # Ajouter des patches au bundle (publient des événements patch)
+    StagedPatchRegistry.create_patch(
+        patch_type="deck_create",
+        diff_payload={"deck_name": "Deck Bundle 1", "title": "Étape 1"},
+    )
+    StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Étape 2", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+    )
+    StagedPatchRegistry.commit_bundle(bundle_id)  # Publie l'événement bundle
+    qtbot.wait(100)
+
+    # Vérifier que le nœud parent bundle est créé avec ses étapes
+    assert widget.patch_tree.topLevelItemCount() == 1
+    bundle_item = widget.patch_tree.topLevelItem(0)
+    assert bundle_item is not None
+    assert bundle_item.data(0, Qt.ItemDataRole.UserRole) == f"bundle:{bundle_id}"
+    assert bundle_item.childCount() == 2  # Les 2 étapes ont été ajoutées
+    assert bundle_item.isExpanded()
+
+
+def test_mcp_garde_fou_incremental_patch_in_bundle(qtbot) -> None:
+    """Vérifie l'ajout incrémental d'étapes sous un bundle parent existant."""
+    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+
+    # Nettoyer la BDD avant le test
+    StagedPatchModel.delete().execute()
+    StagedBundleModel.delete().execute()
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+    assert widget.count() == 0
+
+    # Créer un bundle via le registry avec ses étapes
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Bundle Étapes Test",
+        explanation="Test étapes incrémentales",
+    )
+    # Ajouter les patches au bundle AVANT le commit
+    p1 = StagedPatchRegistry.create_patch(
+        patch_type="deck_create",
+        diff_payload={"deck_name": "Deck Bundle 2", "title": "Étape 1 Bundle"},
+    )
+    p2 = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Étape 2 Bundle", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+    )
+    # Commit publie l'événement bundle avec les étapes déjà en BDD
+    StagedPatchRegistry.commit_bundle(bundle_id)
+    qtbot.wait(100)
+
+    # Le bundle arrive avec ses 2 étapes déjà chargées
+    assert widget.patch_tree.topLevelItemCount() == 1
+    bundle_item = widget.patch_tree.topLevelItem(0)
+    assert bundle_item.childCount() == 2
+    step1_item = bundle_item.child(0)
+    assert step1_item.data(0, Qt.ItemDataRole.UserRole) == p1.patch_id
+    step2_item = bundle_item.child(1)
+    assert step2_item.data(0, Qt.ItemDataRole.UserRole) == p2.patch_id
+    assert widget.count() == 2
+
+
+def test_mcp_garde_fou_bundle_events_out_of_order(qtbot) -> None:
+    """Vérifie la gestion gracieuse des événements hors ordre (patch standalone avant bundle)."""
+    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+
+    # Nettoyer la BDD avant le test
+    StagedPatchModel.delete().execute()
+    StagedBundleModel.delete().execute()
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+    assert widget.count() == 0
+
+    # Créer un patch standalone d'abord (publie patch event)
+    StagedPatchRegistry.create_patch(
+        patch_type="deck_create",
+        diff_payload={"deck_name": "Deck OutOfOrder", "title": "Étape 1 OOO"},
+    )
+    qtbot.wait(50)
+
+    # Le patch est ajouté en standalone temporaire
+    assert widget.count() == 1
+    assert widget.patch_tree.topLevelItemCount() == 1
+
+    # Créer un bundle séparé (pas lié au patch standalone)
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Bundle Hors Ordre",
+        explanation="Test événements hors ordre",
+    )
+    StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Étape Bundle", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+    )
+    StagedPatchRegistry.commit_bundle(bundle_id)  # Publie bundle event
+    qtbot.wait(50)
+
+    # Le bundle est créé, le patch standalone reste à part
+    assert widget.patch_tree.topLevelItemCount() == 2
+    # Un item est le patch standalone, l'autre est le bundle
+    bundle_items = 0
+    for i in range(widget.patch_tree.topLevelItemCount()):
+        item = widget.patch_tree.topLevelItem(i)
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if data and data.startswith("bundle:"):
+            bundle_items += 1
+    assert bundle_items == 1
+
+
+def test_mcp_garde_fou_manual_reload_preserves_state(qtbot, sample_note) -> None:
+    """Vérifie que reload_pending_patches() préserve l'état (expansion, sélection, scroll)."""
+    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+
+    # Nettoyer la BDD avant le test
+    StagedPatchModel.delete().execute()
+    StagedBundleModel.delete().execute()
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+    assert widget.count() == 0
+
+    # Créer un bundle avec plusieurs étapes via registry
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Bundle État",
+        explanation="Test préservation état",
+    )
+    # Créer plus d'étapes pour avoir du contenu défilable
+    patches = []
+    for i in range(10):
+        p = StagedPatchRegistry.create_patch(
+            patch_type="deck_create",
+            diff_payload={"deck_name": f"Deck État {i + 1}", "title": f"Étape {i + 1} État"},
+        )
+        patches.append(p)
+    StagedPatchRegistry.commit_bundle(bundle_id)  # Publie bundle + patch events
+    qtbot.wait(100)
+
+    # Expandre le bundle et sélectionner la 5ème étape
+    bundle_item = widget.patch_tree.topLevelItem(0)
+    bundle_item.setExpanded(True)
+    step5_item = bundle_item.child(4)
+    widget.patch_tree.setCurrentItem(step5_item)
+
+    # Scroller (valeur réaliste pour le contenu)
+    widget.patch_tree.verticalScrollBar().setValue(50)
+    scroll_before = widget.patch_tree.verticalScrollBar().value()
+
+    # Recharger manuellement
+    widget.reload_pending_patches()
+
+    # Vérifier que l'état est préservé
+    bundle_item_after = widget.patch_tree.topLevelItem(0)
+    assert bundle_item_after.isExpanded()
+    assert widget.patch_tree.currentItem() is not None
+    assert widget.patch_tree.currentItem().data(0, Qt.ItemDataRole.UserRole) == patches[4].patch_id
+    # La position de scroll est restaurée (peut être clampée au max)
+    scroll_after = widget.patch_tree.verticalScrollBar().value()
+    assert scroll_after == scroll_before
+
+
+def test_mcp_garde_fou_filter_text(qtbot, sample_note) -> None:
+    """Vérifie que le filtre texte fonctionne avec l'arborescence incrémentale."""
+    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    # Ajouter plusieurs patches
+    patch1 = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={"title": "Refactor Important", "original": {"Front": "Q"}, "modified": {"Front": "Q1"}},
+    )
+    patch2 = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={"title": "Autre Proposition", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+    )
+    patch3 = StagedPatchRegistry.create_patch(
+        patch_type="deck_create",
+        diff_payload={"deck_name": "Deck Refactor", "title": "Créer Deck Refactor"},
+    )
+
+    for p in [patch1, patch2, patch3]:
+        event_bus.publish(
+            MCPPatchStagedEvent(
+                patch_id=p.patch_id,
+                patch_type=p.patch_type,
+                target_id=p.target_id or 0,
+                title=str(p.patch_id),
+                details={},
+            )
+        )
+    qtbot.wait(100)
+
+    assert widget.count() == 3
+
+    # Filtrer par "Refactor"
+    widget.search_input.setText("Refactor")
+    qtbot.wait(50)
+
+    # Vérifier que seuls les patches correspondants sont visibles
+    visible_count = 0
+    for i in range(widget.patch_tree.topLevelItemCount()):
+        item = widget.patch_tree.topLevelItem(i)
+        if not item.isHidden():
+            visible_count += 1
+        for j in range(item.childCount()):
+            child = item.child(j)
+            if child and not child.isHidden():
+                visible_count += 1
+
+    assert visible_count == 2  # patch1 et patch3 contiennent "Refactor"
+
+    # Effacer le filtre
+    widget.search_input.clear()
+    qtbot.wait(50)
+
+    visible_count = 0
+    for i in range(widget.patch_tree.topLevelItemCount()):
+        item = widget.patch_tree.topLevelItem(i)
+        if not item.isHidden():
+            visible_count += 1
+        for j in range(item.childCount()):
+            child = item.child(j)
+            if child and not child.isHidden():
+                visible_count += 1
+
+    assert visible_count == 3

@@ -195,27 +195,11 @@ def _notify_mcp_mutation(data: dict[str, Any]) -> None:
 
 
 def _notify_mcp_patch_staged(data: dict[str, Any]) -> None:
-    """Notifie les écouteurs enregistrés et le bus d'événements lors de la création d'un patch staged."""
-    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+    """Notifie les écouteurs enregistrés lors de la création d'un patch staged.
 
-    p_id = str(data.get("patch_id", ""))
-    p_type = str(data.get("type") or data.get("patch_type") or "card")
-    t_id = int(data.get("note_id") or data.get("target_id") or 0)
-    title = str(data.get("title") or f"Proposition — {p_type} #{t_id}")
-
-    try:
-        event_bus.publish(
-            MCPPatchStagedEvent(
-                patch_id=p_id,
-                patch_type=p_type,
-                target_id=t_id,
-                title=title,
-                details=data,
-            )
-        )
-    except Exception as e:
-        logger.debug("Erreur publication event_bus MCPPatchStagedEvent : %s", e)
-
+    NOTE: Ne publie PAS sur le event_bus pour éviter la duplication.
+    L'appelant (StagedPatchRegistry._notify_staged_patch) s'en charge déjà.
+    """
     for listener in list(_staged_patch_listeners):
         try:
             listener(data)

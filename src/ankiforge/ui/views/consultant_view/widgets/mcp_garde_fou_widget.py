@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QFrame,
@@ -46,6 +46,7 @@ from ankiforge.ui.views.consultant_view.widgets.garde_fou_views import (
 from ankiforge.ui.widgets.card_create_view_widget import CardCreateViewWidget
 from ankiforge.ui.widgets.card_semantic_diff_widget import CardSemanticDiffWidget
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.event_bus import MCPBundleStagedEvent, MCPPatchStagedEvent, event_bus
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
@@ -108,6 +109,13 @@ class BundleHeaderItemWidget(QWidget):
 
         # Ensure minimum height for the widget
         self.setMinimumHeight(48)
+
+    def sizeHint(self) -> QSize:
+        """Retourne la taille suggérée respectant la hauteur minimale."""
+        hint = super().sizeHint()
+        min_hint = self.minimumSizeHint()
+        # Respect minimum width and height
+        return QSize(max(hint.width(), min_hint.width(), self.minimumWidth()), max(hint.height(), min_hint.height(), self.minimumHeight()))
 
 
 class PatchListItemWidget(QWidget):
@@ -209,6 +217,13 @@ class PatchListItemWidget(QWidget):
         # Ensure minimum height for the widget (2 rows with margins and spacing)
         self.setMinimumHeight(56)
 
+    def sizeHint(self) -> QSize:
+        """Retourne la taille suggérée respectant la hauteur minimale."""
+        hint = super().sizeHint()
+        min_hint = self.minimumSizeHint()
+        # Respect minimum width and height
+        return QSize(max(hint.width(), min_hint.width(), self.minimumWidth()), max(hint.height(), min_hint.height(), self.minimumHeight()))
+
 
 class HierarchicalPatchTreeWidget(QTreeWidget):
     """Arborescence hiérarchique maître supportant les bundles, étapes et patchs autonomes."""
@@ -281,7 +296,7 @@ class HierarchicalPatchTreeWidget(QTreeWidget):
 
 
 class MCPGardeFouWidget(QWidget):
-    """Panneau de supervision et de validation des propositions MCP en disposition Maître-Détail."""
+    """Panneau de supervision et de validation des propositions MCP en disposition Maître-Detail."""
 
     patch_applied = Signal(str)
     patch_rejected = Signal(str)
@@ -291,8 +306,14 @@ class MCPGardeFouWidget(QWidget):
         super().__init__(parent)
         self._patches: list[StagedPatchModel] = []
         self._current_patch: StagedPatchModel | None = None
+        self._notified_patch_ids: set[str] = set()
 
         self._setup_ui()
+
+        # Abonnement direct au bus d'événements pour le rafraîchissement incrémental
+        event_bus.subscribe(MCPPatchStagedEvent, self._on_mcp_patch_staged)
+        event_bus.subscribe(MCPBundleStagedEvent, self._on_mcp_bundle_staged)
+
         self.reload_pending_patches()
 
     @property
@@ -303,6 +324,207 @@ class MCPGardeFouWidget(QWidget):
     def count(self) -> int:
         """Nombre total de patchs en attente dans la file du garde-fou."""
         return len(self._patches)
+
+    def _save_tree_state(self) -> dict:
+        """Capture l'état visuel de l'arbre (expansion, sélection, scroll)."""
+        expanded_ids: list[str] = []
+        for i in range(self.patch_tree.topLevelItemCount()):
+            item = self.patch_tree.topLevelItem(i)
+            if item and item.isExpanded():
+                data = item.data(0, Qt.ItemDataRole.UserRole)
+                if data:
+                    expanded_ids.append(data)
+                for j in range(item.childCount()):
+                    child = item.child(j)
+                    if child and child.isExpanded():
+                        child_data = child.data(0, Qt.ItemDataRole.UserRole)
+                        if child_data:
+                            expanded_ids.append(child_data)
+
+        current_item = self.patch_tree.currentItem()
+        selected_id = current_item.data(0, Qt.ItemDataRole.UserRole) if current_item else None
+        scroll_pos = self.patch_tree.verticalScrollBar().value()
+
+        return {
+            "expanded_ids": expanded_ids,
+            "selected_id": selected_id,
+            "scroll_pos": scroll_pos,
+        }
+
+    def _restore_tree_state(self, state: dict) -> None:
+        """Restaure l'état visuel de l'arbre."""
+        expanded_ids = state.get("expanded_ids", [])
+        selected_id = state.get("selected_id")
+        scroll_pos = state.get("scroll_pos", 0)
+
+        # Restaurer l'expansion
+        for i in range(self.patch_tree.topLevelItemCount()):
+            item = self.patch_tree.topLevelItem(i)
+            if not item:
+                continue
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data in expanded_ids:
+                item.setExpanded(True)
+            for j in range(item.childCount()):
+                child = item.child(j)
+                if child:
+                    child_data = child.data(0, Qt.ItemDataRole.UserRole)
+                    if child_data in expanded_ids:
+                        child.setExpanded(True)
+
+        # Restaurer la sélection
+        if selected_id:
+            for i in range(self.patch_tree.topLevelItemCount()):
+                item = self.patch_tree.topLevelItem(i)
+                if item and item.data(0, Qt.ItemDataRole.UserRole) == selected_id:
+                    self.patch_tree.setCurrentItem(item)
+                    break
+                for j in range(item.childCount()):
+                    child = item.child(j)
+                    if child and child.data(0, Qt.ItemDataRole.UserRole) == selected_id:
+                        self.patch_tree.setCurrentItem(child)
+                        break
+
+        # Restaurer le scroll
+        self.patch_tree.verticalScrollBar().setValue(scroll_pos)
+
+    def _on_mcp_bundle_staged(self, event: MCPBundleStagedEvent) -> None:
+        """Crée le nœud parent d'un bundle dans l'arborescence maître et charge ses étapes."""
+        logger.debug(f"_on_mcp_bundle_staged called: bundle_id={event.bundle_id}")
+
+        if not event.bundle_id:
+            return
+
+        # Déduplication : vérifier si le nœud bundle existe déjà
+        bundle_key = f"bundle:{event.bundle_id}"
+        for i in range(self.patch_tree.topLevelItemCount()):
+            item = self.patch_tree.topLevelItem(i)
+            if item and item.data(0, Qt.ItemDataRole.UserRole) == bundle_key:
+                # Bundle déjà présent, ne rien faire
+                logger.debug(f"_on_mcp_bundle_staged: bundle already exists: {bundle_key}")
+                return
+
+        # Récupérer le bundle depuis la BDD
+        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == event.bundle_id)
+        if not bundle:
+            # Fallback si le bundle n'est pas encore en BDD (peu probable)
+            bundle = StagedBundleModel(bundle_id=event.bundle_id, title=event.title, total_steps=event.total_steps)
+
+        bundle_item = QTreeWidgetItem()
+        bundle_item.setData(0, Qt.ItemDataRole.UserRole, bundle_key)
+        bundle_widget = BundleHeaderItemWidget(bundle, event.total_steps)
+        bundle_item.setSizeHint(0, bundle_widget.sizeHint())
+        self.patch_tree.addTopLevelItem(bundle_item)
+        self.patch_tree.setItemWidget(bundle_item, 0, bundle_widget)
+        bundle_item.setExpanded(True)
+
+        # Charger et ajouter les étapes du bundle depuis la BDD
+        bundle_patches = list(bundle.patches.where(StagedPatchModel.status == "pending").order_by(StagedPatchModel.step_order.asc()))
+        for patch in bundle_patches:
+            if patch.patch_id in self._notified_patch_ids:
+                continue
+            self._notified_patch_ids.add(patch.patch_id)
+            self._patches.append(patch)
+            step_item = QTreeWidgetItem(bundle_item)
+            step_item.setData(0, Qt.ItemDataRole.UserRole, patch.patch_id)
+            step_widget = PatchListItemWidget(patch, is_step=True)
+            step_item.setSizeHint(0, step_widget.sizeHint())
+            self.patch_tree.setItemWidget(step_item, 0, step_widget)
+            self.patch_tree.register_selectable_item(step_item)
+
+        # Mise à jour des compteurs et badge
+        total_count = len(self._patches)
+        self.badge_count.setText(str(total_count))
+        self.badge_count.set_variant("danger" if total_count else "neutral")
+        self.queue_updated.emit(total_count)
+
+        # Rafraîchir l'affichage de l'arbre pour garantir la mise à jour visuelle immédiate
+        # Utiliser singleShot pour s'assurer que la mise à jour se fait après le traitement d'événements courant
+        from PySide6.QtCore import QTimer
+
+        def _refresh_tree() -> None:
+            self.patch_tree.resizeColumnToContents(0)
+            self.patch_tree.viewport().repaint()
+
+        QTimer.singleShot(0, _refresh_tree)
+
+        # Si l'arbre était vide, sélectionner automatiquement le premier élément
+        if total_count > 0 and self.patch_tree.currentItem() is None:
+            self.patch_tree.setCurrentRow(0)
+
+    def _on_mcp_patch_staged(self, event: MCPPatchStagedEvent) -> None:
+        """Insère incrémentalement un patch dans l'arborescence (standalone ou enfant d'un bundle)."""
+        logger.debug(f"_on_mcp_patch_staged called: patch_id={event.patch_id}, patch_type={event.patch_type}")
+
+        if not event.patch_id or event.patch_id in self._notified_patch_ids:
+            logger.debug(f"_on_mcp_patch_staged: skipping (duplicate or no id): {event.patch_id}")
+            return
+        self._notified_patch_ids.add(event.patch_id)
+
+        # Vérifier si l'arbre était vide avant l'ajout
+        was_empty = len(self._patches) == 0
+
+        # Récupérer le patch complet depuis la BDD
+        patch = StagedPatchModel.get_or_none(StagedPatchModel.patch_id == event.patch_id)
+        if not patch:
+            return
+
+        self._patches.append(patch)
+
+        if patch.bundle:
+            # Patch appartenant à un bundle : l'ajouter comme enfant du nœud bundle
+            bundle_key = f"bundle:{patch.bundle.bundle_id}"
+            parent_item = None
+            for i in range(self.patch_tree.topLevelItemCount()):
+                item = self.patch_tree.topLevelItem(i)
+                if item and item.data(0, Qt.ItemDataRole.UserRole) == bundle_key:
+                    parent_item = item
+                    break
+            if parent_item:
+                step_item = QTreeWidgetItem(parent_item)
+                step_item.setData(0, Qt.ItemDataRole.UserRole, patch.patch_id)
+                step_widget = PatchListItemWidget(patch, is_step=True)
+                step_item.setSizeHint(0, step_widget.sizeHint())
+                self.patch_tree.setItemWidget(step_item, 0, step_widget)
+                self.patch_tree.register_selectable_item(step_item)
+                # S'assurer que le parent est expandé
+                parent_item.setExpanded(True)
+            else:
+                # Bundle parent pas encore créé (événements hors ordre) -> ajouter en standalone temporaire
+                self._add_standalone_patch(patch)
+        else:
+            # Patch standalone
+            self._add_standalone_patch(patch)
+
+        # Mise à jour des compteurs et badge
+        total_count = len(self._patches)
+        self.badge_count.setText(str(total_count))
+        self.badge_count.set_variant("danger" if total_count else "neutral")
+        self.queue_updated.emit(total_count)
+
+        # Rafraîchir l'affichage de l'arbre pour garantir la mise à jour visuelle immédiate
+        # Utiliser singleShot pour s'assurer que la mise à jour se fait après le traitement d'événements courant
+        from PySide6.QtCore import QTimer
+
+        def _refresh_tree() -> None:
+            self.patch_tree.resizeColumnToContents(0)
+            self.patch_tree.viewport().repaint()
+
+        QTimer.singleShot(0, _refresh_tree)
+
+        # Si l'arbre était vide, sélectionner automatiquement le premier élément
+        if was_empty and total_count > 0:
+            self.patch_tree.setCurrentRow(0)
+
+    def _add_standalone_patch(self, patch: StagedPatchModel) -> None:
+        """Ajoute un patch standalone comme élément racine de l'arbre."""
+        item = QTreeWidgetItem()
+        item.setData(0, Qt.ItemDataRole.UserRole, patch.patch_id)
+        item_widget = PatchListItemWidget(patch, is_step=False)
+        item.setSizeHint(0, item_widget.sizeHint())
+        self.patch_tree.addTopLevelItem(item)
+        self.patch_tree.setItemWidget(item, 0, item_widget)
+        self.patch_tree.register_selectable_item(item)
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -575,6 +797,9 @@ class MCPGardeFouWidget(QWidget):
 
     def reload_pending_patches(self) -> None:
         """Recharge l'arborescence complète des bundles et propositions en attente."""
+        # Sauvegarder l'état avant la recharge complète
+        tree_state = self._save_tree_state()
+
         prev_patch_id = self.current_patch_id
         prev_row = self.patch_tree.currentRow()
 
@@ -583,6 +808,7 @@ class MCPGardeFouWidget(QWidget):
         self.patch_tree.reset_selectable_items()
 
         self._patches.clear()
+        self._notified_patch_ids.clear()
         selected_item: QTreeWidgetItem | None = None
 
         # 1. Chargement des Staged Bundles en attente
@@ -603,6 +829,7 @@ class MCPGardeFouWidget(QWidget):
 
             for patch in bundle_patches:
                 self._patches.append(patch)
+                self._notified_patch_ids.add(patch.patch_id)
                 step_item = QTreeWidgetItem(bundle_item)
                 step_item.setData(0, Qt.ItemDataRole.UserRole, patch.patch_id)
                 step_widget = PatchListItemWidget(patch, is_step=True)
@@ -620,6 +847,7 @@ class MCPGardeFouWidget(QWidget):
 
         for patch in standalone_patches:
             self._patches.append(patch)
+            self._notified_patch_ids.add(patch.patch_id)
             item = QTreeWidgetItem()
             item.setData(0, Qt.ItemDataRole.UserRole, patch.patch_id)
             item_widget = PatchListItemWidget(patch, is_step=False)
@@ -635,6 +863,9 @@ class MCPGardeFouWidget(QWidget):
 
         # Redimensionner la colonne pour s'adapter au contenu des widgets personnalisés
         self.patch_tree.resizeColumnToContents(0)
+
+        # Restaurer l'état de l'arbre
+        self._restore_tree_state(tree_state)
 
         # Mise à jour des compteurs et états
         total_count = len(self._patches)

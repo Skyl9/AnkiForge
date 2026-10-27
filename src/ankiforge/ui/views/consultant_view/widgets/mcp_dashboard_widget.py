@@ -204,7 +204,6 @@ class MCPServerDashboardWidget(QWidget):
         self._port = initial_port
         self._host = "127.0.0.1"
         self._token = initial_token
-        self._last_notified_patch_id: str | None = None
 
         if self._token is None:
             self._load_token_from_disk()
@@ -213,11 +212,30 @@ class MCPServerDashboardWidget(QWidget):
         self.set_status(initial_status, port=initial_port, token=self._token)
 
         self._patch_staged_received.connect(self.on_patch_staged)
-        event_bus.subscribe(MCPPatchStagedEvent, self._on_mcp_patch_staged_event)
-
-        # Initialisation dynamique de la file du Garde-Fou
-        self.garde_fou_widget.reload_pending_patches()
+        # S'abonner au bus d'événements pour les notifications toast UNIQUEMENT
+        # Ne PAS relayer vers _patch_staged_received pour éviter la double notification
+        event_bus.subscribe(MCPPatchStagedEvent, self._on_mcp_patch_staged_toast_only)
         self._on_telemetry_count_changed(len(self.telemetry_widget._records))
+
+    def _on_mcp_patch_staged_toast_only(self, event: MCPPatchStagedEvent) -> None:
+        """Gère l'affichage du toast UNIQUEMENT, sans relayer vers le signal.
+
+        Ne montre le toast que si l'utilisateur n'est PAS sur l'onglet Garde-Fou,
+        car il peut déjà voir la nouvelle proposition dans la liste.
+        """
+        # Ne pas afficher de toast si l'utilisateur est déjà sur l'onglet Garde-Fou (index 1)
+        if self.stacked_widget.currentIndex() == 1:
+            return
+
+        note_id = event.target_id
+        title = event.title or str(event.details.get("title", ""))
+        if note_id:
+            msg = tr("Nouvelle proposition de refactorisation reçue (#%1)", note_id)
+        elif title:
+            msg = tr("Nouvelle proposition reçue (%1)", title)
+        else:
+            msg = self.tr("Nouvelle proposition de refactorisation reçue")
+        show_toast(self, msg, level="info")
 
     @property
     def current_status(self) -> str:
@@ -473,24 +491,20 @@ class MCPServerDashboardWidget(QWidget):
         self._patch_staged_received.emit(data)
 
     def on_patch_staged(self, data: dict[str, Any]) -> None:
-        """Traite l'arrivée d'une proposition de patch staged par un agent MCP."""
-        patch_id = str(data.get("patch_id", ""))
-        is_duplicate = bool(patch_id and patch_id == self._last_notified_patch_id)
-        self._last_notified_patch_id = patch_id
+        """Affiche une notification toast à l'arrivée d'une proposition de patch staged.
 
-        if hasattr(self, "garde_fou_widget"):
-            self.garde_fou_widget.reload_pending_patches()
-
-        if not is_duplicate:
-            note_id = data.get("note_id")
-            title = data.get("title")
-            if note_id:
-                msg = tr("Nouvelle proposition de refactorisation reçue (#%1)", note_id)
-            elif title:
-                msg = tr("Nouvelle proposition reçue (%1)", title)
-            else:
-                msg = self.tr("Nouvelle proposition de refactorisation reçue")
-            show_toast(self, msg, level="info")
+        Le rafraîchissement incrémental de la liste est géré directement par MCPGardeFouWidget
+        via son abonnement au bus d'événements (MCPPatchStagedEvent / MCPBundleStagedEvent).
+        """
+        note_id = data.get("note_id")
+        title = data.get("title")
+        if note_id:
+            msg = tr("Nouvelle proposition de refactorisation reçue (#%1)", note_id)
+        elif title:
+            msg = tr("Nouvelle proposition reçue (%1)", title)
+        else:
+            msg = self.tr("Nouvelle proposition de refactorisation reçue")
+        show_toast(self, msg, level="info")
 
     def set_status(
         self,
