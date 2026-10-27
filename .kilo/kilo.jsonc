@@ -1,0 +1,154 @@
+{
+  // ===========================================================================
+  // Configuration Kilo Code v7+ — AnkiForge
+  // Emplacement : ./kilo.jsonc (racine du dépôt)
+  // Documentation & Validation : https://app.kilo.ai/config.json
+  // ===========================================================================
+  "$schema": "https://app.kilo.ai/config.json",
+  // ── Environnement & Affichage ──────────────────────────────────────────────
+  "shell": "/bin/zsh",
+  "code_edit_display": "expanded",
+  "mcp_tool_display": "collapsed",
+  // ── Instructions Ordonnées (Chargées par ordre de priorité au démarrage) ───
+  // Note : AGENTS.md à la racine est toujours chargé automatiquement par Kilo.
+  // On liste ici explicitement les référentiels critiques sans glob (*.md)
+  // pour garantir un ordre de préséance déterministe.
+  "instructions": [
+    "CONTEXT.md",
+    "DESIGN.md",
+    "docs/agents/domain.md",
+    "docs/agents/issue-tracker.md",
+    "docs/agents/triage-labels.md"
+  ],
+  // ── Parc de Compétences (Standard agentskills.io / ADR 0015) ───────────────
+  "skills": {
+    "paths": [
+      ".agents/skills"
+    ]
+  },
+  // ── Références d'Architecture Indexées ─────────────────────────────────────
+  "references": {
+    "adr": {
+      "path": "docs/adr",
+      "description": "Architecture Decision Records (ADR 0001 à 0049) d'AnkiForge"
+    },
+    "architecture": {
+      "path": "docs/Dossier_architecture",
+      "description": "Spécifications techniques, modèle de données, services IA et inventaire UI"
+    },
+    "guides": {
+      "path": "docs/guides",
+      "description": "Guides du Design System, cycle de vie distribué, outils MCP et raccourcis"
+    }
+  },
+  // ── Permissions Globales & Garde-Fous ──────────────────────────────────────
+  // "allow" = exécution directe | "ask" = confirmation | "deny" = bloqué
+  // Dans les maps de motifs glob, la dernière règle correspondante l'emporte.
+  "permission": {
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "skill": "allow",
+    "todoread": "allow",
+    "todowrite": "allow",
+    "webfetch": "ask",
+    "websearch": "allow",
+    "edit": {
+      "": "allow",
+      // Fichiers sensibles soumis à validation explicite
+      "AGENTS.md": "ask",
+      "CLAUDE.md": "ask",
+      "GEMINI.md": "ask",
+      "build_script/release_signatures/": "deny"
+    },
+    "bash": {
+      "": "ask",
+      // Boucle de test, vérification et inspection non-destructive autorisée
+      "uv run pytest": "allow",
+      "uv run ruff check*": "allow",
+      "uv run ruff format --check*": "allow",
+      "uv run mypy*": "allow",
+      "uv run python script/verify.py*": "allow",
+      "uv run python script/check_shortcuts_drift.py*": "allow",
+      "uv run python script/scan_used_icons.py*": "allow",
+      "uv run python script/capture_.py": "allow",
+      "uv run python script/sync_agent_instructions.py*": "allow",
+      "uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py*": "allow",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git show*": "allow",
+      // Interdictions strictes (ADR & Issue Tracker Obsidian)
+      "gh ": "deny",
+      "git push --force": "deny",
+      "rm -rf *": "deny"
+    }
+  },
+  // ── Agents Spécialisés (Modes Primaires & Sous-Agents) ─────────────────────
+  // Utilise la touche Tab dans Kilo Code pour basculer sur l'agent ui-ux-auditor.
+  "agent": {
+    "ui-ux-auditor": {
+      "description": "Architecte Senior UI/UX PySide6 — Audit transversal multi-vues et génération de tickets Obsidian Kanban",
+      "mode": "primary",
+      "color": "#6366f1",
+      "steps": 35,
+      "prompt": "{file:./.agents/skills/audit-ui-ux-holistique/SKILL.md}",
+      "permission": {
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "skill": "allow",
+        // Cet agent ne modifie jamais le code applicatif en direct :
+        // il inspecte le code/captures et produit uniquement les tickets Obsidian
+        // ou met à jour le référentiel DESIGN.md si demandé.
+        "edit": {
+          "": "deny",
+          "ankiforge_obsidian/Tickets/.md": "allow",
+          "ankiforge_obsidian/Avancement du projet.md": "allow",
+          "DESIGN.md": "ask"
+        },
+        "bash": {
+          "": "deny",
+          "uv run python script/capture_.py*": "allow",
+          "uv run python script/check_shortcuts_drift.py*": "allow",
+          "uv run python script/scan_used_icons.py*": "allow",
+          "git status*": "allow",
+          "git diff*": "allow"
+        }
+      }
+    },
+    "ui-pyside6-builder": {
+      "description": "Développeur Senior PySide6 — Implémentation TDD de tickets UI/UX conforme à DESIGN.md et StyleEngine",
+      "mode": "primary",
+      "color": "#10b981",
+      "steps": 50,
+      "prompt": "Tu es l'architecte d'implémentation PySide6 d'AnkiForge. Tu implémentes les tickets d'`ankiforge_obsidian/Tickets/` en respectant strictement `DESIGN.md` (zéro couleur hex/rgba en dur, utilisation de `DesignTokens`, `load_phosphor_icon` / `load_on_accent_icon`, `self.tr()` ADR 0013, `catalog.py` ADR 0032, compatibilité des 4 layouts et 24 thèmes via `refresh_theme()`). Toute modification UI doit être validée par un test headless `pytest-qt`.",
+      "permission": {
+        "read": "allow",
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "uv run pytest*": "allow",
+          "uv run ruff*": "allow",
+          "uv run python script/verify.py*": "allow",
+          "uv run python script/check_shortcuts_drift.py*": "allow"
+        }
+      }
+    }
+  },
+  // ── Commandes Slash Rapides (/commande dans Kilo Code) ─────────────────────
+  "command": {
+    "audit-ui": {
+      "description": "Lance un audit UI/UX holistique sur un module ou un ensemble de vues et génère les tickets Obsidian",
+      "prompt": "Active la compétence audit-ui-ux-holistique. Analyse de manière transversale les vues, dialogues, sous-widgets et ViewModels concernés en les croisant avec DESIGN.md et .agents/skills/audit-ui-ux-holistique/references/grille-audit-holistique.md. Restitue ton diagnostic Senior en français puis génère les tickets dans ankiforge_obsidian/Tickets/ et ankiforge_obsidian/Avancement du projet.md selon .agents/skills/audit-ui-ux-holistique/references/gabarit-tickets-obsidian.md (règle One-Shot Action & Stop)."
+    },
+    "audit-drift": {
+      "description": "Détecte les composants dupliqués, couleurs en dur et violations de DesignTokens sur tout src/ankiforge/ui/",
+      "prompt": "Active la compétence audit-ui-ux-holistique. Scanne src/ankiforge/ui/views/ et src/ankiforge/ui/dialogs/ pour repérer : 1) les couleurs hex/rgba codées en dur hors DesignTokens, 2) les widgets dupliqués localement qui devraient consommer src/ankiforge/ui/components/, 3) les émojis texte au lieu d'icônes Phosphor, 4) les conteneurs QFrame imbriqués créant un effet Box-in-Box. Regroupe les constats en tickets atomiques pour le Kanban Obsidian."
+    },
+    "verify-forge": {
+      "description": "Exécute la porte de vérification complète AnkiForge (tests, raccourcis, skills)",
+      "prompt": "Lance uv run python script/verify.py, uv run python script/check_shortcuts_drift.py et uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py, puis résume l'état en français."
+    }
+  }
+}
