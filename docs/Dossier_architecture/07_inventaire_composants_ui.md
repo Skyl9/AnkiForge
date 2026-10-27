@@ -81,4 +81,20 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 * **Lecteur de Documentation Embarqué (`doc_reader_dialog.py`) :** Dialogue autonome `DocReaderDialog` pour la consultation applicative native de guides Markdown avec rendu SVG, recherche textuelle en surbrillance et zoom (ADR 0038).
 
 ---
+
+## 4. Outils Développeur (`src/ankiforge/ui/widget_gallery/`)
+
+La galerie de widgets est un banc d'observation visuel réservé au mode développement (`ANKIFORGE_ENV=development`), accessible depuis **Paramètres → onglet Développeur → Galerie de widgets**.
+
+* **`widget_gallery_window.py` :** `WidgetGalleryWindow`, dialogue 1000×700px (recherche plein texte, arbre des familles, volet d'aperçu, sélecteur de thème, sélecteur de disposition et bouton « Ouvrir en modal »).
+* **`registry.py` :** registre déclaratif des entrées (`GalleryEntry`, décorateur `gallery_widget`, `WidgetGalleryRegistry`), avec le drapeau `modal`.
+* **`preview_container.py` :** `PreviewContainer`, héberge l'aperçu courant et le libère explicitement à la fermeture de la galerie.
+* **`previews.py` :** conteneurs d'aperçu génériques pour les objets non visuels — `ObjectPreview` (signaux et états d'un `QObject`, appel de `dispose()` à la fermeture), `ItemModelPreview` (modèle Qt lié à une liste ou un tableau), `DelegatePreview` (délégué appliqué à des lignes porteuses de rôles) et `ShellPreviewWindow` (coquille de `MainWindow` recomposée avec les vrais layouts et le vrai registre de vues).
+* **`families/` :** une famille par module (`components`, `dialogs`, `layouts`, `models`, `shell`, `viewmodels`), chargée automatiquement et de façon tolérante aux pannes. Chaque famille expose `XXX_FACTORIES`, `xxx_labels()` et `register()`.
+
+Les charges factices proviennent de `ankiforge/dev/fake_data.py`, `ankiforge/dev/fake_services.py` et `ankiforge/dev/fake_qt_models.py` : aucune écriture en base, aucun appel réseau, aucun worker de production. Les familles `views` et `widgets` restent hors périmètre et la **vraie** `MainWindow` n'est jamais instanciée.
+
+Documentation détaillée : [`docs/dev/galerie_widgets.md`](../dev/galerie_widgets.md). Contrats verrouillés par `tests/ui/test_widget_gallery.py`.
+
+---
 *Règle d'Or :* Avant toute création d'un nouveau widget dans une vue, consulter systématiquement cet inventaire pour réutiliser ou étendre un composant existant.*

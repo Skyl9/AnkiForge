@@ -223,6 +223,7 @@ Vous pouvez également consulter directement les guides et documentations détai
   * [Standards de Code & Typage Strict](docs/dev/standards_et_qualite.md)
   * [Tests Automatisés & CI/CD](docs/dev/tests_et_cicd.md)
   * [Compilation Binaire Nuitka](docs/dev/compilation_nuitka.md)
+  * [Galerie de Widgets (mode développeur)](docs/dev/galerie_widgets.md)
   * [GEMINI.md](GEMINI.md) : Directives agentiques et règles fondamentales.
   * [AGENTS.md](AGENTS.md) : Aide-mémoire commandes, architecture et contraintes de test.
   * [Skills Agentiques](.agents/skills/) : Catalogue des 15 compétences et audits spécialisés.

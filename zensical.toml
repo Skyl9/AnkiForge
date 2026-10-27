@@ -73,6 +73,7 @@ nav = [
       { "Tests Automatisés & CI/CD" = "dev/tests_et_cicd.md" },
       { "Compilation Binaire Nuitka" = "dev/compilation_nuitka.md" },
       { "Parcours de Test Consultant" = "dev/parcours_consultant.md" },
+      { "Galerie de Widgets (mode développeur)" = "dev/galerie_widgets.md" },
   ]},
 ]
 
