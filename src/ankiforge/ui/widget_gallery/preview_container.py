@@ -24,14 +24,7 @@ class PreviewContainer(QWidget):
         self._layout.addWidget(self._error_label)
 
     def set_entry(self, entry: GalleryEntry | None) -> None:
-        if self._current is not None:
-            self._layout.removeWidget(self._current)
-            # Fermer avant de supprimer libère les abonnements (bus d'événements) des
-            # composants qui ne se désabonnent que dans ``closeEvent``.
-            self._current.close()
-            self._current.deleteLater()
-            self._current = None
-        self._error_label.hide()
+        self.clear()
         if entry is None:
             return
         try:
@@ -42,3 +35,23 @@ class PreviewContainer(QWidget):
             logger.exception("Échec d'instanciation du widget %s", entry.name)
             self._error_label.setText(f"Erreur : {exc}")
             self._error_label.show()
+
+    def clear(self) -> None:
+        """Libère l'aperçu courant, y compris quand la fenêtre hôte se ferme.
+
+        Un widget enfant ne reçoit pas de ``QCloseEvent`` lorsque son parent top-level se
+        ferme : la libération doit donc être déclenchée explicitement par l'appelant.
+        """
+        if self._current is not None:
+            self._layout.removeWidget(self._current)
+            # Fermer avant de supprimer libère les abonnements (bus d'événements) des
+            # composants qui ne se désabonnent que dans ``closeEvent``.
+            self._current.close()
+            self._current.deleteLater()
+            self._current = None
+        self._error_label.hide()
+
+    @property
+    def current_widget(self) -> QWidget | None:
+        """Widget actuellement affiché dans l'aperçu, ou ``None``."""
+        return self._current

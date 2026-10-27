@@ -175,13 +175,17 @@ def make_fake_note_type(name: str = "Biologie Fondamentale") -> NoteTypeModel:
     )
 
 
-def make_fake_note() -> NoteModel:
-    """Note non persistée, rattachée à un type de note factice."""
+def make_fake_note(note_id: int = 9999) -> NoteModel:
+    """Note non persistée, rattachée à un type de note factice.
+
+    ``note_id`` permet de distinguer plusieurs notes au sein d'un même aperçu sans
+    jamais toucher à la base.
+    """
     from ankiforge.database.models import NoteModel
 
     note = NoteModel(
-        id=9999,
-        guid="mock-gallery-guid",
+        id=note_id,
+        guid=f"mock-gallery-guid-{note_id}",
         tags="biologie mitose",
         sort_field="Qu'est-ce que la mitose ?",
     )
@@ -598,6 +602,36 @@ def make_fake_wozniak_item() -> dict[str, Any]:
         "original": original,
         "proposal": proposal,
     }
+
+
+def make_fake_chunk_results() -> list[dict[str, Any]]:
+    """Résultats de recherche sémantique alimentant ``VirtualChunkListModel``."""
+    return [
+        {
+            "id": 7101,
+            "chunk_index": 0,
+            "heading_path": "Introduction aux données",
+            "content": "Une variable aléatoire associe chaque issue d'une expérience à une valeur numérique.",
+            "page_number": 1,
+            "similarity": 0.94,
+        },
+        {
+            "id": 7102,
+            "chunk_index": 3,
+            "heading_path": "Statistiques descriptives",
+            "content": "La moyenne arithmétique est la somme des valeurs divisée par le nombre d'observations.",
+            "page_number": 2,
+            "similarity": 0.88,
+        },
+        {
+            "id": 7103,
+            "chunk_index": 7,
+            "heading_path": "Probabilités",
+            "content": "La fonction de répartition est croissante et converge vers l'unité en l'infini.",
+            "page_number": 3,
+            "similarity": 0.81,
+        },
+    ]
 
 
 def make_fake_source_diagnostic() -> dict[str, Any]:

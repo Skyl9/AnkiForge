@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ankiforge.ui.layouts.layout_manager import LayoutManager
 from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.style_engine.themes import get_theme_families
 from ankiforge.ui.widget_gallery.families import load_families
@@ -27,8 +29,6 @@ from ankiforge.ui.widget_gallery.registry import GalleryEntry, WidgetGalleryRegi
 from ankiforge.utils.i18n import tr
 
 logger = logging.getLogger(__name__)
-
-LAYOUT_IDS = ["ide", "macos", "dashboard", "glassmorphism"]
 
 
 class WidgetGalleryWindow(QDialog):
@@ -81,8 +81,10 @@ class WidgetGalleryWindow(QDialog):
         toolbar.addWidget(self.theme_combo)
 
         self.layout_combo = QComboBox(self)
-        for layout_id in LAYOUT_IDS:
-            self.layout_combo.addItem(layout_id, layout_id)
+        for metadata in LayoutManager.get_available_layouts():
+            self.layout_combo.addItem(metadata["name"], metadata["id"])
+        self.layout_combo.setEnabled(False)
+        self.layout_combo.setToolTip(tr("Actif lorsque l'aperçu courant est la coquille de la fenêtre principale."))
         self.layout_combo.currentIndexChanged.connect(self._on_layout_changed)
         toolbar.addWidget(self.layout_combo)
 
@@ -130,7 +132,13 @@ class WidgetGalleryWindow(QDialog):
             return
         self._current_entry = entry
         self.preview.set_entry(entry)
-        self.open_modal_btn.setEnabled(entry.family == "dialogs")
+        self.open_modal_btn.setEnabled(entry.modal)
+        self._sync_layout_combo()
+
+    def _sync_layout_combo(self) -> None:
+        """N'autorise le sélecteur de disposition que pour un aperçu qui sait l'appliquer."""
+        preview = self.preview.current_widget
+        self.layout_combo.setEnabled(preview is not None and callable(getattr(preview, "set_layout", None)))
 
     def _on_theme_changed(self, index: int) -> None:
         theme_id = self.theme_combo.itemData(index)
@@ -146,19 +154,19 @@ class WidgetGalleryWindow(QDialog):
         layout_id = self.layout_combo.itemData(index)
         if not layout_id:
             return
+        preview = self.preview.current_widget
+        set_layout = getattr(preview, "set_layout", None)
+        if not callable(set_layout):
+            logger.debug("L'aperçu courant n'applique pas de disposition (%s)", layout_id)
+            return
         try:
-            app = QApplication.instance()
-            mw = app.activeWindow() if app else None
-            if mw and hasattr(mw, "apply_layout"):
-                mw.apply_layout(str(layout_id))
-            else:
-                logger.debug("Pas de fenêtre principale pour appliquer le layout %s", layout_id)
+            set_layout(str(layout_id))
         except Exception as exc:
             logger.exception("Échec changement de layout: %s", exc)
 
     def _on_open_modal(self) -> None:
         entry = self._current_entry
-        if entry is None or entry.family != "dialogs":
+        if entry is None or not entry.modal:
             return
         try:
             widget = entry.factory()
@@ -168,3 +176,7 @@ class WidgetGalleryWindow(QDialog):
                 widget.show()
         except Exception as exc:
             logger.exception("Échec ouverture modale: %s", exc)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.preview.clear()
+        super().closeEvent(event)

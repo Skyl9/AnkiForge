@@ -33,6 +33,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     <message>
         <location line="+1"/>
         <location filename="../../ui/main_window.py" line="+77"/>
+        <location filename="../../ui/widget_gallery/families/layouts.py" line="+30"/>
         <source>Général</source>
         <extracomment>view_id -&gt; (catégorie, icône, titre, WidgetClass) La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés ne peuvent être résolus qu&apos;une fois le traducteur installé, donc au premier usage. Une constante de classe figerait le français à l&apos;import du module — c&apos;est-à-dire avant `install_translator()` — et la navigation resterait française dans une interface anglaise. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne casse rien, les vues d&apos;un même groupe partagent toujours la même clef.</extracomment>
         <translation type="unfinished"></translation>
@@ -1613,6 +1614,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
     </message>
     <message>
         <location line="+37"/>
+        <location filename="../../ui/widget_gallery/families/layouts.py" line="+0"/>
         <source>Tableau de bord</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1622,6 +1624,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <location line="+1"/>
         <location line="+1"/>
         <location line="+1"/>
+        <location filename="../../ui/widget_gallery/families/layouts.py" line="+1"/>
         <source>Forge &amp; Outils</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1632,6 +1635,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
     </message>
     <message>
         <location line="+1"/>
+        <location filename="../../ui/widget_gallery/families/layouts.py" line="+0"/>
         <source>Édition &amp; Navigateur</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1654,11 +1658,13 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <location line="+1"/>
         <location line="+1"/>
         <location filename="../../ui/views/dashboard_view.py" line="+732"/>
+        <location filename="../../ui/widget_gallery/families/layouts.py" line="+1"/>
         <source>Bibliothèque</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="-1"/>
+        <location filename="../../ui/widget_gallery/families/layouts.py" line="+0"/>
         <source>My Documents</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3381,6 +3387,8 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     <message>
         <location line="+1"/>
         <location filename="../../ui/widget_gallery/families/components.py" line="-324"/>
+        <location filename="../../ui/widget_gallery/families/models.py" line="+99"/>
+        <location line="+2"/>
         <source>Validé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5594,6 +5602,8 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+6"/>
+        <location filename="../../ui/widget_gallery/families/models.py" line="-10"/>
+        <location line="+2"/>
         <source>Biologie</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5661,6 +5671,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     <message>
         <location line="+0"/>
         <location line="+164"/>
+        <location filename="../../ui/widget_gallery/families/models.py" line="+31"/>
         <source>Qu&apos;est-ce que la mitose ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6506,6 +6517,279 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/widget_gallery/families/layouts.py" line="+10"/>
+        <source>Aperçu de la vue « %1 ».</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Disposition IDE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Disposition macOS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Disposition tableau de bord</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Disposition glassmorphism</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widget_gallery/families/models.py" line="-71"/>
+        <location line="+155"/>
+        <source>Modèle de fragments RAG</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-148"/>
+        <location line="+149"/>
+        <source>Modèle de notes virtuel paginé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-140"/>
+        <location line="+141"/>
+        <source>Délégué de case à cocher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-139"/>
+        <source>Sélectionnée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Non sélectionnée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <location line="+131"/>
+        <source>Délégué de drapeau Anki</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-130"/>
+        <source>Drapeau %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <location line="+124"/>
+        <source>Délégué de badge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-99"/>
+        <location line="+100"/>
+        <source>Délégué de tags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-88"/>
+        <source>Question vide</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <location line="+86"/>
+        <source>Délégué de texte monospace</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-75"/>
+        <location line="+76"/>
+        <source>Délégué de barre de progression</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-74"/>
+        <source>Lot en attente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Lot en cours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Lot terminé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <location line="+65"/>
+        <source>Délégué de similarité</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-63"/>
+        <source>Similarité faible</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Similarité forte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <location line="+55"/>
+        <source>Délégué de maîtrise SRS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-49"/>
+        <location line="+10"/>
+        <source>Maîtrisée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-9"/>
+        <source>Nouvelle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>En cours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widget_gallery/families/shell.py" line="+53"/>
+        <source>Coquille de la fenêtre principale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Préférences et paramètres</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widget_gallery/families/viewmodels.py" line="+38"/>
+        <source>Signaux et états d&apos;occupation exposés par ce ViewModel.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+57"/>
+        <source>ViewModel de base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ViewModel des agents IA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ViewModel d&apos;analyse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ViewModel de la file de lots</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ViewModel de création</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ViewModel du tableau de bord</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ViewModel documentaire</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ViewModel d&apos;édition</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ViewModel des pipelines</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/widget_gallery/previews.py" line="+104"/>
+        <source>Signal</source>
+        <extracomment>Signaux techniques de ``QObject`` qui n&apos;ont pas de sens dans un journal d&apos;aperçu. Hauteur d&apos;une ligne peinte par un délégué dans son aperçu. Gouttière interne des conteneurs d&apos;aperçu.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Émissions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Les émissions de signaux apparaîtront ici.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <location line="+52"/>
+        <source>Basculer l&apos;occupation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-46"/>
+        <source>Émettre un message de démonstration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Simuler une erreur</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+40"/>
+        <source>Repasser au repos</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Message de démonstration émis depuis la galerie.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Erreur de démonstration simulée par la galerie.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+74"/>
+        <source>%1 ligne(s) × %2 colonne(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>[Galerie Dev] Coquille de la fenêtre principale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Disposition :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+52"/>
+        <source>Aperçu de la vue « %1 » (non instanciée).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/widget_gallery/widget_gallery_window.py" line="+39"/>
         <source>Galerie de widgets (mode développeur)</source>
         <translation type="unfinished"></translation>
@@ -6516,7 +6800,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+33"/>
+        <source>Actif lorsque l&apos;aperçu courant est la coquille de la fenêtre principale.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
         <source>Ouvrir en modal</source>
         <translation type="unfinished"></translation>
     </message>

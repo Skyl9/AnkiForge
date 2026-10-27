@@ -23,16 +23,18 @@ class GalleryEntry:
     name: str
     factory: Callable[[], QWidget]
     module: str = ""
+    #: L'aperçu s'ouvre légitimement en modal (dialogue ou fenêtre de paramètres).
+    modal: bool = False
 
 
 _registry: list[GalleryEntry] = []
 
 
-def gallery_widget(family: str, name: str) -> Callable[[Callable[[], QWidget]], Callable[[], QWidget]]:
+def gallery_widget(family: str, name: str, modal: bool = False) -> Callable[[Callable[[], QWidget]], Callable[[], QWidget]]:
     """Décorateur enregistrant une factory de widget dans la galerie."""
 
     def decorator(factory: Callable[[], QWidget]) -> Callable[[], QWidget]:
-        entry = GalleryEntry(family=family, name=name, factory=factory, module=factory.__module__)
+        entry = GalleryEntry(family=family, name=name, factory=factory, module=factory.__module__, modal=modal)
         for index, existing in enumerate(_registry):
             if existing.family == family and existing.name == name:
                 if existing.factory is not factory:

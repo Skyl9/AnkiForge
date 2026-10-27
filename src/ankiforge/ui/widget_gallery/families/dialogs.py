@@ -450,4 +450,4 @@ def register() -> None:
         if label is None:
             logger.warning("Libellé de galerie manquant pour le dialogue « %s »", class_name)
             label = class_name
-        gallery_widget(family="dialogs", name=label)(factory)
+        gallery_widget(family="dialogs", name=label, modal=True)(factory)
