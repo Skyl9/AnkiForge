@@ -7,6 +7,7 @@ import json
 import pytest
 from PySide6.QtGui import QGuiApplication
 
+from ankiforge.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
 from ankiforge.ui.views.consultant_view.widgets.mcp_supervision_widget import (
     MCPSupervisionWidget,
 )
@@ -116,6 +117,8 @@ def test_mcp_supervision_widget_snippets(qtbot) -> None:
     assert "Bearer secret_supervision" in curl_cfg
 
     # Changement d'onglet client (1 = agy)
+    assert isinstance(widget.tab_bar_clients, SegmentedTabBar)
+    assert widget.tab_bar_clients.count() == 4
     widget.tab_bar_clients.setCurrentIndex(1)
     assert "ankiforge.json" in widget.lbl_snippet_hint.text()
     assert "ankiforge" in widget.edit_snippet_code.toPlainText()
@@ -165,6 +168,33 @@ def test_mcp_supervision_widget_endpoints_copy(qtbot) -> None:
 
     widget.copy_sse_url()
     assert clipboard.text() == "http://127.0.0.1:8765/sse"
+
+
+def test_mcp_supervision_widget_client_tab_bar_segmented(qtbot) -> None:
+    """Vérifie que tab_bar_clients est un SegmentedTabBar avec 4 onglets et que le changement d'index rafraîchit la vue snippet."""
+    widget = MCPSupervisionWidget(initial_status="running", initial_port=8765, initial_token="tok")
+    qtbot.addWidget(widget)
+
+    assert isinstance(widget.tab_bar_clients, SegmentedTabBar)
+    assert widget.tab_bar_clients.count() == 4
+    assert widget.tab_bar_clients.tabText(0) == widget.tr("Claude")
+    assert widget.tab_bar_clients.tabText(1) == widget.tr("Antigravity (agy)")
+    assert widget.tab_bar_clients.tabText(2) == widget.tr("Cursor")
+    assert widget.tab_bar_clients.tabText(3) == widget.tr("cURL")
+    assert widget.tab_bar_clients.get_active_index() == 0
+
+    with qtbot.waitSignal(widget.tab_bar_clients.tab_index_changed, timeout=1000):
+        widget.tab_bar_clients.setCurrentIndex(2)
+
+    assert widget.tab_bar_clients.get_active_index() == 2
+    assert widget._active_snippet_key == "cursor"
+    assert "Cursor" in widget.lbl_snippet_hint.text()
+    assert "mcp.json" in widget.lbl_snippet_hint.text()
+    assert '"mcpServers"' in widget.edit_snippet_code.toPlainText()
+
+    # accessibleName renseigné sur chaque bouton
+    for btn in widget.tab_bar_clients._tabs:
+        assert btn.accessibleName()
 
 
 def test_mcp_supervision_widget_pending_request_banner(qtbot) -> None:
