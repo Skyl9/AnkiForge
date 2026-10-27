@@ -131,7 +131,7 @@ def capture(
                 window.apply_layout(layout_id)
                 app.processEvents()
 
-            all_views = list(window.VIEW_REGISTRY.keys())
+            all_views = list(window._view_registry.keys())
 
             if capture_all:
                 out_dir = Path(output_path) if output_path else get_project_root() / "temp" / "screens"
@@ -156,6 +156,14 @@ def capture(
                 window._on_view_selected(target_view)
                 for _ in range(6):
                     app.processEvents()
+
+                # If capturing consultant view, switch to Garde-Fou sub-tab (index 1)
+                if target_view == "consultant":
+                    consultant_view = window._view_widgets.get("consultant")
+                    if consultant_view and hasattr(consultant_view, "mcp_dashboard"):
+                        consultant_view.mcp_dashboard.sub_tab_bar.setCurrentIndex(1)
+                        for _ in range(4):
+                            app.processEvents()
 
                 out_file = Path(output_path) if output_path else get_project_root() / "temp" / "screens" / f"{target_view}.png"
                 out_file.parent.mkdir(parents=True, exist_ok=True)

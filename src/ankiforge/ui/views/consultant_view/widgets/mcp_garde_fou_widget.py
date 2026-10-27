@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTreeWidget,
@@ -86,7 +87,9 @@ class BundleHeaderItemWidget(QWidget):
         if bundle.current_step > 1:
             badge_text = tr("Étape %1/%2", bundle.current_step, bundle.total_steps)
             badge_variant = "warning"
-        top_row.addWidget(Badge(badge_text, variant=badge_variant))
+        bundle_badge = Badge(badge_text, variant=badge_variant)
+        bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        top_row.addWidget(bundle_badge)
         layout.addLayout(top_row)
 
         if bundle.explanation:
@@ -98,7 +101,12 @@ class BundleHeaderItemWidget(QWidget):
                 background: transparent;
             """)
             lbl_desc.setWordWrap(True)
+            lbl_desc.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+            lbl_desc.setMinimumWidth(0)
             layout.addWidget(lbl_desc)
+
+        # Ensure minimum height for the widget
+        self.setMinimumHeight(48)
 
 
 class PatchListItemWidget(QWidget):
@@ -137,6 +145,9 @@ class PatchListItemWidget(QWidget):
             border: none;
             background: transparent;
         """)
+        lbl_title.setWordWrap(False)
+        lbl_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        lbl_title.setMinimumWidth(0)
         top_row.addWidget(lbl_title, 1)
 
         p_type = self.patch_type.lower()
@@ -157,6 +168,7 @@ class PatchListItemWidget(QWidget):
             type_label = self.patch_type.upper()
 
         type_badge = Badge(type_label, variant=type_variant)
+        type_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         top_row.addWidget(type_badge)
         layout.addLayout(top_row)
 
@@ -175,8 +187,9 @@ class PatchListItemWidget(QWidget):
             border: none;
             background: transparent;
         """)
-        bottom_row.addWidget(lbl_meta)
-        bottom_row.addStretch()
+        lbl_meta.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        lbl_meta.setMinimumWidth(0)
+        bottom_row.addWidget(lbl_meta, 1)
 
         created_str = patch.created_at.strftime("%H:%M:%S") if patch.created_at else ""
         if created_str:
@@ -187,9 +200,13 @@ class PatchListItemWidget(QWidget):
                 border: none;
                 background: transparent;
             """)
+            lbl_time.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
             bottom_row.addWidget(lbl_time)
 
         layout.addLayout(bottom_row)
+
+        # Ensure minimum height for the widget (2 rows with margins and spacing)
+        self.setMinimumHeight(56)
 
 
 class HierarchicalPatchTreeWidget(QTreeWidget):
@@ -297,8 +314,8 @@ class MCPGardeFouWidget(QWidget):
         # ── 1. VOLET MAÎTRE HIÉRARCHIQUE (Gauche) ─────────────────────────────
         self.left_panel = QFrame()
         self.left_panel.setObjectName("mcp_gf_master")
-        self.left_panel.setMinimumWidth(280)
-        self.left_panel.setMaximumWidth(420)
+        self.left_panel.setMinimumWidth(380)
+        self.left_panel.setMaximumWidth(520)
         self.left_panel.setStyleSheet(f"""
             QFrame#mcp_gf_master {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -610,6 +627,9 @@ class MCPGardeFouWidget(QWidget):
                 selected_item = item
 
         self.patch_tree.blockSignals(False)
+
+        # Redimensionner la colonne pour s'adapter au contenu des widgets personnalisés
+        self.patch_tree.resizeColumnToContents(0)
 
         # Mise à jour des compteurs et états
         total_count = len(self._patches)
