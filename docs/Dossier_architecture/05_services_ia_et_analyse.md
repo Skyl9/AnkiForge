@@ -18,7 +18,7 @@ L'application adopte une stratégie **Agnostique et Local-First** pour protéger
   * Branchements conditionnels (`on_success_step`, `on_failure_step`, `failure_behavior`).
 * **Avantage :** Vitesse d'exécution maximale en multithread, zéro hallucination structurelle, et supervision humaine en continu.
 
-### B. Le Serveur MCP In-Process & Registre d'Outils (`MCPToolRegistry`, ADR 0034)
+### B. Le Serveur MCP In-Process & Registre d'Outils (`MCPToolRegistry`, ADR 0043)
 * **Cas d'usage :** La vue `MCPServerView` et les agents externes (Claude Code, Antigravity CLI, Cursor).
 * **Philosophie :** Priorité absolue aux agents externes de pointe, découplage de tout chat in-app, et validation humaine systématique (Two-Phase Commit).
 * **Mécanique :**

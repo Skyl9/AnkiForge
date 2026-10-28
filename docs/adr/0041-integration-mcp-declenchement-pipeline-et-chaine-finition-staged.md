@@ -1,6 +1,6 @@
 # Intégration MCP : Déclenchement de Pipelines DAG, Modèles Hors API et Chaîne de Finition Staged
 
-**Statut :** accepté (révision et extension de l'arbitrage Phase 1 du ticket *MCP — Accès aux albums et à la gestion des pipelines DAG*, en conformité avec l'ADR 0017 et l'ADR 0034)
+**Statut :** accepté (révision et extension de l'arbitrage Phase 1 du ticket *MCP — Accès aux albums et à la gestion des pipelines DAG*, en conformité avec l'ADR 0043)
 
 ---
 
@@ -42,7 +42,7 @@ def trigger_pipeline_run(
 ```
 
 **Garde-fous stricts à l'invocation :**
-- **Contrôle d'hallucination de paquet (ADR 0017)** : le `deck_name` doit obligatoirement correspondre à un paquet existant dans la collection (vérification via `DeckRepository`). Tout nom invalide est rejeté avec suggestion des paquets les plus proches.
+- **Contrôle d'hallucination de paquet (ADR 0043)** : le `deck_name` doit obligatoirement correspondre à un paquet existant dans la collection (vérification via `DeckRepository`). Tout nom invalide est rejeté avec suggestion des paquets les plus proches.
 - **Validation syntaxique des cartes** : `cards_json` doit être une liste JSON de dictionnaires de champs non vide.
 - **Intégrité du pipeline** : le `pipeline_id` doit correspondre à un `PipelineModel` valide.
 
@@ -52,7 +52,7 @@ Les étapes d'un pipeline (en particulier la synthèse vocale `AUDIO_TTS` ou le 
 - L'agent externe interroge l'avancement via l'outil existant `get_pipeline_run(run_id=...)` jusqu'à completion.
 
 ### D. Sanctuarisation du Two-Phase Commit (`StagedPatchModel`)
-En conformité absolue avec l'ADR 0034 §1 et l'ADR 0017 :
+En conformité absolue avec l'ADR 0043 :
 - Les cartes produites et traitées par le pipeline déclenché via MCP ne sont **JAMAIS** insérées directement en base de données.
 - À l'issue des étapes de finition du DAG, la finalisation du run génère obligatoirement un `StagedPatch` de type `batch_note_create` dans `StagedPatchRegistry`.
 - Le statut du run passe à `staged`, et l'identifiant du patch (`patch_id`) est consigné dans l'état du run.

@@ -23,7 +23,7 @@ AnkiForge reproduit intelligemment la structure relationnelle d'Anki, optimisée
   * `PersonaVersionModel` : Versionnement et rollback des prompts et hyperparamètres des personas.
   * `PromptModel` : Bibliothèque de prompts modulaires réutilisables.
   * `LLMConfigModel` : Configurations d'inférence (fournisseur, température, context window).
-  * `StagedPatchModel` : Propositions chirurgicales d'agents MCP en attente de validation humaine (Two-Phase Commit, ADR 0034).
+  * `StagedPatchModel` : Propositions chirurgicales d'agents MCP en attente de validation humaine (Two-Phase Commit, ADR 0043).
 * **Télémétrie & Coûts IA (`models/usage.py`) :**
   * `TokenUsageModel` : Télémétrie granulaire des jetons, temps d'inférence, coûts USD et contexte d'exécution. Vraies clés étrangères vers `PipelineModel` et `PersonaModel` (`ON DELETE SET NULL` via `column_name="pipeline_id"`/`persona_id`) : la suppression d'un pipeline ou d'un persona conserve l'historique de coûts.
 * **Moteur d'Orchestration DAG (`models/pipelines.py`) :**

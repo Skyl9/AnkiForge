@@ -3,7 +3,7 @@
 **Statut :** 📋 Validée pour découpage via `/to-tickets`  
 **Date :** 25 Octobre 2026  
 **Auteur :** Antigravity Supervisor (Tech Lead / Architecte)  
-**ADRs de référence :** [ADR 0010](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0010-adresses-de-region-et-exclusion-non-destructive.md), [ADR 0017](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0017-regime-ecriture-mcp-paquets-direct-vs-notes-staged.md), [ADR 0034](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0034-architecture-mcp-garde-fou-2pc-et-centrage-harness.md), [ADR 0041](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0041-integration-mcp-declenchement-pipeline-et-chaine-finition-staged.md), [ADR 0042](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0042-perimetre-des-mutations-mcp-garde-fous-et-rejets-explicites.md), [ADR 0043](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0043-regime-staged-bundles-atomicite-sequentielle-et-overlay-mcp.md)  
+**ADRs de référence :** [ADR 0010](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0010-adresses-de-region-et-exclusion-non-destructive.md), [ADR 0041](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0041-integration-mcp-declenchement-pipeline-et-chaine-finition-staged.md), [ADR 0043](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0043-regime-staged-bundles-atomicite-sequentielle-et-overlay-mcp.md)  
 **Contexte métier :** [CONTEXT.md](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/CONTEXT.md#L250-L280)
 
 ---
@@ -17,7 +17,7 @@ L'architecture MCP actuelle d'AnkiForge présentait quatre limitations majeures 
 2. **Gaspillage du potentiel des modèles d'IA hors API & Absence de chaîne de finition** :
    Les modèles de raisonnement avancés (*extended thinking*) disponibles dans les forfaits des agents externes surpassent souvent les modèles d'API directe à un coût nul pour AnkiForge. Cependant, le moteur MCP interdisait le déclenchement des pipelines DAG, privant les cartes générées par l'agent des étapes à haute valeur ajoutée d'AnkiForge (nettoyage HTML/LaTeX, linter des 20 règles de Wozniak, déduplication Levenshtein, audio TTS).
 3. **Asymétrie perméable & Risques de suppressions non contrôlées** :
-   Certains outils d'hygiène (`delete_empty_cards`, `move_cards_to_deck`, `set_tags_bulk`) effectuaient des mutations directes sans validation humaine, violant le principe de précaution du Two-Phase Commit ([ADR 0034](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0034-architecture-mcp-garde-fou-2pc-et-centrage-harness.md)). Par ailleurs, des anomalies critiques subsistaient (`propose_css_tune` orphelin sans persistance, seuil arbitraire de 5 cartes sur `sanitize_fields_html`).
+    Certains outils d'hygiène (`delete_empty_cards`, `move_cards_to_deck`, `set_tags_bulk`) effectuaient des mutations directes sans validation humaine, violant le principe de précaution du Two-Phase Commit (ADR 0043). Par ailleurs, des anomalies critiques subsistaient (`propose_css_tune` orphelin sans persistance, seuil arbitraire de 5 cartes sur `sanitize_fields_html`).
 4. **Interface du Garde-Fou inadaptée au multi-opérations** :
    Le widget du Garde-Fou affichait une liste plate conçue uniquement pour des modifications de cartes textuelles, incapable de présenter des blocs structurés d'opérations, des créations/renommages de paquets, des suppressions ou des modifications de tags avec un rendu polymorphe adapté.
 
@@ -223,7 +223,7 @@ class StagedPatchModel(BaseModel):
   *Retourne immédiatement* : `{"status": "started", "run_id": 42, "pipeline_name": "...", "cards_count": 15}`.  
   *Finalisation worker* : Crée automatiquement un `StagedBundle` de type `batch_note_create` contenant les cartes traitées par la chaîne de finition DAG et marque le run au statut `staged`.
 
-#### 3. Mutations Documents & RAG ([ADR 0042](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0042-perimetre-des-mutations-mcp-garde-fous-et-rejets-explicites.md) & [ADR 0010](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0010-adresses-de-region-et-exclusion-non-destructive.md))
+#### 3. Mutations Documents & RAG (ADR 0043 & ADR 0010)
 - `exclude_document_region(document_id: int, region_address: str, reason: str = "") -> str`
 - `neutralize_document_region(document_id: int, region_address: str, neutralized: bool = True) -> str`
 - `update_document_content(document_id: int, content: str, reason: str = "") -> str`
@@ -300,7 +300,7 @@ class StagedPatchModel(BaseModel):
 
 ## 6. Hors Périmètre (Out of Scope)
 
-Conformément aux arbitrages motivés d'[ADR 0042](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/docs/adr/0042-perimetre-des-mutations-mcp-garde-fous-et-rejets-explicites.md), les capacités suivantes sont **formellement exclues** :
+Conformément aux arbitrages motivés de l'**ADR 0043**, les capacités suivantes sont **formellement exclues** :
 1. **Création ou importation de documents bruts via MCP** (`create_document`) : Sanctuarisation anti-hallucination ; les documents doivent être importés via l'IHM.
 2. **Création d'albums visuels & ajout de planches via MCP** : Même motif de protection de la source que pour les documents.
 3. **Pilotage de la Batch Factory par l'agent MCP** (`trigger_batch_run`) : Prévention des boucles récursives sur API payantes pour protéger les budgets étudiants. La génération se fait via `trigger_pipeline_run` (modèle hors API).

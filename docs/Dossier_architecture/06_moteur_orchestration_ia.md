@@ -148,3 +148,101 @@ classDiagram
 1. **Pilotage Asynchrone :** Connexion complète aux signaux de `PipelineOrchestrator`.
 2. **Modale Interactive de Copilote :** Affichage de `HumanValidationDialog` lors d'une étape `HUMAN_VALIDATION` pour ajustement et reprise fluide (`resume()`).
 3. **Mappage Automatique des Champs :** Détection et structuration des champs selon le type de note sélectionné.
+
+---
+
+## 5. Bonnes Pratiques : Synthèse Markdown Amont
+
+### 5.1 Principe
+Placer une étape de **normalisation Markdown** en tout début de pipeline (ordre 1) améliore significativement la qualité des générations downstream. Cette étape utilise le type `PYTHON_TOOL` pour invoquer l'outil déterministe `format_markdown_document` (exposé via `ToolService` et le registre MCP).
+
+### 5.2 Bénéfices
+- **RAG plus précis** : le `ChunkingService` découpe sur une structure de titres saine et du texte nettoyé.
+- **Prompts LLM plus efficaces** : moins de bruit (césures OCR, LaTeX instable) ➔ moins d'hallucinations.
+- **Provenance déterministe** : fil d'Ariane (`heading_path`) stable pour `CoverageAlignmentService` (ADR 0009).
+- **Gain de tokens** : suppression des artefacts avant envoi au LLM.
+
+### 5.3 Implémentation de référence
+L'outil `format_markdown_document` (dans `src/ankiforge/services/ai/mcp_tool_registry.py`) délègue à `MarkdownFormatter` (`src/ankiforge/services/markdown/formatter.py`) avec les options :
+- `dehyphenate_ocr` : suppression des césures de fin de ligne (PDF/OCR)
+- `normalize_katex` : normalisation des délimiteurs LaTeX (`$...$`, `$$...$$`)
+- `align_tables` : alignement des tableaux GFM (pipes `|`)
+- `normalize_headings` : correction de la hiérarchie ATX (`#`, `##`, `###`…)
+- `clean_whitespace` : nettoyage des espaces parasites
+
+### 5.4 Exemple de Pipeline (JSON)
+```json
+{
+  "name": "Génération Cartes avec Synthèse Amont",
+  "steps": [
+    {
+      "step_order": 1,
+      "step_type": "PYTHON_TOOL",
+      "config_data": {
+        "tool_name": "format_markdown_document",
+        "tool_args": {
+          "document_id": "{{ source_document_id }}",
+          "dehyphenate_ocr": true,
+          "normalize_katex": true,
+          "align_tables": true,
+          "normalize_headings": true,
+          "clean_whitespace": true
+        },
+        "output_variable": "clean_markdown"
+      }
+    },
+    {
+      "step_order": 2,
+      "step_type": "RAG_RETRIEVAL",
+      "config_data": {
+        "query_variable": "clean_markdown",
+        "top_k": 10
+      }
+    },
+    {
+      "step_order": 3,
+      "step_type": "LLM_PROMPT",
+      "persona": "extracteur_cartes_wozniak",
+      "config_data": {
+        "input_variable": "clean_markdown",
+        "output_variable": "generated_cards"
+      }
+    }
+  ]
+}
+```
+
+### 5.5 Exemple de Pipeline (YAML)
+```yaml
+name: "Génération Cartes avec Synthèse Amont"
+steps:
+  - step_order: 1
+    step_type: "PYTHON_TOOL"
+    config_data:
+      tool_name: "format_markdown_document"
+      tool_args:
+        document_id: "{{ source_document_id }}"
+        dehyphenate_ocr: true
+        normalize_katex: true
+        align_tables: true
+        normalize_headings: true
+        clean_whitespace: true
+      output_variable: "clean_markdown"
+  - step_order: 2
+    step_type: "RAG_RETRIEVAL"
+    config_data:
+      query_variable: "clean_markdown"
+      top_k: 10
+  - step_order: 3
+    step_type: "LLM_PROMPT"
+    persona: "extracteur_cartes_wozniak"
+    config_data:
+      input_variable: "clean_markdown"
+      output_variable: "generated_cards"
+```
+
+### 5.6 Références
+- ADR 0052 : `docs/adr/0052-methode-dag-synthese-markdown-amont.md`
+- `PipelineOrchestrator._execute_python_tool` (`src/ankiforge/services/ai/orchestrator.py:1161`)
+- `ToolService.execute_tool` (`src/ankiforge/services/tools/tool_service.py`)
+- `MarkdownFormatter` (`src/ankiforge/services/markdown/formatter.py`)

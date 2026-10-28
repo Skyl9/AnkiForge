@@ -18,7 +18,7 @@ Afin de transformer le serveur MCP local en un environnement d'administration et
 ## Options Considérées
 
 1. **Scission dans la navigation principale de `MainWindow` (nouvel élément dans la barre latérale)** :
-   *Rejeté*. La barre latérale globale compte déjà 8 vues synchronisées sur les 4 dispositions d'interface (`ide`, `macos`, `dashboard`, `glassmorphism`). Ajouter une 9e entrée fragmenterait la navigation et dérogerait à l'ADR 0034 §2 qui unifie l'assistance externe et interne sous la vue « MCP & Agents ».
+    *Rejeté*. La barre latérale globale compte déjà 8 vues synchronisées sur les 4 dispositions d'interface (`ide`, `macos`, `dashboard`, `glassmorphism`). Ajouter une 9e entrée fragmenterait la navigation et dérogerait à l'ADR 0043 qui unifie l'assistance externe et interne sous la vue « MCP & Agents ».
 2. **Condensation en 3 sous-onglets avec accordéons repliables** :
    *Rejeté*. Replier les sections sous des accordéons (`CollapsibleSection`) masque les informations critiques (état, port, endpoints) et requiert des clics supplémentaires.
 3. **5 sous-onglets spécialisés avec cockpit 2 colonnes sans défilement et `SegmentedTabBar`** :
@@ -28,7 +28,7 @@ Afin de transformer le serveur MCP local en un environnement d'administration et
 
 ## Décisions et Règles d'Architecture
 
-### 1. Maintien transitoire dans `ConsultantView` avant dépose finale (ADR 0034 §2 et §4)
+### 1. Maintien transitoire dans `ConsultantView` avant dépose finale (ADR 0043)
 - La vue de premier niveau « MCP & Agents » conserve ses deux onglets majeurs dans son `IdePanel` : « Serveur MCP » (prioritaire et sélectionné par défaut) et « Consultant IA ».
 - Lorsque l'onglet « Serveur MCP » est actif, le panneau droit (`context_panel`) demeure masqué pour allouer 100 % de la largeur d'écran à l'espace MCP.
 

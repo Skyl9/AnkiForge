@@ -134,7 +134,7 @@ Le transport reste à **4 Mio** (valeur par défaut du SDK), sans relèvement ni
 ### Bénéfices
 
 - **Diagnostic rétabli** : les agents reçoivent une cause exploitable (`PAYLOAD_TOO_LARGE` / `INVALID_JSON` / `TOO_MANY_NOTES`) au lieu d'une exception de parsing opaque, ce qui casse la boucle de réémission.
-- **Intégrité préservée** : refus avant toute écriture, aucun bundle ni patch partiel, conformité totale au Two-Phase Commit (ADR 0034, ADR 0043).
+- **Intégrité préservée** : refus avant toute écriture, aucun bundle ni patch partiel, conformité totale au Two-Phase Commit (ADR 0043).
 - **Coût de contexte maîtrisé** : les sous-lots réduisent la pression sur la fenêtre de génération et la latence perçue par l'utilisateur.
 - **Observabilité honnête** : les empreintes et volumes permettent d'instruire un incident sans jamais journaliser le contenu des cartes.
 
@@ -162,4 +162,3 @@ Le transport reste à **4 Mio** (valeur par défaut du SDK), sans relèvement ni
 
 - [ADR 0046](0046-refactorisation-par-lot-mcp-et-staged-bundles-multi-etapes.md) — Refactorisation par lot. Son §C a été mis à jour : la motivation « débordement de buffer JSON-RPC » y est remplacée par la troncature d'arguments tool-call, la consigne de scission « sous-lots de 50 à 100 cartes » par la recommandation de 5 à 8 notes / 8 000 caractères, et le plafond de 100 cartes est complété par la borne de 32 000 caractères.
 - [ADR 0043](0043-regime-staged-bundles-atomicite-sequentielle-et-overlay-mcp.md) — Staged Bundles, atomicité séquentielle et overlay.
-- [ADR 0034](0034-architecture-mcp-garde-fou-2pc-et-centrage-harness.md) — Garde-Fou MCP et Two-Phase Commit.

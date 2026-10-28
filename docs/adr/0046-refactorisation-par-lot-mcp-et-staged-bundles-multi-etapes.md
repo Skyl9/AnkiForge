@@ -1,6 +1,6 @@
 # ADR 0046 : Refactorisation par Lot MCP, Staged Bundles Multi-Étapes et Validation Hybride des Tags
 
-**Statut :** accepté (étend et complète l'ADR 0043 sur les Staged Bundles et l'ADR 0034 sur le Garde-Fou MCP)
+**Statut :** accepté (étend et complète l'ADR 0043 sur les Staged Bundles et le Garde-Fou MCP)
 
 ---
 
