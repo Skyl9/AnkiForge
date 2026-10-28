@@ -79,7 +79,7 @@ class NoteTagChipWidget(QFrame):
             border_color = DesignTokens.BORDER_COLOR
             text_color = DesignTokens.TEXT_PRIMARY
             icon_name = "tag"
-            icon_color = DesignTokens.TEXT_MUTED
+            icon_color = DesignTokens.TEXT_SECONDARY
             self.setToolTip(self.tag)
 
         self.setStyleSheet(f"""
@@ -104,7 +104,7 @@ class NoteTagChipWidget(QFrame):
 
         # Bouton déplacer à gauche
         self.btn_left = QToolButton(self)
-        self.btn_left.setIcon(load_phosphor_icon("caret-left", color=DesignTokens.TEXT_MUTED))
+        self.btn_left.setIcon(load_phosphor_icon("caret-left", color=DesignTokens.TEXT_SECONDARY))
         self.btn_left.setFixedSize(16, 16)
         self.btn_left.setToolTip(self.tr("Déplacer vers la gauche"))
         self.btn_left.setEnabled(not is_first)
@@ -126,7 +126,7 @@ class NoteTagChipWidget(QFrame):
 
         # Bouton déplacer à droite
         self.btn_right = QToolButton(self)
-        self.btn_right.setIcon(load_phosphor_icon("caret-right", color=DesignTokens.TEXT_MUTED))
+        self.btn_right.setIcon(load_phosphor_icon("caret-right", color=DesignTokens.TEXT_SECONDARY))
         self.btn_right.setFixedSize(16, 16)
         self.btn_right.setToolTip(self.tr("Déplacer vers la droite"))
         self.btn_right.setEnabled(not is_last)
@@ -148,7 +148,7 @@ class NoteTagChipWidget(QFrame):
 
         # Bouton supprimer
         btn_del = QToolButton(self)
-        btn_del.setIcon(load_phosphor_icon("x", color=DesignTokens.TEXT_MUTED))
+        btn_del.setIcon(load_phosphor_icon("x", color=DesignTokens.TEXT_SECONDARY))
         btn_del.setFixedSize(16, 16)
         btn_del.setToolTip(self.tr("Supprimer ce tag"))
         btn_del.setStyleSheet(f"""
@@ -240,7 +240,7 @@ class NoteTagsEditorWidget(QFrame):
 
         # Bouton d'ajout
         self.btn_add_tag = QToolButton(self)
-        self.btn_add_tag.setIcon(load_phosphor_icon("plus", color=DesignTokens.TEXT_MUTED))
+        self.btn_add_tag.setIcon(load_phosphor_icon("plus", color=DesignTokens.TEXT_SECONDARY))
         self.btn_add_tag.setFixedSize(24, 24)
         self.btn_add_tag.setToolTip(self.tr("Ajouter le tag"))
         self.btn_add_tag.setStyleSheet(f"""
@@ -259,7 +259,7 @@ class NoteTagsEditorWidget(QFrame):
 
         # Bouton parcourir tags
         self.btn_browse_tag = QToolButton(self)
-        self.btn_browse_tag.setIcon(load_phosphor_icon("tag", color=DesignTokens.TEXT_MUTED))
+        self.btn_browse_tag.setIcon(load_phosphor_icon("tag", color=DesignTokens.TEXT_SECONDARY))
         self.btn_browse_tag.setFixedSize(24, 24)
         self.btn_browse_tag.setToolTip(self.tr("Parcourir et sélectionner un tag existant"))
         self.btn_browse_tag.setStyleSheet(f"""
