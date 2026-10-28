@@ -327,6 +327,10 @@ def main(argv: list[str] | None = None) -> None:
     backup_database(keep_last=5)
     run_migrations()
     seed_initial_data()
+    # Migrer les libellés de drapeaux legacy (SettingsService JSON) vers ProfileFlagLabelModel
+    from ankiforge.services.cards.flag_service import FlagService
+
+    FlagService.migrate_legacy_settings()
     ai_manager = AIManager()
 
     setup_dynamic_theme(app)

@@ -36,6 +36,10 @@ from ankiforge.database.models.cards import (
     NoteVersionMediaModel,
     NoteVersionModel,
 )
+from ankiforge.database.models.flags import (
+    FlagDefinitionModel,
+    ProfileFlagLabelModel,
+)
 from ankiforge.database.models.pipelines import (
     PipelineModel,
     PipelineRunModel,
@@ -69,6 +73,8 @@ ALL_MODELS = [
     MediaModel,
     NoteVersionMediaModel,
     CardModel,
+    FlagDefinitionModel,
+    ProfileFlagLabelModel,
     PromptModel,
     LLMConfigModel,
     TokenUsageModel,
@@ -114,6 +120,8 @@ __all__ = [
     "MediaModel",
     "NoteVersionMediaModel",
     "CardModel",
+    "FlagDefinitionModel",
+    "ProfileFlagLabelModel",
     # IA & Personas
     "PromptModel",
     "LLMConfigModel",

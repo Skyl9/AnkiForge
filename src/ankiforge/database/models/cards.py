@@ -9,6 +9,7 @@ from peewee import (
     BigIntegerField,
     BooleanField,
     CharField,
+    Check,
     DateTimeField,
     FloatField,
     ForeignKeyField,
@@ -17,6 +18,7 @@ from peewee import (
 )
 
 from ankiforge.database.base import BaseModel, db, generate_guid
+from ankiforge.database.models.flags import FlagDefinitionModel
 
 logger = logging.getLogger(__name__)
 
@@ -179,12 +181,20 @@ class CardModel(BaseModel):
 
     note_id: Any
     deck_id: Any
+    flag_definition_id: Any
 
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (cid)
     note = ForeignKeyField(NoteModel, backref="cards", on_delete="CASCADE")
     deck = ForeignKeyField(DeckModel, backref="cards", on_delete="CASCADE")
     template_index = IntegerField(default=0)  # Index du template (Recto=0, Verso=1)
-    flags = IntegerField(default=0)  # Drapeau Anki (0=Aucun, 1..7=Couleurs Anki)
+    flags = IntegerField(default=0, constraints=[Check("flags BETWEEN 0 AND 7")])  # Drapeau Anki (0=Aucun, 1..7=Couleurs Anki)
+    flag_definition = ForeignKeyField(
+        FlagDefinitionModel,
+        field="id",
+        backref="cards",
+        null=True,
+        on_delete="SET NULL",
+    )  # FK vers la définition canonique du drapeau
     is_suspended = BooleanField(default=False)  # Carte suspendue (queue == -1 dans Anki)
 
     # --- Statistiques FSRS synchronisées depuis Anki ---
@@ -202,5 +212,6 @@ class CardModel(BaseModel):
             (("deck", "is_suspended"), False),
             (("note", "template_index"), False),
             (("flags",), False),
+            (("flag_definition",), False),
             (("is_suspended",), False),
         )

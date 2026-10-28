@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ankiforge.database.base import db
 from ankiforge.database.models.ai import LLMConfigModel, PersonaModel
+from ankiforge.database.models.flags import FlagDefinitionModel
 from ankiforge.database.models.pipelines import PipelineModel, PipelineStepModel
 from ankiforge.database.note_type_catalog import seed_default_note_types
 from ankiforge.database.seeds.linter_rules_seed import seed_default_linter_rules
@@ -58,6 +59,22 @@ def _seed_initial_data_inner() -> None:
     prompts_dir = Path(__file__).parent.parent.parent / "ressources" / "prompts"
     if not prompts_dir.exists():
         prompts_dir = Path(__file__).parent.parent.parent.parent / "ressources" / "prompts"
+
+    # ==========================================
+    # INITIALISATION DES DÉFINITIONS DE DRAPEAUX ANKI
+    # ==========================================
+    flag_definitions = [
+        {"value": 0, "name": "Aucun", "color_hex": "transparent", "is_customizable": False, "sort_order": 0},
+        {"value": 1, "name": "Rouge", "color_hex": "#ef4444", "is_customizable": True, "sort_order": 1},
+        {"value": 2, "name": "Orange", "color_hex": "#f97316", "is_customizable": True, "sort_order": 2},
+        {"value": 3, "name": "Vert", "color_hex": "#10b981", "is_customizable": True, "sort_order": 3},
+        {"value": 4, "name": "Bleu", "color_hex": "#3b82f6", "is_customizable": True, "sort_order": 4},
+        {"value": 5, "name": "Rose", "color_hex": "#ec4899", "is_customizable": True, "sort_order": 5},
+        {"value": 6, "name": "Turquoise", "color_hex": "#06b6d4", "is_customizable": True, "sort_order": 6},
+        {"value": 7, "name": "Violet", "color_hex": "#a855f7", "is_customizable": True, "sort_order": 7},
+    ]
+    for flag_data in flag_definitions:
+        FlagDefinitionModel.get_or_create(value=flag_data["value"], defaults=flag_data)
 
     # ==========================================
     # INITIALISATION DU MODÈLE BASIQUE D'USINE

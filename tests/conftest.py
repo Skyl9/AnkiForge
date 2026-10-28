@@ -25,6 +25,7 @@ from ankiforge.database.models import (
     DocumentModel,
     DocumentPageModel,
     EmbeddingCacheModel,
+    FlagDefinitionModel,
     FolderModel,
     IgnoredDuplicateModel,
     JobModel,
@@ -42,6 +43,7 @@ from ankiforge.database.models import (
     PipelineModel,
     PipelineRunModel,
     PipelineStepModel,
+    ProfileFlagLabelModel,
     PromptModel,
     PythonToolModel,
     SettingModel,
@@ -196,7 +198,9 @@ def mock_db():
         TokenUsageModel,
         StagedBundleModel,
         StagedPatchModel,
-        JobModel,  # Ajouté pour aligner avec ALL_MODELS et éviter les tests cassés
+        JobModel,
+        FlagDefinitionModel,
+        ProfileFlagLabelModel,
     ]
 
     # On force Peewee à utiliser cette fausse base plutôt que le fichier .db réel

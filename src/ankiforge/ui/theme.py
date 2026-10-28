@@ -11,11 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QMenu, QWidget
 
-from ankiforge.services.cards.flag_service import (
-    DEFAULT_FLAG_COLORS,
-    DEFAULT_FLAG_NAMES,
-    DEFAULT_FLAG_SEARCH_MAP,
-)
+from ankiforge.services.cards.flag_service import FlagService
 
 if sys.platform == "darwin":
     DEFAULT_FONT_MAIN = ".AppleSystemUIFont"
@@ -117,9 +113,24 @@ class DesignTokens:
     BRANCH_A_BORDER = "rgba(139, 92, 246, 0.45)"
     BRANCH_B_BORDER = "rgba(6, 182, 212, 0.45)"
 
-    FLAG_COLORS: dict[int, str] = DEFAULT_FLAG_COLORS
-    FLAG_NAMES: dict[int, str] = DEFAULT_FLAG_NAMES
-    FLAG_SEARCH_MAP: dict[str, int] = DEFAULT_FLAG_SEARCH_MAP
+    # Drapeaux — initialisés au démarrage via _init_flag_tokens(), mis à jour via refresh_flag_tokens()
+    FLAG_COLORS: dict[int, str] = {}
+    FLAG_NAMES: dict[int, str] = {}
+    FLAG_SEARCH_MAP: dict[str, int] = {}
+
+    @classmethod
+    def _init_flag_tokens(cls) -> None:
+        """Initialise les tokens de drapeaux depuis FlagService."""
+        cls.FLAG_COLORS = FlagService.get_flag_colors()
+        cls.FLAG_NAMES = FlagService.get_flag_labels()
+        cls.FLAG_SEARCH_MAP = FlagService.get_flag_search_map()
+
+    @classmethod
+    def refresh_flag_tokens(cls) -> None:
+        """Rafraîchit les tokens de drapeaux (ex: après changement de profil ou personnalisation)."""
+        cls.FLAG_COLORS = FlagService.get_flag_colors()
+        cls.FLAG_NAMES = FlagService.get_flag_labels()
+        cls.FLAG_SEARCH_MAP = FlagService.get_flag_search_map()
 
     # Tokens de coloration syntaxique (Syntax Highlighting)
     SYNTAX_TAG = "#38bdf8"
@@ -274,6 +285,9 @@ class DesignTokens:
         cls.FONT_SIZE_SM = getattr(profile, "font_size_sm", 11)
 
         cls.SHADOW_COLOR = "rgba(0, 0, 0, 0.45)" if cls.IS_DARK else "rgba(0, 0, 0, 0.12)"
+
+        # Initialiser les tokens de drapeaux
+        cls._init_flag_tokens()
 
     @classmethod
     def set_layout_theme(cls, layout_or_theme_id: str) -> None:
