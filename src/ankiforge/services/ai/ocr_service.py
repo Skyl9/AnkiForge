@@ -61,6 +61,7 @@ def save_rendered_page(image: Image.Image, target: str | Path, suffix: str) -> N
 
 
 # Code Swift natif pour exécuter VNRecognizeTextRequest sur macOS via l'Apple Neural Engine
+# noqa: T20 - Le `print` ci-dessous est du code Swift (stdout OCR), pas Python
 SWIFT_OCR_SOURCE = """
 import Foundation
 import Vision

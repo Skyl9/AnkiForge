@@ -7,6 +7,8 @@ logger = logging.getLogger(__name__)
 
 
 def migrate(migrator, database, fake=False, **kwargs):
+    if fake:
+        return
     # 1. Créer FlagDefinitionModel (idempotent)
     database.execute_sql(
         """

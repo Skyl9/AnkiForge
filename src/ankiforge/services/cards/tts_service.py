@@ -665,11 +665,19 @@ Runner Kokoro-82M autonome pour AnkiForge.
 Supporte les options CLI : --version, --text, --voice, --rate, --pitch, --output.
 """
 import argparse
+import logging
 import math
 import struct
 import sys
 import wave
 from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s",
+    stream=sys.stderr,
+)
+logger = logging.getLogger(__name__)
 
 
 def generate_fallback_tone(output_path: Path, duration_sec: float = 0.8, sample_rate: int = 24000) -> None:
@@ -700,11 +708,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.version:
-        print("Kokoro-82M Runner 1.0 (AnkiForge Sidecar)")
+        logger.info("Kokoro-82M Runner 1.0 (AnkiForge Sidecar)")
         sys.exit(0)
 
     if not args.text or not args.output:
-        print("Erreur: --text et --output sont obligatoires.", file=sys.stderr)
+        logger.error("--text et --output sont obligatoires.")
         sys.exit(1)
 
     out_path = Path(args.output)
@@ -724,7 +732,7 @@ def main() -> None:
             sf.write(str(out_path), samples, sr)
             sys.exit(0)
     except Exception as err:
-        print(f"Inférence neuronale non disponible ({err}), repli sur générateur WAV autonome.", file=sys.stderr)
+        logger.warning("Inférence neuronale non disponible (%s), repli sur générateur WAV autonome.", err)
 
     # Repli autonome immédiat (WAV PCM 16-bit 24kHz)
     generate_fallback_tone(out_path)
