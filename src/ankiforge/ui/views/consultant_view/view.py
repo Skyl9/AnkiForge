@@ -1,4 +1,4 @@
-"""Vue principale Serveur MCP & Agents (MCPServerView) — Centrage plein écran sans chat in-app (ADR 0034 §4).
+"""Vue principale Serveur MCP & Agents (MCPServerView) — Centrage plein écran sans chat in-app (ADR 0043).
 
 Héberge le cockpit opérationnel MCPServerDashboardWidget déployé sur 100 % de la largeur d'écran,
 avec les 5 sous-onglets officiels (Supervision, Garde-Fou, Catalogue, Activité, Guides & Workspaces).
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class MCPServerView(QWidget):
-    """Cockpit unifié du Serveur MCP & Agents en plein écran (ADR 0034 §4)."""
+    """Cockpit unifié du Serveur MCP & Agents en plein écran (ADR 0043)."""
 
     request_navigation = Signal(str, object)
     mcp_start_requested = Signal()
@@ -73,9 +73,9 @@ class MCPServerView(QWidget):
             self.mcp_dashboard.garde_fou_widget.reload_pending_patches()
 
     def apply_mcp_mutation(self, mutation: dict[str, Any]) -> None:
-        """Applique une mise à jour granulaire sans recharger toute la vue (ADR 0034 §3)."""
+        """Applique une mise à jour granulaire sans recharger toute la vue (ADR 0043)."""
         self.refresh_data()
 
 
-# Alias de rétrocompatibilité ascendante (ADR 0034 §4)
+# Alias de rétrocompatibilité ascendante (ADR 0043)
 ConsultantView = MCPServerView

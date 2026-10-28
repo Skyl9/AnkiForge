@@ -1,4 +1,4 @@
-"""Migration 046 : Dépose du chat Consultant IA et suppression des tables consultant_sessions et consultant_messages (ADR 0034 §4)."""
+"""Migration 046 : Dépose du chat Consultant IA et suppression des tables consultant_sessions et consultant_messages (ADR 0043)."""
 
 import datetime
 import logging

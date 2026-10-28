@@ -1,4 +1,4 @@
-"""Widgets spécialisés pour le cockpit du Serveur MCP & Agents (ADR 0034 §4)."""
+"""Widgets spécialisés pour le cockpit du Serveur MCP & Agents (ADR 0043)."""
 
 from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import InlineDiffCardWidget
 from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import MCPServerDashboardWidget

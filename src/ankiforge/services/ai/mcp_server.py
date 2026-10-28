@@ -1591,7 +1591,7 @@ def update_document_content(
     content: str,
     reason: str = "",
 ) -> str:
-    """Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0042)."""
+    """Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0043)."""
     return MCPToolRegistry.update_document_content(
         document_id=document_id,
         content=content,
@@ -1605,7 +1605,7 @@ def reindex_document(
     chunk_size: int = 500,
     overlap: int = 50,
 ) -> str:
-    """Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0042)."""
+    """Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0043)."""
     return MCPToolRegistry.reindex_document(
         document_id=document_id,
         chunk_size=chunk_size,
@@ -1657,6 +1657,27 @@ def get_docs_topics_resource() -> str:
 def get_doc_page_resource(doc_path: str) -> str:
     """Fournit le contenu brut Markdown d'une page de documentation officielle."""
     return MCPToolRegistry.read_app_doc_page(doc_path)
+
+
+@mcp.resource("ankiforge://schema/{table_name}")
+def get_table_schema_resource(table_name: str) -> str:
+    """Fournit le schéma complet d'une table métier (colonnes, index, FK, contraintes) au format JSON.
+
+    Cette resource MCP expose l'introspection de schéma de manière sécurisée (application-driven),
+    sans autoriser l'accès direct à sqlite_master ni aux tables système/sensibles.
+    """
+    import json
+
+    try:
+        schema_data = MCPToolRegistry._get_table_schema_data(table_name)
+        return json.dumps(schema_data, ensure_ascii=False, indent=2)
+    except PermissionError as e:
+        return json.dumps({"status": "error", "error_code": "FORBIDDEN", "message": str(e)}, ensure_ascii=False)
+    except ValueError as e:
+        return json.dumps({"status": "error", "error_code": "NOT_FOUND", "message": str(e)}, ensure_ascii=False)
+    except Exception as e:
+        logger.error("Erreur get_table_schema_resource pour '%s' : %s", table_name, e)
+        return json.dumps({"status": "error", "error_code": "INTERNAL_ERROR", "message": f"Erreur interne : {e}"}, ensure_ascii=False)
 
 
 # =====================================================================

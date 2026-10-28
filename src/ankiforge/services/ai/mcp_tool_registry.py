@@ -1,4 +1,4 @@
-"""Registre canonique des 58 outils du serveur MCP d'AnkiForge (ADR 0034 §4).
+"""Registre canonique des 58 outils du serveur MCP d'AnkiForge (ADR 0043).
 
 Fournit les méthodes statiques in-process pour les agents externes et les pipelines DAG,
 entièrement découplées de toute session de chat conversationnel in-app.
@@ -1563,6 +1563,181 @@ class MCPToolRegistry:
         except Exception as e:
             return f"Erreur SQL : {e}"
 
+    # =====================================================================
+    # RESOURCE MCP : INTROSPECTION DE SCHÉMA BDD (ankiforge://schema/{table})
+    # =====================================================================
+
+    # Allow-list stricte des tables métier autorisées pour l'introspection de schéma.
+    # Utilise les noms de tables SQLite réels (Peewee Meta.table_name).
+    # Tables système (sqlite_master, etc.) et tables sensibles (llm_configs, settings) exclues.
+    _ALLOWED_SCHEMA_TABLES = frozenset(
+        {
+            "deckmodel",
+            "notemodel",
+            "cardmodel",
+            "notetypemodel",
+            "noteversionmodel",
+            "documentmodel",
+            "document_pages",
+            "document_chunks",
+            "foldermodel",
+            "personas",
+            "pipelines",
+            "pipeline_steps",
+            "pipeline_runs",
+            "mediamodel",
+            "audit_records",
+            "batch_runs",
+            "batch_tasks",
+            "ai_cache",
+            "embedding_cache",
+            "ignored_duplicates",
+            "job",
+            "linter_rules",
+            "note_chunk_links",
+            "note_version_media",
+            "persona_folders",
+            "persona_versions",
+            "prompt",
+            "python_tool",
+            "token_usage",
+            "staged_bundles",
+            "staged_patches",
+        }
+    )
+
+    @staticmethod
+    def _get_table_schema_data(table_name: str) -> dict:
+        """Récupère le schéma complet d'une table métier (colonnes, index, FK, contraintes).
+
+        Args:
+            table_name: Nom de la table à introspecter (doit être dans _ALLOWED_SCHEMA_TABLES).
+
+        Returns:
+            Dict structuré avec : table_name, columns, indexes, foreign_keys, constraints.
+
+        Raises:
+            PermissionError: Si la table n'est pas dans l'allow-list ou est une table système.
+            ValueError: Si la table n'existe pas en base.
+        """
+        table_clean = table_name.strip().lower()
+
+        # Vérification allow-list
+        if table_clean not in MCPToolRegistry._ALLOWED_SCHEMA_TABLES:
+            raise PermissionError(f"Table '{table_name}' non autorisée pour l'introspection de schéma.")
+
+        # Vérification tables système (double protection)
+        if table_clean in _SQL_SENSITIVE_TABLES:
+            raise PermissionError(f"Table système '{table_name}' interdite.")
+
+        # Ouverture connexion read-only
+        read_only = _open_readonly_sqlite()
+        if read_only is not None:
+            conn = read_only
+            should_close = True
+            # La connexion read-only a déjà l'authorizer, on le retire temporairement pour les PRAGMA
+            conn.set_authorizer(None)
+        else:
+            connection = db.connection()
+            # Sauvegarder l'authorizer existant et le retirer pour les PRAGMA
+            connection.set_authorizer(None)
+            conn = connection
+            should_close = False
+
+        try:
+            cursor = conn.cursor()
+
+            # 1. Colonnes via PRAGMA table_info
+            cursor.execute(f"PRAGMA table_info({table_clean});")
+            columns_raw = cursor.fetchall()
+            if not columns_raw:
+                raise ValueError(f"Table '{table_name}' introuvable en base.")
+
+            columns = []
+            for col in columns_raw:
+                # col = (cid, name, type, notnull, dflt_value, pk)
+                columns.append(
+                    {
+                        "name": col[1],
+                        "type": col[2],
+                        "not_null": bool(col[3]),
+                        "default": col[4],
+                        "primary_key": bool(col[5]),
+                    }
+                )
+
+            # 2. Index via PRAGMA index_list
+            cursor.execute(f"PRAGMA index_list({table_clean});")
+            indexes_raw = cursor.fetchall()
+            indexes = []
+            for idx in indexes_raw:
+                # idx = (seq, name, unique, origin, partial)
+                idx_name = idx[1]
+                # Récupérer les colonnes de l'index
+                cursor.execute(f"PRAGMA index_info({idx_name});")
+                idx_cols = [row[2] for row in cursor.fetchall()]  # row = (seqno, cid, name)
+                indexes.append(
+                    {
+                        "name": idx_name,
+                        "columns": idx_cols,
+                        "unique": bool(idx[2]),
+                    }
+                )
+
+            # 3. Foreign Keys via PRAGMA foreign_key_list
+            cursor.execute(f"PRAGMA foreign_key_list({table_clean});")
+            fks_raw = cursor.fetchall()
+            foreign_keys = []
+            for fk in fks_raw:
+                # fk = (id, seq, table, from, to, on_update, on_delete, match)
+                foreign_keys.append(
+                    {
+                        "from": fk[3],
+                        "to_table": fk[2],
+                        "to_column": fk[4],
+                        "on_update": fk[5],
+                        "on_delete": fk[6],
+                    }
+                )
+
+            # 4. Contraintes (PK, UNIQUE, etc.) - déduites des index et PK
+            constraints = []
+            # Primary key
+            pk_cols = [c["name"] for c in columns if c["primary_key"]]
+            if pk_cols:
+                constraints.append(
+                    {
+                        "name": f"{table_clean}_pkey",
+                        "type": "PRIMARY KEY",
+                        "columns": pk_cols,
+                    }
+                )
+            # Unique indexes
+            for idx in indexes:
+                if idx["unique"]:
+                    constraints.append(
+                        {
+                            "name": idx["name"],
+                            "type": "UNIQUE",
+                            "columns": idx["columns"],
+                        }
+                    )
+
+            return {
+                "table_name": table_clean,
+                "columns": columns,
+                "indexes": indexes,
+                "foreign_keys": foreign_keys,
+                "constraints": constraints,
+            }
+        except sqlite3.DatabaseError as e:
+            raise ValueError(f"Erreur SQL lors de l'introspection : {e}") from e
+        finally:
+            if should_close:
+                conn.close()
+            else:
+                conn.set_authorizer(None)
+
     @staticmethod
     def get_deck_stats(deck_name: str) -> str:
         """Calcule les statistiques SRS d'un paquet Anki (total, révisions, oublis, sangsues)."""
@@ -2877,7 +3052,7 @@ class MCPToolRegistry:
         content: str,
         reason: str = "",
     ) -> str:
-        """Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0042)."""
+        """Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0043)."""
         import json
 
         from ankiforge.database.models import DocumentModel
@@ -2960,7 +3135,7 @@ class MCPToolRegistry:
         chunk_size: int = 500,
         overlap: int = 50,
     ) -> str:
-        """Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0042)."""
+        """Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0043)."""
         import json
 
         from ankiforge.database.models import DocumentChunkModel, DocumentModel
@@ -4857,7 +5032,7 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "update_document_content",
-            "description": "Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0042).",
+            "description": "Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0043).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -4873,7 +5048,7 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "reindex_document",
-            "description": "Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0042).",
+            "description": "Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0043).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -4975,7 +5150,7 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
 ]
 
 
-# Alias de rétrocompatibilité (ADR 0034 §4)
+# Alias de rétrocompatibilité (ADR 0043)
 ConsultantToolRegistry = MCPToolRegistry
 
 MCP_TOOLS: list[dict[str, Any]] = DEFAULT_CONSULTANT_TOOLS

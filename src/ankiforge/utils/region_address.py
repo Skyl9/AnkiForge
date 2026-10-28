@@ -227,7 +227,7 @@ def validate_canonical_region_address(raw: str | None) -> tuple[RegionAddress | 
 
     Contrairement à :func:`parse_region_address` qui tolère les entrées nues sans préfixe
     (interprétées comme 'heading:'), cette validation impose le préfixe explicite
-    canonique pour les outils d'édition et de mutation MCP (ADR 0010, ADR 0042).
+    canonique pour les outils d'édition et de mutation MCP (ADR 0010, ADR 0043).
 
     :returns: ``(RegionAddress, None)`` si valide, ``(None, message_erreur)`` sinon.
     """
