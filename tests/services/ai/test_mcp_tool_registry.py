@@ -85,3 +85,151 @@ def test_mcp_tool_registry_get_collection_panorama_360(mock_db):
     """Vérifie l'outil get_collection_panorama_360."""
     res = MCPToolRegistry.get_collection_panorama_360()
     assert "Panorama 360" in res or "Collection" in res
+
+
+# =====================================================================
+# TESTS RESOURCE MCP : INTROSPECTION DE SCHÉMA (ankiforge://schema/{table})
+# =====================================================================
+
+
+def test_mcp_tool_registry_get_table_schema_data_notes_table(mock_db):
+    """Vérifie l'introspection de schéma pour la table 'notemodel'."""
+    result = MCPToolRegistry._get_table_schema_data("notemodel")
+
+    assert result["table_name"] == "notemodel"
+    assert isinstance(result["columns"], list)
+    assert len(result["columns"]) >= 8
+
+    # Vérifier la structure des colonnes (selon NoteModel réel)
+    col_names = {c["name"] for c in result["columns"]}
+    assert "id" in col_names
+    assert "guid" in col_names
+    assert "note_type_id" in col_names  # FK vers NoteTypeModel (colonne SQLite réelle)
+    assert "tags" in col_names
+    assert "status" in col_names
+    assert "anki_id" in col_names
+    assert "anki_content_hash" in col_names
+    assert "sort_field" in col_names
+
+    # Vérifier la clé primaire
+    pk_cols = [c for c in result["columns"] if c["primary_key"]]
+    assert len(pk_cols) == 1
+    assert pk_cols[0]["name"] == "id"
+
+    # Vérifier les index
+    assert isinstance(result["indexes"], list)
+
+    # Vérifier les foreign keys (note_type_id vers notetypemodel)
+    assert isinstance(result["foreign_keys"], list)
+    fk_from_cols = {fk["from"] for fk in result["foreign_keys"]}
+    assert "note_type_id" in fk_from_cols
+
+    # Vérifier les contraintes
+    assert isinstance(result["constraints"], list)
+    constraint_types = {c["type"] for c in result["constraints"]}
+    assert "PRIMARY KEY" in constraint_types
+
+
+def test_mcp_tool_registry_get_table_schema_data_cards_table(mock_db):
+    """Vérifie l'introspection de schéma pour la table 'cardmodel'."""
+    result = MCPToolRegistry._get_table_schema_data("cardmodel")
+
+    assert result["table_name"] == "cardmodel"
+    col_names = {c["name"] for c in result["columns"]}
+    assert "id" in col_names
+    assert "note_id" in col_names
+    assert "deck_id" in col_names
+    assert "ivl" in col_names
+    assert "reps" in col_names
+    assert "lapses" in col_names
+    assert "flags" in col_names
+
+
+def test_mcp_tool_registry_get_table_schema_data_decks_table(mock_db):
+    """Vérifie l'introspection de schéma pour la table 'deckmodel'."""
+    result = MCPToolRegistry._get_table_schema_data("deckmodel")
+
+    assert result["table_name"] == "deckmodel"
+    col_names = {c["name"] for c in result["columns"]}
+    assert "id" in col_names
+    assert "name" in col_names
+    assert "description" in col_names
+
+
+def test_mcp_tool_registry_get_table_schema_data_documents_table(mock_db):
+    """Vérifie l'introspection de schéma pour la table 'documentmodel'."""
+    result = MCPToolRegistry._get_table_schema_data("documentmodel")
+
+    assert result["table_name"] == "documentmodel"
+    col_names = {c["name"] for c in result["columns"]}
+    assert "id" in col_names
+    assert "title" in col_names
+    assert "folder_id" in col_names
+
+
+def test_mcp_tool_registry_get_table_schema_rejects_sqlite_master(mock_db):
+    """Vérifie que les tables système sont rejetées."""
+    with pytest.raises(PermissionError):
+        MCPToolRegistry._get_table_schema_data("sqlite_master")
+
+    with pytest.raises(PermissionError):
+        MCPToolRegistry._get_table_schema_data("sqlite_schema")
+
+    with pytest.raises(PermissionError):
+        MCPToolRegistry._get_table_schema_data("sqlite_temp_master")
+
+
+def test_mcp_tool_registry_get_table_schema_rejects_sensitive_tables(mock_db):
+    """Vérifie que les tables sensibles sont rejetées."""
+    with pytest.raises(PermissionError):
+        MCPToolRegistry._get_table_schema_data("llm_configs")
+
+    with pytest.raises(PermissionError):
+        MCPToolRegistry._get_table_schema_data("settings")
+
+    with pytest.raises(PermissionError):
+        MCPToolRegistry._get_table_schema_data("settingmodel")
+
+
+def test_mcp_tool_registry_get_table_schema_rejects_unknown_table(mock_db):
+    """Vérifie que les tables inconnues ou non listées sont rejetées."""
+    with pytest.raises(PermissionError):
+        MCPToolRegistry._get_table_schema_data("nonexistent_table")
+
+    with pytest.raises(PermissionError):
+        MCPToolRegistry._get_table_schema_data("random_table")
+
+
+def test_mcp_tool_registry_get_table_schema_case_insensitive(mock_db):
+    """Vérifie que le nom de table est traité de manière insensible à la casse."""
+    result_lower = MCPToolRegistry._get_table_schema_data("notemodel")
+    result_upper = MCPToolRegistry._get_table_schema_data("NOTEMODEL")
+    result_mixed = MCPToolRegistry._get_table_schema_data("NoteModel")
+
+    assert result_lower["table_name"] == "notemodel"
+    assert result_upper["table_name"] == "notemodel"
+    assert result_mixed["table_name"] == "notemodel"
+
+
+def test_mcp_tool_registry_get_table_schema_json_structure(mock_db):
+    """Vérifie la structure JSON exacte retournée."""
+    result = MCPToolRegistry._get_table_schema_data("notemodel")
+
+    # Vérifier les clés principales
+    assert set(result.keys()) == {"table_name", "columns", "indexes", "foreign_keys", "constraints"}
+
+    # Vérifier structure colonne
+    for col in result["columns"]:
+        assert set(col.keys()) == {"name", "type", "not_null", "default", "primary_key"}
+
+    # Vérifier structure index
+    for idx in result["indexes"]:
+        assert set(idx.keys()) == {"name", "columns", "unique"}
+
+    # Vérifier structure foreign key
+    for fk in result["foreign_keys"]:
+        assert set(fk.keys()) == {"from", "to_table", "to_column", "on_update", "on_delete"}
+
+    # Vérifier structure contrainte
+    for constr in result["constraints"]:
+        assert set(constr.keys()) == {"name", "type", "columns"}
