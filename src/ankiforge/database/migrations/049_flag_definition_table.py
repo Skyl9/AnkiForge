@@ -1,13 +1,16 @@
-"""Migration 049 : Table de référence FlagDefinitionModel + ProfileFlagLabelModel + FK sur CardModel."""
+"""Migration 049 : Table de référence FlagDefinitionModel + ProfileFlagLabelModel + FK sur CardModel (idempotent)."""
 
 import contextlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def migrate(migrator, database, fake=False, **kwargs):
-    # 1. Créer FlagDefinitionModel
+    # 1. Créer FlagDefinitionModel (idempotent)
     database.execute_sql(
         """
-        CREATE TABLE flag_definition (
+        CREATE TABLE IF NOT EXISTS flag_definition (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             value INTEGER NOT NULL UNIQUE CHECK (value BETWEEN 0 AND 7),
             name VARCHAR NOT NULL,
@@ -18,7 +21,7 @@ def migrate(migrator, database, fake=False, **kwargs):
         """
     )
 
-    # 2. Pré-peupler les 8 drapeaux canoniques
+    # 2. Pré-peupler les 8 drapeaux canoniques (idempotent : INSERT OR IGNORE)
     flags_data = [
         (0, "Aucun", "transparent", 0, 0),
         (1, "Rouge", "#ef4444", 1, 1),
@@ -32,14 +35,14 @@ def migrate(migrator, database, fake=False, **kwargs):
 
     for value, name, color_hex, is_customizable, sort_order in flags_data:
         database.execute_sql(
-            "INSERT INTO flag_definition (value, name, color_hex, is_customizable, sort_order) VALUES (?, ?, ?, ?, ?);",
+            "INSERT OR IGNORE INTO flag_definition (value, name, color_hex, is_customizable, sort_order) VALUES (?, ?, ?, ?, ?);",
             (value, name, color_hex, is_customizable, sort_order),
         )
 
-    # 3. Créer ProfileFlagLabelModel
+    # 3. Créer ProfileFlagLabelModel (idempotent)
     database.execute_sql(
         """
-        CREATE TABLE profile_flag_label (
+        CREATE TABLE IF NOT EXISTS profile_flag_label (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             profile_name VARCHAR NOT NULL,
             flag_definition_id INTEGER NOT NULL,
@@ -50,17 +53,20 @@ def migrate(migrator, database, fake=False, **kwargs):
         """
     )
 
-    # 4. Ajouter FK sur CardModel.flags → FlagDefinitionModel.value
-    # On ajoute une colonne flag_definition_id (FK vers flag_definition.id)
-    database.execute_sql("ALTER TABLE cardmodel ADD COLUMN flag_definition_id INTEGER REFERENCES flag_definition(id) ON DELETE SET NULL;")
+    # 4. Ajouter FK sur CardModel.flags → FlagDefinitionModel.value (idempotent)
+    cols = [col.name for col in database.get_columns("cardmodel")]
+    if "flag_definition_id" not in cols:
+        database.execute_sql("ALTER TABLE cardmodel ADD COLUMN flag_definition_id INTEGER REFERENCES flag_definition(id) ON DELETE SET NULL;")
 
     # 5. Backfill : UPDATE cardmodel SET flag_definition_id = (SELECT id FROM flag_definition WHERE value = cardmodel.flags)
+    # Sécurisé à réexécuter : met à jour seulement les lignes où flag_definition_id est NULL
     database.execute_sql(
         """
         UPDATE cardmodel
         SET flag_definition_id = (
             SELECT id FROM flag_definition WHERE flag_definition.value = cardmodel.flags
-        );
+        )
+        WHERE flag_definition_id IS NULL;
         """
     )
 
@@ -70,6 +76,8 @@ def migrate(migrator, database, fake=False, **kwargs):
 
     # 7. Migrer les libellés personnalisés existants depuis SettingsService (JSON)
     # Cela se fait via le service au démarrage, pas en SQL pur car il faut décoder le JSON par profil
+
+    logger.info("Migration 049 : Table flag_definition, profile_flag_label et FK cardmodel appliquées (idempotent).")
 
 
 def rollback(migrator, database, fake=False, **kwargs):
