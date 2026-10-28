@@ -30,6 +30,29 @@ from ankiforge.utils.paths import get_app_data_dir, resolve_media_path
 
 logger = logging.getLogger(__name__)
 
+# --- Edge-TTS Exceptions (imported lazily to avoid hard dependency) ---
+_EDGE_TTS_EXCEPTION_CLASSES: tuple[type[BaseException], ...] = ()
+
+
+def _get_edge_tts_exceptions() -> tuple[type[BaseException], ...]:
+    """Retourne les classes d'exceptions edge-tts, chargées paresseusement."""
+    global _EDGE_TTS_EXCEPTION_CLASSES
+    if not _EDGE_TTS_EXCEPTION_CLASSES:
+        try:
+            import edge_tts.exceptions as edge_exc
+
+            _EDGE_TTS_EXCEPTION_CLASSES = (
+                edge_exc.EdgeTTSException,
+                edge_exc.NoAudioReceived,
+                edge_exc.UnexpectedResponse,
+                edge_exc.UnknownResponse,
+                edge_exc.WebSocketError,
+            )
+        except ImportError:
+            _EDGE_TTS_EXCEPTION_CLASSES = (RuntimeError,)
+    return _EDGE_TTS_EXCEPTION_CLASSES
+
+
 # =========================================================================
 # CONSTANTES DE SÉCURITÉ TÉLÉCHARGEMENT PIPER SIDECAR
 # =========================================================================
@@ -292,7 +315,12 @@ class EdgeTTSProvider(TTSProvider):
                     audio_data.extend(chunk["data"])
             return bytes(audio_data)
 
-        return _run_async(_synth())
+        try:
+            return _run_async(_synth())
+        except _get_edge_tts_exceptions() as e:
+            # Re-lever avec contexte pour déclencher le repli dans TTSService
+            logger.warning("Edge-TTS a échoué (%s) : %s", type(e).__name__, e)
+            raise RuntimeError(f"Edge-TTS synthesis failed: {e}") from e
 
 
 class PiperSidecarProvider(TTSProvider):
@@ -883,6 +911,10 @@ class TTSService:
     ) -> tuple[str, Path]:
         """Synthétise un texte en fichier audio et l'intègre au dossier média AnkiForge.
 
+        Implémente une stratégie de repli transparente : si le moteur demandé échoue
+        lors de la synthèse (ex: 403 Forbidden sur Edge-TTS), essaie automatiquement
+        les moteurs de repli dans l'ordre : edge-tts -> piper -> system.
+
         Returns:
             tuple[str, Path]:
                 - str : La balise Anki [sound:nom_fichier.mp3]
@@ -897,54 +929,80 @@ class TTSService:
         actual_rate = rate or SettingsService.get("tts.rate", "+0%")
         actual_pitch = pitch or SettingsService.get("tts.pitch", "+0Hz")
 
-        provider = self.get_provider(actual_engine)
+        # Stratégie de repli ordonnée pour la synthèse
+        fallback_order = ("edge-tts", "piper", "system")
 
-        cache_key = f"{provider.id}:{actual_voice}:{actual_rate}:{actual_pitch}:{clean_text}"
-        audio_hash = hashlib.md5(cache_key.encode("utf-8"), usedforsecurity=False).hexdigest()
+        # Si un moteur explicite est demandé, on l'essaie en premier
+        # puis on continue avec l'ordre de repli standard
+        tried_engines = set()
+        engines_to_try = [actual_engine] + [e for e in fallback_order if e != actual_engine]
 
-        ext = ".mp3" if provider.id == "edge-tts" else ".wav"
-        if provider.id == "system" and platform.system() == "Darwin":
-            ext = ".m4a"
+        last_error: Exception | None = None
 
-        target_filename = f"tts_{audio_hash}{ext}"
-        candidate_path = self.media_manager.media_dir / target_filename
-        if candidate_path.exists() and candidate_path.stat().st_size > 0:
-            logger.debug("Audio déjà présent dans le cache média : %s", target_filename)
-            return f"[sound:{target_filename}]", candidate_path
+        for engine_id in engines_to_try:
+            if engine_id in tried_engines:
+                continue
+            tried_engines.add(engine_id)
 
-        existing_path = resolve_media_path(target_filename)
-        if existing_path.exists() and existing_path.stat().st_size > 0:
-            logger.debug("Audio déjà présent dans le cache média : %s", target_filename)
-            return f"[sound:{target_filename}]", existing_path
+            provider = self._providers.get(engine_id)
+            if not provider or not provider.is_available():
+                logger.debug("Moteur TTS '%s' non disponible, tentative du suivant", engine_id)
+                continue
 
-        logger.info(
-            "Synthèse vocale en cours [%s / %s] : '%s' (%d caractères)",
-            provider.id,
-            actual_voice,
-            clean_text[:40],
-            len(clean_text),
-        )
-        raw_bytes = provider.synthesize(clean_text, voice=actual_voice, rate=actual_rate, pitch=actual_pitch)
+            cache_key = f"{provider.id}:{actual_voice}:{actual_rate}:{actual_pitch}:{clean_text}"
+            audio_hash = hashlib.md5(cache_key.encode("utf-8"), usedforsecurity=False).hexdigest()
 
-        dest_path = self.media_manager.media_dir / target_filename
-        dest_path.write_bytes(raw_bytes)
+            ext = ".mp3" if provider.id == "edge-tts" else ".wav"
+            if provider.id == "system" and platform.system() == "Darwin":
+                ext = ".m4a"
 
-        try:
-            from ankiforge.database.models import MediaModel
+            target_filename = f"tts_{audio_hash}{ext}"
+            candidate_path = self.media_manager.media_dir / target_filename
+            if candidate_path.exists() and candidate_path.stat().st_size > 0:
+                logger.debug("Audio déjà présent dans le cache média : %s", target_filename)
+                return f"[sound:{target_filename}]", candidate_path
 
-            MediaModel.get_or_create(
-                checksum=audio_hash,
-                defaults={
-                    "filename": target_filename,
-                    "original_name": target_filename,
-                    "mime_type": "audio/mpeg" if ext == ".mp3" else "audio/wav",
-                },
+            existing_path = resolve_media_path(target_filename)
+            if existing_path.exists() and existing_path.stat().st_size > 0:
+                logger.debug("Audio déjà présent dans le cache média : %s", target_filename)
+                return f"[sound:{target_filename}]", existing_path
+
+            logger.info(
+                "Synthèse vocale en cours [%s / %s] : '%s' (%d caractères)",
+                provider.id,
+                actual_voice,
+                clean_text[:40],
+                len(clean_text),
             )
-        except Exception as err:
-            logger.debug("Remarque sur l'enregistrement MediaModel : %s", err)
+            try:
+                raw_bytes = provider.synthesize(clean_text, voice=actual_voice, rate=actual_rate, pitch=actual_pitch)
+            except RuntimeError as e:
+                last_error = e
+                logger.warning("Échec de la synthèse avec '%s' : %s. Tentative du moteur de repli...", provider.id, e)
+                continue
 
-        logger.info("Audio TTS généré avec succès : %s", target_filename)
-        return f"[sound:{target_filename}]", dest_path
+            dest_path = self.media_manager.media_dir / target_filename
+            dest_path.write_bytes(raw_bytes)
+
+            try:
+                from ankiforge.database.models import MediaModel
+
+                MediaModel.get_or_create(
+                    checksum=audio_hash,
+                    defaults={
+                        "filename": target_filename,
+                        "original_name": target_filename,
+                        "mime_type": "audio/mpeg" if ext == ".mp3" else "audio/wav",
+                    },
+                )
+            except Exception as err:
+                logger.debug("Remarque sur l'enregistrement MediaModel : %s", err)
+
+            logger.info("Audio TTS généré avec succès via '%s' : %s", provider.id, target_filename)
+            return f"[sound:{target_filename}]", dest_path
+
+        # Tous les moteurs ont échoué
+        raise RuntimeError(f"Tous les moteurs TTS ont échoué. Dernière erreur : {last_error}") from last_error
 
     def get_cached_audio_path(
         self,

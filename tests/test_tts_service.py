@@ -360,4 +360,137 @@ def test_sidecar_providers_functional_cache() -> None:
         assert ok_k2 is True
         assert mock_run_k.call_count == 1
 
-        KokoroSidecarProvider.clear_functional_cache()
+
+KokoroSidecarProvider.clear_functional_cache()
+
+
+class MockFailingEdgeTTSProvider:
+    """Mock provider that simulates Edge-TTS failing with a 403-like error."""
+
+    id = "edge-tts"
+    display_name = "Edge-TTS (Mock Failing)"
+
+    def is_available(self) -> bool:
+        return True
+
+    def get_voices(self) -> list[dict[str, str]]:
+        return [{"id": "fr-FR-VivienneMultilingualNeural", "name": "Vivienne", "lang": "fr-FR"}]
+
+    def synthesize(
+        self,
+        text: str,
+        voice: str | None = None,
+        rate: str = "+0%",
+        pitch: str = "+0Hz",
+    ) -> bytes:
+        # Simule une erreur 403 Forbidden d'edge-tts
+        raise RuntimeError("Edge-TTS synthesis failed: 403 Forbidden")
+
+
+class MockSuccessFallbackProvider:
+    """Mock provider that simulates a successful fallback (Piper/System)."""
+
+    id = "piper"
+    display_name = "Piper TTS (Mock Success)"
+
+    def is_available(self) -> bool:
+        return True
+
+    def get_voices(self) -> list[dict[str, str]]:
+        return [{"id": "fr_FR-siwis-low", "name": "Piper French", "lang": "fr-FR"}]
+
+    def synthesize(
+        self,
+        text: str,
+        voice: str | None = None,
+        rate: str = "+0%",
+        pitch: str = "+0Hz",
+    ) -> bytes:
+        return b"FALLBACK_AUDIO_DATA_FOR_" + text.encode("utf-8")
+
+
+def test_tts_service_fallback_on_edge_tts_failure(tmp_path: Path) -> None:
+    """Vérifie le repli transparent vers un moteur de secours quand Edge-TTS échoue (ex: 403)."""
+    media_mgr = MediaManager()
+    media_mgr.media_dir = tmp_path
+
+    service = TTSService(media_manager=media_mgr)
+
+    # Remplacer edge-tts par un mock qui échoue
+    service._providers["edge-tts"] = MockFailingEdgeTTSProvider()
+    # Ajouter un provider de repli qui réussit
+    service._providers["piper"] = MockSuccessFallbackProvider()
+
+    # La synthèse doit réussir via le repli Piper
+    tag, path = service.synthesize("Bonjour le monde", engine="edge-tts")
+
+    assert tag.startswith("[sound:")
+    assert tag.endswith(".wav]")  # Piper produit du WAV
+    assert path.exists()
+    assert path.read_bytes() == b"FALLBACK_AUDIO_DATA_FOR_Bonjour le monde"
+
+
+def test_tts_service_fallback_chain_exhausted_raises(tmp_path: Path) -> None:
+    """Vérifie qu'une erreur est levée quand tous les moteurs échouent."""
+    media_mgr = MediaManager()
+    media_mgr.media_dir = tmp_path
+
+    service = TTSService(media_manager=media_mgr)
+
+    # Tous les providers échouent
+    class MockAlwaysFailingProvider(TTSProvider):
+        id = "edge-tts"
+        display_name = "Always Failing"
+
+        def is_available(self) -> bool:
+            return True
+
+        def get_voices(self) -> list[dict[str, str]]:
+            return []
+
+        def synthesize(self, text: str, **kwargs: object) -> bytes:
+            raise RuntimeError("Simulated failure")
+
+    service._providers["edge-tts"] = MockAlwaysFailingProvider()
+    service._providers["piper"] = MockAlwaysFailingProvider()
+    service._providers["system"] = MockAlwaysFailingProvider()
+
+    with pytest.raises(RuntimeError, match="Tous les moteurs TTS ont échoué"):
+        service.synthesize("Test", engine="edge-tts")
+
+
+def test_tts_service_fallback_preserves_cache_key_differentiation(tmp_path: Path) -> None:
+    """Vérifie que le cache différencie correctement les moteurs utilisés (edge-tts vs piper)."""
+    media_mgr = MediaManager()
+    media_mgr.media_dir = tmp_path
+
+    service = TTSService(media_manager=media_mgr)
+
+    # Premier appel : edge-tts échoue, piper réussit
+    service._providers["edge-tts"] = MockFailingEdgeTTSProvider()
+    service._providers["piper"] = MockSuccessFallbackProvider()
+
+    tag1, path1 = service.synthesize("Test cache", engine="edge-tts")
+    assert "piper" in tag1 or path1.suffix == ".wav"  # Piper a été utilisé
+
+    # Deuxième appel : edge-tts maintenant "disponible" (mock success)
+    class MockSuccessEdgeTTSProvider(TTSProvider):
+        id = "edge-tts"
+        display_name = "Edge-TTS (Mock Success)"
+
+        def is_available(self) -> bool:
+            return True
+
+        def get_voices(self) -> list[dict[str, str]]:
+            return [{"id": "fr-FR-VivienneMultilingualNeural", "name": "Vivienne", "lang": "fr-FR"}]
+
+        def synthesize(self, text: str, **kwargs: object) -> bytes:
+            return b"EDGE_TTS_AUDIO_DATA_FOR_" + text.encode("utf-8")
+
+    service._providers["edge-tts"] = MockSuccessEdgeTTSProvider()
+
+    # Le cache doit être différent car le moteur est différent
+    tag2, path2 = service.synthesize("Test cache", engine="edge-tts")
+    assert tag1 != tag2  # Clés de cache différentes car moteurs différents
+    assert path1 != path2
+    assert path2.read_bytes().startswith(b"EDGE_TTS_AUDIO_DATA_FOR_")
