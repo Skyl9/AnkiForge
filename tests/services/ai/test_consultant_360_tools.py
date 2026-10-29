@@ -13,7 +13,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
+from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -55,7 +55,7 @@ def sample_data():
 
 
 def test_get_collection_panorama_360(sample_data):
-    panorama = ConsultantToolRegistry.get_collection_panorama_360()
+    panorama = MCPToolRegistry.get_collection_panorama_360()
     assert "Panorama 360° de la Collection AnkiForge" in panorama
     assert "Total Paquets :" in panorama
     assert "Total Cartes :" in panorama
@@ -64,41 +64,41 @@ def test_get_collection_panorama_360(sample_data):
 
 def test_inspect_deck_deep_scan(sample_data):
     deck = sample_data["deck"]
-    scan = ConsultantToolRegistry.inspect_deck_deep_scan(deck.name)
+    scan = MCPToolRegistry.inspect_deck_deep_scan(deck.name)
     assert f"Deep Scan du Paquet '{deck.name}'" in scan
     assert "Apprentissage" in scan
     assert "Top cartes sangsues" in scan
 
 
 def test_inspect_deck_deep_scan_non_existent():
-    res = ConsultantToolRegistry.inspect_deck_deep_scan("Paquet_Totalement_Inconnu_XYZ")
+    res = MCPToolRegistry.inspect_deck_deep_scan("Paquet_Totalement_Inconnu_XYZ")
     assert "Erreur" in res or "n'existe pas" in res
 
 
 def test_audit_deck_wozniak(sample_data):
     deck = sample_data["deck"]
-    res = ConsultantToolRegistry.audit_deck_wozniak(deck.name)
+    res = MCPToolRegistry.audit_deck_wozniak(deck.name)
     assert "Rapport d'Audit Qualité Wozniak" in res
     assert "Score de conformité global" in res
 
 
 def test_audit_card_wozniak(sample_data):
     note = sample_data["note2"]
-    res = ConsultantToolRegistry.audit_card_wozniak(note.id)
+    res = MCPToolRegistry.audit_card_wozniak(note.id)
     assert "Audit Wozniak de la Note" in res
     assert "Règle #4 (Atomicité)" in res or "Score Qualité" in res
 
 
 def test_find_duplicate_cards(sample_data):
     deck = sample_data["deck"]
-    res = ConsultantToolRegistry.find_duplicate_cards(deck.name, threshold=0.8)
+    res = MCPToolRegistry.find_duplicate_cards(deck.name, threshold=0.8)
     assert "doublon" in res.lower() or "similarité" in res.lower()
 
 
 def test_propose_card_refactor_garde_fou(sample_data):
     note = sample_data["note1"]
     new_data = {"Front": "Question Reformulée", "Back": "Réponse Optimisée"}
-    res = ConsultantToolRegistry.propose_card_refactor(note.id, json.dumps(new_data), explanation="Simplification")
+    res = MCPToolRegistry.propose_card_refactor(note.id, json.dumps(new_data), explanation="Simplification")
 
     parsed = json.loads(res)
     assert parsed.get("status") == "staged_diff"
@@ -117,7 +117,7 @@ def test_propose_card_split_garde_fou(sample_data):
         {"Front": "Partie 1", "Back": "Réponse 1"},
         {"Front": "Partie 2", "Back": "Réponse 2"},
     ]
-    res = ConsultantToolRegistry.propose_card_split(note.id, json.dumps(atomic_cards), explanation="Scission atomique")
+    res = MCPToolRegistry.propose_card_split(note.id, json.dumps(atomic_cards), explanation="Scission atomique")
 
     parsed = json.loads(res)
     assert parsed.get("status") == "staged_diff"
@@ -131,7 +131,7 @@ def test_propose_card_split_garde_fou(sample_data):
 
 def test_propose_css_tune_garde_fou(sample_data):
     nt = sample_data["nt"]
-    res = ConsultantToolRegistry.propose_css_tune(nt.name, ".card.highlight { color: #8b5cf6; }")
+    res = MCPToolRegistry.propose_css_tune(nt.name, ".card.highlight { color: #8b5cf6; }")
 
     parsed = json.loads(res)
     assert parsed.get("status") == "staged_diff"

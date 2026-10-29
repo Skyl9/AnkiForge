@@ -1,4 +1,4 @@
-"""Tests unitaires pour l'application des diffs et patches du Consultant IA (ConsultantToolRegistry.apply_patch).
+"""Tests unitaires pour l'application des diffs et patches du Consultant IA (MCPToolRegistry.apply_patch).
 
 Vérifie la mutation atomique en base SQLite, le versionnage NoteVersionModel et le support des 4 types :
 - card
@@ -19,7 +19,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
+from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -55,7 +55,7 @@ def test_apply_patch_card_success(note_setup):
         "explanation": "Formulation atomique selon la règle Wozniak.",
     }
 
-    result_raw = ConsultantToolRegistry.apply_patch(patch_json=json.dumps(patch_payload))
+    result_raw = MCPToolRegistry.apply_patch(patch_json=json.dumps(patch_payload))
     result = json.loads(result_raw)
 
     assert result["status"] == "applied"
@@ -77,7 +77,7 @@ def test_apply_patch_card_success(note_setup):
 
 def test_apply_patch_card_via_kwargs(note_setup):
     note = note_setup["note"]
-    result_raw = ConsultantToolRegistry.apply_patch(
+    result_raw = MCPToolRegistry.apply_patch(
         patch_type="card",
         target_id=note.id,
         patch_data_json=json.dumps({"Front": "Via kwargs Front", "Back": "Via kwargs Back"}),
@@ -105,7 +105,7 @@ def test_apply_patch_split(note_setup):
         "explanation": "Décomposition en 3 fiches atomiques.",
     }
 
-    result_raw = ConsultantToolRegistry.apply_patch(patch_json=json.dumps(split_payload))
+    result_raw = MCPToolRegistry.apply_patch(patch_json=json.dumps(split_payload))
     result = json.loads(result_raw)
 
     assert result["status"] == "applied"
@@ -136,7 +136,7 @@ def test_apply_patch_model(note_setup):
         },
     }
 
-    result_raw = ConsultantToolRegistry.apply_patch(patch_json=json.dumps(model_payload))
+    result_raw = MCPToolRegistry.apply_patch(patch_json=json.dumps(model_payload))
     result = json.loads(result_raw)
 
     assert result["status"] == "applied"
@@ -155,7 +155,7 @@ def test_apply_patch_css(note_setup):
         "modified": ".cloze-highlight { background-color: yellow; }",
     }
 
-    result_raw = ConsultantToolRegistry.apply_patch(patch_json=json.dumps(css_payload))
+    result_raw = MCPToolRegistry.apply_patch(patch_json=json.dumps(css_payload))
     result = json.loads(result_raw)
 
     assert result["status"] == "applied"
@@ -168,20 +168,20 @@ def test_apply_patch_css(note_setup):
 
 def test_apply_patch_validation_errors(note_setup):
     # 1. Type manquant ou invalide
-    res = json.loads(ConsultantToolRegistry.apply_patch(patch_json=json.dumps({"type": "invalid_type"})))
+    res = json.loads(MCPToolRegistry.apply_patch(patch_json=json.dumps({"type": "invalid_type"})))
     assert res["status"] == "error"
 
     # 2. Type card avec note_id manquant
-    res = json.loads(ConsultantToolRegistry.apply_patch(patch_json=json.dumps({"type": "card", "modified": {}})))
+    res = json.loads(MCPToolRegistry.apply_patch(patch_json=json.dumps({"type": "card", "modified": {}})))
     assert res["status"] == "error"
     assert "ID de note invalide" in res["message"]
 
     # 3. Note inexistante
-    res = json.loads(ConsultantToolRegistry.apply_patch(patch_json=json.dumps({"type": "card", "note_id": 9999999, "modified": {}})))
+    res = json.loads(MCPToolRegistry.apply_patch(patch_json=json.dumps({"type": "card", "note_id": 9999999, "modified": {}})))
     assert res["status"] == "error"
     assert "introuvable" in res["message"]
 
     # 4. Modèle introuvable pour patch model
-    res = json.loads(ConsultantToolRegistry.apply_patch(patch_json=json.dumps({"type": "model", "note_type_name": "Inexistant_Model", "modified": {}})))
+    res = json.loads(MCPToolRegistry.apply_patch(patch_json=json.dumps({"type": "model", "note_type_name": "Inexistant_Model", "modified": {}})))
     assert res["status"] == "error"
     assert "introuvable" in res["message"]

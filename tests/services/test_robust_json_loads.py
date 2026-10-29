@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.services.ai.consultant_engine import robust_json_loads
+from ankiforge.services.ai.mcp_tool_registry import robust_json_loads
 
 pytestmark = pytest.mark.unit
 

@@ -2,8 +2,8 @@
 
 import pytest
 
-from ankiforge.services.ai.consultant_engine import ConsultantEngine, ConsultantToolRegistry
 from ankiforge.services.ai.mcp_server import mcp
+from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -11,46 +11,40 @@ pytestmark = pytest.mark.integration
 def test_consultant_tool_registry_doc_tools():
     """Vérifie que les méthodes statiques du registry délèguent correctement vers AppDocumentationService."""
     # 1. Recherche doc
-    res_search = ConsultantToolRegistry.search_app_documentation("wozniak", limit=3)
+    res_search = MCPToolRegistry.search_app_documentation("wozniak", limit=3)
     assert "Résultats de recherche" in res_search
     assert "linter_wozniak.md" in res_search or "Wozniak" in res_search
 
     # 2. Lecture page doc
-    res_read = ConsultantToolRegistry.read_app_doc_page("features/consultant_mcp.md")
+    res_read = MCPToolRegistry.read_app_doc_page("features/consultant_mcp.md")
     assert "Documentation : `features/consultant_mcp.md`" in res_read
     assert "ReAct" in res_read
 
     # 3. Liste des sujets
-    res_topics = ConsultantToolRegistry.list_app_doc_topics()
+    res_topics = MCPToolRegistry.list_app_doc_topics()
     assert "Sommaire de la Documentation" in res_topics
 
     # 4. Aide rapide
-    res_help = ConsultantToolRegistry.get_feature_quick_help("katex")
+    res_help = MCPToolRegistry.get_feature_quick_help("katex")
     assert "Éditeur de Notes KaTeX" in res_help
 
 
-def test_consultant_engine_execute_doc_tool_calls():
-    """Vérifie que le moteur du Consultant dispatche correctement les 4 nouveaux outils."""
-    engine = ConsultantEngine()
-
+def test_mcp_tool_registry_execute_doc_tool_calls():
+    """Vérifie que MCPToolRegistry dispatche directement les 4 outils de documentation."""
     # Tool search_app_documentation
-    obs, is_err = engine._execute_tool_call("search_app_documentation", {"query": "dag", "limit": 2})
-    assert not is_err
+    obs = MCPToolRegistry.search_app_documentation(query="dag", limit=2)
     assert "Résultats de recherche" in obs
 
     # Tool read_app_doc_page
-    obs, is_err = engine._execute_tool_call("read_app_doc_page", {"doc_path": "features/editeur_notes_katex.md"})
-    assert not is_err
+    obs = MCPToolRegistry.read_app_doc_page(doc_path="features/editeur_notes_katex.md")
     assert "KaTeX" in obs
 
     # Tool list_app_doc_topics
-    obs, is_err = engine._execute_tool_call("list_app_doc_topics", {})
-    assert not is_err
+    obs = MCPToolRegistry.list_app_doc_topics()
     assert "Sommaire" in obs
 
     # Tool get_feature_quick_help
-    obs, is_err = engine._execute_tool_call("get_feature_quick_help", {"feature_name": "ollama"})
-    assert not is_err
+    obs = MCPToolRegistry.get_feature_quick_help(feature_name="ollama")
     assert "Ollama" in obs
 
 

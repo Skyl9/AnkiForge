@@ -17,9 +17,9 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.consultant_engine import (
+from ankiforge.services.ai.mcp_tool_registry import (
     DEFAULT_CONSULTANT_TOOLS,
-    ConsultantToolRegistry,
+    MCPToolRegistry,
 )
 
 pytestmark = pytest.mark.integration
@@ -58,19 +58,19 @@ def test_query_peewee_pagination(sample_paginated_deck):
     sql = f"SELECT id FROM {table_name} WHERE note_type_id = {sample_paginated_deck['nt'].id} ORDER BY id ASC"
 
     # Page 1 : limit=10, offset=0
-    res1 = ConsultantToolRegistry.query_peewee(sql, limit=10, offset=0)
+    res1 = MCPToolRegistry.query_peewee(sql, limit=10, offset=0)
     assert "1 à 10 sur 25 total" in res1
     assert "limit=10, offset=0" in res1
     assert "offset=10 pour la page suivante" in res1
 
     # Page 2 : limit=10, offset=10
-    res2 = ConsultantToolRegistry.query_peewee(sql, limit=10, offset=10)
+    res2 = MCPToolRegistry.query_peewee(sql, limit=10, offset=10)
     assert "11 à 20 sur 25 total" in res2
     assert "limit=10, offset=10" in res2
     assert "offset=20 pour la page suivante" in res2
 
     # Page 3 : limit=10, offset=20
-    res3 = ConsultantToolRegistry.query_peewee(sql, limit=10, offset=20)
+    res3 = MCPToolRegistry.query_peewee(sql, limit=10, offset=20)
     assert "21 à 25 sur 25 total" in res3
     assert "page suivante" not in res3
 
@@ -83,22 +83,22 @@ def test_find_cards_by_content_pagination(sample_paginated_deck):
         return json.loads(m.group(1)) if m else []
 
     # Page 1 : limit=8, offset=0
-    res1 = ConsultantToolRegistry.find_cards_by_content(query="cardiologie", deck_name=deck_name, limit=8, offset=0)
+    res1 = MCPToolRegistry.find_cards_by_content(query="cardiologie", deck_name=deck_name, limit=8, offset=0)
     cards1 = _extract_cards(res1)
     assert len(cards1) == 8
 
     # Page 2 : limit=8, offset=8
-    res2 = ConsultantToolRegistry.find_cards_by_content(query="cardiologie", deck_name=deck_name, limit=8, offset=8)
+    res2 = MCPToolRegistry.find_cards_by_content(query="cardiologie", deck_name=deck_name, limit=8, offset=8)
     cards2 = _extract_cards(res2)
     assert len(cards2) == 8
 
     # Page 3 : limit=8, offset=16
-    res3 = ConsultantToolRegistry.find_cards_by_content(query="cardiologie", deck_name=deck_name, limit=8, offset=16)
+    res3 = MCPToolRegistry.find_cards_by_content(query="cardiologie", deck_name=deck_name, limit=8, offset=16)
     cards3 = _extract_cards(res3)
     assert len(cards3) == 8
 
     # Page 4 : limit=8, offset=24
-    res4 = ConsultantToolRegistry.find_cards_by_content(query="cardiologie", deck_name=deck_name, limit=8, offset=24)
+    res4 = MCPToolRegistry.find_cards_by_content(query="cardiologie", deck_name=deck_name, limit=8, offset=24)
     cards4 = _extract_cards(res4)
     assert len(cards4) == 1
 
@@ -120,17 +120,17 @@ def test_get_cards_by_deck_or_tag_pagination(sample_paginated_deck):
         return json.loads(m.group(1)) if m else []
 
     # Page 1
-    res1 = ConsultantToolRegistry.get_cards_by_deck_or_tag(tag=tag, limit=12, offset=0)
+    res1 = MCPToolRegistry.get_cards_by_deck_or_tag(tag=tag, limit=12, offset=0)
     cards1 = _extract_cards(res1)
     assert len(cards1) == 12
 
     # Page 2
-    res2 = ConsultantToolRegistry.get_cards_by_deck_or_tag(tag=tag, limit=12, offset=12)
+    res2 = MCPToolRegistry.get_cards_by_deck_or_tag(tag=tag, limit=12, offset=12)
     cards2 = _extract_cards(res2)
     assert len(cards2) == 12
 
     # Page 3
-    res3 = ConsultantToolRegistry.get_cards_by_deck_or_tag(tag=tag, limit=12, offset=24)
+    res3 = MCPToolRegistry.get_cards_by_deck_or_tag(tag=tag, limit=12, offset=24)
     cards3 = _extract_cards(res3)
     assert len(cards3) == 1
 

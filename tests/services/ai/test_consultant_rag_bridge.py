@@ -6,13 +6,8 @@ from unittest.mock import patch
 import pytest
 
 from ankiforge.database.models import DocumentModel
-from ankiforge.services.ai.consultant_engine import (
-    _SYSTEM_PROMPT_TEMPLATE,
-    DEFAULT_CONSULTANT_TOOLS,
-    ConsultantEngine,
-    ConsultantToolRegistry,
-)
 from ankiforge.services.ai.mcp_server import mcp
+from ankiforge.services.ai.mcp_tool_registry import DEFAULT_CONSULTANT_TOOLS, MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -20,7 +15,7 @@ pytestmark = pytest.mark.integration
 def test_search_knowledge_context_no_documents():
     """Vérifie le repli gracieux lorsqu'aucun document n'est indexé."""
     DocumentModel.delete().execute()
-    res = ConsultantToolRegistry.search_knowledge_context("mitochondrie")
+    res = MCPToolRegistry.search_knowledge_context("mitochondrie")
     assert "Aucun document" in res
 
 
@@ -28,7 +23,7 @@ def test_search_knowledge_context_no_results():
     """Vérifie le message quand la recherche ne retourne aucun résultat."""
     _doc = DocumentModel.create(title="Cours de Chimie.pdf", file_path="/fake/chimie.pdf", format="pdf")
     with patch("ankiforge.services.ai.rag_service.RAGService.search", return_value=[]):
-        res = ConsultantToolRegistry.search_knowledge_context("concept_introuvable_xyz")
+        res = MCPToolRegistry.search_knowledge_context("concept_introuvable_xyz")
         assert "Aucun passage pertinent trouvé" in res
 
 
@@ -56,7 +51,7 @@ def test_search_knowledge_context_with_results():
     ]
 
     with patch("ankiforge.services.ai.rag_service.RAGService.search", return_value=mock_chunks):
-        res = ConsultantToolRegistry.search_knowledge_context("mitochondrie ATP", max_chunks=2)
+        res = MCPToolRegistry.search_knowledge_context("mitochondrie ATP", max_chunks=2)
 
     assert "Contexte Documentaire RAG" in res
     assert "[Source: Biologie Cellulaire.pdf | p.15 | mitochondrie]" in res
@@ -81,10 +76,9 @@ def test_search_knowledge_context_with_results():
     assert "page:15" in " ".join(data[0]["suggested_tags"])
 
 
-def test_search_knowledge_context_consultant_engine_dispatch():
-    """Vérifie le routage dans la boucle ReAct de ConsultantEngine."""
+def test_search_knowledge_context_mcp_tool_registry_dispatch():
+    """Vérifie le routage direct vers MCPToolRegistry.search_knowledge_context."""
     DocumentModel.create(title="Cours Pharmacologie.pdf", file_path="/fake/pharma.pdf", format="pdf")
-    engine = ConsultantEngine()
 
     mock_chunks = [
         {
@@ -97,12 +91,8 @@ def test_search_knowledge_context_consultant_engine_dispatch():
     ]
 
     with patch("ankiforge.services.ai.rag_service.RAGService.search", return_value=mock_chunks):
-        obs, is_err = engine._execute_tool_call(
-            "search_knowledge_context",
-            {"query": "aspirine COX", "max_chunks": 1},
-        )
+        obs = MCPToolRegistry.search_knowledge_context(query="aspirine COX", max_chunks=1)
 
-    assert is_err is False
     assert "Contexte Documentaire RAG" in obs
     assert ("[Source: Cours Pharmacologie.pdf | p.3 | mécanisme]" in obs) or ("[Source: Cours Pharmacologie.pdf | p.3 | mecanisme]" in obs)
 
@@ -120,9 +110,3 @@ def test_search_knowledge_context_schema_and_fastmcp():
 
     mcp_tools = asyncio.run(_check())
     assert "search_knowledge_context" in mcp_tools
-
-
-def test_system_prompt_includes_rag_provenance_rules():
-    """Vérifie que les consignes système incitent au sourcing et aux tags déterministes."""
-    assert "search_knowledge_context" in _SYSTEM_PROMPT_TEMPLATE
-    assert "provenance" in _SYSTEM_PROMPT_TEMPLATE.lower() or "source" in _SYSTEM_PROMPT_TEMPLATE.lower()

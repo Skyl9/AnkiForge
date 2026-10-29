@@ -299,10 +299,10 @@ def test_apply_staged_patch_model(sample_data):
 
 def test_propose_note_type_refactor_returns_real_patch_id(sample_data):
     """Vérifie que propose_note_type_refactor renvoie un vrai patch_id enregistrant un patch pending."""
-    from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
+    from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 
     nt = sample_data["note_type"]
-    res_str = ConsultantToolRegistry.propose_note_type_refactor(
+    res_str = MCPToolRegistry.propose_note_type_refactor(
         note_type_name=nt.name,
         new_css=".card { color: red; }",
         new_description="Refactorisé via consultant",

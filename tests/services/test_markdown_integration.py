@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
+from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.parsing.document_parser import DocumentParser
 
@@ -48,7 +48,7 @@ def test_document_parser_auto_format(tmp_path: Path) -> None:
 
 def test_consultant_mcp_format_markdown_document_raw_content() -> None:
     raw = "## Titre ##\n\nCalcul : \\( x + y = z \\)\n\n| A | B |\n|---|---|\n| 1 | 2 |"
-    res = ConsultantToolRegistry.format_markdown_document(content=raw)
+    res = MCPToolRegistry.format_markdown_document(content=raw)
     assert "Formatage Markdown achevé" in res
     assert "## Titre" in res
     assert "$x + y = z$" in res
@@ -56,7 +56,7 @@ def test_consultant_mcp_format_markdown_document_raw_content() -> None:
 
 def test_consultant_mcp_get_document_outline_raw_content() -> None:
     raw = "# Neurosciences\n\n## Cerveau\n\n### Hémisphère gauche"
-    res = ConsultantToolRegistry.get_document_outline(content=raw)
+    res = MCPToolRegistry.get_document_outline(content=raw)
     assert "Neurosciences" in res
     assert "Cerveau" in res
     assert "Hémisphère gauche" in res
@@ -67,7 +67,7 @@ def test_consultant_mcp_get_document_outline_raw_content() -> None:
 
 def test_consultant_mcp_structure_document_sections_raw_content() -> None:
     raw = "# Chapitre 1\n\nTexte chapitre 1.\n\n## Section A\n\nTexte section A."
-    res = ConsultantToolRegistry.structure_document_sections(content=raw, max_tokens=500)
+    res = MCPToolRegistry.structure_document_sections(content=raw, max_tokens=500)
     assert "Découpage sémantique" in res
     assert "Chapitre 1" in res
     assert "Section A" in res
@@ -84,7 +84,7 @@ def test_consultant_mcp_structure_transcript_for_ai_raw_content(monkeypatch: pyt
     monkeypatch.setattr(AIDocumentStructurer, "_resolve_provider", lambda: mock_provider)
 
     raw = "00:15 alors bonjour à tous aujourd'hui on parle de la cellule et de l'ATP"
-    res = ConsultantToolRegistry.structure_transcript_for_ai(content=raw, profile="didactic")
+    res = MCPToolRegistry.structure_transcript_for_ai(content=raw, profile="didactic")
 
     assert "Document restructuré par IA avec succès" in res
     assert "didactic" in res

@@ -350,49 +350,43 @@ def test_fastmcp_system_tools_registered_and_invocable(
     asyncio.run(_run())
 
 
-def test_consultant_engine_system_tools_dispatch(
+def test_mcp_tool_registry_system_tools_dispatch(
     sample_deck_with_cards: tuple[DeckModel, NoteModel, list[CardModel]],
     sample_album_plate: tuple[DocumentModel, DocumentPageModel, MediaModel],
     tmp_path: Path,
 ) -> None:
-    """Vérifie la parité de dispatch des 6 outils dans ConsultantEngine._execute_tool_call."""
-    from ankiforge.services.ai.consultant_engine import ConsultantEngine
+    """Vérifie la parité de dispatch des 6 outils via MCPToolRegistry directement."""
+    from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 
     deck, note, cards = sample_deck_with_cards
     _, page, _ = sample_album_plate
-    engine = ConsultantEngine()
 
     # 1. export_deck_apkg
-    out_apkg = tmp_path / "consultant_deck.apkg"
-    obs, is_err = engine._execute_tool_call("export_deck_apkg", {"deck_name": deck.name, "output_path": str(out_apkg)})
-    assert not is_err
+    out_apkg = tmp_path / "mcp_deck.apkg"
+    obs = MCPToolRegistry.export_deck_apkg(deck_name=deck.name, output_path=str(out_apkg))
     assert json.loads(obs)["status"] == "success"
 
     # 2. set_card_flag
-    obs, is_err = engine._execute_tool_call("set_card_flag", {"note_id": note.id, "flag": "purple"})
-    assert not is_err
+    obs = MCPToolRegistry.set_card_flag(note_id=note.id, flag="purple")
     assert json.loads(obs)["flag"] == "purple"
 
     # 3. suspend_card
-    obs, is_err = engine._execute_tool_call("suspend_card", {"card_id": cards[0].id})
-    assert not is_err
+    obs = MCPToolRegistry.suspend_card(card_id=cards[0].id)
     assert json.loads(obs)["is_suspended"] is True
 
     # 4. unsuspend_card
-    obs, is_err = engine._execute_tool_call("unsuspend_card", {"card_id": cards[0].id})
-    assert not is_err
+    obs = MCPToolRegistry.unsuspend_card(card_id=cards[0].id)
     assert json.loads(obs)["is_suspended"] is False
 
     # 5. correct_plate_ocr
-    obs, is_err = engine._execute_tool_call("correct_plate_ocr", {"plate_id": page.id, "corrected_text": "Texte via consultant"})
-    assert not is_err
+    obs = MCPToolRegistry.correct_plate_ocr(plate_id=page.id, corrected_text="Texte via MCP")
     assert json.loads(obs)["status"] == "success"
 
     # 6. trigger_manual_backup
     fake_db = tmp_path / "ankiforge.db"
     with sqlite3.connect(fake_db) as conn:
         conn.execute("CREATE TABLE dummy (id INT);")
-    fake_profiles_dir = tmp_path / "profiles_consultant"
+    fake_profiles_dir = tmp_path / "profiles_mcp"
     fake_profiles_dir.mkdir(parents=True)
 
     with (
@@ -400,6 +394,5 @@ def test_consultant_engine_system_tools_dispatch(
         patch("ankiforge.database.backup.get_active_profile", return_value="default"),
         patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", fake_profiles_dir),
     ):
-        obs, is_err = engine._execute_tool_call("trigger_manual_backup", {"reason": "consultant_test"})
-        assert not is_err
+        obs = MCPToolRegistry.trigger_manual_backup(reason="mcp_test")
         assert json.loads(obs)["status"] == "success"

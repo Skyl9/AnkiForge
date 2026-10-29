@@ -18,12 +18,11 @@ from ankiforge.database.models import (
     PipelineRunModel,
     PipelineStepModel,
 )
-from ankiforge.services.ai.consultant_engine import (
-    DEFAULT_CONSULTANT_TOOLS,
-    ConsultantEngine,
-    ConsultantToolRegistry,
-)
 from ankiforge.services.ai.mcp_server import mcp
+from ankiforge.services.ai.mcp_tool_registry import (
+    DEFAULT_CONSULTANT_TOOLS,
+    MCPToolRegistry,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -173,14 +172,14 @@ def dag_dataset():
 def test_list_albums(album_dataset):
     """Vérifie le listage des albums, la pagination et le filtrage par dossier."""
     # Listage sans filtre
-    res = ConsultantToolRegistry.list_albums(limit=10, offset=0)
+    res = MCPToolRegistry.list_albums(limit=10, offset=0)
     assert album_dataset["album1"].title in res
     assert album_dataset["album2"].title in res
     assert album_dataset["doc_pdf"].title not in res
     assert "Planches Anatomiques" in res
 
     # Filtrage par dossier
-    res_folder = ConsultantToolRegistry.list_albums(folder_name=album_dataset["folder"].name)
+    res_folder = MCPToolRegistry.list_albums(folder_name=album_dataset["folder"].name)
     assert album_dataset["album1"].title in res_folder
     assert album_dataset["album2"].title not in res_folder
 
@@ -200,7 +199,7 @@ def test_list_albums(album_dataset):
 
 def test_get_album_plates_by_id(album_dataset):
     """Vérifie la consultation des planches d'un album par identifiant."""
-    res = ConsultantToolRegistry.get_album_plates(album_id=album_dataset["album1"].id, limit=2)
+    res = MCPToolRegistry.get_album_plates(album_id=album_dataset["album1"].id, limit=2)
     assert f"Album #{album_dataset['album1'].id}" in res
     assert "planche_1_" in res
     assert "Le Crâne Humain" in res
@@ -218,7 +217,7 @@ def test_get_album_plates_by_id(album_dataset):
 
 def test_get_album_plates_by_title_and_options(album_dataset):
     """Vérifie la recherche par titre et l'exclusion optionnelle du texte OCR."""
-    res = ConsultantToolRegistry.get_album_plates(
+    res = MCPToolRegistry.get_album_plates(
         album_title=album_dataset["album1"].title,
         include_ocr_text=False,
     )
@@ -234,7 +233,7 @@ def test_get_album_plates_by_title_and_options(album_dataset):
 
 def test_get_album_plates_not_found():
     """Vérifie la gestion d'erreur lorsqu'un album n'existe pas."""
-    res = ConsultantToolRegistry.get_album_plates(album_id=999999)
+    res = MCPToolRegistry.get_album_plates(album_id=999999)
     assert "Erreur" in res
     assert "999999" in res
 
@@ -246,7 +245,7 @@ def test_get_album_plates_not_found():
 
 def test_list_pipelines(dag_dataset):
     """Vérifie le listage des pipelines DAG et leurs étapes."""
-    res = ConsultantToolRegistry.list_pipelines(limit=10)
+    res = MCPToolRegistry.list_pipelines(limit=10)
     assert dag_dataset["pipeline"].name in res
     assert "LLM_PROMPT" in res
     assert "PYTHON_TOOL" in res
@@ -266,7 +265,7 @@ def test_list_pipelines(dag_dataset):
 def test_get_pipeline_run(dag_dataset):
     """Vérifie la consultation détaillée d'un run par run_id et par pipeline_id."""
     # Par run_id
-    res_run = ConsultantToolRegistry.get_pipeline_run(run_id=dag_dataset["run"].id)
+    res_run = MCPToolRegistry.get_pipeline_run(run_id=dag_dataset["run"].id)
     assert f"Run DAG #{dag_dataset['run'].id}" in res_run
     assert "COMPLETED" in res_run
 
@@ -280,13 +279,13 @@ def test_get_pipeline_run(dag_dataset):
     assert run_info["state_summary"]["completed_steps"] == [1]
 
     # Par pipeline_id
-    res_pipe = ConsultantToolRegistry.get_pipeline_run(pipeline_id=dag_dataset["pipeline"].id)
+    res_pipe = MCPToolRegistry.get_pipeline_run(pipeline_id=dag_dataset["pipeline"].id)
     assert f"Run DAG #{dag_dataset['run'].id}" in res_pipe
 
 
 def test_get_pipeline_run_not_found():
     """Vérifie l'erreur si le run n'existe pas."""
-    res = ConsultantToolRegistry.get_pipeline_run(run_id=999999)
+    res = MCPToolRegistry.get_pipeline_run(run_id=999999)
     assert "Erreur" in res
     assert "999999" in res
 
@@ -296,24 +295,19 @@ def test_get_pipeline_run_not_found():
 # =====================================================================
 
 
-def test_consultant_engine_dispatch(album_dataset, dag_dataset):
-    """Vérifie que ConsultantEngine dispatche bien les 4 outils."""
-    engine = ConsultantEngine()
+def test_mcp_tool_registry_albums_and_dag_dispatch(album_dataset, dag_dataset):
+    """Vérifie que MCPToolRegistry dispatche directement les outils albums et DAG."""
 
-    obs1, err1 = engine._execute_tool_call("list_albums", {"limit": 5})
-    assert err1 is False
+    obs1 = MCPToolRegistry.list_albums(limit=5)
     assert album_dataset["album1"].title in obs1
 
-    obs2, err2 = engine._execute_tool_call("get_album_plates", {"album_id": album_dataset["album1"].id})
-    assert err2 is False
+    obs2 = MCPToolRegistry.get_album_plates(album_id=album_dataset["album1"].id)
     assert "planche_1_" in obs2
 
-    obs3, err3 = engine._execute_tool_call("list_pipelines", {"limit": 5})
-    assert err3 is False
+    obs3 = MCPToolRegistry.list_pipelines(limit=5)
     assert dag_dataset["pipeline"].name in obs3
 
-    obs4, err4 = engine._execute_tool_call("get_pipeline_run", {"run_id": dag_dataset["run"].id})
-    assert err4 is False
+    obs4 = MCPToolRegistry.get_pipeline_run(run_id=dag_dataset["run"].id)
     assert f"Run DAG #{dag_dataset['run'].id}" in obs4
 
 

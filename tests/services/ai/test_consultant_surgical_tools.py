@@ -12,12 +12,11 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.consultant_engine import (
-    DEFAULT_CONSULTANT_TOOLS,
-    ConsultantEngine,
-    ConsultantToolRegistry,
-)
 from ankiforge.services.ai.mcp_server import mcp
+from ankiforge.services.ai.mcp_tool_registry import (
+    DEFAULT_CONSULTANT_TOOLS,
+    MCPToolRegistry,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -106,20 +105,20 @@ def surgical_dataset():
 
 
 def test_diagnose_deck_weaknesses_non_existent():
-    res = ConsultantToolRegistry.diagnose_deck_weaknesses("Paquet Inexistant Introuvable 1234")
+    res = MCPToolRegistry.diagnose_deck_weaknesses("Paquet Inexistant Introuvable 1234")
     assert "Erreur" in res or "n'a pas été trouvé" in res
 
 
 def test_diagnose_deck_weaknesses_empty():
     uid = uuid.uuid4().hex[:6]
     empty_deck = DeckModel.create(name=f"Deck Vide {uid}")
-    res = ConsultantToolRegistry.diagnose_deck_weaknesses(empty_deck.name)
+    res = MCPToolRegistry.diagnose_deck_weaknesses(empty_deck.name)
     assert "ne contient aucune carte" in res or "0 carte" in res
 
 
 def test_diagnose_deck_weaknesses_comprehensive(surgical_dataset):
     deck = surgical_dataset["deck"]
-    diag = ConsultantToolRegistry.diagnose_deck_weaknesses(deck.name)
+    diag = MCPToolRegistry.diagnose_deck_weaknesses(deck.name)
 
     assert f"Diagnostic Chirurgical du Paquet '{deck.name}'" in diag
     assert "Score de Santé" in diag
@@ -134,7 +133,7 @@ def test_diagnose_deck_weaknesses_comprehensive(surgical_dataset):
 
 
 def test_list_card_models_manifest(surgical_dataset):
-    manifest_str = ConsultantToolRegistry.list_card_models_manifest()
+    manifest_str = MCPToolRegistry.list_card_models_manifest()
 
     assert "Manifeste des Modèles de Cartes" in manifest_str
     assert surgical_dataset["nt1"].name in manifest_str
@@ -147,7 +146,7 @@ def test_list_card_models_manifest(surgical_dataset):
 
 def test_refactor_cards_by_criteria_deck(surgical_dataset):
     deck = surgical_dataset["deck"]
-    res = ConsultantToolRegistry.refactor_cards_by_criteria(f"deck:{deck.name}", instruction="Rendre les questions atomiques")
+    res = MCPToolRegistry.refactor_cards_by_criteria(f"deck:{deck.name}", instruction="Rendre les questions atomiques")
 
     assert "Échantillon de Cartes pour Refactorisation" in res
     assert "Rendre les questions atomiques" in res
@@ -159,33 +158,30 @@ def test_refactor_cards_by_criteria_deck(surgical_dataset):
 
 def test_refactor_cards_by_criteria_tag_and_leeches(surgical_dataset):
     # Test par tag
-    res_tag = ConsultantToolRegistry.refactor_cards_by_criteria("tag:sangsue", instruction="Diviser si nécessaire")
+    res_tag = MCPToolRegistry.refactor_cards_by_criteria("tag:sangsue", instruction="Diviser si nécessaire")
     assert str(surgical_dataset["n_leech"].id) in res_tag
 
     # Test mot-clé sangsues
-    res_leeches = ConsultantToolRegistry.refactor_cards_by_criteria("sangsues")
+    res_leeches = MCPToolRegistry.refactor_cards_by_criteria("sangsues")
     assert str(surgical_dataset["n_leech"].id) in res_leeches
 
 
-def test_consultant_engine_tool_dispatch(surgical_dataset):
-    engine = ConsultantEngine()
+def test_mcp_tool_registry_tool_dispatch(surgical_dataset):
+    """Vérifie que MCPToolRegistry dispatche bien les outils chirurgicaux directement."""
 
     # 1. diagnose_deck_weaknesses
-    obs1, err1 = engine._execute_tool_call("diagnose_deck_weaknesses", {"deck_name": surgical_dataset["deck"].name})
-    assert err1 is False
+    obs1 = MCPToolRegistry.diagnose_deck_weaknesses(deck_name=surgical_dataset["deck"].name)
     assert "Score de Santé" in obs1
 
     # 2. list_card_models_manifest
-    obs2, err2 = engine._execute_tool_call("list_card_models_manifest", {})
-    assert err2 is False
+    obs2 = MCPToolRegistry.list_card_models_manifest()
     assert surgical_dataset["nt1"].name in obs2
 
     # 3. refactor_cards_by_criteria
-    obs3, err3 = engine._execute_tool_call(
-        "refactor_cards_by_criteria",
-        {"query": f"deck:{surgical_dataset['deck'].name}", "instruction": "Simplifier"},
+    obs3 = MCPToolRegistry.refactor_cards_by_criteria(
+        query=f"deck:{surgical_dataset['deck'].name}",
+        instruction="Simplifier",
     )
-    assert err3 is False
     assert "Échantillon" in obs3
 
 

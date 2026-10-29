@@ -5,10 +5,7 @@ import asyncio
 import pytest
 
 from ankiforge.database.models import LLMConfigModel
-from ankiforge.services.ai.consultant_engine import (
-    ConsultantToolRegistry,
-    _wrap_tool_observation,
-)
+from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry, _wrap_tool_observation
 from ankiforge.services.ai.retry import with_retry, with_retry_async
 
 pytestmark = pytest.mark.integration
@@ -34,16 +31,16 @@ def test_query_peewee_denies_secret_tables_and_schema():
         api_key="sk-secret-cible",
     )
 
-    res_secret = ConsultantToolRegistry.query_peewee("SELECT * FROM llm_configs;")
+    res_secret = MCPToolRegistry.query_peewee("SELECT * FROM llm_configs;")
     assert "accès refusé" in res_secret or "protégés" in res_secret
 
-    res_master = ConsultantToolRegistry.query_peewee("SELECT name FROM sqlite_master;")
+    res_master = MCPToolRegistry.query_peewee("SELECT name FROM sqlite_master;")
     assert "accès refusé" in res_master or "protégés" in res_master
 
-    res_write = ConsultantToolRegistry.query_peewee("DELETE FROM cardmodel WHERE id = 1;")
+    res_write = MCPToolRegistry.query_peewee("DELETE FROM cardmodel WHERE id = 1;")
     assert "lecture seule" in res_write or "accès refusé" in res_write
 
-    res_multi = ConsultantToolRegistry.query_peewee("SELECT * FROM deckmodel; SELECT * FROM notemodel;")
+    res_multi = MCPToolRegistry.query_peewee("SELECT * FROM deckmodel; SELECT * FROM notemodel;")
     assert "une seule instruction" in res_multi
 
 
@@ -52,7 +49,7 @@ def test_query_peewee_allows_public_select():
     from ankiforge.database.models import DeckModel
 
     DeckModel.create(name="PublicDeck")
-    res = ConsultantToolRegistry.query_peewee("SELECT name FROM deckmodel;")
+    res = MCPToolRegistry.query_peewee("SELECT name FROM deckmodel;")
     assert "PublicDeck" in res
 
 
