@@ -1,12 +1,14 @@
 import datetime
 import logging
+import sys
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
+from PySide6.QtCore import QObject, QProcess, QRunnable, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QCheckBox,
     QGridLayout,
     QHeaderView,
@@ -22,7 +24,6 @@ from PySide6.QtWidgets import (
 import ankiforge.ui.widgets.settings_modal as settings_pkg
 from ankiforge.database.backup import (
     list_profile_backups,
-    restart_application,
     restore_granular_backup,
 )
 from ankiforge.database.maintenance import optimize_database
@@ -47,6 +48,15 @@ from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_media_dir
 
 logger = logging.getLogger(__name__)
+
+
+def _restart_application() -> None:
+    """Redémarre proprement le processus de l'application (couche UI)."""
+    logger.info("Redémarrage de l'application demandé...")
+    QProcess.startDetached(sys.executable, sys.argv)
+    app = QApplication.instance()
+    if app:
+        app.quit()
 
 
 class _MaintenanceSignals(QObject):
@@ -529,7 +539,7 @@ class StorageMaintenanceTab(QWidget):
             success = restore_granular_backup(profile_name, backup_info.filepath, create_safety_snapshot=True)
             if success:
                 show_toast(self, self.tr("Restauration effectuée ! Redémarrage de l'application..."))
-                QTimer.singleShot(400, restart_application)
+                QTimer.singleShot(400, _restart_application)
             else:
                 QMessageBox.critical(
                     self,

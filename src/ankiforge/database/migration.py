@@ -328,16 +328,12 @@ def run_migrations() -> None:
         except Exception as e:
             logger.debug("Remarque post-migration sur l'index FTS5 : %s", e)
 
+        logger.info("Migrations BDD achevées avec succès.")
+    except (peewee.DatabaseError, sqlite3.Error) as e:
+        logger.critical("Erreur critique lors de l'exécution des migrations : %s", e, exc_info=True)
+        raise
+    finally:
         try:
             db.execute_sql("PRAGMA foreign_keys = ON;")
         except Exception as fk_err:
             logger.debug("Remarque sur PRAGMA foreign_keys = ON : %s", fk_err)
-
-        logger.info("Migrations BDD achevées avec succès.")
-    except (peewee.DatabaseError, sqlite3.Error) as e:
-        try:
-            db.execute_sql("PRAGMA foreign_keys = ON;")
-        except Exception as fk_err:
-            logger.debug("Remarque sur PRAGMA foreign_keys = ON en rollback : %s", fk_err)
-        logger.critical("Erreur critique lors de l'exécution des migrations : %s", e, exc_info=True)
-        raise

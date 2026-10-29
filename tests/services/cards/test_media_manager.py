@@ -1,4 +1,5 @@
 import hashlib
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -176,3 +177,64 @@ def test_purge_tts_audio_cache_all_and_orphans(media_manager, tmp_path):
     assert freed2 == 500
     assert used_tts.exists() is False
     assert normal_img.exists() is True
+
+
+def test_process_extracted_folder_remplacement_cible_pas_aveugle(media_manager, tmp_path: Path):
+    """Le remplacement ne doit cibler que les références d'image ; old_name en tant que sous-chaîne de texte brut est préservé."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+
+    fake_img = source_dir / "figure1.png"
+    fake_img.write_bytes(b"image 1")
+
+    # "figure1.png" apparaît aussi en texte brut hors balise image : il doit être préservé.
+    raw_markdown = "Voir ![Ma figure](figure1.png). Le fichier figure1.png est aussi cité en texte brut (à préserver sans altération)."
+
+    result = media_manager.process_extracted_folder(str(source_dir), raw_markdown)
+
+    expected_hash = hashlib.md5(b"image 1").hexdigest()
+    expected_filename = f"{expected_hash}.png"
+
+    assert f'<img src="{expected_filename}">' in result
+    assert "![Ma figure]" not in result
+    # Pas de remplacement en chaîne aveugle : la mention texte brut est intacte
+    assert "Le fichier figure1.png est aussi cité en texte brut (à préserver sans altération)." in result
+
+
+def test_clean_orphaned_media_supprime_enregistrement_db_orphelin(media_manager, tmp_path: Path):
+    """clean_orphaned_media supprime le fichier orphelin ET son enregistrement MediaModel associé."""
+    import json
+
+    from ankiforge.database.models import MediaModel, NoteModel, NoteTypeModel, NoteVersionModel
+
+    media_dir = tmp_path / "media"
+    media_dir.mkdir(exist_ok=True)
+
+    used_img = media_dir / "used.png"
+    orphan_img = media_dir / "orphan.png"
+    used_img.write_text("fake image")
+    orphan_img.write_text("fake image")
+
+    # Enregistrement MediaModel pour l'orphelin (simule une base qui le référence encore à tort)
+    MediaModel.create(
+        checksum="orphanhash",
+        filename="orphan.png",
+        original_name="orphan.png",
+        mime_type="image/png",
+    )
+
+    nt = NoteTypeModel.create(name="Test", fields_schema='["Front"]', templates="[]", css_style="")
+    note = NoteModel.create(guid="123", note_type=nt)
+    NoteVersionModel.create(
+        note=note,
+        version_number=1,
+        content=json.dumps({"Front": "Voici <img src='used.png'>"}),
+        is_active=True,
+    )
+
+    media_manager.clean_orphaned_media()
+
+    # Le fichier orphelin et son enregistrement MediaModel sont supprimés ; l'image utilisée est préservée.
+    assert used_img.exists() is True
+    assert orphan_img.exists() is False
+    assert MediaModel.select().where(MediaModel.filename == "orphan.png").count() == 0

@@ -3,6 +3,7 @@
 import contextlib
 import datetime
 import logging
+import os
 import shutil
 import sqlite3
 from pathlib import Path
@@ -176,8 +177,10 @@ def restore_latest_valid_backup(profile_name: str) -> bool:
         Path(f"{db_path}-wal").unlink(missing_ok=True)
         Path(f"{db_path}-shm").unlink(missing_ok=True)
 
-        # 3. Restauration depuis la sauvegarde saine
-        shutil.copy2(valid_backup, db_path)
+        # 3. Restauration depuis la sauvegarde saine (écriture atomique via .tmp + os.replace)
+        tmp_path = db_path.with_suffix(db_path.suffix + ".tmp")
+        shutil.copy2(valid_backup, tmp_path)
+        os.replace(tmp_path, db_path)
         logger.info(
             "Base de données du profil '%s' restaurée avec succès depuis la sauvegarde '%s'.",
             profile_name,
@@ -305,7 +308,10 @@ def restore_granular_backup(
         Path(f"{db_path}-wal").unlink(missing_ok=True)
         Path(f"{db_path}-shm").unlink(missing_ok=True)
 
-        shutil.copy2(target_path, db_path)
+        # Restauration atomique via .tmp + os.replace
+        tmp_path = db_path.with_suffix(db_path.suffix + ".tmp")
+        shutil.copy2(target_path, tmp_path)
+        os.replace(tmp_path, db_path)
         logger.info(
             "Base de données du profil '%s' restaurée avec succès depuis la sauvegarde '%s'.",
             profile_name,
@@ -315,17 +321,3 @@ def restore_granular_backup(
     except Exception as e:
         logger.critical("Échec de la restauration granulaire pour '%s' : %s", profile_name, e, exc_info=True)
         return False
-
-
-def restart_application() -> None:
-    """Redémarre proprement le processus de l'application."""
-    import sys
-
-    from PySide6.QtCore import QProcess
-    from PySide6.QtWidgets import QApplication
-
-    logger.info("Redémarrage de l'application demandé...")
-    QProcess.startDetached(sys.executable, sys.argv)
-    app = QApplication.instance()
-    if app:
-        app.quit()

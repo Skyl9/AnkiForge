@@ -376,3 +376,39 @@ def test_migration_045_is_idempotent(mock_db):
     Router(db, migrate_dir=MIGRATIONS_DIR).run()
 
     assert DocumentChunkModel.get_by_id(container.id).container_origin == "derived"
+
+
+def test_foreign_keys_restaure_meme_en_cas_derreur(mock_db, monkeypatch):
+    """PRAGMA foreign_keys = ON doit être exécuté même si une exception survient pendant les migrations (try/finally universel)."""
+    import peewee
+    from peewee_migrate import Router
+
+    from ankiforge.database.migration import run_migrations
+    from ankiforge.database.models import db
+
+    # Idem que test_run_migrations_idempotency : pas d'historique de migrations pré-existant.
+    if db.table_exists("migratehistory"):
+        db.execute_sql("DROP TABLE migratehistory")
+
+    appels: list[str] = []
+    real_execute_sql = db.execute_sql
+
+    def spy_execute_sql(sql: str, *args, **kwargs):
+        appels.append(str(sql))
+        return real_execute_sql(sql, *args, **kwargs)
+
+    monkeypatch.setattr(db, "execute_sql", spy_execute_sql)
+
+    def faux_run(self):
+        raise peewee.DatabaseError("boom migration")
+
+    monkeypatch.setattr(Router, "run", faux_run)
+
+    with pytest.raises(peewee.DatabaseError):
+        run_migrations()
+
+    assert any("PRAGMA foreign_keys = OFF" in a for a in appels), "PRAGMA foreign_keys = OFF manquant"
+    assert any("PRAGMA foreign_keys = ON" in a for a in appels), "PRAGMA foreign_keys = ON manquant (pas rétabli sur erreur)"
+    off_idx = next(i for i, a in enumerate(appels) if "PRAGMA foreign_keys = OFF" in a)
+    on_idx = next(i for i, a in enumerate(appels) if "PRAGMA foreign_keys = ON" in a)
+    assert on_idx > off_idx, "PRAGMA foreign_keys = ON doit intervenir après PRAGMA foreign_keys = OFF"

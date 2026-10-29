@@ -10,12 +10,18 @@ import mimetypes
 import os
 import re
 import shutil
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 from ankiforge.utils.paths import get_app_data_dir, get_media_dir
 
 logger = logging.getLogger(__name__)
+
+
+def _replace_image_src_tag(match: re.Match[str], replacement: str) -> str:
+    """Remplace uniquement la valeur de l'attribut ``src`` d'une balise `` par la cible."""
+    return match.group(1) + replacement + match.group(2)
 
 
 class MediaManager:
@@ -145,12 +151,15 @@ class MediaManager:
 
             # Ex: ![N'importe quelle description](old_name)
             pattern = r"!\[.*?\]\(" + str(re.escape(old_name)) + r"\)"
-
             modified_markdown = re.sub(pattern, html_img_tag, modified_markdown)
 
-            # Remplacement de sécurité au cas où l'image serait citée simplement par son nom
-            # sans la syntaxe markdown complète
-            modified_markdown = modified_markdown.replace(old_name, new_name)
+            # Remplacement ciblé sur les balises HTML existantes : uniquement l'attribut src complet,
+            # jamais de remplacement en chaîne aveugle qui risquerait de corrompre du texte non-image.
+            html_pattern = re.compile(r'(<img[^>]+src=["\'])' + re.escape(old_name) + r'(["\'])')
+            modified_markdown = html_pattern.sub(
+                partial(_replace_image_src_tag, replacement=new_name),
+                modified_markdown,
+            )
 
         return modified_markdown
 
@@ -192,15 +201,6 @@ class MediaManager:
         for chunk in DocumentChunkModel.select(DocumentChunkModel.media).where(DocumentChunkModel.media.is_null(False)):
             if chunk.media:
                 used_media.add(chunk.media.filename)
-
-        # Garde-fou critique : interdiction formelle de supprimer des fichiers du dossier utilisateur réel sous pytest
-        if os.environ.get("PYTEST_CURRENT_TEST") and str(self.media_dir).startswith(str(Path.home() / ".ankiforge")):
-            deleted_db = MediaModel.delete().where(~(MediaModel.filename.in_(used_media))).execute() if used_media else MediaModel.delete().execute()
-            logger.warning(
-                "Garde-fou de sécurité : nettoyage des fichiers réels bloqué sous pytest (%d enregistrement(s) orphelin(s) supprimé(s) en base test).",
-                deleted_db,
-            )
-            return int(deleted_db)
 
         deleted_count = 0
         if self.media_dir.exists():

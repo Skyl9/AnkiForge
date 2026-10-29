@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sqlite3
 from pathlib import Path
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def optimize_database(db_path: Path) -> None:
     """Exécute les opérations de maintenance sur une connexion SQLite dédiée."""
-    with sqlite3.connect(str(db_path), timeout=30) as connection:
+    with contextlib.closing(sqlite3.connect(str(db_path), timeout=30)) as connection:
         connection.execute("PRAGMA busy_timeout = 30000;")
         connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")
         connection.execute("PRAGMA optimize;")
@@ -21,19 +22,24 @@ def optimize_database(db_path: Path) -> None:
     logger.info("Maintenance SQLite terminée : %s", db_path)
 
 
-def fast_wal_checkpoint_and_optimize(db_path: Path) -> None:
-    """Exécute un checkpoint WAL rapide et optimize SQLite (< 100ms) sans VACUUM."""
+def fast_wal_checkpoint_and_optimize(db_path: Path) -> bool:
+    """Exécute un checkpoint WAL rapide et optimize SQLite (< 100ms) sans VACUUM.
+
+    Retourne True si le checkpoint WAL a été exécuté avec succès, False sinon.
+    """
     if not db_path.exists():
-        return
+        return False
     try:
-        with sqlite3.connect(str(db_path), timeout=10) as conn:
+        with contextlib.closing(sqlite3.connect(str(db_path), timeout=10)) as conn:
             conn.execute("PRAGMA busy_timeout = 10000;")
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
             conn.execute("PRAGMA optimize;")
             conn.commit()
         logger.info("Checkpoint WAL rapide et optimisation terminés : %s", db_path)
+        return True
     except Exception as e:
         logger.warning("Remarque checkpoint WAL rapide à la fermeture : %s", e)
+        return False
 
 
 def execute_clean_shutdown(
@@ -61,8 +67,7 @@ def execute_clean_shutdown(
     }
 
     if db_path.exists():
-        fast_wal_checkpoint_and_optimize(db_path)
-        report["wal_checkpoint"] = True
+        report["wal_checkpoint"] = fast_wal_checkpoint_and_optimize(db_path)
 
     if clean_orphan_media:
         try:

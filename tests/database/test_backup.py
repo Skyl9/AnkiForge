@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 import sqlite3
@@ -10,6 +11,7 @@ from ankiforge.database.backup import (
     backup_before_colpkg_import,
     backup_database,
     check_db_integrity,
+    restore_granular_backup,
     restore_latest_valid_backup,
 )
 
@@ -268,3 +270,95 @@ def test_backup_before_colpkg_import_closes_all_sqlite_connections(tmp_path: Pat
     for connection in opened:
         with pytest.raises(sqlite3.ProgrammingError):
             connection.execute("SELECT 1;")
+
+
+def _make_restore_env(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """Crée un profil avec backup sain + base active corrompue. Retourne (profiles_dir, backup, active_db)."""
+    profile_name = "test_restore_atomic"
+    p_dir = tmp_path / "profiles" / profile_name
+    backup_dir = p_dir / "backups"
+    backup_dir.mkdir(parents=True)
+
+    healthy_db = tmp_path / "healthy.db"
+    conn = sqlite3.connect(str(healthy_db))
+    conn.execute("CREATE TABLE t (id int);")
+    conn.execute("INSERT INTO t VALUES (1);")
+    conn.commit()
+    conn.close()
+
+    valid_backup = backup_dir / "ankiforge_backup_20260906_120000.db"
+    shutil.copy2(healthy_db, valid_backup)
+
+    active_db = p_dir / "ankiforge.db"
+    active_db.write_bytes(b"CORRUPT ACTIVE DB")
+
+    return p_dir, valid_backup, active_db
+
+
+def test_restore_latest_valid_backup_ecriture_atomique(tmp_path: Path, monkeypatch):
+    """Restauration de secours : écriture dans un .tmp puis os.replace, jamais de copy2 directe sur la base active."""
+    p_dir, valid_backup, active_db = _make_restore_env(tmp_path)
+
+    copy_calls: list[tuple[str, str]] = []
+    replace_calls: list[tuple[str, str]] = []
+    real_copy2 = shutil.copy2
+    real_replace = os.replace
+
+    def spy_copy2(src, dst, *args, **kwargs):
+        copy_calls.append((str(src), str(dst)))
+        return real_copy2(src, dst, *args, **kwargs)
+
+    def spy_replace(src, dst, *args, **kwargs):
+        replace_calls.append((str(src), str(dst)))
+        return real_replace(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr("ankiforge.database.backup.shutil.copy2", spy_copy2)
+    monkeypatch.setattr("ankiforge.database.backup.os.replace", spy_replace)
+
+    with (
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", tmp_path / "profiles"),
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+    ):
+        assert restore_latest_valid_backup("test_restore_atomic") is True
+
+    assert any(dst.endswith(".db.tmp") for _, dst in copy_calls), f"Pas d'écriture dans .tmp : {copy_calls}"
+    assert not any(dst == str(active_db) for _, dst in copy_calls), "copy2 ne doit pas écrire directement sur la base active"
+    assert any(src.endswith(".db.tmp") and dst == str(active_db) for src, dst in replace_calls), f"os.replace .tmp -> base active manquant : {replace_calls}"
+
+    assert check_db_integrity(active_db) is True
+    with sqlite3.connect(str(active_db)) as conn:
+        assert conn.execute("SELECT id FROM t WHERE id=1;").fetchone() == (1,)
+
+
+def test_restore_granular_backup_ecriture_atomique(tmp_path: Path, monkeypatch):
+    """Restauration granulaire : écriture dans un .tmp puis os.replace, jamais de copy2 directe sur la base active."""
+    p_dir, valid_backup, active_db = _make_restore_env(tmp_path)
+
+    copy_calls: list[tuple[str, str]] = []
+    replace_calls: list[tuple[str, str]] = []
+    real_copy2 = shutil.copy2
+    real_replace = os.replace
+
+    def spy_copy2(src, dst, *args, **kwargs):
+        copy_calls.append((str(src), str(dst)))
+        return real_copy2(src, dst, *args, **kwargs)
+
+    def spy_replace(src, dst, *args, **kwargs):
+        replace_calls.append((str(src), str(dst)))
+        return real_replace(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr("ankiforge.database.backup.shutil.copy2", spy_copy2)
+    monkeypatch.setattr("ankiforge.database.backup.os.replace", spy_replace)
+
+    with (
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", tmp_path / "profiles"),
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankiforge.database.backup.get_active_profile", return_value="test_restore_atomic"),
+    ):
+        assert restore_granular_backup("test_restore_atomic", valid_backup.name, create_safety_snapshot=False) is True
+
+    assert any(dst.endswith(".db.tmp") for _, dst in copy_calls), f"Pas d'écriture dans .tmp : {copy_calls}"
+    assert not any(dst == str(active_db) for _, dst in copy_calls), "copy2 ne doit pas écrire directement sur la base active"
+    assert any(dst == str(active_db) for _, dst in replace_calls), f"os.replace vers la base active manquant : {replace_calls}"
+
+    assert check_db_integrity(active_db) is True
