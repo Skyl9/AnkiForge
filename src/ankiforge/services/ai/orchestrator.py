@@ -13,7 +13,12 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
-from ankiforge.database.models import LLMConfigModel, PipelineRunModel, PipelineStepModel
+from ankiforge.database.models import (
+    DocumentModel,
+    LLMConfigModel,
+    PipelineRunModel,
+    PipelineStepModel,
+)
 from ankiforge.services.ai.base import LLMProvider, LLMResult, MockProvider
 from ankiforge.services.ai.flexible_service import AIManager, extract_thought_tags
 from ankiforge.services.ai.persona_override import MAP_REDUCE_FALLBACK_PROMPT, resolve_system_prompt
@@ -56,6 +61,26 @@ def _source_context_metadata(state: PipelineRunState) -> dict[str, Any]:
         "heading_path": state.get_variable("source_heading_path"),
         "page_number": state.get_variable("source_page_number"),
     }
+
+
+def _resolve_document_title(document_id: int | None) -> str:
+    """Résout le titre lisible d'un document à partir de son identifiant.
+
+    Retourne le titre stocké en base, une étiquette ``Document #<id>`` quand le
+    document est introuvable, et une chaîne vide quand aucun identifiant n'est fourni.
+    L'opération est protégée pour ne jamais faire échouer le rendu d'un prompt Jinja2.
+    """
+    if not document_id:
+        return ""
+    try:
+        doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+        if doc is not None:
+            title = getattr(doc, "title", None) or ""
+            if title:
+                return title
+    except Exception:
+        pass
+    return f"Document #{document_id}"
 
 
 def _stamp_card_source_metadata(cards: list[dict[str, Any]], ctx: dict[str, Any], documentation: bool) -> None:
@@ -206,6 +231,7 @@ class PipelineOrchestrator(QRunnable):
             "retrieved_chunks": self.state.retrieved_chunks,
             "initial_prompt": self.state.initial_prompt,
             "document_id": self.state.document_id,
+            "document_title": _resolve_document_title(self.state.document_id),
             "text_source": self.state.get_variable("text_source", ""),
             "last_output": self.state.get_variable("last_output", ""),
             "fields": fields_list,
@@ -218,6 +244,8 @@ class PipelineOrchestrator(QRunnable):
             "document_chunk": self.state.get_variable("document_chunk", "") or self.state.get_variable("text_source", ""),
             "target_deck": self.state.get_variable("target_deck", "Default"),
             "note_type": self.state.get_variable("note_type", "Basique"),
+            "deck_name": self.state.get_variable("target_deck", "Default"),
+            "model_name": self.state.get_variable("note_type", "Basique"),
             "source_chunk": self.state.get_variable("source_chunk", ""),
             "source_chunk_id": self.state.get_variable("source_chunk_id"),
             "source_chunk_hash": self.state.get_variable("source_chunk_hash"),

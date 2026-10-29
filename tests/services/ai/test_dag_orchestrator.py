@@ -4,7 +4,13 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import PersonaModel, PipelineModel, PipelineRunModel, PipelineStepModel
+from ankiforge.database.models import (
+    DocumentModel,
+    PersonaModel,
+    PipelineModel,
+    PipelineRunModel,
+    PipelineStepModel,
+)
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.orchestrator import (
     CARD_SECTION_DOCUMENTATION_RULE,
@@ -651,6 +657,40 @@ def test_llm_prompt_no_document_id_skips_documentation_rule(qtbot: Any) -> None:
     assert CARD_SECTION_DOCUMENTATION_RULE not in system_prompt
     cards = finished_states[0].get_variable("generated_cards", [])
     assert cards[0].get("_documentation_enabled") is True
+
+
+def test_llm_prompt_context_expose_document_title_deck_name_model_name(qtbot: Any) -> None:
+    """document_title, deck_name et model_name sont exposés à la racine du contexte Jinja2."""
+    doc = DocumentModel.create(title="Cours de Biologie", content="Cellule et mitochondrie.", file_type="md")
+    pipeline = PipelineModel.create(name="Pipeline Contexte Jinja2")
+    persona = PersonaModel.create(
+        name="Générateur",
+        system_prompt="Doc: {{ document_title }} | Paquet: {{ deck_name }} | Modèle: {{ model_name }}",
+        output_format="json",
+    )
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({}),
+    )
+
+    provider = DummyProvider()
+    initial_state = PipelineRunState(document_id=doc.id, initial_prompt="Contenu source.")
+    initial_state.set_variable("target_deck", "Biologie::Cellule")
+    initial_state.set_variable("note_type", "Basique")
+
+    orchestrator = PipelineOrchestrator(pipeline_id=pipeline.id, initial_state=initial_state, ai_provider=provider)
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    system_prompt = provider.calls[0]["system"]
+    assert "Doc: Cours de Biologie" in system_prompt
+    assert "Paquet: Biologie::Cellule" in system_prompt
+    assert "Modèle: Basique" in system_prompt
 
 
 def test_orchestrator_dag_failure_branching_goto():
