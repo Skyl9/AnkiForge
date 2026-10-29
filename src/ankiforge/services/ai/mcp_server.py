@@ -1518,6 +1518,20 @@ def format_markdown_document(
 
 
 @mcp.tool()
+def render_anki_html(
+    content: str = "",
+    document_id: int = 0,
+    wrap_mathjax: bool = False,
+) -> str:
+    """Convertit une source Markdown (formules LaTeX/KaTeX préservées) en HTML prêt à être injecté dans une carte Anki."""
+    return MCPToolRegistry.render_anki_html(
+        content=content,
+        document_id=document_id,
+        wrap_mathjax=wrap_mathjax,
+    )
+
+
+@mcp.tool()
 def get_document_outline(document_id: int = 0, content: str = "") -> str:
     """Extrait l'arborescence hiérarchique des titres (Outline) d'un document Markdown."""
     return MCPToolRegistry.get_document_outline(document_id=document_id, content=content)

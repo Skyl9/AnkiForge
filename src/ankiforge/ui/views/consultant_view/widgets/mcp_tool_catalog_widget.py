@@ -140,6 +140,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "search_knowledge_context": DOMAIN_DOCUMENTS,
     "search_document": DOMAIN_DOCUMENTS,
     "format_markdown_document": DOMAIN_DOCUMENTS,
+    "render_anki_html": DOMAIN_DOCUMENTS,
     "get_document_outline": DOMAIN_DOCUMENTS,
     "structure_document_sections": DOMAIN_DOCUMENTS,
     "structure_transcript_for_ai": DOMAIN_DOCUMENTS,
@@ -288,6 +289,11 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     "reindex_document": [
         "Reconstruction vectorielle et lexicale (FAISS + BM25) : met à jour l'indexation RAG après révision ou délimitation.",
         "Recalcul des fragments par ChunkingService selon chunk_size et overlap.",
+    ],
+    "render_anki_html": [
+        "Conversion autonome : découplé de `render_anki_card` et du pipeline DAG (aucun effet de bord sur la collection).",
+        "Aucun sanitisateur HTML par défaut (option C) : l'appelant assume la responsabilité du contenu injecté dans le `QWebEngineView` (risque XSS accepté).",
+        "Les délimiteurs LaTeX/KaTeX ($, $$, \\(, \\[) sont préservés pour le rendu côté client par le bundle KaTeX local.",
     ],
     "query_peewee": [
         "Sécurité base de données : restreint strictement aux requêtes SQL en lecture seule (SELECT).",

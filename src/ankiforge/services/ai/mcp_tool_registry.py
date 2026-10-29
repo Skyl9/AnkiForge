@@ -116,6 +116,38 @@ def _wrap_tool_observation(observation: str) -> str:
     return f"{_OBSERVATION_BEGIN}\n{observation}\n{_OBSERVATION_END}"
 
 
+# Délimitateurs LaTeX / KaTeX préservés tels quels lors de la conversion Markdown → HTML.
+# L'ordre des alternatives est critique : les formes doublées ($$, \[...\), \) doivent être
+# matchées avant leurs formes simples pour éviter les captures partielles.
+_LATEX_BLOCK_RE = re.compile(r"(\$\$.*?\$\$|\\\[.*?\\\]|\\\(.*?\\\)|\$.*?\$)", re.DOTALL)
+_LATEX_PLACEHOLDER_RE = re.compile(r"\x1bLATEX_BLOCK_(\d+)\x1b")
+
+
+def _protect_latex_blocks(text: str) -> tuple[str, list[str]]:
+    """Remplace provisoirement chaque bloc LaTeX/KaTeX par un placeholder opaque.
+
+    Le convertisseur Markdown standard n'étant pas mathématique, il altérerait les
+    délimiteurs (notamment les anti-slashs de `\\( ... \\)` et `\\[ ... \\]`). Les blocs
+    sont protégés avant conversion puis restaurés à l'identique par `_restore_latex_blocks`.
+    """
+    blocks: list[str] = []
+
+    def _replace(match: re.Match[str]) -> str:
+        blocks.append(match.group(0))
+        return f"\x1bLATEX_BLOCK_{len(blocks) - 1}\x1b"
+
+    return _LATEX_BLOCK_RE.sub(_replace, text), blocks
+
+
+def _restore_latex_blocks(html: str, blocks: list[str]) -> str:
+    """Réinjecte les blocs LaTeX/KaTeX protégés à l'intérieur du HTML produit."""
+
+    def _replace(match: re.Match[str]) -> str:
+        return blocks[int(match.group(1))]
+
+    return _LATEX_PLACEHOLDER_RE.sub(_replace, html)
+
+
 _SQL_COMMENT_RE = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
 _SQL_START_RE = re.compile(r"^\s*(SELECT|WITH)\b", re.IGNORECASE)
 _SQL_SENSITIVE_COLUMN_RE = re.compile(
@@ -2768,6 +2800,61 @@ class MCPToolRegistry:
             return f"Erreur lors du formatage Markdown : {e}"
 
     @staticmethod
+    def render_anki_html(
+        content: str = "",
+        document_id: int = 0,
+        wrap_mathjax: bool = False,
+    ) -> str:
+        """Convertit une source Markdown (formules LaTeX/KaTeX préservées) en HTML prêt à être injecté dans une carte Anki.
+
+        L'outil est autonome : il n'est couplé ni à `render_anki_card`, ni au pipeline DAG.
+        Aucun sanitisateur HTML n'est appliqué par défaut (option C du ticket) : l'appelant
+        assume la responsabilité du contenu qu'il injecte dans un `QWebEngineView`.
+
+        Args:
+            content: Source Markdown brute (utilisée lorsque `document_id` est 0 ou omis).
+            document_id: Identifiant d'un `DocumentModel` en base (0 pour texte brut).
+            wrap_mathjax: Si True, enveloppe le HTML avec le bundle KaTeX local
+                (`get_mathjax_script`) pour affichage direct dans un `QWebEngineView`.
+
+        Returns:
+            HTML converti (fragment ou document complet si `wrap_mathjax`), ou un message
+            d'erreur commençant par "Erreur :".
+        """
+        import markdown
+
+        from ankiforge.utils.anki_renderer import get_mathjax_script
+
+        target_text = content
+        if document_id > 0:
+            doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+            if not doc:
+                return f"Erreur : Aucun document trouvé avec l'identifiant #{document_id}."
+            target_text = target_text or (doc.content if hasattr(doc, "content") else "")
+
+        if not target_text or not str(target_text).strip():
+            return "Erreur : Le contenu Markdown à convertir est vide."
+
+        try:
+            protected, blocks = _protect_latex_blocks(str(target_text))
+            html_body = markdown.markdown(protected)
+            html_body = _restore_latex_blocks(html_body, blocks)
+        except Exception as e:
+            logger.error("Erreur render_anki_html : %s", e)
+            return f"Erreur lors de la conversion Markdown → HTML : {e}"
+
+        if not wrap_mathjax:
+            return html_body
+
+        try:
+            script = get_mathjax_script()
+        except Exception as e:
+            logger.error("Erreur render_anki_html (injection du bundle KaTeX) : %s", e)
+            return html_body
+
+        return f'<!DOCTYPE html>\n<html>\n<head>\n    <meta charset="utf-8">\n    {script.strip()}\n</head>\n<body>\n{html_body}\n</body>\n</html>'
+
+    @staticmethod
     def get_document_outline(document_id: int = 0, content: str = "") -> str:
         """Extrait l'arborescence hiérarchique des titres (Outline) d'un document."""
         from ankiforge.services.markdown.structurer import MarkdownStructurer
@@ -4830,6 +4917,34 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "instruction": {"type": "string", "description": "Consigne spécifique de refactorisation (optionnel)"},
                 },
                 "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "render_anki_html",
+            "description": (
+                "Convertit une source Markdown (formules LaTeX/KaTeX préservées avec leurs "
+                "délimiteurs $, $$, \\( et \\[) en HTML prêt à être injecté dans une carte Anki. "
+                "Accepte du texte brut ou un document_id. Aucun sanitisateur HTML par défaut."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "Source Markdown brute à convertir (utilisée si document_id n'est pas spécifié)",
+                    },
+                    "document_id": {
+                        "type": "integer",
+                        "description": "ID du document stocké en BDD (0 pour texte brut)",
+                    },
+                    "wrap_mathjax": {
+                        "type": "boolean",
+                        "description": "Envelopper le HTML avec le bundle KaTeX local pour affichage QWebEngineView (défaut: false)",
+                    },
+                },
             },
         },
     },
