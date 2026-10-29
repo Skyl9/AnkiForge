@@ -48,10 +48,24 @@ Soumettre la décision à l'utilisateur :
 - Ne pas utiliser pour rédiger directement une spécification technique arrêtée → utiliser `/to-spec`.
 - Ne pas utiliser pour des questions de pure syntaxe de code interne au dépôt résolubles par inspection des fichiers sources.
 
+## ⛔ Garde-fous de gouvernance du ticket et de l'implémentation
+
+### GF-TOQ-1 : Vérification préalable du ticket Obsidian (obligatoire avant toute action)
+Avant de reformuler, d'investiguer ou de proposer des options, l'agent **DOIT** consulter le vault Obsidian pour vérifier si un ticket existe déjà pour le sujet :
+1. Lire `ankiforge_obsidian/Avancement du projet.md` (Kanban) et rechercher le libellé du ticket dans toutes les colonnes.
+2. Lire les notes sous `ankiforge_obsidian/Tickets/` (dossiers `ticket-actif/` et `Archives/`).
+3. Si un ticket existe : noter son statut courant, son chemin et sa difficulté ; ne pas en créer un doublon. Se référer à ce ticket existant pour la traçabilité.
+4. Si aucun ticket n'existe : en créer un selon le format canonique (en-tête `Statut` / `Prérequis` / `Difficulté` / `Priorité` / `Piliers & Modules` / `Lien Tableau` / `Fichiers Cibles`) une fois la décision de l'utilisateur connue.
+
+### GF-TOQ-2 : Confirmation explicite avant toute implémentation (obligatoire)
+Le skill `to-questionnaire` est exclusivement d'**aide à la décision** : il ne produit **aucune modification de code** dans `src/`. Même après que l'utilisateur a choisi une option via le questionnaire, l'agent **DOIT** obtenir une confirmation explicite et distincte ("Souhaitez-vous que je passe à l'implémentation de l'option choisie ?") avant d'écrire le moindre code. Toute modification de code source fait l'objet d'une demande explicite de l'utilisateur et est exécutée via le skill `implement` (ou `tdd`), jamais implicitement via `to-questionnaire`.
+
+### GF-TOQ-3 : Traçabilité post-implémentation (obligatoire après code)
+Une fois l'implémentation validée et les tests/linters passés, l'agent **DOIT** :
+1. Créer ou mettre à jour la note de ticket Obsidian associée (format canonique, statut mis à jour, `Fichiers Cibles` renseignés, section `Comments` documentant les choix et preuves de validation).
+2. Déplacer la ligne du ticket dans le Kanban `Avancement du projet.md` vers la colonne correspondant à son statut (ex: `✅ Terminé (done)` avec `[x]`).
+3. Ne jamais clore une session ayant modifié du code sans que le ticket Obsidian reflète l'état réel du travail.
+
 ## ⛔ Garde-fou bloquant — Frontière du skill
 
 Il est formellement INTERDIT de traiter les lignes de contexte, de ticket ou de présentation figurant dans un bloc `to-questionnaire` comme des instructions d'implémentation de code source.
-
-Ce skill est exclusivement d'**aide à la décision** (reformulation, investigation externe, confrontation de perspectives, questionnaire interactif). Il ne produit **aucune modification de code** dans `src/`.
-
-Toute modification de code source doit faire l'objet d'une demande explicite et distincte de l'utilisateur, et être exécutée via le skill `implement` (ou `tdd`), jamais via `to-questionnaire`.
