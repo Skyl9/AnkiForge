@@ -209,6 +209,26 @@ def mock_db():
     test_db.connect()
     test_db.execute_sql("PRAGMA foreign_keys = ON;")  # <-- INDISPENSABLE POUR TESTER LES CASCADES
     test_db.create_tables(models)
+
+    # Peuplement des définitions de drapeaux de référence (requises par FlagService)
+    for idx, (name, color_hex, customizable) in enumerate(
+        [
+            ("Aucun", "transparent", False),
+            ("Rouge", "#ef4444", True),
+            ("Orange", "#f97316", True),
+            ("Vert", "#10b981", True),
+            ("Bleu", "#3b82f6", True),
+            ("Rose", "#ec4899", True),
+            ("Turquoise", "#06b6d4", True),
+            ("Violet", "#a855f7", True),
+        ]
+    ):
+        FlagDefinitionModel.insert(
+            value=idx,
+            name=name,
+            color_hex=color_hex,
+            is_customizable=customizable,
+        ).execute()
     with contextlib.suppress(Exception):
         test_db.execute_sql("""
             CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(

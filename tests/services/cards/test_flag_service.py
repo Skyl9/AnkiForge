@@ -45,7 +45,7 @@ def test_flag_service_default_labels() -> None:
     assert FlagService.get_flag_name(99) == "Aucun"
 
 
-def test_flag_service_set_and_get_custom_labels() -> None:
+def test_flag_service_set_and_get_custom_labels(qtbot) -> None:
     """La personnalisation des drapeaux est persistée et les drapeaux non modifiés conservent le défaut."""
     FlagService.reset_to_defaults()
 
@@ -80,7 +80,7 @@ def test_flag_service_set_and_get_custom_labels() -> None:
         event_bus.unsubscribe(FlagLabelsUpdatedEvent, on_event)
 
 
-def test_flag_service_reset_single_label() -> None:
+def test_flag_service_reset_single_label(qtbot) -> None:
     """Un libellé vide ou blanc revient au nom par défaut."""
     FlagService.reset_to_defaults()
     FlagService.set_flag_labels({1: "Critique"})
@@ -91,7 +91,7 @@ def test_flag_service_reset_single_label() -> None:
     assert FlagService.get_flag_name(1) == "Rouge"
 
 
-def test_flag_service_search_map() -> None:
+def test_flag_service_search_map(qtbot) -> None:
     """La table de recherche contient les alias par défaut ainsi que les libellés personnalisés normalisés."""
     FlagService.reset_to_defaults()
     FlagService.set_flag_labels({1: "Vocabulaire Prioritaire", 3: "Grammaire"})
