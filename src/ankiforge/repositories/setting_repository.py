@@ -9,7 +9,6 @@ from peewee import fn
 
 from ankiforge.database.models import (
     AICacheModel,
-    JobModel,
     SettingModel,
     TokenUsageModel,
 )
@@ -176,7 +175,3 @@ class SettingRepository(BaseRepository):
         """Vide le cache IA de toutes ses entrées."""
         with self.atomic():
             return int(AICacheModel.delete().execute())
-
-    def get_pending_jobs(self) -> list[JobModel]:
-        """Retourne les tâches d'arrière-plan en attente."""
-        return list(JobModel.select().where(JobModel.status == "pending"))

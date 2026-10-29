@@ -31,18 +31,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DENSE_PROMPT = (
-    "Tu es un analyste visuel pour un système de recherche documentaire et de mémorisation (Visual RAG). "
-    "Analyse minutieusement cette image/page (diagramme, schéma, carte, planche anatomique ou document scanné). "
-    "Produis une description sémantique visuelle dense et structurée comprenant :\n"
-    "1. **Titre et Sujet Principal** du visuel.\n"
-    "2. **Entités et Concepts Visibles** (organes, composants, termes clés).\n"
-    "3. **Relations Spatiales et Fonctionnelles** (flèches, flux, légendes, causalités, hiérarchies).\n"
-    "4. **Textes et Légendes Explicites** visibles dans l'image.\n"
-    "5. **Formules ou Données Numériques** éventuelles.\n\n"
-    "Ne donne aucune formule de politesse, uniquement la description analytique dense en Markdown."
-)
-
 
 class VisualRAGService:
     """Service d'orchestration pour l'indexation visuelle dense et la recherche multimodale."""

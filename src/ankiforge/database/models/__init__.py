@@ -65,44 +65,6 @@ from ankiforge.database.seeds import (
     seed_initial_data,
 )
 
-ALL_MODELS = [
-    DeckModel,
-    NoteTypeModel,
-    NoteModel,
-    NoteVersionModel,
-    MediaModel,
-    NoteVersionMediaModel,
-    CardModel,
-    FlagDefinitionModel,
-    ProfileFlagLabelModel,
-    PromptModel,
-    LLMConfigModel,
-    TokenUsageModel,
-    PersonaFolderModel,
-    PersonaModel,
-    PersonaVersionModel,
-    StagedBundleModel,
-    StagedPatchModel,
-    PipelineModel,
-    PipelineRunModel,
-    PipelineStepModel,
-    PythonToolModel,
-    BatchRunModel,
-    BatchTaskModel,
-    FolderModel,
-    DocumentModel,
-    DocumentPageModel,
-    DocumentChunkModel,
-    NoteChunkLinkModel,
-    EmbeddingCacheModel,
-    JobModel,
-    LinterRuleModel,
-    AuditRecordModel,
-    SettingModel,
-    IgnoredDuplicateModel,
-    AICacheModel,
-]
-
 __all__ = [
     # Infrastructure
     "db",
@@ -111,7 +73,6 @@ __all__ = [
     "generate_guid",
     "DEFAULT_DB_PATH",
     "DB_PATH",
-    "ALL_MODELS",
     # Cartes & Decks
     "DeckModel",
     "NoteTypeModel",

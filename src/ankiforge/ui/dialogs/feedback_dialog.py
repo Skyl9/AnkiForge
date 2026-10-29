@@ -176,31 +176,6 @@ class FeedbackDialog(QDialog):
         self.btn_kofi.clicked.connect(self._on_kofi_clicked)
         footer_layout.addWidget(self.btn_kofi)
 
-        # Alias de compatibilité (tests / appelants)
-        self.btn_support = self.btn_kofi
-        self.btn_soutenir = self.btn_kofi
-        self.support_button = self.btn_kofi
-        self.kofi_button = self.btn_kofi
-        self.button_kofi = self.btn_kofi
-        self.btn_donate = self.btn_kofi
-        self.donate_button = self.btn_kofi
-        self.primary_button_support = self.btn_kofi
-        self.support_btn = self.btn_kofi
-        self.kofi_btn = self.btn_kofi
-        self.btn_primary = getattr(self, "btn_primary", self.btn_kofi)
-        # éviter d'écraser btn_primary réel si présent : noop, attributs supplémentaires seulement
-        self.btn_primary_support = self.btn_kofi
-        self.open_url_button = self.btn_kofi
-        self.url_button = self.btn_kofi
-        self.support_btn_kofi = self.btn_kofi
-        self.btn_support_kofi = self.btn_kofi
-        self.support_kofi_button = self.btn_kofi
-        self.kofi_support_button = self.btn_kofi
-        self.btn_soutenir_kofi = self.btn_kofi
-        self.soutenir_button = self.btn_kofi
-        self.btnSupport = self.btn_kofi
-        self.supportBtn = self.btn_kofi
-        self.kofiBtn = self.btn_kofi
         self.btn_github = PrimaryButton("🚀 Ouvrir sur GitHub Issues ↗")
         self.btn_github.setToolTip(self.tr("Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis"))
         self.btn_github.setFixedHeight(32)

@@ -229,6 +229,7 @@ class MainWindow(QMainWindow):
             self._web_engine_prewarmer.setFixedSize(1, 1)
             self._web_engine_prewarmer.move(-100, -100)
             self._web_engine_prewarmer.show()
+            self._web_engine_prewarmer.loadFinished.connect(self._web_engine_prewarmer.deleteLater)
         except Exception as e:
             logger.debug("Remarque préchauffage WebEngine: %s", e)
 

@@ -75,17 +75,6 @@ class StagedOverlay:
         }
 
 
-def staged_patch_id(payload: dict[str, Any]) -> str | None:
-    """Identifiant Two-Phase Commit d'une proposition : champ de tête, sinon `metadata.patch_id`.
-
-    C'est la clé d'identité utilisée aussi bien pour recharger un patch depuis la BDD que pour
-    éviter de l'empiler deux fois dans la file du Workspace Inspector.
-    """
-    metadata = payload.get("metadata")
-    candidate = payload.get("patch_id") or (metadata.get("patch_id") if isinstance(metadata, dict) else None)
-    return str(candidate) if candidate else None
-
-
 def staged_payload_of(staged: StagedPatchModel) -> dict[str, Any]:
     """Décode le `diff_payload` d'un patch (JSON ou dict déjà décodé).
 

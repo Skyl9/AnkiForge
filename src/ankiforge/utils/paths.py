@@ -7,8 +7,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-APP_NAME = "ankiforge"
-
 
 def get_project_root() -> Path:
     """Localise dynamiquement la racine du projet ou du bundle sur le disque.

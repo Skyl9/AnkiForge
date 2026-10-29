@@ -90,20 +90,6 @@ class SupportDialog(QDialog):
         self.checkbox.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12.5px; font-weight: 500;")
         root_layout.addWidget(self.checkbox)
 
-        # Alias de compatibilité (tests / appelants historiques)
-        self.chk_dont_show = self.checkbox
-        self.chk_do_not_show = self.checkbox
-        self.chk_dont_ask = self.checkbox
-        self.chk_dont_show_again = self.checkbox
-        self.chk_ne_plus_afficher = self.checkbox
-        self.chk_show = self.checkbox
-        self.dont_show_checkbox = self.checkbox
-        self.dont_show_again_checkbox = self.checkbox
-        self.disable_checkbox = self.checkbox
-        self.opt_out_checkbox = self.checkbox
-        self.show_checkbox = self.checkbox
-        self.checkbox_dont_show = self.checkbox
-
         # Pied de page d'actions
         footer_layout = QHBoxLayout()
         footer_layout.setSpacing(10)
@@ -119,31 +105,6 @@ class SupportDialog(QDialog):
         footer_layout.addWidget(self.btn_kofi)
 
         root_layout.addLayout(footer_layout)
-
-        # Alias de compatibilité pour les boutons
-        self.close_button = self.btn_close
-        self.close_btn = self.btn_close
-        self.secondary_button = self.btn_close
-        self.btn_secondary = self.btn_close
-        self.btn_cancel = self.btn_close
-        self.cancel_button = self.btn_close
-
-        self.primary_button = self.btn_kofi
-        self.kofi_button = self.btn_kofi
-        self.btn_support = self.btn_kofi
-        self.support_button = self.btn_kofi
-        self.btn_donate = self.btn_kofi
-        self.donate_button = self.btn_kofi
-        self.open_url_button = self.btn_kofi
-        self.kofi_btn = self.btn_kofi
-        self.primary_btn = self.btn_kofi
-        self.btn_primary = self.btn_kofi
-        self.btn_offrir = self.btn_kofi
-        self.btn_open = self.btn_kofi
-        self.button_kofi = self.btn_kofi
-        self.close_btn = self.btn_close
-        self.cancel_btn = self.btn_close
-        self.secondary_btn = self.btn_close
 
         self.icon_label = icon_lbl
         self.header_icon = icon_lbl
