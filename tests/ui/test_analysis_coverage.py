@@ -15,6 +15,7 @@ from ankiforge.database.models import (
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
+    NoteVersionModel,
 )
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
@@ -741,6 +742,33 @@ def test_ai_wozniak_linter_tab_and_widgets(qtbot):
     assert card_w.inspector_widget.isHidden()
     card_w.toggle_inspector()
     assert not card_w.inspector_widget.isHidden()
+
+
+def test_wozniak_tab_score_utilise_poids_contrat(qtbot):
+    """Le score affiché découle des pénalités du contrat (cat-atomicite ×7, cat-katex ×5, cat-cloze ×6, cat-interférence ×3)."""
+    uid = uuid.uuid4().hex[:6]
+    deck = DeckModel.create(name=f"Deck Score {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"NT Score {uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    notes = []
+    for i in range(4):
+        note = NoteModel.create(guid=f"g-score-{uid}-{i}", note_type=nt, tags="t")
+        NoteVersionModel.create(note=note, version_number=1, content=json.dumps({"Front": f"Q{i}", "Back": "A"}), is_active=True)
+        CardModel.create(note=note, deck=deck)
+        notes.append(note)
+
+    tab = AIWozniakLinterTab()
+    qtbot.addWidget(tab)
+    tab.selected_deck_id = deck.id
+
+    results = [
+        {"note_id": notes[0].id, "pass": False, "rule_broken": "R1", "category": "cat-atomicite", "reason": "r"},
+        {"note_id": notes[1].id, "pass": False, "rule_broken": "R2", "category": "cat-atomicite", "reason": "r"},
+        {"note_id": notes[2].id, "pass": False, "rule_broken": "R3", "category": "cat-katex", "reason": "r"},
+        {"note_id": notes[3].id, "pass": False, "rule_broken": "R4", "category": "cat-interference", "reason": "r"},
+    ]
+    tab._on_linter_finished(results)
+    # atomicite 2×7=86, katex 1×5=95, cloze 0=100, interference 1×3=97 -> moyenne 94
+    assert "Score : 94 / 100" in tab.score_badge.text()
 
 
 def test_ai_tokens_srs_tab(qtbot):

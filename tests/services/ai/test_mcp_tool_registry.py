@@ -12,6 +12,7 @@ import json
 import pytest
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.services.ai.linter import WozniakLinterEngine
 from ankiforge.services.ai.mcp_tool_registry import (
     MCP_TOOLS,
     ConsultantToolRegistry,
@@ -67,6 +68,29 @@ def test_mcp_tool_registry_get_deck_stats(mock_db):
     res = MCPToolRegistry.get_deck_stats(deck.name)
     assert "Deck Test MCP Registry" in res
     assert "Cartes" in res or "Notes" in res
+
+
+def test_audit_deck_wozniak_aligned_on_contract(mock_db, monkeypatch):
+    """L'outil MCP lit score_global, categories[*].title et count — jamais total_notes/notes_flagged/name."""
+    fake_report = {
+        "score_global": 78,
+        "enable_cloze_audit": True,
+        "categories": {
+            "cat-atomicite": {"title": "Atomicité & Restructuration", "count": 3, "items": []},
+            "cat-katex": {"title": "Formules & Clarté", "count": 0, "items": []},
+        },
+    }
+    monkeypatch.setattr(WozniakLinterEngine, "audit_deck", staticmethod(lambda *a, **k: fake_report))
+
+    deck = DeckModel.create(name="Deck Contrat Wozniak")
+    res = MCPToolRegistry.audit_deck_wozniak(deck.name)
+
+    assert "Rapport d'Audit Qualité Wozniak" in res
+    assert "Score de conformité global : 78/100" in res
+    assert "Atomicité & Restructuration : 3 anomalies détectées" in res
+    assert "total_notes" not in res
+    assert "notes_flagged" not in res
+    assert "'name'" not in res
 
 
 def test_mcp_tool_registry_query_peewee_security(mock_db):
