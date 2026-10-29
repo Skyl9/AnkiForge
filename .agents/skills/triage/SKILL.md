@@ -50,3 +50,4 @@ Chaque ticket porte une catégorie, un statut de triage, ses `Prérequis`, sa `D
 - Ne pas utiliser pour des tickets déjà marqués `ready-for-agent` → utiliser directement `/implement`.
 - Ne pas utiliser pour découper une spécification validée en tranches de tickets → utiliser `/to-tickets`.
 - Ne pas utiliser pour diagnostiquer un bogue complexe nécessitant une boucle TDD → utiliser `/diagnosing-bugs`.
+- Si la demande brute est trop vague pour être qualifiée directement ou si l'utilisateur hésite sur la nature de la demande → utiliser d'abord `/to-questionnaire` pour clarifier, puis revenir à `/triage` pour qualifier le ticket.

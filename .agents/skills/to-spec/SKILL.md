@@ -53,5 +53,6 @@ Ce que cette spécification exclut délibérément.
 ## When NOT to use this skill
 
 - Ne pas utiliser si des questions de conception restent ouvertes → utiliser `/grill-with-docs`.
+- Ne pas utiliser si l'idée est encore trop floue ou si l'utilisateur hésite entre plusieurs approches → utiliser `/to-questionnaire` pour clarifier et trancher le choix avant de rédiger la spécification.
 - Ne pas utiliser pour découper directement en tickets de travail → utiliser `/to-tickets`.
 - Ne pas utiliser pour implémenter du code immédiatement → utiliser `/implement`.

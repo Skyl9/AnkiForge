@@ -63,10 +63,13 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
 ## 3. Clôture, Vérification Canonique & Revue
 
 1. **Pré-nettoyage Linter, Formatage & i18n (`ADR 0013`) — Ordre séquentiel strict (`T-32`)** :
-   - **Étape 1a (Formatage prioritaire)** : Exécuter la passe rapide de formatage et de nettoyage des imports pour stabiliser la géométrie et les sauts de lignes du code source :
+   - **Étape 1a (Formatage ciblé uniquement sur les fichiers modifiés)** : Exécuter la passe de formatage et de nettoyage des imports **uniquement sur les fichiers modifiés par la tâche en cours**, jamais sur la racine `.`. Identifier d'abord les fichiers cibles via `git diff --name-only HEAD` (et `git -C ankiforge_obsidian diff --name-only HEAD` pour le sous-dépôt), puis :
      ```bash
-     uv run ruff check --fix . && uv run ruff format .
+     uv run ruff check --fix <fichier1> <fichier2> ... && uv run ruff format <fichier1> <fichier2> ...
      ```
+   - ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT d'exécuter `uv run ruff check --fix .` ou `uv run ruff format .` (ou toute commande de linteur/formatteur sur la racine `.`), car elle retouche des fichiers hors périmètre et crée des impacts collatéraux sur l'ensemble du dépôt.
+   - ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT d'exécuter `git checkout --` ou `git restore` sur des fichiers qui n'ont pas été modifiés par soi-même dans le cadre de la tâche en cours. Ne jamais annuler des modifications extérieures à sa propre portée.
+   - **Vérification de scope obligatoire** : exécuter `git status --short` (et `git -C ankiforge_obsidian status --short`) **avant** et **après** chaque commande de linteur/formatteur. Confirmer que seul les fichiers cibles du ticket figurent dans le diff. Tout fichier étranger détecté doit être laissé en l'état et signalé à l'utilisateur, jamais reverté arbitrairement.
    - **Étape 1b (Extraction post-formatage)** : Si des chaînes utilisateur ont été ajoutées, modifiées ou retirées avec `tr()` dans l'UI :
      ```bash
      uv run python script/extract_translations.py

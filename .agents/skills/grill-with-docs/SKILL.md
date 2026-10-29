@@ -59,6 +59,12 @@ Dès qu'un palier de décision est validé par l'utilisateur :
 
 ---
 
+## Pré-requis : idée assez cadrée
+
+Avant tout interview contradictoire, vérifier que l'idée est suffisamment formulée pour qu'un arbre de décision puisse être construit. Si l'utilisateur hésite entre plusieurs approches, que la question est vague ou qu'un dilemme technique ou fonctionnel persiste, passer d'abord par **`/to-questionnaire`** pour clarifier les options et soulever un choix éclairé, puis revenir à `/grill-with-docs` une fois la direction tranchée.
+
+---
+
 ## When NOT to use this skill
 
 - **Ne JAMAIS utiliser d'emblée lorsqu'un ticket ou une demande affiche « rechercher »** (investigation documentaire, état de l'art, veille technique) : interdiction formelle de lancer un `/grill-with-docs` tout de suite. Demander d'abord le sujet précis de la recherche et apporter la documentation existante adaptée (via `/research` et recherche web) avant tout cadrage ultérieur.

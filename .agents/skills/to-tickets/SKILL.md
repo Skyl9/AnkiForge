@@ -79,5 +79,6 @@ Une fois validé, publier chaque ticket **directement** dans le vault Obsidian s
 ## When NOT to use this skill
 
 - Ne pas utiliser pour rédiger une spécification fonctionnelle globale sans découpage unitaire → utiliser `/to-spec`.
+- Ne pas utiliser si le plan ou la discussion est encore trop flou et que l'utilisateur hésite sur la direction → utiliser `/to-questionnaire` pour éclaircir les options avant tout découpage.
 - Ne pas utiliser pour implémenter directement le code d'un ticket → utiliser `/implement`.
 - Ne pas utiliser pour trier des retours bruts ou des bogues non qualifiés → utiliser `/triage`.

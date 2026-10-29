@@ -70,6 +70,7 @@ Dans tous les cas, **`/implement`** s'appuie en interne sur **`/tdd`** (cycle re
 Situations initiales générant du travail avant d'intégrer le flux principal :
 
 - **Demandes ou tickets bruts à qualifier** → **`/triage`**. Évalue les besoins arrivants, qualifie leur criticité et met à jour les fiches et colonnes du Kanban Obsidian (`ready-for-agent`, `needs-info`, `wontfix`).
+- **Idée floue, hésitation sur la direction, dilemme technique ou fonctionnel** → **`/to-questionnaire`**. Clarifie et reformule la question vague, expose plusieurs perspectives argumentées et soumet un questionnaire interactif pour guider un choix éclairé, avant tout cadrage ou spécification.
 - **Tickets ou besoins de recherche (« Rechercher »)** → **`/research`**. Pour tout ticket ou sujet affichant « rechercher » : **ne JAMAIS lancer `/grill-with-docs` tout de suite**. Demander le sujet précis de la recherche à l'utilisateur, rechercher et amener la documentation existante (via web et sources primaires) et l'adapter au besoin avant tout cadrage ultérieur.
 - **Comportement cassé ou régression** → **`/diagnosing-bugs`**. Pour les anomalies résistantes : reproduction stricte en une commande rouge, isolation du composant et correction par test de non-régression.
 - **Chantier exploratoire vaste ou brumeux** → **`/wayfinder`**. Pour les efforts de grande envergure : cartographie progressive des décisions avant de basculer sur `/to-spec`.

@@ -31,3 +31,4 @@ Wayfinder est un outil de **cadrage et de levée d'inconnues**. Chaque ticket co
 - Le besoin est déjà délimité et réalisable en une ou deux sessions → utiliser `/grill-with-docs`.
 - Le besoin est prêt à être découpé en tranches de code → utiliser `/to-tickets`.
 - La tâche consiste à exécuter directement le code d'un ticket → utiliser `/implement`.
+- Si le chantier est encore trop brumeux et que l'utilisateur hésite sur la destination ou la direction à prendre → utiliser d'abord `/to-questionnaire` pour éclaircir les options, puis basculer sur `/wayfinder` pour cartographier les décisions.
