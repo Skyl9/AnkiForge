@@ -980,6 +980,38 @@ def test_mcp_garde_fou_manual_reload_preserves_state(qtbot, sample_note) -> None
     assert scroll_after == scroll_before
 
 
+def test_mcp_garde_fou_widget_affiche_patch_pipeline_delegue(qtbot) -> None:
+    """Un patch de staging issu d'un pipeline délégué est listé et affichable dans le Garde-Fou MCP."""
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Pipeline délégué test",
+        explanation="Visibilité Garde-Fou d'un patch d'étape déléguée.",
+    )
+    StagedPatchRegistry.create_patch(
+        patch_type="pipeline_step_delegated",
+        diff_payload={
+            "type": "pipeline_step_delegated",
+            "step_order": 1,
+            "step_type": "LLM_PROMPT",
+            "persona_prompt": "Génère des flashcards JSON.",
+            "persona_prompt_digest": "d3b07384d113edec49eaa6238ad5ff00",
+            "persona_name": "Agent Test",
+            "generated_content": '{"Front": "Q", "Back": "R"}',
+            "title": "Étape déléguée 1 [LLM_PROMPT]",
+            "explanation": "Contenu généré par l'agent externe MCP.",
+        },
+        bundle_id=bundle_id,
+    )
+    StagedPatchRegistry.commit_bundle(bundle_id)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    # Le patch d'étape déléguée est listé parmi les propositions en attente du Garde-Fou
+    assert widget.count() >= 1
+
+
 def test_mcp_garde_fou_filter_text(qtbot, sample_note) -> None:
     """Vérifie que le filtre texte fonctionne avec l'arborescence incrémentale."""
     from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus

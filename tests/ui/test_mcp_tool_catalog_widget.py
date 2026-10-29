@@ -135,9 +135,9 @@ def dummy_tools() -> list[DummyTool]:
 
 
 def test_introspection_fastmcp_real_tools() -> None:
-    """Vérifie que l'introspection réelle extrait bien les 82 outils MCP sans lever d'erreur."""
+    """Vérifie que l'introspection réelle extrait bien les 84 outils MCP sans lever d'erreur."""
     tools = get_all_mcp_tools()
-    assert len(tools) == 82
+    assert len(tools) == 84
     tool_names = {t.name for t in tools}
     assert "create_note" in tool_names
     assert "create_note_type" in tool_names
@@ -318,7 +318,7 @@ def test_mcp_dashboard_widget_integration_catalog_tab(qtbot: Any) -> None:
     dashboard.sub_tab_bar.setCurrentIndex(2)
     assert dashboard.stacked_widget.currentIndex() == 2
     assert dashboard.stacked_widget.currentWidget() == dashboard.catalog_widget
-    assert dashboard.catalog_widget.tool_list.count() == 82
+    assert dashboard.catalog_widget.tool_list.count() == 84
 
 
 def test_mcp_tool_catalog_buttons_and_chips_geometry(qtbot: Any, dummy_tools: list[DummyTool]) -> None:
