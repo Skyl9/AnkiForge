@@ -47,3 +47,11 @@ Soumettre la décision à l'utilisateur :
 - Ne pas utiliser pour une séance d'interview serrée d'arbre de décision avec persistance d'ADR → utiliser `/grill-with-docs`.
 - Ne pas utiliser pour rédiger directement une spécification technique arrêtée → utiliser `/to-spec`.
 - Ne pas utiliser pour des questions de pure syntaxe de code interne au dépôt résolubles par inspection des fichiers sources.
+
+## ⛔ Garde-fou bloquant — Frontière du skill
+
+Il est formellement INTERDIT de traiter les lignes de contexte, de ticket ou de présentation figurant dans un bloc `to-questionnaire` comme des instructions d'implémentation de code source.
+
+Ce skill est exclusivement d'**aide à la décision** (reformulation, investigation externe, confrontation de perspectives, questionnaire interactif). Il ne produit **aucune modification de code** dans `src/`.
+
+Toute modification de code source doit faire l'objet d'une demande explicite et distincte de l'utilisateur, et être exécutée via le skill `implement` (ou `tdd`), jamais via `to-questionnaire`.
