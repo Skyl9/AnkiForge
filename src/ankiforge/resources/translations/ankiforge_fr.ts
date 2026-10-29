@@ -4,7 +4,7 @@
 <context>
     <name></name>
     <message>
-        <location filename="../../__main__.py" line="+291"/>
+        <location filename="../../__main__.py" line="+296"/>
         <source>Espace de travail en cours d&apos;utilisation</source>
         <translation type="unfinished"></translation>
     </message>
@@ -574,7 +574,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+622"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+628"/>
         <location filename="../../ui/views/edition_view/view.py" line="-625"/>
         <location line="+211"/>
         <location line="+8"/>
@@ -976,7 +976,7 @@ Le document `%1` n&apos;a pas pu être chargé.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="+295"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="+270"/>
         <source>Profil : %1 · %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1704,7 +1704,7 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+149"/>
+        <location line="+150"/>
         <source>Espace Serveur MCP &amp; Agents actif.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3117,7 +3117,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <location line="+286"/>
         <location line="+3"/>
         <location line="+1"/>
-        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+128"/>
+        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+132"/>
         <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
         <location filename="../../ui/views/edition_view/view.py" line="+745"/>
         <source>%1</source>
@@ -3187,7 +3187,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+155"/>
+        <location line="+152"/>
         <source>Score : %1 / 100</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3644,7 +3644,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+4"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+160"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+168"/>
         <source>PAQUET</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3906,7 +3906,19 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+350"/>
+        <location line="+131"/>
+        <location line="+269"/>
+        <source>Nouvelle proposition de refactorisation reçue (#%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-267"/>
+        <location line="+269"/>
+        <source>Nouvelle proposition reçue (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-34"/>
         <source>Activité (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3916,17 +3928,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
-        <source>Nouvelle proposition de refactorisation reçue (#%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Nouvelle proposition reçue (%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-84"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-91"/>
         <source>Bloc d&apos;opérations</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3941,19 +3943,19 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+36"/>
-        <location line="+575"/>
+        <location line="+43"/>
+        <location line="+798"/>
         <source>Étape %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-573"/>
-        <location line="+585"/>
+        <location line="-796"/>
+        <location line="+808"/>
         <source>Proposition — %1 #%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-555"/>
+        <location line="-778"/>
         <source>CARTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3974,7 +3976,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+153"/>
+        <location line="+367"/>
         <source>PROPOSITIONS EN ATTENTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4015,18 +4017,18 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+36"/>
-        <location line="+200"/>
+        <location line="+209"/>
         <source>Rejeter la proposition</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-178"/>
+        <location line="-187"/>
         <source>Tout valider le bloc</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+21"/>
-        <location line="+156"/>
+        <location line="+165"/>
         <source>Appliquer la modification</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8105,7 +8107,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="+102"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="+112"/>
         <source>STOCKAGE &amp; BDD — ENVIRONNEMENT : %1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9308,7 +9310,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AIWozniakLinterTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="-487"/>
+        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="-484"/>
         <source>Audit Wozniak</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15136,7 +15138,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FeedbackDialog</name>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="-590"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="-565"/>
         <source>Retours &amp; Suggestions AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15181,7 +15183,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+32"/>
+        <location line="+7"/>
         <source>Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17077,7 +17079,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-408"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-395"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17135,7 +17137,13 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPServerDashboardWidget</name>
     <message>
-        <location line="+204"/>
+        <location line="+57"/>
+        <location line="+269"/>
+        <source>Nouvelle proposition de refactorisation reçue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-104"/>
         <source>Supervision &amp; Configuration</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17159,11 +17167,6 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <message>
         <location line="-64"/>
         <source>Guides &amp; Workspaces</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+104"/>
-        <source>Nouvelle proposition de refactorisation reçue</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -20868,7 +20871,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+10"/>
         <source>Fermer</source>
         <translation type="unfinished"></translation>
     </message>
