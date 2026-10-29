@@ -204,29 +204,23 @@ class MCPToolRegistry:
                 return f"Erreur : Le paquet '{deck_name}' n'a pas été trouvé."
 
             report = WozniakLinterEngine.audit_deck(deck_id=deck.id)
-            total_notes = report.get("total_notes", 0)
-            flagged = report.get("notes_flagged", 0)
             score = report.get("score_global", 100)
             categories = report.get("categories", {})
 
             cat_summary = []
+            total_flagged = 0
             for c_id, c_data in categories.items():
-                c_name = c_data.get("name", c_id)
+                c_name = c_data.get("title", c_id)
                 c_count = c_data.get("count", 0)
+                total_flagged += c_count
                 if c_count > 0:
                     cat_summary.append(f"  • {c_name} : {c_count} anomalies détectées")
-
-            suggestions = report.get("suggestions_sample", [])
-            sug_lines = []
-            for s in suggestions[:4]:
-                sug_lines.append(f"  - Note #{s.get('id')} : {s.get('rule_name')} (Conseil: {s.get('recommendation', '')[:70]})")
 
             return (
                 f"🛡️ Rapport d'Audit Qualité Wozniak — Paquet '{deck.name}' :\n"
                 f"- Score de conformité global : {score}/100\n"
-                f"- Notes analysées : {total_notes} (dont {flagged} nécessitant une révision)\n"
+                f"- Anomalies détectées : {total_flagged}\n"
                 f"- Répartition des anomalies par catégorie :\n" + ("\n".join(cat_summary) if cat_summary else "  (Aucune anomalie majeure)") + "\n"
-                "- Exemples de cartes prioritaires à corriger :\n" + ("\n".join(sug_lines) if sug_lines else "  (Toutes les cartes respectent les standards)")
             )
         except Exception as e:
             logger.error("Erreur audit_deck_wozniak : %s", e)

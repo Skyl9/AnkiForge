@@ -5,11 +5,49 @@ Raccordement dynamique à la base de données Peewee ORM (NoteModel, DeckModel, 
 
 import json
 import logging
+import re
 from typing import Any
 
 from ankiforge.database.models import NoteModel, NoteVersionModel
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.c_bridge import get_similarity
 
 logger = logging.getLogger(__name__)
+
+
+_LATEX_COMMAND_RE = re.compile(r"\\([a-zA-Z]+)")
+_CLOZE_RE = re.compile(r"\{\{c\d+::")
+_INTERFERENCE_SIMILARITY_THRESHOLD = 0.85
+
+_CATEGORY_PENALTY = {
+    "cat-atomicite": 7,
+    "cat-katex": 5,
+    "cat-cloze": 6,
+    "cat-interference": 3,
+}
+
+
+def _strip_math_delimiters(text: str) -> str:
+    """Retire les régions mathématique KaTeX ($$...$$ puis $...$) pour n'examiner que le texte hors formule."""
+    without_display = re.sub(r"\$\$.*?\$\$", " ", text, flags=re.DOTALL)
+    return re.sub(r"\$[^\$]+\$", " ", without_display)
+
+
+def category_score(items_count: int, category: str) -> int:
+    """Score d'une catégorie selon les pénalités du contrat Wozniak (identique à audit_deck).
+
+    Source unique de vérité des pénalités : cat-atomicite ×7, cat-katex ×5, cat-cloze ×6,
+    cat-interférence ×3.
+    """
+    return max(0, 100 - items_count * _CATEGORY_PENALTY.get(category, 7))
+
+
+def score_global_from_categories(categories: dict[str, dict[str, Any]]) -> int:
+    """Reconstitue le score_global du contrat à partir des catégories (moyenne des scores catégoriels)."""
+    if not categories:
+        return 100
+    total = sum(category_score(len(cat.get("items", [])), cat_id) for cat_id, cat in categories.items())
+    return int(total / len(categories))
 
 
 def normalize_linter_suggestion(
@@ -123,12 +161,19 @@ class WozniakLinterEngine:
         cat_cloze_items = WozniakLinterEngine._detect_cloze_issues(notes_with_version) if enable_cloze_audit else []
         cat_interference_items = WozniakLinterEngine._detect_interference_issues(notes_with_version)
 
-        score_atomicite = max(0, 100 - len(cat_atomicite_items) * 7)
-        score_katex = max(0, 100 - len(cat_katex_items) * 5)
-        score_cloze = max(0, 100 - len(cat_cloze_items) * 6) if enable_cloze_audit else 100
-        score_interference = max(0, 100 - len(cat_interference_items) * 3)
+        score_atomicite = category_score(len(cat_atomicite_items), "cat-atomicite")
+        score_katex = category_score(len(cat_katex_items), "cat-katex")
+        score_cloze = category_score(len(cat_cloze_items), "cat-cloze") if enable_cloze_audit else 100
+        score_interference = category_score(len(cat_interference_items), "cat-interference")
 
-        score_global = int((score_atomicite + score_katex + score_cloze + score_interference) / 4)
+        score_global = score_global_from_categories(
+            {
+                "cat-atomicite": {"items": cat_atomicite_items},
+                "cat-katex": {"items": cat_katex_items},
+                "cat-cloze": {"items": cat_cloze_items},
+                "cat-interference": {"items": cat_interference_items},
+            }
+        )
         logger.info(
             "Audit Wozniak calculé : %d notes analysées, Score global: %d/100 (atomicité: %d, katex: %d, cloze: %d, interférence: %d)",
             len(notes_with_version),
@@ -148,7 +193,7 @@ class WozniakLinterEngine:
                     "count": len(cat_atomicite_items),
                     "title": "Atomicité & Restructuration",
                     "subtitle": f"{len(cat_atomicite_items)} cartes complexes ou surchargées",
-                    "color": "#f87171",
+                    "color": DesignTokens.COLOR_RED_TEXT,
                     "items": cat_atomicite_items,
                 },
                 "cat-katex": {
@@ -156,7 +201,7 @@ class WozniakLinterEngine:
                     "count": len(cat_katex_items),
                     "title": "Formules & Clarté",
                     "subtitle": f"{len(cat_katex_items)} formules avec Live Preview KaTeX",
-                    "color": "#c084fc",
+                    "color": DesignTokens.COLOR_PURPLE_TEXT,
                     "items": cat_katex_items,
                 },
                 "cat-cloze": {
@@ -164,7 +209,7 @@ class WozniakLinterEngine:
                     "count": len(cat_cloze_items),
                     "title": "Questions Univoques Q/R",
                     "subtitle": f"{len(cat_cloze_items)} conversions Cloze → Q/R",
-                    "color": "#f59e0b",
+                    "color": DesignTokens.COLOR_YELLOW_TEXT,
                     "items": cat_cloze_items,
                 },
                 "cat-interference": {
@@ -172,7 +217,7 @@ class WozniakLinterEngine:
                     "count": len(cat_interference_items),
                     "title": "Désambiguïsation & Non-Interférence",
                     "subtitle": f"{len(cat_interference_items)} désambiguïsations contextuelles",
-                    "color": "#3b82f6",
+                    "color": DesignTokens.COLOR_BLUE_TEXT,
                     "items": cat_interference_items,
                 },
             },
@@ -181,108 +226,16 @@ class WozniakLinterEngine:
     @staticmethod
     def _detect_atomicite_issues(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         items = []
-        # Si la BDD est vide, nous générons les 4 éléments d'analyse types
-        if not notes:
-            return [
-                {
-                    "card_id": 1042,
-                    "title": "Carte #1042 · Allocateur C++20",
-                    "badge": "Problème 1 : Surcharge Multi-Questions (4 notions)",
-                    "badge_color": "#f87171",
-                    "schema": "4_atomic_plus_1_master",
-                    "original": {
-                        "NoteType": "AnkiForge-Basic",
-                        "Recto": "Expliquer l'allocateur C++20, la gestion du heap, Valgrind, new vs malloc et delete vs free.",
-                        "Verso": "L'allocateur gère le heap, Valgrind détecte les fuites, new/delete gèrent constructeurs/destructeurs...",
-                        "Champ Annexe Extra": "ISO C++20 Standard Section 18.6",
-                        "Tags": "#cpp #memory #cpp20",
-                    },
-                    "proposal_summary": "PROPOSITION MCP : 4 ATOMIQUES + 1 SYNTHÈSE MASTER",
-                    "proposal": {
-                        "NoteType": "AnkiForge-Basic (5 Cartes)",
-                        "Recto": "1. Quel est le rôle de l'allocateur C++20 ? | 2. Outil fuites mémoire (Valgrind) | 3. new vs malloc | 4. delete vs free | 5. Synthèse Master 4 piliers",
-                        "Verso": "1. Allocation dynamique heap | 2. Valgrind Memcheck | 3. Constructeurs vs brute | 4. Destructeurs | 5. Vision globale 4 piliers",
-                        "Champ Annexe Extra": "ISO C++20 Standard Section 18.6",
-                        "Tags": "#cpp #memory #synthese",
-                    },
-                },
-                {
-                    "card_id": 1105,
-                    "title": "Carte #1105 · Consensus Raft Protocol",
-                    "badge": "Problème 2 : Énumération Complexe (6 étapes)",
-                    "badge_color": "#f59e0b",
-                    "schema": "keep_original_as_master_plus_6_atomic",
-                    "original": {
-                        "NoteType": "AnkiForge-Basic",
-                        "Recto": "Énumérer les 6 étapes complètes de l'élection et du consensus dans le protocole Raft.",
-                        "Verso": "1. Timeout, 2. RequestVote, 3. Majorité, 4. Heartbeat, 5. Commit, 6. Apply.",
-                        "Champ Annexe Extra": "Raft Consensus Paper Ongaro 2014.",
-                        "Tags": "#raft #consensus #distributed",
-                    },
-                    "proposal_summary": "SOLUTION MCP : CONSERVER EN SYNTHÈSE + 6 ATOMIQUES",
-                    "proposal": {
-                        "NoteType": "AnkiForge-Basic (7 Cartes)",
-                        "Recto": "Originale conservée en Synthèse Master + 6 sous-cartes ciblées (#1105-A1 à A6)",
-                        "Verso": "1. Timeout Candidate | 2. RequestVote RPC | 3. Majority | 4. Heartbeats | 5. Commit | 6. Apply State Machine",
-                        "Champ Annexe Extra": "Raft Consensus Paper Ongaro 2014.",
-                        "Tags": "#raft #consensus #master",
-                    },
-                },
-                {
-                    "card_id": 1218,
-                    "title": "Carte #1218 · Sécurité Rust",
-                    "badge": "Problème 3 : Périmètre Vague (3 piliers vague)",
-                    "badge_color": "#f87171",
-                    "schema": "3_atomic_plus_1_master",
-                    "original": {
-                        "NoteType": "AnkiForge-Basic",
-                        "Recto": "Parler de la sécurité mémoire, de la concurrence et des lifetimes en Rust.",
-                        "Verso": "Rust garantit la sécurité via l'ownership, le trait Send/Sync et le système de lifetimes 'a.",
-                        "Champ Annexe Extra": "Rust Book Chapitre 4 & 10.3",
-                        "Tags": "#rust #safety",
-                    },
-                    "proposal_summary": "SOLUTION MCP : 3 ATOMIQUES + 1 SYNTHÈSE MASTER",
-                    "proposal": {
-                        "NoteType": "AnkiForge-Basic (4 Cartes)",
-                        "Recto": "Q1: Borrow Checker data races | Q2: Trait Send concurrence | Q3: Durée de vie 'a | Q4: Synthèse 3 piliers",
-                        "Verso": "1. Borrow Checker | 2. Trait Send/Sync | 3. Lifetimes 'a | 4. Vision d'ensemble",
-                        "Champ Annexe Extra": "Rust Book Chapitre 4 & 10.3",
-                        "Tags": "#rust #safety #synthese",
-                    },
-                },
-                {
-                    "card_id": 1340,
-                    "title": "Carte #1340 · Protocole TLS 1.3",
-                    "badge": "Problème 4 : Verso Surchargé (220 mots)",
-                    "badge_color": "#f87171",
-                    "schema": "extra_annex_field_reformulation",
-                    "original": {
-                        "NoteType": "AnkiForge-Basic",
-                        "Recto": "Quels sont les avantages du Handshake TLS 1.3 ?",
-                        "Verso": "[Pavé de 220 mots contenant 8 étapes détaillées, dérivation HKDF, mode 0-RTT, RFC 8446...]",
-                        "Champ Annexe Extra": "RFC 8446",
-                        "Tags": "#tls #security #network",
-                    },
-                    "proposal_summary": "PROPOSITION MCP : REFORMULATION SYNTHÈSE + CHAMP ANNEXE EXTRA",
-                    "proposal": {
-                        "NoteType": "AnkiForge-Basic (2 Cartes)",
-                        "Recto": "Vision d'ensemble : Quels sont les 2 piliers fondamentaux de la vitesse et sécurité du Handshake TLS 1.3 ?",
-                        "Verso": "1. Latence Handshake réduite à 1 RTT | 2. Chiffrement direct dès le ServerHello.",
-                        "Champ Annexe Extra": "[220 mots secondaires transférés dans Extra] : Mode 0-RTT, HKDF, ciphers obsolètes (RC4, CBC).",
-                        "Tags": "#tls #security #champ-annexe",
-                    },
-                },
-            ]
-
+        # Aucune carte factice n'est générée quand la base est vide : on retourne [].
         for n in notes:
             text = n["recto"] + " " + n["verso"]
-            if len(text.split()) > 40 or "," in n["recto"] or "et" in n["recto"]:
+            if len(text.split()) > 40 or "," in n["recto"]:
                 items.append(
                     {
                         "card_id": n["id"],
                         "title": f"Carte #{n['id']} · {n['recto'][:30]}...",
                         "badge": "Surcharge Atomicité détectée",
-                        "badge_color": "#f87171",
+                        "badge_color": DesignTokens.COLOR_RED_TEXT,
                         "schema": "atomic_split",
                         "original": n,
                         "proposal_summary": "PROPOSITION MCP : DÉCOUPE ATOMIQUE",
@@ -300,172 +253,103 @@ class WozniakLinterEngine:
     @staticmethod
     def _detect_katex_issues(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
-        if not notes:
-            return [
-                {
-                    "card_id": 1088,
-                    "title": "Carte #1088 · Égalité de Parseval",
-                    "badge": "Problème 1 : Texte brut non formaté",
-                    "badge_color": "#f59e0b",
-                    "formula": r"\int_{-\infty}^{\infty} |f(t)|^2 dt = \frac{1}{2\pi} \int_{-\infty}^{\infty} |\hat{f}(\omega)|^2 d\omega",
-                    "original": {
-                        "NoteType": "AnkiForge-Basic",
-                        "Recto": "Énoncer l'égalité de Parseval pour la transformée de Fourier.",
-                        "Verso": "Integral de |f(t)|^2 dt = 1/(2*pi) * integral de |f_chapeau(w)|^2 dw",
-                        "Champ Annexe Extra": "Analyse de Fourier et conservation de l'énergie.",
-                        "Tags": "#math #fourier #signal",
-                    },
-                },
-                {
-                    "card_id": 1092,
-                    "title": "Carte #1092 · Théorème de Bayes",
-                    "badge": "Problème 2 : Syntaxe LaTeX Erronée & Parenthèses",
-                    "badge_color": "#f87171",
-                    "formula": r"P(A \mid B) = \frac{P(B \mid A) \cdot P(A)}{P(B)}",
-                    "original": {
-                        "NoteType": "AnkiForge-Basic",
-                        "Recto": "Quelle est la formule du Théorème de Bayes ?",
-                        "Verso": "P(A|B) = P(B|A)*P(A)/P(B)",
-                        "Champ Annexe Extra": "Définition des variables : P(A|B) Posteriori, P(B|A) Likelihood.",
-                        "Tags": "#stats #bayes #probability",
-                    },
-                },
-                {
-                    "card_id": 1095,
-                    "title": "Carte #1095 · Fonction Sigmoïde & Dérivée",
-                    "badge": "Problème 3 : Équation lourde non décomposée",
-                    "badge_color": "#6366f1",
-                    "formula": r"\sigma'(x) = \sigma(x) \cdot (1 - \sigma(x))",
-                    "original": {
-                        "NoteType": "AnkiForge-Basic",
-                        "Recto": "Donner l'expression de la fonction Sigmoïde et sa dérivée.",
-                        "Verso": "f(x) = 1/(1+exp(-x)) et f'(x) = f(x)*(1-f(x))",
-                        "Champ Annexe Extra": "Calcul rapide de gradient en rétropropagation.",
-                        "Tags": "#ml #deep-learning #activation",
-                    },
-                },
-            ]
+        for n in notes:
+            text = n["recto"] + " " + n["verso"]
+            # Délimiteurs KaTeX non appariés (nombre de $ impair).
+            if text.count("$") % 2 != 0:
+                items.append(
+                    {
+                        "card_id": n["id"],
+                        "title": f"Carte #{n['id']} · {n['recto'][:30]}...",
+                        "badge": "Délimiteurs KaTeX non appariés",
+                        "badge_color": DesignTokens.COLOR_RED_TEXT,
+                        "schema": "katex_unbalanced",
+                        "original": n,
+                        "proposal_summary": "PROPOSITION MCP : FERMER LES DELIMITERS KATEX",
+                        "proposal": {
+                            "NoteType": "AnkiForge-Basic",
+                            "Recto": n["recto"],
+                            "Verso": n["verso"],
+                            "Champ Annexe Extra": n["extra"],
+                            "Tags": n["tags"] + " #katex",
+                        },
+                    }
+                )
+                continue
+            # Commandes LaTeX utilisées hors mode mathématique (hors $...$ et $$...$$).
+            hors_formule = _strip_math_delimiters(text)
+            if _LATEX_COMMAND_RE.search(hors_formule):
+                items.append(
+                    {
+                        "card_id": n["id"],
+                        "title": f"Carte #{n['id']} · {n['recto'][:30]}...",
+                        "badge": "Formule KaTeX non délimitée",
+                        "badge_color": DesignTokens.COLOR_PURPLE_TEXT,
+                        "schema": "katex_undelimited",
+                        "original": n,
+                        "proposal_summary": "PROPOSITION MCP : ENCAPSULER LA FORMULE KATEX",
+                        "proposal": {
+                            "NoteType": "AnkiForge-Basic",
+                            "Recto": n["recto"],
+                            "Verso": n["verso"],
+                            "Champ Annexe Extra": n["extra"],
+                            "Tags": n["tags"] + " #katex",
+                        },
+                    }
+                )
         return items
 
     @staticmethod
     def _detect_cloze_issues(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
-        if not notes:
-            return [
-                {
-                    "card_id": 1120,
-                    "title": "Carte #1120 · Principes SOLID",
-                    "badge": "Problème 1 : Cloze Énumératif (5 masquages)",
-                    "badge_color": "#f59e0b",
-                    "original": {
-                        "NoteType": "AnkiForge-Cloze",
-                        "Recto": "Les 5 principes SOLID sont {{c1::Single Responsibility}}, {{c2::Open-Closed}}, {{c3::Liskov}}, ...",
-                        "Verso": "-",
-                        "Champ Annexe Extra": "Uncle Bob SOLID",
-                        "Tags": "#architecture #solid #cloze",
-                    },
-                    "proposal": {
-                        "NoteType": "AnkiForge-Basic (5 Cartes Q/R)",
-                        "Recto": "1. Quel principe SOLID stipule une seule raison de changer ? (SRP) | 2. Open-Closed (OCP) ...",
-                        "Verso": "1. Single Responsibility Principle | 2. Open-Closed Principle ...",
-                        "Champ Annexe Extra": "Uncle Bob SOLID",
-                        "Tags": "#architecture #solid #basic",
-                    },
-                },
-                {
-                    "card_id": 1135,
-                    "title": "Carte #1135 · Smart Pointers C++11",
-                    "badge": "Problème 2 : Cloze Contextuel (Indice Trivial)",
-                    "badge_color": "#f59e0b",
-                    "original": {
-                        "NoteType": "AnkiForge-Cloze",
-                        "Recto": "Le pointeur à propriété exclusive est {{c1::std::unique_ptr}} et à compteur est {{c2::std::shared_ptr}}.",
-                        "Verso": "-",
-                        "Champ Annexe Extra": "C++11 Memory Header",
-                        "Tags": "#cpp #smart-pointers #cloze",
-                    },
-                    "proposal": {
-                        "NoteType": "AnkiForge-Basic (2 Cartes Q/R)",
-                        "Recto": "Q1: Smart pointer C++11 à propriété exclusive ? | Q2: Smart pointer C++11 à compteur de réf ?",
-                        "Verso": "1. std::unique_ptr<T> | 2. std::shared_ptr<T>",
-                        "Champ Annexe Extra": "C++11 Memory Header",
-                        "Tags": "#cpp #smart-pointers #basic",
-                    },
-                },
-            ]
+        for n in notes:
+            if _CLOZE_RE.search(n["recto"]) or _CLOZE_RE.search(n["verso"]):
+                items.append(
+                    {
+                        "card_id": n["id"],
+                        "title": f"Carte #{n['id']} · {n['recto'][:30]}...",
+                        "badge": "Cloze sur une note de type Basic",
+                        "badge_color": DesignTokens.COLOR_YELLOW_TEXT,
+                        "schema": "cloze_to_qr",
+                        "original": n,
+                        "proposal_summary": "PROPOSITION MCP : CONVERTIR LE CLOZE EN QUESTION/REPONSE",
+                        "proposal": {
+                            "NoteType": "AnkiForge-Basic (Q/R directes)",
+                            "Recto": n["recto"],
+                            "Verso": n["verso"],
+                            "Champ Annexe Extra": n["extra"],
+                            "Tags": n["tags"] + " #cloze",
+                        },
+                    }
+                )
         return items
 
     @staticmethod
     def _detect_interference_issues(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
-        if not notes:
-            return [
-                {
-                    "card_id": 1012,
-                    "title": "Cartes #1012 & #1045 · Stack vs Heap Allocator",
-                    "badge": "Problème 1 : Interférence Sémantique (85% vocabulaire similaire)",
-                    "badge_color": "#3b82f6",
-                    "contextual_cue": "[Domaine: C++ Memory] [Contexte: LIFO Stack vs Tas Dynamique]",
-                    "original": {
-                        "NoteType": "AnkiForge-Basic",
-                        "Recto": "Quelle est la stratégie d'allocation mémoire basée sur un pointeur séquentiel ?",
-                        "Verso": "Allocation contiguë par incrémentation de pointeur et libération globale.",
-                        "Champ Annexe Extra": "Allocateur O(1)",
-                        "Tags": "#memory #allocator",
-                    },
-                    "proposal": {
-                        "NoteType": "AnkiForge-Basic (Désambiguïsée)",
-                        "Recto": "[Domaine: C++ Memory] [Vs: Heap Arena] Quel est le principe de l'allocation sur Stack Allocator (Pile LIFO) ?",
-                        "Verso": "Incrémenter un seul pointeur d'offset sur la pile LIFO à l'allocation, et dépiler en ordre inverse.",
-                        "Champ Annexe Extra": "Tableau comparatif : Stack Allocator (LIFO) vs Heap Arena (Bloc dynamique)",
-                        "Tags": "#cpp #memory #stack-allocator #disambiguation",
-                    },
-                },
-            ]
+        for i in range(len(notes)):
+            for j in range(i + 1, len(notes)):
+                sim = get_similarity(notes[i]["recto"], notes[j]["recto"])
+                if sim >= _INTERFERENCE_SIMILARITY_THRESHOLD:
+                    items.append(
+                        {
+                            "card_id": notes[j]["id"],
+                            "title": f"Cartes #{notes[i]['id']} & #{notes[j]['id']} · interférence",
+                            "badge": "Interférence sémantique entre deux cartes",
+                            "badge_color": DesignTokens.COLOR_BLUE_TEXT,
+                            "schema": "interference",
+                            "original": notes[j],
+                            "proposal_summary": "PROPOSITION MCP : DESAMBIGUISER LE CONTEXTE",
+                            "proposal": {
+                                "NoteType": "AnkiForge-Basic (Désambiguïsée)",
+                                "Recto": notes[j]["recto"],
+                                "Verso": notes[j]["verso"],
+                                "Champ Annexe Extra": notes[j]["extra"],
+                                "Tags": notes[j]["tags"] + " #disambiguation",
+                            },
+                        }
+                    )
         return items
-
-
-class SourcesDiagnosticService:
-    """Service de diagnostic et traçabilité des sources de documents (.md, .pdf, .png, YT, Web)."""
-
-    @staticmethod
-    def get_sources_report(deck_id: int | None = None) -> list[dict[str, Any]]:
-        """Retourne la liste des sources indexées et leurs scores de précision (en bdd)."""
-        from ankiforge.database.models import DocumentModel, NoteModel
-
-        reports = []
-        documents = DocumentModel.select()
-
-        for doc in documents:
-            clean_title = doc.title.replace(" ", "_").replace("-", "_").lower()
-            if clean_title.endswith((".pdf", ".md", ".txt")):
-                clean_title = clean_title.rsplit(".", 1)[0]
-            tag_name = f"source:{clean_title}"
-
-            # Count cards generated for this source
-            # On SQLite tags are separated by spaces or commas
-            card_count = NoteModel.select().where(NoteModel.tags.contains(tag_name)).count()
-
-            ext = doc.title.split(".")[-1].lower() if "." in doc.title else "txt"
-            if ext not in ["pdf", "md", "png", "yt", "web"]:
-                ext = "txt"
-
-            reports.append(
-                {
-                    "id": doc.id,
-                    "name": doc.title,
-                    "extension": ext,
-                    "score": 0.0,  # À calculer via un vrai LLM Gap Analysis plus tard
-                    "cards_generated": card_count,
-                    "parser": "AnkiForge Ingestion",
-                    "details": f"{len(doc.content.split())} mots",
-                    "code": "Source · En BDD",
-                    "inspect_action": "Analyser les trous (Gap Analysis)",
-                    "raw_content": doc.content,
-                }
-            )
-
-        return reports
 
 
 class TokenSrsFinancialService:

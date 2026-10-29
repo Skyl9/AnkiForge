@@ -25,7 +25,11 @@ from ankiforge.database.models import (
     seed_default_linter_rules,
 )
 from ankiforge.repositories import AuditRepository, NoteRepository, PersonaRepository
-from ankiforge.services.ai.linter import normalize_linter_suggestion
+from ankiforge.services.ai.linter import (
+    category_score,
+    normalize_linter_suggestion,
+    score_global_from_categories,
+)
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
@@ -478,20 +482,17 @@ class AIWozniakLinterTab(QWidget):
             }
             categories_dict[cat_id]["items"].append(item)
 
-        total_score = 0
-        cat_count = max(1, len(categories_dict))
         for cat_id, cat_data in categories_dict.items():
             items_count = len(cat_data["items"])
-            cat_score = max(0, 100 - items_count * 7)
+            cat_score = category_score(items_count, cat_id)
             cat_data["score"] = cat_score
-            total_score += cat_score
 
             if cat_id in self.kpi_cards:
                 kpi = self.kpi_cards[cat_id]
                 sub_text = f"{items_count} problème(s)" if items_count > 0 else "Conforme"
                 kpi.update_pct(cat_score, sub_text)
 
-        score_global = int(total_score / cat_count)
+        score_global = score_global_from_categories(categories_dict)
         self.score_badge.setText(tr("Score : %1 / 100", score_global))
         self.score_badge.setStyleSheet(
             f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER}; border-radius: 9999px; padding: 4px 14px;"
