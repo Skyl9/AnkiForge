@@ -4153,6 +4153,133 @@ class MCPToolRegistry:
             )
 
     @staticmethod
+    def get_album_ocr_context(
+        document_id: int,
+        page_ids: list[int] | None = None,
+        confirm_vision: bool = False,
+    ) -> str:
+        """Expose le contexte OCR par planche d'un album pour transcription par un agent externe.
+
+        Garde-fou Vision : l'outil est rejeté si ``confirm_vision`` est faux, car l'agent
+        externe doit déclarer explicitement disposer d'une capacité VLM/Vision avant de
+        transcrire les planches. Le document cible doit impérativement être de type ``album``.
+        """
+        try:
+            if not confirm_vision:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": "Garde-fou Vision : l'agent externe doit déclarer explicitement disposer d'une capacité Vision (confirm_vision=True) avant de transcrire les planches d'album.",
+                    },
+                    ensure_ascii=False,
+                )
+
+            doc: DocumentModel | None = DocumentModel.get_or_none((DocumentModel.id == int(document_id)) & (DocumentModel.file_type == "album"))
+            if not doc:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Album #{document_id} introuvable ou le document n'est pas de type album.",
+                    },
+                    ensure_ascii=False,
+                )
+
+            page_query = DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number.asc())
+            if page_ids:
+                valid_ids = [int(pid) for pid in page_ids if pid]
+                if valid_ids:
+                    page_query = page_query.where(DocumentPageModel.id.in_(valid_ids))
+
+            plates = list(page_query)
+            plates_context: list[dict[str, Any]] = []
+            for p in plates:
+                plate_media = p.media
+                has_ocr = bool(p.ocr_text and p.ocr_text.strip())
+                plates_context.append(
+                    {
+                        "page_id": p.id,
+                        "page_number": p.page_number,
+                        "rotation": p.rotation,
+                        "status": p.status,
+                        "media_filename": plate_media.filename if plate_media else None,
+                        "media_id": plate_media.id if plate_media else None,
+                        "has_ocr": has_ocr,
+                        "ocr_text": p.ocr_text or "",
+                        "besoin_transcription": not has_ocr,
+                    }
+                )
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "document_id": doc.id,
+                    "title": doc.title,
+                    "total_plates": len(plates_context),
+                    "plates": plates_context,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except Exception as e:
+            logger.exception("Erreur get_album_ocr_context : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la récupération du contexte OCR de l'album : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
+    def set_album_page_ocr(
+        page_id: int,
+        corrected_text: str,
+        agent_external: bool = False,
+    ) -> str:
+        """Enregistre le texte transcrit d'une planche d'album et émet une mutation MCP tracée."""
+        try:
+            from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+
+            plate: DocumentPageModel | None = DocumentPageModel.get_or_none(DocumentPageModel.id == int(page_id))
+            if not plate:
+                return json.dumps(
+                    {"status": "error", "message": f"Planche #{page_id} introuvable."},
+                    ensure_ascii=False,
+                )
+
+            previous_text = plate.ocr_text or ""
+            plate.ocr_text = corrected_text
+            plate.save()
+
+            _notify_mcp_mutation(
+                {
+                    "type": "plate_ocr_update",
+                    "mutation_type": "document_update",
+                    "page_id": plate.id,
+                    "page_number": plate.page_number,
+                    "document_id": plate.document_id,
+                    "agent_external": agent_external,
+                    "previous_ocr_text_length": len(previous_text),
+                    "new_ocr_text_length": len(corrected_text),
+                }
+            )
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "page_id": plate.id,
+                    "page_number": plate.page_number,
+                    "document_id": plate.document_id,
+                    "ocr_text_length": len(corrected_text),
+                    "agent_external": agent_external,
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur set_album_page_ocr : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de l'enregistrement de l'OCR de planche : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
     def trigger_manual_backup(reason: str = "") -> str:
         """Déclenche un instantané de sécurité atomique SQLite horodaté de la collection dans le profil actif."""
         try:
@@ -5117,6 +5244,48 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "corrected_text": {"type": "string", "description": "Texte corrigé pour la planche"},
                 },
                 "required": ["plate_id", "corrected_text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_album_ocr_context",
+            "description": "Contexte OCR par planche d'un album pour transcription par agent externe. Rejette si confirm_vision est faux (garde-fou Vision).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "Identifiant du document album cible"},
+                    "page_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "Identifiants des planches à cibler (optionnel, toutes les planches si omis)",
+                    },
+                    "confirm_vision": {
+                        "type": "boolean",
+                        "description": "Déclaration explicite de capacité Vision/VLM de l'agent externe (requis, défaut: false)",
+                    },
+                },
+                "required": ["document_id", "confirm_vision"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_album_page_ocr",
+            "description": "Enregistre le texte transcrit d'une planche d'album et émet une mutation MCP tracée.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "page_id": {"type": "integer", "description": "ID de la planche (DocumentPageModel) à mettre à jour"},
+                    "corrected_text": {"type": "string", "description": "Texte transcrit pour la planche"},
+                    "agent_external": {
+                        "type": "boolean",
+                        "description": "Indique que l'enregistrement provient d'un agent externe (défaut: false)",
+                    },
+                },
+                "required": ["page_id", "corrected_text"],
             },
         },
     },

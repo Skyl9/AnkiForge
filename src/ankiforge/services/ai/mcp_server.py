@@ -2003,6 +2003,39 @@ def correct_plate_ocr(
 
 
 @mcp.tool()
+def get_album_ocr_context(
+    document_id: int,
+    page_ids: list[int] | None = None,
+    confirm_vision: bool = False,
+) -> str:
+    """Expose le contexte OCR par planche d'un album pour transcription par un agent externe.
+
+    Garde-fou Vision : l'outil est rejeté si confirm_vision est faux, car l'agent
+    externe doit déclarer explicitement disposer d'une capacité VLM/Vision.
+    Le document cible doit impérativement être de type album.
+    """
+    return MCPToolRegistry.get_album_ocr_context(
+        document_id=document_id,
+        page_ids=page_ids,
+        confirm_vision=confirm_vision,
+    )
+
+
+@mcp.tool()
+def set_album_page_ocr(
+    page_id: int,
+    corrected_text: str,
+    agent_external: bool = False,
+) -> str:
+    """Enregistre le texte transcrit d'une planche d'album et émet une mutation MCP tracée."""
+    return MCPToolRegistry.set_album_page_ocr(
+        page_id=page_id,
+        corrected_text=corrected_text,
+        agent_external=agent_external,
+    )
+
+
+@mcp.tool()
 def trigger_manual_backup(reason: str = "") -> str:
     """Déclenche un instantané de sécurité atomique SQLite horodaté de la collection dans le profil actif."""
     return MCPToolRegistry.trigger_manual_backup(reason=reason)

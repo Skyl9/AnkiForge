@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from typing import Any
 
 import pytest
 
@@ -25,6 +26,11 @@ from ankiforge.services.ai.mcp_tool_registry import (
 )
 
 pytestmark = pytest.mark.integration
+
+
+def _extract_text(res: Any) -> str:
+    """Helper canonique d'extraction de texte FastMCP conformément aux règles d'ingénierie."""
+    return str(res.content[0].text) if hasattr(res, "content") and res.content else str(res)
 
 
 @pytest.fixture
@@ -239,6 +245,177 @@ def test_get_album_plates_not_found():
 
 
 # =====================================================================
+# TESTS OUTILS OCR ALBUM (AGENT EXTERNE)
+# =====================================================================
+
+
+def test_get_album_ocr_context_reject_without_vision(album_dataset):
+    """Vérifie le garde-fou Vision : confirm_vision faux rejette l'appel."""
+    res = MCPToolRegistry.get_album_ocr_context(
+        document_id=album_dataset["album1"].id,
+        confirm_vision=False,
+    )
+    data = json.loads(res)
+    assert data["status"] == "error"
+    assert "Vision" in data["message"]
+    assert "confirm_vision" in data["message"]
+
+
+def test_get_album_ocr_context_not_album_rejected(album_dataset):
+    """Vérifie qu'un document non album est rejeté."""
+    res = MCPToolRegistry.get_album_ocr_context(
+        document_id=album_dataset["doc_pdf"].id,
+        confirm_vision=True,
+    )
+    data = json.loads(res)
+    assert data["status"] == "error"
+    assert "album" in data["message"].lower()
+
+
+def test_get_album_ocr_context_success(album_dataset):
+    """Vérifie l'exposition du contexte OCR par planche avec confirm_vision vrai."""
+    album = album_dataset["album1"]
+    res = MCPToolRegistry.get_album_ocr_context(
+        document_id=album.id,
+        confirm_vision=True,
+    )
+    data = json.loads(res)
+    assert data["status"] == "success"
+    assert data["document_id"] == album.id
+    assert data["title"] == album.title
+    assert data["total_plates"] == 3
+
+    plates = data["plates"]
+    assert len(plates) == 3
+    # Tri par numéro de page
+    assert [p["page_number"] for p in plates] == [1, 2, 3]
+
+    p1 = plates[0]
+    assert p1["page_id"] == album_dataset["pages"][0].id
+    assert p1["rotation"] == 0
+    assert p1["status"] == "ready"
+    assert p1["has_ocr"] is True
+    assert p1["besoin_transcription"] is False
+    assert p1["ocr_text"] == "Titre : Le Crâne Humain. Os frontal et pariétal."
+
+    p2 = plates[1]
+    assert p2["page_id"] == album_dataset["pages"][1].id
+    assert p2["rotation"] == 90
+    assert p2["status"] == "stale"
+    assert p2["has_ocr"] is False
+    assert p2["besoin_transcription"] is True
+    assert p2["ocr_text"] == ""
+
+    # Média lié présent
+    assert p1["media_filename"] is not None
+    assert str(p1["media_filename"]).endswith(".png")
+
+
+def test_get_album_ocr_context_page_ids_filter(album_dataset):
+    """Vérifie le filtrage ciblé par page_ids."""
+    p1 = album_dataset["pages"][0]
+    p3 = album_dataset["pages"][2]
+    res = MCPToolRegistry.get_album_ocr_context(
+        document_id=album_dataset["album1"].id,
+        page_ids=[p1.id, p3.id],
+        confirm_vision=True,
+    )
+    data = json.loads(res)
+    assert data["status"] == "success"
+    assert data["total_plates"] == 2
+    assert [p["page_number"] for p in data["plates"]] == [1, 3]
+
+
+def test_set_album_page_ocr_success(album_dataset):
+    """Vérifie l'enregistrement du texte transcrit et la mutation tracée."""
+    page = album_dataset["pages"][1]  # ocr_text vide initialement
+    corrected = "Transcription VLM de la planche 2 : os maxillaire."
+
+    res = MCPToolRegistry.set_album_page_ocr(
+        page_id=page.id,
+        corrected_text=corrected,
+        agent_external=True,
+    )
+    data = json.loads(res)
+    assert data["status"] == "success"
+    assert data["page_id"] == page.id
+    assert data["page_number"] == page.page_number
+    assert data["document_id"] == page.document_id
+    assert data["ocr_text_length"] == len(corrected)
+    assert data["agent_external"] is True
+
+    # Vérification en base (rechargement via get_by_id, jamais refresh_from_db)
+    reloaded = DocumentPageModel.get_by_id(page.id)
+    assert reloaded.ocr_text == corrected
+
+
+def test_set_album_page_ocr_unknown_page():
+    """Vérifie le rejet d'une planche inexistante."""
+    res = MCPToolRegistry.set_album_page_ocr(page_id=999999, corrected_text="Texte")
+    data = json.loads(res)
+    assert data["status"] == "error"
+    assert "introuvable" in data["message"].lower()
+
+
+def test_set_album_page_ocr_agent_external_flag_false(album_dataset):
+    """Vérifie le drapeau agent_external par défaut à False."""
+    page = album_dataset["pages"][0]
+    res = MCPToolRegistry.set_album_page_ocr(page_id=page.id, corrected_text="Texte par défaut")
+    data = json.loads(res)
+    assert data["status"] == "success"
+    assert data["agent_external"] is False
+
+
+# =====================================================================
+# TESTS INVOCATION DIRECTE FASTMCP (OUTILS OCR ALBUM)
+# =====================================================================
+
+
+def test_fastmcp_album_ocr_tools_registered_and_invocable(album_dataset):
+    """Vérifie que les 2 nouveaux outils OCR album sont déclarés et invocables via FastMCP."""
+    album = album_dataset["album1"]
+    page = album_dataset["pages"][1]
+
+    async def _run() -> None:
+        tools = await mcp.list_tools()
+        tool_names = {t.name for t in tools}
+        assert "get_album_ocr_context" in tool_names
+        assert "set_album_page_ocr" in tool_names
+
+        # Rejet sans confirm_vision
+        rej_res = await mcp.call_tool(
+            "get_album_ocr_context",
+            arguments={"document_id": album.id, "confirm_vision": False},
+        )
+        rej_data = json.loads(_extract_text(rej_res))
+        assert rej_data["status"] == "error"
+
+        # Succès avec confirm_vision
+        ctx_res = await mcp.call_tool(
+            "get_album_ocr_context",
+            arguments={"document_id": album.id, "confirm_vision": True},
+        )
+        ctx_data = json.loads(_extract_text(ctx_res))
+        assert ctx_data["status"] == "success"
+        assert ctx_data["total_plates"] == 3
+
+        # Écriture OCR par agent externe
+        set_res = await mcp.call_tool(
+            "set_album_page_ocr",
+            arguments={
+                "page_id": page.id,
+                "corrected_text": "Texte via FastMCP agent externe",
+                "agent_external": True,
+            },
+        )
+        set_data = json.loads(_extract_text(set_res))
+        assert set_data["status"] == "success"
+        assert set_data["agent_external"] is True
+
+    asyncio.run(_run())
+
+
+# =====================================================================
 # TESTS OUTILS DAG PIPELINES
 # =====================================================================
 
@@ -312,16 +489,18 @@ def test_mcp_tool_registry_albums_and_dag_dispatch(album_dataset, dag_dataset):
 
 
 def test_default_consultant_tools_schemas():
-    """Vérifie que les 4 outils sont bien déclarés dans DEFAULT_CONSULTANT_TOOLS."""
+    """Vérifie que les 6 outils albums/DAG/OCR sont bien déclarés dans DEFAULT_CONSULTANT_TOOLS."""
     names = [t["function"]["name"] for t in DEFAULT_CONSULTANT_TOOLS]
     assert "list_albums" in names
     assert "get_album_plates" in names
+    assert "get_album_ocr_context" in names
+    assert "set_album_page_ocr" in names
     assert "list_pipelines" in names
     assert "get_pipeline_run" in names
 
 
 def test_fastmcp_tools_exposed():
-    """Vérifie que le serveur FastMCP expose les 4 outils."""
+    """Vérifie que le serveur FastMCP expose les 6 outils albums/DAG/OCR."""
 
     async def _check():
         tools = await mcp.list_tools()
@@ -330,5 +509,7 @@ def test_fastmcp_tools_exposed():
     tool_names = asyncio.run(_check())
     assert "list_albums" in tool_names
     assert "get_album_plates" in tool_names
+    assert "get_album_ocr_context" in tool_names
+    assert "set_album_page_ocr" in tool_names
     assert "list_pipelines" in tool_names
     assert "get_pipeline_run" in tool_names
