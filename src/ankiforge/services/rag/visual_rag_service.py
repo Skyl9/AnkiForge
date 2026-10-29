@@ -139,80 +139,95 @@ class VisualRAGService:
             logger.warning("Aucune page DocumentPageModel trouvée pour le document ID=%s", document.id)
             return []
 
-        total_pages = DocumentPageModel.select().where(DocumentPageModel.document == document).count()
+        total_pages = len(pages)  # pages déjà en liste : pas de requête .count() redondante
         chunks: list[DocumentChunkModel] = []
         aggregated_pages_content: list[str] = []
 
-        # Audits "writes-outside-atomic" : les chunks de pages et le contenu agrégé du document sont
-        # propagés dans UNE seule transaction (all-or-nothing). En cas d'interruption, on ne laisse
-        # jamais un état incohérent (chunks écrits mais document agrégé obsolète, ou l'inverse).
+        # Requête groupée : précharger tous les chunks existants du document en une seule
+        # requête, indexés par numéro de page (élimine le N+1 de la boucle).
+        existing_chunks: dict[int, DocumentChunkModel] = {}
+        for chunk in DocumentChunkModel.select().where((DocumentChunkModel.document == document) & (DocumentChunkModel.page_number.in_([p.page_number for p in pages]))):
+            page_num = chunk.page_number
+            if page_num is not None:
+                existing_chunks[page_num] = chunk
+
+        # Phase 1 : décrire les planches nécessitant un recalcul HORS transaction SQLite
+        # (les appels VLM sont des appels réseau lents qui ne doivent jamais verrouiller
+        # la base). Les contenus sont mis en mémoire pour écriture groupée ci-dessous.
+        page_descriptions: dict[int, str] = {}
+        page_chunk_contents: dict[int, str] = {}
+        page_content_hashes: dict[int, str] = {}
+        pages_need_ocr_update: dict[int, str] = {}
+
+        for idx, page in enumerate(pages):
+            page_num = page.page_number
+            if progress_callback:
+                progress_callback(idx + 1, total_pages, f"Analyse sémantique de la page {page_num}/{total_pages}...")
+
+            existing_chunk = existing_chunks.get(page_num)
+            has_dense_content = bool(existing_chunk and existing_chunk.content and len(existing_chunk.content.strip()) > 40)
+
+            if has_dense_content and not force_recompute and existing_chunk:
+                page_chunk_contents[page_num] = existing_chunk.content
+                continue
+
+            # Appel VLM hors transaction (pas de verrou BDD prolongé pendant l'appel réseau).
+            dense_desc = self._describe_page(page, provider_override=provider_override)
+
+            text_parts: list[str] = []
+            if page.ocr_text and page.ocr_text.strip():
+                text_parts.append(f"#### Texte & Transcription :\n{page.ocr_text.strip()}")
+            if dense_desc and dense_desc != page.ocr_text:
+                text_parts.append(f"#### Analyse Visuelle & Schémas :\n{dense_desc}")
+
+            combined_body = "\n\n".join(text_parts) if text_parts else (dense_desc or f"Page {page_num}")
+            chunk_content = f"<!-- PAGE: {page_num} -->\n### Page {page_num}\n\n{combined_body}\n"
+            content_hash = hashlib.sha256(chunk_content.encode("utf-8")).hexdigest()
+
+            page_descriptions[page_num] = dense_desc
+            page_chunk_contents[page_num] = chunk_content
+            page_content_hashes[page_num] = content_hash
+            if not page.ocr_text or not page.ocr_text.strip():
+                pages_need_ocr_update[page_num] = dense_desc
+
+        # Phase 2 : toutes les écritures BDD dans une unique transaction (all-or-nothing).
         with db.atomic():
             for idx, page in enumerate(pages):
                 page_num = page.page_number
-                if progress_callback:
-                    progress_callback(idx + 1, total_pages, f"Analyse sémantique de la page {page_num}/{total_pages}...")
+                existing_chunk = existing_chunks.get(page_num)
+                chunk_content = page_chunk_contents.get(page_num, "")
 
-                existing_chunk = DocumentChunkModel.select().where((DocumentChunkModel.document == document) & (DocumentChunkModel.page_number == page_num)).first()
-
-                has_dense_content = bool(existing_chunk and existing_chunk.content and len(existing_chunk.content.strip()) > 40)
-                chunk_content = ""
-
-                if has_dense_content and not force_recompute and existing_chunk:
-                    chunk_content = existing_chunk.content
+                if existing_chunk and page_num not in page_descriptions:
+                    # Contenu déjà en cache, pas de réécriture.
+                    chunk_model = existing_chunk
+                elif existing_chunk:
+                    existing_chunk.content = chunk_content
+                    existing_chunk.content_hash = page_content_hashes[page_num]
+                    existing_chunk.media = page.media
+                    existing_chunk.bounding_box = page.crop_data
+                    existing_chunk.heading_path = f"Page {page_num}"
+                    existing_chunk.save()
                     chunk_model = existing_chunk
                 else:
-                    # La planche est décrite dans son orientation propre, par la couture.
-                    dense_desc = self._describe_page(page, provider_override=provider_override)
+                    chunk_model = DocumentChunkModel.create(
+                        document=document,
+                        chunk_index=idx,
+                        content=chunk_content,
+                        content_hash=page_content_hashes[page_num],
+                        page_number=page_num,
+                        heading_path=f"Page {page_num}",
+                        media=page.media,
+                        bounding_box=page.crop_data,
+                    )
 
-                    text_parts: list[str] = []
-                    if page.ocr_text and page.ocr_text.strip():
-                        text_parts.append(f"#### Texte & Transcription :\n{page.ocr_text.strip()}")
-                    if dense_desc and dense_desc != page.ocr_text:
-                        text_parts.append(f"#### Analyse Visuelle & Schémas :\n{dense_desc}")
-
-                    combined_body = "\n\n".join(text_parts) if text_parts else (dense_desc or f"Page {page_num}")
-                    chunk_content = f"<!-- PAGE: {page_num} -->\n### Page {page_num}\n\n{combined_body}\n"
-
-                    content_hash = hashlib.sha256(chunk_content.encode("utf-8")).hexdigest()
-
-                    if existing_chunk:
-                        existing_chunk.content = chunk_content
-                        existing_chunk.content_hash = content_hash
-                        existing_chunk.media = page.media
-                        existing_chunk.bounding_box = page.crop_data
-                        existing_chunk.heading_path = f"Page {page_num}"
-                        existing_chunk.save()
-                        chunk_model = existing_chunk
-                    else:
-                        chunk_model = DocumentChunkModel.create(
-                            document=document,
-                            chunk_index=idx,
-                            content=chunk_content,
-                            content_hash=content_hash,
-                            page_number=page_num,
-                            heading_path=f"Page {page_num}",
-                            media=page.media,
-                            bounding_box=page.crop_data,
-                        )
-
-                    if not page.ocr_text or not page.ocr_text.strip():
-                        page.ocr_text = dense_desc
-                        page.save()
+                if page_num in pages_need_ocr_update:
+                    page.ocr_text = pages_need_ocr_update[page_num]
+                    page.save()
 
                 chunks.append(chunk_model)
                 aggregated_pages_content.append(chunk_content)
 
-            # Le contenu agrégé est reconstruit depuis **tous** les fragments persistés, pas
-            # seulement ceux de ce passage : un recalcul ciblé ne doit pas tronquer l'album
-            # aux planches qu'il vient de rafraîchir. Même règle que l'invalidation de rotation.
             from ankiforge.services.cards.album_service import reaggregate_document_content
-
-            # L'estampillage de version est **avant** la reconstruction, et l'agrégat est la
-            # dernière écriture de la transaction. Peewee réécrit toutes les colonnes à
-            # chaque `save()` : un `mark_document_version(document)` postérieur, appelé sur
-            # l'objet en mémoire — dont `content` est la copie vide d'avant ce passage —
-            # écrasait l'agrégat fraîchement calculé. Un album décrit depuis la base se
-            # retrouvait donc sans contenu, silencieusement.
             from ankiforge.services.reindex_service import mark_document_version
 
             document.total_pages = total_pages
