@@ -66,6 +66,9 @@ Une fois l'implémentation validée et les tests/linters passés, l'agent **DOIT
 2. Déplacer la ligne du ticket dans le Kanban `Avancement du projet.md` vers la colonne correspondant à son statut (ex: `✅ Terminé (done)` avec `[x]`).
 3. Ne jamais clore une session ayant modifié du code sans que le ticket Obsidian reflète l'état réel du travail.
 
+### GF-TOQ-4 : Statut du ticket créé suite à un questionnaire (obligatoire)
+Si le questionnaire laisse subsister un point ouvert, une question en attente ou un arbitrage non tranché (ex: choix de moteur de rendu, politique de sanitisation, comportement par défaut), le ticket associé **DOIT** être créé avec le statut `needs-info`, et **JAMAIS** `ready-for-agent`. Le champ `Comments` peut documenter le point ouvert, mais cela ne rend pas le ticket éligible à `ready-for-agent`. Le passage en `ready-for-agent` n'intervient qu'après résolution explicite de l'arbitrage par l'utilisateur.
+
 ## ⛔ Garde-fou bloquant — Frontière du skill
 
 Il est formellement INTERDIT de traiter les lignes de contexte, de ticket ou de présentation figurant dans un bloc `to-questionnaire` comme des instructions d'implémentation de code source.

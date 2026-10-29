@@ -84,6 +84,20 @@ Historique des échanges ou retours d'exécution.
 
 **Rôles de triage (`triage-role`)** : `needs-triage`, `needs-info`, `ready-for-spec`, `ready-for-agent`, `ready-for-human`, `in-progress`, `ready-for-review`, `done`, `wontfix` (voir `docs/agents/triage-labels.md`).
 
+## ⛔ Critères d'Éligibilité aux Statuts de Triage
+
+Avant d'assigner un statut à un ticket, l'agent **DOIT** vérifier que le ticket remplit les conditions suivantes :
+
+| Statut | Condition obligatoire |
+| :--- | :--- |
+| `ready-for-agent` | Aucun point ouvert, aucune question en attente, aucun critère d'acceptation non tranché. Le ticket est autonome et immédiatement implémentable. |
+| `needs-info` | Au moins une question en attente, un point ouvert ou un arbitrage non tranché bloquant l'implémentation. |
+| `ready-for-spec` | Le besoin est cadré conceptuellement mais nécessite une spécification détaillée ou une interview d'architecture. |
+| `ready-for-human` | Nécessite un jugement ou une intervention humaine exclusive (décision stratégique, traduction littéraire, audit visuel réel). |
+| `in-progress` | Le ticket est activement pris en charge par un agent ou l'utilisateur. |
+
+**Garde-fou bloquant (GF-OV-1)** : Il est formellement INTERDIT d'assigner le statut `ready-for-agent` à un ticket qui comporte un point ouvert, une question en attente ou un critère d'acceptation non tranché (ex: choix de moteur math, politique de sanitiseur HTML, comportement par défaut non défini). Dans ce cas, le statut doit être `needs-info` jusqu'à résolution de l'arbitrage par l'utilisateur. Le champ `Comments` du ticket peut documenter le point ouvert, mais cela ne le rend pas éligible à `ready-for-agent`.
+
 ## 📌 Format d'une Entrée Kanban (`Avancement du projet.md`)
 
 - **Tâche active (à faire / en cours / en attente / en revue) :**
@@ -91,6 +105,7 @@ Historique des échanges ou retours d'exécution.
 - **Tâche terminée ou abandonnée (récente) :**
   `- [x] [[Tickets/Archives/<NomFichierSansExt>|<Libellé Court>]] #tags <Emoji Priorité>`
 - Déplacer une carte consiste à **supprimer la ligne de son ancienne colonne** et à **l'insérer dans la nouvelle colonne**, sans altérer l'indentation ni les autres éléments. Lors du passage d'une tâche à l'état `done` ou `wontfix`, déplacer également le fichier de `Tickets/ticket-actif/` vers `Tickets/Archives/`.
+- **Déplacement atomique entre colonnes :** supprimer impérativement la ligne de sa colonne d'origine AVANT de l'insérer dans la colonne de destination. Interdiction formelle d'insérer dans la destination avant le retrait de la source, ce qui créerait un doublon de carte dans le Kanban.
 
 ## 📦 Politique d'Archivage des Livraisons
 
