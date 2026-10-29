@@ -1226,6 +1226,28 @@ class AIManager:
                 logger.debug("Échec du chargement de la clé via SettingsService : %s", err)
 
         timeout = _resolve_generation_timeout_seconds()
+
+        # Le repli silencieux sur MockProvider est strictement réservé :
+        # - au fournisseur explicite "mock" ;
+        # - à l'environnement de test (ANKIFORGE_ENV == "testing").
+        # En toute autre situation (production, développement), l'absence de fournisseur
+        # ou de clé valide lève une exception explicite — jamais de texte factice écrit
+        # en base à l'insu de l'utilisateur.
+        from ankiforge.utils.environment import is_testing
+
+        def _mock_or_raise(provider_label: str, detail: str) -> LLMProvider:
+            """Retourne MockProvider uniquement si provider=="mock" ou en mode test, lève sinon."""
+            if p_name == "mock" or is_testing():
+                logger.warning("Repli MockProvider pour %s (%s) : %s", p_name, model_id, detail)
+                return MockProvider()
+            logger.error(
+                "Aucun fournisseur IA disponible pour %s (modèle '%s') : %s",
+                p_name,
+                model_id,
+                detail,
+            )
+            raise RuntimeError(f"Aucun fournisseur IA disponible pour '{provider_name}' (modèle '{model_id}') : {detail}")
+
         try:
             if p_name == "ollama":
                 return OllamaProvider(
@@ -1237,8 +1259,7 @@ class AIManager:
                 )
             elif p_name == "gemini":
                 if not key:
-                    logger.warning("Clé API Gemini absente pour le modèle %s, repli sur MockProvider.", model_id)
-                    return MockProvider()
+                    return _mock_or_raise("gemini", f"Clé API Gemini absente pour le modèle {model_id}")
                 from ankiforge.services.ai.gemini_service import GeminiService
 
                 return GeminiService(
@@ -1250,8 +1271,7 @@ class AIManager:
                 )
             elif p_name == "groq":
                 if not key and not os.environ.get("GROQ_API_KEY"):
-                    logger.warning("Clé API Groq absente pour le modèle %s, repli sur MockProvider.", model_id)
-                    return MockProvider()
+                    return _mock_or_raise("groq", f"Clé API Groq absente pour le modèle {model_id}")
                 return GroqProvider(
                     api_key=key,
                     model_name=model_id,
@@ -1262,8 +1282,7 @@ class AIManager:
                 )
             elif p_name == "openai":
                 if not key and not os.environ.get("OPENAI_API_KEY"):
-                    logger.warning("Clé API OpenAI absente pour le modèle %s, repli sur MockProvider.", model_id)
-                    return MockProvider()
+                    return _mock_or_raise("openai", f"Clé API OpenAI absente pour le modèle {model_id}")
                 return OpenAICompatibleProvider(
                     base_url="https://api.openai.com/v1",
                     model_name=model_id,
@@ -1276,8 +1295,7 @@ class AIManager:
                 )
             elif p_name == "openrouter":
                 if not key and not os.environ.get("OPENROUTER_API_KEY"):
-                    logger.warning("Clé API OpenRouter absente pour le modèle %s, repli sur MockProvider.", model_id)
-                    return MockProvider()
+                    return _mock_or_raise("openrouter", f"Clé API OpenRouter absente pour le modèle {model_id}")
                 return OpenRouterProvider(
                     api_key=key,
                     model_name=model_id,
@@ -1288,8 +1306,7 @@ class AIManager:
                 )
             elif p_name == "opencode":
                 if not key and not os.environ.get("OPENCODE_API_KEY"):
-                    logger.warning("Clé API OpenCode absente pour le modèle %s, repli sur MockProvider.", model_id)
-                    return MockProvider()
+                    return _mock_or_raise("opencode", f"Clé API OpenCode absente pour le modèle {model_id}")
                 return OpenCodeProvider(
                     api_key=key,
                     model_name=model_id,
@@ -1300,8 +1317,7 @@ class AIManager:
                 )
             elif p_name == "anthropic":
                 if not key and not os.environ.get("ANTHROPIC_API_KEY"):
-                    logger.warning("Clé API Anthropic absente pour le modèle %s, repli sur MockProvider.", model_id)
-                    return MockProvider()
+                    return _mock_or_raise("anthropic", f"Clé API Anthropic absente pour le modèle {model_id}")
                 return AnthropicProvider(
                     api_key=key,
                     model_name=model_id,
@@ -1311,10 +1327,18 @@ class AIManager:
                     default_temperature=default_temperature,
                 )
         except Exception as err:
-            logger.warning("Échec de création du provider %s (%s) : %s. Utilisation de MockProvider.", p_name, model_id, err)
-            return MockProvider()
+            if p_name == "mock" or is_testing():
+                logger.warning("Échec de création du provider %s (%s) : %s. Utilisation de MockProvider.", p_name, model_id, err)
+                return MockProvider()
+            logger.exception("Échec de création du provider %s (%s) : %s", p_name, model_id, err)
+            raise
 
-        return MockProvider()
+        # Fournisseur inconnu : MockProvider uniquement en mode test / provider explicite "mock".
+        if p_name == "mock" or is_testing():
+            logger.warning("Fournisseur IA inconnu '%s' (modèle '%s'), repli sur MockProvider.", p_name, model_id)
+            return MockProvider()
+        logger.error("Fournisseur IA inconnu ou non configuré : '%s' (modèle '%s')", p_name, model_id)
+        raise ValueError(f"Fournisseur IA inconnu ou non configuré : '{provider_name}' (modèle '{model_id}')")
 
     def reload_provider(self) -> None:
         """Recharge l'IA active depuis la base de données (sélectionne le modèle par défaut ou le premier par sort_order)."""
