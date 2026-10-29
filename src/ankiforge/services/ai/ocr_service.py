@@ -466,14 +466,18 @@ class OCRService:
                     raise RuntimeError("La transcription locale Apple Vision a échoué ou a dépassé le délai imparti.")
                 raise RuntimeError("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
 
-            if isinstance(resolved, LLMProvider):
+            if isinstance(resolved, LLMProvider) and not isinstance(resolved, MockProvider):
                 return self.transcribe_with_vlm(
                     image_path,
                     resolved,
                     custom_instructions=inst or "",
                     temperature=temp,
                 )
-            return MockProvider().generate("", "", response_format="text")
+            # Aucun fournisseur de vision réel n'a pu être résolu (MockProvider silencieux
+            # renvoyé par resolve_provider_for_category ou valeur inattendue) : on refuse
+            # d'écrire un texte factice en base et on lève une erreur explicite.
+            logger.error("Aucun fournisseur de vision résolu pour la catégorie '%s'.", effective_model_id)
+            raise RuntimeError(f"Aucun fournisseur de vision disponible pour la catégorie '{effective_model_id}'.")
 
         logger.error("Catégorie de vision inconnue ou non configurée : '%s'", effective_model_id)
         raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{effective_model_id}'")
@@ -517,48 +521,60 @@ class OCRService:
             raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{effective_model_id}'")
 
         model_db = DocumentPageModel._meta.database
-        with model_db.atomic():
-            page = DocumentPageModel.get_by_id(page_id)
-            album_service = AlbumService(media_manager=self.media_manager)
-            rendered = album_service.render_page_image(page)
 
-            temp_path: Path | None = None
-            try:
-                suffix = album_service.page_media_path(page).suffix or ".png"
-                with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
-                    save_rendered_page(rendered, handle.name, suffix)
-                    temp_path = Path(handle.name)
+        # 1. Lecture de la planche et rendu de l'image (lecture BDD + I/O fichier,
+        #    aucun appel réseau, donc hors transaction).
+        page = DocumentPageModel.get_by_id(page_id)
+        album_service = AlbumService(media_manager=self.media_manager)
+        rendered = album_service.render_page_image(page)
 
+        temp_path: Path | None = None
+        try:
+            suffix = album_service.page_media_path(page).suffix or ".png"
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+                save_rendered_page(rendered, handle.name, suffix)
+                temp_path = Path(handle.name)
+
+            # 2. Marquer "ocr_running" : écriture BDD seule, aucune opération réseau.
+            with model_db.atomic():
+                page = DocumentPageModel.get_by_id(page_id)
                 original_status = page.status
                 page.status = "ocr_running"
                 page.save()
 
-                try:
-                    text = self.transcribe_image(
-                        temp_path,
-                        model_id=effective_model_id,
-                        provider=provider,
-                        data_type=data_type,
-                        provider_override=provider_override,
-                        custom_instructions=custom_instructions,
-                        temperature=temperature,
-                        thinking_budget=thinking_budget,
-                    )
-                except Exception:
+            # 3. Appel réseau VLM : HORS transaction SQLite (évite le verrou prolongé
+            #    de la base pendant l'appel IA lent).
+            try:
+                text = self.transcribe_image(
+                    temp_path,
+                    model_id=effective_model_id,
+                    provider=provider,
+                    data_type=data_type,
+                    provider_override=provider_override,
+                    custom_instructions=custom_instructions,
+                    temperature=temperature,
+                    thinking_budget=thinking_budget,
+                )
+            except Exception:
+                with model_db.atomic():
+                    page = DocumentPageModel.get_by_id(page_id)
                     page.status = original_status
                     page.save()
-                    raise
-            finally:
-                rendered.close()
-                if temp_path is not None and temp_path.exists():
-                    temp_path.unlink(missing_ok=True)
+                raise
+        finally:
+            rendered.close()
+            if temp_path is not None and temp_path.exists():
+                temp_path.unlink(missing_ok=True)
 
+        # 4. Enregistrer le résultat : écriture BDD seule, hors appel réseau.
+        with model_db.atomic():
+            page = DocumentPageModel.get_by_id(page_id)
             page.ocr_text = text
             page.status = "ready"
             page.save()
 
-            logger.info("Page ID %d (album %d, p.%d) transcrite (%d caractères)", page.id, page.document.id, page.page_number, len(text))
-            return page
+        logger.info("Page ID %d (album %d, p.%d) transcrite (%d caractères)", page.id, page.document.id, page.page_number, len(text))
+        return page
 
 
 def os_is_executable(path: Path) -> bool:
