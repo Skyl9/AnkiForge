@@ -6,7 +6,6 @@ entièrement découplées de toute session de chat conversationnel in-app.
 
 from __future__ import annotations
 
-import asyncio
 import datetime
 import json
 import logging
@@ -1024,7 +1023,7 @@ class MCPToolRegistry:
         """
         try:
             if patch_json and isinstance(patch_json, str) and patch_json.strip().startswith("patch_"):
-                return ConsultantToolRegistry.preview_and_apply_patch(patch_json.strip())
+                return MCPToolRegistry.preview_and_apply_patch(patch_json.strip())
 
             parsed_patch: dict[str, Any] = {}
             if patch_json and patch_json.strip():
@@ -1035,7 +1034,7 @@ class MCPToolRegistry:
                         if "patch_id" in parsed_patch and len(parsed_patch) <= 2:
                             p_id = str(parsed_patch.get("patch_id", "")).strip()
                             if p_id:
-                                return ConsultantToolRegistry.preview_and_apply_patch(p_id)
+                                return MCPToolRegistry.preview_and_apply_patch(p_id)
                 except Exception:
                     pass
 
@@ -2687,45 +2686,38 @@ class MCPToolRegistry:
 
     @staticmethod
     def invoke_mcp_agent(agent_name: str, message: str, conversation_history_json: str = "[]") -> str:
-        """Exécute une requête via un agent dédié avec son prompt et ses outils restreints."""
-        import concurrent.futures
+        """Exécute une requête via un agent dédié (exécuteur à un seul tour, sans état de session).
 
+        Le moteur de chat ReAct in-app a été retiré au profit du découplage MCP
+        (ADR 0034 / ADR 0043). Cette exécution est stateless : pas de mémoire de
+        conversation, pas de boucle d'outils multi-tours. L'historique est accepté
+        pour la compatibilité d'appel mais n'est pas réinjecté.
+        """
         agent = PersonaModel.get_or_none(PersonaModel.name == agent_name.strip())
         if not agent:
             return f"Erreur : L'agent dédié '{agent_name}' n'existe pas."
 
-        try:
-            history = json.loads(conversation_history_json) if isinstance(conversation_history_json, str) else conversation_history_json
-        except Exception:
-            history = []
+        if getattr(agent, "persona_type", "") != "mcp":
+            return f"Erreur : L'agent '{agent_name}' n'est pas un agent MCP dédié."
 
         llm_cfg = agent.llm_config or LLMConfigModel.select().first()
-        from ankiforge.services.ai.consultant_engine import ConsultantEngine
-
-        engine = ConsultantEngine(llm_config=llm_cfg, persona=agent)
-
-        async def _run() -> str:
-            full_response = ""
-            async for chunk in engine.chat_stream(user_query=message, history=history):
-                if chunk.get("type") == "token":
-                    full_response += str(chunk.get("content", ""))
-                elif chunk.get("type") == "full_response":
-                    full_response = str(chunk.get("content", ""))
-            return full_response
+        if llm_cfg is None:
+            return f"Erreur : aucune configuration LLM disponible pour l'agent '{agent_name}'."
 
         try:
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
+            from ankiforge.services.ai.flexible_service import AIManager
 
-            if loop and loop.is_running():
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    return pool.submit(asyncio.run, _run()).result(timeout=60)
-            else:
-                return asyncio.run(_run())
+            provider = AIManager.create_provider_from_config(llm_cfg)
         except Exception as e:
-            logger.error("Erreur invoke_mcp_agent : %s", e)
+            logger.error("Erreur création provider pour l'agent '%s' : %s", agent_name, e)
+            return f"Erreur lors de l'initialisation du fournisseur IA pour l'agent '{agent_name}' : {e}"
+
+        system_prompt = agent.system_prompt or "Tu es un agent dédié AnkiForge. Réponds de manière concise et pertinente."
+        try:
+            response = provider.generate(system_prompt=system_prompt, user_prompt=message, response_format="text")
+            return str(response)
+        except Exception as e:
+            logger.error("Erreur invoke_mcp_agent pour l'agent '%s' : %s", agent_name, e)
             return f"Erreur lors de l'exécution de l'agent '{agent_name}' : {e}"
 
     @staticmethod

@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel, StagedPatchModel
-from ankiforge.services.ai.consultant_engine import robust_json_loads
+from ankiforge.services.ai.mcp_tool_registry import robust_json_loads
 from ankiforge.services.ai.staged_patch_registry import staged_payload_of
 from ankiforge.ui.components import Badge, IconButton, SecondaryButton, StyledComboBox
 from ankiforge.ui.theme import DesignTokens
