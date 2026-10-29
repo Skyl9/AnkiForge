@@ -60,6 +60,10 @@ def parse_page_ranges(range_str: str, max_page: int) -> set[int]:
         if start > end:
             start, end = end, start
 
+        end = min(end, max_page)
+        if start > end:
+            continue
+
         for p in range(start, end + 1):
             if 1 <= p <= max_page:
                 valid_pages.add(p)

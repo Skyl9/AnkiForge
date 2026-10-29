@@ -543,11 +543,10 @@ class ModelCatalog:
         if key in CURATED_MODELS:
             return CURATED_MODELS[key]
 
-        # Recherche approximative par model_id seul
+        # Recherche approximative par model_id seul (correspondance exacte du suffixe modèle,
+        # sans appariement par sous-chaîne qui crée des faux positifs : `gpt-4` ne matche pas `gpt-4o`).
         for m_key, spec in CURATED_MODELS.items():
             if m_key.endswith(f":{model_id.lower()}"):
-                return spec
-            if spec.model_id.lower() in model_id.lower() or model_id.lower() in spec.model_id.lower():
                 return spec
 
         # Modèle inconnu / personnalisé : inférence intelligente basée sur le nom
@@ -589,8 +588,8 @@ class ModelCatalog:
             speed_rating="fast" if not is_thinking else "deliberate",
             quality_tier="reasoning" if is_thinking else ("flagship" if is_vision else "balanced"),
             is_free=is_free,
-            prompt_pricing=0.0 if is_free else 1.0,
-            completion_pricing=0.0 if is_free else 3.0,
+            prompt_pricing=0.0,
+            completion_pricing=0.0,
             recommended_tasks=tasks,
             ankiforge_use_case="Modèle configuré par l'utilisateur.",
             description=f"Modèle personnalisé {model_id} hébergé sur {provider}.",

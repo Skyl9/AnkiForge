@@ -24,6 +24,14 @@ def test_parse_page_ranges_invalid_or_empty() -> None:
     assert parse_page_ranges("15-20", max_page=10) == set()
 
 
+def test_parse_page_ranges_borne_avant_allocation_range() -> None:
+    """Un intervalle très grand est borné par max_page AVANT la construction du range (pas de DoS)."""
+    assert parse_page_ranges("1-999999", max_page=5) == {1, 2, 3, 4, 5}
+    assert parse_page_ranges("1-999999, 50-60", max_page=10) == {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    # Pas d'allocation mémoire démesurée : l'intervalle est tronqué, pas matérialisé en entier.
+    assert parse_page_ranges("1-1000000", max_page=1) == {1}
+
+
 def test_build_album_transcription_prompt_defaults() -> None:
     opts = AlbumTranscriptionOptions(
         scope_mode="all",

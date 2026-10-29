@@ -487,9 +487,14 @@ class TokenSrsFinancialService:
         new_cards = query.where(CardModel.ivl == 0).count()
         learning_cards = query.where((CardModel.ivl > 0) & (CardModel.ivl <= 21)).count()
 
-        # Token usage aggregation
+        # Token usage aggregation (périmètre global : TokenUsageModel n'est pas lié à un paquet,
+        # le numérateur de coût reste donc global pour rester cohérent avec le dénominateur).
         total_spent = TokenUsageModel.select(fn.SUM(TokenUsageModel.estimated_cost_usd)).scalar() or 0.0
         total_tokens = TokenUsageModel.select(fn.SUM(TokenUsageModel.total_tokens)).scalar() or 0
+
+        total_cards_all = CardModel.select().count()
+
+        avg_cost = total_spent / total_cards_all if total_cards_all > 0 else 0.0
 
         # Models usage
         models_query = TokenUsageModel.select(TokenUsageModel.model_id, fn.SUM(TokenUsageModel.estimated_cost_usd).alias("cost"), fn.SUM(TokenUsageModel.total_tokens).alias("tokens")).group_by(
@@ -550,7 +555,7 @@ class TokenSrsFinancialService:
                 {"task": "3. Audit Linter Ergonomique & Live KaTeX", "cost_usd": 0.0, "pct": 0.0, "color": "#c084fc"},
             ]
 
-        avg_cost = total_spent / total_cards if total_cards > 0 else 0.0
+        avg_cost = total_spent / total_cards_all if total_cards_all > 0 else 0.0
 
         return {
             "total_spent_usd": total_spent,

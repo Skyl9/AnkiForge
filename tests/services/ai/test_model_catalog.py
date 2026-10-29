@@ -179,3 +179,23 @@ def test_declares_vision_keeps_named_local_multimodal_models():
     assert ModelCatalog.declares_vision("ollama", "bakllava:13b") is True
     assert ModelCatalog.declares_vision("ollama", "llama3.2-vision") is True
     assert ModelCatalog.declares_vision("ollama", "deepseek-r1:8b") is False
+
+
+def test_get_model_spec_refuse_faux_positive_gpt4_gpt4o():
+    """`gpt-4` ne doit pas se résoudre approximativement sur la fiche `gpt-4o` (faux positif sous-chaîne)."""
+    spec = ModelCatalog.get_model_spec("openai", "gpt-4")
+    assert spec.model_id == "gpt-4"
+    assert spec.provider == "openai"
+    # La fiche `gpt-4o` (vision, tarif payant) ne doit pas être héritée par rapprochement `in`.
+    assert spec.supports_vision is False
+    assert spec.prompt_pricing == 0.0
+    assert spec.completion_pricing == 0.0
+
+
+def test_modele_inferne_prix_non_inventes():
+    """Un modèle custom non curaté n'a aucun tarif inventé : 0.0, jamais 1.0 / 3.0."""
+    spec = ModelCatalog.get_model_spec("custom", "mon-modele-perso")
+    assert spec.model_id == "mon-modele-perso"
+    assert spec.is_free is False
+    assert spec.prompt_pricing == 0.0
+    assert spec.completion_pricing == 0.0
