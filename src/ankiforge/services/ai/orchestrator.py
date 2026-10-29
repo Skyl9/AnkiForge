@@ -21,7 +21,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.ai.base import LLMProvider, LLMResult, MockProvider
 from ankiforge.services.ai.flexible_service import AIManager, extract_thought_tags
-from ankiforge.services.ai.persona_override import MAP_REDUCE_FALLBACK_PROMPT, resolve_system_prompt
+from ankiforge.services.ai.persona_override import MAP_REDUCE_FALLBACK_PROMPT, _digest, resolve_system_prompt
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import (
@@ -126,6 +126,9 @@ class PipelineOrchestrator(QRunnable):
         max_executions_per_step: int = 5,
         max_total_tokens: int | None = None,
         start_step_order: int | None = None,
+        execution_mode: str = "local",
+        timeout_per_step_seconds: int = 300,
+        delegate_content_provider: Callable[[dict[str, Any]], dict[str, Any] | None] | None = None,
     ) -> None:
         super().__init__()
         self.pipeline_id = pipeline_id
@@ -141,6 +144,13 @@ class PipelineOrchestrator(QRunnable):
         self.max_executions_per_step = max_executions_per_step
         self.max_total_tokens = max_total_tokens
         self.start_step_order = start_step_order
+        self.execution_mode = (execution_mode or "local").strip().lower()
+        if self.execution_mode not in ("local", "mcp_delegated"):
+            self.execution_mode = "local"
+        self.timeout_per_step_seconds = int(timeout_per_step_seconds or 300)
+        self.delegate_content_provider = delegate_content_provider
+        self._delegated_bundle_id: str | None = None
+        self._delegated_patches: list[str] = []
 
         self.signals = PipelineWorkerSignals()
         self._pause_event = threading.Event()
@@ -312,6 +322,9 @@ class PipelineOrchestrator(QRunnable):
             except Exception as db_err:
                 logger.debug("Persistance initiale du run ignorée : %s", db_err)
 
+        self.state.set_variable("execution_mode", self.execution_mode)
+        self.state.set_variable("timeout_per_step_seconds", self.timeout_per_step_seconds)
+
         executed_count = 0
         event_bus.emit("pipeline_started", self.pipeline_id, self.state)
 
@@ -380,6 +393,9 @@ class PipelineOrchestrator(QRunnable):
                         if step_type in custom_steps:
                             custom_executor = custom_steps[step_type]
                             custom_executor(self, current_step, self.state)
+
+                        elif step_type == "LLM_PROMPT" and self.execution_mode == "mcp_delegated" or step_type == "MAP_REDUCE" and self.execution_mode == "mcp_delegated":
+                            self._execute_delegated_ia_step(current_step)
 
                         elif step_type == "LLM_PROMPT":
                             self._execute_llm_prompt(current_step)
@@ -496,7 +512,9 @@ class PipelineOrchestrator(QRunnable):
 
             if not self._is_cancelled:
                 logger.info("[Orchestrateur DAG] Pipeline terminé avec succès.")
-                if self.state.get_variable("auto_stage_bundle"):
+                if self.execution_mode == "mcp_delegated" and self._delegated_bundle_id is not None:
+                    self._finalize_delegated_bundle(run_record)
+                elif self.state.get_variable("auto_stage_bundle"):
                     self._create_staged_bundle_from_results(run_record)
                 elif run_record is not None:
                     try:
@@ -1165,6 +1183,149 @@ class PipelineOrchestrator(QRunnable):
         if out_var:
             self.state.set_variable(out_var, final_output)
         self.state.set_variable(f"result_step_{step.step_order}", final_output)
+
+    def _execute_delegated_ia_step(self, step: PipelineStepModel) -> None:
+        """Exécute une étape IA déléguée à l'agent externe MCP.
+
+        Résout le prompt de la persona (+ empreinte SHA-256), le transmet au
+        fournisseur de contenu délégué qui bloque jusqu'à réception du contenu
+        généré par l'agent externe (ou timeout), puis stocke le résultat dans un
+        patch de staging (Two-Phase Commit) sans écriture directe en BDD.
+        """
+        cfg: dict[str, Any] = {}
+        if step.config_data:
+            try:
+                cfg = json.loads(str(step.config_data))
+            except Exception:
+                cfg = {}
+
+        step_order = int(getattr(step, "step_order", 0))
+        step_type = str(step.step_type or "LLM_PROMPT").upper()
+        persona_prompt = resolve_system_prompt(cfg, step.persona)
+        persona_name = step.persona.name if step.persona is not None else None
+        persona_digest = _digest(persona_prompt)
+
+        input_context: dict[str, Any] = {
+            "step_order": step_order,
+            "step_type": step_type,
+            "variables": dict(self.state.variables),
+            "retrieved_chunks": list(self.state.retrieved_chunks),
+            "last_output": self.state.get_variable("last_output"),
+        }
+
+        request: dict[str, Any] = {
+            "step_order": step_order,
+            "step_type": step_type,
+            "persona_prompt": persona_prompt,
+            "persona_prompt_digest": persona_digest,
+            "persona_name": persona_name,
+            "input_context": input_context,
+            "timeout_seconds": self.timeout_per_step_seconds,
+        }
+        self.state.set_variable("delegated_pending", request)
+
+        response: dict[str, Any] | None = None
+        if self.delegate_content_provider is not None:
+            try:
+                response = self.delegate_content_provider(request)
+            except Exception as exc:
+                logger.exception("Échec du fournisseur de contenu délégué pour l'étape %d: %s", step_order, exc)
+                self.state.add_error(f"Étape {step_order} (déléguée): fournisseur de contenu indisponible ({exc})")
+                raise
+        if response is None:
+            self.state.add_error(f"Étape {step_order} (déléguée): timeout après {self.timeout_per_step_seconds}s")
+            raise TimeoutError(f"Timeout de l'étape déléguée {step_order} ({step_type})")
+
+        status = str(response.get("status") or "completed")
+        generated_content = response.get("content", "")
+        if status in ("error", "aborted", "cancelled") or generated_content is None:
+            error_message = str(response.get("error_message") or f"Étape déléguée {step_order} en échec ({status})")
+            self.state.add_error(f"Étape {step_order} (déléguée): {error_message}")
+            raise RuntimeError(error_message)
+
+        self._store_delegated_step_result(
+            step=step,
+            step_type=step_type,
+            persona_prompt=persona_prompt,
+            persona_digest=persona_digest,
+            persona_name=persona_name,
+            input_context=input_context,
+            generated_content=generated_content,
+        )
+
+        self.state.set_variable("delegated_pending", None)
+        self.state.set_variable(f"result_step_{step_order}", generated_content)
+        self.state.set_variable("last_output", generated_content)
+        logger.info("[Orchestrateur DAG] Étape déléguée %d [%s] complétée par l'agent externe MCP.", step_order, step_type)
+
+    def _store_delegated_step_result(
+        self,
+        *,
+        step: PipelineStepModel,
+        step_type: str,
+        persona_prompt: str,
+        persona_digest: str,
+        persona_name: str | None,
+        input_context: dict[str, Any],
+        generated_content: str,
+    ) -> None:
+        """Enregistre le résultat d'une étape déléguée dans un StagedPatchModel rattaché au bundle du run."""
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        if self._delegated_bundle_id is None:
+            self._delegated_bundle_id = StagedPatchRegistry.begin_bundle(
+                title=f"Pipeline délégué #{self.pipeline_id}",
+                explanation=(f"Résultats des étapes IA déléguées à l'agent externe MCP pour le pipeline #{self.pipeline_id} (run {self.run_id}). En attente de validation humaine."),
+            )
+
+        step_order = int(getattr(step, "step_order", 0))
+        diff_payload: dict[str, Any] = {
+            "type": "pipeline_step_delegated",
+            "pipeline_id": self.pipeline_id,
+            "run_id": self.run_id,
+            "step_order": step_order,
+            "step_type": step_type,
+            "persona_prompt": persona_prompt,
+            "persona_prompt_digest": persona_digest,
+            "persona_name": persona_name,
+            "input_context": input_context,
+            "generated_content": generated_content,
+            "title": f"Étape déléguée {step_order} [{step_type}]",
+            "explanation": (f"Contenu généré par l'agent externe MCP pour l'étape {step_order} du pipeline #{self.pipeline_id}. À valider via le Garde-Fou MCP avant toute persistance."),
+        }
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="pipeline_step_delegated",
+            diff_payload=diff_payload,
+            bundle_id=self._delegated_bundle_id,
+        )
+        self._delegated_patches.append(patch.patch_id)
+
+    def _finalize_delegated_bundle(self, run_record: PipelineRunModel | None) -> None:
+        """Scelle le bundle de staging des résultats délégués pour validation humaine (Garde-Fou MCP)."""
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        if self._delegated_bundle_id is None:
+            return
+        try:
+            StagedPatchRegistry.commit_bundle(self._delegated_bundle_id)
+            self.state.set_variable("bundle_id", self._delegated_bundle_id)
+            if run_record is not None:
+                run_record.status = "staged"
+                run_record.state_data = json.dumps(self.state.to_dict())
+                run_record.save()
+            logger.info(
+                "[Orchestrateur DAG] Bundle de staging délégué %s scellé (%d étape(s)).",
+                self._delegated_bundle_id,
+                len(self._delegated_patches),
+            )
+        except Exception as bundle_err:
+            logger.exception("[Orchestrateur DAG] Échec de scellement du bundle délégué : %s", bundle_err)
+            if run_record is not None:
+                run_record.status = "failed"
+                run_record.error_message = f"Erreur de finalisation du bundle délégué : {bundle_err}"
+                run_record.state_data = json.dumps(self.state.to_dict())
+                run_record.save()
 
     def _execute_human_validation(self, step: PipelineStepModel) -> None:
         """Met le DAG en pause et attend l'interaction de l'utilisateur sur l'UI."""

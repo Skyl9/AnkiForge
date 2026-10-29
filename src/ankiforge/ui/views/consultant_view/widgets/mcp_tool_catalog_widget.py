@@ -155,10 +155,12 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "list_albums": DOMAIN_ALBUMS,
     "get_album_plates": DOMAIN_ALBUMS,
     "correct_plate_ocr": DOMAIN_ALBUMS,
-    # 6. Pipelines & DAG (3)
+    # 6. Pipelines & DAG (5)
     "list_pipelines": DOMAIN_PIPELINES,
     "get_pipeline_run": DOMAIN_PIPELINES,
     "trigger_pipeline_run": DOMAIN_PIPELINES,
+    "provide_pipeline_step_content": DOMAIN_PIPELINES,
+    "abort_pipeline_run": DOMAIN_PIPELINES,
     # 7. Agents MCP & Workspaces (6)
     "list_mcp_agents": DOMAIN_AGENTS,
     "get_mcp_agent_details": DOMAIN_AGENTS,
@@ -327,6 +329,15 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
         "Déclenchement asynchrone non-bloquant : exécution découplée dans QThreadPool avec sortie Staged.",
         "Contrôle anti-hallucination strict : le paquet cible (deck_name) doit impérativement exister dans la base.",
         "Finalisation Staged automatique : conversion automatique des cartes traitées en StagedBundle (batch_note_create).",
+        "Mode délégué : le contenu de chaque étape IA est produit par l'agent externe et stocké dans un patch de staging (Two-Phase Commit) sans écriture directe en BDD.",
+    ],
+    "provide_pipeline_step_content": [
+        "Reprise d'exécution déléguée : délivre le contenu généré par l'agent externe pour l'étape en attente et débloque l'orchestrateur.",
+        "L'étape doit correspondre à l'étape courante en attente (délegated_pending) du run cible.",
+    ],
+    "abort_pipeline_run": [
+        "Annulation d'exécution : interrompt l'orchestrateur et débloque l'attente de l'étape déléguée en cours.",
+        "Le run passe à l'état 'aborted' ; aucune écriture définitive n'est réalisée en cas d'annulation.",
     ],
     "export_deck_apkg": [
         "Vérification d'existence du paquet cible avant génération du paquet.",

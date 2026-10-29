@@ -1772,13 +1772,15 @@ def get_pipeline_run(run_id: int = 0, pipeline_id: int = 0) -> str:
 @mcp.tool()
 def trigger_pipeline_run(
     pipeline_id: int,
-    deck_name: str,
-    cards_json: str,
+    deck_name: str = "",
+    cards_json: str = "",
     note_type_name: str = "",
     document_id: int | None = None,
     variables_json: str = "{}",
+    execution_mode: str = "local",
+    timeout_per_step_seconds: int = 300,
 ) -> str:
-    """Déclenche l'exécution asynchrone d'un pipeline DAG de finition sur un lot de cartes pré-générées avec sortie staged (Two-Phase Commit)."""
+    """Déclenche l'exécution asynchrone d'un pipeline DAG (voie locale inchangée ou déléguée à un agent externe MCP)."""
     return MCPToolRegistry.trigger_pipeline_run(
         pipeline_id=pipeline_id,
         deck_name=deck_name,
@@ -1786,7 +1788,33 @@ def trigger_pipeline_run(
         note_type_name=note_type_name,
         document_id=document_id,
         variables_json=variables_json,
+        execution_mode=execution_mode,
+        timeout_per_step_seconds=timeout_per_step_seconds,
     )
+
+
+@mcp.tool()
+def provide_pipeline_step_content(
+    run_id: int,
+    step_order: int,
+    generated_content: str = "",
+    status: str = "completed",
+    error_message: str = "",
+) -> str:
+    """Délivre le contenu généré par l'agent externe pour une étape de pipeline déléguée en attente."""
+    return MCPToolRegistry.provide_pipeline_step_content(
+        run_id=run_id,
+        step_order=step_order,
+        generated_content=generated_content,
+        status=status,
+        error_message=error_message,
+    )
+
+
+@mcp.tool()
+def abort_pipeline_run(run_id: int, reason: str = "") -> str:
+    """Annule une exécution de pipeline DAG en cours (mode délégué ou local)."""
+    return MCPToolRegistry.abort_pipeline_run(run_id=run_id, reason=reason)
 
 
 # =====================================================================

@@ -11,7 +11,9 @@ import json
 import logging
 import re
 import sqlite3
+import threading
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +44,54 @@ from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.paths import get_active_profile
 
 logger = logging.getLogger(__name__)
+
+# Orchestrateurs de pipeline délégués en cours d'exécution, indexés par run_id.
+# Permet à l'outil d'annulation d'interrompre une étape déléguée bloquée.
+_ACTIVE_RUNS: dict[int, tuple[Any, Any]] = {}
+_ACTIVE_RUNS_LOCK = threading.Lock()
+
+
+class _DelegateWaiter:
+    """Attente bloquante (avec timeout) du contenu généré par l'agent externe MCP.
+
+    Une instance est créée par run délégué. L'orchestrateur bloque dessus jusqu'à ce
+    que `provide_pipeline_step_content` délivre le contenu, ou jusqu'au timeout.
+    """
+
+    def __init__(self) -> None:
+        self.event = threading.Event()
+        self.content: Any = None
+        self.status: str = ""
+        self.error_message: str = ""
+
+    def await_content(self, timeout_seconds: int) -> dict[str, Any] | None:
+        """Bloque jusqu'à réception du contenu ou expiration du timeout.
+
+        Retourne None en cas de timeout (ou d'annulation sans contenu délivré).
+        """
+        self.event.clear()
+        ok = self.event.wait(timeout=max(1, int(timeout_seconds or 300)))
+        if not ok:
+            return None
+        return {
+            "content": self.content,
+            "status": self.status or "completed",
+            "error_message": self.error_message,
+        }
+
+    def deliver(self, content: Any, status: str = "completed", error_message: str = "") -> None:
+        """Délivre le contenu généré (ou une erreur) et débloque l'orchestrateur."""
+        self.content = content
+        self.status = status
+        self.error_message = error_message
+        self.event.set()
+
+    def abort(self) -> None:
+        """Annule l'attente en cours (orchestrateur interrompu par l'utilisateur)."""
+        self.content = None
+        self.status = "aborted"
+        self.error_message = "Exécution annulée par l'utilisateur."
+        self.event.set()
 
 
 def robust_json_loads(text: Any) -> Any:
@@ -3810,13 +3860,21 @@ class MCPToolRegistry:
     @staticmethod
     def trigger_pipeline_run(
         pipeline_id: int,
-        deck_name: str,
-        cards_json: str,
+        deck_name: str = "",
+        cards_json: str = "",
         note_type_name: str = "",
         document_id: int | None = None,
         variables_json: str = "{}",
+        execution_mode: str = "local",
+        timeout_per_step_seconds: int = 300,
     ) -> str:
-        """Déclenche l'exécution asynchrone d'un pipeline DAG de finition sur un lot de cartes pré-générées avec sortie staged (Two-Phase Commit)."""
+        """Déclenche l'exécution asynchrone d'un pipeline DAG.
+
+        Deux voies coexistent :
+        - ``local`` (défaut) : exécution in-app inchangée sur un lot de cartes pré-générées, sortie Staged.
+        - ``mcp_delegated`` : l'agent externe génère le contenu de chaque étape IA ; le résultat transite
+          par le Garde-Fou MCP (staging / Two-Phase Commit), sans écriture directe en BDD.
+        """
         try:
             from PySide6.QtCore import QThreadPool
 
@@ -3834,48 +3892,79 @@ class MCPToolRegistry:
                     ensure_ascii=False,
                 )
 
-            # 2. Contrôle anti-hallucination strict sur le deck cible
-            clean_deck_name = deck_name.strip()
-            if not clean_deck_name:
-                return json.dumps(
-                    {"status": "error", "message": "Le nom du paquet cible ne peut pas être vide."},
-                    ensure_ascii=False,
-                )
-
-            deck_repo = DeckRepository()
-            deck = deck_repo.get_deck_by_name(clean_deck_name)
-            overlay = StagedPatchRegistry.get_active_overlay()
-            is_in_overlay = overlay is not None and overlay.is_deck_available(clean_deck_name)
-
-            if not deck and not is_in_overlay:
-                avail = [d.name for d in DeckModel.select().limit(5)]
-                avail_str = f" Exemples de paquets existants : {avail}." if avail else ""
+            # 2. Choix et validation du mode d'exécution
+            mode = (execution_mode or "local").strip().lower()
+            if mode not in ("local", "mcp_delegated"):
                 return json.dumps(
                     {
                         "status": "error",
-                        "message": (
-                            f"Paquet cible '{clean_deck_name}' introuvable en base.{avail_str} "
-                            "Pour prévenir les hallucinations, veuillez utiliser un paquet existant "
-                            "ou le créer au préalable via 'create_deck'."
-                        ),
+                        "message": f"execution_mode invalide '{execution_mode}'. Valeurs attendues: 'local' ou 'mcp_delegated'.",
                     },
                     ensure_ascii=False,
                 )
+            timeout_seconds = int(timeout_per_step_seconds or 300)
+            if timeout_seconds < 1:
+                timeout_seconds = 300
 
-            # 3. Contrôle et désérialisation de cards_json
-            try:
-                cards_data = json.loads(cards_json) if isinstance(cards_json, str) else cards_json
-            except Exception as e:
-                return json.dumps(
-                    {"status": "error", "message": f"Format JSON invalide pour cards_json : {e}"},
-                    ensure_ascii=False,
-                )
+            clean_deck_name = deck_name.strip()
+            cards_data: list[Any] | None = None
 
-            if not isinstance(cards_data, list) or not cards_data:
-                return json.dumps(
-                    {"status": "error", "message": "cards_json doit être une liste JSON non vide de cartes."},
-                    ensure_ascii=False,
-                )
+            # 3. Contrôle du deck et des cartes (uniquement en mode local)
+            if mode == "local":
+                if not clean_deck_name:
+                    return json.dumps(
+                        {"status": "error", "message": "Le nom du paquet cible ne peut pas être vide."},
+                        ensure_ascii=False,
+                    )
+                deck_repo = DeckRepository()
+                deck = deck_repo.get_deck_by_name(clean_deck_name)
+                overlay = StagedPatchRegistry.get_active_overlay()
+                is_in_overlay = overlay is not None and overlay.is_deck_available(clean_deck_name)
+                if not deck and not is_in_overlay:
+                    avail = [d.name for d in DeckModel.select().limit(5)]
+                    avail_str = f" Exemples de paquets existants : {avail}." if avail else ""
+                    return json.dumps(
+                        {
+                            "status": "error",
+                            "message": (
+                                f"Paquet cible '{clean_deck_name}' introuvable en base.{avail_str} "
+                                "Pour prévenir les hallucinations, veuillez utiliser un paquet existant "
+                                "ou le créer au préalable via 'create_deck'."
+                            ),
+                        },
+                        ensure_ascii=False,
+                    )
+                try:
+                    cards_data = json.loads(cards_json) if isinstance(cards_json, str) else cards_json
+                except Exception as e:
+                    return json.dumps(
+                        {"status": "error", "message": f"Format JSON invalide pour cards_json : {e}"},
+                        ensure_ascii=False,
+                    )
+                if not isinstance(cards_data, list) or not cards_data:
+                    return json.dumps(
+                        {"status": "error", "message": "cards_json doit être une liste JSON non vide de cartes."},
+                        ensure_ascii=False,
+                    )
+            else:
+                # Mode délégué : le deck reste une cible déclarative (optionnel), le contenu vient de l'agent externe.
+                if clean_deck_name:
+                    deck_repo = DeckRepository()
+                    deck = deck_repo.get_deck_by_name(clean_deck_name)
+                    overlay = StagedPatchRegistry.get_active_overlay()
+                    is_in_overlay = overlay is not None and overlay.is_deck_available(clean_deck_name)
+                    if not deck and not is_in_overlay:
+                        avail = [d.name for d in DeckModel.select().limit(5)]
+                        avail_str = f" Exemples de paquets existants : {avail}." if avail else ""
+                        return json.dumps(
+                            {
+                                "status": "error",
+                                "message": (
+                                    f"Paquet cible '{clean_deck_name}' introuvable en base.{avail_str} Pour prévenir les hallucinations, utilisez un paquet existant ou créez-le via 'create_deck'."
+                                ),
+                            },
+                            ensure_ascii=False,
+                        )
 
             # 4. Contrôle et désérialisation de variables_json
             try:
@@ -3899,12 +3988,15 @@ class MCPToolRegistry:
 
             # 6. Préparation de l'état d'exécution DAG
             state = PipelineRunState()
-            state.set_variable("generated_cards", cards_data)
-            state.set_variable("deck_name", clean_deck_name)
+            if mode == "local":
+                state.set_variable("generated_cards", cards_data or [])
+                state.set_variable("deck_name", clean_deck_name)
             if note_type_name.strip():
                 state.set_variable("note_type_name", note_type_name.strip())
             if document_id is not None and int(document_id) > 0:
                 state.set_variable("document_id", int(document_id))
+            state.set_variable("execution_mode", mode)
+            state.set_variable("timeout_per_step_seconds", timeout_seconds)
             for k, v in vars_data.items():
                 state.set_variable(k, v)
             state.set_variable("auto_stage_bundle", True)
@@ -3919,12 +4011,31 @@ class MCPToolRegistry:
                 )
 
             # 8. Instanciation de l'orchestrateur et démarrage asynchrone non-bloquant
-            orchestrator = PipelineOrchestrator(
-                pipeline_id=pipeline.id,
-                initial_state=state,
-                run_id=run.id,
-            )
+            orchestrator_kwargs: dict[str, Any] = {
+                "pipeline_id": pipeline.id,
+                "initial_state": state,
+                "run_id": run.id,
+                "execution_mode": mode,
+                "timeout_per_step_seconds": timeout_seconds,
+            }
+            waiter: _DelegateWaiter | None = None
+            if mode == "mcp_delegated":
+                waiter = _DelegateWaiter()
+
+                def _make_provider(_waiter: _DelegateWaiter, _timeout: int) -> Callable[[dict[str, Any]], dict[str, Any] | None]:
+                    def _provider(request: dict[str, Any]) -> dict[str, Any] | None:
+                        return _waiter.await_content(_timeout)
+
+                    return _provider
+
+                orchestrator_kwargs["delegate_content_provider"] = _make_provider(waiter, timeout_seconds)
+
+            orchestrator = PipelineOrchestrator(**orchestrator_kwargs)
             QThreadPool.globalInstance().start(orchestrator)
+
+            if mode == "mcp_delegated" and waiter is not None:
+                with _ACTIVE_RUNS_LOCK:
+                    _ACTIVE_RUNS[run.id] = (orchestrator, waiter)
 
             # 9. Retour immédiat à l'appelant
             return json.dumps(
@@ -3932,7 +4043,9 @@ class MCPToolRegistry:
                     "status": "started",
                     "run_id": run.id,
                     "pipeline_name": pipeline.name,
-                    "cards_count": len(cards_data),
+                    "execution_mode": mode,
+                    "timeout_per_step_seconds": timeout_seconds,
+                    "cards_count": len(cards_data) if isinstance(cards_data, list) else 0,
                 },
                 ensure_ascii=False,
             )
@@ -3943,6 +4056,87 @@ class MCPToolRegistry:
                 {"status": "error", "message": f"Erreur inattendue : {e}"},
                 ensure_ascii=False,
             )
+
+    @staticmethod
+    def provide_pipeline_step_content(
+        run_id: int,
+        step_order: int,
+        generated_content: str = "",
+        status: str = "completed",
+        error_message: str = "",
+    ) -> str:
+        """Délivre le contenu généré par l'agent externe pour une étape déléguée bloquée.
+
+        Débloque l'orchestrateur en attente sur l'étape correspondante du run.
+        """
+        try:
+            run_id_int = int(run_id)
+            step_order_int = int(step_order)
+        except (TypeError, ValueError):
+            return json.dumps(
+                {"status": "error", "message": "Identifiants de run et d'étape invalides."},
+                ensure_ascii=False,
+            )
+        with _ACTIVE_RUNS_LOCK:
+            entry = _ACTIVE_RUNS.get(run_id_int)
+        if entry is None:
+            return json.dumps(
+                {"status": "error", "message": f"Aucune exécution déléguée active pour le run #{run_id_int}."},
+                ensure_ascii=False,
+            )
+        _orchestrator, waiter = entry
+        pending = _orchestrator.state.get_variable("delegated_pending") or {}
+        if int(pending.get("step_order", -1)) != step_order_int:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": f"L'étape {step_order_int} n'est pas l'étape en attente ({pending.get('step_order')}) du run #{run_id_int}.",
+                },
+                ensure_ascii=False,
+            )
+        waiter.deliver(generated_content, status, error_message)
+        return json.dumps(
+            {
+                "status": "delivered",
+                "run_id": run_id_int,
+                "step_order": step_order_int,
+                "message": f"Contenu de l'étape {step_order_int} délivré au run #{run_id_int}.",
+            },
+            ensure_ascii=False,
+        )
+
+    @staticmethod
+    def abort_pipeline_run(run_id: int, reason: str = "") -> str:
+        """Annule une exécution de pipeline en cours (mode délégué ou local)."""
+        try:
+            run_id_int = int(run_id)
+        except (TypeError, ValueError):
+            return json.dumps(
+                {"status": "error", "message": "Identifiant de run invalide."},
+                ensure_ascii=False,
+            )
+        with _ACTIVE_RUNS_LOCK:
+            entry = _ACTIVE_RUNS.pop(run_id_int, None)
+        if entry is None:
+            return json.dumps(
+                {"status": "error", "message": f"Aucune exécution active pour le run #{run_id_int}."},
+                ensure_ascii=False,
+            )
+        orchestrator, waiter = entry
+        try:
+            orchestrator._is_cancelled = True
+        except AttributeError:
+            pass
+        waiter.abort()
+        return json.dumps(
+            {
+                "status": "aborted",
+                "run_id": run_id_int,
+                "reason": reason or "Annulation demandée.",
+                "message": f"Exécution du run #{run_id_int} annulée.",
+            },
+            ensure_ascii=False,
+        )
 
     @staticmethod
     def export_deck_apkg(
@@ -5221,6 +5415,60 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "run_id": {"type": "integer", "description": "Identifiant du run à consulter"},
                     "pipeline_id": {"type": "integer", "description": "Identifiant du pipeline pour obtenir son dernier run (optionnel si run_id fourni)"},
                 },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "trigger_pipeline_run",
+            "description": "Déclenche l'exécution asynchrone d'un pipeline DAG (voie locale ou déléguée à un agent externe MCP).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pipeline_id": {"type": "integer", "description": "Identifiant du pipeline à exécuter"},
+                    "deck_name": {"type": "string", "description": "Nom du paquet cible (requis en mode local, optionnel en mode délégué)"},
+                    "cards_json": {"type": "string", "description": "Tableau JSON des cartes pré-générées (requis en mode local)"},
+                    "note_type_name": {"type": "string", "description": "Nom du type de note cible (optionnel)"},
+                    "document_id": {"type": "integer", "description": "Identifiant du document source (optionnel)"},
+                    "variables_json": {"type": "string", "description": "Variables d'exécution JSON (optionnel)"},
+                    "execution_mode": {"type": "string", "description": "Mode d'exécution: 'local' (défaut) ou 'mcp_delegated'"},
+                    "timeout_per_step_seconds": {"type": "integer", "description": "Timeout par étape déléguée en secondes (défaut: 300)"},
+                },
+                "required": ["pipeline_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "provide_pipeline_step_content",
+            "description": "Délivre le contenu généré par l'agent externe pour une étape de pipeline déléguée en attente (reprend l'exécution).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "integer", "description": "Identifiant du run d'exécution"},
+                    "step_order": {"type": "integer", "description": "Numéro de l'étape concernée"},
+                    "generated_content": {"type": "string", "description": "Contenu produit par l'agent externe pour l'étape"},
+                    "status": {"type": "string", "description": "Statut de l'étape: 'completed' (défaut), 'error' ou 'skipped'"},
+                    "error_message": {"type": "string", "description": "Message d'erreur si statut 'error'"},
+                },
+                "required": ["run_id", "step_order"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "abort_pipeline_run",
+            "description": "Annule une exécution de pipeline DAG en cours (mode délégué ou local).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "run_id": {"type": "integer", "description": "Identifiant du run à annuler"},
+                    "reason": {"type": "string", "description": "Motif de l'annulation (optionnel)"},
+                },
+                "required": ["run_id"],
             },
         },
     },
