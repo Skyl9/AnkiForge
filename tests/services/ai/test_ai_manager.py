@@ -237,3 +237,59 @@ def test_ai_manager_passes_temperature_and_supports_json_from_config(mock_db):
     assert isinstance(provider, OpenAICompatibleProvider)
     assert getattr(provider, "default_temperature", None) == 0.85
     assert getattr(provider, "supports_json", None) is False
+
+
+def test_create_provider_sans_cle_leve_en_production(mock_db, monkeypatch):
+    """Hors environnement de test, create_provider sans clé valide lève une exception explicite (jamais de MockProvider silencieux)."""
+    import ankiforge.services.settings_service as ss
+    import ankiforge.utils.environment as env
+    from ankiforge.services.ai.flexible_service import AIManager
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(env, "get_current_environment", lambda: env.AppEnvironment.PRODUCTION)
+    monkeypatch.setattr(ss.SettingsService, "get", lambda key, default=None, category=None: "")
+
+    with pytest.raises(RuntimeError, match="Aucun fournisseur IA disponible"):
+        AIManager.create_provider("openai", "gpt-4o", api_key="")
+
+
+def test_create_provider_fournisseur_inconnu_leve_en_production(mock_db, monkeypatch):
+    """Un fournisseur inconnu lève en production plutôt que de retourner MockProvider silencieusement."""
+    import ankiforge.services.settings_service as ss
+    import ankiforge.utils.environment as env
+    from ankiforge.services.ai.flexible_service import AIManager
+
+    monkeypatch.setattr(env, "get_current_environment", lambda: env.AppEnvironment.PRODUCTION)
+    monkeypatch.setattr(ss.SettingsService, "get", lambda key, default=None, category=None: "")
+
+    with pytest.raises(ValueError, match="Fournisseur IA inconnu ou non configuré"):
+        AIManager.create_provider("magic_ai", "v1", api_key="")
+
+
+def test_create_provider_retombe_mock_uniquement_en_testing(mock_db, monkeypatch):
+    """create_provider sans clé retourne MockProvider uniquement en environnement de test."""
+    import ankiforge.services.settings_service as ss
+    import ankiforge.utils.environment as env
+    from ankiforge.services.ai.base import MockProvider
+    from ankiforge.services.ai.flexible_service import AIManager
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(env, "get_current_environment", lambda: env.AppEnvironment.TESTING)
+    monkeypatch.setattr(ss.SettingsService, "get", lambda key, default=None, category=None: "")
+
+    provider = AIManager.create_provider("openai", "gpt-4o", api_key="")
+    assert isinstance(provider, MockProvider)
+
+
+def test_create_provider_mock_explicite_toujours_autorise(mock_db, monkeypatch):
+    """Le fournisseur explicite 'mock' retourne MockProvider même en dehors de l'environnement de test."""
+    import ankiforge.services.settings_service as ss
+    import ankiforge.utils.environment as env
+    from ankiforge.services.ai.base import MockProvider
+    from ankiforge.services.ai.flexible_service import AIManager
+
+    monkeypatch.setattr(env, "get_current_environment", lambda: env.AppEnvironment.PRODUCTION)
+    monkeypatch.setattr(ss.SettingsService, "get", lambda key, default=None, category=None: "")
+
+    provider = AIManager.create_provider("mock", "mock-model", api_key="")
+    assert isinstance(provider, MockProvider)

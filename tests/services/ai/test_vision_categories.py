@@ -837,3 +837,40 @@ def test_ocr_service_accepts_model_id_and_data_type_directly(tmp_path: Path):
 
     assert text == "Texte extrait de la table"
     assert "syntaxe Markdown" in provider.last_instructions
+
+
+def test_transcribe_image_categorie_inconnue_leve_erreur_sans_texte_fictif(tmp_path: Path):
+    """transcribe_image avec une catégorie inconnue lève une erreur explicite et n'écrit aucun texte fictif."""
+    service = OCRService()
+    img_path = _create_test_img(tmp_path / "inconnue.png")
+
+    with pytest.raises(ValueError, match="Catégorie de vision inconnue ou non configurée"):
+        service.transcribe_image(img_path, category_id="categorie_inexistante_xyz")
+
+
+def test_transcribe_page_appel_vlm_hors_transaction_sqlite(tmp_path: Path):
+    """L'appel VLM de transcribe_page s'effectue HORS transaction SQLite (pas de verrou prolongé)."""
+    manager = MediaManager()
+    album_svc = AlbumService(media_manager=manager)
+    ocr_svc = OCRService(media_manager=manager)
+
+    img = _create_test_img(tmp_path / "page_tx.png")
+    doc = album_svc.create_album_from_images("Album Tx", [img])
+    page = album_svc.get_album_pages(doc.id)[0]
+
+    from ankiforge.database.models import DocumentPageModel
+
+    model_db = DocumentPageModel._meta.database
+
+    class TxSpyProvider(MockProvider):
+        def generate(self, system_prompt, user_prompt, response_format="text"):
+            assert not model_db.in_transaction(), "transcribe_image ne doit pas être invoqué au sein d'une transaction"
+            return "# Contenu transcrit"
+
+    updated = ocr_svc.transcribe_page(page.id, category_id="structured", provider_override=TxSpyProvider())
+    assert updated.status == "ready"
+    assert "# Contenu transcrit" in updated.ocr_text
+
+    reloaded = DocumentPageModel.get_by_id(page.id)
+    assert reloaded.status == "ready"
+    assert "# Contenu transcrit" in reloaded.ocr_text
