@@ -41,7 +41,16 @@ La commande canonique unique `script/verify.py` applique séquentiellement l'ens
 uv run python script/verify.py              # chaîne canonique : drift, ruff, format, mypy, bandit, pytest fast
 uv run python script/verify.py --fix        # auto-correction (instructions, formatage et fix ruff) avant contrôle
 uv run python script/verify.py --all-tests  # exécution avec la totalité des tests (sans filtre slow)
+uv run python script/verify.py --crap       # contrôle pré-push incluant le garde-fou score CRAP sur le diff
 uv run python script/verify.py --install-hook # installe et active le hook natif versionné .githooks/pre-push
+```
+
+### Analyse du Risque & Complexité (Score CRAP)
+```bash
+uv run python script/crap.py                 # rapport de risque complet sur tout src/ankiforge/
+uv run python script/crap.py --changed       # analyse ciblée sur le diff Git en cours
+uv run python script/crap.py --threshold 25  # garde-fou qualité (exit code 2 si CRAP > 25)
+uv run python script/crap.py --top 15        # top 15 des fonctions les plus à risque
 ```
 
 ### Gouvernance des Compétences Agentiques & Métadonnées

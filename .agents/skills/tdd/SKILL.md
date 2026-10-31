@@ -54,7 +54,7 @@ Une **couture (seam)** est la frontière publique où vous observez le comportem
 
 1. **Le Rouge avant le Vert** : toujours exécuter le test pour le voir échouer sur la cause attendue (`assert False` ou exception métier).
 2. **Code minimal** : n'écrire que la quantité stricte de code nécessaire pour faire passer le test au vert. Pas de fonctionnalités spéculatives.
-3. **Refactorisation propre** : une fois au vert, assainir la clarté du code et l'élimination des duplications avant d'aborder la tranche suivante.
+3. **Refactorisation propre & maîtrise du risque** : une fois au vert, assainir la clarté du code et éliminer les duplications avant d'aborder la tranche suivante. Contrôler le score CRAP sur le code modifié (`uv run python script/crap.py --changed`) pour s'assurer que la complexité reste basse et la couverture maximale ($CRAP = CC \le 10$).
 
 ---
 

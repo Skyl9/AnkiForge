@@ -10,7 +10,7 @@ description: >-
 
 Revue de code à deux axes distincts comparant le diff entre `HEAD` et un point de référence (commit, branche, tag, ou merge-base) :
 
-- **Axe 1 — Standards** : le code respecte-t-il les standards documentés du dépôt (`GEMINI.md`, `AGENTS.md`, typage strict, conventions d'architecture) ?
+- **Axe 1 — Standards** : le code respecte-t-il les standards documentés du dépôt (`GEMINI.md`, `AGENTS.md`, typage strict, conventions d'architecture) ainsi que le seuil de complexité/risque CRAP (`uv run python script/crap.py --changed --threshold 25`) ?
 - **Axe 2 — Spécification** : le code implémente-t-il fidèlement le ticket ou la spécification Obsidian d'origine sans régression ni hors-périmètre ?
 
 Les deux analyses s'exécutent en sous-agents parallèles isolés afin d'éviter toute pollution croisée de contexte.
@@ -21,8 +21,9 @@ Les deux analyses s'exécutent en sous-agents parallèles isolés afin d'éviter
    - `git diff <point-fixe>...HEAD` et liste des commits via `git log <point-fixe>..HEAD --oneline`.
 2. **Identifier la spécification source** :
    - Note de ticket Obsidian (`ankiforge_obsidian/Tickets/<Type> - <Titre>.md`), spécification dans `docs/`, ou description de tâche.
-3. **Identifier les sources de standards** :
+3. **Identifier les sources de standards & métriques** :
    - `GEMINI.md` (règles 13, 18, 19, 20, 21), `AGENTS.md`, `DESIGN.md`.
+   - Contrôle du risque de régression : `uv run python script/crap.py --changed --threshold 25`.
 4. **Lancer les deux sous-agents en parallèle** :
    - **Sous-agent Standards** : relève toute violation de standard ou mauvaise pratique structurelle.
    - **Sous-agent Spécification** : relève les exigences non satisfaites, les comportements erronés ou les dérives de périmètre (scope creep).

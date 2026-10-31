@@ -31,6 +31,9 @@ grep -rInE "(^|[^A-Za-z_])print\(" src/ankiforge/ --include="*.py" || true
 
 # Règles de type désactivées en masse
 grep -rIn "disable_error_code" pyproject.toml src/ --include="*.py" --include="*.toml" || true
+
+# Risque de régression et complexité cyclomatique croisée (Score CRAP)
+uv run python script/crap.py --top 15
 ```
 
 ## 3. Points de Contrôle
@@ -41,6 +44,7 @@ grep -rIn "disable_error_code" pyproject.toml src/ --include="*.py" --include="*
 4. **Ruff** : exécuter les règles `B` (bugbear), `SIM` (simplifications), `UP` (pyupgrade) et signaler les propositions non appliquées ; vérifier que les `# noqa` ajoutés ne masquent pas des erreurs réelles (chaque noqa doit être justifié).
 5. **Code mort & dette** : signaler les fonctions jamais appelées (heuristique greps d'usage), les `# TODO`/`# FIXME` et les blocs `except` vides dans `src/` (hors `B110` les skips bandit justifiés UI/fallbacks).
 6. **Cohérence des conventions** : nommage, longueur de ligne (200 max), imports isort (`I`).
+7. **Score CRAP & risque de régression** : repérer les fonctions au score $CRAP > 25$ (complexité élevée et couverture faible). Toute fonction $CRAP > 30$ doit être inscrite au plan de remédiation prioritaire.
 
 ## 4. Rapport
 
