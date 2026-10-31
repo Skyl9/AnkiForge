@@ -533,6 +533,7 @@ def run_verification(
     quiet: bool = False,
     all_tests: bool = False,
     fix: bool = False,
+    crap_check: bool = False,
     only: list[str] | None = None,
     skip: list[str] | None = None,
     timeout_override: float | None = None,
@@ -567,6 +568,16 @@ def run_verification(
             )
             for step in active_steps
         ]
+
+    if crap_check or (only and "crap-check" in only):
+        active_steps.append(
+            VerificationStep(
+                name="crap-check",
+                command=["python", "script/crap.py", "--changed", "--threshold", "25"],
+                description="Contrôle qualité du score CRAP sur le diff Git (--changed, seuil <= 25)",
+                timeout=30.0,
+            )
+        )
 
     # Appliquer le filtrage par étape
     active_steps = filter_steps(active_steps, only=only, skip=skip)
@@ -666,6 +677,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Vérifie que le hook pre-push est correctement installé et actif.",
     )
     parser.add_argument(
+        "--crap",
+        action="store_true",
+        help="Active le contrôle du score CRAP sur les fichiers modifiés (--changed, seuil <= 25).",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="Supprime les affichages d'étape non essentiels.",
@@ -720,6 +736,7 @@ def main(argv: list[str] | None = None) -> int:
         quiet=args.quiet,
         all_tests=args.all_tests,
         fix=args.fix,
+        crap_check=args.crap,
         only=args.only_steps,
         skip=args.skip_steps,
         timeout_override=args.timeout,
