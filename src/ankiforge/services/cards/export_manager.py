@@ -224,8 +224,13 @@ class ExportManager:
                 # Détection Cloze (via nom, templates ou présence de balises cloze)
                 is_cloze = "cloze" in nt.name.lower() or "trou" in nt.name.lower() or any("{{cloze:" in str(t.get("qfmt", "")) or "{{cloze:" in str(t.get("afmt", "")) for t in templates_list)
                 if not is_cloze:
-                    # Vérification rapide sur une note échantillon
-                    sample_v_cloze = NoteVersionModel.select(NoteVersionModel.content).join(NoteModel).where(NoteModel.note_type == nt, NoteVersionModel.content.is_null(False)).first()
+                    # Vérification rapide sur une note échantillon active
+                    sample_v_cloze = (
+                        NoteVersionModel.select(NoteVersionModel.content)
+                        .join(NoteModel)
+                        .where(NoteModel.note_type == nt, NoteVersionModel.is_active == True, NoteVersionModel.content.is_null(False))
+                        .first()
+                    )
                     if sample_v_cloze and sample_v_cloze.content and re.search(r"\{\{c\d+::", sample_v_cloze.content):
                         is_cloze = True
 

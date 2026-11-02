@@ -125,7 +125,7 @@ def to_filename_safe(hierarchy_name: str, *, replacement: str = "_") -> str:
     Returns:
         Nom compatible avec les systèmes de fichiers.
     """
-    return hierarchy_name.replace(SEPARATOR, replacement).replace(" ", replacement)
+    return hierarchy_name.replace(SEPARATOR, replacement).replace(" ", replacement).replace("/", replacement).replace("\\", replacement)
 
 
 def from_anki_unit_separator(name: str) -> str:
