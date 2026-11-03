@@ -4,18 +4,22 @@
 Enchaîne de manière déterministe et ordonnée l'ensemble des contrôles de qualité,
 typage, sécurité et tests pré-push du projet :
 1. python script/sync_agent_instructions.py --check (Contrôle dérive adaptateurs instructions)
-2. ruff check .                (Linting et règles PEP8 / T20 no print)
-3. ruff format --check .       (Formatage uniforme)
-4. mypy src/ankiforge          (Typage statique strict 100%)
-5. bandit -c pyproject.toml -r src/ (Audit sécurité statique)
-6. pytest -m "not slow"        (Tests unitaires et headless rapides < 15s)
+2. python script/check_shortcuts_drift.py --check (Contrôle dérive doc raccourcis)
+3. ruff check .                (Linting et règles PEP8 / T20 no print)
+4. ruff format --check .       (Formatage uniforme)
+5. mypy src/ankiforge          (Typage statique strict 100%)
+6. bandit -c pyproject.toml -r src/ (Audit sécurité statique)
+7. python script/crap.py --changed --threshold 25 (Contrôle score CRAP sur le diff Git)
+8. pytest -m "not slow"        (Tests unitaires et headless rapides < 15s)
 
 Utilisation :
-    uv run python script/verify.py             # Exécution standard fail-fast
+    uv run python script/verify.py             # Exécution standard fail-fast (8 étapes)
     uv run python script/verify.py --fix       # Auto-format & fix ruff avant vérification
+    uv run python script/verify.py --crap      # Contrôle ciblé CRAP seul sur le diff (--crap-only)
+    uv run python script/verify.py --no-tests  # Chaîne statique rapide (1-7, sans pytest) sous le principe de parcimonie
     uv run python script/verify.py --all-tests # Exécute tous les tests (sans filtre slow)
     uv run python script/verify.py --install-hook # Installe et active le hook git pre-push
-    uv run python script/verify.py --step mypy # Exécute uniquement l'étape mypy
+    uv run python script/verify.py --step mypy # Exécute uniquement l'étape mypy (ou --step crap)
     uv run python script/verify.py --skip bandit # Exécute toutes les étapes sauf bandit
     uv run python script/verify.py --dry-run   # Affiche le plan d'exécution sans rien lancer
     uv run python script/verify.py --check-hook # Vérifie que le hook pre-push est actif
@@ -123,9 +127,23 @@ CANONICAL_STEPS: list[VerificationStep] = [
     ),
     VerificationStep(
         name="pytest-fast",
-        command=["pytest", "-m", "not slow", "--max-worker-restart=0"],
-        description="Suite de tests rapides non-slow (< 15s) (Pytest)",
-        timeout=120.0,
+        command=[
+            "pytest",
+            "-m",
+            "not slow",
+            "--max-worker-restart=0",
+            "--cov=ankiforge",
+            "--cov-report=lcov:coverage/lcov.info",
+            "--cov-fail-under=0",
+        ],
+        description="Suite de tests rapides non-slow (< 15s) avec couverture LCOV (Pytest)",
+        timeout=180.0,
+    ),
+    VerificationStep(
+        name="crap-check",
+        command=["python", "script/crap.py", "--changed"],
+        description="Contrôle qualité et risque de régression CRAP sur le diff Git (--changed)",
+        timeout=30.0,
     ),
 ]
 
@@ -446,23 +464,40 @@ def check_git_hook_status(quiet: bool = False) -> int:
     return 0
 
 
+_STEP_ALIASES: dict[str, str] = {
+    "crap": "crap-check",
+    "crap-check": "crap-check",
+    "pytest": "pytest-fast",
+    "pytest-fast": "pytest-fast",
+    "pytest-all": "pytest-all",
+    "drift": "instructions-drift",
+    "instructions": "instructions-drift",
+    "shortcuts": "shortcuts-drift",
+    "format": "ruff-format",
+    "lint": "ruff-check",
+}
+
+
 def filter_steps(
     steps: list[VerificationStep],
     only: list[str] | None = None,
     skip: list[str] | None = None,
 ) -> list[VerificationStep]:
-    """Filtre les étapes selon les listes d'inclusion et d'exclusion."""
+    """Filtre les étapes selon les listes d'inclusion et d'exclusion avec résolution d'alias."""
     filtered = steps
 
-    if only:
+    resolved_only = [_STEP_ALIASES.get(name, name) for name in only] if only else None
+    resolved_skip = [_STEP_ALIASES.get(name, name) for name in skip] if skip else None
+
+    if resolved_only:
         known_names = {s.name for s in steps}
-        for name in only:
+        for name in resolved_only:
             if name not in known_names:
                 print(f"⚠️  Étape inconnue ignorée : '{name}' (disponibles : {', '.join(sorted(known_names))})", file=sys.stderr)
-        filtered = [s for s in filtered if s.name in only]
+        filtered = [s for s in filtered if s.name in resolved_only]
 
-    if skip:
-        filtered = [s for s in filtered if s.name not in skip]
+    if resolved_skip:
+        filtered = [s for s in filtered if s.name not in resolved_skip]
 
     return filtered
 
@@ -533,6 +568,8 @@ def run_verification(
     quiet: bool = False,
     all_tests: bool = False,
     fix: bool = False,
+    crap_only: bool = False,
+    no_tests: bool = False,
     crap_check: bool = False,
     only: list[str] | None = None,
     skip: list[str] | None = None,
@@ -559,8 +596,14 @@ def run_verification(
             (
                 VerificationStep(
                     name="pytest-all",
-                    command=["pytest", "--max-worker-restart=0"],
-                    description="Suite complète de tests (Pytest)",
+                    command=[
+                        "pytest",
+                        "--max-worker-restart=0",
+                        "--cov=ankiforge",
+                        "--cov-report=lcov:coverage/lcov.info",
+                        "--cov-fail-under=0",
+                    ],
+                    description="Suite complète de tests avec couverture LCOV (Pytest)",
                     timeout=step.timeout if step.timeout else 360.0,
                 )
                 if step.name == "pytest-fast"
@@ -569,15 +612,13 @@ def run_verification(
             for step in active_steps
         ]
 
-    if crap_check or (only and "crap-check" in only):
-        active_steps.append(
-            VerificationStep(
-                name="crap-check",
-                command=["python", "script/crap.py", "--changed", "--threshold", "25"],
-                description="Contrôle qualité du score CRAP sur le diff Git (--changed, seuil <= 25)",
-                timeout=30.0,
-            )
-        )
+    # Mode ciblé CRAP seul (--crap ou --crap-only)
+    if crap_only:
+        only = ["crap-check"] if not only else [*only, "crap-check"]
+
+    # Principe de parcimonie : sauter pytest et le contrôle CRAP dépendant de la couverture
+    if no_tests:
+        skip = ["pytest-fast", "pytest-all", "crap-check"] if not skip else [*skip, "pytest-fast", "pytest-all", "crap-check"]
 
     # Appliquer le filtrage par étape
     active_steps = filter_steps(active_steps, only=only, skip=skip)
@@ -678,8 +719,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--crap",
+        "--crap-only",
+        dest="crap_only",
         action="store_true",
-        help="Active le contrôle du score CRAP sur les fichiers modifiés (--changed, seuil <= 25).",
+        help="Exécute uniquement le contrôle du score CRAP sur le diff Git (--changed, seuil <= 25).",
+    )
+    parser.add_argument(
+        "--no-tests",
+        "--skip-tests",
+        dest="no_tests",
+        action="store_true",
+        help="Exécute les vérifications statiques et CRAP en sautant les étapes pytest (principe de parcimonie).",
     )
     parser.add_argument(
         "--quiet",
@@ -736,7 +786,8 @@ def main(argv: list[str] | None = None) -> int:
         quiet=args.quiet,
         all_tests=args.all_tests,
         fix=args.fix,
-        crap_check=args.crap,
+        crap_only=args.crap_only,
+        no_tests=args.no_tests,
         only=args.only_steps,
         skip=args.skip_steps,
         timeout_override=args.timeout,

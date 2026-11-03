@@ -115,10 +115,12 @@ uv run pytest tests/path/test_file.py::TestClass::test_method
 ### Porte de Vérification Canonique Unique (Verification Gate)
 La commande canonique unique `script/verify.py` applique séquentiellement l'ensemble des garde-fous de qualité avant tout push :
 ```bash
-uv run python script/verify.py              # chaîne canonique : drift, ruff, format, mypy, bandit, pytest fast
+uv run python script/verify.py              # chaîne canonique (8 étapes) : drift, shortcuts, ruff, format, mypy, bandit, pytest fast (cov LCOV), crap check
 uv run python script/verify.py --fix        # auto-correction (instructions, formatage et fix ruff) avant contrôle
+uv run python script/verify.py --no-tests   # chaîne statique rapide (étapes 1-6, sans pytest ni crap) sous le principe de parcimonie (~10s)
+uv run python script/verify.py --crap       # contrôle ciblé du score CRAP seul sur le diff via le rapport LCOV existant (< 1s)
+uv run python script/verify.py --step <nom> # exécution d'une étape ciblée (ex: --step mypy, --step crap)
 uv run python script/verify.py --all-tests  # exécution avec la totalité des tests (sans filtre slow)
-uv run python script/verify.py --crap       # contrôle pré-push incluant le garde-fou score CRAP sur le diff
 uv run python script/verify.py --install-hook # installe et active le hook natif versionné .githooks/pre-push
 ```
 
@@ -198,6 +200,12 @@ L'agent ne doit **JAMAIS** exécuter de `git commit` ou `git push` de manière a
 - **Clarification préalable** : L'agent doit d'abord demander explicitement à l'utilisateur le sujet précis de la recherche, ses attentes et le périmètre d'investigation souhaité.
 - **Recherche web & apport documentaire** : Effectuer les recherches documentaires nécessaires (notamment via la recherche sur le web et l'exploration des documentations officielles et sources primaires), puis adapter et structurer la documentation existante directement en réponse ciblée aux besoins de l'utilisateur et aux contraintes d'AnkiForge.
 - **Orientation aval conditionnelle** : Ce n'est qu'une fois la documentation existante amenée, synthétisée et validée avec l'utilisateur qu'il convient d'orienter la suite (ex. arbitrage d'architecture via `/grill-with-docs`, spécification via `/to-spec`, ou spike via `/prototype`).
+
+### 10. Principe de Parcimonie d'Exécution de la Porte de Vérification (`verify.py`)
+- **Frugalité d'exécution** : Interdiction formelle de relancer `script/verify.py` complet ou la suite pytest à l'aveugle lorsqu'aucune modification de code n'a eu lieu depuis la dernière exécution certifiée.
+- **Positionnement de CRAP après Pytest** : Le calcul du score CRAP ($CC^2 	imes (1 - cov)^3 + CC$) s'exécute en étape 8, immédiatement après `pytest-fast` (étape 7), car il exploite le rapport de couverture LCOV (`coverage/lcov.info`) généré par les tests.
+- **Discipline des sous-agents de revue** : Les sous-agents de code-review ne doivent **JAMAIS** ré-exécuter un `verify.py` complet incluant pytest si la porte a déjà été validée sur le diff en cours. Ils doivent s'appuyer sur le statut certifié ou employer des contrôles ciblés (`uv run python script/verify.py --no-tests` pour les étapes statiques 1-6 en < 10s, `uv run python script/verify.py --crap` pour le diff CRAP seul en < 1s, ou un test unitaire ciblé).
+- **Développement itératif ciblé** : Pendant les phases de diagnostic, TDD ou retouches ponctuelles, cibler précisément les tests modifiés (`pytest tests/path/test_xxx.py`) et valider l'intégrité statique via `verify.py --no-tests` sans brûler les ~45s de la suite pytest complète à chaque micro-itération.
 <!-- CANONICAL:END:regles_ingenierie -->
 
 <!-- CANONICAL:START:architecture_points_cles -->

@@ -115,7 +115,7 @@ def test_pre_push_hook_passes_on_success(tmp_path: Path) -> None:
 
 
 def test_verify_script_step_definitions() -> None:
-    """Le script canonique doit définir les 7 étapes dans l'ordre strict requis avec timeouts."""
+    """Le script canonique doit définir les 8 étapes dans l'ordre strict requis avec timeouts."""
     from script.verify import CANONICAL_STEPS
 
     expected_steps = [
@@ -125,10 +125,22 @@ def test_verify_script_step_definitions() -> None:
         ("ruff-format", ["ruff", "format", "--check", "."]),
         ("mypy", ["mypy", "src/ankiforge"]),
         ("bandit", ["bandit", "-c", "pyproject.toml", "-r", "src/"]),
-        ("pytest-fast", ["pytest", "-m", "not slow", "--max-worker-restart=0"]),
+        (
+            "pytest-fast",
+            [
+                "pytest",
+                "-m",
+                "not slow",
+                "--max-worker-restart=0",
+                "--cov=ankiforge",
+                "--cov-report=lcov:coverage/lcov.info",
+                "--cov-fail-under=0",
+            ],
+        ),
+        ("crap-check", ["python", "script/crap.py", "--changed"]),
     ]
 
-    assert len(CANONICAL_STEPS) == len(expected_steps), f"Attendu 7 étapes canoniques, reçu {len(CANONICAL_STEPS)}"
+    assert len(CANONICAL_STEPS) == len(expected_steps), f"Attendu {len(expected_steps)} étapes canoniques, reçu {len(CANONICAL_STEPS)}"
 
     for i, (expected_name, expected_cmd) in enumerate(expected_steps):
         step = CANONICAL_STEPS[i]
@@ -602,8 +614,47 @@ def test_skip_step_via_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exit_code == 0
     assert "bandit" not in invoked_steps
     assert "pytest-fast" not in invoked_steps
-    # Les 5 étapes restantes doivent avoir été exécutées (7 étapes au total - 2 sautées)
-    assert len(invoked_steps) == 5
+    # Les 6 étapes restantes doivent avoir été exécutées (8 étapes au total - 2 sautées)
+    assert len(invoked_steps) == 6
+
+
+def test_verify_script_crap_flag_runs_only_crap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le drapeau --crap doit cibler uniquement l'étape crap-check."""
+    from script.verify import StepResult, main
+
+    invoked_steps: list[str] = []
+
+    def mock_run_step(step: object, *args: object, **kwargs: object) -> StepResult:
+        invoked_steps.append(step.name)  # type: ignore[union-attr]
+        return StepResult(name=step.name, status="OK", duration=0.01, return_code=0)  # type: ignore[union-attr]
+
+    monkeypatch.setattr("script.verify.run_single_step", mock_run_step)
+
+    exit_code = main(["--crap"])
+
+    assert exit_code == 0
+    assert invoked_steps == ["crap-check"], f"Attendu uniquement crap-check, reçu : {invoked_steps}"
+
+
+def test_verify_script_no_tests_flag_skips_pytest_and_crap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le drapeau --no-tests doit exécuter les vérifications statiques en sautant pytest et CRAP."""
+    from script.verify import StepResult, main
+
+    invoked_steps: list[str] = []
+
+    def mock_run_step(step: object, *args: object, **kwargs: object) -> StepResult:
+        invoked_steps.append(step.name)  # type: ignore[union-attr]
+        return StepResult(name=step.name, status="OK", duration=0.01, return_code=0)  # type: ignore[union-attr]
+
+    monkeypatch.setattr("script.verify.run_single_step", mock_run_step)
+
+    exit_code = main(["--no-tests"])
+
+    assert exit_code == 0
+    assert "pytest-fast" not in invoked_steps
+    assert "pytest-all" not in invoked_steps
+    assert "crap-check" not in invoked_steps
+    assert len(invoked_steps) == 6
 
 
 def test_timeout_override_propagated(monkeypatch: pytest.MonkeyPatch) -> None:

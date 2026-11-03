@@ -15,6 +15,11 @@ Revue de code à deux axes distincts comparant le diff entre `HEAD` et un point 
 
 Les deux analyses s'exécutent en sous-agents parallèles isolés afin d'éviter toute pollution croisée de contexte.
 
+> [!IMPORTANT]
+> **Principe de Parcimonie d'Exécution (Frugalité de Revue)** :
+> Les sous-agents de revue ne doivent **JAMAIS** relancer `script/verify.py` complet ou la suite pytest si le superviseur a déjà validé la porte de vérification sur l'arbre de travail et qu'aucune modification de code n'a eu lieu depuis.
+> Pour contrôler les linters et le typage sans relancer pytest, utiliser `uv run python script/verify.py --no-tests` (~10s). Pour contrôler le risque CRAP du diff, utiliser `uv run python script/verify.py --crap` (< 1s). En cas de doute sur un comportement dynamique, exécuter uniquement le test unitaire ciblé (`uv run pytest tests/path/test_xxx.py`).
+
 ## Processus
 
 1. **Définir le point de référence** :

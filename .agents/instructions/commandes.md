@@ -30,10 +30,12 @@ uv run pytest tests/path/test_file.py::TestClass::test_method
 ### Porte de Vérification Canonique Unique (Verification Gate)
 La commande canonique unique `script/verify.py` applique séquentiellement l'ensemble des garde-fous de qualité avant tout push :
 ```bash
-uv run python script/verify.py              # chaîne canonique : drift, ruff, format, mypy, bandit, pytest fast
+uv run python script/verify.py              # chaîne canonique (8 étapes) : drift, shortcuts, ruff, format, mypy, bandit, pytest fast (cov LCOV), crap check
 uv run python script/verify.py --fix        # auto-correction (instructions, formatage et fix ruff) avant contrôle
+uv run python script/verify.py --no-tests   # chaîne statique rapide (étapes 1-6, sans pytest ni crap) sous le principe de parcimonie (~10s)
+uv run python script/verify.py --crap       # contrôle ciblé du score CRAP seul sur le diff via le rapport LCOV existant (< 1s)
+uv run python script/verify.py --step <nom> # exécution d'une étape ciblée (ex: --step mypy, --step crap)
 uv run python script/verify.py --all-tests  # exécution avec la totalité des tests (sans filtre slow)
-uv run python script/verify.py --crap       # contrôle pré-push incluant le garde-fou score CRAP sur le diff
 uv run python script/verify.py --install-hook # installe et active le hook natif versionné .githooks/pre-push
 ```
 

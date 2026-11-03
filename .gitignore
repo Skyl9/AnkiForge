@@ -42,8 +42,10 @@ wheels/
 .installed.cfg
 *.egg
 .coverage
+coverage/
 coverage.xml
 coverage.json
+*.info
 mutants/
 .mutmut-cache/
 

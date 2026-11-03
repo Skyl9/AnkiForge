@@ -116,21 +116,26 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
     - *Pourquoi* : Dans les tests vérifiant l'absence de fuite de données sensibles ou de contenu de cartes dans les logs (`assert sentinel not in caplog.text`), l'activation de `caplog.set_level(logging.DEBUG)` capture les requêtes SQL `INSERT INTO ...` générées par Peewee qui contiennent littéralement les valeurs des colonnes enregistrées en base. Cette capture produit des faux positifs d'audit de fuite en confondant le traçage SQL avec les journaux applicatifs.
     - *Garantie automatique* : Dans tout test d'audit de fuite de logs par sentinelle, filtrer explicitement sur les enregistrements du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankiforge.<service>")]`) ou isoler le logger Peewee (`logging.getLogger("peewee").setLevel(logging.INFO)`).
 
+27. **Principe de Parcimonie d'Exécution de la Porte Canonique (Frugalité CI/Agentique)** :
+    - *Pourquoi* : La suite de tests pytest s'enrichit continuellement (> 3800 tests, ~45s à 90s). Relancer `script/verify.py` complet à l'aveugle sans modification de code gaspille des ressources. L'étape `crap-check` s'exécute en étape 8 après `pytest-fast` (étape 7) pour exploiter le rapport LCOV de couverture de tests.
+    - *Garantie automatique* :
+      - Contrôle statique rapide : `uv run python script/verify.py --no-tests` (~10s, étapes 1-6).
+      - Audit CRAP seul : `uv run python script/verify.py --crap` (< 1s, sur LCOV existant).
+      - Étape ciblée : `uv run python script/verify.py --step <nom>` (ex: `--step mypy`).
+      - Les sous-agents de revue ne doivent **jamais** relancer `verify.py` complet si l'état a déjà été certifié.
+
 ## 3. Commande Canonique Unique de Vérification
 
 Toute modification de code doit impérativement être validée via la porte canonique unique :
 
 ```bash
-uv run python script/verify.py              # vérification complète rapide (< 30s)
-uv run python script/verify.py --fix        # auto-correction ruff avant vérification
-uv run python script/verify.py --all-tests  # vérification avec suite complète
+uv run python script/verify.py              # chaîne canonique (8 étapes) : drift, shortcuts, ruff, format, mypy, bandit, pytest (cov LCOV), crap
+uv run python script/verify.py --fix        # auto-correction (instructions, formatage et fix ruff) avant contrôle
+uv run python script/verify.py --no-tests   # chaîne statique rapide (étapes 1-6, sans pytest ni crap) sous le principe de parcimonie
+uv run python script/verify.py --crap       # contrôle ciblé du score CRAP seul sur le diff via LCOV existant (< 1s)
+uv run python script/verify.py --step <nom> # exécution d'une étape ciblée (ex: --step mypy, --step crap)
+uv run python script/verify.py --all-tests  # vérification avec suite complète (sans filtre slow)
 ```
-
-### Méthodes d'exécution par environnement d'agent
-
-- **Antigravity / Gemini CLI** : Invoquer l'outil `run_command` avec `CommandLine: "uv run python script/verify.py"` et `Cwd` sur le workspace.
-- **Claude Code** : Invoquer l'outil `Bash` avec `uv run python script/verify.py`.
-- **Terminal & Scripts** : Exécuter la commande directement dans le shell.
 
 ### Le hook pre-push versionné
 
