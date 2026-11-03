@@ -65,6 +65,8 @@ class TTSDiscoveryWorker(QThread):
     def run(self) -> None:
         is_piper_ok, piper_msg = PiperSidecarProvider.is_functional()
         is_kokoro_ok, kokoro_msg = KokoroSidecarProvider.is_functional()
+        has_kokoro_runner = KokoroSidecarProvider.has_runner()
+        has_kokoro_models = KokoroSidecarProvider.has_models()
 
         audio_devices_data: list[dict[str, Any]] = []
         default_dev_id: Any = None
@@ -89,6 +91,8 @@ class TTSDiscoveryWorker(QThread):
                 "piper_msg": piper_msg,
                 "is_kokoro_ok": is_kokoro_ok,
                 "kokoro_msg": kokoro_msg,
+                "has_kokoro_runner": has_kokoro_runner,
+                "has_kokoro_models": has_kokoro_models,
                 "audio_devices": audio_devices_data,
                 "default_dev_id": default_dev_id,
             }
@@ -366,10 +370,17 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         piper_msg = results.get("piper_msg", "")
         is_kokoro_ok = results.get("is_kokoro_ok", False)
         kokoro_msg = results.get("kokoro_msg", "")
+        has_kokoro_runner = results.get("has_kokoro_runner")
+        has_kokoro_models = results.get("has_kokoro_models")
         audio_devs = results.get("audio_devices", [])
 
         self._update_piper_status_ui(is_piper_ok, piper_msg)
-        self._update_kokoro_status_ui(is_kokoro_ok, kokoro_msg)
+        self._update_kokoro_status_ui(
+            is_kokoro_ok,
+            kokoro_msg,
+            has_runner_val=has_kokoro_runner,
+            has_models_val=has_kokoro_models,
+        )
 
         if is_kokoro_ok and self.cb_engine.findData("kokoro") == -1:
             self.cb_engine.addItem(self.tr("Kokoro-82M (Runner Local Déporté)"), "kokoro")
@@ -436,12 +447,21 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             if hasattr(self, "btn_install_piper"):
                 self.btn_install_piper.setText(self.tr(" Télécharger Piper CLI (1-Clic)"))
 
-    def _update_kokoro_status_ui(self, is_functional_val: bool | None = None, msg_val: str | None = None) -> None:
+    def _update_kokoro_status_ui(
+        self,
+        is_functional_val: bool | None = None,
+        msg_val: str | None = None,
+        has_runner_val: bool | None = None,
+        has_models_val: bool | None = None,
+    ) -> None:
         """Met à jour le libellé et la couleur du statut d'installation de Kokoro."""
         if is_functional_val is not None:
             is_functional, msg = is_functional_val, msg_val or ""
         else:
             is_functional, msg = KokoroSidecarProvider.is_functional()
+
+        has_runner = has_runner_val if has_runner_val is not None else KokoroSidecarProvider.has_runner()
+        has_models = has_models_val if has_models_val is not None else KokoroSidecarProvider.has_models()
 
         if is_functional:
             self.lbl_kokoro_status.setText(self.tr("● Installé et opérationnel"))
@@ -450,6 +470,14 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
                 self.btn_install_kokoro.setEnabled(False)
                 self.btn_install_kokoro.setText(self.tr(" Kokoro déjà installé et prêt"))
                 self.btn_install_kokoro.setToolTip(self.tr("Le modèle Kokoro-82M est opérationnel sans configuration requise."))
+        elif has_runner and not has_models:
+            self.lbl_kokoro_status.setText(self.tr("◐ Partiel (modèles ONNX manquants)"))
+            self.lbl_kokoro_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
+            self.lbl_kokoro_status.setToolTip(msg)
+            if hasattr(self, "btn_install_kokoro"):
+                self.btn_install_kokoro.setEnabled(True)
+                self.btn_install_kokoro.setText(self.tr(" Télécharger les modèles Kokoro"))
+                self.btn_install_kokoro.setToolTip(self.tr("Télécharger les poids ONNX (kokoro-v1.0.onnx et voices-v1.0.bin)"))
         else:
             self.lbl_kokoro_status.setText(self.tr("○ Non installé (runner absent)"))
             self.lbl_kokoro_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")

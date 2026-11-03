@@ -244,10 +244,14 @@ def test_kokoro_synthesize_subprocess_failure(tmp_path: Path, monkeypatch: pytes
         provider.synthesize("Crash text")
 
 
-def test_kokoro_install_runner_creates_executable_and_executes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Vérifie que install_runner déploie un run.py valide et fonctionnel."""
+def test_kokoro_install_runner_creates_executable_and_reports_missing_models(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que install_runner déploie run.py mais que is_functional() signale les modèles manquants."""
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    KokoroSidecarProvider.clear_functional_cache()
+    assert KokoroSidecarProvider.has_runner() is False
+    assert KokoroSidecarProvider.has_models() is False
 
     ok = KokoroSidecarProvider.install_runner()
     assert ok is True
@@ -256,17 +260,84 @@ def test_kokoro_install_runner_creates_executable_and_executes(tmp_path: Path, m
     assert run_py.exists()
     assert run_py.stat().st_size > 100
 
-    # Vérifier que is_functional() probe et confirme que run.py s'exécute avec succès
-    functional, msg = KokoroSidecarProvider.is_functional()
-    assert functional is True
-    assert msg == "Opérationnel"
+    # Runner présent mais modèles ONNX absents
+    assert KokoroSidecarProvider.has_runner() is True
+    assert KokoroSidecarProvider.has_models() is False
 
-    # Vérifier la synthèse réelle de fallback via ce run.py
-    provider = KokoroSidecarProvider()
-    data = provider.synthesize("Bonjour depuis Kokoro", voice="af_heart")
-    assert len(data) > 44  # Header WAV standard = 44 octets
-    assert data[:4] == b"RIFF"
-    assert data[8:12] == b"WAVE"
+    functional, msg = KokoroSidecarProvider.is_functional()
+    assert functional is False
+    assert "Modèles ONNX manquants" in msg
+
+    # Après ajout des fichiers de modèles ONNX
+    kokoro_dir = tmp_path / "tools" / "tts" / "kokoro"
+    (kokoro_dir / "kokoro-v1.0.onnx").write_bytes(b"dummy_onnx")
+    (kokoro_dir / "voices-v1.0.bin").write_bytes(b"dummy_voices")
+
+    assert KokoroSidecarProvider.has_models() is True
+    functional2, msg2 = KokoroSidecarProvider.is_functional(force_refresh=True)
+    assert functional2 is True
+    assert msg2 == "Opérationnel"
+
+
+def test_kokoro_download_and_install_downloads_models_and_marks_operational(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que download_and_install_kokoro déploie le runner et télécharge les modèles vérifiés."""
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+    KokoroSidecarProvider.clear_functional_cache()
+
+    download_calls: list[tuple[str, Path, str, int]] = []
+
+    def fake_download(url: str, dest: Path, sha: str, *, max_bytes: int, **kwargs: object) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"downloaded_content")
+        download_calls.append((url, dest, sha, max_bytes))
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service._download_verified", fake_download)
+    monkeypatch.setattr(KokoroSidecarProvider, "ensure_venv", classmethod(lambda cls, **kwargs: None))
+
+    progress_messages: list[str] = []
+    service = TTSService()
+    success = service.download_and_install_kokoro(progress_callback=progress_messages.append)
+
+    assert success is True
+    kokoro_dir = tmp_path / "tools" / "tts" / "kokoro"
+    assert (kokoro_dir / "run.py").is_file()
+    assert (kokoro_dir / "kokoro-v1.0.onnx").is_file()
+    assert (kokoro_dir / "voices-v1.0.bin").is_file()
+
+    # Vérification des URLs et empreintes SHA-256 officielles
+    assert len(download_calls) == 2
+    model_call = next(c for c in download_calls if "kokoro-v1.0.onnx" in c[0])
+    voices_call = next(c for c in download_calls if "voices-v1.0.bin" in c[0])
+    assert model_call[2] == "7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5"
+    assert voices_call[2] == "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"
+
+    assert KokoroSidecarProvider.has_models() is True
+    functional, _ = KokoroSidecarProvider.is_functional(force_refresh=True)
+    assert functional is True
+
+
+def test_kokoro_runner_script_fails_cleanly_without_fallback_tone_when_models_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que run.py quitte en erreur sans émettre de faux bip 440 Hz si les modèles sont absents."""
+    import subprocess
+    import sys
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    KokoroSidecarProvider.install_runner()
+    run_py = tmp_path / "tools" / "tts" / "kokoro" / "run.py"
+    out_wav = tmp_path / "output.wav"
+
+    res = subprocess.run(
+        [sys.executable, str(run_py), "--text", "Test synth", "--output", str(out_wav)],
+        capture_output=True,
+        check=False,
+    )
+    # Le runner doit sortir en code d'erreur (non-zéro) et ne pas générer le fichier wav
+    assert res.returncode != 0
+    assert not out_wav.exists()
+    assert b"introuvables" in res.stderr.lower() or b"introuvables" in res.stdout.lower()
 
 
 def test_tts_service_cache_helpers(tmp_path: Path) -> None:
@@ -349,7 +420,11 @@ def test_sidecar_providers_functional_cache() -> None:
         PiperSidecarProvider.is_functional()
         assert mock_run.call_count == 3
 
-    with patch.object(KokoroSidecarProvider, "get_kokoro_command", return_value=["python", "run.py"]), patch("subprocess.run") as mock_run_k:
+    with (
+        patch.object(KokoroSidecarProvider, "get_kokoro_command", return_value=["python", "run.py"]),
+        patch.object(KokoroSidecarProvider, "has_models", return_value=True),
+        patch("subprocess.run") as mock_run_k,
+    ):
         mock_run_k.return_value = MagicMock(returncode=0)
 
         ok_k1, _ = KokoroSidecarProvider.is_functional()

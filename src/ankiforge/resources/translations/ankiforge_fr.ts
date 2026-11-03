@@ -583,7 +583,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+16"/>
         <location line="+15"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+468"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+471"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+499"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8195,19 +8195,19 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-189"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-213"/>
         <location line="+40"/>
         <source>Emplacement : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+108"/>
+        <location line="+115"/>
         <source>Dépendance manquante ou non fonctionnelle :
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+60"/>
         <source>Erreur de chargement des voix : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20917,7 +20917,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TTSSettingsTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-552"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-576"/>
         <source>CONFIGURATION DU MOTEUR VOCAL</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20987,7 +20987,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+53"/>
         <location line="+17"/>
         <source>Kokoro-82M (Runner Local Déporté)</source>
         <translation type="unfinished"></translation>
@@ -21009,12 +21009,12 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+36"/>
-        <location line="+24"/>
+        <location line="+33"/>
         <source>● Installé et opérationnel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-21"/>
+        <location line="-30"/>
         <location line="+6"/>
         <source> Réinstaller Piper CLI (1-Clic)</source>
         <translation type="unfinished"></translation>
@@ -21035,13 +21035,28 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+23"/>
         <source> Kokoro déjà installé et prêt</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Le modèle Kokoro-82M est opérationnel sans configuration requise.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>◐ Partiel (modèles ONNX manquants)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source> Télécharger les modèles Kokoro</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Télécharger les poids ONNX (kokoro-v1.0.onnx et voices-v1.0.bin)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

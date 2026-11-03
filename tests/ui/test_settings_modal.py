@@ -833,6 +833,18 @@ def test_tts_settings_tab_kokoro_integration(qtbot):
         assert "Kokoro configuré avec succès" in tab2.lbl_kokoro_install_progress.text()
         assert tab2.btn_install_kokoro.isEnabled() is False
 
+    # Troisième cas : Runner présent mais modèles ONNX manquants (Statut Partiel)
+    with (
+        patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(False, "Modèles ONNX manquants")),
+        patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.has_runner", return_value=True),
+        patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.has_models", return_value=False),
+    ):
+        tab3 = TTSSettingsTab()
+        qtbot.addWidget(tab3)
+        assert "Partiel" in tab3.lbl_kokoro_status.text()
+        assert tab3.btn_install_kokoro.isEnabled() is True
+        assert "Télécharger les modèles Kokoro" in tab3.btn_install_kokoro.text()
+
 
 def test_ai_engines_tab_save_syncs_models_and_reloads_provider(qtbot):
     """Vérifie que la sauvegarde met à jour les LLMConfigModel en BDD et recharge l'AIManager."""

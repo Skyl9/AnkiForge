@@ -102,6 +102,19 @@ _PIPER_VOICE_SHA256: dict[str, str] = {
     "fr_FR-siwis-low.onnx.json": "9722527d748c284f6dd7639c4b4e661853d4f7d4514079571f67d6a97a652b69",
 }
 
+# =========================================================================
+# CONSTANTES DE SÉCURITÉ TÉLÉCHARGEMENT KOKORO SIDECAR
+# =========================================================================
+_KOKORO_RELEASE_BASE_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
+_KOKORO_MODEL_FILE = "kokoro-v1.0.onnx"
+_KOKORO_MODEL_SHA256 = "7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5"
+_KOKORO_MODEL_MAX_BYTES = 400 * 1024 * 1024  # ~325 Mo
+
+_KOKORO_VOICES_FILE = "voices-v1.0.bin"
+_KOKORO_VOICES_SHA256 = "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"
+_KOKORO_VOICES_MAX_BYTES = 50 * 1024 * 1024  # ~28 Mo
+_KOKORO_DOWNLOAD_TIMEOUT_SECONDS = 60.0
+
 
 def _download_verified(
     url: str,
@@ -530,6 +543,34 @@ class KokoroSidecarProvider(TTSProvider):
         return kokoro_dir
 
     @classmethod
+    def get_models_dir(cls) -> Path:
+        """Retourne le répertoire hébergeant les modèles ONNX et voix de Kokoro."""
+        return cls.get_kokoro_dir()
+
+    @classmethod
+    def has_runner(cls) -> bool:
+        """Vérifie si le runner Kokoro (run.py ou binaire) est présent."""
+        return cls.get_kokoro_command() is not None
+
+    @classmethod
+    def has_models(cls) -> bool:
+        """Vérifie si les fichiers ONNX et les vecteurs de voix Kokoro sont présents."""
+        from ankiforge.utils.environment import is_testing
+        from ankiforge.utils.paths import get_tools_search_dirs
+
+        search_dirs = [get_app_data_dir() / "tools"]
+        if not is_testing():
+            for d in get_tools_search_dirs():
+                if d not in search_dirs:
+                    search_dirs.append(d)
+
+        for tools_dir in search_dirs:
+            k_dir = tools_dir / "tts" / "kokoro"
+            if (k_dir / _KOKORO_MODEL_FILE).is_file() and (k_dir / _KOKORO_VOICES_FILE).is_file():
+                return True
+        return False
+
+    @classmethod
     def get_kokoro_command(cls) -> list[str] | None:
         """Résout la commande d'exécution du runner Kokoro (script Python ou binaire)."""
         from ankiforge.utils.environment import is_testing
@@ -566,7 +607,7 @@ class KokoroSidecarProvider(TTSProvider):
 
     @classmethod
     def is_functional(cls, force_refresh: bool = False) -> tuple[bool, str]:
-        """Vérifie que le runner Kokoro existe et peut répondre à une sonde (--version) (avec mise en cache)."""
+        """Vérifie que le runner Kokoro ET ses modèles existent et répondent à la sonde (avec mise en cache)."""
         if not force_refresh and cls._functional_cache is not None:
             return cls._functional_cache
 
@@ -574,6 +615,13 @@ class KokoroSidecarProvider(TTSProvider):
         if not cmd:
             cls._functional_cache = (False, "Runner Kokoro introuvable (aucun script run.py ou binaire kokoro).")
             return cls._functional_cache
+
+        # Si le runner est un script python déporté, exiger la présence des modèles ONNX
+        is_python_script = any(part.endswith(".py") for part in cmd)
+        if is_python_script and not cls.has_models():
+            cls._functional_cache = (False, "Modèles ONNX manquants (kokoro-v1.0.onnx ou voices-v1.0.bin absent)")
+            return cls._functional_cache
+
         try:
             cwd_target = Path(cmd[-1]).parent if len(cmd) > 1 else Path(cmd[0]).parent
             res = subprocess.run(
@@ -651,6 +699,68 @@ class KokoroSidecarProvider(TTSProvider):
             temp_wav.unlink(missing_ok=True)
 
     @classmethod
+    def ensure_venv(cls, progress_callback: Callable[[str], None] | None = None) -> Path | None:
+        """Prépare si nécessaire un venv dédié avec kokoro-onnx et soundfile."""
+        from ankiforge.utils.environment import is_testing
+
+        if is_testing():
+            return None
+
+        k_dir = cls.get_kokoro_dir()
+        venv_dir = k_dir / "venv"
+        venv_py = venv_dir / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
+        if venv_py.is_file() and os.access(venv_py, os.X_OK):
+            return venv_py
+
+        try:
+            if progress_callback:
+                progress_callback("Configuration de l'environnement virtuel Kokoro...")
+            uv_exe = shutil.which("uv")
+            if uv_exe:
+                subprocess.run([uv_exe, "venv", str(venv_dir), "--python", sys.executable], check=True, capture_output=True)  # nosec B603
+                if progress_callback:
+                    progress_callback("Installation des dépendances Kokoro (kokoro-onnx, soundfile)...")
+                subprocess.run([uv_exe, "pip", "install", "kokoro-onnx", "soundfile", "--python", str(venv_py)], check=True, capture_output=True)  # nosec B603
+            else:
+                import venv
+
+                venv.create(str(venv_dir), with_pip=True)
+                if progress_callback:
+                    progress_callback("Installation des dépendances Kokoro (kokoro-onnx, soundfile)...")
+                subprocess.run([str(venv_py), "-m", "pip", "install", "--upgrade", "kokoro-onnx", "soundfile"], check=True, capture_output=True)  # nosec B603
+            return venv_py
+        except Exception as err:
+            logger.warning("Création automatique du venv Kokoro non disponible (%s) ; repli sur l'environnement hôte.", err)
+            return None
+
+    @classmethod
+    def download_models(cls, progress_callback: Callable[[str], None] | None = None) -> bool:
+        """Télécharge les modèles ONNX officiels avec vérification d'intégrité SHA-256."""
+        kokoro_dir = cls.get_kokoro_dir()
+        kokoro_dir.mkdir(parents=True, exist_ok=True)
+
+        assets = (
+            (_KOKORO_MODEL_FILE, _KOKORO_MODEL_SHA256, _KOKORO_MODEL_MAX_BYTES, "Téléchargement du modèle ONNX Kokoro-82M"),
+            (_KOKORO_VOICES_FILE, _KOKORO_VOICES_SHA256, _KOKORO_VOICES_MAX_BYTES, "Téléchargement des vecteurs de voix"),
+        )
+        for fname, expected_sha, max_bytes, label in assets:
+            dest_file = kokoro_dir / fname
+            if not dest_file.exists():
+                url = f"{_KOKORO_RELEASE_BASE_URL}/{fname}"
+                if progress_callback:
+                    progress_callback(f"{label}...")
+                _download_verified(
+                    url,
+                    dest_file,
+                    expected_sha,
+                    max_bytes=max_bytes,
+                    timeout=_KOKORO_DOWNLOAD_TIMEOUT_SECONDS,
+                    progress_callback=progress_callback,
+                    progress_label=label,
+                )
+        return True
+
+    @classmethod
     def install_runner(cls, progress_callback: Callable[[str], None] | None = None) -> bool:
         """Déploie un script runner autonome et auto-suffisant pour Kokoro-82M dans ~/.ankiforge/tools/tts/kokoro/run.py."""
         kokoro_dir = cls.get_kokoro_dir()
@@ -666,10 +776,7 @@ Supporte les options CLI : --version, --text, --voice, --rate, --pitch, --output
 """
 import argparse
 import logging
-import math
-import struct
 import sys
-import wave
 from pathlib import Path
 
 logging.basicConfig(
@@ -678,23 +785,6 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 logger = logging.getLogger(__name__)
-
-
-def generate_fallback_tone(output_path: Path, duration_sec: float = 0.8, sample_rate: int = 24000) -> None:
-    """Génère un signal audio WAV PCM 16-bit synthétique en cas d'absence de kokoro_onnx."""
-    num_samples = int(sample_rate * duration_sec)
-    freq = 440.0
-    with wave.open(str(output_path), "wb") as wav_file:
-        wav_file.setnchannels(1)
-        wav_file.setsampwidth(2)
-        wav_file.setframerate(sample_rate)
-        frames = bytearray()
-        for i in range(num_samples):
-            # Enveloppe d'attaque et décroissance douce
-            env = math.sin(math.pi * i / num_samples)
-            value = int(32767.0 * 0.3 * env * math.sin(2.0 * math.pi * freq * i / sample_rate))
-            frames.extend(struct.pack("<h", max(-32768, min(32767, value))))
-        wav_file.writeframes(frames)
 
 
 def main() -> None:
@@ -718,25 +808,34 @@ def main() -> None:
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Inférence ONNX si kokoro_onnx et les modèles sont présents
+    script_dir = Path(__file__).resolve().parent
+    model_path = script_dir / "kokoro-v1.0.onnx"
+    voices_path = script_dir / "voices-v1.0.bin"
+
+    if not model_path.exists() or not voices_path.exists():
+        logger.error("Modèles Kokoro ONNX introuvables dans %s", script_dir)
+        sys.exit(2)
+
     try:
         from kokoro_onnx import Kokoro  # type: ignore
 
-        model_path = out_path.parent / "kokoro-v1.0.onnx"
-        voices_path = out_path.parent / "voices-v1.0.bin"
-        if model_path.exists() and voices_path.exists():
-            kokoro = Kokoro(str(model_path), str(voices_path))
-            samples, sr = kokoro.create(args.text, voice=args.voice, speed=1.0)
-            import soundfile as sf  # type: ignore
+        kokoro = Kokoro(str(model_path), str(voices_path))
+        speed = 1.0
+        if args.rate and args.rate.endswith("%"):
+            try:
+                rate_val = float(args.rate.replace("%", "").replace("+", ""))
+                speed = max(0.5, min(2.0, 1.0 + (rate_val / 100.0)))
+            except ValueError:
+                speed = 1.0
 
-            sf.write(str(out_path), samples, sr)
-            sys.exit(0)
+        samples, sr = kokoro.create(args.text, voice=args.voice, speed=speed)
+        import soundfile as sf  # type: ignore
+
+        sf.write(str(out_path), samples, sr)
+        sys.exit(0)
     except Exception as err:
-        logger.warning("Inférence neuronale non disponible (%s), repli sur générateur WAV autonome.", err)
-
-    # Repli autonome immédiat (WAV PCM 16-bit 24kHz)
-    generate_fallback_tone(out_path)
-    sys.exit(0)
+        logger.error("Échec de la synthèse neuronale Kokoro : %s", err)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
@@ -1165,14 +1264,20 @@ class TTSService:
 
     @staticmethod
     def is_kokoro_installed() -> bool:
-        """Vérifie si le runner Kokoro est installé et fonctionnel."""
+        """Vérifie si le runner Kokoro est installé et fonctionnel (avec modèles ONNX)."""
         ok, _ = KokoroSidecarProvider.is_functional()
         return ok
 
     @staticmethod
     def download_and_install_kokoro(progress_callback: Callable[[str], None] | None = None) -> bool:
-        """Installe et configure le runner Kokoro-82M dans tools/tts/kokoro/."""
-        return KokoroSidecarProvider.install_runner(progress_callback=progress_callback)
+        """Installe le runner Kokoro-82M, prépare son environnement et télécharge les modèles ONNX nécessaires."""
+        KokoroSidecarProvider.install_runner(progress_callback=progress_callback)
+        KokoroSidecarProvider.ensure_venv(progress_callback=progress_callback)
+        KokoroSidecarProvider.download_models(progress_callback=progress_callback)
+        if progress_callback:
+            progress_callback("Runner et modèles Kokoro-82M installés avec succès !")
+        KokoroSidecarProvider.clear_functional_cache()
+        return True
 
 
 # Instance singleton paresseuse
