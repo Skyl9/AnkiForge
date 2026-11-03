@@ -84,7 +84,7 @@ class MockSuccessProvider(TTSProvider):
     def is_available(self) -> bool:
         return True
 
-    def get_voices(self) -> list[dict[str, str]]:
+    def get_voices(self, target_lang: str | None = None) -> list[dict[str, str]]:
         return [{"id": "v1", "name": "Voice 1", "lang": "fr-FR"}]
 
     def synthesize(
@@ -528,7 +528,7 @@ def test_tts_service_fallback_chain_exhausted_raises(tmp_path: Path) -> None:
         def is_available(self) -> bool:
             return True
 
-        def get_voices(self) -> list[dict[str, str]]:
+        def get_voices(self, target_lang: str | None = None) -> list[dict[str, str]]:
             return []
 
         def synthesize(self, text: str, **kwargs: object) -> bytes:
@@ -564,7 +564,7 @@ def test_tts_service_fallback_preserves_cache_key_differentiation(tmp_path: Path
         def is_available(self) -> bool:
             return True
 
-        def get_voices(self) -> list[dict[str, str]]:
+        def get_voices(self, target_lang: str | None = None) -> list[dict[str, str]]:
             return [{"id": "fr-FR-VivienneMultilingualNeural", "name": "Vivienne", "lang": "fr-FR"}]
 
         def synthesize(self, text: str, **kwargs: object) -> bytes:
@@ -765,3 +765,152 @@ def test_piper_download_and_install_standalone_archive(tmp_path: Path, monkeypat
     success = TTSService.download_and_install_piper()
     assert success is True
     assert any("piper_linux_x86_64.tar.gz" in u for u in downloaded)
+
+
+def test_system_speech_provider_macos_parses_all_voices_and_languages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que SystemSpeechProvider sous macOS ne tronque plus à 15 voix et parse les noms complexes."""
+    import platform
+    import subprocess
+
+    fake_say_output = """Albert              en_US    # Hello! My name is Albert.
+Alice               it_IT    # Ciao! Mi chiamo Alice.
+Alva                sv_SE    # Hej! Jag heter Alva.
+Amélie (Français (Canada)) fr_CA    # Bonjour! Je m’appelle Amélie.
+Anna                de_DE    # Hallo! Ich heiße Anna.
+Bad News            en_US    # Hello! My name is Bad News.
+Carmit              he_IL    # שלום, שמי כרמית.
+Damayanti           id_ID    # Halo! Nama saya Damayanti.
+Daniel              en_GB    # Hello! My name is Daniel.
+Daria               bg_BG    # Hello! My name is Daria.
+Eddy (Allemand (Allemagne)) de_DE    # Hallo! Ich heiße Eddy.
+Eddy (Anglais (R.-U.)) en_GB    # Hello! My name is Eddy.
+Eddy (Anglais (É.-U.)) en_US    # Hello! My name is Eddy.
+Eddy (Espagnol (Espagne)) es_ES    # ¡Hola! Me llamo Eddy.
+Eddy (Français (France)) fr_FR    # Bonjour, je m’appelle Eddy.
+Eddy (Japonais (Japon)) ja_JP    # こんにちは! 私の名前はEddyです。
+Ellen               nl_BE    # Hallo, mijn naam is Ellen.
+Flo (Français (France)) fr_FR    # Bonjour, je m’appelle Flo.
+Jacques             fr_FR    # Bonjour, je m’appelle Jacques.
+Kyoko (Japonais (Japon)) ja_JP    # こんにちは! 私の名前はKyokoです。
+Kyoko (Japonais (Japon)) ja_JP    # こんにちは! 私の名前はKyokoです.
+Thomas (Français (France)) fr_FR    # Bonjour, je m’appelle Thomas.
+Zuzana              cs_CZ    # Dobrý den, jmenuji se Zuzana.
+"""
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: fake_say_output)
+
+    provider = SystemSpeechProvider()
+    voices = provider.get_voices()
+
+    # Plus de 15 voix doivent être retournées (aucune troncature arbitraire)
+    assert len(voices) > 15
+
+    # Déduplication de Kyoko (présent 2 fois dans la sortie)
+    kyoko_voices = [v for v in voices if "Kyoko" in v["id"]]
+    assert len(kyoko_voices) == 1
+    assert kyoko_voices[0]["lang"] == "ja_JP"
+    assert kyoko_voices[0]["id"] == "Kyoko (Japonais (Japon))"
+
+    # Vérification du nom avec espaces multiples (Bad News)
+    bad_news = next((v for v in voices if v["id"] == "Bad News"), None)
+    assert bad_news is not None
+    assert bad_news["lang"] == "en_US"
+
+    # Vérification de voix française au-delà du 15e index
+    fr_voices = [v for v in voices if v["lang"] == "fr_FR"]
+    assert len(fr_voices) >= 3
+
+
+def test_system_speech_provider_filter_by_target_lang(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie le filtrage optionnel par target_lang sur SystemSpeechProvider."""
+    import platform
+    import subprocess
+
+    fake_say_output = """Albert              en_US    # Hello!
+Eddy (Français (France)) fr_FR    # Bonjour
+Eddy (Japonais (Japon)) ja_JP    # こんにちは!
+Kyoko (Japonais (Japon)) ja_JP    # こんにちは!
+Thomas (Français (France)) fr_FR    # Bonjour
+"""
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: fake_say_output)
+
+    provider = SystemSpeechProvider()
+
+    # Filtrage japonais avec "ja"
+    ja_voices = provider.get_voices(target_lang="ja")
+    assert len(ja_voices) == 2
+    assert all(v["lang"] == "ja_JP" for v in ja_voices)
+    assert any("Kyoko" in v["id"] for v in ja_voices)
+
+    # Filtrage japonais avec "ja_JP"
+    ja_jp_voices = provider.get_voices(target_lang="ja_JP")
+    assert len(ja_jp_voices) == 2
+
+    # Filtrage français avec "fr"
+    fr_voices = provider.get_voices(target_lang="fr")
+    assert len(fr_voices) == 2
+    assert all(v["lang"] == "fr_FR" for v in fr_voices)
+
+    # Filtrage langue inexistante
+    empty = provider.get_voices(target_lang="ru")
+    assert empty == []
+
+    # Vérification cas limite de voix sans locale renseignée
+    from ankiforge.services.cards.tts_service import match_tts_lang
+
+    assert match_tts_lang("", "ja") is False
+    assert match_tts_lang("ja_JP", None) is True
+    assert match_tts_lang("ja_JP", "") is True
+
+
+def test_tts_service_facade_get_voices(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que la façade TTSService expose get_voices avec filtrage target_lang."""
+    import platform
+    import subprocess
+
+    fake_say_output = """Kyoko (Japonais (Japon)) ja_JP    # こんにちは!
+Thomas (Français (France)) fr_FR    # Bonjour
+"""
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: fake_say_output)
+
+    service = TTSService()
+    ja_voices = service.get_voices(engine="system", target_lang="ja")
+    assert len(ja_voices) == 1
+    assert ja_voices[0]["id"] == "Kyoko (Japonais (Japon))"
+
+
+def test_system_speech_provider_fallbacks_and_other_platforms(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie les replis d'erreur et le comportement multi-plateforme de SystemSpeechProvider."""
+    import platform
+    import subprocess
+
+    provider = SystemSpeechProvider()
+
+    # 1. macOS avec échec de subprocess
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+
+    def failing_check_output(*args: object, **kwargs: object) -> str:
+        raise subprocess.SubprocessError("say command failed")
+
+    monkeypatch.setattr(subprocess, "check_output", failing_check_output)
+
+    # Sans target_lang -> repli Thomas
+    fallback_voices = provider.get_voices()
+    assert len(fallback_voices) == 1
+    assert fallback_voices[0]["id"] == "Thomas"
+
+    # Avec target_lang="ja" lors d'une erreur -> liste vide (pas de fausse voix japonaise)
+    assert provider.get_voices(target_lang="ja") == []
+    # Avec target_lang="fr" lors d'une erreur -> repli Thomas (fr_FR correspond)
+    assert len(provider.get_voices(target_lang="fr")) == 1
+
+    # 2. Plateforme non-Darwin (Linux / Windows)
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    linux_voices = provider.get_voices()
+    assert len(linux_voices) == 1
+    assert linux_voices[0]["id"] == "default"
+    assert provider.get_voices(target_lang="ja") == []
+    assert len(provider.get_voices(target_lang="fr")) == 1

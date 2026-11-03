@@ -62,7 +62,7 @@ class DummyMockProvider(TTSProvider):
     def is_available(self) -> bool:
         return True
 
-    def get_voices(self) -> list[dict[str, Any]]:
+    def get_voices(self, target_lang: str | None = None) -> list[dict[str, Any]]:
         return [{"id": "fr-test", "name": "Voix Test", "gender": "Female"}]
 
     def synthesize(self, text: str, voice: str | None = None, rate: str | None = None, pitch: str | None = None) -> bytes:

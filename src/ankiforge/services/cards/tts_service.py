@@ -252,6 +252,30 @@ class TextNormalizer:
         return t
 
 
+def match_tts_lang(voice_lang: str, target_lang: str | None) -> bool:
+    """Vérifie si la langue d'une voix correspond à la langue cible demandée.
+
+    Supporte les formats 'fr', 'fr-FR', 'fr_FR', 'ja', 'ja_JP', etc.
+    """
+    if not target_lang:
+        return True
+    v = voice_lang.lower().replace("-", "_").strip()
+    t = target_lang.lower().replace("-", "_").strip()
+    if not t:
+        return True
+    if not v:
+        return False
+    if v == t:
+        return True
+    v_prefix = v.split("_")[0]
+    t_prefix = t.split("_")[0]
+    if t == v_prefix or v == t_prefix:
+        return True
+    if t_prefix and t_prefix == v_prefix and (len(t) <= 3 or len(v) <= 3):
+        return True
+    return v.startswith(t) or t.startswith(v)
+
+
 class TTSProvider(abc.ABC):
     """Interface de base pour tout moteur de synthèse vocale."""
 
@@ -264,7 +288,7 @@ class TTSProvider(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_voices(self) -> list[dict[str, str]]:
+    def get_voices(self, target_lang: str | None = None) -> list[dict[str, str]]:
         """Retourne la liste des voix disponibles : [{'id': '...', 'name': '...', 'lang': '...'}]."""
         pass
 
@@ -329,9 +353,11 @@ class EdgeTTSProvider(TTSProvider):
         except ImportError:
             return False
 
-    def get_voices(self) -> list[dict[str, str]]:
-        """Retourne la liste des voix neuronales disponibles avec mise en cache paresseuse."""
-        return self.DEFAULT_VOICES
+    def get_voices(self, target_lang: str | None = None) -> list[dict[str, str]]:
+        """Retourne la liste des voix neuronales disponibles avec filtrage optionnel par langue."""
+        if not target_lang:
+            return self.DEFAULT_VOICES
+        return [v for v in self.DEFAULT_VOICES if match_tts_lang(v.get("lang", ""), target_lang)]
 
     def synthesize(
         self,
@@ -542,7 +568,7 @@ class PiperSidecarProvider(TTSProvider):
         ok, _ = self.is_functional()
         return ok
 
-    def get_voices(self) -> list[dict[str, str]]:
+    def get_voices(self, target_lang: str | None = None) -> list[dict[str, str]]:
         """Liste les modèles .onnx présents dans le dossier des voix Piper (avec repli prod si vide en dev)."""
         from ankiforge.utils.paths import get_tools_search_dirs
 
@@ -571,6 +597,8 @@ class PiperSidecarProvider(TTSProvider):
                     "lang": "fr-FR",
                 }
             )
+        if target_lang:
+            return [v for v in voices if match_tts_lang(v.get("lang", ""), target_lang)]
         return voices
 
     def synthesize(
@@ -761,9 +789,11 @@ class KokoroSidecarProvider(TTSProvider):
         ok, _ = self.is_functional()
         return ok
 
-    def get_voices(self) -> list[dict[str, str]]:
+    def get_voices(self, target_lang: str | None = None) -> list[dict[str, str]]:
         """Retourne la liste des voix Kokoro-82M supportées."""
-        return self.DEFAULT_VOICES
+        if not target_lang:
+            return self.DEFAULT_VOICES
+        return [v for v in self.DEFAULT_VOICES if match_tts_lang(v.get("lang", ""), target_lang)]
 
     def synthesize(
         self,
@@ -990,23 +1020,42 @@ class SystemSpeechProvider(TTSProvider):
             return shutil.which("spd-say") is not None or shutil.which("espeak-ng") is not None
         return False
 
-    def get_voices(self) -> list[dict[str, str]]:
-        """Retourne les voix proposées par le moteur vocal système (limitées aux quinze premières sous macOS)."""
+    def get_voices(self, target_lang: str | None = None) -> list[dict[str, str]]:
+        """Retourne les voix proposées par le moteur vocal natif du système d'exploitation."""
         sys_name = platform.system()
         if sys_name == "Darwin":
             try:
                 out = subprocess.check_output(["/usr/bin/say", "-v", "?"], text=True)  # nosec B603  # argv fixe, binaire système macOS (existance vérifiée)
-                voices = []
-                for line in out.strip().splitlines()[:15]:
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        v_name = parts[0]
-                        lang = parts[1]
+                voices: list[dict[str, str]] = []
+                seen_keys: set[tuple[str, str]] = set()
+                for line in out.strip().splitlines():
+                    left, _, _ = line.partition("#")
+                    left = left.strip()
+                    if not left:
+                        continue
+                    parts = left.rsplit(None, 1)
+                    if len(parts) == 2:
+                        v_name = parts[0].strip()
+                        lang = parts[1].strip()
+                        key = (v_name, lang)
+                        if key in seen_keys:
+                            continue
+                        seen_keys.add(key)
+                        if target_lang and not match_tts_lang(lang, target_lang):
+                            continue
                         voices.append({"id": v_name, "name": f"Système ({v_name})", "lang": lang})
-                return voices or [{"id": "Thomas", "name": "Système (Thomas)", "lang": "fr_FR"}]
-            except Exception:
+                if not voices and not target_lang:
+                    return [{"id": "Thomas", "name": "Système (Thomas)", "lang": "fr_FR"}]
+                return voices
+            except Exception as e:
+                logger.warning("Erreur lors de la récupération des voix système macOS : %s", e)
+                if target_lang and not match_tts_lang("fr_FR", target_lang):
+                    return []
                 return [{"id": "Thomas", "name": "Système (Thomas)", "lang": "fr_FR"}]
-        return [{"id": "default", "name": "Voix Système par Défaut", "lang": "fr-FR"}]
+        default_voice = [{"id": "default", "name": "Voix Système par Défaut", "lang": "fr-FR"}]
+        if target_lang and not match_tts_lang("fr-FR", target_lang):
+            return []
+        return default_voice
 
     def synthesize(
         self,
@@ -1121,6 +1170,12 @@ class TTSService:
             }
             for p_id, p in self._providers.items()
         ]
+
+    def get_voices(self, engine: str | None = None, target_lang: str | None = None) -> list[dict[str, str]]:
+        """Retourne les voix disponibles pour un moteur donné, optionnellement filtrées par langue cible."""
+        actual_engine = engine or SettingsService.get("tts.engine", "edge-tts")
+        provider = self.get_provider(actual_engine)
+        return provider.get_voices(target_lang=target_lang)
 
     def synthesize(
         self,
