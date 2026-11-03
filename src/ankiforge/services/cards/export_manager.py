@@ -228,7 +228,7 @@ class ExportManager:
                     sample_v_cloze = (
                         NoteVersionModel.select(NoteVersionModel.content)
                         .join(NoteModel)
-                        .where(NoteModel.note_type == nt, NoteVersionModel.is_active == True, NoteVersionModel.content.is_null(False))
+                        .where(NoteModel.note_type == nt, NoteVersionModel.is_active == True, NoteVersionModel.content.is_null(False))  # noqa: E712
                         .first()
                     )
                     if sample_v_cloze and sample_v_cloze.content and re.search(r"\{\{c\d+::", sample_v_cloze.content):

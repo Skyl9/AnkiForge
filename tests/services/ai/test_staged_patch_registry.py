@@ -473,3 +473,115 @@ def test_create_patch_emits_event_bus_and_mcp_listener(sample_data):
     finally:
         event_bus.unsubscribe(MCPPatchStagedEvent, on_bus_event)
         unregister_staged_patch_listener(on_mcp_event)
+
+
+def test_propose_card_refactor_and_apply_preserves_unmentioned_fields(sample_data):
+    """Vérifie que propose_card_refactor et apply_staged_patch fusionnent les champs partiels sans écraser les existants."""
+    from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+
+    with db.atomic():
+        nt_japanese = NoteTypeModel.create(
+            name="Modèle Vocabulaire Japonais",
+            fields_schema=json.dumps(["Japonais", "Francais", "Kanji", "Audio"]),
+            templates=json.dumps([{"name": "Card 1", "qfmt": "{{Japonais}}", "afmt": "{{Francais}}<br>{{Audio}}"}]),
+            css_style=".card { font-family: sans-serif; }",
+        )
+        note = NoteModel.create(note_type=nt_japanese, tags="japanese vocab")
+        NoteVersionModel.create(
+            note=note,
+            version_number=1,
+            content=json.dumps(
+                {
+                    "Japonais": "日本語",
+                    "Francais": "Japonais",
+                    "Kanji": "日本",
+                    "Audio": "",
+                },
+                ensure_ascii=False,
+            ),
+            source="manual",
+            is_active=True,
+        )
+        CardModel.create(note=note, deck=sample_data["deck"], template_index=0)
+
+    # 1. Appel à propose_card_refactor avec seulement le champ Audio
+    proposal_json = MCPToolRegistry.propose_card_refactor(
+        note_id=note.id,
+        new_fields_json=json.dumps({"Audio": "[sound:nihongo.mp3]"}),
+        explanation="Ajout de l'audio de prononciation",
+    )
+    proposal = json.loads(proposal_json)
+    assert proposal.get("status") == "staged_diff"
+    patch_id = proposal["patch_id"]
+
+    # Le dictionnaire 'modified' doit contenir l'état complet après fusion
+    modified_fields = proposal.get("modified", {})
+    assert modified_fields.get("Audio") == "[sound:nihongo.mp3]"
+    assert modified_fields.get("Japonais") == "日本語"
+    assert modified_fields.get("Francais") == "Japonais"
+    assert modified_fields.get("Kanji") == "日本"
+
+    # 2. Application du staged patch via apply_staged_patch
+    apply_res = StagedPatchRegistry.apply_staged_patch(patch_id)
+    assert apply_res["status"] == "applied"
+
+    # Vérification BDD : la nouvelle version active doit avoir préservé tous les champs
+    active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+    assert active_v is not None
+    assert active_v.version_number == 2
+    content = json.loads(active_v.content)
+    assert content["Audio"] == "[sound:nihongo.mp3]"
+    assert content["Japonais"] == "日本語"
+    assert content["Francais"] == "Japonais"
+    assert content["Kanji"] == "日本"
+
+
+def test_apply_staged_patch_defensive_merge_preserves_unmentioned_fields(sample_data):
+    """Vérifie que apply_staged_patch fusionne défensivement avec la version active existante pour éviter toute perte de données."""
+    with db.atomic():
+        nt_japanese = NoteTypeModel.create(
+            name="Modèle Vocabulaire Japonais 2",
+            fields_schema=json.dumps(["Japonais", "Francais", "Kanji", "Audio"]),
+            templates=json.dumps([{"name": "Card 1", "qfmt": "{{Japonais}}", "afmt": "{{Francais}}"}]),
+            css_style=".card { font-family: sans-serif; }",
+        )
+        note = NoteModel.create(note_type=nt_japanese, tags="japanese")
+        v1 = NoteVersionModel.create(
+            note=note,
+            version_number=1,
+            content=json.dumps(
+                {
+                    "Japonais": "猫",
+                    "Francais": "Chat",
+                    "Kanji": "猫",
+                    "Audio": "",
+                },
+                ensure_ascii=False,
+            ),
+            source="manual",
+            is_active=True,
+        )
+        CardModel.create(note=note, deck=sample_data["deck"], template_index=0)
+
+    # Patch créé directement avec un 'modified' partiel sans les autres champs
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note.id,
+        original_version_id=v1.id,
+        diff_payload={
+            "original": {"Audio": ""},
+            "modified": {"Audio": "[sound:neko.mp3]"},
+            "explanation": "Patch partiel direct",
+        },
+    )
+
+    apply_res = StagedPatchRegistry.apply_staged_patch(patch.patch_id)
+    assert apply_res["status"] == "applied"
+
+    active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+    assert active_v is not None
+    content = json.loads(active_v.content)
+    assert content["Audio"] == "[sound:neko.mp3]"
+    assert content["Japonais"] == "猫"
+    assert content["Francais"] == "Chat"
+    assert content["Kanji"] == "猫"

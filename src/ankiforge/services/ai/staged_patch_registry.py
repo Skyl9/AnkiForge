@@ -258,6 +258,18 @@ class StagedPatchRegistry:
                 except Exception:
                     modified = {"Front": modified}
 
+            orig_content_dict: dict[str, Any] = {}
+            if active_v and active_v.content:
+                try:
+                    loaded_orig = json.loads(active_v.content) if isinstance(active_v.content, str) else active_v.content
+                    orig_content_dict = loaded_orig if isinstance(loaded_orig, dict) else {"Front": str(loaded_orig)}
+                except Exception:
+                    orig_content_dict = {"Front": str(active_v.content)}
+            elif "original" in diff_data and isinstance(diff_data["original"], dict):
+                orig_content_dict = dict(diff_data["original"])
+
+            final_content_dict = {**orig_content_dict, **modified} if isinstance(modified, dict) else {**orig_content_dict, "Front": str(modified)}
+
             with db.atomic():
                 prev_v_num = active_v.version_number if active_v else 0
                 if active_v:
@@ -268,7 +280,7 @@ class StagedPatchRegistry:
                 NoteVersionModel.create(
                     note=note,
                     version_number=new_v_num,
-                    content=json.dumps(modified, ensure_ascii=False),
+                    content=json.dumps(final_content_dict, ensure_ascii=False),
                     source="staged_patch",
                     is_active=True,
                 )

@@ -550,9 +550,9 @@ class AppEventBus:
                                 if handler in listeners:
                                     listeners.remove(handler)
 
-        # Si on est déjà dans le thread principal Qt, exécuter directement
+        # Si on est déjà dans le thread principal Qt ou hors contexte Qt (CLI/tests), exécuter directement
         app = QCoreApplication.instance()
-        if app is not None and QThread.currentThread() == app.thread():
+        if app is None or QThread.currentThread() == app.thread():
             _execute_handlers()
         else:
             # Sinon, marshaller vers le thread principal via _MainThreadInvoker

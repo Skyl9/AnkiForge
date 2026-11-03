@@ -495,6 +495,15 @@ class MCPToolRegistry:
                 orig_dict = robust_json_loads(orig_content)
             except Exception:
                 orig_dict = {"Front": orig_content}
+            if not isinstance(orig_dict, dict):
+                orig_dict = {"Front": str(orig_dict)}
+
+            if isinstance(new_dict, dict):
+                merged_dict = {**orig_dict, **new_dict}
+            elif new_dict is not None:
+                merged_dict = {**orig_dict, "Front": str(new_dict)}
+            else:
+                merged_dict = dict(orig_dict)
 
             nt = note.note_type
             model_name = nt.name if nt else "Inconnu"
@@ -514,7 +523,7 @@ class MCPToolRegistry:
                 "fields_schema": fields_schema,
                 "title": f"Proposition de Refactorisation — Note #{note.id} ({model_name})",
                 "original": orig_dict,
-                "modified": new_dict,
+                "modified": merged_dict,
                 "explanation": explanation or "Amélioration de la clarté et concision.",
                 "metadata": {"note_id": note.id, "model_name": model_name},
             }
@@ -534,7 +543,7 @@ class MCPToolRegistry:
                 "fields_schema": fields_schema,
                 "title": f"Proposition de Refactorisation — Note #{note.id} ({model_name})",
                 "original": orig_dict,
-                "modified": new_dict,
+                "modified": merged_dict,
                 "explanation": explanation or "Amélioration de la clarté et concision.",
                 "metadata": {"note_id": note.id, "model_name": model_name, "patch_id": patch.patch_id},
             }
