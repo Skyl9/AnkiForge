@@ -583,7 +583,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+16"/>
         <location line="+15"/>
         <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+468"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+499"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+595"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8195,19 +8195,24 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-213"/>
-        <location line="+40"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-289"/>
+        <location line="+63"/>
         <source>Emplacement : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+115"/>
+        <location line="+126"/>
         <source>Dépendance manquante ou non fonctionnelle :
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+60"/>
+        <location line="+49"/>
+        <source>Échec du téléchargement de la voix Piper : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+53"/>
         <source>Erreur de chargement des voix : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8222,7 +8227,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+27"/>
         <source>Installation de Piper échouée : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20917,7 +20922,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TTSSettingsTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-576"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-653"/>
         <source>CONFIGURATION DU MOTEUR VOCAL</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20972,7 +20977,17 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+33"/>
+        <source>Voix additionnelles :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source> Télécharger</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
         <source>MOTEUR LOCAL KOKORO-82M (OPTIONNEL)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -21009,18 +21024,28 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+36"/>
-        <location line="+33"/>
+        <location line="+86"/>
         <source>● Installé et opérationnel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-30"/>
-        <location line="+6"/>
+        <location line="-84"/>
+        <source>Binaire ou runner Piper opérationnel.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+16"/>
         <source> Réinstaller Piper CLI (1-Clic)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-4"/>
+        <location line="-13"/>
+        <source>○ Inopérationnel (Rosetta 2 requis)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
         <source>○ Inopérationnel (dépendance requise)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -21035,7 +21060,38 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+10"/>
+        <source> (Déjà installée)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source> (À télécharger)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Téléchargement de la voix en cours...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Voix installée avec succès !</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>La voix Piper a été téléchargée et ajoutée au catalogue local.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+280"/>
+        <source>Échec du téléchargement.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-256"/>
         <source> Kokoro déjà installé et prêt</source>
         <translation type="unfinished"></translation>
     </message>
@@ -21113,17 +21169,12 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Piper TTS a été installé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Échec du téléchargement.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location line="+10"/>
         <source>Configuration en cours...</source>
         <translation type="unfinished"></translation>
     </message>

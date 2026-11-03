@@ -94,13 +94,41 @@ _PIPER_ASSETS: dict[tuple[str, str], tuple[str, str, bool]] = {
 }
 _PIPER_RELEASE_BASE_URL = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2"
 
-# Voix française par défaut (siwis-low) — SHA-256 officiels vérifiés le 2026-09-15
-# depuis huggingface.co/rhasspy/piper-voices (résolution main).
-_PIPER_VOICE_BASE_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low"
-_PIPER_VOICE_SHA256: dict[str, str] = {
-    "fr_FR-siwis-low.onnx": "a7b7dcaf87229b32af8275cb1a719371234ea677bc0313d2289d5c50ab0ac53d",
-    "fr_FR-siwis-low.onnx.json": "9722527d748c284f6dd7639c4b4e661853d4f7d4514079571f67d6a97a652b69",
+# Catalogue officiel de voix Piper (épinglées et vérifiées par SHA-256)
+# Source officielle : huggingface.co/rhasspy/piper-voices (résolution main)
+_PIPER_VOICE_CATALOG: dict[str, dict[str, Any]] = {
+    "fr_FR-siwis-low": {
+        "name": "Français — Siwis (Low)",
+        "lang": "fr_FR",
+        "base_url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low",
+        "files": {
+            "fr_FR-siwis-low.onnx": "a7b7dcaf87229b32af8275cb1a719371234ea677bc0313d2289d5c50ab0ac53d",
+            "fr_FR-siwis-low.onnx.json": "9722527d748c284f6dd7639c4b4e661853d4f7d4514079571f67d6a97a652b69",
+        },
+    },
+    "ja_JP-hi_fi_captain-medium": {
+        "name": "Japonais — Hi-Fi Captain (Medium)",
+        "lang": "ja_JP",
+        "base_url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/ja/ja_JP/hi_fi_captain/medium",
+        "files": {
+            "ja_JP-hi_fi_captain-medium.onnx": "5eafa1610fc7a0ff2e7fde9cbe0972d876266e23d8db331727eb2466f19460eb",
+            "ja_JP-hi_fi_captain-medium.onnx.json": "fe9aeda38318607ba114926d1d7ee7d56295f9af3774a99a42b36f4354cabf27",
+        },
+    },
+    "en_US-lessac-medium": {
+        "name": "Anglais (US) — Lessac (Medium)",
+        "lang": "en_US",
+        "base_url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium",
+        "files": {
+            "en_US-lessac-medium.onnx": "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f",
+            "en_US-lessac-medium.onnx.json": "efe19c417bed055f2d69908248c6ba650fa135bc868b0e6abb3da181dab690a0",
+        },
+    },
 }
+
+# Rétrocompatibilité : Voix française par défaut
+_PIPER_VOICE_BASE_URL = _PIPER_VOICE_CATALOG["fr_FR-siwis-low"]["base_url"]
+_PIPER_VOICE_SHA256: dict[str, str] = _PIPER_VOICE_CATALOG["fr_FR-siwis-low"]["files"]
 
 # =========================================================================
 # CONSTANTES DE SÉCURITÉ TÉLÉCHARGEMENT KOKORO SIDECAR
@@ -361,9 +389,17 @@ class PiperSidecarProvider(TTSProvider):
                 if d not in search_dirs:
                     search_dirs.append(d)
 
+        is_win = platform.system() == "Windows"
+        venv_bin_name = "piper.exe" if is_win else "piper"
+        venv_sub = "Scripts" if is_win else "bin"
+
         for tools_dir in search_dirs:
             app_tools = tools_dir / "tts"
             candidates = [
+                # 1. Environnement virtuel dédié piper-tts
+                app_tools / "piper" / "venv" / venv_sub / venv_bin_name,
+                tools_dir / "tts" / "piper" / "venv" / venv_sub / venv_bin_name,
+                # 2. Binaire autonome précompilé
                 app_tools / "piper" / "piper",
                 app_tools / "piper" / "piper.exe",
                 app_tools / "piper",
@@ -384,12 +420,80 @@ class PiperSidecarProvider(TTSProvider):
 
         return None
 
+    @classmethod
+    def ensure_venv(cls, progress_callback: Callable[[str], None] | None = None) -> Path | None:
+        """Prépare si nécessaire un venv dédié avec le package PyPI piper-tts (exécutable natif)."""
+        from ankiforge.utils.environment import is_testing
+
+        p_dir = get_app_data_dir() / "tools" / "tts" / "piper"
+        venv_dir = p_dir / "venv"
+        is_win = platform.system() == "Windows"
+        venv_bin_dir = venv_dir / ("Scripts" if is_win else "bin")
+        venv_exe = venv_bin_dir / ("piper.exe" if is_win else "piper")
+
+        if venv_exe.is_file() and os.access(venv_exe, os.X_OK):
+            return venv_exe
+
+        if is_testing():
+            return None
+
+        try:
+            if progress_callback:
+                progress_callback("Configuration de l'environnement virtuel Piper...")
+            uv_exe = shutil.which("uv")
+            if uv_exe:
+                subprocess.run([uv_exe, "venv", str(venv_dir), "--python", sys.executable], check=True, capture_output=True)  # nosec B603
+                if progress_callback:
+                    progress_callback("Installation de piper-tts via uv pip...")
+                venv_py = venv_bin_dir / ("python.exe" if is_win else "python")
+                subprocess.run(
+                    [uv_exe, "pip", "install", "--python", str(venv_py), "piper-tts"],
+                    check=True,
+                    capture_output=True,
+                )  # nosec B603
+            else:
+                import venv
+
+                venv.create(venv_dir, with_pip=True)
+                if progress_callback:
+                    progress_callback("Installation de piper-tts via pip...")
+                venv_py = venv_bin_dir / ("python.exe" if is_win else "python")
+                subprocess.run(
+                    [str(venv_py), "-m", "pip", "install", "piper-tts"],
+                    check=True,
+                    capture_output=True,
+                )  # nosec B603
+
+            if venv_exe.is_file() and os.access(venv_exe, os.X_OK):
+                return venv_exe
+            return None
+        except Exception as e:
+            logger.warning("Échec de création du venv piper-tts : %s", e)
+            return None
+
     @staticmethod
     def get_voices_dir() -> Path:
         """Retourne le dossier hébergeant les modèles de voix ONNX de Piper."""
         voices_dir = get_app_data_dir() / "tools" / "tts" / "voices"
         voices_dir.mkdir(parents=True, exist_ok=True)
         return voices_dir
+
+    @classmethod
+    def get_catalog_voices(cls) -> list[dict[str, Any]]:
+        """Retourne la liste des voix officielles du catalogue avec leur statut de téléchargement."""
+        voices_dir = cls.get_voices_dir()
+        existing = {f.stem for f in voices_dir.glob("*.onnx")}
+        catalog_list: list[dict[str, Any]] = []
+        for v_id, meta in _PIPER_VOICE_CATALOG.items():
+            catalog_list.append(
+                {
+                    "id": v_id,
+                    "name": meta["name"],
+                    "lang": meta["lang"],
+                    "is_downloaded": v_id in existing,
+                }
+            )
+        return catalog_list
 
     @classmethod
     def is_functional(cls, force_refresh: bool = False) -> tuple[bool, str]:
@@ -403,20 +507,31 @@ class PiperSidecarProvider(TTSProvider):
             return cls._functional_cache
         try:
             res = subprocess.run(
-                [str(exe), "--version"],
+                [str(exe), "--help"],
                 capture_output=True,
                 check=False,
-                timeout=2,
+                timeout=5,
                 cwd=str(exe.parent),
-            )  # nosec B603  # argv fixe [exe, "--version"], binaire vérifié SHA-256, aucun shell
+            )  # nosec B603  # argv fixe [exe, "--help"], binaire vérifié SHA-256, aucun shell
             if res.returncode == 0:
                 cls._functional_cache = (True, "Opérationnel")
                 return cls._functional_cache
             err = res.stderr.decode("utf-8", errors="ignore").strip()
+            if "Bad CPU type" in err:
+                msg = "Incompatibilité d'architecture : le binaire officiel Piper (x86_64) requiert Rosetta 2 sur Mac Apple Silicon (softwareupdate --install-rosetta)."
+                cls._functional_cache = (False, msg)
+                return cls._functional_cache
             if "Library not loaded" in err or "libespeak-ng" in err:
                 cls._functional_cache = (False, "Dépendance système requise (libespeak-ng)")
                 return cls._functional_cache
             cls._functional_cache = (False, f"Erreur ({res.returncode}) : {err}")
+            return cls._functional_cache
+        except OSError as e:
+            if getattr(e, "errno", None) == 86 or "Bad CPU type" in str(e):
+                msg = "Incompatibilité d'architecture : le binaire officiel Piper (x86_64) requiert Rosetta 2 sur Mac Apple Silicon (softwareupdate --install-rosetta)."
+                cls._functional_cache = (False, msg)
+                return cls._functional_cache
+            cls._functional_cache = (False, str(e))
             return cls._functional_cache
         except Exception as e:
             cls._functional_cache = (False, str(e))
@@ -1178,16 +1293,67 @@ class TTSService:
         """Vérifie si Piper est déjà installé dans tools/tts/piper."""
         return PiperSidecarProvider.get_piper_executable() is not None
 
-    @staticmethod
-    def download_and_install_piper(progress_callback: Callable[[str], None] | None = None) -> bool:
-        """Télécharge et décompresse automatiquement l'exécutable officiel Piper correspondant à la plateforme courante dans ~/.ankiforge/tools/tts/.
+    def download_piper_voice(
+        self,
+        voice_id: str,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> bool:
+        """Télécharge les fichiers ONNX et JSON d'une voix Piper depuis le catalogue HuggingFace."""
+        if voice_id not in _PIPER_VOICE_CATALOG:
+            raise ValueError(f"Voix Piper inconnue dans le catalogue officiel : {voice_id}")
 
-        Intégrité : chaque asset est épinglé en SHA-256 (source officielle GitHub)
-        et le téléchargement est soumis à un plafond de taille et un timeout.
-        """
-        sys_name = platform.system()
-        arch = platform.machine().lower()
+        meta = _PIPER_VOICE_CATALOG[voice_id]
+        base_url = str(meta["base_url"])
+        voices_dir = PiperSidecarProvider.get_voices_dir()
+        voices_dir.mkdir(parents=True, exist_ok=True)
 
+        files_map: dict[str, str] = meta["files"]
+        for filename, expected_sha in files_map.items():
+            if progress_callback:
+                progress_callback(f"Téléchargement de {filename}...")
+            url = f"{base_url}/{filename}"
+            dest = voices_dir / filename
+            _download_verified(
+                url,
+                dest,
+                expected_sha,
+                max_bytes=_MAX_PIPER_VOICE_BYTES,
+                progress_callback=progress_callback,
+                progress_label=f"Téléchargement {filename}",
+            )
+
+        if progress_callback:
+            progress_callback(f"Voix {meta['name']} téléchargée avec succès.")
+        return True
+
+    @classmethod
+    def _install_piper_venv_native(cls, progress_callback: Callable[[str], None] | None = None) -> bool:
+        """Installe le runner natif piper-tts via venv sur Mac Apple Silicon."""
+        if progress_callback:
+            progress_callback("Configuration de Piper natif Apple Silicon via piper-tts...")
+        exe_venv = PiperSidecarProvider.ensure_venv(progress_callback=progress_callback)
+        if not exe_venv:
+            return False
+
+        voices_dir = PiperSidecarProvider.get_voices_dir()
+        if not list(voices_dir.glob("*.onnx")):
+            if progress_callback:
+                progress_callback("Téléchargement de la voix française (fr_FR-siwis-low)...")
+            TTSService().download_piper_voice("fr_FR-siwis-low", progress_callback=progress_callback)
+
+        if progress_callback:
+            progress_callback("Piper natif installé avec succès !")
+        PiperSidecarProvider.clear_functional_cache()
+        return True
+
+    @classmethod
+    def _install_piper_standalone_archive(
+        cls,
+        progress_callback: Callable[[str], None] | None,
+        sys_name: str,
+        arch: str,
+    ) -> bool:
+        """Télécharge et décompresse l'archive binaire officielle Piper."""
         key = (sys_name, "amd64") if sys_name == "Windows" else (sys_name, "arm64" if "arm" in arch or "aarch64" in arch else "x86_64")
         if key not in _PIPER_ASSETS:
             raise RuntimeError(f"Plateforme non supportée pour Piper automatique : {sys_name} {arch}")
@@ -1222,30 +1388,19 @@ class TTSService:
 
             archive_path.unlink(missing_ok=True)
 
-            # S'assurer des permissions d'exécution (fichiers téléchargés dans le
-            # profil utilisateur ~/.ankiforge/tools, mode 0755 requis pour s'exécuter)
             exe = PiperSidecarProvider.get_piper_executable()
             if exe and sys_name != "Windows":
-                os.chmod(exe, 0o755)  # nosec B103  # propriété de l'utilisateur, nécessaire à l'exécution
+                os.chmod(exe, 0o755)  # nosec B103
                 for helper_name in ("piper_phonemize", "espeak-ng"):
                     helper = exe.parent / helper_name
                     if helper.exists():
-                        os.chmod(helper, 0o755)  # nosec B103  # idem
+                        os.chmod(helper, 0o755)  # nosec B103
 
             voices_dir = PiperSidecarProvider.get_voices_dir()
             if not list(voices_dir.glob("*.onnx")):
                 if progress_callback:
                     progress_callback("Téléchargement de la voix française (fr_FR-siwis-low)...")
-                for ext in (".onnx", ".onnx.json"):
-                    fname = f"fr_FR-siwis-low{ext}"
-                    v_url = f"{_PIPER_VOICE_BASE_URL}/{fname}"
-                    v_dest = voices_dir / fname
-                    _download_verified(
-                        v_url,
-                        v_dest,
-                        _PIPER_VOICE_SHA256[fname],
-                        max_bytes=_MAX_PIPER_VOICE_BYTES,
-                    )
+                TTSService().download_piper_voice("fr_FR-siwis-low", progress_callback=progress_callback)
 
             if progress_callback:
                 progress_callback("Piper installé avec succès !")
@@ -1257,6 +1412,26 @@ class TTSService:
             if archive_path.exists():
                 archive_path.unlink(missing_ok=True)
             raise
+
+    @classmethod
+    def download_and_install_piper(cls, progress_callback: Callable[[str], None] | None = None) -> bool:
+        """Télécharge et décompresse automatiquement l'exécutable officiel Piper correspondant à la plateforme courante dans ~/.ankiforge/tools/tts/.
+
+        Sur Mac Apple Silicon (arm64), privilégie le déploiement automatique du package natif PyPI piper-tts
+        pour éliminer l'incompatibilité binaire upstream x86_64 (Errno 86).
+        """
+        sys_name = platform.system()
+        arch = platform.machine().lower()
+
+        # Sur macOS Apple Silicon, l'archive GitHub officielle 2023.11.14-2 contient un binaire x86_64
+        # qui échoue avec Errno 86 sans Rosetta 2. On installe le package natif piper-tts via venv.
+        is_macos_arm64 = sys_name == "Darwin" and ("arm" in arch or "aarch64" in arch)
+        if is_macos_arm64:
+            if cls._install_piper_venv_native(progress_callback=progress_callback):
+                return True
+            logger.warning("Configuration venv piper-tts impossible, repli sur l'archive standalone...")
+
+        return cls._install_piper_standalone_archive(progress_callback, sys_name, arch)
 
     # =========================================================================
     # GESTIONNAIRE DU RUNNER KOKORO-82M SIDECAR (1-CLIC)

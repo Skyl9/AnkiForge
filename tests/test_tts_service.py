@@ -141,6 +141,7 @@ def test_piper_executable_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyP
     from ankiforge.services.cards.tts_service import PiperSidecarProvider
 
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
 
     # Avant installation
@@ -161,6 +162,7 @@ def test_piper_executable_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyP
 def test_kokoro_command_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie la détection du runner Kokoro (run.py ou binaire)."""
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
 
     # Avant installation
@@ -181,6 +183,7 @@ def test_kokoro_command_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 def test_kokoro_synthesize_missing_runner_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie que synthesize() lève RuntimeError si le runner est absent."""
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
 
     provider = KokoroSidecarProvider()
@@ -193,6 +196,7 @@ def test_kokoro_synthesize_subprocess_success(tmp_path: Path, monkeypatch: pytes
     import subprocess
 
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
 
     kokoro_dir = tmp_path / "tools" / "tts" / "kokoro"
@@ -226,6 +230,7 @@ def test_kokoro_synthesize_subprocess_failure(tmp_path: Path, monkeypatch: pytes
     import subprocess
 
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
 
     kokoro_dir = tmp_path / "tools" / "tts" / "kokoro"
@@ -247,6 +252,7 @@ def test_kokoro_synthesize_subprocess_failure(tmp_path: Path, monkeypatch: pytes
 def test_kokoro_install_runner_creates_executable_and_reports_missing_models(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie que install_runner déploie run.py mais que is_functional() signale les modèles manquants."""
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
 
     KokoroSidecarProvider.clear_functional_cache()
@@ -282,6 +288,7 @@ def test_kokoro_install_runner_creates_executable_and_reports_missing_models(tmp
 def test_kokoro_download_and_install_downloads_models_and_marks_operational(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie que download_and_install_kokoro déploie le runner et télécharge les modèles vérifiés."""
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
     KokoroSidecarProvider.clear_functional_cache()
 
@@ -323,6 +330,7 @@ def test_kokoro_runner_script_fails_cleanly_without_fallback_tone_when_models_mi
     import sys
 
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
 
     KokoroSidecarProvider.install_runner()
@@ -569,3 +577,191 @@ def test_tts_service_fallback_preserves_cache_key_differentiation(tmp_path: Path
     assert tag1 != tag2  # Clés de cache différentes car moteurs différents
     assert path1 != path2
     assert path2.read_bytes().startswith(b"EDGE_TTS_AUDIO_DATA_FOR_")
+
+
+def test_piper_is_functional_rosetta_architecture_mismatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que [Errno 86] Bad CPU type est capturé et explicité comme prérequis Rosetta 2."""
+    import subprocess
+
+    from ankiforge.services.cards.tts_service import PiperSidecarProvider
+
+    PiperSidecarProvider.clear_functional_cache()
+    fake_exe = tmp_path / "piper"
+    fake_exe.touch(mode=0o755)
+
+    monkeypatch.setattr(PiperSidecarProvider, "get_piper_executable", lambda: fake_exe)
+
+    def fake_run_bad_cpu(*args: object, **kwargs: object) -> None:
+        raise OSError(86, "Bad CPU type in executable: " + str(fake_exe))
+
+    monkeypatch.setattr(subprocess, "run", fake_run_bad_cpu)
+
+    ok, msg = PiperSidecarProvider.is_functional()
+    assert ok is False
+    assert "Rosetta 2" in msg
+    assert "softwareupdate --install-rosetta" in msg
+
+
+def test_piper_executable_resolution_venv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie la détection de piper dans le venv Python dédié tools/tts/piper/venv."""
+    import platform
+
+    from ankiforge.services.cards.tts_service import PiperSidecarProvider
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    bin_dir = tmp_path / "tools" / "tts" / "piper" / "venv" / ("Scripts" if platform.system() == "Windows" else "bin")
+    bin_dir.mkdir(parents=True)
+    piper_bin = bin_dir / ("piper.exe" if platform.system() == "Windows" else "piper")
+    piper_bin.write_text("#!/bin/sh\necho 'piper-venv'")
+    piper_bin.chmod(0o755)
+
+    detected = PiperSidecarProvider.get_piper_executable()
+    assert detected is not None
+    assert detected == piper_bin
+
+
+def test_piper_ensure_venv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie la création du venv piper-tts via ensure_venv."""
+    import platform
+    import subprocess
+
+    from ankiforge.services.cards.tts_service import PiperSidecarProvider
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: False)
+    monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/uv" if cmd == "uv" else None)
+
+    commands_run: list[list[str]] = []
+
+    def fake_subprocess_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        commands_run.append(cmd)
+        # Créer le binaire factice piper attendu dans le venv
+        bin_dir = tmp_path / "tools" / "tts" / "piper" / "venv" / ("Scripts" if platform.system() == "Windows" else "bin")
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        exe = bin_dir / ("piper.exe" if platform.system() == "Windows" else "piper")
+        if not exe.exists():
+            exe.write_text("#!/bin/sh\necho piper")
+            exe.chmod(0o755)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    exe_path = PiperSidecarProvider.ensure_venv()
+    assert exe_path is not None
+    assert exe_path.exists()
+    assert any("venv" in cmd and str(tmp_path) in str(cmd) for cmd in commands_run)
+    assert any("piper-tts" in cmd for cmd in commands_run)
+
+
+def test_piper_voice_catalog_and_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie le catalogue des voix officielles et le téléchargement d'une voix (ex: ja_JP)."""
+    from ankiforge.services.cards.tts_service import (
+        _PIPER_VOICE_CATALOG,
+        PiperSidecarProvider,
+        TTSService,
+    )
+
+    assert "fr_FR-siwis-low" in _PIPER_VOICE_CATALOG
+    assert "ja_JP-hi_fi_captain-medium" in _PIPER_VOICE_CATALOG
+    assert "en_US-lessac-medium" in _PIPER_VOICE_CATALOG
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    downloaded_urls: list[str] = []
+
+    def fake_download_verified(url: str, dest: Path, sha256: str, **kwargs: object) -> None:
+        downloaded_urls.append(url)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text("mock content")
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service._download_verified", fake_download_verified)
+
+    service = TTSService()
+    success = service.download_piper_voice("ja_JP-hi_fi_captain-medium")
+    assert success is True
+    assert len(downloaded_urls) == 2
+    assert any("ja_JP-hi_fi_captain-medium.onnx" in u for u in downloaded_urls)
+    assert any("ja_JP-hi_fi_captain-medium.onnx.json" in u for u in downloaded_urls)
+
+    # Vérification que PiperSidecarProvider.get_voices liste maintenant cette voix
+    voices = PiperSidecarProvider().get_voices()
+    voice_ids = [v["id"] for v in voices]
+    assert any("ja_JP-hi_fi_captain-medium" in vid for vid in voice_ids)
+
+
+def test_piper_download_and_install_macos_arm64(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que download_and_install_piper sur macOS arm64 privilégie ensure_venv avec piper-tts natif."""
+    import platform
+
+    from ankiforge.services.cards.tts_service import PiperSidecarProvider, TTSService
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(platform, "machine", lambda: "arm64")
+
+    venv_called = False
+    fake_piper_exe = tmp_path / "tools" / "tts" / "piper" / "venv" / "bin" / "piper"
+
+    def fake_ensure_venv(progress_callback: object = None) -> Path:
+        nonlocal venv_called
+        venv_called = True
+        fake_piper_exe.parent.mkdir(parents=True, exist_ok=True)
+        fake_piper_exe.touch(mode=0o755)
+        return fake_piper_exe
+
+    monkeypatch.setattr(PiperSidecarProvider, "ensure_venv", fake_ensure_venv)
+
+    downloaded_voices: list[str] = []
+
+    def fake_download_voice(self: object, voice_id: str, progress_callback: object = None) -> bool:
+        downloaded_voices.append(voice_id)
+        # Créer le faux fichier de voix ONNX
+        v_dest = tmp_path / "tools" / "tts" / "voices" / f"{voice_id}.onnx"
+        v_dest.parent.mkdir(parents=True, exist_ok=True)
+        v_dest.touch()
+        return True
+
+    monkeypatch.setattr(TTSService, "download_piper_voice", fake_download_voice)
+
+    res = TTSService.download_and_install_piper()
+    assert res is True
+    assert venv_called is True
+    assert "fr_FR-siwis-low" in downloaded_voices
+
+
+def test_piper_download_and_install_standalone_archive(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie l'extraction de l'archive officielle Piper sur architecture x86_64 / Linux."""
+    import platform
+
+    from ankiforge.services.cards.tts_service import PiperSidecarProvider, TTSService
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+
+    downloaded: list[str] = []
+
+    def fake_download_verified(url: str, dest: Path, sha256: str, **kwargs: object) -> None:
+        downloaded.append(url)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.touch()
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service._download_verified", fake_download_verified)
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.safe_extract_tar", lambda *args, **kwargs: None)
+
+    fake_exe = tmp_path / "tools" / "tts" / "piper" / "piper"
+    fake_exe.parent.mkdir(parents=True, exist_ok=True)
+    fake_exe.touch(mode=0o755)
+    monkeypatch.setattr(PiperSidecarProvider, "get_piper_executable", lambda: fake_exe)
+    monkeypatch.setattr(TTSService, "download_piper_voice", lambda *args, **kwargs: True)
+
+    success = TTSService.download_and_install_piper()
+    assert success is True
+    assert any("piper_linux_x86_64.tar.gz" in u for u in downloaded)

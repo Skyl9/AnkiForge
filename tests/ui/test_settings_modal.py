@@ -772,7 +772,30 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
         tab._update_piper_status_ui()
         assert tab.content_widget.sizeHint().width() <= 650
         assert "Inopérationnel" in tab.lbl_piper_status.text()
+        assert "Rosetta 2" in tab.lbl_piper_status.text()
         assert "[Errno 86]" in tab.lbl_piper_status.toolTip()
+        assert "softwareupdate --install-rosetta" in tab.lbl_piper_status.toolTip()
+
+    # Vérification du catalogue de voix additionnelles Piper
+    assert hasattr(tab, "cb_piper_catalog_voices")
+    assert tab.cb_piper_catalog_voices.count() >= 2
+    assert hasattr(tab, "btn_download_piper_voice")
+
+    with patch.object(tab.tts_service, "download_piper_voice", return_value=True):
+        tab._on_voice_installer_success("ja_JP-hi_fi_captain-medium")
+        assert "Voix installée avec succès" in tab.lbl_voice_install_progress.text()
+        assert tab.btn_download_piper_voice.isEnabled()
+
+    tab._on_voice_installer_failed("Timeout réseau")
+    assert "Échec du téléchargement" in tab.lbl_voice_install_progress.text()
+    assert tab.btn_download_piper_voice.isEnabled()
+
+    if tab._discovery_worker and tab._discovery_worker.isRunning():
+        tab._discovery_worker.wait(1000)
+    if tab._installer_worker and tab._installer_worker.isRunning():
+        tab._installer_worker.wait(1000)
+    if tab._voice_installer_worker and tab._voice_installer_worker.isRunning():
+        tab._voice_installer_worker.wait(1000)
 
 
 def test_tts_settings_tab_collapsible_sections_sync(qtbot):
@@ -817,6 +840,8 @@ def test_tts_settings_tab_kokoro_integration(qtbot):
         # Callbacks installation
         tab._on_kokoro_installer_failed("Erreur réseau")
         assert "Échec de la configuration" in tab.lbl_kokoro_install_progress.text()
+        if tab._discovery_worker and tab._discovery_worker.isRunning():
+            tab._discovery_worker.wait(1000)
 
     with patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(True, "Opérationnel")):
         tab2 = TTSSettingsTab()
@@ -832,6 +857,8 @@ def test_tts_settings_tab_kokoro_integration(qtbot):
         tab2._on_kokoro_installer_success()
         assert "Kokoro configuré avec succès" in tab2.lbl_kokoro_install_progress.text()
         assert tab2.btn_install_kokoro.isEnabled() is False
+        if tab2._discovery_worker and tab2._discovery_worker.isRunning():
+            tab2._discovery_worker.wait(1000)
 
     # Troisième cas : Runner présent mais modèles ONNX manquants (Statut Partiel)
     with (
@@ -844,6 +871,8 @@ def test_tts_settings_tab_kokoro_integration(qtbot):
         assert "Partiel" in tab3.lbl_kokoro_status.text()
         assert tab3.btn_install_kokoro.isEnabled() is True
         assert "Télécharger les modèles Kokoro" in tab3.btn_install_kokoro.text()
+        if tab3._discovery_worker and tab3._discovery_worker.isRunning():
+            tab3._discovery_worker.wait(1000)
 
 
 def test_ai_engines_tab_save_syncs_models_and_reloads_provider(qtbot):

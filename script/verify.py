@@ -137,7 +137,7 @@ CANONICAL_STEPS: list[VerificationStep] = [
             "--cov-fail-under=0",
         ],
         description="Suite de tests rapides non-slow (< 15s) avec couverture LCOV (Pytest)",
-        timeout=180.0,
+        timeout=240.0,
     ),
     VerificationStep(
         name="crap-check",

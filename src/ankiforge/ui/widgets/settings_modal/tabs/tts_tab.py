@@ -114,6 +114,25 @@ class PiperInstallerWorker(QThread):
             self.failed.emit(str(e))
 
 
+class PiperVoiceInstallerWorker(QThread):
+    """Worker asynchrone pour le téléchargement d'une voix Piper depuis le catalogue HuggingFace."""
+
+    progress = Signal(str)
+    finished_success = Signal(str)
+    failed = Signal(str)
+
+    def __init__(self, voice_id: str, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self.voice_id = voice_id
+
+    def run(self) -> None:
+        try:
+            get_tts_service().download_piper_voice(self.voice_id, progress_callback=self.progress.emit)
+            self.finished_success.emit(self.voice_id)
+        except Exception as e:
+            self.failed.emit(str(e))
+
+
 class KokoroInstallerWorker(QThread):
     """Worker asynchrone pour l'installation / configuration de Kokoro-82M."""
 
@@ -141,6 +160,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self._audio_output: Any = None
 
         self._installer_worker: PiperInstallerWorker | None = None
+        self._voice_installer_worker: PiperVoiceInstallerWorker | None = None
         self._kokoro_worker: KokoroInstallerWorker | None = None
         self._discovery_worker: TTSDiscoveryWorker | None = None
         # Référence du périphérique audio actif au chargement (évite un faux « modifié »).
@@ -302,6 +322,29 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         row_install.addWidget(self.btn_install_piper)
         self.sec_piper.add_layout(row_install)
 
+        # Voix supplémentaires du catalogue Piper (HuggingFace)
+        row_voice_cat = QHBoxLayout()
+        lbl_cat_title = QLabel(self.tr("Voix additionnelles :"))
+        lbl_cat_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_voice_cat.addWidget(lbl_cat_title)
+
+        self.cb_piper_catalog_voices = StyledComboBox()
+        self.cb_piper_catalog_voices.setMaximumWidth(280)
+        row_voice_cat.addWidget(self.cb_piper_catalog_voices, 1)
+
+        self.btn_download_piper_voice = SecondaryButton(self.tr(" Télécharger"))
+        self.btn_download_piper_voice.setIcon(load_phosphor_icon("ph.download-simple", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_download_piper_voice.setFixedHeight(30)
+        self.btn_download_piper_voice.clicked.connect(self._on_download_piper_voice)
+        row_voice_cat.addWidget(self.btn_download_piper_voice)
+        self.sec_piper.add_layout(row_voice_cat)
+
+        self.lbl_voice_install_progress = QLabel("")
+        self.lbl_voice_install_progress.setWordWrap(True)
+        self.lbl_voice_install_progress.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
+        self.sec_piper.add_widget(self.lbl_voice_install_progress)
+        self._populate_piper_catalog_voices()
+
         layout.addWidget(self.sec_piper)
         self._update_piper_status_ui()
 
@@ -433,12 +476,23 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             if is_functional:
                 self.lbl_piper_status.setText(self.tr("● Installé et opérationnel"))
                 self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
+                self.lbl_piper_status.setToolTip(self.tr("Binaire ou runner Piper opérationnel."))
                 if hasattr(self, "btn_install_piper"):
                     self.btn_install_piper.setText(self.tr(" Réinstaller Piper CLI (1-Clic)"))
             else:
-                self.lbl_piper_status.setText(self.tr("○ Inopérationnel (dépendance requise)"))
-                self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
-                self.lbl_piper_status.setToolTip(tr("Dépendance manquante ou non fonctionnelle :\n%1", msg))
+                if "Rosetta 2" in msg or "Bad CPU type" in msg or "[Errno 86]" in msg:
+                    self.lbl_piper_status.setText(self.tr("○ Inopérationnel (Rosetta 2 requis)"))
+                    self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
+                    rosetta_help_msg = (
+                        "Incompatibilité d'architecture Mac Apple Silicon :\n%1\n\n"
+                        "Pour activer Rosetta 2, lancez dans le Terminal :\n  softwareupdate --install-rosetta\n"
+                        "Ou réinstallez Piper pour déployer le runner natif piper-tts."
+                    )
+                    self.lbl_piper_status.setToolTip(tr(rosetta_help_msg, msg))
+                else:
+                    self.lbl_piper_status.setText(self.tr("○ Inopérationnel (dépendance requise)"))
+                    self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
+                    self.lbl_piper_status.setToolTip(tr("Dépendance manquante ou non fonctionnelle :\n%1", msg))
                 if hasattr(self, "btn_install_piper"):
                     self.btn_install_piper.setText(self.tr(" Réinstaller Piper CLI (1-Clic)"))
         else:
@@ -446,6 +500,48 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
             if hasattr(self, "btn_install_piper"):
                 self.btn_install_piper.setText(self.tr(" Télécharger Piper CLI (1-Clic)"))
+
+    def _populate_piper_catalog_voices(self) -> None:
+        """Remplit le sélecteur de voix additionnelles Piper du catalogue officiel."""
+        if not hasattr(self, "cb_piper_catalog_voices"):
+            return
+        self.cb_piper_catalog_voices.blockSignals(True)
+        self.cb_piper_catalog_voices.clear()
+        catalog = PiperSidecarProvider.get_catalog_voices()
+        for v in catalog:
+            suffix = self.tr(" (Déjà installée)") if v["is_downloaded"] else self.tr(" (À télécharger)")
+            self.cb_piper_catalog_voices.addItem(f"{v['name']} [{v['lang']}]{suffix}", v["id"])
+        self.cb_piper_catalog_voices.blockSignals(False)
+
+    def _on_download_piper_voice(self) -> None:
+        """Télécharge la voix Piper sélectionnée depuis le catalogue HuggingFace."""
+        if not hasattr(self, "cb_piper_catalog_voices"):
+            return
+        voice_id = self.cb_piper_catalog_voices.currentData()
+        if not voice_id:
+            return
+
+        self.btn_download_piper_voice.setEnabled(False)
+        self.lbl_voice_install_progress.setText(self.tr("Téléchargement de la voix en cours..."))
+
+        self._voice_installer_worker = PiperVoiceInstallerWorker(voice_id, parent=self)
+        self._voice_installer_worker.progress.connect(self.lbl_voice_install_progress.setText)
+        self._voice_installer_worker.finished_success.connect(self._on_voice_installer_success)
+        self._voice_installer_worker.failed.connect(self._on_voice_installer_failed)
+        self._voice_installer_worker.start()
+
+    def _on_voice_installer_success(self, voice_id: str) -> None:
+        self.btn_download_piper_voice.setEnabled(True)
+        self.lbl_voice_install_progress.setText(self.tr("Voix installée avec succès !"))
+        self._populate_piper_catalog_voices()
+        if self.cb_engine.currentData() == "piper":
+            self._on_engine_changed()
+        show_toast(self, self.tr("La voix Piper a été téléchargée et ajoutée au catalogue local."))
+
+    def _on_voice_installer_failed(self, err_msg: str) -> None:
+        self.btn_download_piper_voice.setEnabled(True)
+        self.lbl_voice_install_progress.setText(self.tr("Échec du téléchargement."))
+        show_toast(self, tr("Échec du téléchargement de la voix Piper : %1", err_msg), is_error=True)
 
     def _update_kokoro_status_ui(
         self,
@@ -717,6 +813,7 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self.btn_install_piper.setEnabled(True)
         self.lbl_install_progress.setText(self.tr("Piper installé avec succès !"))
         self._update_piper_status_ui(True, "Opérationnel")
+        self._populate_piper_catalog_voices()
         self._populate_engines()
         self._on_engine_changed()
         show_toast(self, self.tr("Piper TTS a été installé avec succès."))
@@ -766,7 +863,8 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
     def closeEvent(self, event: Any) -> None:
         if self._player and QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self._player.stop()
-        if self._discovery_worker is not None and self._discovery_worker.isRunning():
-            self._discovery_worker.quit()
-            self._discovery_worker.wait(400)
+        for w in (self._discovery_worker, self._installer_worker, self._voice_installer_worker, self._kokoro_worker):
+            if w is not None and w.isRunning():
+                w.quit()
+                w.wait(500)
         super().closeEvent(event)
