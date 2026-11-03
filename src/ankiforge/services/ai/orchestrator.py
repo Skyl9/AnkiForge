@@ -515,9 +515,13 @@ class PipelineOrchestrator(QRunnable):
                 logger.info("[Orchestrateur DAG] Pipeline terminé avec succès.")
                 if self.execution_mode == "mcp_delegated" and self._delegated_bundle_id is not None:
                     self._finalize_delegated_bundle(run_record)
-                elif self.state.get_variable("auto_stage_bundle"):
+
+                cards = self.state.get_variable("generated_cards", [])
+                should_stage_cards = bool(self.state.get_variable("auto_stage_bundle")) and (self.execution_mode != "mcp_delegated" or bool(cards))
+
+                if should_stage_cards:
                     self._create_staged_bundle_from_results(run_record)
-                elif run_record is not None:
+                elif run_record is not None and (self.execution_mode != "mcp_delegated" or self._delegated_bundle_id is None):
                     try:
                         run_record.status = "completed"
                         run_record.state_data = json.dumps(self.state.to_dict())
@@ -1249,9 +1253,35 @@ class PipelineOrchestrator(QRunnable):
             generated_content=generated_content,
         )
 
+        output_format = cfg.get("output_format", "markdown")
+        documentation_enabled = bool(cfg.get("generate_documentation", True))
+
+        parsed_output: Any = generated_content
+        is_json_format = output_format == "json"
+        is_json_heuristic = isinstance(generated_content, str) and generated_content.strip().startswith(("{", "["))
+
+        if isinstance(generated_content, str) and (is_json_format or is_json_heuristic):
+            try:
+                parsed_output = AIReponseParser.parse(generated_content)
+            except Exception as e:
+                if is_json_format:
+                    logger.error("Parsing JSON impossible pour l'étape déléguée %d : %s", step_order, e)
+                    raise RuntimeError(f"L'agent délégué a généré un JSON invalide pour l'étape {step_order} : impossible d'exploiter la sortie. Détail : {e}.") from e
+                parsed_output = generated_content
+
         self.state.set_variable("delegated_pending", None)
-        self.state.set_variable(f"result_step_{step_order}", generated_content)
-        self.state.set_variable("last_output", generated_content)
+
+        out_var = cfg.get("output_variable")
+        if out_var:
+            self.state.set_variable(out_var, parsed_output)
+        self.state.set_variable(f"result_step_{step_order}", parsed_output)
+        self.state.set_variable("last_output", parsed_output)
+
+        extracted_cards = extract_cards_from_data(parsed_output)
+        if extracted_cards:
+            _stamp_card_source_metadata(extracted_cards, _source_context_metadata(self.state), documentation_enabled)
+            self.state.set_variable("generated_cards", extracted_cards)
+
         logger.info("[Orchestrateur DAG] Étape déléguée %d [%s] complétée par l'agent externe MCP.", step_order, step_type)
 
     def _store_delegated_step_result(

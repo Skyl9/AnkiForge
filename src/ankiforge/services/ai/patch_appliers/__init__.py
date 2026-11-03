@@ -9,6 +9,7 @@ from ankiforge.services.ai.patch_appliers.base import (
 from ankiforge.services.ai.patch_appliers.card_applier import NoteUpdatePatchApplier
 from ankiforge.services.ai.patch_appliers.create_applier import NoteCreatePatchApplier
 from ankiforge.services.ai.patch_appliers.deck_applier import DeckPatchApplier
+from ankiforge.services.ai.patch_appliers.delegated_applier import DelegatedStepPatchApplier
 from ankiforge.services.ai.patch_appliers.delete_applier import NoteDeletePatchApplier
 from ankiforge.services.ai.patch_appliers.model_applier import ModelPatchApplier
 from ankiforge.services.ai.patch_appliers.split_applier import NoteSplitPatchApplier
@@ -22,6 +23,7 @@ _APPLIERS: list[PatchApplierStrategy] = [
     DeckPatchApplier(),
     TagPatchApplier(),
     NoteDeletePatchApplier(),
+    DelegatedStepPatchApplier(),
 ]
 
 
@@ -35,6 +37,7 @@ def get_patch_applier(patch_type: str) -> PatchApplierStrategy | None:
 
 
 __all__ = [
+    "DelegatedStepPatchApplier",
     "NotifyMutationCallback",
     "PatchApplierStrategy",
     "get_patch_applier",

@@ -108,8 +108,12 @@ def test_orchestrateur_mode_delegue_stocke_resultat_en_staging_sans_ecriture_bdd
     orchestrator.state.set_variable("last_output", "contexte source")
     orchestrator._execute_delegated_ia_step(step)
 
-    # Résultat stocké dans l'état, pas de note créée directement en base
-    assert orchestrator.state.get_variable("result_step_1") == contenu_agent
+    # Résultat stocké et désérialisé dans l'état, pas de note créée directement en base
+    assert orchestrator.state.get_variable("result_step_1") == {"Front": "Capitale de la France ?", "Back": "Paris"}
+    cards = orchestrator.state.get_variable("generated_cards")
+    assert isinstance(cards, list) and len(cards) == 1
+    assert cards[0]["Front"] == "Capitale de la France ?"
+    assert cards[0]["Back"] == "Paris"
     assert orchestrator.state.get_variable("delegated_pending") is None
     assert NoteModel.select().count() == 0
 

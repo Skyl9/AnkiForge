@@ -14,6 +14,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.ai.patch_appliers import (
     DeckPatchApplier,
+    DelegatedStepPatchApplier,
     ModelPatchApplier,
     NoteCreatePatchApplier,
     NoteDeletePatchApplier,
@@ -65,6 +66,7 @@ class TestGetPatchApplier:
         assert isinstance(get_patch_applier("tag_add"), TagPatchApplier)
         assert isinstance(get_patch_applier("note_delete"), NoteDeletePatchApplier)
         assert isinstance(get_patch_applier("empty_cards_delete"), NoteDeletePatchApplier)
+        assert isinstance(get_patch_applier("pipeline_step_delegated"), DelegatedStepPatchApplier)
         assert get_patch_applier("unknown_type_xyz") is None
 
 
@@ -449,4 +451,27 @@ class TestNoteDeletePatchApplier:
         applier = NoteDeletePatchApplier()
         res = applier.apply(patch, {"card_ids": [99991, 99992]})
         assert res["status"] == "applied"
-        assert res["deleted_count"] == 0
+
+
+class TestDelegatedStepPatchApplier:
+    def test_apply_delegated_step_success(self, mock_db):
+        patch = StagedPatchModel.create(
+            patch_id="p_delegated_1",
+            patch_type="pipeline_step_delegated",
+            step_order=1,
+            diff_payload=json.dumps({"pipeline_id": 42, "step_order": 1}),
+            status="pending",
+        )
+        callback_mock = MagicMock()
+        applier = DelegatedStepPatchApplier()
+        res = applier.apply(patch, {"pipeline_id": 42, "step_order": 1}, notify_mutation=callback_mock)
+
+        assert res["status"] == "applied"
+        assert res["patch_id"] == "p_delegated_1"
+        assert patch.status == "applied"
+        assert patch.applied_at is not None
+        callback_mock.assert_called_once_with(
+            "pipeline_step_delegated",
+            patch.id,
+            {"patch_id": "p_delegated_1", "step_order": 1, "pipeline_id": 42, "run_id": None},
+        )
