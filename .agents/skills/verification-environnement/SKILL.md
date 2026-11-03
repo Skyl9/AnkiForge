@@ -136,6 +136,7 @@ uv run python script/verify.py --crap       # contrôle ciblé du score CRAP seu
 uv run python script/verify.py --step <nom> # exécution d'une étape ciblée (ex: --step mypy, --step crap)
 uv run python script/verify.py --all-tests  # vérification avec suite complète (sans filtre slow)
 ```
+- **Exécution par agent** : outil `run_command` (Antigravity / Gemini), outil `Bash` (Claude Code), ou shell.
 
 ### Le hook pre-push versionné
 

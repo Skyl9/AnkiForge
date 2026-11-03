@@ -236,22 +236,16 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 
 - **Serveur MCP persistant** : service d'arrière-plan exposant l'outillage interne d'AnkiForge (audits, inspection, mutations de cartes) à des agents tiers via le protocole standardisé MCP.
 - **Agent externe (ou Agent CLI)** : agent d'intelligence artificielle autonome s'exécutant dans un processus distinct (terminal, éditeur tiers) et pilotant AnkiForge via les outils MCP.
+  _Avoid_ : consultant in-app, chat interne, assistant conversationnel intégré
 - **Jeton d'autorisation MCP** : secret d'authentification locale généré par session, requis pour autoriser les requêtes entrantes vers le serveur MCP persistant.
 - **Patch en attente (Staged Patch)** : proposition structurée de modification ou de refactorisation (diff avant/après) émise par l'IA ou un outil MCP, maintenue en attente d'une validation humaine explicite avant toute persistance définitive.
 - **Validation en deux phases (Two-Phase Commit)** : principe de sécurité selon lequel aucune opération chirurgicale ou destructive initiée par un agent n'altère directement la collection, chaque mutation devant obligatoirement être soumise sous forme de patch intermédiaire puis validée par l'utilisateur.
-- **Bloc de réflexion étendu (Extended Thinking / Thought Block)** : flux de raisonnement intermédiaire émis par un modèle d'IA avant de formuler sa réponse finale, streamé en temps réel dans l'interface avec des métriques de temps et de tokens, et distinct du contenu final des cartes.
-- **Composant de discussion riche (Rich Chat Widget)** : élément d'interface interactif (tableau de cartes, prévisualisation avec formules KaTeX, sélecteur de modèle) inséré directement dans le fil de conversation du Consultant IA pour manipuler la collection au-delà du simple texte.
-- **Hub MCP & Agents** : interface centrale de supervision et d'accueil orientant en premier lieu vers le serveur MCP local pour outiller les agents externes sans surcoût d'API, tout en maintenant l'accès au Consultant IA in-app en second plan.
-- **Création staged de note** : proposition de création d'une ou plusieurs notes et de leurs cartes physiques associées sous forme de patch en attente (`note_create` ou `batch_note_create`), soumise à validation humaine ou confirmation explicite avant insertion en base.
-  _Avoid_ : note préliminaire, brouillon de carte, création différée
-- **Contrôle d'hallucination de paquet** : garde-fou interdisant la création implicite ou accidentelle de paquets inexistants lors de la soumission de notes par un agent externe, exigeant l'existence préalable du paquet ou sa création délibérée.
-  _Avoid_ : vérification de deck, filtre de paquet, validation de cible
-- **Amorçage d'agent (Init)** : opération par laquelle un agent externe demande au serveur MCP de générer un fichier d'instructions méthodologiques dans son répertoire de travail, afin de maximiser ses compétences pour piloter AnkiForge. Le fichier produit est un adaptateur d'instructions au format attendu par le client (`GEMINI.md`, `CLAUDE.md`, `ANKIFORGE_GUIDE.md`, etc.), contenant les workflows d'usage, le catalogue des outils MCP et les garde-fous anticipatifs.
-  _Avoid_ : bootstrap, setup, onboarding, workspace init, init workspace
-- **Garde-Fou MCP (ou Espace de Validation MCP)** : sous-onglet dédié et autonome au sein de l'onglet Serveur MCP, centralisant l'examen, la comparaison haute fidélité et l'arbitrage (validation, retouche directe, rejet) des patchs chirurgicaux émis par des agents externes sans redirection vers le Consultant IA in-app.
-- **Décorrélation des flux de validation** : séparation hermétique entre les propositions issues d'agents MCP externes (administrées exclusivement dans le Garde-Fou MCP) et les suggestions issues du chat in-app (visibles dans l'Espace de Travail du Consultant IA). Les rafraîchissements de données (`refresh_data`) consécutifs à une mutation MCP sont strictement passifs et n'entraînent aucune commutation automatique d'onglet.
-  _Avoid_ : file de patch unifiée avec saut d'écran, bascule implicite d'inspecteur
-  _Avoid_ : inspecteur consultant, onglet diff, panneau de chat
+- **Stratégie d'application de patch (`PatchApplierStrategy`)** : classe spécialisée et isolée chargée de valider et d'appliquer un type d'opération de mutation MCP précis (`note_create`, `update_fields`, `delete_note`, opérations de paquets), découplant le registre `StagedPatchRegistry` en composants unitaires à basse complexité cyclomatique.
+  _Avoid_ : switch case géant de patchs, god method de mutation, gestionnaire monolithique de staged patches
+- **Hub MCP & Agents** : interface centrale de supervision et d'accueil plein écran (ADR 0043) orientant exclusivement vers le serveur MCP local pour outiller les agents externes sans surcoût d'API, sans chat in-app.
+  _Avoid_ : consultant ia, vue de discussion, assistant conversationnel
+- **Garde-Fou MCP (ou Espace de Validation MCP)** : sous-onglet dédié et autonome au sein de l'onglet Serveur MCP, centralisant l'examen, la comparaison haute fidélité et l'arbitrage (validation, retouche directe, rejet) des patchs chirurgicaux émis par des agents externes.
+  _Avoid_ : inspecteur consultant, panneau de chat, onglet diff externe
 - **Comparateur sémantique de note (ou Diff sémantique de note)** : composant visuel présentant les modifications d'une note champ par champ avec deux colonnes synchronisées, surlignage mot à mot intra-ligne (*word-level diff*) et prévisualisation Anki en direct, sans exposition de syntaxe JSON brute.
   _Avoid_ : diff JSON, inspecteur textuel brut, raw diff viewer
 - **Cockpit de connexion MCP (ou Supervision MCP)** : surface opérationnelle de pilotage direct du serveur MCP local agencée en deux colonnes sans défilement, réunissant le cycle de vie du démon, les adresses des points de terminaison (Streamable HTTP, SSE), le jeton Bearer et la génération de snippets de configuration client prêts à copier.
@@ -437,6 +431,16 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : rechargement complet, full reload, rafraîchissement global
 - **Snapshot d'état d'arbre (Tree State Snapshot)** : capture sérialisable de l'état visuel d'un `QTreeWidget` (items expandus, item sélectionné, position scrollbar verticale) avant une mutation structurelle, restaurée après pour préserver le contexte utilisateur.
   _Avoid_ : sauvegarde état UI, persistance sélection, scroll position
+
+## Qualité Logicielle & Risque de Régression (CRAP Index)
+
+- **Score CRAP (Change Risk Anti-Patterns)** : métrique composite formalisée par Alberto Savoia et Bob Evans croisant la complexité cyclomatique de McCabe ($CC$) et la couverture de tests ($cov \in [0, 1]$) selon la formule $\text{CRAP} = CC^2 \times (1 - cov)^3 + CC$. Indique le risque qu'une fonction génère une régression lors d'une modification.
+  _Avoid_ : complexité brute seule, taux de couverture seul, risque subjectif
+- **Seuil d'acceptabilité CRAP** : valeur plafond fixée à 25.0 au-delà de laquelle une fonction entre en zone d'alerte (`ATTENTION` si $\le 30.0$, `CRITIQUE` si $> 30.0$).
+  _Avoid_ : seuil arbitraire variable, tolérance infinie
+- **Résorption séquentielle du CRAP** : stratégie en deux phases articulée entre l'écriture de tests ciblés sur les fonctions modérément complexes sous-couvertes (Axe 2, gain rapide) et le refactoring d'architecture des méthodes monstres à $CC > 25$ (Axe 1, décomposition structurelle).
+  _Avoid_ : réécriture intégrale aveugle, dégradation de couverture
+
 
 
 
