@@ -18,7 +18,7 @@ from ankiforge.repositories.base import BaseRepository
 from ankiforge.services.cards.flag_service import FlagService
 from ankiforge.services.search.fts_service import FTSService
 from ankiforge.utils.hierarchy import descendants_prefix
-from ankiforge.utils.tags import parse_note_tags, serialize_note_tags
+from ankiforge.utils.tags import parse_note_tags, serialize_note_tags, split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ class NoteRepository(BaseRepository):
         source: str = "ai",
     ) -> NoteModel:
         """Crée une note, sa version active initiale et la carte correspondante."""
-        tags_str = serialize_note_tags(tags)
+        tags_str = serialize_note_tags(split_tag_tokens(tags))
         from ankiforge.utils.anki_renderer import compute_sort_field
 
         sort_field_val = compute_sort_field(fields_data)
@@ -132,6 +132,12 @@ class NoteRepository(BaseRepository):
                 template_index=0,
             )
             FTSService.sync_note(note.id)
+            try:
+                from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                CoverageAlignmentService.sync_note_coverage(note)
+            except Exception as cov_err:
+                logger.debug("Synchronisation de la couverture ignorée : %s", cov_err)
             return note
 
     def update_note_content(
@@ -148,11 +154,18 @@ class NoteRepository(BaseRepository):
 
         with self.atomic():
             if tags is not None:
-                note.tags = serialize_note_tags(tags)
+                note.tags = serialize_note_tags(split_tag_tokens(tags))
                 note.save()
 
             note.add_version(fields_data, source=source)
             FTSService.sync_note(note.id)
+            if tags is not None:
+                try:
+                    from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                    CoverageAlignmentService.sync_note_coverage(note)
+                except Exception as cov_err:
+                    logger.debug("Synchronisation de la couverture ignorée : %s", cov_err)
             return note
 
     def update_note_tags(self, note_id: int, tags: list[str]) -> bool:
@@ -161,9 +174,15 @@ class NoteRepository(BaseRepository):
         if not note:
             return False
         with self.atomic():
-            note.tags = serialize_note_tags(tags)
+            note.tags = serialize_note_tags(split_tag_tokens(tags))
             note.save()
             FTSService.sync_note(note.id)
+            try:
+                from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                CoverageAlignmentService.sync_note_coverage(note)
+            except Exception as cov_err:
+                logger.debug("Synchronisation de la couverture ignorée : %s", cov_err)
         return True
 
     def delete_note(self, note_id: int) -> bool:

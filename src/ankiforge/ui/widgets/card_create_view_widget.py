@@ -32,6 +32,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.tags import split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -378,13 +379,8 @@ class CardCreateViewWidget(QWidget):
         nt_name = content.get("note_type_name") or content.get("note_type") or payload.get("note_type_name") or payload.get("note_type") or ""
         self._note_type = NoteTypeModel.get_or_none(NoteTypeModel.name == str(nt_name).strip()) if nt_name else None
 
-        raw_tags = content.get("tags") or payload.get("tags") or []
-        if isinstance(raw_tags, str):
-            self._tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
-        elif isinstance(raw_tags, (list, tuple)):
-            self._tags = [str(t).strip() for t in raw_tags if str(t).strip()]
-        else:
-            self._tags = []
+        raw_tags = content.get("tags") or payload.get("tags")
+        self._tags = split_tag_tokens(raw_tags)
 
         self._refresh_fields()
         self._refresh_metadata()
@@ -479,13 +475,19 @@ class CardCreateViewWidget(QWidget):
     def _on_new_tag_added(self) -> None:
         """Ajoute le tag saisi dans le champ d'ajout."""
         text = self.new_tag_edit.text().strip()
-        if not text or text in self._tags:
+        new_tokens = split_tag_tokens(text)
+        if not new_tokens:
             self.new_tag_edit.clear()
             return
-        self._tags.append(text)
+        modified = False
+        for tok in new_tokens:
+            if tok not in self._tags:
+                self._tags.append(tok)
+                modified = True
         self.new_tag_edit.clear()
-        self._refresh_tags()
-        self.content_edited.emit(self.get_modified_content())
+        if modified:
+            self._refresh_tags()
+            self.content_edited.emit(self.get_modified_content())
 
     def _update_nav(self) -> None:
         """Met à jour l'état des boutons de navigation et la position."""

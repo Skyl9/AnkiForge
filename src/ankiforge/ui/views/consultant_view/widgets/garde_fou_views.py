@@ -29,6 +29,7 @@ from ankiforge.ui.components import Badge
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.tags import split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -377,20 +378,10 @@ class TagDiffWidget(QWidget):
 
         # Extraction des tags ajoutés et retirés
         raw_added = payload.get("tags_added") or payload.get("tags") or []
-        if isinstance(raw_added, str):
-            self._added_tags = [t.strip() for t in raw_added.split(",") if t.strip()]
-        elif isinstance(raw_added, (list, tuple)):
-            self._added_tags = [str(t).strip() for t in raw_added if str(t).strip()]
-        else:
-            self._added_tags = []
+        self._added_tags = split_tag_tokens(raw_added)
 
         raw_removed = payload.get("tags_removed") or []
-        if isinstance(raw_removed, str):
-            self._removed_tags = [t.strip() for t in raw_removed.split(",") if t.strip()]
-        elif isinstance(raw_removed, (list, tuple)):
-            self._removed_tags = [str(t).strip() for t in raw_removed if str(t).strip()]
-        else:
-            self._removed_tags = []
+        self._removed_tags = split_tag_tokens(raw_removed)
 
         # Nettoyage
         while self.tags_layout.count():
@@ -449,7 +440,7 @@ class TagDiffWidget(QWidget):
         if not self._patch:
             return {}
         payload = dict(staged_payload_of(self._patch))
-        edited = [t.strip() for t in self.tags_input.text().split(",") if t.strip()]
+        edited = split_tag_tokens(self.tags_input.text())
         payload["tags"] = edited
         payload["tags_added"] = edited
         return payload

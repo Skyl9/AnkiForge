@@ -17,6 +17,7 @@ from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
+from ankiforge.utils.tags import split_tag_tokens
 
 __all__ = [
     "DEFAULT_MCP_MUTATION_DOMAIN",
@@ -830,7 +831,7 @@ def create_note(
             fields_input=fields_json,
         )
 
-        tags_list = [t.strip() for t in tags.split(",") if t.strip()] if isinstance(tags, str) else list(tags)
+        tags_list = split_tag_tokens(tags)
 
         first_field_name = next(iter(sanitized_fields.keys()), "Front")
         first_val = sanitized_fields.get(first_field_name, "")
@@ -905,7 +906,7 @@ def create_notes_batch(
                 ensure_ascii=False,
             )
 
-        def_tags_list = [t.strip() for t in default_tags.split(",") if t.strip()] if isinstance(default_tags, str) else list(default_tags)
+        def_tags_list = split_tag_tokens(default_tags)
 
         validated_notes: list[dict[str, Any]] = []
         all_warnings: list[str] = []
@@ -929,12 +930,7 @@ def create_notes_batch(
                 return json.dumps({"status": "error", "message": f"Note #{idx} invalide : {err}"}, ensure_ascii=False)
 
             item_tags = item.get("tags")
-            if item_tags is None:
-                combined_tags = list(def_tags_list)
-            elif isinstance(item_tags, str):
-                combined_tags = list(dict.fromkeys(def_tags_list + [t.strip() for t in item_tags.split(",") if t.strip()]))
-            else:
-                combined_tags = list(dict.fromkeys(def_tags_list + list(item_tags)))
+            combined_tags = list(def_tags_list) if item_tags is None else list(dict.fromkeys(def_tags_list + split_tag_tokens(item_tags)))
 
             validated_notes.append(
                 {

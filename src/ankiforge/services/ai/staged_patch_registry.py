@@ -18,6 +18,7 @@ from ankiforge.database.models import (
     StagedPatchModel,
     db,
 )
+from ankiforge.utils.tags import serialize_note_tags, split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -288,11 +289,14 @@ class StagedPatchRegistry:
                 # Prise en charge des tags modifiés (remplacement ou incrémental)
                 if "modified_tags" in diff_data:
                     raw_tags = diff_data["modified_tags"]
-                    if isinstance(raw_tags, list):
-                        note.tags = " ".join(t.strip() for t in raw_tags if t and str(t).strip())
-                    elif isinstance(raw_tags, str):
-                        note.tags = raw_tags.strip()
+                    note.tags = serialize_note_tags(split_tag_tokens(raw_tags))
                     note.save()
+                    try:
+                        from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                        CoverageAlignmentService.sync_note_coverage(note)
+                    except Exception as cov_err:
+                        logger.debug("Synchronisation de la couverture ignorée : %s", cov_err)
 
                 patch.status = "applied"
                 patch.applied_at = datetime.datetime.now()
@@ -668,13 +672,7 @@ class StagedPatchRegistry:
                 return {"status": "error", "message": "Format de champs invalide.", "patch_id": patch_id}
 
             raw_tags = payload.get("tags") if payload.get("tags") is not None else diff_data.get("tags", [])
-            tags_list: list[str]
-            if isinstance(raw_tags, str):
-                tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
-            elif isinstance(raw_tags, (list, tuple)):
-                tags_list = [str(t).strip() for t in raw_tags if str(t).strip()]
-            else:
-                tags_list = []
+            tags_list = split_tag_tokens(raw_tags)
 
             source = str(payload.get("source") or diff_data.get("source", "mcp_agent"))
 
@@ -741,13 +739,7 @@ class StagedPatchRegistry:
             default_deck_name = str(payload.get("default_deck") or payload.get("deck_name") or diff_data.get("default_deck") or "").strip()
             default_nt_name = str(payload.get("default_note_type") or payload.get("note_type_name") or diff_data.get("default_note_type") or "").strip()
             raw_default_tags = payload.get("default_tags") if payload.get("default_tags") is not None else diff_data.get("default_tags", [])
-            default_tags: list[str]
-            if isinstance(raw_default_tags, str):
-                default_tags = [t.strip() for t in raw_default_tags.split(",") if t.strip()]
-            elif isinstance(raw_default_tags, (list, tuple)):
-                default_tags = [str(t).strip() for t in raw_default_tags if str(t).strip()]
-            else:
-                default_tags = []
+            default_tags: list[str] = split_tag_tokens(raw_default_tags)
 
             created_note_ids: list[int] = []
             try:
@@ -773,11 +765,7 @@ class StagedPatchRegistry:
                                 fields = {}
 
                         item_tags = n_item.get("tags")
-                        item_tags_list: list[str] = []
-                        if isinstance(item_tags, str):
-                            item_tags_list = [t.strip() for t in item_tags.split(",") if t.strip()]
-                        elif isinstance(item_tags, (list, tuple)):
-                            item_tags_list = [str(t).strip() for t in item_tags if str(t).strip()]
+                        item_tags_list: list[str] = split_tag_tokens(item_tags) if item_tags is not None else []
 
                         combined_tags: list[str] = list(dict.fromkeys(default_tags + item_tags_list))
 

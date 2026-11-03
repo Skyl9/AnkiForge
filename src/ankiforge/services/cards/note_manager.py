@@ -9,8 +9,9 @@ import logging
 import uuid
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, db
+from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.utils.anki_renderer import get_max_cloze_index, should_generate_card
-from ankiforge.utils.tags import serialize_note_tags
+from ankiforge.utils.tags import serialize_note_tags, split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,7 @@ class NoteManager:
         Raises:
             RuntimeError: En cas d'échec de l'opération en base de données.
         """
-        if tags is None:
-            tags = []
+        tags_list = split_tag_tokens(tags)
 
         templates_str = note_type.templates
         templates = json.loads(str(templates_str)) if templates_str else []
@@ -63,7 +63,7 @@ class NoteManager:
                 new_note = NoteModel.create(
                     guid=str(uuid.uuid4())[:10],
                     note_type=note_type,
-                    tags=serialize_note_tags(tags),
+                    tags=serialize_note_tags(tags_list),
                     status=status,
                 )
 
@@ -79,6 +79,11 @@ class NoteManager:
                         qfmt = tmpl.get("qfmt", "")
                         if should_generate_card(qfmt, content_dict):
                             CardModel.create(note=new_note, deck=deck, template_index=i)
+
+                try:
+                    CoverageAlignmentService.sync_note_coverage(new_note)
+                except Exception as cov_err:
+                    logger.debug("Synchronisation de la couverture ignorée : %s", cov_err)
 
                 logger.info(
                     "Note ID=%d créée avec succès (modèle: '%s', deck: '%s', source: '%s')",

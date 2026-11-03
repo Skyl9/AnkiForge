@@ -40,6 +40,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.tags import split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -723,19 +724,8 @@ class CardSemanticDiffWidget(QWidget):
         self._is_applied = is_applied
         self._patch_type = patch_type.lower().strip()
 
-        if isinstance(original_tags, list):
-            self._original_tags = [str(t) for t in original_tags if str(t).strip()]
-        elif isinstance(original_tags, str):
-            self._original_tags = [t for t in original_tags.split() if t]
-        else:
-            self._original_tags = []
-
-        if isinstance(modified_tags, list):
-            self._modified_tags = [str(t) for t in modified_tags if str(t).strip()]
-        elif isinstance(modified_tags, str):
-            self._modified_tags = [t for t in modified_tags.split() if t]
-        else:
-            self._modified_tags = []
+        self._original_tags = split_tag_tokens(original_tags)
+        self._modified_tags = split_tag_tokens(modified_tags)
 
         if hasattr(self, "diff_stack"):
             self.diff_stack.setCurrentIndex(0)
@@ -1777,7 +1767,7 @@ class CardSemanticDiffWidget(QWidget):
 
     def _on_tags_content_changed(self, field_name: str, new_val: str) -> None:
         """Gère la retouche utilisateur sur la ligne des tags."""
-        self._modified_tags = [t.strip() for t in new_val.split() if t.strip()]
+        self._modified_tags = split_tag_tokens(new_val)
         self.content_edited.emit(self.get_modified_content())
 
     def _on_row_content_changed(self, field_name: str, new_val: str) -> None:
@@ -2302,7 +2292,7 @@ class BatchNoteCreateView(QWidget):
         self.content_changed.emit(self._patch_payload)
 
     def _on_tags_changed(self, text: str) -> None:
-        tags = [t.strip() for t in text.split(",") if t.strip()]
+        tags = split_tag_tokens(text)
         if "modified" not in self._patch_payload or not isinstance(self._patch_payload.get("modified"), dict):
             self._patch_payload["modified"] = {}
         self._patch_payload["modified"]["tags"] = tags

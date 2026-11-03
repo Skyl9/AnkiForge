@@ -50,13 +50,17 @@ from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_medi
 logger = logging.getLogger(__name__)
 
 
-def _restart_application() -> None:
+def restart_application() -> None:
     """Redémarre proprement le processus de l'application (couche UI)."""
     logger.info("Redémarrage de l'application demandé...")
     QProcess.startDetached(sys.executable, sys.argv)
     app = QApplication.instance()
     if app:
         app.quit()
+
+
+def _restart_application() -> None:
+    restart_application()
 
 
 class _MaintenanceSignals(QObject):

@@ -42,6 +42,7 @@ from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.paths import get_active_profile
+from ankiforge.utils.tags import parse_note_tags, split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -649,30 +650,20 @@ class MCPToolRegistry:
                 final_modified = dict(orig_dict)
                 final_modified.update(new_fields)
 
-                current_tags_str = note.tags or ""
-                current_tags_list = [t for t in current_tags_str.split() if t]
+                current_tags_list = parse_note_tags(note.tags)
 
                 if "tags" in item:
                     raw_new_tags = item["tags"]
-                    if isinstance(raw_new_tags, list):
-                        new_tags_list = [str(t).strip() for t in raw_new_tags if str(t).strip()]
-                    elif isinstance(raw_new_tags, str):
-                        new_tags_list = [t for t in raw_new_tags.split() if t]
-                    else:
-                        new_tags_list = list(current_tags_list)
+                    new_tags_list = split_tag_tokens(raw_new_tags) if raw_new_tags is not None else list(current_tags_list)
                 else:
                     tags_set = set(current_tags_list)
-                    add_tags = item.get("add_tags", [])
-                    if isinstance(add_tags, str):
-                        add_tags = [t for t in add_tags.split() if t]
+                    add_tags = split_tag_tokens(item.get("add_tags"))
                     for t in add_tags:
-                        tags_set.add(str(t).strip())
+                        tags_set.add(t)
 
-                    remove_tags = item.get("remove_tags", [])
-                    if isinstance(remove_tags, str):
-                        remove_tags = [t for t in remove_tags.split() if t]
+                    remove_tags = split_tag_tokens(item.get("remove_tags"))
                     for t in remove_tags:
-                        tags_set.discard(str(t).strip())
+                        tags_set.discard(t)
                     new_tags_list = sorted(tags_set)
 
                 item_explanation = str(item.get("explanation") or clean_reason)

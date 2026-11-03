@@ -80,9 +80,63 @@ def test_split_tag_tokens() -> None:
     assert tokens3 == ["tag1", "tag2", "tag3"]
 
 
+def test_split_tag_tokens_polymorphic_inputs() -> None:
+    """Vérifie la prise en charge de listes, tuples, sets, None et JSON sérialisé."""
+    # None et vide
+    assert split_tag_tokens(None) == []
+    assert split_tag_tokens("") == []
+    assert split_tag_tokens("   ") == []
+
+    # Liste contenant un élément avec plusieurs tags délimités par des espaces
+    raw_list = ["ankiforge_generated doc:11 source:livre_de_japonais page:1", "lecon_06"]
+    tokens = split_tag_tokens(raw_list)
+    assert tokens == ["ankiforge_generated", "doc:11", "source:livre_de_japonais", "page:1", "lecon_06"]
+
+    # Tuple de tags
+    assert split_tag_tokens(("tag1, tag2", "tag3")) == ["tag1", "tag2", "tag3"]
+
+    # Ensemble de tags
+    tokens_set = split_tag_tokens({"tag1 tag2", "tag3"})
+    assert set(tokens_set) == {"tag1", "tag2", "tag3"}
+
+    # Chaîne JSON sérialisée
+    json_str = '["ankiforge_generated doc:11", "page:1"]'
+    assert split_tag_tokens(json_str) == ["ankiforge_generated", "doc:11", "page:1"]
+
+
+def test_extract_tag_metadata_resilience_to_untokenized_strings() -> None:
+    """Vérifie que extract_tag_metadata récupère les métadonnées même si les tags sont scellés dans une chaîne avec espaces."""
+    from ankiforge.utils.tags import extract_tag_metadata
+
+    # Chaîne brute avec espaces (format Anki classique)
+    meta1 = extract_tag_metadata("ankiforge_generated doc:11 source:livre_de_japonais page:1 section:page_1")
+    assert meta1["doc_id"] == 11
+    assert meta1["source_slug"] == "livre_de_japonais"
+    assert meta1["page_number"] == 1
+    assert meta1["section_slug"] == "page_1"
+
+    # Liste contenant une chaîne unique avec espaces
+    meta2 = extract_tag_metadata(["ankiforge_generated doc:42 source:manuel_bio page:5 section:intro"])
+    assert meta2["doc_id"] == 42
+    assert meta2["source_slug"] == "manuel_bio"
+    assert meta2["page_number"] == 5
+    assert meta2["section_slug"] == "intro"
+
+    # Chaîne JSON contenant des tags avec espaces
+    meta3 = extract_tag_metadata('["ankiforge_generated doc:99 source:physique"]')
+    assert meta3["doc_id"] == 99
+    assert meta3["source_slug"] == "physique"
+
+
 def test_detect_tag_anomalies() -> None:
     """Vérifie la détection d'anomalies de tags legacy."""
     assert detect_tag_anomalies("medecine generale") == ["has_spaces"]
     assert detect_tag_anomalies("::physique::") == ["malformed_hierarchy"]
     assert detect_tag_anomalies("   ") == ["empty"]
     assert detect_tag_anomalies("valide::tag") == []
+
+
+def test_split_tag_tokens_on_compound_list_items() -> None:
+    """Vérifie que split_tag_tokens découpe rigoureusement les éléments d'une liste composite."""
+    assert split_tag_tokens(["tag1 tag2", "tag3, tag4"]) == ["tag1", "tag2", "tag3", "tag4"]
+    assert split_tag_tokens(["  doc:12   page:3  ", "source:manuel"]) == ["doc:12", "page:3", "source:manuel"]

@@ -79,13 +79,8 @@ def parse_note_tags(tags: str | Sequence[str] | set[str] | None) -> list[str]:
         except Exception as err:
             logger.debug("Parsing des tags JSON ignoré : %s", err)
 
-    # Découpage par espaces si pas JSON ou échec
-    result_tokens: list[str] = []
-    for token in raw_str.split():
-        token_clean = token.strip()
-        if token_clean and token_clean not in result_tokens:
-            result_tokens.append(token_clean)
-    return result_tokens
+    # Découpage par espaces ou virgules si pas JSON ou échec
+    return split_tag_tokens(raw_str)
 
 
 def serialize_note_tags(tags: str | Sequence[str] | set[str] | None) -> str:
@@ -177,7 +172,7 @@ def legacy_section_key(heading_path: str | None) -> str:
     return clean_source_slug(heading_path)
 
 
-def extract_tag_metadata(tags: str | list[str] | None) -> dict[str, Any]:
+def extract_tag_metadata(tags: str | Sequence[str] | set[str] | None) -> dict[str, Any]:
     """Extrait les métadonnées de traçabilité documentaire portées par les tags.
 
     Tags reconnus :
@@ -200,7 +195,7 @@ def extract_tag_metadata(tags: str | list[str] | None) -> dict[str, Any]:
         - section_slug: str | None
         - chunk_id: int | None
     """
-    parsed = parse_note_tags(tags)
+    parsed = split_tag_tokens(tags)
     metadata: dict[str, Any] = {
         "doc_id": None,
         "source_slug": None,
@@ -394,21 +389,58 @@ def normalize_tag_input(tag: str) -> str:
     return "::".join(cleaned_segments)
 
 
-def split_tag_tokens(text: str) -> list[str]:
-    """Découpe une saisie textuelle de tags (séparée par espaces ou virgules).
+def split_tag_tokens(tags: str | Sequence[str] | set[str] | None) -> list[str]:
+    """Découpe et normalise une saisie de tags (chaîne, liste ou collection).
 
-    Chaque jeton est normalisé, les doublons sont éliminés en préservant l'ordre.
+    Prend en charge :
+    - Chaîne délimitée par des espaces ou virgules : "tag1, tag2 tag3"
+    - Chaîne JSON sérialisée : '["tag1", "tag2"]'
+    - Liste ou séquence de chaînes : ["tag1", "tag2 tag3"]
+    - None ou vide : retourne []
+
+    Chaque jeton est normalisé selon l'ADR 0040 (interdiction des espaces, nettoyage ::),
+    et les doublons sont éliminés en préservant l'ordre d'apparition.
     """
-    if not text or not text.strip():
+    if not tags:
         return []
 
-    tokens = [t.strip() for t in re.split(r"[,\s]+", text) if t.strip()]
-    result: list[str] = []
+    raw_items: list[str] = []
 
-    for tok in tokens:
-        norm = normalize_tag_input(tok)
-        if norm and norm not in result:
-            result.append(norm)
+    if isinstance(tags, (list, tuple, set)):
+        for item in tags:
+            s = str(item).strip()
+            if s:
+                raw_items.append(s)
+    elif isinstance(tags, str):
+        raw_str = tags.strip()
+        if not raw_str:
+            return []
+        if raw_str.startswith("[") and raw_str.endswith("]"):
+            try:
+                parsed = json.loads(raw_str)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        s = str(item).strip()
+                        if s:
+                            raw_items.append(s)
+                else:
+                    raw_items.append(raw_str)
+            except Exception:
+                raw_items.append(raw_str)
+        else:
+            raw_items.append(raw_str)
+    else:
+        s = str(tags).strip()
+        if s:
+            raw_items.append(s)
+
+    result: list[str] = []
+    for item in raw_items:
+        tokens = [t.strip() for t in re.split(r"[,\s]+", item) if t.strip()]
+        for tok in tokens:
+            norm = normalize_tag_input(tok)
+            if norm and norm not in result:
+                result.append(norm)
 
     return result
 

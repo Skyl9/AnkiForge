@@ -228,6 +228,7 @@ def mock_db():
             name=name,
             color_hex=color_hex,
             is_customizable=customizable,
+            sort_order=idx,
         ).execute()
     with contextlib.suppress(Exception):
         test_db.execute_sql("""

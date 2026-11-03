@@ -23,6 +23,9 @@ import pytest
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
+    DocumentChunkModel,
+    DocumentModel,
+    NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
     StagedPatchModel,
@@ -348,5 +351,127 @@ def test_create_notes_batch_flow(sample_setup):
         # La 3ème note doit avoir créé une carte cloze
         cloze_note = next(n for n in notes if n.note_type.name == "Cloze Model MCP")
         assert cloze_note.cards.count() == 1
+
+    asyncio.run(_run())
+
+
+def test_create_note_and_batch_space_separated_tags_and_coverage(sample_setup):
+    """Vérifie le découpage des tags délimités par des espaces et la traçabilité RAG automatique."""
+    from ankiforge.utils.tags import clean_source_slug, parse_note_tags
+
+    async def _run() -> None:
+        # 1. Créer un document et un fragment source
+        doc = DocumentModel.create(
+            title="Manuel de Japonais.pdf",
+            file_path="/tmp/manuel_japonais.pdf",
+            file_hash="hash_japonais_123",
+            content_text="Leçon 1 : Salutations",
+        )
+        chunk = DocumentChunkModel.create(
+            document=doc,
+            chunk_index=0,
+            text_content="Bonjour = Konnichiwa",
+            page_number=1,
+            heading_path="Leçon 1 > Salutations",
+        )
+        source_slug = clean_source_slug(doc.title)
+
+        # 2. Proposer une note avec des tags au format Anki (séparés par espaces, sans virgule)
+        space_tags = f"ankiforge_generated doc:{doc.id} source:{source_slug} page:1 lecon_01"
+        res_stage = await mcp.call_tool(
+            "create_note",
+            {
+                "note_type_name": "Basic Model MCP",
+                "deck_name": "Langues::Japonais",
+                "fields_json": json.dumps({"Front": "Konnichiwa", "Back": "Bonjour"}),
+                "tags": space_tags,
+            },
+        )
+        data_stage = json.loads(_extract_text(res_stage))
+        assert data_stage["status"] == "staged"
+        patch_id = data_stage["patch_id"]
+
+        patch = StagedPatchRegistry.get_patch(patch_id)
+        assert patch is not None
+        diff_payload = json.loads(patch.diff_payload)
+        diff_tags = diff_payload.get("tags")
+        # Le diff doit contenir 5 tags distincts, et non une chaîne unique avec des espaces
+        assert isinstance(diff_tags, list)
+        assert len(diff_tags) == 5
+        assert "ankiforge_generated" in diff_tags
+        assert f"doc:{doc.id}" in diff_tags
+        assert f"source:{source_slug}" in diff_tags
+        assert "page:1" in diff_tags
+        assert "lecon_01" in diff_tags
+
+        # 3. Appliquer le patch et vérifier la base de données
+        res_apply = await mcp.call_tool("apply_patch", {"patch_id": patch_id})
+        data_apply = json.loads(_extract_text(res_apply))
+        assert data_apply["status"] == "applied"
+        created_id = data_apply["note_id"]
+
+        note = NoteModel.get_by_id(created_id)
+        saved_tags = parse_note_tags(note.tags)
+        assert "ankiforge_generated" in saved_tags
+        assert f"doc:{doc.id}" in saved_tags
+        assert f"source:{source_slug}" in saved_tags
+        assert "page:1" in saved_tags
+        assert "lecon_01" in saved_tags
+        # Traçabilité enrichie avec le tag de section résolu
+        assert "section:leçon_1_salutations" in saved_tags
+
+        # Traçabilité documentaire : NoteChunkLinkModel créé automatiquement
+        links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note))
+        assert len(links) >= 1
+        assert links[0].chunk.id == chunk.id
+
+        # 4. Tester create_notes_batch avec default_tags et item_tags délimités par espaces
+        batch_notes = [
+            {
+                "deck": "Langues::Japonais",
+                "note_type": "Basic Model MCP",
+                "fields": {"Front": "Arigato", "Back": "Merci"},
+                "tags": "page:1 politesse",
+            }
+        ]
+        res_batch = await mcp.call_tool(
+            "create_notes_batch",
+            {
+                "notes_json": json.dumps(batch_notes),
+                "default_tags": f"ankiforge_generated doc:{doc.id} source:{source_slug}",
+            },
+        )
+        data_batch = json.loads(_extract_text(res_batch))
+        assert data_batch["status"] == "staged"
+        batch_patch_id = data_batch["patch_id"]
+
+        batch_patch = StagedPatchRegistry.get_patch(batch_patch_id)
+        assert batch_patch is not None
+        batch_diff_payload = json.loads(batch_patch.diff_payload)
+        batch_diff_notes = batch_diff_payload.get("modified", {}).get("notes", [])
+        assert len(batch_diff_notes) == 1
+        combined = batch_diff_notes[0]["tags"]
+        assert len(combined) == 5
+        assert combined == ["ankiforge_generated", f"doc:{doc.id}", f"source:{source_slug}", "page:1", "politesse"]
+
+        # Appliquer le batch
+        res_batch_apply = await mcp.call_tool("apply_patch", {"patch_id": batch_patch_id})
+        data_batch_apply = json.loads(_extract_text(res_batch_apply))
+        assert data_batch_apply["status"] == "applied"
+        b_note_id = data_batch_apply["created_note_ids"][0]
+
+        b_note = NoteModel.get_by_id(b_note_id)
+        b_saved_tags = parse_note_tags(b_note.tags)
+        assert "ankiforge_generated" in b_saved_tags
+        assert f"doc:{doc.id}" in b_saved_tags
+        assert f"source:{source_slug}" in b_saved_tags
+        assert "page:1" in b_saved_tags
+        assert "politesse" in b_saved_tags
+        assert "section:leçon_1_salutations" in b_saved_tags
+
+        # Traçabilité documentaire du batch
+        b_links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == b_note))
+        assert len(b_links) >= 1
+        assert b_links[0].chunk.id == chunk.id
 
     asyncio.run(_run())

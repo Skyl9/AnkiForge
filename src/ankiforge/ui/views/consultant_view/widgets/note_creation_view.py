@@ -26,6 +26,7 @@ from ankiforge.ui.components import Badge
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.tags import split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -332,13 +333,8 @@ class NoteCreationWidget(QWidget):
         self.lbl_nt_value.setText(nt.name if nt else (nt_name or tr("—")))
 
         # Tags
-        raw_tags = payload.get("tags") or []
-        if isinstance(raw_tags, str):
-            tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
-        elif isinstance(raw_tags, (list, tuple)):
-            tags_list = [str(t).strip() for t in raw_tags if str(t).strip()]
-        else:
-            tags_list = []
+        raw_tags = payload.get("tags")
+        tags_list = split_tag_tokens(raw_tags)
         self.lbl_tags_value.setText(", ".join(tags_list) if tags_list else tr("Aucun"))
         self.tags_edit.setText(", ".join(tags_list))
 
@@ -410,21 +406,8 @@ class NoteCreationWidget(QWidget):
         self.lbl_nt_value.setText(nt.name if nt else (nt_name or tr("—")))
 
         # Tags
-        default_tags_raw = note_item.get("default_tags") or []
-        item_tags_raw = note_item.get("tags") or []
-        if isinstance(default_tags_raw, str):
-            default_tags = [t.strip() for t in default_tags_raw.split(",") if t.strip()]
-        elif isinstance(default_tags_raw, (list, tuple)):
-            default_tags = [str(t).strip() for t in default_tags_raw if str(t).strip()]
-        else:
-            default_tags = []
-
-        if isinstance(item_tags_raw, str):
-            item_tags = [t.strip() for t in item_tags_raw.split(",") if t.strip()]
-        elif isinstance(item_tags_raw, (list, tuple)):
-            item_tags = [str(t).strip() for t in item_tags_raw if str(t).strip()]
-        else:
-            item_tags = []
+        default_tags = split_tag_tokens(note_item.get("default_tags"))
+        item_tags = split_tag_tokens(note_item.get("tags"))
 
         combined_tags = list(dict.fromkeys(default_tags + item_tags))
         self.lbl_tags_value.setText(", ".join(combined_tags) if combined_tags else tr("Aucun"))
@@ -455,7 +438,7 @@ class NoteCreationWidget(QWidget):
         payload = dict(staged_payload_of(self._patch))
         p_type = self._patch.patch_type.lower().strip()
 
-        edited_tags = [t.strip() for t in self.tags_edit.text().split(",") if t.strip()]
+        edited_tags = split_tag_tokens(self.tags_edit.text())
 
         if p_type == "batch_note_create":
             if self._batch_cards and 0 <= self._active_batch_index < len(self._batch_cards):

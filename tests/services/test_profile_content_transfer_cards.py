@@ -9,6 +9,7 @@ from peewee import SqliteDatabase
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
+    FlagDefinitionModel,
     MediaModel,
     NoteModel,
     NoteTypeModel,
@@ -27,6 +28,7 @@ CARD_MODELS = [
     CardModel,
     MediaModel,
     NoteVersionMediaModel,
+    FlagDefinitionModel,
 ]
 
 

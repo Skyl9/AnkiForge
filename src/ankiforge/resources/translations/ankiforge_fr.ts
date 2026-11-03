@@ -399,7 +399,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     <message>
         <location line="+6"/>
         <location filename="../../ui/views/edition_view/view.py" line="+1149"/>
-        <location filename="../../ui/widgets/card_create_view_widget.py" line="+435"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="+431"/>
         <location filename="../../ui/widgets/time_machine_dialog.py" line="+168"/>
         <source>Type de note : %1</source>
         <translation type="unfinished"></translation>
@@ -728,7 +728,7 @@ Cliquer pour voir les détails</source>
     <message>
         <location line="+146"/>
         <location line="+60"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1292"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1282"/>
         <location line="+77"/>
         <source>➔</source>
         <translation type="unfinished"></translation>
@@ -1233,7 +1233,7 @@ Le prompt et les paramètres actuels seront remplacés.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1871"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1860"/>
         <location line="+137"/>
         <source>Identique</source>
         <translation type="unfinished"></translation>
@@ -1288,8 +1288,8 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <location filename="../../ui/views/documents_view/widgets/audio_player.py" line="+242"/>
         <location line="+11"/>
         <location line="+29"/>
-        <location filename="../../ui/widgets/card_create_view_widget.py" line="+58"/>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1904"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="+64"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="+1893"/>
         <source>%1 / %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1372,7 +1372,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
         <location line="+5"/>
         <location line="+261"/>
         <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1275"/>
-        <location filename="../../ui/widgets/card_create_view_widget.py" line="-59"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="-65"/>
         <source>Paquet : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3638,7 +3638,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/garde_fou_views.py" line="+67"/>
+        <location filename="../../ui/views/consultant_view/widgets/garde_fou_views.py" line="+68"/>
         <source>Opération sur les paquets</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3695,7 +3695,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/views/consultant_view/widgets/note_creation_view.py" line="+148"/>
+        <location filename="../../ui/views/consultant_view/widgets/note_creation_view.py" line="+149"/>
         <location line="+173"/>
         <source>CRÉATION</source>
         <translation type="unfinished"></translation>
@@ -3732,7 +3732,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+17"/>
         <source>Tags ajoutés (+%1) :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3961,7 +3961,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/widgets/card_create_view_widget.py" line="-167"/>
+        <location filename="../../ui/widgets/card_create_view_widget.py" line="-162"/>
         <source>TAGS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4402,19 +4402,19 @@ Gabarits : %3</source>
     <message>
         <location line="+44"/>
         <location line="+5"/>
-        <location line="+73"/>
+        <location line="+68"/>
         <location line="+5"/>
         <source>—</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="-68"/>
-        <location line="+88"/>
+        <location line="+75"/>
         <source>Aucun</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-66"/>
+        <location line="-53"/>
         <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-1411"/>
         <source>Lot de création</source>
         <translation type="unfinished"></translation>
@@ -6968,7 +6968,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+48"/>
         <source>Aucun champ défini</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6984,7 +6984,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-2156"/>
+        <location filename="../../ui/widgets/card_semantic_diff_widget.py" line="-2145"/>
         <source>Règle #4 (Atomicité) : Question trop verbeuse (%1 mots &gt; 25).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7032,18 +7032,18 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+8"/>
-        <location line="+1259"/>
+        <location line="+1248"/>
         <source>Conforme Wozniak (Atomicité R4/R5)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1211"/>
-        <location line="+242"/>
+        <location line="-1200"/>
+        <location line="+231"/>
         <source>Comparaison champ par champ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-215"/>
+        <location line="-204"/>
         <source>Aperçu dédoublé</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7069,12 +7069,12 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+1519"/>
+        <location line="+1508"/>
         <source>Voir Verso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1468"/>
+        <location line="-1457"/>
         <source>Originale (BDD)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7089,7 +7089,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+67"/>
+        <location line="+56"/>
         <source>Carte atomique %1 sur %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8107,7 +8107,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="+112"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="+116"/>
         <source>STOCKAGE &amp; BDD — ENVIRONNEMENT : %1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>

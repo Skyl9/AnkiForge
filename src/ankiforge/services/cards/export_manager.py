@@ -30,6 +30,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.utils.hierarchy import descendants_prefix, join_hierarchy
 from ankiforge.utils.paths import get_media_dir, resolve_media_path
+from ankiforge.utils.tags import normalize_tag_input, split_tag_tokens
 
 # Suppression des avertissements genanki pour le parsing LaTeX / HTML
 logger = logging.getLogger(__name__)
@@ -323,19 +324,7 @@ class ExportManager:
             if not field_values:
                 field_values = [""]
 
-            tags_list: list[str] = []
-            if note.tags:
-                if isinstance(note.tags, list):
-                    tags_list = [str(t).strip() for t in note.tags if str(t).strip()]
-                else:
-                    try:
-                        parsed = json.loads(str(note.tags))
-                        if isinstance(parsed, list):
-                            tags_list = [str(t).strip() for t in parsed if str(t).strip()]
-                        elif isinstance(parsed, str) and parsed.strip():
-                            tags_list = [t for t in parsed.split() if t]
-                    except Exception:
-                        tags_list = [t for t in str(note.tags).split() if t]
+            tags_list = split_tag_tokens(note.tags)
 
             # Option de synchronisation par tags pour les drapeaux et suspensions
             note_cards_list = list(note.cards)
@@ -346,14 +335,19 @@ class ExportManager:
                 for c in note_cards_list:
                     c_flg = int(getattr(c, "flags", 0) or 0)
                     if c_flg > 0:
-                        flg_name = DesignTokens.FLAG_NAMES.get(c_flg, str(c_flg)).lower()
-                        flag_tag = join_hierarchy(("flag", flg_name))
+                        from ankiforge.services.cards.flag_service import NATIVE_FLAG_NAMES
+
+                        flg_label = DesignTokens.FLAG_NAMES.get(c_flg) or NATIVE_FLAG_NAMES.get(c_flg, str(c_flg))
+                        flg_name = flg_label.lower()
+                        flag_tag = normalize_tag_input(join_hierarchy(("flag", flg_name)))
                         if flag_tag not in added_tags:
                             tags_list.append(flag_tag)
                             added_tags.add(flag_tag)
-                    if getattr(c, "is_suspended", False) and join_hierarchy(("is", "suspended")) not in added_tags:
-                        tags_list.append(join_hierarchy(("is", "suspended")))
-                        added_tags.add(join_hierarchy(("is", "suspended")))
+                    if getattr(c, "is_suspended", False):
+                        susp_tag = join_hierarchy(("is", "suspended"))
+                        if susp_tag not in added_tags:
+                            tags_list.append(susp_tag)
+                            added_tags.add(susp_tag)
 
             g_note = genanki.Note(
                 model=g_model,

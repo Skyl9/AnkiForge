@@ -33,6 +33,7 @@ from ankiforge.services.ai.utils import (
 from ankiforge.services.plugins.api import PipelineHooksAPI
 from ankiforge.services.plugins.event_bus import event_bus
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
+from ankiforge.utils.tags import split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -574,13 +575,8 @@ class PipelineOrchestrator(QRunnable):
                 else:
                     c_fields = {str(k): str(v) for k, v in c.items() if k not in ("deck", "deck_name", "model", "note_type", "note_type_name", "tags", "section", "page_number", "guid")}
 
-                c_tags = c.get("tags") or []
-                if isinstance(c_tags, str):
-                    tags_list = [t.strip() for t in c_tags.split(",") if t.strip()]
-                elif isinstance(c_tags, (list, tuple)):
-                    tags_list = [str(t).strip() for t in c_tags if str(t).strip()]
-                else:
-                    tags_list = []
+                c_tags = c.get("tags")
+                tags_list = split_tag_tokens(c_tags)
 
                 item_dict: dict[str, Any] = {
                     "deck": c_deck,
