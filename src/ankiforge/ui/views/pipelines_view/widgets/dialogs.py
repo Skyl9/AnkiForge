@@ -85,6 +85,9 @@ class StepTestDialog(QDialog):
 
         if stype in ("LLM_PROMPT", "MAP_REDUCE"):
             res_interp = PipelinePromptInterpolator.interpolate_step(self.step_data)
+            if not res_interp.is_valid:
+                self.output_text.append(f"❌ Échec de simulation : template Jinja2 invalide.\n{res_interp.error_message}\n")
+                return
             self.output_text.append(f"Prompt Système ({res_interp.source_type}) :\n{res_interp.system_prompt}\n")
             self.output_text.append(f"Entrée Utilisateur ({res_interp.input_variable}) :\n{res_interp.user_prompt}\n")
             mock = MockProvider()
@@ -93,7 +96,12 @@ class StepTestDialog(QDialog):
             self.output_text.append(f"Réponse simulée de l'IA :\n{content_str}")
 
         elif stype == "RAG_RETRIEVAL":
+            res_interp = PipelinePromptInterpolator.interpolate_step(self.step_data)
+            if not res_interp.is_valid:
+                self.output_text.append(f"❌ Échec de simulation : requête RAG Jinja2 invalide.\n{res_interp.error_message}\n")
+                return
             self.output_text.append("Recherche RAG vectorielle (Top-K = {})".format(cfg.get("top_k", 5)))
+            self.output_text.append(f"Requête interpolée : {res_interp.system_prompt}")
             self.output_text.append("Fragments trouvés : 3 chunks simulés depuis FAISS.")
 
         elif stype == "PYTHON_TOOL":

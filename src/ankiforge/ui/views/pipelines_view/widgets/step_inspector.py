@@ -332,6 +332,8 @@ class StepInspectorPanel(QFrame):
         self.total_steps: int = 1
         self.available_personas: list[PersonaModel] = []
         self.available_llms: list[LLMConfigModel] = []
+        self.lbl_prompt_error: QLabel | None = None
+        self.lbl_rag_error: QLabel | None = None
 
         self.setObjectName("StepInspector")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -638,6 +640,8 @@ class StepInspectorPanel(QFrame):
         self.persona_card = None
         self.prompt_override_indicator = None
         self.edit_prompt = None
+        self.lbl_prompt_error = None
+        self.lbl_rag_error = None
 
         if not self.step_data:
             self.params_scroll.setWidget(container)
@@ -807,6 +811,13 @@ class StepInspectorPanel(QFrame):
             """)
             self.edit_prompt.textChanged.connect(self._on_prompt_override_typed)
 
+            self.lbl_prompt_error = QLabel()
+            self.lbl_prompt_error.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11px; padding: 2px 4px;")
+            self.lbl_prompt_error.setWordWrap(True)
+            self.lbl_prompt_error.setVisible(False)
+            layout_params.addWidget(self.lbl_prompt_error)
+            self._validate_current_prompt()
+
             edit_prompt = self.edit_prompt
 
             def _open_prompt_preview() -> None:
@@ -877,8 +888,20 @@ class StepInspectorPanel(QFrame):
             edit_query.setText(cfg.get("rag_query_template", "{{ state.initial_prompt }}"))
             edit_query.setFixedHeight(30)
             edit_query.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
-            edit_query.textChanged.connect(lambda t: self._on_config_changed("rag_query_template", t))
+
+            self.lbl_rag_error = QLabel()
+            self.lbl_rag_error.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11px; padding: 2px 4px;")
+            self.lbl_rag_error.setWordWrap(True)
+            self.lbl_rag_error.setVisible(False)
+
+            def _on_query_changed(t: str) -> None:
+                self._on_config_changed("rag_query_template", t)
+                self._validate_current_rag()
+
+            edit_query.textChanged.connect(_on_query_changed)
             layout_params.addWidget(edit_query)
+            layout_params.addWidget(self.lbl_rag_error)
+            self._validate_current_rag()
 
             def _open_rag_preview() -> None:
                 step_copy = dict(self.step_data) if self.step_data else {}
@@ -1130,6 +1153,29 @@ class StepInspectorPanel(QFrame):
         self.edit_prompt.setPlainText(text)
         self.edit_prompt.setPlaceholderText(prompt_override_field_hint(persona))
         self.edit_prompt.blockSignals(False)
+        self._validate_current_prompt()
+
+    def _validate_current_prompt(self) -> None:
+        """Contrôle la validité du template Jinja2 en temps réel et met à jour l'alerte."""
+        if not self.step_data or self.lbl_prompt_error is None:
+            return
+        is_valid, err = PipelinePromptInterpolator.validate_step(self.step_data, all_steps=self.all_steps)
+        if not is_valid and err:
+            self.lbl_prompt_error.setText(f"❌ {err}")
+            self.lbl_prompt_error.setVisible(True)
+        else:
+            self.lbl_prompt_error.setVisible(False)
+
+    def _validate_current_rag(self) -> None:
+        """Contrôle la validité de la requête Jinja2 RAG en temps réel."""
+        if not self.step_data or self.lbl_rag_error is None:
+            return
+        is_valid, err = PipelinePromptInterpolator.validate_step(self.step_data, all_steps=self.all_steps)
+        if not is_valid and err:
+            self.lbl_rag_error.setText(f"❌ {err}")
+            self.lbl_rag_error.setVisible(True)
+        else:
+            self.lbl_rag_error.setVisible(False)
 
     def _on_prompt_override_typed(self) -> None:
         """Écriture directe dans le champ : elle fige elle aussi, sinon l'indicateur mentirait.
@@ -1141,6 +1187,7 @@ class StepInspectorPanel(QFrame):
         cfg = self._step_config()
         apply_persona_override(cfg, self.edit_prompt.toPlainText(), self._step_persona())
         self._refresh_prompt_override_indicator()
+        self._validate_current_prompt()
         self.step_updated.emit()
 
     def _on_remove_prompt_override(self) -> None:
@@ -1149,6 +1196,7 @@ class StepInspectorPanel(QFrame):
         clear_persona_override(self._step_config(), persona)
         self._sync_prompt_field("", persona)
         self._refresh_prompt_override_indicator()
+        self._validate_current_prompt()
         self.step_updated.emit()
 
     def _open_persona_prompt_editor(self) -> None:
@@ -1168,6 +1216,7 @@ class StepInspectorPanel(QFrame):
         apply_persona_override(cfg, dlg.prompt_text(), persona)
         self._sync_prompt_field(str(cfg.get(PROMPT_OVERRIDE_KEY, "")), persona)
         self._refresh_prompt_override_indicator()
+        self._validate_current_prompt()
         self.step_updated.emit()
 
     def _on_test_step_clicked(self) -> None:

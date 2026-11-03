@@ -15,6 +15,7 @@ from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.orchestrator import (
     CARD_SECTION_DOCUMENTATION_RULE,
     PipelineOrchestrator,
+    PipelineStepExecutionError,
     _source_context_metadata,
     _stamp_card_source_metadata,
 )
@@ -1391,3 +1392,104 @@ def test_map_reduce_dedicated_llm_config_override() -> None:
     assert len(created_providers) == 1
     assert created_providers[0][0] == cfg.id
     assert len(created_providers[0][1].calls) == 1
+
+
+def test_render_prompt_template_raises_explicit_error_on_syntax_error() -> None:
+    """Vérifie que _render_prompt_template lève PipelineStepExecutionError au lieu d'un repli silencieux."""
+    pipeline = PipelineModel.create(name="Pipeline Jinja Error Test")
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id)
+
+    # Erreur de syntaxe Jinja2 évidente
+    invalid_template = "Texte invalide {{ missing_bracket"
+
+    with pytest.raises(PipelineStepExecutionError) as exc_info:
+        orch._render_prompt_template(invalid_template)
+
+    assert "Erreur de syntaxe ou variable manquante dans le template Jinja2" in str(exc_info.value)
+
+
+def test_orchestrator_jinja_render_error_stops_and_records_explicit_error(qtbot: Any):
+    """Vérifie que l'échec Jinja2 interrompt le pipeline et consigne le message explicite en BDD."""
+    pipeline = PipelineModel.create(name="Pipeline Crash Jinja")
+    persona = PersonaModel.create(
+        name="Agent Template Invalide",
+        system_prompt="Prompt cassé : {{ state.variables.missing_dict.nonexistent_attribute }}",
+    )
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        failure_behavior="stop",
+    )
+
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=DummyProvider())
+
+    errors: list[str] = []
+    orch.signals.error_occurred.connect(lambda msg: errors.append(msg))
+
+    orch.run()
+
+    # Le signal d'erreur doit être émis avec l'explication Jinja2
+    assert len(errors) == 1
+    assert "Erreur de syntaxe ou variable manquante dans le template Jinja2" in errors[0]
+
+    # Le run record doit être en failed avec error_message
+    run = PipelineRunModel.select().where(PipelineRunModel.pipeline == pipeline).order_by(PipelineRunModel.id.desc()).first()
+    assert run is not None
+    assert run.status == "failed"
+    assert "Erreur de syntaxe ou variable manquante dans le template Jinja2" in (run.error_message or "")
+
+    # L'état de l'orchestrateur doit contenir l'erreur dans l'historique d'étape
+    assert len(orch.state.errors) > 0
+    assert any("Jinja2" in err for err in orch.state.errors)
+    history = orch.state.execution_history
+    assert len(history) == 1
+    assert history[0]["status"] == "FAILED"
+    assert "Jinja2" in (history[0]["details"] or "")
+
+
+def test_orchestrator_jinja_render_error_triggers_failure_branching() -> None:
+    """Vérifie qu'un échec de template Jinja2 déclenche le branchement goto_failure_step."""
+    pipeline = PipelineModel.create(name="Pipeline Branching Jinja Error")
+    persona_fail = PersonaModel.create(
+        name="Agent Invalide",
+        system_prompt="Mauvaise syntaxe {% for x in %}",
+    )
+    persona_fallback = PersonaModel.create(
+        name="Agent Repli",
+        system_prompt="Prompt de secours valide",
+    )
+
+    step1 = PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona_fail,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        failure_behavior="goto_failure_step",
+    )
+    step2 = PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona_fallback,
+        step_order=2,
+        step_type="LLM_PROMPT",
+    )
+    step1.on_failure_step = step2
+    step1.save()
+
+    provider = DummyProvider({"Prompt de secours valide": '{"status": "recovered"}'})
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=provider)
+
+    finished: list[Any] = []
+    orch.signals.pipeline_finished.connect(lambda st: finished.append(st))
+
+    orch.run()
+
+    # L'étape 1 a échoué mais le DAG a bifurqué vers step2 qui a réussi
+    assert len(finished) == 1
+    history = orch.state.execution_history
+    assert len(history) == 2
+    assert history[0]["step_order"] == 1
+    assert history[0]["status"] == "FAILED"
+    assert history[1]["step_order"] == 2
+    assert history[1]["status"] == "SUCCESS"

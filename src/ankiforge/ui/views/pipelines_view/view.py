@@ -29,6 +29,7 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.repositories import PersonaRepository, PipelineRepository
+from ankiforge.services.ai.prompt_interpolator import PipelinePromptInterpolator
 from ankiforge.services.profile_content_transfer import ProfileContentTransfer
 from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.components import (
@@ -653,6 +654,19 @@ class PipelinesView(QWidget):
     def _on_save_pipeline(self) -> None:
         if not self._current_pipeline:
             return
+
+        # Validation amont des templates Jinja2 de chaque étape
+        for idx, s in enumerate(self.current_steps, start=1):
+            is_valid, error_msg = PipelinePromptInterpolator.validate_step(s, all_steps=self.current_steps)
+            if not is_valid:
+                step_title = str(s.get("custom_title") or tr("Étape %1", idx))
+                msg = tr(
+                    "Erreur de syntaxe Jinja2 dans %1 :\n%2\n\nVeuillez corriger le template avant d'enregistrer.",
+                    step_title,
+                    error_msg or "",
+                )
+                QMessageBox.warning(self, tr("Erreur de validation de template"), msg)
+                return
 
         try:
             with self.pipeline_repo.atomic():

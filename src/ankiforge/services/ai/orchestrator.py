@@ -37,6 +37,11 @@ from ankiforge.utils.tags import split_tag_tokens
 
 logger = logging.getLogger(__name__)
 
+
+class PipelineStepExecutionError(RuntimeError):
+    """Exception explicite levée lors de l'échec de rendu Jinja2 ou d'exécution d'une étape de pipeline DAG."""
+
+
 _PROMPT_ENV = create_prompt_environment()
 
 # Préfixage d'une règle système devant un prompt rendu, sans injection f-string.
@@ -270,8 +275,8 @@ class PipelineOrchestrator(QRunnable):
             template = _PROMPT_ENV.from_string(template_str)
             return template.render(**context)
         except Exception as e:
-            logger.warning("Erreur de rendu Jinja2 sur prompt: %s. Utilisation du texte brut.", e)
-            return template_str
+            logger.error("Échec du rendu du template Jinja2 : %s (template : %s)", e, template_str[:120])
+            raise PipelineStepExecutionError(f"Erreur de syntaxe ou variable manquante dans le template Jinja2 : {e}") from e
 
     @Slot()
     def run(self) -> None:
@@ -1130,6 +1135,8 @@ class PipelineOrchestrator(QRunnable):
                     res = future.result()
                     if res is not None:
                         ordered_results[idx] = res
+                except PipelineStepExecutionError:
+                    raise
                 except Exception as e:
                     logger.error("Erreur sur le lot %d en Map-Reduce: %s", idx, e)
 

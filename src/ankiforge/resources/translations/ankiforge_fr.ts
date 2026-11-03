@@ -612,7 +612,7 @@ Cliquer pour voir les détails</source>
         <location filename="../../ui/dialogs/addon_manager_dialog.py" line="+104"/>
         <location filename="../../ui/dialogs/human_validation_dialog.py" line="+72"/>
         <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+209"/>
-        <location filename="../../ui/views/pipelines_view/view.py" line="+739"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="+753"/>
         <location filename="../../ui/widgets/note_editor_widget.py" line="+323"/>
         <source>&lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
@@ -4753,7 +4753,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
     </message>
     <message>
         <location line="+16"/>
-        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+940"/>
+        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+963"/>
         <location filename="../../ui/widgets/editor_toolbar_widget.py" line="+179"/>
         <location line="+143"/>
         <source>%1%2</source>
@@ -5478,7 +5478,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/pipelines_view/view.py" line="-542"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="-555"/>
         <source>0 étapes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5525,7 +5525,25 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+19"/>
+        <source>Étape %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Erreur de syntaxe Jinja2 dans %1 :
+%2
+
+Veuillez corriger le template avant d&apos;enregistrer.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Erreur de validation de template</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+34"/>
         <source>Pipeline &apos;%1&apos; sauvegardé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5565,7 +5583,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+78"/>
+        <location line="+86"/>
         <source>Test en direct : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5575,7 +5593,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="-845"/>
+        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="-868"/>
         <source>Agent IA</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5620,7 +5638,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+95"/>
+        <location line="+97"/>
         <source>Paramètres &amp;&amp; Prompt</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5630,7 +5648,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+371"/>
+        <location line="+373"/>
         <source>Tagguer les cartes avec leur section source</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19134,7 +19152,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>PersonaIdentityCard</name>
     <message>
-        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="-671"/>
+        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="-675"/>
         <source>&lt;b&gt;Agent : Non défini&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19232,7 +19250,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>PipelinesView</name>
     <message>
-        <location filename="../../ui/views/pipelines_view/view.py" line="-692"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="-705"/>
         <source>PIPELINE :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19327,7 +19345,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+57"/>
+        <location line="+70"/>
         <source>Bibliothèque de Modèles Prédéfinis</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20518,7 +20536,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>StepInspectorPanel</name>
     <message>
-        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+93"/>
+        <location filename="../../ui/views/pipelines_view/widgets/step_inspector.py" line="+95"/>
         <source>Nom personnalisé de l&apos;étape...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20563,7 +20581,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+98"/>
+        <location line="+100"/>
         <source>Modèle LLM dédié :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20643,7 +20661,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+56"/>
+        <location line="+63"/>
         <source>Nombre de fragments (Top-K) :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20658,7 +20676,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+36"/>
         <source>Titre de l&apos;Interruption Humaine :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20747,7 +20765,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>StepTestDialog</name>
     <message>
-        <location filename="../../ui/views/pipelines_view/widgets/dialogs.py" line="-78"/>
+        <location filename="../../ui/views/pipelines_view/widgets/dialogs.py" line="-86"/>
         <source>Simulation de l&apos;étape sur un état en mémoire :</source>
         <translation type="unfinished"></translation>
     </message>

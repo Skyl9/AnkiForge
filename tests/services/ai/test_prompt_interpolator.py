@@ -122,3 +122,23 @@ def test_interpolate_step_map_reduce_item():
     assert result.is_valid is True
     assert "Élément 1 :" in result.system_prompt
     assert "Section 1 :" in result.system_prompt
+
+
+def test_validate_step_valid_and_invalid():
+    """Vérifie la validation amont d'étape sans appel LLM."""
+    valid_step = {
+        "type": "LLM_PROMPT",
+        "config": {"prompt_override": "Prompt valide pour {{ text_source }}"},
+    }
+    is_valid, error = PipelinePromptInterpolator.validate_step(valid_step)
+    assert is_valid is True
+    assert error is None
+
+    invalid_step = {
+        "type": "LLM_PROMPT",
+        "config": {"prompt_override": "Erreur syntaxe {% if foo %}"},
+    }
+    is_valid, error = PipelinePromptInterpolator.validate_step(invalid_step)
+    assert is_valid is False
+    assert error is not None
+    assert "syntax" in error.lower() or "unexpected" in error.lower() or "end of" in error.lower()

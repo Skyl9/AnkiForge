@@ -225,3 +225,21 @@ class PipelinePromptInterpolator:
             raw_template=raw_template,
             resolved_context=context,
         )
+
+    @classmethod
+    def validate_step(
+        cls,
+        step_data: dict[str, Any],
+        all_steps: list[dict[str, Any]] | None = None,
+        custom_overrides: dict[str, Any] | None = None,
+    ) -> tuple[bool, str | None]:
+        """Valide la syntaxe des templates Jinja2 d'une étape sans appel LLM.
+
+        Retourne un tuple (is_valid, error_message).
+        """
+        result = cls.interpolate_step(
+            step_data=step_data,
+            all_steps=all_steps,
+            custom_overrides=custom_overrides,
+        )
+        return result.is_valid, result.error_message

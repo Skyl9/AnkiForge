@@ -371,3 +371,88 @@ def test_pipelines_view_inline_help_opens_dag_help_dialog(qtbot: Any, monkeypatc
     monkeypatch.setattr(DagHelpDialog, "exec", lambda self: opened.append(True) or 0)
     view.btn_help_more.click()
     assert opened == [True]
+
+
+def test_save_pipeline_blocks_and_warns_on_invalid_jinja_syntax(qtbot: Any, monkeypatch: Any) -> None:
+    """Vérifie que la sauvegarde du pipeline est refusée avec avertissement si un template Jinja2 est invalide."""
+    from PySide6.QtWidgets import QMessageBox
+
+    pipe = PipelineModel.create(name="Pipeline Test Jinja Validation")
+    view = PipelinesView()
+    qtbot.addWidget(view)
+
+    # Configurer une étape avec template Jinja2 corrompu
+    view.current_steps = [
+        {
+            "type": "LLM_PROMPT",
+            "custom_title": "Étape Invalide",
+            "config": {"prompt_override": "Template cassé {{ unclosed"},
+        }
+    ]
+
+    warned: list[tuple[str, str]] = []
+
+    def mock_warning(parent: Any, title: str, text: str) -> None:
+        warned.append((title, text))
+
+    monkeypatch.setattr(QMessageBox, "warning", mock_warning)
+
+    view._on_save_pipeline()
+
+    # La boîte d'avertissement doit avoir été déclenchée avec mention de Jinja2
+    assert len(warned) == 1
+    assert "Erreur de validation de template" in warned[0][0]
+    assert "Étape Invalide" in warned[0][1]
+    assert "Jinja2" in warned[0][1]
+
+    # Aucune étape ne doit avoir été persistée en BDD
+    saved_steps = list(PipelineStepModel.select().where(PipelineStepModel.pipeline == pipe))
+    assert len(saved_steps) == 0
+
+
+def test_step_inspector_displays_jinja_syntax_error(qtbot: Any) -> None:
+    """Vérifie que l'inspecteur d'étape affiche immédiatement l'erreur Jinja2 en rouge."""
+    PipelineModel.create(name="Pipeline Inspecteur Jinja")
+    view = PipelinesView()
+    qtbot.addWidget(view)
+
+    step_data = {
+        "type": "LLM_PROMPT",
+        "custom_title": "Étape Test",
+        "config": {"prompt_override": "Valide"},
+    }
+    inspector = view.inspector
+    inspector.inspect_step(step_data=step_data, step_order=1, total_steps=1, personas=[], llms=[], all_steps=[step_data])
+
+    assert inspector.lbl_prompt_error is not None
+    assert inspector.lbl_prompt_error.isHidden() is True
+
+    # Taper une syntaxe Jinja2 invalide
+    assert inspector.edit_prompt is not None
+    inspector.edit_prompt.setPlainText("Syntaxe cassée {% for x %}")
+
+    assert inspector.lbl_prompt_error.isHidden() is False
+    assert "❌" in inspector.lbl_prompt_error.text()
+
+    # Corriger avec un template valide
+    inspector.edit_prompt.setPlainText("Syntaxe réparée {{ text_source }}")
+    assert inspector.lbl_prompt_error.isHidden() is True
+
+
+def test_step_test_dialog_blocks_on_invalid_jinja(qtbot: Any) -> None:
+    """Vérifie que la simulation unitaire d'étape refuse l'exécution si le template Jinja2 est cassé."""
+    from ankiforge.ui.views.pipelines_view.widgets.dialogs import StepTestDialog
+
+    invalid_step = {
+        "type": "LLM_PROMPT",
+        "config": {"prompt_override": "Template cassé {{ unclosed"},
+    }
+
+    dlg = StepTestDialog(invalid_step)
+    qtbot.addWidget(dlg)
+
+    dlg._run_simulation()
+
+    rendered_output = dlg.output_text.toPlainText()
+    assert "❌ Échec de simulation : template Jinja2 invalide" in rendered_output
+    assert "Réponse simulée de l'IA" not in rendered_output
