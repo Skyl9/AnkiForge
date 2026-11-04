@@ -554,6 +554,13 @@ class StyleEngine(QObject):
         SidebarItem:pressed, SidebarProfileItem:pressed, QPushButton#SidebarUserBtn:pressed, MCPStatusWidget:pressed, QPushButton#SidebarMCPBtn:pressed {{
             background-color: {p.bg_active};
         }}
+        /* En mode replié, l'icône est recentrée dans le carré du bouton (40px) afin
+           que son contour de sélection/hover ne déborde pas des 68px de la sidebar. */
+        SidebarItem[collapsed="true"] {{
+            text-align: center;
+            padding-left: 0;
+            padding-right: 0;
+        }}
         MCPStatusWidget[status="error"], QPushButton#SidebarMCPBtn[status="error"] {{
             color: {red_text};
         }}

@@ -56,12 +56,18 @@ class SidebarItem(NavBadgeButton):
 
     def set_collapsed(self, collapsed: bool) -> None:
         self._collapsed = collapsed
+        self.setProperty("collapsed", collapsed)
+        self.style().unpolish(self)
+        self.style().polish(self)
         if collapsed:
             self.setText("")
             self.setToolTip(self.title)
+            self.setFixedWidth(DesignTokens.SIDEBAR_ITEM_WIDTH_COLLAPSED)
         else:
             self.setText(tr("  %1", self.title.replace("&", "&&")))
             self.setToolTip("")
+            self.setMinimumWidth(0)
+            self.setMaximumWidth(16777215)
 
     def _on_toggled(self, checked: bool) -> None:
         if checked:
@@ -266,6 +272,13 @@ class Sidebar(QWidget):
 
         # Direct fixed width update (prevents 16ms layout thrashing reflow loop)
         self.setFixedWidth(width)
+
+        # En mode replié, on réduit les marges latérales pour que les boutons
+        # (et leur contour de sélection/hover) restent contenus dans les 68px.
+        h_margin = DesignTokens.SIDEBAR_SECTION_MARGIN_COLLAPSED if collapsed else DesignTokens.SIDEBAR_SECTION_MARGIN_EXPANDED
+        self.sections_layout.setContentsMargins(h_margin, 8, h_margin, 8)
+        if hasattr(self, "footer"):
+            self.footer.layout().setContentsMargins(h_margin, 6, h_margin, 8)
 
         for i in range(self.sections_layout.count() - 1):
             item = self.sections_layout.itemAt(i)
