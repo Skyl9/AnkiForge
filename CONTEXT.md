@@ -244,8 +244,8 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : switch case géant de patchs, god method de mutation, gestionnaire monolithique de staged patches
 - **Hub MCP & Agents** : interface centrale de supervision et d'accueil plein écran (ADR 0043) orientant exclusivement vers le serveur MCP local pour outiller les agents externes sans surcoût d'API, sans chat in-app.
   _Avoid_ : consultant ia, vue de discussion, assistant conversationnel
-- **Garde-Fou MCP (ou Espace de Validation MCP)** : sous-onglet dédié et autonome au sein de l'onglet Serveur MCP, centralisant l'examen, la comparaison haute fidélité et l'arbitrage (validation, retouche directe, rejet) des patchs chirurgicaux émis par des agents externes.
-  _Avoid_ : inspecteur consultant, panneau de chat, onglet diff externe
+- **Garde-Fou MCP (ou Espace de Validation MCP)** : sous-onglet dédié et autonome au sein de l'onglet Serveur MCP (ADR 0029, ADR 0030, ADR 0056), centralisant l'examen, la comparaison haute fidélité et l'arbitrage (validation, retouche directe, rejet) des patchs chirurgicaux émis par des agents externes via un agencement Maître-Détail à volet maître adaptatif (min 280px, largeur libre, word-wrap) et séparateur persistant via `QSettings`.
+  _Avoid_ : inspecteur consultant, panneau de chat, onglet diff externe, volet à largeur figée
 - **Comparateur sémantique de note (ou Diff sémantique de note)** : composant visuel présentant les modifications d'une note champ par champ avec deux colonnes synchronisées, surlignage mot à mot intra-ligne (*word-level diff*) et prévisualisation Anki en direct, sans exposition de syntaxe JSON brute.
   _Avoid_ : diff JSON, inspecteur textuel brut, raw diff viewer
 - **Cockpit de connexion MCP (ou Supervision MCP)** : surface opérationnelle de pilotage direct du serveur MCP local agencée en deux colonnes sans défilement, réunissant le cycle de vie du démon, les adresses des points de terminaison (Streamable HTTP, SSE), le jeton Bearer et la génération de snippets de configuration client prêts à copier.
@@ -384,6 +384,12 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 
 - **Modale de paramètres (SettingsModal)** : surface de configuration du profil utilisateur organisée en onglets thématiques, protégée contre les fermetures intempestives (neutralisation d'autoDefault, interception de la touche Entrée, sauvegarde explicite en place et raccourci global `Ctrl+S` / `Cmd+S`).
   _Avoid_ : fenêtre settings, popup préférences, dialogue options
+- **Registre des paramètres (SettingsRegistry)** : catalogue déclaratif centralisé des métadonnées des options de paramétrage (clé, libellé, fil d'Ariane, mots-clés, onglet_index, sélecteur de widget cible), permettant la recherche textuelle instantanée et le routage sans pré-charger l'ensemble des onglets.
+  _Avoid_ : index des préférences, dictionnaire de settings, table de config
+- **Divulgation progressive des paramètres (Progressive Disclosure Settings)** : technique d'organisation ergonomique regroupant les options techniques pointues dans des conteneurs pliables (`CollapsibleSettingsGroup`) fermés par défaut, préservant la clarté visuelle sans restreindre le contrôle avancé.
+  _Avoid_ : mode expert, vue avancée, toggle complexe
+- **Vue de recherche aplatie (Settings Flattened Search View)** : vue de recherche globale plein panneau se substituant aux onglets individuels lorsqu'une requête de filtrage est saisie, présentant les résultats avec leur fil d'Ariane thématique et activant l'onglet cible au clic avec focus visuel.
+  _Avoid_ : filtre de liste, recherche globale, mode recherche
 - **Libellé de drapeau (Flag label)** : nom personnalisé attribué à l'un des 7 drapeaux colorés d'Anki (indices 1 à 7) pour le profil actif. Un libellé non défini ou vide applique un repli automatique strict vers la désignation native du jeton Anki (`DesignTokens.FLAG_NAMES`).
   _Avoid_ : tag couleur, nom de couleur, drapeau custom
 

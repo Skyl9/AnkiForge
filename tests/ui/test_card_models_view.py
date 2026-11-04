@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QFrame, QMessageBox
 
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.services.cards.snippet_library import SnippetLibrary
@@ -384,6 +384,22 @@ def test_card_models_view_bottom_toolbar_buttons_affordance(qtbot, mock_db):
     leave_ev = QEvent(QEvent.Type.Leave)
     btn_dup.leaveEvent(leave_ev)
     assert btn_dup.anim.endValue() == btn_dup.default_blur
+
+
+def test_card_models_view_toolbar_balanced(qtbot, mock_db):
+    """Vérifie l'équilibrage de la barre d'outils : pas d'étirement du Starter Pack, hauteurs harmonisées, séparateur présent."""
+    view = CardModelsView()
+    qtbot.addWidget(view)
+
+    # Hauteurs harmonisées à 28px pour tous les boutons de la barre
+    assert view.btn_starter_pack.height() == 28
+    assert view.btn_duplicate.height() == 28
+    assert view.btn_import_json.height() == 28
+    assert view.btn_del.height() == 28
+
+    # Le séparateur vertical est présent entre le bouton Starter Pack et les actions
+    v_lines = [w for w in view.findChildren(QFrame) if w.frameShape() == QFrame.Shape.VLine]
+    assert len(v_lines) >= 1
 
 
 def test_snippet_card_click_opens_detail_and_insert_at_cursor(qtbot):

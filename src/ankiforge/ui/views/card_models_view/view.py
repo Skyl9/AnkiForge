@@ -282,19 +282,28 @@ class CardModelsView(QWidget):
         self.btn_starter_pack.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_starter_pack.setFixedHeight(28)
         self.btn_starter_pack.setToolTip(self.tr("Explorer et installer les types de note communautaires (Starter Pack)"))
-        list_toolbar.addWidget(self.btn_starter_pack, 1)
+        list_toolbar.addWidget(self.btn_starter_pack)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Plain)
+        sep.setStyleSheet(f"color: {DesignTokens.BORDER_COLOR};")
+        list_toolbar.addWidget(sep)
 
         self.btn_duplicate = IconButton(
             "ph.copy",
             tooltip=tr("Dupliquer le type de note sélectionné (%1)", get_shortcut_sequence(ShortcutId.MODELS_DUPLICATE)),
             size=24,
         )
+        self.btn_duplicate.setFixedHeight(28)
         self.btn_import_json = IconButton(
             "ph.download-simple",
             tooltip=tr("Importer un type de note (.afmodel ou .json) (%1)", get_shortcut_sequence(ShortcutId.MODELS_IMPORT_JSON)),
             size=24,
         )
+        self.btn_import_json.setFixedHeight(28)
         self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer le type de note"), size=24)
+        self.btn_del.setFixedHeight(28)
 
         list_toolbar.addWidget(self.btn_duplicate)
         list_toolbar.addWidget(self.btn_import_json)
