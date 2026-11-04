@@ -715,6 +715,56 @@ def test_ai_sources_align_buttons(qtbot):
     assert tab.lbl_kpi_docs_val.text() != ""
 
 
+def test_ai_sources_align_all_sources_ne_bloque_pas_le_thread_ui(qtbot, monkeypatch):
+    """_on_align_all_sources exécute le réalignement global via un worker, sans bloquer le thread UI."""
+    toasts: list[str] = []
+    monkeypatch.setattr(
+        "ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast",
+        lambda _parent, msg, *a, **k: toasts.append(str(msg)),
+    )
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Align UI {uid}",
+        content="# Section 1\nContenu A",
+        file_type="md",
+    )
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Section 1",
+        content="Contenu A",
+        content_hash=f"hs_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(
+        name=f"NT Align UI {uid}",
+        fields_schema='["Front", "Back"]',
+        templates="[]",
+        css_style="",
+    )
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note.tags = json.dumps(build_document_tags(doc_id=doc.id, section_name=chunk.heading_path))
+    note.save()
+
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk).count() == 0
+
+    tab = AISourcesDiagnosticTab()
+    qtbot.addWidget(tab)
+    tab.btn_align_all.click()
+
+    # Attente impérative de la fin du worker avant le teardown (verrou SQLite concurrent sur mock_db).
+    assert tab._alignment_worker is not None
+    qtbot.waitUntil(lambda: tab._alignment_worker.isFinished(), timeout=5000)
+    tab._alignment_worker.wait()
+
+    # Le réalignement a bien tourné en arrière-plan : le lien de couverture existe.
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk).count() == 1
+
+    # Une notification fluide a été émise une fois le worker terminé.
+    qtbot.waitUntil(lambda: any("synchronisées" in msg for msg in toasts), timeout=5000)
+    assert any("synchronisées" in msg for msg in toasts)
+
+
 def test_ai_wozniak_linter_tab_and_widgets(qtbot):
     """Vérifie l'onglet Linter Wozniak, la sélection de catégorie et l'inspection de carte."""
     tab = AIWozniakLinterTab()

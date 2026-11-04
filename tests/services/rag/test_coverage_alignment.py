@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from ankiforge.database.models import (
     DocumentModel,
     NoteChunkLinkModel,
     NoteModel,
+    NoteTypeModel,
 )
 from ankiforge.services.audit.coverage_alignment_service import (
     RESOLUTION_LEXICAL,
@@ -256,3 +258,83 @@ def test_colpkg_replacement_realigns_coverage_deterministically(tmp_path: Path, 
     assert link7 is not None, "Carte 7 (section seule) doit être rattachée"
     assert link7.chunk_id == chunk1.id
     assert link7.resolution == RESOLUTION_SECTION
+
+
+def test_align_all_documents_appel_unique_sync_coverage_from_tags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """align_all_documents() invoque sync_coverage_from_tags(doc_id=None) une seule fois (pas de boucle unitaire)."""
+    appels: list[int | None] = []
+    vrai_report = {"matched_notes": 3, "newly_linked": 3}
+    original = CoverageAlignmentService.sync_coverage_from_tags
+
+    def fake(doc_id: int | None = None) -> dict[str, Any]:
+        appels.append(doc_id)
+        return dict(vrai_report)
+
+    monkeypatch.setattr(CoverageAlignmentService, "sync_coverage_from_tags", fake)
+    try:
+        report = CoverageAlignmentService.align_all_documents()
+    finally:
+        CoverageAlignmentService.sync_coverage_from_tags = original
+
+    assert appels == [None], f"appels attendus une seule fois avec doc_id=None, obtenus : {appels}"
+    assert report["total_matched_links"] == 3
+    assert report["sync_report"] == vrai_report
+    assert "details" in report
+
+
+def test_align_all_documents_reconciliation_tous_documents_en_passe_unique() -> None:
+    """align_all_documents() rattache les notes de plusieurs documents en une seule passe atomique."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(
+        name=f"Model Align {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style="",
+    )
+
+    doc1 = DocumentModel.create(title=f"Cours A {uid}", content="Contenu A", file_type="md")
+    chunk1 = DocumentChunkModel.create(
+        document=doc1,
+        chunk_index=0,
+        heading_path=f"Cours A {uid} > Section 1",
+        content="Contenu de la section 1 du cours A.",
+        content_hash=f"h_a1_{uid}",
+    )
+    doc2 = DocumentModel.create(title=f"Cours B {uid}", content="Contenu B", file_type="md")
+    chunk2 = DocumentChunkModel.create(
+        document=doc2,
+        chunk_index=0,
+        heading_path=f"Cours B {uid} > Section 2",
+        content="Contenu de la section 2 du cours B.",
+        content_hash=f"h_b2_{uid}",
+    )
+
+    sec1_key = section_key(chunk1.heading_path)
+    sec2_key = section_key(chunk2.heading_path)
+
+    note1 = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note1.tags = json.dumps([f"doc:{doc1.id}", f"section:{sec1_key}"])
+    note1.save()
+
+    note2 = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note2.tags = json.dumps([f"doc:{doc2.id}", f"section:{sec2_key}"])
+    note2.save()
+
+    report = CoverageAlignmentService.align_all_documents()
+
+    assert report["total_documents"] == 2
+    assert report["total_matched_links"] == 2
+    assert len(report["details"]) == 2
+    assert "sync_report" in report
+
+    link1 = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note1)
+    assert link1 is not None, "Note 1 doit être rattachée au chunk du document A"
+    assert link1.chunk_id == chunk1.id
+    assert link1.resolution == RESOLUTION_SECTION
+
+    link2 = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note2)
+    assert link2 is not None, "Note 2 doit être rattachée au chunk du document B"
+    assert link2.chunk_id == chunk2.id
+    assert link2.resolution == RESOLUTION_SECTION
