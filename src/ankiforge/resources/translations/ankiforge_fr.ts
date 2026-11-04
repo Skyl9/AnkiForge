@@ -490,13 +490,17 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/components/snippet_drawer.py" line="+346"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+289"/>
-        <source>Supprimer</source>
+        <location filename="../../ui/components/snippet_drawer.py" line="+717"/>
+        <source>.af-custom-box {
+  margin: 12px 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: %1;
+}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+488"/>
+        <location line="+131"/>
         <source>Snippet « %1 » mis à jour avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -582,7 +586,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+29"/>
         <location line="+16"/>
         <location line="+15"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+468"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+757"/>
         <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+595"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
@@ -7980,7 +7984,12 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-316"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-501"/>
+        <source>Supprimer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+185"/>
         <source>Streaming des réponses</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20365,12 +20374,12 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SnippetCardWidget</name>
     <message>
-        <location filename="../../ui/components/snippet_drawer.py" line="-802"/>
+        <location filename="../../ui/components/snippet_drawer.py" line="-818"/>
         <source>Insérer dans le code au curseur</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Inspecter et modifier le snippet</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20378,7 +20387,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SnippetLibraryDrawer</name>
     <message>
-        <location line="+61"/>
+        <location line="+74"/>
         <source>BIBLIOTHÈQUE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20398,12 +20407,22 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+27"/>
+        <source>Retour à la liste des snippets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>DÉTAIL DU SNIPPET</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+7"/>
+        <source>Supprimer le snippet actuel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+33"/>
         <location line="+231"/>
         <source>INFORMATIONS GÉNÉRALES</source>
         <translation type="unfinished"></translation>
@@ -20473,12 +20492,17 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+81"/>
+        <location line="+75"/>
+        <source>Annuler et retourner à la liste</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>NOUVEAU SNIPPET</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+42"/>
         <source>ex: Encadré Définition</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20489,24 +20513,24 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+165"/>
+        <location line="+168"/>
         <source>Personnalisé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-159"/>
+        <location line="-162"/>
         <source>Courte description de l&apos;usage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+10"/>
         <location line="+1"/>
-        <location line="+150"/>
+        <location line="+153"/>
         <source>ph.sparkle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-94"/>
+        <location line="-97"/>
         <source>&lt;div class=&quot;af-custom-box&quot;&gt;
   &lt;div class=&quot;af-custom-title&quot;&gt;Titre&lt;/div&gt;
   &lt;div class=&quot;af-custom-body&quot;&gt;{{Contenu}}&lt;/div&gt;
@@ -20514,17 +20538,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>.af-custom-box {
-  margin: 12px 0;
-  padding: 10px;
-  border-radius: 8px;
-  background: rgba(99, 102, 241, 0.1);
-}</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+117"/>
+        <location line="+127"/>
         <source>Le nom du snippet ne peut pas être vide.</source>
         <translation type="unfinished"></translation>
     </message>
