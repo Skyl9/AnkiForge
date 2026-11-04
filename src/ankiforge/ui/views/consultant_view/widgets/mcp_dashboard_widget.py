@@ -392,9 +392,9 @@ class MCPServerDashboardWidget(QWidget):
         outer_layout.setSpacing(0)
 
         # ── Barre de sous-onglets supérieure (SegmentedTabBar) ────────────
-        tab_container = QWidget()
-        tab_layout = QHBoxLayout(tab_container)
-        tab_layout.setContentsMargins(16, 8, 16, 4)
+        self.tab_container = QWidget()
+        tab_layout = QHBoxLayout(self.tab_container)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
         tab_layout.setSpacing(0)
 
         self.sub_tab_bar = SegmentedTabBar(mode="subtab", parent=self)
@@ -408,12 +408,7 @@ class MCPServerDashboardWidget(QWidget):
 
         tab_layout.addWidget(self.sub_tab_bar)
         tab_layout.addStretch()
-        outer_layout.addWidget(tab_container)
-
-        self.tab_separator = QFrame(self)
-        self.tab_separator.setFixedHeight(1)
-        self.tab_separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
-        outer_layout.addWidget(self.tab_separator)
+        outer_layout.addWidget(self.tab_container)
 
         # ── Empilement des vues ───────────────────────────────────────────
         self.stacked_widget = QStackedWidget(self)
@@ -545,9 +540,6 @@ class MCPServerDashboardWidget(QWidget):
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
-        border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
-        if hasattr(self, "tab_separator") and self.tab_separator is not None:
-            self.tab_separator.setStyleSheet(f"background-color: {border_color}; border: none;")
         if hasattr(self, "sub_tab_bar") and hasattr(self.sub_tab_bar, "refresh_theme"):
             self.sub_tab_bar.refresh_theme(profile)
         if hasattr(self, "supervision_widget") and hasattr(self.supervision_widget, "refresh_theme"):

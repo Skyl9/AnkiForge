@@ -480,3 +480,41 @@ def test_mcp_dashboard_full_contract_and_theme_propagation(qtbot: Any) -> None:
     # 4. Propagation du thème sombre et clair à tous les composants
     widget.refresh_theme(JETBRAINS_DARK)
     widget.refresh_theme(JETBRAINS_LIGHT)
+
+
+def test_mcp_dashboard_no_floating_tab_separator(qtbot: Any) -> None:
+    """Le séparateur flottant `tab_separator` est supprimé au profit du SegmentedTabBar standard."""
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    # Le séparateur QFrame ad-hoc n'existe plus
+    assert not hasattr(widget, "tab_separator")
+    # Le conteneur d'onglets adopte des marges standard (zéro), pas les marges ad-hoc (16, 8, 16, 4)
+    assert widget.tab_container is not None
+    m = widget.tab_container.layout().contentsMargins()
+    assert (m.left(), m.top(), m.right(), m.bottom()) == (0, 0, 0, 0)
+
+    # Le SegmentedTabBar standard est conservé et fonctionnel
+    assert isinstance(widget.sub_tab_bar.__class__.__name__, str)
+    assert widget.sub_tab_bar.variant == "subtab"
+    assert widget.sub_tab_bar.count() == 5
+
+
+def test_mcp_dashboard_subtabs_navigation_without_separator(qtbot: Any) -> None:
+    """La navigation entre sous-onglets reste fonctionnelle après suppression du séparateur."""
+    widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    widget.sub_tab_bar.setCurrentIndex(3)
+    assert widget.stacked_widget.currentIndex() == 3
+    widget.sub_tab_bar.setCurrentIndex(1)
+    assert widget.stacked_widget.currentIndex() == 1
+    widget.sub_tab_bar.setCurrentIndex(0)
+    assert widget.stacked_widget.currentIndex() == 0
+
+    # Le rafraîchissement de thème ne fait pas référence au séparateur supprimé
+    from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
+
+    widget.refresh_theme(JETBRAINS_DARK)
+    widget.refresh_theme(JETBRAINS_LIGHT)
+    assert widget.stacked_widget.currentIndex() == 0

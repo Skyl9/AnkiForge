@@ -128,6 +128,7 @@ class TabButton(QPushButton):
                 TabButton:checked {{
                     background-color: {DesignTokens.BG_PANEL};
                     color: {DesignTokens.TEXT_PRIMARY};
+                    border-bottom: 1px solid {DesignTokens.BG_PANEL};
                     border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
                     font-weight: 600;
                 }}

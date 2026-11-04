@@ -25,6 +25,9 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
+# Rayon de bordure des onglets : plus carré (2px) que RADIUS_SM (6px) pour éviter l'aspect ovale/pill.
+TAB_RADIUS = 2
+
 
 class SegmentedTabButton(QPushButton):
     """Bouton individuel au sein d'une SegmentedTabBar."""
@@ -158,7 +161,7 @@ class SegmentedTabButton(QPushButton):
                         background-color: {DesignTokens.ACCENT_PRIMARY};
                         color: {DesignTokens.TEXT_ON_ACCENT};
                         border: none;
-                        border-radius: {DesignTokens.RADIUS_SM}px;
+                        border-radius: {TAB_RADIUS}px;
                         padding: 0 {right_pad}px 0 {base_pad}px;
                         font-size: 12px;
                         font-weight: 600;
@@ -170,7 +173,7 @@ class SegmentedTabButton(QPushButton):
                         background-color: transparent;
                         color: {DesignTokens.TEXT_SECONDARY};
                         border: none;
-                        border-radius: {DesignTokens.RADIUS_SM}px;
+                        border-radius: {TAB_RADIUS}px;
                         padding: 0 {right_pad}px 0 {base_pad}px;
                         font-size: 12px;
                         font-weight: 500;
@@ -191,7 +194,7 @@ class SegmentedTabButton(QPushButton):
                         color: {DesignTokens.TEXT_PRIMARY};
                         border: 1px solid {DesignTokens.BORDER_COLOR};
                         border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                        border-radius: {DesignTokens.RADIUS_SM}px;
+                        border-radius: {TAB_RADIUS}px;
                         padding: 2px {right_pad}px 2px {base_pad}px;
                         font-size: 11.5px;
                         font-weight: bold;
@@ -203,7 +206,7 @@ class SegmentedTabButton(QPushButton):
                         background-color: transparent;
                         color: {DesignTokens.TEXT_SECONDARY};
                         border: 1px solid transparent;
-                        border-radius: {DesignTokens.RADIUS_SM}px;
+                        border-radius: {TAB_RADIUS}px;
                         padding: 2px {right_pad}px 2px {base_pad}px;
                         font-size: 11.5px;
                     }}
