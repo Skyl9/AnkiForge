@@ -1034,6 +1034,35 @@ class StyleEngine(QObject):
             border: 1px solid {p.border_light};
             border-radius: {p.radius_sm}px;
         }}
+
+        /* --- Starter Pack Models Modal --- */
+        StarterModelCardWidget, QFrame#StarterModelCard {{
+            background-color: {p.bg_panel};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_md}px;
+        }}
+        StarterModelCardWidget:hover, QFrame#StarterModelCard:hover {{
+            border-color: {p.accent_primary};
+            background-color: {p.bg_hover};
+        }}
+        StarterModelCardWidget[installed="true"], QFrame#StarterModelCard[installed="true"] {{
+            border: 1px solid {p.border_color};
+            background-color: {p.bg_panel};
+        }}
+        StarterModelCardWidget[installed="true"]:hover, QFrame#StarterModelCard[installed="true"]:hover {{
+            border-color: {p.accent_primary};
+            background-color: {p.bg_hover};
+        }}
+        QFrame#StarterFieldsBox {{
+            background-color: {p.bg_input};
+            border: 1px solid {p.border_light};
+            border-radius: {p.radius_sm}px;
+        }}
+        QFrame#StarterInstalledBanner {{
+            background-color: {green_bg};
+            border: 1px solid {green_border};
+            border-radius: {p.radius_sm}px;
+        }}
         QFrame#FilterCard {{
             background-color: {p.bg_panel};
             border: 1px solid {p.border_color};

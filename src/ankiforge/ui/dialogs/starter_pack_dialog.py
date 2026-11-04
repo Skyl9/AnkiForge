@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -19,7 +19,8 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.services.cards.card_model_io import CardModelIO
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.badges import Badge
+from ankiforge.ui.components.buttons import FilterChipButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
@@ -33,48 +34,42 @@ class StarterModelCardWidget(QFrame):
         self,
         pack: dict[str, Any],
         on_install_callback: Any,
+        is_installed: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.pack = pack
         self.on_install_callback = on_install_callback
+        self.is_installed = is_installed
 
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 14px;
-            }}
-            QFrame:hover {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
+        self.setObjectName("StarterModelCard")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        if self.is_installed:
+            self.setProperty("installed", "true")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(10)
 
-        # Ligne du haut : Badge Catégorie + Version
+        # Ligne du haut : Badge Catégorie + Version + Badge d'état d'installation
         top_row = QHBoxLayout()
-        top_row.setSpacing(6)
+        top_row.setSpacing(8)
 
-        cat_badge = QLabel(pack.get("category", "Général"))
-        cat_badge.setStyleSheet(f"""
-            background-color: {DesignTokens.ACCENT_BG};
-            color: {DesignTokens.ACCENT_PRIMARY};
-            border: 1px solid {DesignTokens.ACCENT_BORDER};
-            border-radius: 9999px;
-            padding: 2px 8px;
-            font-size: 10px;
-            font-weight: bold;
-        """)
+        cat_badge = Badge(
+            pack.get("category", self.tr("Général")),
+            variant="status",
+            color=DesignTokens.ACCENT_PRIMARY,
+        )
         top_row.addWidget(cat_badge)
         top_row.addStretch()
 
         ver_lbl = QLabel(tr("v%1", pack.get("version", "1.0.0")))
-        ver_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
+        ver_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         top_row.addWidget(ver_lbl)
+
+        if is_installed:
+            installed_badge = Badge(self.tr("Installé"), variant="success")
+            top_row.addWidget(installed_badge)
         layout.addLayout(top_row)
 
         # Titre & Auteur
@@ -92,21 +87,54 @@ class StarterModelCardWidget(QFrame):
         desc_lbl.setWordWrap(True)
         layout.addWidget(desc_lbl)
 
-        # Champs requis
+        # Champs requis encadrés dans un bloc StarterFieldsBox
         fields = pack.get("fields_schema", [])
         fields_str = ", ".join(fields)
-        fields_lbl = QLabel(tr("<b>Champs :</b> %1", fields_str))
-        fields_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
-        fields_lbl.setWordWrap(True)
-        layout.addWidget(fields_lbl)
+        fields_frame = QFrame()
+        fields_frame.setObjectName("StarterFieldsBox")
+        fields_frame.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        fields_layout = QHBoxLayout(fields_frame)
+        fields_layout.setContentsMargins(10, 6, 10, 6)
+        fields_layout.setSpacing(6)
+
+        fields_lbl_title = QLabel(self.tr("Champs :"))
+        fields_lbl_title.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.TEXT_MUTED};")
+        fields_layout.addWidget(fields_lbl_title)
+
+        fields_lbl_content = QLabel(fields_str)
+        fields_lbl_content.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
+        fields_lbl_content.setWordWrap(True)
+        fields_layout.addWidget(fields_lbl_content, 1)
+
+        layout.addWidget(fields_frame)
 
         layout.addStretch()
 
-        # Bouton Installer
-        btn_install = PrimaryButton(self.tr("Installer ce type de note"))
-        btn_install.setIcon(load_on_accent_icon("ph.plus-circle"))
-        btn_install.clicked.connect(lambda: self.on_install_callback(self.pack))
-        layout.addWidget(btn_install)
+        # Bouton Installer ou bandeau "Déjà installé"
+        if is_installed:
+            state_banner = QFrame()
+            state_banner.setObjectName("StarterInstalledBanner")
+            state_banner.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+            state_banner.setFixedHeight(36)
+            state_layout = QHBoxLayout(state_banner)
+            state_layout.setContentsMargins(12, 0, 12, 0)
+            state_layout.setSpacing(6)
+
+            icon_lbl = QLabel()
+            icon_lbl.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(15, 15))
+            state_layout.addWidget(icon_lbl)
+
+            state_lbl = QLabel(self.tr("Déjà installé dans ce profil"))
+            state_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN_TEXT}; font-size: 11px; font-weight: bold;")
+            state_layout.addWidget(state_lbl)
+            state_layout.addStretch()
+
+            layout.addWidget(state_banner)
+        else:
+            btn_install = PrimaryButton(self.tr("Installer ce type de note"))
+            btn_install.setIcon(load_on_accent_icon("ph.plus-circle"))
+            btn_install.clicked.connect(lambda: self.on_install_callback(self.pack))
+            layout.addWidget(btn_install)
 
 
 class StarterPackDialog(QDialog):
@@ -116,26 +144,17 @@ class StarterPackDialog(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName("StarterPackDialog")
         self.setWindowTitle(self.tr("Catalogue de Types de Note Communautaires (Starter Pack)"))
         self.setMinimumSize(850, 600)
         self.resize(920, 650)
         self.setModal(True)
+        self._cards: list[tuple[StarterModelCardWidget, dict[str, Any]]] = []
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setStyleSheet(f"""
-            QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QScrollArea {{
-                background: transparent;
-                border: none;
-            }}
-        """)
-
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(20, 20, 20, 18)
         layout.setSpacing(14)
 
         # En-tête
@@ -155,31 +174,98 @@ class StarterPackDialog(QDialog):
 
         layout.addLayout(header)
 
+        # Barre de filtres par catégorie
+        filter_row = QHBoxLayout()
+        filter_row.setSpacing(6)
+        filter_row.setContentsMargins(0, 0, 0, 2)
+
+        lbl_filter = QLabel(self.tr("Catégorie :"))
+        lbl_filter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        filter_row.addWidget(lbl_filter)
+
+        packs = CardModelIO.get_starter_pack_models()
+        self._packs_by_category: dict[str, list[dict[str, Any]]] = {}
+        for pack in packs:
+            cat = str(pack.get("category", "Général"))
+            self._packs_by_category.setdefault(cat, []).append(pack)
+
+        self._btn_tous = FilterChipButton(self.tr("Tous"))
+        self._btn_tous.setChecked(True)
+        self._btn_tous.toggled.connect(self._on_category_toggled)
+        filter_row.addWidget(self._btn_tous)
+
+        self._category_buttons: list[FilterChipButton] = []
+        for cat in sorted(self._packs_by_category):
+            btn = FilterChipButton(cat)
+            btn.toggled.connect(self._on_category_toggled)
+            filter_row.addWidget(btn)
+            self._category_buttons.append(btn)
+
+        filter_row.addStretch()
+        layout.addLayout(filter_row)
+
         # Grille de modèles
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll_content = QWidget()
         grid_layout = QGridLayout(scroll_content)
-        grid_layout.setContentsMargins(0, 0, 0, 0)
+        grid_layout.setContentsMargins(0, 2, 8, 8)
         grid_layout.setSpacing(14)
+        grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        packs = CardModelIO.get_starter_pack_models()
+        installed_names = {str(m.name) for m in NoteTypeModel.select(NoteTypeModel.name)}
+
         for idx, pack in enumerate(packs):
-            card = StarterModelCardWidget(pack, on_install_callback=self._on_install_pack)
+            is_installed = str(pack.get("name", "")) in installed_names
+            card = StarterModelCardWidget(
+                pack,
+                on_install_callback=self._on_install_pack,
+                is_installed=is_installed,
+            )
             row = idx // 2
             col = idx % 2
             grid_layout.addWidget(card, row, col)
+            self._cards.append((card, pack))
 
         scroll.setWidget(scroll_content)
         layout.addWidget(scroll, 1)
 
         # Footer
         footer = QHBoxLayout()
+        footer.setContentsMargins(0, 6, 0, 0)
         btn_close = SecondaryButton(self.tr("Fermer"))
         btn_close.clicked.connect(self.accept)
         footer.addStretch()
         footer.addWidget(btn_close)
         layout.addLayout(footer)
+
+    def _on_category_toggled(self, _checked: bool) -> None:
+        sender = self.sender()
+        if not isinstance(sender, FilterChipButton):
+            return
+        if sender is self._btn_tous:
+            if sender.isChecked():
+                for btn in self._category_buttons:
+                    btn.setChecked(False)
+        else:
+            if sender.isChecked():
+                self._btn_tous.setChecked(False)
+                for btn in self._category_buttons:
+                    if btn is not sender:
+                        btn.setChecked(False)
+        self._apply_category_filter()
+
+    def _apply_category_filter(self) -> None:
+        selected: str | None = None
+        if not self._btn_tous.isChecked():
+            for btn in self._category_buttons:
+                if btn.isChecked():
+                    selected = btn.text()
+                    break
+        for card, pack in self._cards:
+            cat = str(pack.get("category", "Général"))
+            card.setHidden(selected is not None and cat != selected)
 
     def _on_install_pack(self, pack: dict[str, Any]) -> None:
         name = pack.get("name", self.tr("Type de note"))

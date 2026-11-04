@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
+from PySide6.QtWidgets import QLabel
 from pytestqt.qtbot import QtBot
 
 from ankiforge.database.models import (
@@ -98,3 +99,53 @@ def test_starter_pack_dialog(qtbot: QtBot):
     assert len(signal_received) == 1
     installed_model = NoteTypeModel.get_by_id(signal_received[0])
     assert installed_model.name == "Médical & QCM Interactif Test"
+
+
+def test_starter_pack_dialog_installed_badge(qtbot: QtBot):
+    """Un modèle déjà installé affiche un badge 'Déjà installé' au lieu du bouton Installer."""
+    NoteTypeModel.create(
+        name="Médical & QCM Interactif",
+        fields_schema=json.dumps(["Question", "Reponse"]),
+        templates=json.dumps([{"name": "QCM", "qfmt": "{{Question}}", "afmt": "{{Reponse}}"}]),
+        css_style="",
+    )
+
+    dlg = StarterPackDialog()
+    qtbot.addWidget(dlg)
+
+    from ankiforge.ui.dialogs.starter_pack_dialog import StarterModelCardWidget
+
+    cards = dlg.findChildren(StarterModelCardWidget)
+    medical_card = next((c for c in cards if c.pack.get("name") == "Médical & QCM Interactif"), None)
+    assert medical_card is not None
+    assert medical_card.is_installed is True
+
+    state_labels = [w for w in dlg.findChildren(QLabel) if "Déjà installé" in w.text()]
+    assert len(state_labels) >= 1
+
+
+def test_starter_pack_dialog_category_filter(qtbot: QtBot):
+    """Le filtre par catégorie masque les cartes hors catégorie sélectionnée."""
+    from ankiforge.ui.components.buttons import FilterChipButton
+    from ankiforge.ui.dialogs.starter_pack_dialog import StarterModelCardWidget
+
+    dlg = StarterPackDialog()
+    qtbot.addWidget(dlg)
+
+    cards = dlg.findChildren(StarterModelCardWidget)
+    assert len(cards) == 5
+
+    med_btn = next((b for b in dlg.findChildren(FilterChipButton) if b.text() == "Mémorisation"), None)
+    assert med_btn is not None
+    med_btn.click()
+
+    visible = [c for c in cards if not c.isHidden()]
+    assert len(visible) == 1
+    assert visible[0].pack.get("category") == "Mémorisation"
+
+    tous_btn = dlg._btn_tous
+    assert not tous_btn.isChecked()
+    tous_btn.click()
+    assert tous_btn.isChecked()
+    visible_all = [c for c in cards if not c.isHidden()]
+    assert len(visible_all) == 5
