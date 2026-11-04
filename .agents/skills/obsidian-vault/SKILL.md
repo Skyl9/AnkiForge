@@ -82,6 +82,18 @@ Faits vérifiés dans le code, classes, méthodes ou fichiers concernés.
 Historique des échanges ou retours d'exécution.
 ```
 
+### 🛡️ Kit d'Immunisation Déterministe (Obligatoire pour tout ticket `ready-for-agent`)
+
+Pour garantir qu'un ticket puisse être exécuté sans ambiguïté ni hallucination par n'importe quel agent (y compris les modèles compacts type Nemotron-VL ou 8B), toute fiche de ticket `ready-for-agent` DOIT comporter :
+1. **Emplacement Exact Vérifié dans le Code Réel** : Nom de classe, méthode et intervalle de lignes indicatif (vérifié via grep/cat, jamais présumé de mémoire).
+2. **Diff / Code Clé en Main** : Le bloc `Target` exact et son `Replacement` pré-calibré pour sécuriser les outils d'édition chirurgicale.
+3. **Contraintes Négatives Explicites (Gardes-fous)** :
+   - ❌ Zéro print() (logger approprié nommé).
+   - ❌ Zéro token inventé (lister les `DesignTokens` valides autorisés).
+   - ❌ Zéro emoji textuel dans l'UI (icônes Phosphor autorisées).
+   - ❌ Mocks obligatoires et isolation SQLite (pas de QThread non isolé sur Peewee).
+4. **Commande de Test Unitaire Déterministe** : La commande `uv run pytest tests/...` directe (< 5s) pour valider immédiatement le correctif sans lancer aveuglément la suite complète.
+
 **Rôles de triage (`triage-role`)** : `needs-triage`, `needs-info`, `ready-for-spec`, `ready-for-agent`, `ready-for-human`, `in-progress`, `ready-for-review`, `done`, `wontfix` (voir `docs/agents/triage-labels.md`).
 
 ## ⛔ Critères d'Éligibilité aux Statuts de Triage

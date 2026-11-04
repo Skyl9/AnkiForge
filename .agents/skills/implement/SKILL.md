@@ -27,6 +27,7 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   1. Écrire le test unitaire ou d'intégration rouge (`tests/...`).
   2. Implémenter le code minimal pour passer le test au vert.
   3. Refactoriser pour la lisibilité et la compacité.
+  4. **Exécution ciblée obligatoire** : exécuter exclusivement la commande de test ciblée spécifiée dans le ticket (`uv run pytest tests/path/test_xxx.py::test_nom` ou `-k ...`) ; interdiction formelle d'exécuter la suite complète `pytest` pendant la boucle TDD.
 - **Règles d'ingénierie AnkiForge obligatoires** :
   - Typage strict 100% (`mypy`).
   - Aucun `print()`, utiliser exclusivement le logging asynchrone (`logging.getLogger(__name__)`).
@@ -61,6 +62,12 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Cohérence des propriétés publiques exposées après changement de type (`T-38`) : lorsqu'un attribut ou composant change de classe (ex: `QTabBar` → `SegmentedTabBar`), inspecter impérativement toutes les propriétés et méthodes du projet qui l'exposent (`@property`, signatures, appels externes) et mettre à jour leurs annotations de typage pour préserver la cohérence sous `mypy strict`, puis exécuter `script/verify.py` pour confirmer.
   - Zéro couleur en dur dans les contrats de données de service (`T-39`) : toute valeur de couleur portée par les données retournées par un service (ex: `badge_color`, `color` de catégorie, `bg`) doit utiliser les jetons `DesignTokens` de `src/ankiforge/ui/theme.py` ; aucun littéral hexadécimal (`#RRGGBB`) ni `rgba(...)` en dur ne doit traverser un contrat de données. Vérifier par grep systématique `grep -rn '#[0-9a-fA-F]\{3,8\}\|rgba(' src/ankiforge/services/` avant la porte canonique.
   - Source unique de vérité pour les constantes de contrat (`T-40`) : toute constante métier partagée (pénalités de score, seuils, seuils de similarité, couleurs de statut) doit être définie en un seul endroit et réutilisée par tous les consommateurs (service + UI + MCP). Interdiction de dupliquer une constante de contrat (ex: `_CATEGORY_PENALTY` dans `linter.py` et `wozniak_tab.py`) ; importer la définition unique ou exposer une fonction de calcul partagée. Revue systématique des assertions de test pour éliminer les tautologies (`or True`, `and True`, `== x or True`) avant la porte canonique.
+  - Protocole Multimodal VL & Traduction en Assertions Programmatiques (`T-41`) : pour tout modèle à perception visuelle (Nemotron Super VL, etc.) opérant sur une anomalie graphique ou de layout :
+    1. **Diagnostic visuel (Avant)** : exécuter `uv run python script/capture_view.py --view <nom_vue> --output temp/screens/<nom_vue>_before.png` et inspecter l'image via `view_file` pour analyser spatialement le défaut.
+    2. **Interdiction de s'arrêter à la validation visuelle** : la conformité visuelle ne remplace jamais un test. La règle n°4 ("Zéro snapshot visuel en assertion") interdit formellement de valider par capture d'écran.
+    3. **Traduction impérative en assertions programmatiques (`pytest-qt`)** : l'agent DOIT traduire son constat visuel en test unitaire rouge vérifiant des propriétés Qt réelles (marges `contentsMargins()`, largeurs maximales `maximumWidth()`, classes d'éléments `property("class")`, états `isEnabled()`, signaux).
+    4. **Contrôle visuel final (Après)** : relancer `capture_view.py ... _after.png` pour confirmer l'absence de régression visuelle avant d'invoquer `script/verify.py`.
+  - Bannissement strict du CSS Web dans Qt QSS (`T-42`) : interdiction formelle d'injecter des propriétés CSS Web non supportées par le moteur QSS de PySide6/Qt6 (`display: flex`, `gap`, `box-shadow`, `overflow`, `transform`, `justify-content`). N'utiliser que les propriétés QSS valides (`padding`, `margin`, `border`, `background-color`, `border-radius`, sélecteurs d'ID `#mon_id`) et les jetons sémantiques `DesignTokens` de `src/ankiforge/ui/theme.py`.
 
 ## 3. Clôture, Vérification Canonique & Revue
 

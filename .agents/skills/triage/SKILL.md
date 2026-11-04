@@ -42,6 +42,7 @@ Chaque ticket porte une catégorie, un statut de triage, ses `Prérequis`, sa `D
      - Si des informations indispensables manquent (quelles options, quelles vues, quel comportement attendu) : classer immédiatement en `needs-info` (`🔎 En Attente d'Infos · needs-info`), consigner les questions précises dans le ticket et interroger l'utilisateur.
      - Si la demande est claire et les constats techniques sont établis :
        - **Pour les tickets unitaires (tailles `🟢 XS`, `🟢 S`, `🟡 M`) :** passer **directement à `ready-for-agent`** (`🎯 Prêt pour Agent · ready-for-agent`). Le ticket Obsidian fait office de spécification auto-suffisante ; zéro passage intermédiaire par `/to-spec` ou `/to-tickets`.
+       - **Standard de rédaction `ready-for-agent`** : Inclure systématiquement le **Kit d'Immunisation Déterministe** (lignes exactes vérifiées, diff clé en main, gardes négatives strictes, commande pytest ciblée) selon les règles de `obsidian-vault`.
        - **Pour les chantiers complexes (tailles `🔴 L`, `🟣 XL`) :** orienter vers `ready-for-spec` (`🎯 Prêt pour Spécification · ready-for-spec`) pour cadrage d'architecture.
 3. **Vérifier les constats** :
    - Pour un bogue : tenter de reproduire avec une commande ciblée ou un test.
