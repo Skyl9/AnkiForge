@@ -721,20 +721,36 @@ class CoverageAlignmentService:
 
     @classmethod
     def align_all_documents(cls, min_overlap: int = 2) -> dict[str, Any]:
-        """Exécute la réconciliation déterministe sur tous les documents de la bibliothèque du profil courant."""
+        """Exécute la réconciliation déterministe sur tous les documents de la bibliothèque du profil courant.
+
+        Une seule passe atomique sur toutes les notes via :meth:`sync_coverage_from_tags(doc_id=None)`
+        (O(N) au lieu de O(D×N)), puis une lecture des statistiques de couverture par document.
+
+        Le paramètre ``min_overlap`` est conservé pour la compatibilité des appelants sans effet.
+        """
         all_docs = list(DocumentModel.select())
-        summary: dict[str, Any] = {
-            "total_documents": len(all_docs),
-            "total_matched_links": 0,
-            "details": [],
-        }
+        # Passe globale unique sur toutes les notes (O(N) au lieu de O(D×N)) :
+        # aucune boucle unitaire sur sync_coverage_from_tags(doc_id=...) ici.
+        sync_report = cls.sync_coverage_from_tags(doc_id=None)
 
+        doc_repo = DocumentRepository()
+        details: list[dict[str, Any]] = []
         for doc in all_docs:
-            res = cls.align_document(doc.id, min_overlap=min_overlap)
-            summary["total_matched_links"] += res.get("matched_notes", 0)
-            summary["details"].append({"doc_id": doc.id, "title": doc.title, "result": res})
+            stats = doc_repo.get_coverage_stats(doc.id)
+            details.append(
+                {
+                    "doc_id": doc.id,
+                    "title": doc.title,
+                    "stats": stats,
+                }
+            )
 
-        return summary
+        return {
+            "total_documents": len(all_docs),
+            "total_matched_links": sync_report.get("matched_notes", 0),
+            "sync_report": sync_report,
+            "details": details,
+        }
 
     @staticmethod
     def _find_chunk_by_section_suffix(doc_id: int, section_slug: str) -> DocumentChunkModel | None:

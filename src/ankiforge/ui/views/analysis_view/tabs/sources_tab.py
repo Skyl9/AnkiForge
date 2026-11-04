@@ -32,6 +32,7 @@ from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.services.parsing.chunking_service import ChunkingService
+from ankiforge.services.reindex_activity_service import ReindexActivityService
 from ankiforge.ui.components.buttons import FilterChipButton, PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.dispatch import run_on_owner_thread
@@ -1836,13 +1837,34 @@ class AISourcesDiagnosticTab(QWidget):
 
     @Slot()
     def _on_align_all_sources(self) -> None:
-        from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+        from ankiforge.services.workers.alignment_worker import AlignmentWorker
 
-        show_toast(self, self.tr("Synchronisation des fiches Anki pour l'ensemble des cours..."))
-        res = CoverageAlignmentService.align_all_documents()
-        total_matched = res.get("total_matched_links", 0)
+        all_docs = list(DocumentModel.select())
+        activity = ReindexActivityService.get_instance()
+        if not activity.begin(len(all_docs)):
+            return
+
+        show_toast(self, self.tr("Synchronisation des fiches Anki pour l'ensemble des cours en cours..."))
+
+        self._alignment_worker = AlignmentWorker(self)
+        self._alignment_worker.finished_alignment.connect(self._on_align_all_finished)
+        self._alignment_worker.error_occurred.connect(self._on_align_all_error)
+        self._alignment_worker.start()
+
+    def _on_align_all_finished(self, report: dict[str, Any]) -> None:
+        """Traite le rapport du réalignement global et rafraîchit la vue."""
+        total_matched = int(report.get("total_matched_links", 0))
         self.refresh_data()
-        show_toast(self, tr("✅ %1 fiches Anki synchronisées via les tags sur l'ensemble des cours !", total_matched))
+        show_toast(
+            self,
+            tr("✅ %1 fiches Anki synchronisées via les tags sur l'ensemble des cours !", total_matched),
+        )
+        ReindexActivityService.get_instance().finish(documents=total_matched, fragments=0, errors=0)
+
+    def _on_align_all_error(self, message: str) -> None:
+        """Affiche une erreur d'alignement global et clôt la passe d'activité."""
+        show_toast(self, self.tr("Échec de l'alignement global : %1", message), is_error=True)
+        ReindexActivityService.get_instance().finish(documents=0, fragments=0, errors=1)
 
     def show_inspector(self, doc_id: int) -> None:
         while self.page_inspector.layout().count():
