@@ -2,7 +2,7 @@ import html
 import re
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
@@ -101,6 +101,10 @@ class _RAGResultWidget(QWidget):
                 open_button.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
                 open_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(image_path))))
                 layout.addWidget(open_button)
+
+    def sizeHint(self) -> QSize:
+        hint = super().sizeHint()
+        return QSize(max(hint.width(), 320), max(hint.height(), 120))
 
 
 class RAGTestDialog(QDialog):
@@ -227,11 +231,12 @@ class RAGTestDialog(QDialog):
                 media_badge = " 🖼️ [Visuel]" if has_media else ""
                 content_snippet = r.get("content", "")[:180] + "..." if len(r.get("content", "")) > 180 else r.get("content", "")
                 item_txt = f"📍 {loc}{media_badge}  (Pertinence : {rel_pct}%)  [{badge_info}]\n{content_snippet}"
+                widget = _RAGResultWidget(r, query)
                 item = QListWidgetItem(item_txt)
-
+                item.setSizeHint(widget.sizeHint())
                 item.setData(Qt.ItemDataRole.UserRole, r)
                 self.results_list.addItem(item)
-                self.results_list.setItemWidget(item, _RAGResultWidget(r, query))
+                self.results_list.setItemWidget(item, widget)
 
         except Exception as e:
             self.results_list.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))

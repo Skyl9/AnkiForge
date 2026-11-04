@@ -4929,7 +4929,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+34"/>
         <source>Recherche RAG Hybride — %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -22093,7 +22093,7 @@ https://blog.example.com/article-1</source>
 <context>
     <name>_RAGResultWidget</name>
     <message>
-        <location filename="../../ui/views/documents_view/dialogs/rag_test_dialog.py" line="-80"/>
+        <location filename="../../ui/views/documents_view/dialogs/rag_test_dialog.py" line="-84"/>
         <source>📄 BDD Directe</source>
         <translation type="unfinished"></translation>
     </message>

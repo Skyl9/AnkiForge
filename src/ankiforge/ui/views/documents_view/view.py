@@ -2911,10 +2911,12 @@ class DocumentsView(FileDropMixin, QWidget):
 
                 content_snippet = r.get("content", "")[:160] + "..." if len(r.get("content", "")) > 160 else r.get("content", "")
                 item_txt = f"📍 {loc} (Pertinence: {rel_pct}%)\n{content_snippet}"
+                widget = _RAGResultWidget(r, query)
                 item = QListWidgetItem(item_txt)
+                item.setSizeHint(widget.sizeHint())
                 item.setData(Qt.ItemDataRole.UserRole, r)
                 self.rag_sandbox_results.addItem(item)
-                self.rag_sandbox_results.setItemWidget(item, _RAGResultWidget(r, query))
+                self.rag_sandbox_results.setItemWidget(item, widget)
 
         except Exception as e:
             self.rag_sandbox_results.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))
