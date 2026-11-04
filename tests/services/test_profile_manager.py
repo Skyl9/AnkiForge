@@ -1,10 +1,14 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PySide6.QtWidgets import QApplication, QLabel, QWidget
 
+from ankiforge.database.base import db
+from ankiforge.database.migration import run_migrations
 from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
+from ankiforge.ui.widgets.profile_switch_overlay import ProfileSwitchOverlay
 
 pytestmark = pytest.mark.integration
 
@@ -139,3 +143,88 @@ def test_main_window_switch_profile(qtbot, mock_profiles_dir):
     assert window.profile_name == "test_switch"
     if window.sidebar:
         assert "test_switch" in window.sidebar.profile_name
+
+
+def _appliquer_toutes_les_migrations(pm: ProfileManager, profile_name: str) -> None:
+    """Initialise pour de vrai une base de profil sur fichier (toutes les migrations)."""
+    db_path = pm.get_db_path(profile_name)
+    if not db.is_closed():
+        db.close()
+    db.init(str(db_path))
+    db.connect()
+    try:
+        run_migrations()
+    finally:
+        db.close()
+
+
+def test_is_db_ready_faux_pour_db_inexistante(mock_profiles_dir):
+    pm = ProfileManager()
+    db_path = pm.get_db_path("inexistant")
+    assert not pm._is_db_ready(db_path)
+
+
+def test_is_db_ready_faux_pour_db_vide(mock_profiles_dir):
+    pm = ProfileManager()
+    pm.create_profile("vide")
+    db_path = pm.get_db_path("vide")
+    assert not db_path.exists()
+    assert not pm._is_db_ready(db_path)
+
+
+def test_is_db_ready_faux_pour_db_sans_table_coeur(mock_profiles_dir):
+    pm = ProfileManager()
+    pm.create_profile("brute")
+    db_path = pm.get_db_path("brute")
+    db_path.write_bytes(b"ceci n'est pas une base sqlite valide")
+    assert not pm._is_db_ready(db_path)
+
+
+def test_is_db_ready_vrai_apres_migrations(mock_profiles_dir):
+    pm = ProfileManager()
+    profile = "ready_prof"
+    pm.create_profile(profile)
+    db_path = pm.get_db_path(profile)
+    _appliquer_toutes_les_migrations(pm, profile)
+    assert pm._is_db_ready(db_path) is True
+
+
+def test_switch_profile_fast_path_ne_lance_pas_migrations_ni_seed(mock_profiles_dir):
+    """Quand la base est déjà à jour, run_migrations/seed_initial_data ne doivent pas être appelés."""
+    pm = ProfileManager()
+    profile = "fast_path"
+    pm.create_profile(profile)
+    new_path = pm.get_db_path(profile)
+
+    with (
+        patch.object(ProfileManager, "_is_db_ready", return_value=True),
+        patch("ankiforge.database.migration.run_migrations") as m_run,
+        patch("ankiforge.database.models.seed_initial_data") as m_seed,
+        patch("ankiforge.database.models.init_db") as m_init,
+    ):
+        pm.switch_profile(profile)
+        m_run.assert_not_called()
+        m_seed.assert_not_called()
+        m_init.assert_not_called()
+        assert db.database == str(new_path)
+
+
+@pytest.mark.ui
+def test_profile_switch_overlay_affiche_message_et_spinner(qtbot):
+    parent = QWidget()
+    qtbot.addWidget(parent)
+
+    overlay = ProfileSwitchOverlay(parent, profile_name="Mon Espace")
+    qtbot.addWidget(overlay)
+
+    parent.show()
+    QApplication.processEvents()
+
+    assert overlay.isVisible()
+    labels = [lbl.text() for lbl in overlay.findChildren(QLabel)]
+    assert any("Changement de profil en cours" in t for t in labels)
+    assert any("Mon Espace" in t for t in labels)
+    assert overlay.spinner is not None
+
+    overlay.close_overlay()
+    QApplication.processEvents()

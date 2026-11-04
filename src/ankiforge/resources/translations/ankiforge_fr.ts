@@ -378,7 +378,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location filename="../../ui/components/model_select_window.py" line="+325"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1585"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1594"/>
         <source>Voulez-vous vraiment supprimer le type de note &apos;%1&apos; ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1169,7 +1169,7 @@ Champs suggérés : %2</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/persona_history_dialog.py" line="+110"/>
-        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="+75"/>
+        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="+66"/>
         <source>v%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1299,17 +1299,12 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="+10"/>
+        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="+14"/>
         <source>Par : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
-        <source>&lt;b&gt;Champs :&lt;/b&gt; %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+95"/>
+        <location line="+199"/>
         <source>Le type de note &apos;%1&apos; est déjà présent dans votre collection.
 
 Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
@@ -1749,14 +1744,14 @@ Voulez-vous vraiment %2 ? Ce travail sera perdu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+245"/>
+        <location line="+246"/>
         <source>Impossible de basculer vers l&apos;espace « %1 » : il est actuellement ouvert par une autre instance%2.
 
 L&apos;accès simultané au même profil est bloqué pour protéger vos données contre les corruptions.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+41"/>
+        <location line="+50"/>
         <source>Espace de travail actif : « %1 »</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3503,22 +3498,22 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1135"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1144"/>
         <source>Créer un nouveau type de note Anki (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+59"/>
+        <location line="+65"/>
         <source>Dupliquer le type de note sélectionné (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Importer un type de note (.afmodel ou .json) (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+42"/>
         <source>Exporter le type de note (JSON) (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3957,13 +3952,13 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+131"/>
-        <location line="+269"/>
+        <location line="+264"/>
         <source>Nouvelle proposition de refactorisation reçue (#%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-267"/>
-        <location line="+269"/>
+        <location line="-262"/>
+        <location line="+264"/>
         <source>Nouvelle proposition reçue (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7854,6 +7849,16 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../../ui/widgets/profile_switch_overlay.py" line="+88"/>
+        <source>Changement de profil en cours...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Basculement vers l&apos;espace « %1 »...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../ui/widgets/reindex_activity_banner.py" line="+78"/>
         <location line="+31"/>
         <location line="+29"/>
@@ -11360,7 +11365,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1408"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1417"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11385,8 +11390,8 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
-        <location line="+1287"/>
+        <location line="+21"/>
+        <location line="+1288"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17167,7 +17172,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>MCPActivityDetailDialog</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-395"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_dashboard_widget.py" line="-390"/>
         <source>Succès</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17226,34 +17231,34 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     <name>MCPServerDashboardWidget</name>
     <message>
         <location line="+57"/>
-        <location line="+269"/>
+        <location line="+264"/>
         <source>Nouvelle proposition de refactorisation reçue</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-104"/>
+        <location line="-99"/>
         <source>Supervision &amp; Configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+74"/>
+        <location line="+69"/>
         <source>Garde-Fou &amp; Validation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-73"/>
+        <location line="-68"/>
         <source>Catalogue d&apos;Outils</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+65"/>
+        <location line="+60"/>
         <source>Activité</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-64"/>
+        <location line="-59"/>
         <source>Guides &amp; Workspaces</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17909,7 +17914,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-857"/>
+        <location filename="../../ui/main_window.py" line="-867"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17929,7 +17934,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+79"/>
+        <location line="+80"/>
         <source>Profil en cours d&apos;utilisation</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20542,12 +20547,32 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>StarterModelCardWidget</name>
     <message>
-        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="-125"/>
+        <location filename="../../ui/dialogs/starter_pack_dialog.py" line="-233"/>
+        <source>Général</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Installé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>Type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+24"/>
+        <source>Champs :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Déjà installé dans ce profil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
         <source>Installer ce type de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20555,12 +20580,12 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>StarterPackDialog</name>
     <message>
-        <location line="+13"/>
+        <location line="+14"/>
         <source>Catalogue de Types de Note Communautaires (Starter Pack)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+19"/>
         <source>Types de note communautaires et professionnels prêts à l&apos;emploi</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20570,12 +20595,22 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="+13"/>
+        <source>Catégorie :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Tous</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+45"/>
         <source>Fermer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+34"/>
         <source>Type de note</source>
         <translation type="unfinished"></translation>
     </message>
@@ -21280,7 +21315,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TabButton</name>
     <message>
-        <location filename="../../ui/components/tabs/tab_button.py" line="+180"/>
+        <location filename="../../ui/components/tabs/tab_button.py" line="+181"/>
         <source>Fermer l&apos;onglet</source>
         <translation type="unfinished"></translation>
     </message>

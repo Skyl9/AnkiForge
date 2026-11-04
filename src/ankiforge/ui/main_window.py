@@ -1213,6 +1213,7 @@ class MainWindow(QMainWindow):
         from ankiforge.services.profile_lock_service import ProfileLockService
         from ankiforge.services.profile_manager import ProfileManager
         from ankiforge.ui.layouts.layout_manager import LayoutManager
+        from ankiforge.ui.widgets.profile_switch_overlay import ProfileSwitchOverlay
         from ankiforge.ui.widgets.toast import show_toast
 
         # Action destructive : changer de profil détruit les instances de vues (donc la
@@ -1243,9 +1244,15 @@ class MainWindow(QMainWindow):
 
         logger.info("Bascule de l'espace de travail vers le profil '%s'", new_profile)
 
+        # Feedback visuel immédiat non bloquant : overlay + spinner affichés AVANT les
+        # opérations I/O, avec forçage du rafraîchissement de l'event loop Qt pour éviter
+        # le gel visuel (roue multicolore / beachball) pendant le basculement.
+        overlay = ProfileSwitchOverlay(self, profile_name=new_profile)
+        QApplication.processEvents()
+
         # 1. Basculer la base de données Peewee et le répertoire média
         pm = ProfileManager()
-        pm.switch_profile(new_profile)
+        pm.switch_profile(new_profile)  # fast-path si déjà à jour (< 15 ms)
         self.profile_name = new_profile
 
         # 2. Mettre à jour le profil sur le layout actif
@@ -1261,7 +1268,7 @@ class MainWindow(QMainWindow):
         else:
             self.engine.apply_appearance_for_profile(self.profile_name, saved_layout_id)
 
-        # 5. Réinitialiser les vues existantes pour repartir sur la nouvelle base de données
+        # 5. Réinitialiser les vues existantes : vue active immédiatement, inactives différées.
         self._reset_view_widgets()
 
         # 6. Re-charger la vue courante (ou le dashboard)
@@ -1269,21 +1276,54 @@ class MainWindow(QMainWindow):
         self._current_view_id = None
         self._on_view_selected(target_view)
 
+        # Masquer l'overlay une fois l'interface disponible.
+        overlay.close_overlay()
+
         event_bus.publish(ProfileSwitchedEvent(profile_name=new_profile))
         show_toast(self, tr("Espace de travail actif : « %1 »", new_profile))
 
     def _reset_view_widgets(self) -> None:
-        """Réinitialise les instances de vues pour nettoyer tout cache BDD lié au précédent profil."""
-        for view_id, (_cat, _icon, title, _cls) in self._view_registry.items():
-            old_widget = self._view_widgets.get(view_id)
-            if old_widget is not None:
+        """Réinitialise les instances de vues pour nettoyer tout cache BDD lié au précédent profil.
+
+        La vue active est remplacée immédiatement par un placeholder pour rendre l'interface
+        disponible sans délai ; la purge des vues inactives est différée via
+        QTimer.singleShot(50 ms) afin de lisser la charge sur l'event loop Qt.
+        """
+        active_view_id = self._current_view_id
+
+        # 1. Détruire immédiatement la vue active (cache BDD du profil précédent). Elle sera
+        #    réinstanciée paresseusement par _on_view_selected() à la prochaine navigation.
+        if active_view_id and active_view_id in self._view_registry:
+            old_widget = self._view_widgets.get(active_view_id)
+            if old_widget is not None and not isinstance(old_widget, DummyView):
                 idx = self.stacked_widget.indexOf(old_widget)
                 if idx != -1:
                     if hasattr(old_widget, "cleanup"):
                         cast(Any, old_widget).cleanup()
                     self.stacked_widget.removeWidget(old_widget)
                     old_widget.deleteLater()
-            placeholder = DummyView(title)
+                placeholder = DummyView(self._view_registry[active_view_id][2])
+                self.stacked_widget.addWidget(placeholder)
+                self._view_widgets[active_view_id] = placeholder
+
+        # 2. Purger les vues inactives (différé pour ne pas geler l'UI pendant le basculement).
+        QTimer.singleShot(50, self._purge_inactive_views)
+
+    def _purge_inactive_views(self) -> None:
+        """Détruit les vues inactives restantes et les remplace par des placeholders."""
+        active_view_id = self._current_view_id
+        for view_id, widget in list(self._view_widgets.items()):
+            if view_id == active_view_id:
+                continue
+            if isinstance(widget, DummyView):
+                continue
+            idx = self.stacked_widget.indexOf(widget)
+            if idx != -1:
+                if hasattr(widget, "cleanup"):
+                    cast(Any, widget).cleanup()
+                self.stacked_widget.removeWidget(widget)
+                widget.deleteLater()
+            placeholder = DummyView(self._view_registry[view_id][2])
             self.stacked_widget.addWidget(placeholder)
             self._view_widgets[view_id] = placeholder
 

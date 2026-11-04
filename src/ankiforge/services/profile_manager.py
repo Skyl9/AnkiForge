@@ -118,6 +118,15 @@ class ProfileManager(metaclass=_ProfileManagerMeta):
 
         set_active_profile(profile_name)
 
+        # Fast-path : court-circuite les migrations et le seed lorsque la base du profil
+        # cible est déjà initialisée et à jour, évitant le gel de l'UI à chaque bascule.
+        if self._is_db_ready(new_path):
+            logger.info(
+                "Profil '%s' déjà initialisé et à jour : migrations et seed ignorés (fast-path).",
+                profile_name,
+            )
+            return
+
         try:
             from ankiforge.database.migration import run_migrations
             from ankiforge.database.models import init_db, seed_initial_data
@@ -157,6 +166,44 @@ class ProfileManager(metaclass=_ProfileManagerMeta):
                 exc_info=True,
             )
             raise
+
+    def _is_db_ready(self, db_path: Path) -> bool:
+        """Retourne True si la base SQLite cible est déjà initialisée et à jour des migrations.
+
+        Permet le fast-path du basculement de profil : si toutes les migrations sont déjà
+        appliquées, on court-circuite run_migrations() et seed_initial_data() pour faire passer
+        le temps de blocage de plusieurs secondes à quelques millisecondes.
+        """
+        try:
+            from peewee_migrate import Router
+
+            from ankiforge.database.migration import get_migrations_dir
+
+            if not db_path.exists() or db_path.stat().st_size == 0:
+                return False
+
+            migrations_dir = get_migrations_dir()
+            migration_files = sorted(f.stem for f in migrations_dir.glob("*.py") if f.name != "__init__.py")
+            if not migration_files:
+                return False
+
+            # Connexion temporaire pour interroger le schéma de la base cible.
+            db.connect(reuse_if_open=True)
+            try:
+                # La table notemodel est créée dès la migration 001 : son absence signifie
+                # une base vierge nécessitant une initialisation complète.
+                if not db.table_exists("notemodel"):
+                    return False
+
+                router = Router(db, migrate_dir=str(migrations_dir))
+                done = set(router.done)
+                return all(name in done for name in migration_files)
+            finally:
+                if not db.is_closed():
+                    db.close()
+        except Exception as e:
+            logger.debug("Fast-path indisponible pour '%s' : %s", db_path, e)
+            return False
 
     def clone_production_to_development(self, copy_media: bool = True) -> tuple[int, int]:
         """Clone la base de données et les médias de production vers l'environnement de développement."""
