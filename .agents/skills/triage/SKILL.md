@@ -38,9 +38,11 @@ Chaque ticket porte une catégorie, un statut de triage, ses `Prérequis`, sa `D
    - Lire la fiche de ticket `Tickets/<Nom>.md` si existante, ou analyser la demande utilisateur.
    - Vérifier si le comportement existe déjà dans la base de code pour éviter les doublons (`wontfix` si déjà implémenté).
    - **Garde-fou anti-extrapolation** : Ne jamais inventer ou supposer le périmètre ou les intentions de l'utilisateur à partir d'une demande brute ouverte, vague ou concise (ex. « revoir X » sans détails).
-   - **Évaluation de complétude des données initiales** :
+   - **Évaluation de complétude des données initiales & Voie Directe (Fast-Track)** :
      - Si des informations indispensables manquent (quelles options, quelles vues, quel comportement attendu) : classer immédiatement en `needs-info` (`🔎 En Attente d'Infos · needs-info`), consigner les questions précises dans le ticket et interroger l'utilisateur.
-     - Ne basculer vers `ready-for-spec` que si le problème ou le besoin métier est factuellement borné et explicité sans conjecture.
+     - Si la demande est claire et les constats techniques sont établis :
+       - **Pour les tickets unitaires (tailles `🟢 XS`, `🟢 S`, `🟡 M`) :** passer **directement à `ready-for-agent`** (`🎯 Prêt pour Agent · ready-for-agent`). Le ticket Obsidian fait office de spécification auto-suffisante ; zéro passage intermédiaire par `/to-spec` ou `/to-tickets`.
+       - **Pour les chantiers complexes (tailles `🔴 L`, `🟣 XL`) :** orienter vers `ready-for-spec` (`🎯 Prêt pour Spécification · ready-for-spec`) pour cadrage d'architecture.
 3. **Vérifier les constats** :
    - Pour un bogue : tenter de reproduire avec une commande ciblée ou un test.
    - Pour une évolution : vérifier l'alignement avec les principes de `CONTEXT.md` et les ADRs.

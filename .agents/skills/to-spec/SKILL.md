@@ -52,6 +52,7 @@ Ce que cette spécification exclut délibérément.
 
 ## When NOT to use this skill
 
+- **Interdiction sur les tickets unitaires (anti-bureaucratie)** : Ne JAMAIS utiliser pour des correctifs de bugs, des retouches UI ou des évolutions de taille `🟢 XS`, `🟢 S` ou `🟡 M` déjà triés dans Obsidian. Ces tickets sont auto-suffisants et passent directement en `ready-for-agent` sans étape de spécification intermédiaire.
 - Ne pas utiliser si des questions de conception restent ouvertes → utiliser `/grill-with-docs`.
 - Ne pas utiliser si l'idée est encore trop floue ou si l'utilisateur hésite entre plusieurs approches → utiliser `/to-questionnaire` pour clarifier et trancher le choix avant de rédiger la spécification.
 - Ne pas utiliser pour découper directement en tickets de travail → utiliser `/to-tickets`.

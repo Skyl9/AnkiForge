@@ -12,8 +12,8 @@ Le traqueur n'utilise pas de labels natifs d'une forge distante (GitHub/GitLab) 
 | :--- | :--- | :--- | :--- |
 | `needs-triage` | `📥 Backlog & Idées · needs-triage` | `## 📥 Backlog & Idées (needs-triage)` | Demande brute, idée ou retour utilisateur à qualifier. |
 | `needs-info` | `🔎 En Attente d'Infos · needs-info` | `## 🔎 En Attente d'Infos (needs-info)` | Demande en attente de précisions, de données de test ou de reproduction. |
-| `ready-for-spec` | `🎯 Prêt pour Spécification · ready-for-spec` | `## 📥 Backlog & Idées (needs-triage)` ou section dédiée | Cadré conceptuellement mais nécessitant une interview d'architecture (`/grill-with-docs`) ou une spec détaillée (`/to-spec`). |
-| `ready-for-agent` | `🎯 Prêt pour Agent · ready-for-agent` | `## 🐞 Bugs · Prêts pour Agent` / `## 🚀 Features · Prêtes pour Agent` / Colonnes thématiques | Ticket entièrement spécifié, autonome et prêt pour prise en charge directe par `/implement` ou `/tdd`. |
+| `ready-for-spec` | `🎯 Prêt pour Spécification · ready-for-spec` | `## 📥 Backlog & Idées (needs-triage)` ou section dédiée | Cadré conceptuellement mais nécessitant une interview d'architecture (`/grill-with-docs`) ou une spec détaillée (`/to-spec`). Réservé exclusivement aux chantiers lourds (`L` ou `XL`). |
+| `ready-for-agent` | `🎯 Prêt pour Agent · ready-for-agent` | `## 🐞 Bugs · Prêts pour Agent` / `## 🚀 Features · Prêtes pour Agent` / Colonnes thématiques | Ticket entièrement spécifié, autonome et prêt pour prise en charge directe par `/implement` ou `/tdd`. Voie directe par défaut pour les tickets `XS`, `S` et `M`. |
 | `ready-for-human` | `👤 À faire humain · ready-for-human` | `## 👤 À faire humain (ready-for-human)` | Nécessite un jugement ou une intervention humaine exclusive (traductions littéraires manuelles, décisions stratégiques, audit visuel réel). |
 | `in-progress` | `⚙️ En Cours · in-progress` | `## ⚙️ En Cours` | Ticket activement pris en charge par un agent ou l'utilisateur. |
 | `ready-for-review` | `👀 En Revue · ready-for-review` | `## ⚙️ En Cours` (ou colonne d'arbitrage) | Implémenté et testé, en attente de contre-revue (`/code-review`) ou de validation humaine finale. |
@@ -57,3 +57,19 @@ Tout ticket sous `ankiforge_obsidian/Tickets/<Nom>.md` doit respecter strictemen
 
 Quand un skill mentionne un rôle (ex. « applique le label prêt-agent »), toujours écrire la forme complète bivalente :
 `**Statut :** 🎯 Prêt pour Agent · ready-for-agent`.
+
+---
+
+## 4. Cycle de Vie à Deux Voies (Fast-Track vs Voie Épique)
+
+Pour prévenir la bureaucratie agentique et le sur-découpage stérile :
+
+### Voie Directe / Fast-Track (80% des tickets — Tailles `🟢 XS`, `🟢 S`, `🟡 M`)
+- Un ticket trié (`/triage`) contenant le contexte, les constats techniques et les fichiers cibles est **immédiatement auto-suffisant**.
+- Dès qu'il dispose des informations nécessaires (ou dès qu'un `needs-info` est résolu), il est qualifié **directement en `🎯 Prêt pour Agent · ready-for-agent`**.
+- Zéro étape intermédiaire `/to-spec` ni `/to-tickets`. Prise en charge directe par `/implement` ou `/tdd`.
+
+### Voie Épique / Chantiers Complexes (Tailles `🔴 L`, `🟣 XL`)
+- Réservée aux refontes d'architecture, nouveaux sous-systèmes ou modifications transversales (nouvelles tables SQLite, nouveau protocole MCP, refonte de pipeline).
+- Passage par `ready-for-spec` ➔ `/to-spec` pour formaliser les arbitrages techniques.
+- `/to-tickets` n'intervient que pour scinder un épique `🟣 XL` dépassant la fenêtre de contexte d'une session de développement unique. Interdiction de sur-découper un travail unitaire.
