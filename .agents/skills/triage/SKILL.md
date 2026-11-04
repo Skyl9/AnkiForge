@@ -37,6 +37,10 @@ Chaque ticket porte une catégorie, un statut de triage, ses `Prérequis`, sa `D
 2. **Analyser le contexte technique** :
    - Lire la fiche de ticket `Tickets/<Nom>.md` si existante, ou analyser la demande utilisateur.
    - Vérifier si le comportement existe déjà dans la base de code pour éviter les doublons (`wontfix` si déjà implémenté).
+   - **Garde-fou anti-extrapolation** : Ne jamais inventer ou supposer le périmètre ou les intentions de l'utilisateur à partir d'une demande brute ouverte, vague ou concise (ex. « revoir X » sans détails).
+   - **Évaluation de complétude des données initiales** :
+     - Si des informations indispensables manquent (quelles options, quelles vues, quel comportement attendu) : classer immédiatement en `needs-info` (`🔎 En Attente d'Infos · needs-info`), consigner les questions précises dans le ticket et interroger l'utilisateur.
+     - Ne basculer vers `ready-for-spec` que si le problème ou le besoin métier est factuellement borné et explicité sans conjecture.
 3. **Vérifier les constats** :
    - Pour un bogue : tenter de reproduire avec une commande ciblée ou un test.
    - Pour une évolution : vérifier l'alignement avec les principes de `CONTEXT.md` et les ADRs.
