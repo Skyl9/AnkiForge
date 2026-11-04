@@ -1207,3 +1207,5 @@ class MCPGardeFouWidget(QWidget):
             self.diff_viewer.cleanup()
         if hasattr(self, "create_view") and hasattr(self.create_view, "cleanup"):
             self.create_view.cleanup()
+        if hasattr(self, "deletion_view") and hasattr(self.deletion_view, "cleanup"):
+            self.deletion_view.cleanup()

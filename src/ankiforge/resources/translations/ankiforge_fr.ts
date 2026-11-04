@@ -3638,7 +3638,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/garde_fou_views.py" line="+68"/>
+        <location filename="../../ui/views/consultant_view/widgets/garde_fou_views.py" line="+76"/>
         <source>Opération sur les paquets</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3752,7 +3752,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+83"/>
+        <location line="+85"/>
         <source>AVERTISSEMENT : SUPPRESSION DÉFINITIVE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3767,7 +3767,52 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+49"/>
+        <source>Contenu de la note ciblée pour destruction (Lecture seule)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Suppression</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Précédente</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Suivante</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+45"/>
+        <source>Carte %1 sur %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+56"/>
+        <source>Note #%1 · %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Note #%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Aucun enregistrement à prévisualiser.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Contenu de la note introuvable ou déjà supprimé.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
         <source>Aucune justification fournie par l&apos;agent.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3777,7 +3822,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+20"/>
         <source>Paquet ciblé : &apos;%1&apos;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3787,7 +3832,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+10"/>
         <source>Cartes vides ciblées : %1 carte(s) dans le paquet &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3802,13 +3847,18 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+11"/>
         <source>Notes ciblées : %1 note(s) (IDs: %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Cartes filles associées qui seront supprimées : %1 carte(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Ce paquet ne contient aucune carte.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

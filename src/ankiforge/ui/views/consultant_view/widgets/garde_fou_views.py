@@ -9,6 +9,7 @@ Fournit les 4 vues dédiées intégrées dans le QStackedWidget polymorphe :
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -23,10 +24,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import CardModel, DeckModel, StagedPatchModel
+from ankiforge.database.models import (
+    CardModel,
+    DeckModel,
+    NoteModel,
+    NoteVersionModel,
+    StagedPatchModel,
+)
 from ankiforge.services.ai.staged_patch_registry import staged_payload_of
-from ankiforge.ui.components import Badge
+from ankiforge.ui.components import Badge, SecondaryButton, StyledComboBox
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.tags import split_tag_tokens
@@ -470,19 +478,21 @@ class TagDiffWidget(QWidget):
 
 
 class DeletionImpactWidget(QWidget):
-    """Vue de détail polymorphe avec bannière rouge vif et décompte d'impact (card_delete, deck_delete)."""
+    """Vue de détail polymorphe avec bannière rouge vif, décompte d'impact et aperçu de carte supprimée."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._patch: StagedPatchModel | None = None
+        self._preview_items: list[tuple[int | None, str]] = []
+        self._current_index: int = 0
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
-        # Bannière rouge vif d'avertissement critique
+        # ── 1. Bannière rouge vif d'avertissement critique ─────────────
         self.alert_banner = QFrame()
         self.alert_banner.setStyleSheet(f"""
             QFrame {{
@@ -514,9 +524,9 @@ class DeletionImpactWidget(QWidget):
         banner_layout.addLayout(banner_text_layout, 1)
         layout.addWidget(self.alert_banner)
 
-        # Cadre de décompte d'impact
-        impact_frame = QFrame()
-        impact_frame.setStyleSheet(f"""
+        # ── 2. Cadre de décompte d'impact ──────────────────────────────
+        self.impact_frame = QFrame()
+        self.impact_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -524,9 +534,9 @@ class DeletionImpactWidget(QWidget):
                 padding: 10px;
             }}
         """)
-        self.impact_layout = QVBoxLayout(impact_frame)
-        self.impact_layout.setContentsMargins(10, 10, 10, 10)
-        self.impact_layout.setSpacing(8)
+        self.impact_layout = QVBoxLayout(self.impact_frame)
+        self.impact_layout.setContentsMargins(10, 8, 10, 8)
+        self.impact_layout.setSpacing(6)
 
         lbl_impact_header = QLabel(tr("Détail de l'impact calculé :"))
         lbl_impact_header.setStyleSheet(f"font-size: 12px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
@@ -552,8 +562,185 @@ class DeletionImpactWidget(QWidget):
         self.lbl_reason.setWordWrap(True)
         self.impact_layout.addWidget(self.lbl_reason)
 
-        layout.addWidget(impact_frame)
-        layout.addStretch()
+        layout.addWidget(self.impact_frame)
+
+        # ── 3. Conteneur d'aperçu de la carte ciblée pour destruction ──
+        self.preview_card = QFrame()
+        self.preview_card.setObjectName("DeletionPreviewCard")
+        self.preview_card.setStyleSheet(f"""
+            QFrame#DeletionPreviewCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+            }}
+        """)
+        preview_card_layout = QVBoxLayout(self.preview_card)
+        preview_card_layout.setContentsMargins(8, 8, 8, 8)
+        preview_card_layout.setSpacing(6)
+
+        # 3a. Bandeau d'affordance de suppression
+        preview_header = QHBoxLayout()
+        preview_header.setContentsMargins(0, 0, 0, 0)
+        preview_header.setSpacing(8)
+
+        ico_trash = QLabel()
+        ico_trash.setPixmap(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED).pixmap(16, 16))
+        preview_header.addWidget(ico_trash)
+
+        self.lbl_preview_title = QLabel(tr("Contenu de la note ciblée pour destruction (Lecture seule)"))
+        self.lbl_preview_title.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_RED_TEXT};")
+        preview_header.addWidget(self.lbl_preview_title)
+        preview_header.addStretch()
+
+        self.lbl_preview_badge = Badge(tr("Suppression"), variant="danger")
+        preview_header.addWidget(self.lbl_preview_badge)
+
+        preview_card_layout.addLayout(preview_header)
+
+        # 3b. Barre de navigation séquentielle (lot ou échantillon)
+        self.nav_widget = QWidget()
+        self.nav_widget.setVisible(False)
+        nav_row = QHBoxLayout(self.nav_widget)
+        nav_row.setContentsMargins(0, 0, 0, 0)
+        nav_row.setSpacing(6)
+
+        self.btn_nav_prev = SecondaryButton(tr("Précédente"))
+        self.btn_nav_prev.setIcon(load_phosphor_icon("ph.caret-left", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_nav_prev.setFixedHeight(26)
+        self.btn_nav_prev.clicked.connect(self._go_prev)
+        nav_row.addWidget(self.btn_nav_prev)
+
+        self.combo_nav = StyledComboBox()
+        self.combo_nav.setFixedHeight(26)
+        self.combo_nav.setMinimumWidth(220)
+        self.combo_nav.currentIndexChanged.connect(self._on_combo_index_changed)
+        nav_row.addWidget(self.combo_nav)
+
+        self.btn_nav_next = SecondaryButton(tr("Suivante"))
+        self.btn_nav_next.setIcon(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_nav_next.setFixedHeight(26)
+        self.btn_nav_next.clicked.connect(self._go_next)
+        nav_row.addWidget(self.btn_nav_next)
+
+        self.lbl_nav_pos = QLabel()
+        self.lbl_nav_pos.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
+        nav_row.addWidget(self.lbl_nav_pos)
+
+        nav_row.addStretch()
+        preview_card_layout.addWidget(self.nav_widget)
+
+        # 3c. CardPreviewWidget
+        self.preview_widget = CardPreviewWidget(parent=self, show_header=True)
+        self.preview_widget.setMinimumHeight(240)
+        preview_card_layout.addWidget(self.preview_widget, 1)
+
+        layout.addWidget(self.preview_card, 1)
+
+    def _go_prev(self) -> None:
+        if self._current_index > 0:
+            self._current_index -= 1
+            self._update_nav_state()
+
+    def _go_next(self) -> None:
+        if self._current_index < len(self._preview_items) - 1:
+            self._current_index += 1
+            self._update_nav_state()
+
+    def _on_combo_index_changed(self, index: int) -> None:
+        if 0 <= index < len(self._preview_items) and index != self._current_index:
+            self._current_index = index
+            self._update_nav_state()
+
+    def _update_nav_state(self) -> None:
+        total = len(self._preview_items)
+        if total == 0:
+            self.nav_widget.setVisible(False)
+            self._display_note_preview(None)
+            return
+
+        self.nav_widget.setVisible(total > 1)
+        self.btn_nav_prev.setEnabled(self._current_index > 0)
+        self.btn_nav_next.setEnabled(self._current_index < total - 1)
+        self.lbl_nav_pos.setText(tr("Carte %1 sur %2", self._current_index + 1, total))
+
+        self.combo_nav.blockSignals(True)
+        self.combo_nav.setCurrentIndex(self._current_index)
+        self.combo_nav.blockSignals(False)
+
+        current_note_id = self._preview_items[self._current_index][0]
+        self._display_note_preview(current_note_id)
+
+    @staticmethod
+    def _resolve_note(note_id: int | None) -> NoteModel | None:
+        """Résout une note par son identifiant propre ou par l'identifiant d'une carte fille."""
+        if note_id is None:
+            return None
+        note = NoteModel.get_or_none(NoteModel.id == note_id)
+        if note:
+            return note
+        card = CardModel.get_or_none(CardModel.id == note_id)
+        if card and card.note:
+            return card.note
+        return None
+
+    @staticmethod
+    def _extract_active_fields(note: NoteModel) -> dict[str, str]:
+        """Extrait les champs de la version active d'une note."""
+        active_v = note.versions.where(NoteVersionModel.is_active).first()
+        if not active_v or not active_v.content:
+            return {}
+        try:
+            data = json.loads(active_v.content)
+            return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _extract_payload_fallback_fields(self) -> dict[str, str] | None:
+        """Extrait les champs de repli depuis le payload staged si la note a déjà disparu de la base."""
+        if not self._patch:
+            return None
+        payload = staged_payload_of(self._patch)
+        original = payload.get("original") or payload.get("fields") or {}
+        if not isinstance(original, dict) or not original:
+            return None
+        raw_fields = original.get("fields") if isinstance(original.get("fields"), dict) else original
+        if isinstance(raw_fields, dict):
+            return {str(k): str(v) for k, v in raw_fields.items()}
+        return None
+
+    def _build_item_label(self, note_id: int) -> str:
+        note = self._resolve_note(note_id)
+        summary = ""
+        if note:
+            fields = self._extract_active_fields(note)
+            if fields:
+                summary = next(iter(fields.values())).replace("\n", " ")[:25]
+
+        if summary:
+            return tr("Note #%1 · %2", note_id, summary)
+        return tr("Note #%1", note_id)
+
+    def _display_note_preview(self, note_id: int | None) -> None:
+        if note_id is None:
+            self.preview_widget.set_empty_state(tr("Aucun enregistrement à prévisualiser."))
+            return
+
+        note = self._resolve_note(note_id)
+        if note:
+            fields = self._extract_active_fields(note)
+            self.preview_widget.update_preview(note_type=note.note_type, fields_dict=fields)
+            return
+
+        fallback_fields = self._extract_payload_fallback_fields()
+        if fallback_fields is not None:
+            self.preview_widget.update_preview(
+                note_type=None,
+                fields_dict=fallback_fields,
+                override_templates=[{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}],
+            )
+            return
+
+        self.preview_widget.set_empty_state(tr("Contenu de la note introuvable ou déjà supprimé."))
 
     def set_patch(self, patch: StagedPatchModel) -> None:
         """Injecte les données d'impact pour la suppression."""
@@ -564,7 +751,10 @@ class DeletionImpactWidget(QWidget):
         reason = str(payload.get("reason") or tr("Aucune justification fournie par l'agent."))
         self.lbl_reason.setText(tr("Motif formulé par l'agent : %1", reason))
 
-        if p_type in ("deck_delete", "delete_deck"):
+        self._preview_items.clear()
+        self._current_index = 0
+
+        if p_type in ("deck_delete", "delete_deck", "propose_deck_deletion"):
             from ankiforge.repositories.deck_repository import DeckRepository
 
             deck_name = str(payload.get("deck_name") or payload.get("deck") or "")
@@ -572,11 +762,20 @@ class DeletionImpactWidget(QWidget):
             if deck:
                 repo = DeckRepository()
                 descendant_ids = [d.id for d in repo.get_descendant_decks(deck.name)]
+                sample_cards = list(CardModel.select().where(CardModel.deck.in_(descendant_ids)).limit(5))
                 card_count = CardModel.select().where(CardModel.deck.in_(descendant_ids)).count()
+                sample_note_ids = list(dict.fromkeys(c.note_id for c in sample_cards if c.note_id))
             else:
                 card_count = int(payload.get("cards_count") or 0)
+                sample_note_ids = []
+
             self.lbl_target_info.setText(tr("Paquet ciblé : '%1'", deck_name))
             self.lbl_cards_count.setText(tr("Cartes contenues qui seront détruites ou déplacées : %1 carte(s)", card_count))
+
+            for n_id in sample_note_ids:
+                label = self._build_item_label(n_id)
+                self._preview_items.append((n_id, label))
+
         elif p_type in ("empty_cards_delete", "delete_empty_cards"):
             card_ids = payload.get("card_ids") or []
             deck_name = str(payload.get("deck_name") or "")
@@ -585,11 +784,34 @@ class DeletionImpactWidget(QWidget):
             else:
                 self.lbl_target_info.setText(tr("Cartes vides ciblées : %1 carte(s)", len(card_ids)))
             self.lbl_cards_count.setText(tr("Cartes physiques sans recto qui seront purgées : %1 carte(s)", len(card_ids)))
+
+            sample_cards = list(CardModel.select().where(CardModel.id.in_(card_ids)).limit(10))
+            sample_note_ids = list(dict.fromkeys(c.note_id for c in sample_cards if c.note_id))
+            for n_id in sample_note_ids:
+                label = self._build_item_label(n_id)
+                self._preview_items.append((n_id, label))
+
         else:
             note_ids = payload.get("note_ids") or ([patch.target_id] if patch.target_id else [])
             cards_affected = CardModel.select().where(CardModel.note_id.in_(note_ids)).count() if note_ids else 1
             self.lbl_target_info.setText(tr("Notes ciblées : %1 note(s) (IDs: %2)", len(note_ids), ", ".join(str(i) for i in note_ids[:5])))
             self.lbl_cards_count.setText(tr("Cartes filles associées qui seront supprimées : %1 carte(s)", cards_affected))
+
+            for n_id in note_ids:
+                label = self._build_item_label(n_id)
+                self._preview_items.append((n_id, label))
+
+        self.combo_nav.blockSignals(True)
+        self.combo_nav.clear()
+        for _, lbl in self._preview_items:
+            self.combo_nav.addItem(lbl)
+        self.combo_nav.blockSignals(False)
+
+        if not self._preview_items and p_type in ("deck_delete", "delete_deck", "propose_deck_deletion"):
+            self.nav_widget.setVisible(False)
+            self.preview_widget.set_empty_state(tr("Ce paquet ne contient aucune carte."))
+        else:
+            self._update_nav_state()
 
     def get_reason(self) -> str:
         """Retourne le texte affiché du motif de suppression."""
@@ -599,6 +821,11 @@ class DeletionImpactWidget(QWidget):
         if not self._patch:
             return {}
         return dict(staged_payload_of(self._patch))
+
+    def cleanup(self) -> None:
+        """Libère les ressources WebEngine de la vue d'aperçu."""
+        if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "cleanup"):
+            self.preview_widget.cleanup()
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les couleurs de l'alerte de suppression au profil de thème."""
@@ -612,3 +839,24 @@ class DeletionImpactWidget(QWidget):
                 padding: 10px;
             }}
         """)
+        if hasattr(self, "preview_card"):
+            border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+            bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
+            self.preview_card.setStyleSheet(f"""
+                QFrame#DeletionPreviewCard {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_color};
+                    border-radius: 6px;
+                }}
+            """)
+        if hasattr(self, "impact_frame"):
+            border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+            bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+            self.impact_frame.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-radius: 6px;
+                    padding: 10px;
+                }}
+            """)
