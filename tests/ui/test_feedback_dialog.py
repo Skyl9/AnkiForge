@@ -14,6 +14,7 @@ from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
+from ankiforge.ui.components.buttons import SecondaryButton
 from ankiforge.ui.dialogs.feedback_dialog import FeedbackDialog
 from ankiforge.ui.theme import DesignTokens
 
@@ -195,3 +196,19 @@ class TestFeedbackDialog:
             assert dialog.btn_open_crash_log is not None
             dialog.btn_open_crash_log.click()
             assert mock_open_url.called
+
+    def test_close_button_present_visible_and_closes_dialog(self, qtbot: QtBot) -> None:
+        """Vérifie la présence, la visibilité et l'action de fermeture du bouton Fermer."""
+        dialog = FeedbackDialog(tab="bug")
+        qtbot.addWidget(dialog)
+        dialog.show()
+
+        assert hasattr(dialog, "btn_close")
+        assert isinstance(dialog.btn_close, SecondaryButton)
+        assert dialog.btn_close.text() == "Fermer"
+        assert dialog.btn_close.isVisible()
+        assert dialog.btn_close.toolTip() == "Fermer cette fenêtre sans transmettre (Échap)"
+
+        assert dialog.isVisible()
+        dialog.btn_close.click()
+        assert dialog.isHidden()

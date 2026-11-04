@@ -120,9 +120,9 @@ class CrashReportDialog(QDialog):
 
         header_layout.addLayout(title_col, stretch=1)
 
-        btn_close = IconButton("ph.x", tooltip=self.tr("Fermer (Échap)"), size=26)
-        btn_close.clicked.connect(self._on_ignore_clicked)
-        header_layout.addWidget(btn_close)
+        self.btn_close = IconButton("ph.x", tooltip=self.tr("Fermer (Échap)"), size=26)
+        self.btn_close.clicked.connect(self._on_ignore_clicked)
+        header_layout.addWidget(self.btn_close)
 
         root_layout.addWidget(header_widget)
 
@@ -230,8 +230,8 @@ class CrashReportDialog(QDialog):
         footer_layout.addStretch(1)
 
         # Côté Droit : Ignorer et Transmettre
-        self.btn_ignore = SecondaryButton(self.tr("Ignorer"))
-        self.btn_ignore.setToolTip(self.tr("Fermer cette invite sans transmettre le rapport"))
+        self.btn_ignore = SecondaryButton(self.tr("Fermer"))
+        self.btn_ignore.setToolTip(self.tr("Fermer cette invite sans transmettre le rapport (Échap)"))
         apply_compact_style(self.btn_ignore, height=32)
         self.btn_ignore.clicked.connect(self._on_ignore_clicked)
         footer_layout.addWidget(self.btn_ignore)
@@ -329,11 +329,21 @@ class CrashReportDialog(QDialog):
         self.close()
 
     def _on_ignore_clicked(self) -> None:
-        """Ferme la modale et marque l'incident comme acquitté."""
-        CrashReporterService.acknowledge_crash(self.crash_info)
+        """Ferme la modale et marque l'incident comme acquitté.
+
+        L'acquittement ne doit jamais bloquer la fermeture de la modale :
+        si acknowledge_crash ou set_prompt_enabled lève, on loggue et on ferme quand même.
+        """
+        try:
+            CrashReporterService.acknowledge_crash(self.crash_info)
+        except Exception as exc:  # pragma: no cover - défensif
+            logger.debug("Échec de l'acquittement du crash : %s", exc)
         if self.chk_dont_ask.isChecked():
-            CrashReporterService.set_prompt_enabled(False)
-        self.close()
+            try:
+                CrashReporterService.set_prompt_enabled(False)
+            except Exception as exc:  # pragma: no cover - défensif
+                logger.debug("Échec de la désactivation du prompt crash : %s", exc)
+        self.hide()
 
     def reject(self) -> None:
         """Ferme la modale et marque l'incident comme acquitté sur Échap."""

@@ -176,6 +176,12 @@ class FeedbackDialog(QDialog):
         self.btn_kofi.clicked.connect(self._on_kofi_clicked)
         footer_layout.addWidget(self.btn_kofi)
 
+        self.btn_close = SecondaryButton(self.tr("Fermer"))
+        self.btn_close.setToolTip(self.tr("Fermer cette fenêtre sans transmettre (Échap)"))
+        self.btn_close.setFixedHeight(32)
+        self.btn_close.clicked.connect(self.close)
+        footer_layout.addWidget(self.btn_close)
+
         self.btn_github = PrimaryButton("🚀 Ouvrir sur GitHub Issues ↗")
         self.btn_github.setToolTip(self.tr("Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis"))
         self.btn_github.setFixedHeight(32)

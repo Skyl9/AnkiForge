@@ -475,12 +475,12 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location filename="../../ui/components/sidebar.py" line="+54"/>
-        <location line="+9"/>
+        <location line="+13"/>
         <source>  %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+36"/>
+        <location line="+38"/>
         <source>Profil : %1 (Changer de profil)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -976,7 +976,7 @@ Le document `%1` n&apos;a pas pu être chargé.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="+270"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="+276"/>
         <source>Profil : %1 · %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1371,7 +1371,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
     <message>
         <location line="+5"/>
         <location line="+261"/>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1275"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1276"/>
         <location filename="../../ui/widgets/card_create_view_widget.py" line="-65"/>
         <source>Paquet : %1</source>
         <translation type="unfinished"></translation>
@@ -3124,7 +3124,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+60"/>
         <source>✅ %1 fiches Anki synchronisées via les tags sur l&apos;ensemble des cours !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9116,7 +9116,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AISourcesDiagnosticTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-308"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-322"/>
         <source>Rechercher un document ou cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9201,8 +9201,13 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+218"/>
-        <source>Synchronisation des fiches Anki pour l&apos;ensemble des cours...</source>
+        <location line="+223"/>
+        <source>Synchronisation des fiches Anki pour l&apos;ensemble des cours en cours...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>Échec de l&apos;alignement global : %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -11936,12 +11941,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+12"/>
-        <source>Ignorer</source>
+        <source>Fermer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <source>Fermer cette invite sans transmettre le rapport</source>
+        <source>Fermer cette invite sans transmettre le rapport (Échap)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13409,7 +13414,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentInspectorPanel</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1586"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1610"/>
         <source>Retourner à la liste générale des documents</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15211,7 +15216,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>FeedbackDialog</name>
     <message>
-        <location filename="../../ui/dialogs/feedback_dialog.py" line="-565"/>
+        <location filename="../../ui/dialogs/feedback_dialog.py" line="-571"/>
         <source>Retours &amp; Suggestions AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15256,7 +15261,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+6"/>
+        <source>Fermer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Fermer cette fenêtre sans transmettre (Échap)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
         <source>Ouvrir GitHub dans le navigateur avec le ticket et les diagnostics pré-remplis</source>
         <translation type="unfinished"></translation>
     </message>

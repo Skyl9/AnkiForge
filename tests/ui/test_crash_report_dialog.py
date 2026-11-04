@@ -199,3 +199,45 @@ class TestCrashReportDialog:
             # Vérifier que le changement d'état appelle set_prompt_enabled(False)
             assert mock_set_prompt.called
             assert mock_set_prompt.call_args[0][0] is False
+
+    def test_ignore_button_libelle_claire_fermer(self, qtbot: QtBot, sample_crash_report: CrashReport) -> None:
+        """Vérifie que le bouton d'abandon porte le libellé clair 'Fermer' et son tooltip explicite."""
+        dialog = CrashReportDialog(crash_info=sample_crash_report)
+        qtbot.addWidget(dialog)
+
+        assert dialog.btn_ignore.text() == "Fermer"
+        assert dialog.btn_ignore.toolTip() == "Fermer cette invite sans transmettre le rapport (Échap)"
+
+    def test_croix_ferme_dialog(self, qtbot: QtBot, sample_crash_report: CrashReport) -> None:
+        """Vérifie que la croix de fermeture (en-tête) ferme la dialog."""
+        dialog = CrashReportDialog(crash_info=sample_crash_report)
+        qtbot.addWidget(dialog)
+        dialog.show()
+
+        assert dialog.isVisible()
+        dialog.btn_close.click()
+        assert dialog.isHidden()
+
+    def test_bouton_fermer_ferme_dialog(self, qtbot: QtBot, sample_crash_report: CrashReport) -> None:
+        """Vérifie que le bouton 'Fermer' du footer ferme la dialog."""
+        dialog = CrashReportDialog(crash_info=sample_crash_report)
+        qtbot.addWidget(dialog)
+        dialog.show()
+
+        assert dialog.isVisible()
+        dialog.btn_ignore.click()
+        assert dialog.isHidden()
+
+    def test_fermer_dialog_meme_si_acknowledge_echec(self, qtbot: QtBot, sample_crash_report: CrashReport) -> None:
+        """Vérifie que la dialog se ferme même si acknowledge_crash lève une exception."""
+        dialog = CrashReportDialog(crash_info=sample_crash_report)
+        qtbot.addWidget(dialog)
+        dialog.show()
+
+        with patch(
+            "ankiforge.services.crash_reporter_service.CrashReporterService.acknowledge_crash",
+            side_effect=RuntimeError("boom"),
+        ):
+            dialog.btn_ignore.click()
+
+        assert dialog.isHidden()
