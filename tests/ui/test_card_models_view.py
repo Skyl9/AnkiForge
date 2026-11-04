@@ -431,6 +431,107 @@ def test_snippet_card_click_opens_detail_and_insert_at_cursor(qtbot):
     assert insert_signals[0].id == snippet.id
 
 
+def test_snippet_card_action_buttons_hidden_by_default_revealed_on_hover(qtbot):
+    """Les boutons d'action rapide (Insérer / Inspecter) sont masqués par défaut et révélés au survol de la carte."""
+    from PySide6.QtCore import QEvent, QPointF
+    from PySide6.QtGui import QEnterEvent
+
+    from ankiforge.services.cards.snippet_library import SnippetLibrary
+    from ankiforge.ui.components.snippet_drawer import SnippetCardWidget
+
+    snippet = SnippetLibrary.get_by_id("callout_info")
+    assert snippet is not None
+
+    card = SnippetCardWidget(snippet)
+    qtbot.addWidget(card)
+    card.show()
+
+    # Masqués par défaut (mode discret)
+    assert card.btn_insert.isHidden()
+    assert card.btn_edit.isHidden()
+
+    # Survol : révélation
+    enter_ev = QEnterEvent(QPointF(10, 10), QPointF(10, 10), QPointF(10, 10))
+    card.enterEvent(enter_ev)
+    assert not card.btn_insert.isHidden()
+    assert not card.btn_edit.isHidden()
+
+    # Sortie du survol : re-masquage
+    leave_ev = QEvent(QEvent.Type.Leave)
+    card.leaveEvent(leave_ev)
+    assert card.btn_insert.isHidden()
+    assert card.btn_edit.isHidden()
+
+
+def test_snippet_card_title_elided_and_no_wrap(qtbot):
+    """Le titre de la carte est en mode elision (pas de retour à la ligne) pour tenir dans une sidebar étroite."""
+    from ankiforge.services.cards.snippet_library import SnippetLibrary
+    from ankiforge.ui.components.snippet_drawer import SnippetCardWidget
+
+    snippet = SnippetLibrary.get_by_id("callout_info")
+    card = SnippetCardWidget(snippet)
+    qtbot.addWidget(card)
+
+    assert card.title_lbl is not None
+    assert card.title_lbl.wordWrap() is False
+
+
+def test_snippet_drawer_detail_header_compact_icon_buttons(qtbot):
+    """L'en-tête de la vue détail remplace Retour/Supprimer par des IconButton compacts 24px avec tooltips."""
+    from ankiforge.ui.components.buttons import IconButton
+    from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
+
+    drawer = SnippetLibraryDrawer()
+    qtbot.addWidget(drawer)
+    drawer._open_detail_view(SnippetLibrary.get_by_id("callout_info"))
+
+    detail_widget = drawer.stack.widget(1)
+    icon_buttons = detail_widget.findChildren(IconButton)
+    by_icon = {b.icon_name: b for b in icon_buttons}
+
+    assert "ph.arrow-left" in by_icon
+    assert "ph.trash" in by_icon
+    btn_back = by_icon["ph.arrow-left"]
+    btn_del = by_icon["ph.trash"]
+    assert btn_back.width() == 24 and btn_back.height() == 24
+    assert btn_del.width() == 24 and btn_del.height() == 24
+    assert btn_back.toolTip()
+    assert btn_del.toolTip()
+
+
+def test_snippet_drawer_create_header_compact_cancel(qtbot):
+    """L'en-tête de la vue création remplace Annuler par un IconButton compact 24px avec tooltip."""
+    from ankiforge.ui.components.buttons import IconButton
+    from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
+
+    drawer = SnippetLibraryDrawer()
+    qtbot.addWidget(drawer)
+    drawer._open_create_view()
+
+    create_widget = drawer.stack.widget(2)
+    cancel_btn = next((b for b in create_widget.findChildren(IconButton) if b.icon_name == "ph.arrow-left"), None)
+    assert cancel_btn is not None
+    assert cancel_btn.width() == 24 and cancel_btn.height() == 24
+    assert "annuler" in cancel_btn.toolTip().lower()
+
+
+def test_snippet_drawer_form_cards_reduced_padding(qtbot):
+    """Les cartes métadonnées et code des formulaires détail/création allègent leurs marges internes."""
+    from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
+
+    drawer = SnippetLibraryDrawer()
+    qtbot.addWidget(drawer)
+    drawer._open_detail_view(SnippetLibrary.get_by_id("callout_info"))
+
+    detail_widget = drawer.stack.widget(1)
+    meta_card = detail_widget.findChild(QFrame, "detailMetaCard")
+    code_card = detail_widget.findChild(QFrame, "detailCodeCard")
+    assert meta_card is not None
+    assert code_card is not None
+    assert meta_card.layout().contentsMargins().left() == 8
+    assert code_card.layout().contentsMargins().left() == 8
+
+
 def test_card_models_view_cursor_linked_insertion(qtbot, mock_db):
     """Vérifie que l'insertion de snippet s'effectue précisément à la position du curseur dans l'éditeur actif."""
     from ankiforge.services.cards.snippet_library import SnippetLibrary
