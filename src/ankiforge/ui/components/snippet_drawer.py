@@ -6,8 +6,6 @@ sans modale (navigation Master-Detail & In-Place Form intégrée avec relief tac
 
 from __future__ import annotations
 
-from typing import Any
-
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
@@ -23,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.services.cards.snippet_library import SnippetItem, SnippetLibrary
-from ankiforge.ui.components.buttons import DangerButton, IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.code_editor import CodeEditorWithGutter
 from ankiforge.ui.components.flow_layout import FlowWidget
 from ankiforge.ui.components.inputs import GlowLineEdit, StyledLineEdit
@@ -74,19 +72,21 @@ class SnippetCardWidget(QFrame):
         icon_lbl.setStyleSheet("border: none; background: transparent;")
         header_layout.addWidget(icon_lbl)
 
-        title_lbl = QLabel(snippet.name)
-        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
-        title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        title_lbl.setWordWrap(True)
-        header_layout.addWidget(title_lbl, 1)
+        self.title_lbl = QLabel(snippet.name)
+        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+        self.title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.title_lbl.setWordWrap(False)
+        header_layout.addWidget(self.title_lbl, 1)
 
         self.btn_insert = IconButton("ph.plus", tooltip=self.tr("Insérer dans le code au curseur"), size=18)
         self.btn_insert.clicked.connect(lambda: self.insert_requested.emit(self.snippet))
+        self.btn_insert.hide()
         header_layout.addWidget(self.btn_insert)
 
-        btn_edit = IconButton("ph.caret-right", tooltip=self.tr("Inspecter et modifier le snippet"), size=18)
-        btn_edit.clicked.connect(lambda: self.edit_requested.emit(self.snippet))
-        header_layout.addWidget(btn_edit)
+        self.btn_edit = IconButton("ph.caret-right", tooltip=self.tr("Inspecter et modifier le snippet"), size=18)
+        self.btn_edit.clicked.connect(lambda: self.edit_requested.emit(self.snippet))
+        self.btn_edit.hide()
+        header_layout.addWidget(self.btn_edit)
         layout.addLayout(header_layout)
 
         # Ligne 2 : Description courte
@@ -101,6 +101,18 @@ class SnippetCardWidget(QFrame):
         if event.button() == Qt.MouseButton.LeftButton:
             self.edit_requested.emit(self.snippet)
         super().mousePressEvent(event)
+
+    def enterEvent(self, event) -> None:
+        """Révèle les boutons d'action rapide au survol de la carte (mode discret dans une sidebar étroite)."""
+        self.btn_insert.show()
+        self.btn_edit.show()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        """Re-masque les boutons d'action rapide à la sortie du survol."""
+        self.btn_insert.hide()
+        self.btn_edit.hide()
+        super().leaveEvent(event)
 
 
 class SnippetLibraryDrawer(QWidget):
@@ -332,20 +344,19 @@ class SnippetLibraryDrawer(QWidget):
         top_bar.setContentsMargins(0, 0, 0, 0)
         top_bar.setSpacing(6)
 
-        btn_back = SecondaryButton("Retour")
-        btn_back.setIcon(load_phosphor_icon("ph.arrow-left", color=DesignTokens.TEXT_PRIMARY))
-        btn_back.setFixedHeight(28)
+        btn_back = IconButton("ph.arrow-left", tooltip=self.tr("Retour à la liste des snippets"), size=24)
         btn_back.clicked.connect(self._return_to_list)
         top_bar.addWidget(btn_back)
 
         lbl_detail_title = QLabel(self.tr("DÉTAIL DU SNIPPET"))
         lbl_detail_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        lbl_detail_title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        lbl_detail_title.setWordWrap(False)
         top_bar.addWidget(lbl_detail_title)
         top_bar.addStretch()
 
-        self.btn_detail_delete = DangerButton(tr("Supprimer"), ghost=True)
+        self.btn_detail_delete = IconButton("ph.trash", tooltip=self.tr("Supprimer le snippet actuel"), size=24)
         self.btn_detail_delete.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
-        self.btn_detail_delete.setFixedHeight(28)
         self.btn_detail_delete.clicked.connect(self._delete_current_detail_snippet)
         top_bar.addWidget(self.btn_detail_delete)
 
@@ -374,7 +385,7 @@ class SnippetLibraryDrawer(QWidget):
             }}
         """)
         meta_layout = QVBoxLayout(meta_card)
-        meta_layout.setContentsMargins(10, 10, 10, 10)
+        meta_layout.setContentsMargins(8, 8, 8, 8)
         meta_layout.setSpacing(6)
 
         lbl_meta_hdr = QLabel(self.tr("INFORMATIONS GÉNÉRALES"))
@@ -437,7 +448,7 @@ class SnippetLibraryDrawer(QWidget):
             }}
         """)
         code_layout = QVBoxLayout(code_card)
-        code_layout.setContentsMargins(10, 10, 10, 10)
+        code_layout.setContentsMargins(8, 8, 8, 8)
         code_layout.setSpacing(6)
 
         # En-tête avec switcher HTML / CSS
@@ -465,14 +476,14 @@ class SnippetLibraryDrawer(QWidget):
             placeholder=self.tr('<div class="custom-card">\n  {{Champ}}\n</div>'),
             mode="html",
         )
-        self.detail_html_editor.setFixedHeight(140)
+        self.detail_html_editor.setFixedHeight(110)
         self.detail_code_stack.addWidget(self.detail_html_editor)
 
         self.detail_css_editor = CodeEditorWithGutter(
             placeholder=self.tr(".custom-card {\n  margin: 10px 0;\n  padding: 12px;\n}"),
             mode="css",
         )
-        self.detail_css_editor.setFixedHeight(140)
+        self.detail_css_editor.setFixedHeight(110)
         self.detail_code_stack.addWidget(self.detail_css_editor)
 
         code_layout.addWidget(self.detail_code_stack)
@@ -569,14 +580,14 @@ class SnippetLibraryDrawer(QWidget):
         top_bar.setContentsMargins(0, 0, 0, 0)
         top_bar.setSpacing(6)
 
-        btn_cancel = SecondaryButton("Annuler")
-        btn_cancel.setIcon(load_phosphor_icon("ph.arrow-left", color=DesignTokens.TEXT_PRIMARY))
-        btn_cancel.setFixedHeight(28)
+        btn_cancel = IconButton("ph.arrow-left", tooltip=self.tr("Annuler et retourner à la liste"), size=24)
         btn_cancel.clicked.connect(self._return_to_list)
         top_bar.addWidget(btn_cancel)
 
         lbl_create_title = QLabel(self.tr("NOUVEAU SNIPPET"))
         lbl_create_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        lbl_create_title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        lbl_create_title.setWordWrap(False)
         top_bar.addWidget(lbl_create_title)
         top_bar.addStretch()
 
@@ -605,7 +616,7 @@ class SnippetLibraryDrawer(QWidget):
             }}
         """)
         meta_layout = QVBoxLayout(meta_card)
-        meta_layout.setContentsMargins(10, 10, 10, 10)
+        meta_layout.setContentsMargins(8, 8, 8, 8)
         meta_layout.setSpacing(6)
 
         lbl_meta_hdr = QLabel(self.tr("INFORMATIONS GÉNÉRALES"))
@@ -670,7 +681,7 @@ class SnippetLibraryDrawer(QWidget):
             }}
         """)
         code_layout = QVBoxLayout(code_card)
-        code_layout.setContentsMargins(10, 10, 10, 10)
+        code_layout.setContentsMargins(8, 8, 8, 8)
         code_layout.setSpacing(6)
 
         # En-tête switcher
@@ -698,14 +709,17 @@ class SnippetLibraryDrawer(QWidget):
             placeholder=self.tr('<div class="af-custom-box">\n  <div class="af-custom-title">Titre</div>\n  <div class="af-custom-body">{{Contenu}}</div>\n</div>'),
             mode="html",
         )
-        self.create_html_editor.setFixedHeight(140)
+        self.create_html_editor.setFixedHeight(110)
         self.create_code_stack.addWidget(self.create_html_editor)
 
         self.create_css_editor = CodeEditorWithGutter(
-            placeholder=self.tr(".af-custom-box {\n  margin: 12px 0;\n  padding: 10px;\n  border-radius: 8px;\n  background: rgba(99, 102, 241, 0.1);\n}"),
+            placeholder=tr(
+                ".af-custom-box {\n  margin: 12px 0;\n  padding: 10px;\n  border-radius: 8px;\n  background: %1;\n}",
+                DesignTokens.ACCENT_BG,
+            ),
             mode="css",
         )
-        self.create_css_editor.setFixedHeight(140)
+        self.create_css_editor.setFixedHeight(110)
         self.create_code_stack.addWidget(self.create_css_editor)
 
         code_layout.addWidget(self.create_code_stack)
@@ -891,6 +905,6 @@ class SnippetLibraryDrawer(QWidget):
         self._rebuild_category_buttons()
         self._filter_snippets()
 
-    def refresh_theme(self, profile: Any) -> None:
+    def refresh_theme(self, profile: object) -> None:
         """Rafraîchit dynamiquement les styles de tous les sous-composants."""
         self.refresh_snippets()
