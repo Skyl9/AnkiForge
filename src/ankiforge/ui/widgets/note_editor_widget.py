@@ -615,18 +615,24 @@ class NoteFieldEditorWidget(QWidget):
             self._audio_output.setVolume(1.0)
             self._audio_output.setMuted(False)
 
-            saved_dev_name = SettingsService.get("tts.device_name")
-            if saved_dev_name and QMediaDevices is not None:
+            if QMediaDevices is not None:
+                saved_dev_name = SettingsService.get("tts.device_name")
+                selected_dev = None
                 try:
                     for dev in QMediaDevices.audioOutputs():
-                        if dev.description() == saved_dev_name:
-                            self._audio_output.setDevice(dev)
+                        if saved_dev_name and dev.description() == saved_dev_name:
+                            selected_dev = dev
                             break
+                    if not selected_dev:
+                        selected_dev = QMediaDevices.defaultAudioOutput()
+                    if selected_dev:
+                        self._audio_output.setDevice(selected_dev)
                 except (RuntimeError, AttributeError, OSError) as e:
                     logger.debug("Impossible d'assigner le périphérique audio TTS : %s", e)
 
             self._player.setAudioOutput(self._audio_output)
             self._player.playbackStateChanged.connect(self._on_playback_state_changed)
+            self._player.errorOccurred.connect(self._on_player_error)
         else:
             self._player = None
             self._audio_output = None
@@ -776,7 +782,8 @@ class NoteFieldEditorWidget(QWidget):
             show_toast(self, tr("Audio introuvable : %1", filename), is_error=True)
             return
 
-        self._player.setSource(QUrl.fromLocalFile(str(media_path)))
+        resolved_file = str(media_path.resolve())
+        self._player.setSource(QUrl.fromLocalFile(resolved_file))
         self._player.play()
 
     def _on_playback_state_changed(self, state: Any) -> None:
@@ -788,6 +795,12 @@ class NoteFieldEditorWidget(QWidget):
         else:
             self.btn_play_audio.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.ACCENT_PRIMARY))
             self.btn_play_audio.setToolTip(self.tr("Écouter la prononciation audio"))
+
+    def _on_player_error(self, error: Any, error_string: str = "") -> None:
+        """Gère les erreurs matérielles ou de codec de QMediaPlayer."""
+        err_msg = error_string or str(error)
+        logger.error("Erreur lecture audio NoteFieldEditorWidget (%s) : %s", self.field_name, err_msg)
+        show_toast(self, tr("Erreur audio : %1", err_msg), is_error=True)
 
     def _on_generate_tts(self) -> None:
         """Synthétise le texte du champ (ou la sélection) en audio via TTSService."""
