@@ -32,6 +32,7 @@ from ankiforge.repositories import PersonaRepository, PipelineRepository
 from ankiforge.services.ai.prompt_interpolator import PipelinePromptInterpolator
 from ankiforge.services.profile_content_transfer import ProfileContentTransfer
 from ankiforge.services.profile_manager import ProfileManager
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     Badge,
     IconButton,
@@ -420,7 +421,20 @@ class PipelinesView(QWidget):
         self.pipeline_combo.blockSignals(False)
 
         if self.pipeline_combo.count() > 0:
-            self.pipeline_combo.setCurrentIndex(0)
+            last_id = SettingsService.get("ui/last_viewed_pipeline_id", None)
+            target_index = 0
+            if last_id is not None:
+                try:
+                    last_id_int = int(last_id)
+                    for i in range(self.pipeline_combo.count()):
+                        p_data = self.pipeline_combo.itemData(i)
+                        if p_data and getattr(p_data, "id", None) == last_id_int:
+                            target_index = i
+                            break
+                except (ValueError, TypeError):
+                    target_index = 0
+
+            self.pipeline_combo.setCurrentIndex(target_index)
             self._on_pipeline_changed()
         else:
             self._current_pipeline = None
@@ -437,6 +451,7 @@ class PipelinesView(QWidget):
             return
 
         self._current_pipeline = selected_pipe
+        SettingsService.set("ui/last_viewed_pipeline_id", selected_pipe.id)
         self.current_steps.clear()
 
         try:

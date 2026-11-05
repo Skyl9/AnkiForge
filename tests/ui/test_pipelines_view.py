@@ -60,6 +60,32 @@ def test_pipelines_view_initialization_and_refresh(qtbot):
     assert view.current_steps[2]["config"]["human_title"] == "Validation Spécifique"
 
 
+def test_pipelines_view_restaure_dernier_pipeline_vu(qtbot):
+    """La sélection du pipeline est mémorisée et restaurée à la réouverture de la vue."""
+    PipelineModel.create(name="Pipeline Alpha")
+    PipelineModel.create(name="Pipeline Beta")
+
+    vue1 = PipelinesView()
+    qtbot.addWidget(vue1)
+
+    # Sélection par défaut : premier pipeline (Alpha)
+    assert vue1.pipeline_combo.currentText() == "Pipeline Alpha"
+    assert vue1._current_pipeline.name == "Pipeline Alpha"
+
+    # L'utilisateur sélectionne Beta : l'ID est persisté dans SettingsService
+    idx_beta = vue1.pipeline_combo.findText("Pipeline Beta")
+    assert idx_beta == 1
+    vue1.pipeline_combo.setCurrentIndex(idx_beta)
+    assert vue1._current_pipeline.name == "Pipeline Beta"
+
+    # Nouvelle instance de la vue (utilisateur revient sur l'onglet) : restauration de Beta
+    vue2 = PipelinesView()
+    qtbot.addWidget(vue2)
+
+    assert vue2.pipeline_combo.currentText() == "Pipeline Beta"
+    assert vue2._current_pipeline.name == "Pipeline Beta"
+
+
 def test_pipelines_view_add_step_and_save_with_branching(qtbot):
     """Vérifie l'ajout d'actions systèmes et d'agents avec branchements, config_data et sauvegarde Peewee."""
     p_gen = PersonaModel.create(name="Générateur Test", system_prompt="Test", output_format="json")
