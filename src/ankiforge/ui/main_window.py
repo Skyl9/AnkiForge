@@ -888,6 +888,14 @@ class MainWindow(QMainWindow):
                         real_widget.mcp_restart_requested.connect(self.restart_mcp_server)
                     if hasattr(real_widget, "mcp_rotate_token_requested"):
                         real_widget.mcp_rotate_token_requested.connect(self.rotate_mcp_token)
+                    # Resynchroniser immédiatement l'état réel du serveur MCP sur le cockpit
+                    # venant d'être instanciée (lazy-loading), afin que le reflet du tableau de
+                    # bord MCP ne reste pas figé à "Arrêté" alors que le serveur tourne déjà.
+                    current_status = self.mcp_status_widget.current_status if hasattr(self, "mcp_status_widget") else "stopped"
+                    port = getattr(self.mcp_daemon, "port", None) if self.mcp_daemon else None
+                    token = getattr(self.mcp_daemon, "token", None) if self.mcp_daemon else None
+                    if hasattr(real_widget, "mcp_dashboard"):
+                        real_widget.mcp_dashboard.set_status(current_status, port=port, token=token)
 
                 # Remplacer le placeholder par la vraie vue dans QStackedWidget
                 idx = self.stacked_widget.indexOf(current_widget)
@@ -1267,6 +1275,12 @@ class MainWindow(QMainWindow):
             self.apply_layout(saved_layout_id)
         else:
             self.engine.apply_appearance_for_profile(self.profile_name, saved_layout_id)
+
+        # Redémarrer le serveur MCP si actif pour le rattacher à la nouvelle base SQLite Peewee
+        # du profil de destination (évite de servir des requêtes sur l'ancienne base après bascule).
+        if self.mcp_daemon is not None and self.mcp_daemon.is_running:
+            logger.info("Redémarrage du serveur MCP pour rattachement au nouveau profil '%s'", new_profile)
+            self.restart_mcp_server()
 
         # 5. Réinitialiser les vues existantes : vue active immédiatement, inactives différées.
         self._reset_view_widgets()

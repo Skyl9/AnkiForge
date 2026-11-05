@@ -17,7 +17,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QWidget
 
 from ankiforge.ui.preferences_dialog import PreferencesDialog, SettingsModal
@@ -84,6 +84,30 @@ def test_mcp_status_widget_state_transitions(qtbot: Any) -> None:
     assert widget.current_status == "stopped"
     assert "Serveur MCP (Inactif)" in widget.badge.text()
     assert widget.badge.property("status") == "stopped"
+
+
+def test_mcp_status_widget_icons_by_status(qtbot: Any) -> None:
+    """Vérifie que l'icône Phosphor varie selon l'état du serveur (arrêté = débranché, pas connecté)."""
+    widget = MCPStatusWidget(initial_status="stopped", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    expected = {
+        "running": "ph.plugs-connected",
+        "stopped": "ph.stop-circle",
+        "mutating": "ph.arrows-clockwise",
+        "error": "ph.warning-circle",
+    }
+
+    with patch("ankiforge.ui.widgets.mcp_status_widget.load_phosphor_icon") as mock_icon:
+        mock_icon.return_value = QIcon()
+        for status, icon_name in expected.items():
+            mock_icon.reset_mock()
+            widget.set_status(status)
+            mock_icon.assert_called_once()
+            args, _kwargs = mock_icon.call_args
+            assert args[0] == icon_name, f"Icône attendue {icon_name} pour l'état '{status}', reçue {args[0]!r}"
+            assert widget.current_status == status
+            assert widget.badge.property("status") == status
 
 
 def test_mcp_status_widget_client_config(qtbot: Any) -> None:

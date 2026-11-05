@@ -134,27 +134,32 @@ class MCPStatusWidget(QPushButton):
         if self._status == "running":
             label = f"  Serveur MCP{port_suffix}"
             tooltip = f"Serveur MCP actif sur {self.url}\n(Legacy SSE : {self.sse_url})\nClic pour copier la configuration ou gérer le serveur"
+            icon_name = "ph.plugs-connected"
             icon_color = getattr(self._current_profile, "color_green", DesignTokens.COLOR_GREEN) if self._current_profile else DesignTokens.COLOR_GREEN
         elif self._status == "stopped":
             label = "  Serveur MCP (Inactif)"
             tooltip = f"Serveur MCP inactif (port configuré : {self._port})\nClic pour démarrer ou configurer"
+            icon_name = "ph.stop-circle"
             icon_color = getattr(self._current_profile, "text_secondary", DesignTokens.TEXT_SECONDARY) if self._current_profile else DesignTokens.TEXT_SECONDARY
         elif self._status == "mutating":
             label = "  Serveur MCP (Mutation...)"
-            tooltip = f"Traitement d'une mutation de données reçue via MCP sur le port {self._port}"
+            tooltip = f"Traitement d'une mutation de données reçues via MCP sur le port {self._port}"
+            icon_name = "ph.arrows-clockwise"
             icon_color = getattr(self._current_profile, "color_yellow", DesignTokens.COLOR_YELLOW) if self._current_profile else DesignTokens.COLOR_YELLOW
         elif self._status == "error":
             detail = f" ({self._message})" if self._message else ""
             label = "  Serveur MCP (Erreur)"
             tooltip = f"Erreur du serveur MCP{detail}\nClic pour afficher les actions ou redémarrer"
+            icon_name = "ph.warning-circle"
             icon_color = getattr(self._current_profile, "color_red", DesignTokens.COLOR_RED) if self._current_profile else DesignTokens.COLOR_RED
         else:
             label = f"  Serveur MCP ({self._status})"
             tooltip = f"État du serveur MCP : {self._status}"
+            icon_name = "ph.stop-circle"
             icon_color = getattr(self._current_profile, "text_secondary", DesignTokens.TEXT_SECONDARY) if self._current_profile else DesignTokens.TEXT_SECONDARY
 
         self._label_text = label
-        self.setIcon(load_phosphor_icon("ph.plugs-connected", color=icon_color))
+        self.setIcon(load_phosphor_icon(icon_name, color=icon_color))
 
         if self._collapsed:
             self.setText("")
