@@ -17,6 +17,9 @@ from peewee import SqliteDatabase
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
+    DocumentModel,
+    DocumentPageModel,
+    FolderModel,
     LLMConfigModel,
     MediaModel,
     NoteModel,
@@ -89,7 +92,7 @@ class ProfileContentTransfer:
 
     @staticmethod
     def list_tags(profile_name: str, profiles_dir: Path | None = None) -> list[str]:
-        """Retourne la liste dédoublée et triée de tous les tags du profil source."""
+        """Liste dédoublée et triée de tous les tags du profil source."""
         with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx([NoteModel]):
             tags_set: set[str] = set()
             for note in NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False)):
@@ -98,10 +101,53 @@ class ProfileContentTransfer:
             return sorted(tags_set)
 
     @staticmethod
+    def list_note_types(profile_name: str, profiles_dir: Path | None = None) -> list[dict[str, Any]]:
+        """Retourne la liste ordonnée des modèles de cartes du profil source."""
+        with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx([NoteTypeModel]):
+            resultats: list[dict[str, Any]] = []
+            for nt in NoteTypeModel.select().order_by(NoteTypeModel.name.asc()):
+                templates_raw = str(nt.templates or "[]")
+                try:
+                    templates_count = len(json.loads(templates_raw))
+                except Exception:
+                    templates_count = 0
+                resultats.append(
+                    {
+                        "id": nt.id,
+                        "name": str(nt.name),
+                        "description": str(nt.description or ""),
+                        "templates_count": templates_count,
+                        "fields_schema": str(nt.fields_schema),
+                        "templates": templates_raw,
+                        "css_style": str(nt.css_style or ""),
+                    }
+                )
+            return resultats
+
+    @staticmethod
+    def list_albums(profile_name: str, profiles_dir: Path | None = None) -> list[dict[str, Any]]:
+        """Retourne la liste des albums du profil source avec leurs métriques."""
+        with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx([DocumentModel, DocumentPageModel]):
+            albums: list[dict[str, Any]] = []
+            for doc in DocumentModel.select().where(DocumentModel.file_type == "album").order_by(DocumentModel.title.asc()):
+                page_count = DocumentPageModel.select().where(DocumentPageModel.document == doc).count()
+                albums.append(
+                    {
+                        "id": doc.id,
+                        "title": str(doc.title),
+                        "total_pages": page_count,
+                        "created_at": doc.created_at,
+                    }
+                )
+            return albums
+
+    @staticmethod
     def get_transfer_preview(
         source_profile: str,
         deck_names: list[str] | None = None,
         tag_names: list[str] | None = None,
+        model_names: list[str] | None = None,
+        album_ids: list[int] | None = None,
         profiles_dir: Path | None = None,
     ) -> dict[str, Any]:
         """Calcule la métrologie préalable au transfert (notes, modèles, cartes, médias et volume)."""
@@ -123,6 +169,8 @@ class ProfileContentTransfer:
             "cards_count": cards_count,
             "media_count": media_count,
             "total_media_size": total_media_size,
+            "models_count": len(model_names) if model_names else 0,
+            "albums_count": len(album_ids) if album_ids else 0,
         }
 
     @staticmethod
@@ -600,6 +648,175 @@ class ProfileContentTransfer:
                 if updates:
                     PipelineStepModel.update(updates).where(PipelineStepModel.id == created_steps[index].id).execute()
         return pipeline
+
+    @staticmethod
+    def import_note_type(
+        profile_name: str,
+        note_type_id_or_name: int | str,
+        target_profile: str | None = None,
+        profiles_dir: Path | None = None,
+    ) -> NoteTypeModel:
+        """Importe un modèle de carte depuis le profil source vers le profil cible (actif si None).
+
+        Le schéma de champs, les gabarits HTML et le CSS sont copiés fidèlement. Si un modèle
+        portant le même nom existe déjà avec un schéma différent, il est cloné sous le nom
+        déterministe « <nom> (Importé <profil>) ».
+        """
+        with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx([NoteTypeModel]):
+            source: NoteTypeModel | None = None
+            if isinstance(note_type_id_or_name, int) or (isinstance(note_type_id_or_name, str) and str(note_type_id_or_name).isdigit()):
+                source = NoteTypeModel.get_or_none(NoteTypeModel.id == int(note_type_id_or_name))
+            if source is None:
+                source = NoteTypeModel.get_or_none(NoteTypeModel.name == str(note_type_id_or_name))
+            if source is None:
+                raise ValueError(f"Modèle de carte introuvable dans le profil '{profile_name}' : {note_type_id_or_name}")
+            payload = {
+                "name": str(source.name),
+                "description": str(source.description or ""),
+                "fields_schema": str(source.fields_schema),
+                "templates": str(source.templates),
+                "css_style": str(source.css_style or ""),
+            }
+
+        target_db = ProfileContentTransfer._source_database(target_profile, profiles_dir) if target_profile is not None else NoteModel._meta.database
+        with (
+            target_db.bind_ctx([NoteTypeModel]) if target_profile is not None else nullcontext(),
+            target_db.atomic(),
+        ):
+            existing = NoteTypeModel.get_or_none(NoteTypeModel.name == payload["name"])
+            if existing is not None:
+                if ProfileContentTransfer._normalize_fields_schema(existing.fields_schema) == ProfileContentTransfer._normalize_fields_schema(payload["fields_schema"]):
+                    return existing
+                nom_cible = ProfileContentTransfer._available_name(f"{payload['name']} (Importé {profile_name})", NoteTypeModel)
+            else:
+                nom_cible = payload["name"]
+            return NoteTypeModel.create(
+                name=nom_cible,
+                description=payload["description"],
+                fields_schema=payload["fields_schema"],
+                templates=payload["templates"],
+                css_style=payload["css_style"],
+            )
+
+    @staticmethod
+    def import_album(
+        profile_name: str,
+        album_id_or_title: int | str,
+        target_profile: str | None = None,
+        profiles_dir: Path | None = None,
+    ) -> DocumentModel:
+        """Duplique atomiquement un album (document, planches et médias physiques) vers le profil cible.
+
+        Les fichiers images sont copiés dans le dossier média du profil cible avec déduplication
+        par hash MD5 (aucun écrasement destructif).
+        """
+        with ProfileContentTransfer._source_database(profile_name, profiles_dir) as source_db, source_db.bind_ctx([DocumentModel, DocumentPageModel, MediaModel]):
+            source: DocumentModel | None = None
+            if isinstance(album_id_or_title, int) or (isinstance(album_id_or_title, str) and str(album_id_or_title).isdigit()):
+                source = DocumentModel.get_or_none((DocumentModel.id == int(album_id_or_title)) & (DocumentModel.file_type == "album"))
+            if source is None:
+                source = DocumentModel.get_or_none((DocumentModel.title == str(album_id_or_title)) & (DocumentModel.file_type == "album"))
+            if source is None:
+                raise ValueError(f"Album introuvable dans le profil '{profile_name}' : {album_id_or_title}")
+            pages = list(DocumentPageModel.select().where(DocumentPageModel.document == source).order_by(DocumentPageModel.page_number.asc()))
+            page_payloads: list[dict[str, Any]] = []
+            for page in pages:
+                media = page.media
+                media_payload: dict[str, str] | None = None
+                if media is not None:
+                    media_payload = {
+                        "filename": str(media.filename),
+                        "original_name": str(media.original_name) if media.original_name else str(media.filename),
+                        "checksum": str(media.checksum) if media.checksum else "",
+                        "mime_type": str(media.mime_type) if media.mime_type else "application/octet-stream",
+                    }
+                page_payloads.append(
+                    {
+                        "page_number": int(page.page_number),
+                        "rotation": int(page.rotation),
+                        "crop_data": page.crop_data,
+                        "ocr_text": str(page.ocr_text or ""),
+                        "bounding_boxes": page.bounding_boxes,
+                        "status": str(page.status or "ready"),
+                        "media": media_payload,
+                    }
+                )
+            doc_payload = {
+                "title": str(source.title),
+                "content": str(source.content or ""),
+                "file_type": str(source.file_type),
+                "source_url": source.source_url,
+                "total_pages": int(source.total_pages or 1),
+                "start_page": source.start_page,
+                "end_page": source.end_page,
+                "excluded_headings": source.excluded_headings,
+                "neutralized_regions": source.neutralized_regions,
+                "chunk_strategy_version": int(source.chunk_strategy_version),
+            }
+
+        target_db = ProfileContentTransfer._source_database(target_profile, profiles_dir) if target_profile is not None else NoteModel._meta.database
+        album_models = [DocumentModel, DocumentPageModel, MediaModel, FolderModel]
+        with (
+            target_db.bind_ctx(album_models) if target_profile is not None else nullcontext(),
+            target_db.atomic(),
+        ):
+            titre = doc_payload["title"]
+            if DocumentModel.get_or_none(DocumentModel.title == titre) is not None:
+                titre = f"{doc_payload['title']} (Importé {profile_name})"
+                compteur = 1
+                while DocumentModel.get_or_none(DocumentModel.title == titre) is not None:
+                    titre = f"{doc_payload['title']} (Importé {profile_name} {compteur})"
+                    compteur += 1
+            new_doc = DocumentModel.create(
+                title=titre,
+                content=doc_payload["content"],
+                file_type=doc_payload["file_type"],
+                source_url=doc_payload["source_url"],
+                total_pages=doc_payload["total_pages"],
+                start_page=doc_payload["start_page"],
+                end_page=doc_payload["end_page"],
+                excluded_headings=doc_payload["excluded_headings"],
+                neutralized_regions=doc_payload["neutralized_regions"],
+                chunk_strategy_version=doc_payload["chunk_strategy_version"],
+            )
+            target_media_dir = ProfileContentTransfer._get_target_media_dir(target_profile, profiles_dir)
+            target_media_dir.mkdir(parents=True, exist_ok=True)
+            source_media_dir = ProfileContentTransfer._get_profile_media_dir(profile_name, profiles_dir)
+            for page_payload in page_payloads:
+                target_media: MediaModel | None = None
+                media_payload = page_payload["media"]
+                if media_payload is not None:
+                    file_hash = media_payload["checksum"] or media_payload["filename"]
+                    existing_media = MediaModel.get_or_none(MediaModel.checksum == file_hash)
+                    if existing_media is None:
+                        src_file = source_media_dir / media_payload["filename"]
+                        dst_file = target_media_dir / media_payload["filename"]
+                        if not dst_file.exists() and src_file.is_file():
+                            shutil.copy2(str(src_file), str(dst_file))
+                        target_media = MediaModel.create(
+                            filename=media_payload["filename"],
+                            original_name=media_payload["original_name"],
+                            checksum=file_hash,
+                            mime_type=media_payload["mime_type"],
+                        )
+                    else:
+                        target_media = existing_media
+                        dst_file = target_media_dir / media_payload["filename"]
+                        if not dst_file.exists():
+                            src_file = source_media_dir / media_payload["filename"]
+                            if src_file.is_file():
+                                shutil.copy2(str(src_file), str(dst_file))
+                DocumentPageModel.create(
+                    document=new_doc,
+                    media=target_media,
+                    page_number=page_payload["page_number"],
+                    rotation=page_payload["rotation"],
+                    crop_data=page_payload["crop_data"],
+                    ocr_text=page_payload["ocr_text"],
+                    bounding_boxes=page_payload["bounding_boxes"],
+                    status=page_payload["status"],
+                )
+        return new_doc
 
     @staticmethod
     def _source_database(profile_name: str, profiles_dir: Path | None) -> SqliteDatabase:

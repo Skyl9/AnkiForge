@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QPoint, Qt, QTimer, Signal, Slot
@@ -30,6 +31,8 @@ from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.cards.card_model_io import CardModelIO
 from ankiforge.services.cards.note_type_roles import is_markdown_table
 from ankiforge.services.cards.snippet_library import CSSConflictResolver, SnippetItem
+from ankiforge.services.profile_content_transfer import ProfileContentTransfer
+from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     Badge,
@@ -70,6 +73,7 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
+from ankiforge.utils.paths import get_active_profile
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +119,12 @@ class CardModelsView(QWidget):
         profile_name: str | None = None,
         parent: QWidget | None = None,
         shortcut_manager: ShortcutManager | None = None,
+        profiles_dir: Path | None = None,
     ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self.profiles_dir = profiles_dir
         self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
         if shortcut_manager is None:
             self._shortcut_manager.set_active_view(self)
@@ -302,11 +308,18 @@ class CardModelsView(QWidget):
             size=24,
         )
         self.btn_import_json.setFixedHeight(28)
+        self.btn_import_profile = IconButton(
+            "ph.folder",
+            tooltip=self.tr("Importer un modèle de carte depuis un autre profil"),
+            size=24,
+        )
+        self.btn_import_profile.setFixedHeight(28)
         self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer le type de note"), size=24)
         self.btn_del.setFixedHeight(28)
 
         list_toolbar.addWidget(self.btn_duplicate)
         list_toolbar.addWidget(self.btn_import_json)
+        list_toolbar.addWidget(self.btn_import_profile)
         list_toolbar.addWidget(self.btn_del)
 
         list_layout.addLayout(list_toolbar)
@@ -665,6 +678,7 @@ class CardModelsView(QWidget):
         self.btn_new.clicked.connect(self._on_new_model)
         self.btn_duplicate.clicked.connect(self._on_duplicate_model)
         self.btn_import_json.clicked.connect(self._on_import_json)
+        self.btn_import_profile.clicked.connect(self._on_import_from_profile)
         self.btn_starter_pack.clicked.connect(self._on_open_starter_pack)
         self.btn_del.clicked.connect(self._on_delete_model)
 
@@ -1536,6 +1550,66 @@ class CardModelsView(QWidget):
                     show_toast(self, tr("Type de note '%1' importé avec succès.", dialog.imported_model.name))
             except Exception as e:
                 log_and_notify_error(e, context="Import de type de note", parent=self, title="Erreur d'importation")
+
+    def _on_import_from_profile(self) -> None:
+        """Importe un modèle de carte unitairement depuis un autre profil sélectionné par l'utilisateur."""
+        pm = ProfileManager()
+        profil_actif = self.profile_name or get_active_profile() or "default"
+        autres = [p for p in pm.list_profiles() if p != profil_actif]
+        if not autres:
+            show_toast(self, self.tr("Aucun autre espace de travail disponible pour importer un modèle de carte."), is_error=True)
+            return
+
+        src_prof, ok = QInputDialog.getItem(
+            self,
+            self.tr("Importer un modèle de carte"),
+            self.tr("Sélectionnez le profil source :"),
+            autres,
+            0,
+            False,
+        )
+        if not ok or not src_prof:
+            return
+
+        try:
+            modeles = ProfileContentTransfer.list_note_types(src_prof, profiles_dir=self.profiles_dir)
+        except Exception as err:
+            logger.error("Impossible de lister les modèles de carte du profil '%s': %s", src_prof, err, exc_info=True)
+            show_toast(self, tr("Impossible de lire les modèles de carte du profil '%1'.", src_prof), is_error=True)
+            return
+
+        if not modeles:
+            show_toast(self, tr("Aucun modèle de carte dans le profil '%1'.", src_prof), is_error=True)
+            return
+
+        noms = [str(m["name"]) for m in modeles]
+        nom, ok = QInputDialog.getItem(
+            self,
+            self.tr("Importer un modèle de carte"),
+            tr("Modèles de carte disponibles dans '%1' :", src_prof),
+            noms,
+            0,
+            False,
+        )
+        if not ok or not nom:
+            return
+
+        try:
+            importe = ProfileContentTransfer.import_note_type(
+                profile_name=src_prof,
+                note_type_id_or_name=nom,
+                target_profile=None,
+                profiles_dir=self.profiles_dir,
+            )
+            self.refresh_data()
+            for i in range(self.list_widget.count()):
+                item = self.list_widget.item(i)
+                if item.data(Qt.ItemDataRole.UserRole).id == importe.id:
+                    self.list_widget.setCurrentItem(item)
+                    break
+            show_toast(self, tr("Modèle de carte '%1' importé avec succès.", importe.name))
+        except Exception as err:
+            log_and_notify_error(err, context="Import de modèle de carte depuis un profil", parent=self, title="Erreur d'importation")
 
     @Slot()
     def _on_open_starter_pack(self) -> None:

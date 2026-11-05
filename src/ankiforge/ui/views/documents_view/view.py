@@ -2802,6 +2802,7 @@ class DocumentsView(FileDropMixin, QWidget):
             return
 
         doc_choices = ["Tous les documents"] + [f"#{d[0]} : {d[1]} ({d[2]})" for d in docs]
+        doc_types = {d[0]: d[2] for d in docs}
         chosen_doc, ok_doc = QInputDialog.getItem(
             self,
             "Choisir le document",
@@ -2814,17 +2815,24 @@ class DocumentsView(FileDropMixin, QWidget):
             return
 
         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+        from ankiforge.services.profile_content_transfer import ProfileContentTransfer
 
         imported_count = 0
         if chosen_doc == "Tous les documents":
             for d in docs:
-                new_doc = CoverageAlignmentService.copy_document_from_profile(src_prof, current_prof, d[0])
+                if d[2] == "album":
+                    new_doc = ProfileContentTransfer.import_album(src_prof, d[0], target_profile=current_prof)
+                else:
+                    new_doc = CoverageAlignmentService.copy_document_from_profile(src_prof, current_prof, d[0])
                 if new_doc:
                     CoverageAlignmentService.align_document(new_doc.id)
                     imported_count += 1
         else:
             doc_id = int(chosen_doc.split(":")[0].replace("#", "").strip())
-            new_doc = CoverageAlignmentService.copy_document_from_profile(src_prof, current_prof, doc_id)
+            if doc_types.get(doc_id) == "album":
+                new_doc = ProfileContentTransfer.import_album(src_prof, doc_id, target_profile=current_prof)
+            else:
+                new_doc = CoverageAlignmentService.copy_document_from_profile(src_prof, current_prof, doc_id)
             if new_doc:
                 CoverageAlignmentService.align_document(new_doc.id)
                 imported_count += 1

@@ -240,6 +240,58 @@ class ProfileTransferDialog(QDialog):
 
         self.tab_widget.addTab(tab_tags, self.tr("Tags"))
 
+        # Onglet 3 : Modèles de cartes
+        tab_models = QWidget()
+        models_layout = QVBoxLayout(tab_models)
+        models_layout.setContentsMargins(12, 10, 12, 10)
+        models_layout.setSpacing(8)
+
+        self.list_models = QListWidget()
+        self.list_models.setStyleSheet(self._list_stylesheet())
+        self.list_models.itemChanged.connect(self._on_item_changed)
+
+        models_actions = QHBoxLayout()
+        self.btn_select_all_models = SecondaryButton("Tout cocher", tooltip=self.tr("Sélectionner tous les modèles de cartes"))
+        self.btn_select_all_models.setFixedHeight(28)
+        self.btn_select_all_models.clicked.connect(lambda: self._set_all_checked(self.list_models, True))
+        self.btn_deselect_all_models = SecondaryButton("Tout décocher", tooltip=self.tr("Désélectionner tous les modèles de cartes"))
+        self.btn_deselect_all_models.setFixedHeight(28)
+        self.btn_deselect_all_models.clicked.connect(lambda: self._set_all_checked(self.list_models, False))
+        models_actions.addWidget(self.btn_select_all_models)
+        models_actions.addWidget(self.btn_deselect_all_models)
+        models_actions.addStretch()
+        models_layout.addLayout(models_actions)
+
+        models_layout.addWidget(self.list_models, 1)
+
+        self.tab_widget.addTab(tab_models, self.tr("Modèles de cartes"))
+
+        # Onglet 4 : Albums
+        tab_albums = QWidget()
+        albums_layout = QVBoxLayout(tab_albums)
+        albums_layout.setContentsMargins(12, 10, 12, 10)
+        albums_layout.setSpacing(8)
+
+        self.list_albums = QListWidget()
+        self.list_albums.setStyleSheet(self._list_stylesheet())
+        self.list_albums.itemChanged.connect(self._on_item_changed)
+
+        albums_actions = QHBoxLayout()
+        self.btn_select_all_albums = SecondaryButton("Tout cocher", tooltip=self.tr("Sélectionner tous les albums"))
+        self.btn_select_all_albums.setFixedHeight(28)
+        self.btn_select_all_albums.clicked.connect(lambda: self._set_all_checked(self.list_albums, True))
+        self.btn_deselect_all_albums = SecondaryButton("Tout décocher", tooltip=self.tr("Désélectionner tous les albums"))
+        self.btn_deselect_all_albums.setFixedHeight(28)
+        self.btn_deselect_all_albums.clicked.connect(lambda: self._set_all_checked(self.list_albums, False))
+        albums_actions.addWidget(self.btn_select_all_albums)
+        albums_actions.addWidget(self.btn_deselect_all_albums)
+        albums_actions.addStretch()
+        albums_layout.addLayout(albums_actions)
+
+        albums_layout.addWidget(self.list_albums, 1)
+
+        self.tab_widget.addTab(tab_albums, self.tr("Albums"))
+
         layout.addWidget(self.tab_widget, 1)
 
         # ── 4. Options de réconciliation ───────────────────────────────────────
@@ -283,16 +335,20 @@ class ProfileTransferDialog(QDialog):
         summary_layout.setContentsMargins(14, 10, 14, 10)
         summary_layout.setSpacing(16)
 
-        # 4 métriques : Notes, Types de note, Cartes, Médias
+        # 6 métriques : Notes, Modèles de carte, Cartes, Médias, Modèles sélectionnés, Albums sélectionnés
         self.lbl_metric_notes = self._create_metric_widget(self.tr("NOTES"), "0")
-        self.lbl_metric_models = self._create_metric_widget(self.tr("TYPES DE NOTE"), "0")
+        self.lbl_metric_models = self._create_metric_widget(self.tr("MODÈLES DE CARTES"), "0")
         self.lbl_metric_cards = self._create_metric_widget(self.tr("CARTES"), "0")
         self.lbl_metric_media = self._create_metric_widget(self.tr("MÉDIAS"), "0 (0 Ko)")
+        self.lbl_metric_models_selected = self._create_metric_widget(self.tr("MODÈLES SÉLECTIONNÉS"), "0")
+        self.lbl_metric_albums_selected = self._create_metric_widget(self.tr("ALBUMS SÉLECTIONNÉS"), "0")
 
         summary_layout.addWidget(self.lbl_metric_notes[0], 1)
         summary_layout.addWidget(self.lbl_metric_models[0], 1)
         summary_layout.addWidget(self.lbl_metric_cards[0], 1)
         summary_layout.addWidget(self.lbl_metric_media[0], 1)
+        summary_layout.addWidget(self.lbl_metric_models_selected[0], 1)
+        summary_layout.addWidget(self.lbl_metric_albums_selected[0], 1)
 
         layout.addWidget(summary_card)
 
@@ -372,10 +428,11 @@ class ProfileTransferDialog(QDialog):
     def _on_source_profile_changed(self, profile_name: str) -> None:
         if not profile_name or profile_name == "Aucun autre espace de travail disponible":
             return
-        self._populate_decks_and_tags(profile_name)
+        self._populate_contenu_source(profile_name)
         self._update_preview()
 
-    def _populate_decks_and_tags(self, profile_name: str) -> None:
+    def _populate_contenu_source(self, profile_name: str) -> None:
+        """Remplit les quatre listes cochables (paquets, tags, modèles de cartes, albums)."""
         self._is_updating_preview = True
         try:
             self.list_decks.clear()
@@ -391,6 +448,28 @@ class ProfileTransferDialog(QDialog):
                 item = QListWidgetItem(t, self.list_tags)
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                 item.setCheckState(Qt.CheckState.Unchecked)
+
+            self.list_models.clear()
+            modeles = ProfileContentTransfer.list_note_types(profile_name, profiles_dir=self.profiles_dir)
+            for m in modeles:
+                nom = str(m["name"])
+                item = QListWidgetItem(nom, self.list_models)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Unchecked)
+                item.setData(Qt.ItemDataRole.UserRole, nom)
+                item.setToolTip(tr("Modèle de carte : %1\nGabarits : %2", nom, m["templates_count"]))
+
+            self.list_albums.clear()
+            albums = ProfileContentTransfer.list_albums(profile_name, profiles_dir=self.profiles_dir)
+            for a in albums:
+                titre = str(a["title"])
+                pages = int(a.get("total_pages") or 0)
+                label = tr("%1 (%2 planche%3)", titre, pages, "s" if pages > 1 else "")
+                item = QListWidgetItem(label, self.list_albums)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Unchecked)
+                item.setData(Qt.ItemDataRole.UserRole, int(a["id"]))
+                item.setToolTip(tr("Album : %1\nNombre de planches : %2", titre, pages))
         finally:
             self._is_updating_preview = False
 
@@ -426,6 +505,25 @@ class ProfileTransferDialog(QDialog):
                 tags.append(item.text())
         return tags
 
+    def get_selected_models(self) -> list[str]:
+        modeles: list[str] = []
+        for i in range(self.list_models.count()):
+            item = self.list_models.item(i)
+            if item and item.checkState() == Qt.CheckState.Checked:
+                data = item.data(Qt.ItemDataRole.UserRole)
+                modeles.append(str(data) if data is not None else item.text())
+        return modeles
+
+    def get_selected_albums(self) -> list[int]:
+        albums: list[int] = []
+        for i in range(self.list_albums.count()):
+            item = self.list_albums.item(i)
+            if item and item.checkState() == Qt.CheckState.Checked:
+                data = item.data(Qt.ItemDataRole.UserRole)
+                if data is not None:
+                    albums.append(int(data))
+        return albums
+
     def _update_preview(self) -> None:
         source_profile = self.combo_source.currentText()
         if not source_profile or not self.combo_source.isEnabled():
@@ -433,13 +531,17 @@ class ProfileTransferDialog(QDialog):
 
         selected_decks = self.get_selected_decks()
         selected_tags = self.get_selected_tags()
+        selected_models = self.get_selected_models()
+        selected_albums = self.get_selected_albums()
 
-        # Si aucun deck ni tag n'est coché, estimation à 0
-        if not selected_decks and not selected_tags:
+        # Si aucun élément n'est coché, estimation à 0
+        if not selected_decks and not selected_tags and not selected_models and not selected_albums:
             self.lbl_metric_notes[1].setText(self.tr("0"))
             self.lbl_metric_models[1].setText(self.tr("0"))
             self.lbl_metric_cards[1].setText(self.tr("0"))
             self.lbl_metric_media[1].setText(self.tr("0 (0 Ko)"))
+            self.lbl_metric_models_selected[1].setText(self.tr("0"))
+            self.lbl_metric_albums_selected[1].setText(self.tr("0"))
             return
 
         try:
@@ -447,6 +549,8 @@ class ProfileTransferDialog(QDialog):
                 source_profile=source_profile,
                 deck_names=selected_decks,
                 tag_names=selected_tags,
+                model_names=selected_models,
+                album_ids=selected_albums,
                 profiles_dir=self.profiles_dir,
             )
             self.lbl_metric_notes[1].setText(str(preview["notes_count"]))
@@ -454,6 +558,8 @@ class ProfileTransferDialog(QDialog):
             self.lbl_metric_cards[1].setText(str(preview["cards_count"]))
             media_str = f"{preview['media_count']} ({self._human_size(preview['total_media_size'])})"
             self.lbl_metric_media[1].setText(media_str)
+            self.lbl_metric_models_selected[1].setText(str(preview.get("models_count", len(selected_models))))
+            self.lbl_metric_albums_selected[1].setText(str(preview.get("albums_count", len(selected_albums))))
         except Exception as e:
             logger.warning("Erreur lors de la prévisualisation du transfert : %s", e)
 
@@ -472,12 +578,14 @@ class ProfileTransferDialog(QDialog):
 
         selected_decks = self.get_selected_decks()
         selected_tags = self.get_selected_tags()
+        selected_models = self.get_selected_models()
+        selected_albums = self.get_selected_albums()
 
-        if not selected_decks and not selected_tags:
+        if not selected_decks and not selected_tags and not selected_models and not selected_albums:
             QMessageBox.warning(
                 self,
                 self.tr("Aucun élément sélectionné"),
-                self.tr("Veuillez cocher au moins un paquet ou un tag à transférer."),
+                self.tr("Veuillez cocher au moins un paquet, un tag, un modèle de carte ou un album à transférer."),
             )
             return
 
@@ -492,15 +600,53 @@ class ProfileTransferDialog(QDialog):
                 profiles_dir=self.profiles_dir,
             )
 
+            modeles_importes = 0
+            erreurs_modeles: list[str] = []
+            for nom_modele in selected_models:
+                try:
+                    ProfileContentTransfer.import_note_type(
+                        profile_name=source_profile,
+                        note_type_id_or_name=nom_modele,
+                        target_profile=None,
+                        profiles_dir=self.profiles_dir,
+                    )
+                    modeles_importes += 1
+                except Exception as err:
+                    erreurs_modeles.append(f"{nom_modele}: {err}")
+
+            albums_importes = 0
+            erreurs_albums: list[str] = []
+            for album_id in selected_albums:
+                try:
+                    ProfileContentTransfer.import_album(
+                        profile_name=source_profile,
+                        album_id_or_title=album_id,
+                        target_profile=None,
+                        profiles_dir=self.profiles_dir,
+                    )
+                    albums_importes += 1
+                except Exception as err:
+                    erreurs_albums.append(f"album #{album_id}: {err}")
+
+            erreurs = list(report.errors) + erreurs_modeles + erreurs_albums
+
             msg = (
                 f"Transfert terminé avec succès !\n\n"
                 f"• Notes importées : {report.notes_imported}\n"
                 f"• Notes mises à jour : {report.notes_updated}\n"
                 f"• Notes ignorées (doublons) : {report.notes_skipped}\n"
                 f"• Paquets créés : {report.decks_created}\n"
-                f"• Types de notes créés : {report.note_types_created}\n"
+                f"• Modèles de carte créés : {report.note_types_created + modeles_importes}\n"
+                f"• Albums importés : {albums_importes}\n"
                 f"• Médias transférés : {report.media_transferred}"
             )
+            if erreurs:
+                msg += f"\n\n• Erreurs : {len(erreurs)}"
+                QMessageBox.warning(
+                    self,
+                    self.tr("Transfert terminé avec des avertissements"),
+                    tr("Le transfert s'est exécuté avec %1 erreur(s) :\n%2", len(erreurs), "\n".join(erreurs)),
+                )
             QMessageBox.information(self, self.tr("Transfert Réussi"), msg)
             self.transfer_completed.emit(report)
             self.accept()

@@ -32,6 +32,7 @@ from peewee import fn
 from ankiforge.database.models import (
     DocumentChunkModel,
     DocumentModel,
+    DocumentPageModel,
     MediaModel,
     NoteChunkLinkModel,
     NoteModel,
@@ -1484,6 +1485,21 @@ class CoverageAlignmentService:
             "SELECT * FROM document_chunks WHERE document_id = ? ORDER BY chunk_index",
             (doc_id,),
         ).fetchall()
+
+        pages_payload: list[dict[str, Any]] = []
+        for r in src_cur.execute(
+            "SELECT * FROM document_pages WHERE document_id = ? ORDER BY page_number",
+            (doc_id,),
+        ).fetchall():
+            r_dict = dict(r)
+            media_payload: dict[str, Any] | None = None
+            media_id = r_dict.get("media_id")
+            if media_id:
+                m_row = src_cur.execute("SELECT * FROM mediamodel WHERE id = ?", (media_id,)).fetchone()
+                if m_row:
+                    media_payload = dict(m_row)
+            pages_payload.append({**r_dict, "media": media_payload})
+
         src_con.close()
 
         target_media_id = None
@@ -1533,6 +1549,45 @@ class CoverageAlignmentService:
                     start_time=r_dict.get("start_time"),
                     end_time=r_dict.get("end_time"),
                 )
+
+            if doc_dict["file_type"] == "album":
+                for r in pages_payload:
+                    r_dict = dict(r)
+                    page_media_id: int | None = None
+                    media_payload = r_dict.get("media")
+                    if media_payload:
+                        media_filename = str(media_payload["filename"])
+                        chksum = str(media_payload["checksum"]) if media_payload.get("checksum") else media_filename
+                        existing_media = MediaModel.get_or_none(MediaModel.checksum == chksum)
+                        if existing_media is None:
+                            src_media_file = src_dir / "media" / media_filename
+                            dst_media_file = target_media_dir / media_filename
+                            if not dst_media_file.exists() and src_media_file.exists():
+                                shutil.copy2(str(src_media_file), str(dst_media_file))
+                            target_media = MediaModel.create(
+                                filename=media_filename,
+                                original_name=str(media_payload.get("original_name") or media_filename),
+                                checksum=chksum,
+                                mime_type=str(media_payload.get("mime_type") or "application/octet-stream"),
+                            )
+                            page_media_id = target_media.id
+                        else:
+                            page_media_id = existing_media.id
+                            dst_media_file = target_media_dir / media_filename
+                            if not dst_media_file.exists():
+                                src_media_file = src_dir / "media" / media_filename
+                                if src_media_file.exists():
+                                    shutil.copy2(str(src_media_file), str(dst_media_file))
+                    DocumentPageModel.create(
+                        document=new_doc,
+                        media_id=page_media_id,
+                        page_number=int(r_dict.get("page_number") or 1),
+                        rotation=int(r_dict.get("rotation") or 0),
+                        crop_data=r_dict.get("crop_data"),
+                        ocr_text=str(r_dict.get("ocr_text") or ""),
+                        bounding_boxes=r_dict.get("bounding_boxes"),
+                        status=str(r_dict.get("status") or "ready"),
+                    )
 
         mark_document_version(new_doc)
 
