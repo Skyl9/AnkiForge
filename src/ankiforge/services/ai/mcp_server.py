@@ -16,6 +16,7 @@ from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, 
 from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
 from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
 from ankiforge.services.ai.rag_service import RAGService
+from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 from ankiforge.utils.tags import split_tag_tokens
 
@@ -2014,6 +2015,30 @@ def set_card_flag(
 ) -> str:
     """Assigne un drapeau de couleur Anki (red, orange, green, blue, pink, turquoise, purple, none) à toutes les cartes d'une note."""
     return MCPToolRegistry.set_card_flag(note_id=note_id, flag=flag)
+
+
+@mcp.tool()
+def get_flagged_cards(
+    deck_name: str | None = None,
+    flag: int | str | None = None,
+    limit: int = 50,
+) -> str:
+    """Récupère les cartes de la collection portant un drapeau Anki.
+
+    Les sous-paquets du paquet cible sont inclus de façon récursive. Quand
+    ``flag`` est omis, toutes les cartes pourvues d'un drapeau sont renvoyées.
+
+    Args:
+        deck_name: Filtrer par paquet (sous-paquets inclus via ``nom::%``).
+        flag: Numéro du drapeau (0 à 7) ou libellé/nom de couleur
+            ('rouge', 'red', …). Omis pour toutes les cartes drapeautées.
+        limit: Nombre maximal de cartes à renvoyer (défaut: 50).
+
+    Returns:
+        JSON listant pour chaque carte : card_id, note_id, deck_name,
+        flag_number, flag_label, flag_color, model_name, fields et tags.
+    """
+    return NoteManager.get_flagged_cards(deck_name=deck_name, flag=flag, limit=limit)
 
 
 @mcp.tool()

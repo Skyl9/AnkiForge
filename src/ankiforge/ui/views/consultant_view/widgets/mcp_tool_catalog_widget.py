@@ -197,6 +197,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "list_empty_cards": DOMAIN_CARDS,
     "delete_empty_cards": DOMAIN_CARDS,
     "set_card_flag": DOMAIN_CARDS,
+    "get_flagged_cards": DOMAIN_CARDS,
     "suspend_card": DOMAIN_CARDS,
     "unsuspend_card": DOMAIN_CARDS,
     # Staged Bundles & Sessions 2PC (4)
@@ -211,6 +212,11 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     "abort_staged_patch": [
         "Annulation unitaire : ne modifie que le patch ciblé et conserve le bundle ainsi que ses patches frères.",
         "Le patch doit être en attente ; les patchs déjà appliqués, rejetés ou annulés sont refusés explicitement.",
+    ],
+    "get_flagged_cards": [
+        "Lecture seule : aucun effet de bord sur la collection, les cartes ou les drapeaux.",
+        "Le filtre par drapeau accepte un entier (0 à 7) ou un libellé de couleur ('rouge', 'red', …).",
+        "Le filtre par paquet inclut les sous-paquets de façon récursive (``nom::%``).",
     ],
     "create_note": [
         "Two-Phase Commit obligatoire : génère une proposition (StagedPatch note_create) soumise à validation humaine.",
