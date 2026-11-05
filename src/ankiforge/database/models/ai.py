@@ -193,7 +193,8 @@ class StagedPatchModel(BaseModel):
     target_id = IntegerField(default=0)
     original_version_id = IntegerField(null=True)
     diff_payload = TextField()  # JSON sérialisé
-    status = CharField(default="pending", index=True)  # "pending", "applied", "rejected"
+    status = CharField(default="pending", index=True)  # "pending", "applied", "rejected", "aborted"
+    reason = TextField(default="")  # Motif d'abandon (aborted) saisi par l'agent
     created_at = DateTimeField(default=datetime.datetime.now)
     applied_at = DateTimeField(null=True)
 

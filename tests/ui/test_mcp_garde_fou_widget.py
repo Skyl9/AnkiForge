@@ -17,6 +17,7 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
+    StagedBundleModel,
     StagedPatchModel,
 )
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
@@ -732,7 +733,7 @@ def test_mcp_garde_fou_deletion_impact_and_apply(qtbot, sample_note) -> None:
 
 def test_mcp_garde_fou_incremental_patch_standalone(qtbot, sample_note) -> None:
     """Vérifie l'insertion incrémentale d'un patch standalone via event bus sans clear()."""
-    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+    from ankiforge.database.models import StagedPatchModel
     from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
 
     widget = MCPGardeFouWidget()
@@ -797,7 +798,7 @@ def test_mcp_garde_fou_incremental_patch_standalone(qtbot, sample_note) -> None:
 
 def test_mcp_garde_fou_incremental_bundle_staged(qtbot) -> None:
     """Vérifie la création du nœud parent bundle via MCPBundleStagedEvent."""
-    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+    from ankiforge.database.models import StagedPatchModel
 
     # Nettoyer la BDD avant le test
     StagedPatchModel.delete().execute()
@@ -837,7 +838,7 @@ def test_mcp_garde_fou_incremental_bundle_staged(qtbot) -> None:
 
 def test_mcp_garde_fou_incremental_patch_in_bundle(qtbot) -> None:
     """Vérifie l'ajout incrémental d'étapes sous un bundle parent existant."""
-    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+    from ankiforge.database.models import StagedPatchModel
 
     # Nettoyer la BDD avant le test
     StagedPatchModel.delete().execute()
@@ -880,7 +881,7 @@ def test_mcp_garde_fou_incremental_patch_in_bundle(qtbot) -> None:
 
 def test_mcp_garde_fou_bundle_events_out_of_order(qtbot) -> None:
     """Vérifie la gestion gracieuse des événements hors ordre (patch standalone avant bundle)."""
-    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+    from ankiforge.database.models import StagedPatchModel
 
     # Nettoyer la BDD avant le test
     StagedPatchModel.delete().execute()
@@ -929,7 +930,7 @@ def test_mcp_garde_fou_bundle_events_out_of_order(qtbot) -> None:
 
 def test_mcp_garde_fou_manual_reload_preserves_state(qtbot, sample_note) -> None:
     """Vérifie que reload_pending_patches() préserve l'état (expansion, sélection, scroll)."""
-    from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+    from ankiforge.database.models import StagedPatchModel
 
     # Nettoyer la BDD avant le test
     StagedPatchModel.delete().execute()
@@ -1225,3 +1226,92 @@ def test_mcp_garde_fou_widget_apply_note_type_create_still_works(qtbot) -> None:
     assert created_nt is not None
     assert created_nt.description == "Nouveau type créé via GF"
     assert created_nt.css_style == ".card { color: purple; }"
+
+
+def _make_note_abort(uid: str) -> NoteModel:
+    nt = NoteTypeModel.create(name=f"NT_GF_ABORT_{uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    return NoteModel.create(guid=f"g_gf_abort_{uid}", note_type=nt)
+
+
+def test_mcp_garde_fou_widget_patch_abonne_cache_par_defaut(qtbot):
+    """Un patch annulé est masqué par le filtre par défaut 'En attente'."""
+    note = _make_note_abort("defaut")
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note.id,
+        diff_payload={"type": "card", "note_id": note.id, "title": "À Annuler"},
+    )
+    StagedPatchRegistry.abort_staged_patch(patch.patch_id, reason="Plus nécessaire")
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 0
+    assert widget._current_status_filter == "pending"
+
+
+def test_mcp_garde_fou_widget_filtre_annules_affiche_patch_abonne(qtbot):
+    """Le filtre 'Annulés' fait apparaître un patch annulé avec son motif et désactive l'application."""
+    note = _make_note_abort("annule")
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note.id,
+        diff_payload={"type": "card", "note_id": note.id, "title": "À Annuler"},
+    )
+    StagedPatchRegistry.abort_staged_patch(patch.patch_id, reason="Motif d'abandon test")
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    # Par défaut, le patch annulé est masqué
+    assert widget.count() == 0
+
+    # Bascule sur le filtre Annulés
+    widget.chip_aborted.click()
+    qtbot.waitUntil(lambda: widget.count() == 1)
+
+    assert widget.count() == 1
+    assert widget.current_patch_id == patch.patch_id
+
+    # Lecture seule : boutons d'écriture désactivés
+    assert widget.btn_apply.isEnabled() is False
+    assert widget.btn_reject.isEnabled() is False
+
+    # Motif d'abandon et badge d'état affichés
+    assert "Motif d'abandon test" in widget.lbl_abort_reason.text()
+    assert widget.badge_abort_status.isVisible()
+
+
+def test_mcp_garde_fou_widget_filtre_tous_affiche_pending_et_aborted(qtbot):
+    """Le filtre 'Tous' affiche à la fois les patches en attente et les patches annulés."""
+    note1 = _make_note_abort("tous1")
+    note2 = _make_note_abort("tous2")
+    patch_pending = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note1.id,
+        diff_payload={"type": "card", "note_id": note1.id, "title": "En Attente"},
+    )
+    patch_aborted = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note2.id,
+        diff_payload={"type": "card", "note_id": note2.id, "title": "Annulé"},
+    )
+    StagedPatchRegistry.abort_staged_patch(patch_aborted.patch_id, reason="Annulé")
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 1  # seul le pending par défaut
+
+    widget.chip_all.click()
+    qtbot.waitUntil(lambda: widget.count() == 2)
+
+    assert widget.count() == 2
+    ids = {widget.patch_tree.itemWidget(widget.patch_tree.topLevelItem(i), 0).patch_id for i in range(2)}
+    assert ids == {patch_pending.patch_id, patch_aborted.patch_id}

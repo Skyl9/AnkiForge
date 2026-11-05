@@ -2804,6 +2804,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
     <message>
         <location line="+13"/>
         <location filename="../../ui/views/batch_view/widgets/batch_queue_table.py" line="+25"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+614"/>
         <source>Tous</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2977,7 +2978,7 @@ Insère : %2</source>
     <message>
         <location line="-76"/>
         <location line="+78"/>
-        <location filename="../../ui/views/documents_view/view.py" line="+720"/>
+        <location filename="../../ui/views/documents_view/view.py" line="+721"/>
         <source>%1
 Hors périmètre : cette section ne compte plus dans la couverture du document.</source>
         <translation type="unfinished"></translation>
@@ -3407,6 +3408,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     <message>
         <location line="+21"/>
         <location filename="../../ui/views/batch_view/widgets/batch_staging_panel.py" line="-264"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-7"/>
         <source>En attente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3643,7 +3645,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+4"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+169"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-437"/>
         <source>PAQUET</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4038,18 +4040,18 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+43"/>
-        <location line="+802"/>
+        <location line="+868"/>
         <source>Étape %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-800"/>
-        <location line="+812"/>
+        <location line="-866"/>
+        <location line="+878"/>
         <source>Proposition — %1 #%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-782"/>
+        <location line="-848"/>
         <source>CARTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4070,7 +4072,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+367"/>
+        <location line="+368"/>
         <source>PROPOSITIONS EN ATTENTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4081,6 +4083,16 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+23"/>
+        <source>Statut :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Annulés</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
         <source>Tout appliquer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4100,7 +4112,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+38"/>
+        <location line="+49"/>
+        <source>Annulé par l&apos;agent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>Copier le feedback</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4111,18 +4128,18 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+40"/>
-        <location line="+209"/>
+        <location line="+227"/>
         <source>Rejeter la proposition</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-187"/>
+        <location line="-205"/>
         <source>Tout valider le bloc</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+21"/>
-        <location line="+165"/>
+        <location line="+183"/>
         <source>Appliquer la modification</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4147,7 +4164,27 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+94"/>
+        <location line="+9"/>
+        <source>Cette proposition a été annulée par l&apos;agent.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Une proposition annulée ne peut pas être rejetée à nouveau.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Annulé par l&apos;agent : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Annulé par l&apos;agent.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+100"/>
         <source>Étape %1 appliquée avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4570,7 +4607,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+6"/>
-        <location filename="../../ui/views/documents_view/view.py" line="-1279"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-1280"/>
         <source>%1 (Non extrait)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5104,7 +5141,7 @@ Voulez-vous vraiment fermer sans enregistrer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+211"/>
+        <location line="+212"/>
         <source>PDF &apos;%1&apos; importé. Démarrage de l&apos;analyse Marker OCR...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13978,7 +14015,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2634"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2635"/>
         <source>Importer depuis le Web / YouTube</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13989,12 +14026,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+1892"/>
+        <location line="+1893"/>
         <source>Supprimer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1888"/>
+        <location line="-1889"/>
         <source>Importer des documents depuis un autre profil</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14105,25 +14142,25 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+100"/>
-        <location line="+1681"/>
+        <location line="+1682"/>
         <location line="+21"/>
         <source>Couverture : 0%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1698"/>
+        <location line="-1699"/>
         <source>Ouvrir le diagnostic complet du document dans Analyse &amp; Audit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+25"/>
-        <location line="+1655"/>
+        <location line="+1656"/>
         <location line="+21"/>
         <source>0 sections analysées • 0 cartes liées</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1670"/>
+        <location line="-1671"/>
         <source>Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14308,7 +14345,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+76"/>
+        <location line="+77"/>
         <location line="+4"/>
         <source>Erreur lors de l&apos;import du PDF.</source>
         <translation type="unfinished"></translation>

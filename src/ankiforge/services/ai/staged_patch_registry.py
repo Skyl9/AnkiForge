@@ -273,6 +273,7 @@ class StagedPatchRegistry:
         bundle_id = patch.bundle.bundle_id if patch.bundle else None
         with db.atomic():
             patch.status = "aborted"
+            patch.reason = reason or ""
             patch.save()
 
         logger.info("Patch annulé : %s (raison: %s)", patch.patch_id, reason)
@@ -404,22 +405,24 @@ class StagedPatchRegistry:
         }
 
     @classmethod
-    def abort_bundle(cls, bundle_id: str) -> bool:
-        """Supprime le bundle en cours et toutes ses étapes."""
+    def abort_bundle(cls, bundle_id: str, reason: str = "") -> bool:
+        """Marque le bundle et ses étapes en cours comme annulés sans les supprimer physiquement."""
         b_id = bundle_id.strip()
         bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == b_id)
         if not bundle:
             return False
 
         with db.atomic():
-            StagedPatchModel.delete().where(StagedPatchModel.bundle == bundle).execute()
-            bundle.delete_instance()
+            StagedPatchModel.update(status="aborted").where((StagedPatchModel.bundle == bundle) & (StagedPatchModel.status == "pending")).execute()
+            bundle.status = "aborted"
+            bundle.explanation = f"{bundle.explanation}\n[Abort: {reason}]".strip() if reason else bundle.explanation
+            bundle.save()
 
         cls._active_bundles.pop(b_id, None)
         if cls._current_bundle_id == b_id:
             cls._current_bundle_id = None
 
-        logger.info("Bundle %s annulé et supprimé.", b_id)
+        logger.info("Bundle %s marqué comme annulé (aborted).", b_id)
         return True
 
     @classmethod

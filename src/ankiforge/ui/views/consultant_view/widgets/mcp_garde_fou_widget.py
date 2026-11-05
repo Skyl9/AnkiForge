@@ -34,6 +34,7 @@ from ankiforge.services.ai.staged_patch_registry import (
 )
 from ankiforge.ui.components import (
     Badge,
+    FilterChipButton,
     PrimaryButton,
     SecondaryButton,
 )
@@ -308,6 +309,7 @@ class MCPGardeFouWidget(QWidget):
         self._patches: list[StagedPatchModel] = []
         self._current_patch: StagedPatchModel | None = None
         self._notified_patch_ids: set[str] = set()
+        self._current_status_filter: str = "pending"
 
         self._setup_ui()
 
@@ -588,6 +590,37 @@ class MCPGardeFouWidget(QWidget):
         self.search_input.textChanged.connect(self._filter_list)
         left_layout.addWidget(self.search_input)
 
+        # Filtre de statut des propositions (En attente / Annulés / Tous)
+        filter_row = QHBoxLayout()
+        filter_row.setContentsMargins(0, 0, 0, 0)
+        filter_row.setSpacing(6)
+
+        lbl_filter = QLabel(tr("Statut :"))
+        lbl_filter.setStyleSheet(f"""
+            font-size: 11px;
+            color: {DesignTokens.TEXT_MUTED};
+            border: none;
+            background: transparent;
+        """)
+        filter_row.addWidget(lbl_filter)
+
+        self.chip_pending = FilterChipButton(tr("En attente"), icon_name="ph.clock")
+        self.chip_pending.setChecked(True)
+        self.chip_pending.toggled.connect(lambda checked: self._set_status_filter("pending") if checked else None)
+
+        self.chip_aborted = FilterChipButton(tr("Annulés"), icon_name="ph.trash")
+        self.chip_aborted.toggled.connect(lambda checked: self._set_status_filter("aborted") if checked else None)
+
+        self.chip_all = FilterChipButton(tr("Tous"), icon_name="ph.list")
+        self.chip_all.toggled.connect(lambda checked: self._set_status_filter("all") if checked else None)
+
+        self._status_chips: list[FilterChipButton] = [self.chip_pending, self.chip_aborted, self.chip_all]
+
+        for chip in self._status_chips:
+            filter_row.addWidget(chip)
+
+        left_layout.addLayout(filter_row)
+
         # Boutons de lot globaux
         batch_row = QHBoxLayout()
         batch_row.setContentsMargins(0, 0, 0, 0)
@@ -696,6 +729,22 @@ class MCPGardeFouWidget(QWidget):
             font-family: {DesignTokens.FONT_CODE};
         """)
         title_col.addWidget(self.lbl_detail_meta)
+
+        self.lbl_abort_reason = QLabel()
+        self.lbl_abort_reason.setStyleSheet(f"""
+            font-size: 11px;
+            color: {DesignTokens.COLOR_YELLOW};
+            font-family: {DesignTokens.FONT_CODE};
+            border: none;
+            background: transparent;
+        """)
+        self.lbl_abort_reason.setWordWrap(True)
+        self.lbl_abort_reason.hide()
+        title_col.addWidget(self.lbl_abort_reason)
+
+        self.badge_abort_status = Badge(tr("Annulé par l'agent"), variant="warning")
+        self.badge_abort_status.hide()
+        title_col.addWidget(self.badge_abort_status)
         detail_header.addLayout(title_col, 1)
 
         self.btn_copy_feedback = SecondaryButton(tr("Copier le feedback"))
@@ -800,6 +849,17 @@ class MCPGardeFouWidget(QWidget):
         splitter.setStretchFactor(1, 1)
         main_layout.addWidget(splitter)
 
+    def _set_status_filter(self, value: str) -> None:
+        """Définit le filtre de statut actif et recharge la file en conséquence."""
+        self._current_status_filter = value
+        for chip in self._status_chips:
+            chip.setChecked(chip is self._chip_for(value))
+        self.reload_pending_patches()
+
+    def _chip_for(self, value: str) -> FilterChipButton:
+        """Retourne le chip associé à une valeur de filtre."""
+        return {"pending": self.chip_pending, "aborted": self.chip_aborted, "all": self.chip_all}[value]
+
     def reload_pending_patches(self) -> None:
         """Recharge l'arborescence complète des bundles et propositions en attente."""
         # Sauvegarder l'état avant la recharge complète
@@ -816,11 +876,18 @@ class MCPGardeFouWidget(QWidget):
         self._notified_patch_ids.clear()
         selected_item: QTreeWidgetItem | None = None
 
-        # 1. Chargement des Staged Bundles en attente
-        bundles = list(StagedBundleModel.select().where(StagedBundleModel.status.in_(["pending", "partial"])).order_by(StagedBundleModel.created_at.asc()))
+        # 1. Chargement des Staged Bundles selon le filtre de statut actif
+        if self._current_status_filter == "aborted":
+            target_statuses = ["aborted"]
+        elif self._current_status_filter == "all":
+            target_statuses = ["pending", "partial", "aborted"]
+        else:
+            target_statuses = ["pending", "partial"]
+
+        bundles = list(StagedBundleModel.select().where(StagedBundleModel.status.in_(target_statuses)).order_by(StagedBundleModel.created_at.asc()))
 
         for bundle in bundles:
-            bundle_patches = list(bundle.patches.where(StagedPatchModel.status == "pending").order_by(StagedPatchModel.step_order.asc()))
+            bundle_patches = list(bundle.patches.where(StagedPatchModel.status.in_(target_statuses)).order_by(StagedPatchModel.step_order.asc()))
             if not bundle_patches:
                 continue
 
@@ -847,7 +914,7 @@ class MCPGardeFouWidget(QWidget):
 
         # 2. Chargement des patchs autonomes (hors bundle)
         standalone_patches = list(
-            StagedPatchModel.select().where(StagedPatchModel.bundle.is_null(True), StagedPatchModel.status == "pending").order_by(StagedPatchModel.created_at.asc(), StagedPatchModel.id.asc())
+            StagedPatchModel.select().where(StagedPatchModel.bundle.is_null(True), StagedPatchModel.status.in_(target_statuses)).order_by(StagedPatchModel.created_at.asc(), StagedPatchModel.id.asc())
         )
 
         for patch in standalone_patches:
@@ -952,6 +1019,23 @@ class MCPGardeFouWidget(QWidget):
             self.btn_apply.setText(tr("Appliquer la modification"))
             self.btn_reject.setText(tr("Rejeter la proposition"))
             self.btn_apply_bundle_all.setVisible(False)
+
+        is_aborted = patch.status == "aborted"
+        if is_aborted:
+            self.btn_apply.setEnabled(False)
+            self.btn_reject.setEnabled(False)
+            self.btn_apply.setToolTip(tr("Cette proposition a été annulée par l'agent."))
+            self.btn_reject.setToolTip(tr("Une proposition annulée ne peut pas être rejetée à nouveau."))
+            self.lbl_abort_reason.setText(tr("Annulé par l'agent : %1", patch.reason) if patch.reason else tr("Annulé par l'agent."))
+            self.lbl_abort_reason.show()
+            self.badge_abort_status.show()
+        else:
+            self.btn_apply.setEnabled(True)
+            self.btn_reject.setEnabled(True)
+            self.btn_apply.setToolTip("")
+            self.btn_reject.setToolTip("")
+            self.lbl_abort_reason.hide()
+            self.badge_abort_status.hide()
 
         self.lbl_detail_title.setText(title)
         self.lbl_detail_meta.setText(meta_str)

@@ -107,19 +107,25 @@ def test_commit_empty_bundle_fails():
 
 
 def test_abort_bundle_cleans_up(test_setup):
-    """Vérifie que l'annulation supprime le bundle et ses patchs."""
+    """Vérifie que l'annulation marque le bundle et ses patchs en `aborted` sans suppression physique."""
     bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle à Annuler")
     p1 = StagedPatchRegistry.create_patch(
         patch_type="deck_create",
-        diff_payload={"deck_name": "À Supprimer"},
+        diff_payload={"deck_name": "À Annuler"},
     )
     assert StagedPatchModel.get_or_none(StagedPatchModel.patch_id == p1.patch_id) is not None
 
-    ok = StagedPatchRegistry.abort_bundle(bundle_id)
+    ok = StagedPatchRegistry.abort_bundle(bundle_id, reason="Annulation de test")
     assert ok is True
 
-    assert StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == bundle_id) is None
-    assert StagedPatchModel.get_or_none(StagedPatchModel.patch_id == p1.patch_id) is None
+    bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == bundle_id)
+    assert bundle is not None
+    assert bundle.status == "aborted"
+    assert "Annulation de test" in (bundle.explanation or "")
+
+    patch = StagedPatchModel.get_or_none(StagedPatchModel.patch_id == p1.patch_id)
+    assert patch is not None
+    assert patch.status == "aborted"
 
 
 def test_fail_fast_reject_cascade(test_setup):
