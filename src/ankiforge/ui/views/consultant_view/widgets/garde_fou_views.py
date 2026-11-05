@@ -1,10 +1,12 @@
 """Vues spécialisées pour la zone de détail polymorphe du Garde-Fou MCP.
 
-Fournit les 4 vues dédiées intégrées dans le QStackedWidget polymorphe :
+Fournit les 5 vues dédiées intégrées dans le QStackedWidget polymorphe :
 - DeckOperationWidget : Arborescence de paquets avec badges parent/enfant (deck_create, deck_rename)
 - TagDiffWidget : Tableau comparatif des tags ajoutés/retirés (set_tags, set_tags_bulk)
 - DeletionImpactWidget : Bannière rouge vif avec décompte d'impact (card_delete, deck_delete)
 - NoteCreationWidget : Affichage de création de note(s) sans diff (note_create, batch_note_create)
+- NoteTypePatchWidget : Prévisualisation de note réelle Recto / Verso pour les types de notes
+  (note_type_create, note_type_refactor, note_type_change, propose_note_type_refactor)
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QScrollArea,
     QTextEdit,
     QVBoxLayout,
@@ -28,6 +31,7 @@ from ankiforge.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
+    NoteTypeModel,
     NoteVersionModel,
     StagedPatchModel,
 )
@@ -860,3 +864,378 @@ class DeletionImpactWidget(QWidget):
                     padding: 10px;
                 }}
             """)
+
+
+class NoteTypePatchWidget(QWidget):
+    """Vue de détail polymorphe dédiée aux patches de types de notes.
+
+    Permet de sélectionner une note réelle de la collection (ou d'utiliser des
+    valeurs d'exemple pour une création pure) et d'en prévisualiser le rendu
+    Recto / Verso avec le CSS du modèle, avant validation du patch.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._patch: StagedPatchModel | None = None
+        self._note_type: NoteTypeModel | None = None
+        self._notes: list[NoteModel] = []
+        self._edited_fields: dict[str, str] = {}
+        self._edited_css: str = ""
+        self._fields_schema: list[str] = []
+        self._templates: list[dict[str, Any]] = []
+        self._field_edits: dict[str, QLineEdit] = {}
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
+
+        # ── En-tête d'opération ──────────────────────────────────────────
+        header_card = QFrame()
+        header_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                padding: 8px;
+            }}
+        """)
+        h_layout = QHBoxLayout(header_card)
+        h_layout.setContentsMargins(8, 8, 8, 8)
+        h_layout.setSpacing(8)
+
+        icon_note = QLabel()
+        icon_note.setPixmap(load_phosphor_icon("ph.file-text", color=DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
+        h_layout.addWidget(icon_note)
+
+        self.lbl_title = QLabel(tr("Prévisualisation de type de note"))
+        self.lbl_title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
+        h_layout.addWidget(self.lbl_title, 1)
+
+        self.badge_mode = Badge(tr("MODIFICATION"), variant="warning")
+        h_layout.addWidget(self.badge_mode)
+        layout.addWidget(header_card)
+
+        # ── Sélecteur de note d'exemple ─────────────────────────────────
+        selector_row = QHBoxLayout()
+        selector_row.setSpacing(8)
+
+        lbl_selector = QLabel(tr("Note d'exemple :"))
+        lbl_selector.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        selector_row.addWidget(lbl_selector)
+
+        self.combo_note = StyledComboBox()
+        self.combo_note.setFixedHeight(26)
+        self.combo_note.setMinimumWidth(220)
+        self.combo_note.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 11px;
+                padding: 0 8px;
+            }}
+            QComboBox:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.combo_note.currentIndexChanged.connect(self._on_note_selected)
+        selector_row.addWidget(self.combo_note)
+
+        self.lbl_selector_hint = QLabel()
+        self.lbl_selector_hint.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; font-style: italic;")
+        selector_row.addWidget(self.lbl_selector_hint)
+        selector_row.addStretch()
+        layout.addLayout(selector_row)
+
+        # ── Éditeur des champs ──────────────────────────────────────────
+        lbl_fields = QLabel(tr("Champs (modifiables) :"))
+        lbl_fields.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        layout.addWidget(lbl_fields)
+
+        self.fields_scroll = QScrollArea()
+        self.fields_scroll.setWidgetResizable(True)
+        self.fields_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.fields_scroll.setMaximumHeight(220)
+        self.fields_container = QWidget()
+        self.fields_container_layout = QVBoxLayout(self.fields_container)
+        self.fields_container_layout.setContentsMargins(0, 0, 0, 0)
+        self.fields_container_layout.setSpacing(4)
+        self.fields_scroll.setWidget(self.fields_container)
+        layout.addWidget(self.fields_scroll)
+
+        # ── Éditeur du CSS ──────────────────────────────────────────────
+        lbl_css = QLabel(tr("CSS du modèle :"))
+        lbl_css.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        layout.addWidget(lbl_css)
+
+        self.css_edit = QPlainTextEdit()
+        self.css_edit.setFixedHeight(100)
+        self.css_edit.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: 11px;
+                padding: 6px;
+            }}
+            QPlainTextEdit:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.css_edit.textChanged.connect(self._on_css_changed)
+        layout.addWidget(self.css_edit)
+
+        # ── Aperçu Recto / Verso ────────────────────────────────────────
+        self.preview = CardPreviewWidget(parent=self, show_header=True)
+        self.preview.setMinimumHeight(300)
+        layout.addWidget(self.preview, 1)
+
+        layout.addStretch()
+
+    # ── Données du patch ───────────────────────────────────────────────
+
+    @staticmethod
+    def _extract_active_fields(note: NoteModel) -> dict[str, str]:
+        """Extrait les champs de la version active d'une note."""
+        active_v = note.versions.where(NoteVersionModel.is_active).first()
+        if not active_v or not active_v.content:
+            return {}
+        try:
+            data = json.loads(active_v.content)
+            return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _load_notes(self) -> list[NoteModel]:
+        """Résout les notes candidates à prévisualiser pour le patch courant."""
+        if not self._patch:
+            return []
+        payload = staged_payload_of(self._patch)
+        note_ids = payload.get("note_ids") or []
+        if note_ids:
+            return list(NoteModel.select().where(NoteModel.id.in_(note_ids)))
+        if self._note_type:
+            return list(NoteModel.select().where(NoteModel.note_type == self._note_type))
+        deck_name = str(payload.get("deck_name") or payload.get("deck") or "")
+        if deck_name:
+            deck = DeckModel.get_or_none(DeckModel.name == deck_name)
+            if deck:
+                return list(NoteModel.select().join(CardModel).where(CardModel.deck == deck).distinct())
+        return []
+
+    def _rebuild_selector(self) -> None:
+        """Remplit le sélecteur de note avec les candidates du patch."""
+        self.combo_note.blockSignals(True)
+        self.combo_note.clear()
+        self._notes = self._load_notes()
+        if not self._notes:
+            self.combo_note.addItem(tr("Aucune note disponible — valeurs d'exemple"), userData=None)
+            self.combo_note.setEnabled(False)
+            self.lbl_selector_hint.setText(tr("Utilisation de valeurs d'exemple"))
+            self.lbl_selector_hint.setVisible(True)
+        else:
+            for note in self._notes:
+                fields = self._extract_active_fields(note)
+                summary = next(iter(fields.values())).replace("\n", " ")[:30] if fields else ""
+                label = tr("Note #%1 · %2", note.id, summary) if summary else tr("Note #%1", note.id)
+                self.combo_note.addItem(label, userData=note.id)
+            self.combo_note.setEnabled(True)
+            self.lbl_selector_hint.setVisible(False)
+        self.combo_note.blockSignals(False)
+        self._on_note_selected(self.combo_note.currentIndex())
+
+    def _rebuild_fields(self) -> None:
+        """Reconstruit les lignes d'édition des champs à partir des valeurs courantes."""
+        while self.fields_container_layout.count():
+            item = self.fields_container_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+        self._field_edits = {}
+        fields = self._edited_fields if self._edited_fields else {str(f): f"Exemple {f}" for f in self._fields_schema}
+        for field_name, value in fields.items():
+            row = QFrame()
+            row.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 4px;
+                }}
+            """)
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(6, 4, 6, 4)
+            row_layout.setSpacing(8)
+
+            lbl = QLabel(field_name)
+            lbl.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
+            lbl.setMinimumWidth(90)
+            row_layout.addWidget(lbl)
+
+            edit = QLineEdit(str(value))
+            edit.setStyleSheet(f"""
+                QLineEdit {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 3px;
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    font-size: 11px;
+                    padding: 0 6px;
+                }}
+                QLineEdit:focus {{
+                    border-color: {DesignTokens.ACCENT_PRIMARY};
+                }}
+            """)
+            edit.blockSignals(True)
+            edit.setText(str(value))
+            edit.blockSignals(False)
+            edit.textChanged.connect(lambda text, name=field_name: self._on_field_changed(name, text))
+            row_layout.addWidget(edit, 1)
+
+            self.fields_container_layout.addWidget(row)
+            self._field_edits[field_name] = edit
+
+        self.fields_container_layout.addStretch()
+
+    def _render_preview(self) -> None:
+        """Rend l'aperçu Recto / Verso avec les champs et le CSS couramment édités."""
+        fields = dict(self._edited_fields)
+        if not fields and self._fields_schema:
+            fields = {str(f): f"Exemple {f}" for f in self._fields_schema}
+        if "Front" not in fields and fields:
+            fields["Front"] = next(iter(fields.values()))
+        if "Back" not in fields and len(fields) > 1:
+            fields["Back"] = list(fields.values())[1]
+
+        override_templates = self._templates if self._templates else None
+        override_css = self._edited_css or None
+        self.preview.update_preview(
+            note_type=self._note_type,
+            fields_dict=fields,
+            override_templates=override_templates,
+            override_css=override_css,
+        )
+
+    def set_patch(self, patch: StagedPatchModel) -> None:
+        """Injecte les données du patch et configure l'aperçu associé."""
+        self._patch = patch
+        self._note_type = None
+        self._edited_fields = {}
+        self._edited_css = ""
+        self._fields_schema = []
+        self._templates = []
+
+        payload = staged_payload_of(patch)
+        p_type = patch.patch_type.lower().strip()
+
+        if p_type == "note_type_create":
+            self.lbl_title.setText(tr("Création de type de note"))
+            self.badge_mode.setText(tr("CRÉATION"))
+            self.badge_mode.set_variant("success")
+            self._edited_css = str(payload.get("css_style") or "")
+            raw_schema = payload.get("fields_schema") or []
+            self._fields_schema = [str(f) for f in raw_schema] if isinstance(raw_schema, list) else []
+            raw_templates = payload.get("templates") or []
+            self._templates = raw_templates if isinstance(raw_templates, list) else []
+        else:
+            self.lbl_title.setText(tr("Prévisualisation de type de note"))
+            self.badge_mode.setText(tr("MODIFICATION"))
+            self.badge_mode.set_variant("warning")
+            target = payload.get("target_model") or payload.get("target_model_name") or payload.get("target_model_id")
+            if target is not None:
+                if isinstance(target, int) or (isinstance(target, str) and str(target).isdigit()):
+                    self._note_type = NoteTypeModel.get_or_none(NoteTypeModel.id == int(target))
+                else:
+                    self._note_type = NoteTypeModel.get_or_none(NoteTypeModel.name == str(target).strip())
+            if self._note_type:
+                try:
+                    self._fields_schema = [str(f) for f in json.loads(self._note_type.fields_schema or "[]")]
+                except Exception:
+                    self._fields_schema = []
+                try:
+                    parsed_templates = json.loads(self._note_type.templates or "[]")
+                    self._templates = parsed_templates if isinstance(parsed_templates, list) else []
+                except Exception:
+                    self._templates = []
+                self._edited_css = self._note_type.css_style or ""
+
+        self.css_edit.blockSignals(True)
+        self.css_edit.setPlainText(self._edited_css)
+        self.css_edit.blockSignals(False)
+
+        self._rebuild_selector()
+
+    def get_modified_content(self) -> dict[str, Any]:
+        """Retourne le payload mis à jour avec les champs et le CSS édités par l'utilisateur."""
+        if not self._patch:
+            return {}
+        payload = dict(staged_payload_of(self._patch))
+        payload["fields"] = dict(self._edited_fields)
+        payload["css_style"] = self._edited_css
+        return payload
+
+    # ── Réactions utilisateur ──────────────────────────────────────────
+
+    def _on_note_selected(self, index: int) -> None:
+        """Charge les champs de la note sélectionnée et rafraîchit l'aperçu."""
+        if not self._notes or index < 0 or index >= len(self._notes):
+            self._edited_fields = {}
+            self._rebuild_fields()
+            self._render_preview()
+            return
+        note = self._notes[index]
+        self._edited_fields = dict(self._extract_active_fields(note))
+        if not self._edited_fields:
+            self._edited_fields = {str(f): f"Exemple {f}" for f in self._fields_schema}
+        self._rebuild_fields()
+        self._render_preview()
+
+    def _on_field_changed(self, name: str, text: str) -> None:
+        """Propagère la modification d'un champ vers l'aperçu."""
+        self._edited_fields[name] = text
+        self._render_preview()
+
+    def _on_css_changed(self) -> None:
+        """Propagère la modification du CSS vers l'aperçu."""
+        self._edited_css = self.css_edit.toPlainText()
+        self._render_preview()
+
+    # ── Thème & nettoyage ──────────────────────────────────────────────
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Adapte les couleurs au profil de thème actif."""
+        bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+        bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
+        border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+        text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
+        self.fields_scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {bg_panel};
+                border: none;
+            }}
+        """)
+        self.css_edit.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {bg_input};
+                border: 1px solid {border_color};
+                border-radius: 4px;
+                color: {text_primary};
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: 11px;
+                padding: 6px;
+            }}
+            QPlainTextEdit:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        if hasattr(self, "preview") and hasattr(self.preview, "refresh_theme"):
+            self.preview.refresh_theme(profile)
+
+    def cleanup(self) -> None:
+        """Libère les ressources WebEngine de l'aperçu."""
+        if hasattr(self, "preview") and hasattr(self.preview, "cleanup"):
+            self.preview.cleanup()

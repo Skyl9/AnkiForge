@@ -1083,3 +1083,145 @@ def test_mcp_garde_fou_filter_text(qtbot, sample_note) -> None:
                 visible_count += 1
 
     assert visible_count == 3
+
+
+def test_mcp_garde_fou_widget_note_type_create_preview_no_notes(qtbot) -> None:
+    """Un patch note_type_create sans note existante affiche l'aperçu avec valeurs d'exemple, sans crash."""
+    payload = {
+        "type": "note_type_create",
+        "name": f"NT_None_{uuid.uuid4().hex[:6]}",
+        "fields_schema": ["Front", "Back"],
+        "templates": [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+        "css_style": ".card { color: purple; }",
+        "title": "Création sans note",
+    }
+    StagedPatchRegistry.create_patch(patch_type="note_type_create", diff_payload=payload)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 1
+    assert widget.polymorphic_stack.currentIndex() == 5
+    assert widget.polymorphic_stack.currentWidget() is widget.note_type_view
+
+    view = widget.note_type_view
+    assert not view.combo_note.isEnabled()
+    assert view.lbl_selector_hint.isVisible()
+    # Valeurs d'exemple injectées par défaut
+    assert view.preview.current_fields.get("Front") == "Exemple Front"
+    assert view.preview.current_fields.get("Back") == "Exemple Back"
+    assert view.get_modified_content()["css_style"] == ".card { color: purple; }"
+
+
+def test_mcp_garde_fou_widget_note_type_change_preview_with_notes(qtbot) -> None:
+    """Un patch note_type_change prévisualise la note réelle et permet l'édition des champs et du CSS."""
+    target_nt = NoteTypeModel.create(
+        name=f"NT_Target_{uuid.uuid4().hex[:6]}",
+        fields_schema='["Recto", "Verso"]',
+        templates='[{"name": "C1", "qfmt": "{{Recto}}", "afmt": "{{Verso}}"}]',
+        css_style=".card { color: blue; }",
+    )
+    note = NoteModel.create(guid=f"g_nt_{uuid.uuid4().hex[:6]}", note_type=target_nt)
+    NoteVersionModel.create(
+        note=note,
+        version_number=1,
+        content=json.dumps({"Recto": "Question Cible", "Verso": "Réponse Cible"}),
+        is_active=True,
+    )
+
+    payload = {
+        "type": "note_type_change",
+        "note_ids": [note.id],
+        "target_model": target_nt.name,
+        "target_model_id": target_nt.id,
+        "mapping_champs": {"Recto": "Recto", "Verso": "Verso"},
+        "title": f"Migration vers {target_nt.name}",
+    }
+    patch = StagedPatchRegistry.create_patch(patch_type="note_type_change", target_id=target_nt.id, diff_payload=payload)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 1
+    assert widget.polymorphic_stack.currentIndex() == 5
+    assert widget.polymorphic_stack.currentWidget() is widget.note_type_view
+
+    view = widget.note_type_view
+    assert view.combo_note.isEnabled()
+    assert view.combo_note.count() == 1
+    assert view.preview.current_fields.get("Recto") == "Question Cible"
+
+    # Édition d'un champ -> reflété dans l'aperçu
+    view._field_edits["Recto"].setText("Question Retouchée")
+    assert view.preview.current_fields["Recto"] == "Question Retouchée"
+
+    # Édition du CSS
+    view.css_edit.setPlainText(".card { color: green; }")
+    content = view.get_modified_content()
+    assert content["css_style"] == ".card { color: green; }"
+    assert content["fields"]["Recto"] == "Question Retouchée"
+
+    # Application -> le contenu édité est synchronisé dans le payload du patch
+    widget.btn_apply.click()
+    assert widget.count() == 0
+    updated_patch = StagedPatchRegistry.get_patch(patch.patch_id)
+    assert updated_patch.status == "applied"
+    synced = json.loads(updated_patch.diff_payload)
+    assert synced["fields"]["Recto"] == "Question Retouchée"
+    assert synced["css_style"] == ".card { color: green; }"
+
+
+def test_mcp_garde_fou_widget_note_type_refactor_routes(qtbot) -> None:
+    """Les patches note_type_refactor et propose_note_type_refactor routent vers la vue d'aperçu (index 5)."""
+    for p_type in ("note_type_refactor", "propose_note_type_refactor"):
+        payload = {
+            "type": p_type,
+            "note_type_name": f"NT_Ref_{uuid.uuid4().hex[:6]}",
+            "fields_schema": ["Front", "Back"],
+            "css_style": ".card { }",
+            "title": f"Refactor {p_type}",
+        }
+        StagedPatchRegistry.create_patch(patch_type=p_type, diff_payload=payload)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 2
+    assert widget.polymorphic_stack.currentIndex() == 5
+    assert widget.polymorphic_stack.currentWidget() is widget.note_type_view
+
+
+def test_mcp_garde_fou_widget_apply_note_type_create_still_works(qtbot) -> None:
+    """Un note_type_create reste applicable après le routage vers la vue d'aperçu (regression)."""
+    unique_name = f"NT_Apply_{uuid.uuid4().hex[:6]}"
+    payload = {
+        "type": "note_type_create",
+        "name": unique_name,
+        "fields_schema": ["Front", "Back"],
+        "templates": [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+        "css_style": ".card { color: purple; }",
+        "description": "Nouveau type créé via GF",
+        "title": f"Création de {unique_name}",
+    }
+    StagedPatchRegistry.create_patch(patch_type="note_type_create", diff_payload=payload)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    assert widget.count() == 1
+    assert widget.polymorphic_stack.currentIndex() == 5
+    widget.btn_apply.click()
+
+    assert widget.count() == 0
+    created_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == unique_name)
+    assert created_nt is not None
+    assert created_nt.description == "Nouveau type créé via GF"
+    assert created_nt.css_style == ".card { color: purple; }"

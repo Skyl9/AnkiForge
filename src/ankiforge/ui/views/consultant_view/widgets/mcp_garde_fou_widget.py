@@ -41,6 +41,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.consultant_view.widgets.garde_fou_views import (
     DeckOperationWidget,
     DeletionImpactWidget,
+    NoteTypePatchWidget,
     TagDiffWidget,
 )
 from ankiforge.ui.widgets.card_create_view_widget import CardCreateViewWidget
@@ -729,6 +730,10 @@ class MCPGardeFouWidget(QWidget):
         self.create_view = CardCreateViewWidget()
         self.polymorphic_stack.addWidget(self.create_view)
 
+        # Page 5 : Prévisualisation de note réelle pour les patches de types de notes
+        self.note_type_view = NoteTypePatchWidget()
+        self.polymorphic_stack.addWidget(self.note_type_view)
+
         detail_view_layout.addWidget(self.polymorphic_stack, 1)
 
         # ── Barre d'Action Séquentielle Inférieure ───────────────────────────
@@ -955,6 +960,9 @@ class MCPGardeFouWidget(QWidget):
         if p_type in ("note_create", "batch_note_create"):
             self.polymorphic_stack.setCurrentIndex(4)
             self.create_view.set_patch(patch)
+        elif p_type in ("note_type_create", "note_type_refactor", "note_type_change", "propose_note_type_refactor"):
+            self.polymorphic_stack.setCurrentIndex(5)
+            self.note_type_view.set_patch(patch)
         elif p_type in ("deck_create", "create_deck", "deck_rename", "rename_deck"):
             self.polymorphic_stack.setCurrentIndex(1)
             self.deck_view.set_patch(patch)
@@ -981,6 +989,8 @@ class MCPGardeFouWidget(QWidget):
             return self.deletion_view.get_modified_content()
         elif idx == 4:
             return self.create_view.get_modified_content()
+        elif idx == 5:
+            return self.note_type_view.get_modified_content()
         return None
 
     def _filter_list(self, text: str) -> None:
@@ -1200,6 +1210,8 @@ class MCPGardeFouWidget(QWidget):
             self.deletion_view.refresh_theme(profile)
         if hasattr(self, "create_view") and hasattr(self.create_view, "refresh_theme"):
             self.create_view.refresh_theme(profile)
+        if hasattr(self, "note_type_view") and hasattr(self.note_type_view, "refresh_theme"):
+            self.note_type_view.refresh_theme(profile)
 
     def cleanup(self) -> None:
         """Arrête les chargements Chromium et libère les ressources WebEngine."""
@@ -1209,3 +1221,5 @@ class MCPGardeFouWidget(QWidget):
             self.create_view.cleanup()
         if hasattr(self, "deletion_view") and hasattr(self.deletion_view, "cleanup"):
             self.deletion_view.cleanup()
+        if hasattr(self, "note_type_view") and hasattr(self.note_type_view, "cleanup"):
+            self.note_type_view.cleanup()

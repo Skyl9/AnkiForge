@@ -386,7 +386,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location line="+64"/>
         <location filename="../../ui/components/tabs/bars/settings_bar.py" line="+25"/>
         <location filename="../../ui/views/batch_view/dialogs/batch_slice_composer_dialog.py" line="+181"/>
-        <location filename="../../ui/widgets/note_editor_widget.py" line="+741"/>
+        <location filename="../../ui/widgets/note_editor_widget.py" line="+747"/>
         <source>%1  %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -578,7 +578,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+639"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+645"/>
         <location filename="../../ui/views/edition_view/view.py" line="-625"/>
         <location line="+211"/>
         <location line="+8"/>
@@ -616,8 +616,8 @@ Cliquer pour voir les détails</source>
         <location filename="../../ui/dialogs/addon_manager_dialog.py" line="+104"/>
         <location filename="../../ui/dialogs/human_validation_dialog.py" line="+72"/>
         <location filename="../../ui/views/consultant_view/widgets/inline_diff_card_widget.py" line="+209"/>
-        <location filename="../../ui/views/pipelines_view/view.py" line="+753"/>
-        <location filename="../../ui/widgets/note_editor_widget.py" line="+323"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="+768"/>
+        <location filename="../../ui/widgets/note_editor_widget.py" line="+330"/>
         <source>&lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -687,7 +687,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location line="+271"/>
-        <location filename="../../ui/dialogs/export_dialog.py" line="+340"/>
+        <location filename="../../ui/dialogs/export_dialog.py" line="+342"/>
         <source>✅ %1 cartes exportées avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -959,7 +959,7 @@ Le document `%1` n&apos;a pas pu être chargé.</source>
     </message>
     <message>
         <location line="+2"/>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1796"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1801"/>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+132"/>
@@ -1380,7 +1380,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
     <message>
         <location line="+5"/>
         <location line="+261"/>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-524"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-528"/>
         <location filename="../../ui/widgets/card_create_view_widget.py" line="-65"/>
         <source>Paquet : %1</source>
         <translation type="unfinished"></translation>
@@ -1750,7 +1750,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+337"/>
+        <location line="+345"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -1765,7 +1765,7 @@ L&apos;accès simultané au même profil est bloqué pour protéger vos données
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+50"/>
+        <location line="+56"/>
         <source>Espace de travail actif : « %1 »</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3123,7 +3123,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+350"/>
+        <location line="+354"/>
         <source>✅ %1 fiches Anki synchronisées via les tags sur l&apos;ensemble des cours !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3637,13 +3637,13 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/garde_fou_views.py" line="+76"/>
+        <location filename="../../ui/views/consultant_view/widgets/garde_fou_views.py" line="+80"/>
         <source>Opération sur les paquets</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+168"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+169"/>
         <source>PAQUET</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3694,13 +3694,14 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+1"/>
+        <location line="+931"/>
         <location filename="../../ui/views/consultant_view/widgets/note_creation_view.py" line="+149"/>
         <location line="+173"/>
         <source>CRÉATION</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+31"/>
+        <location line="-900"/>
         <location filename="../../ui/widget_gallery/families/components.py" line="-4"/>
         <source>Nouveau</source>
         <translation type="unfinished"></translation>
@@ -3792,16 +3793,18 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+56"/>
+        <location line="+321"/>
         <source>Note #%1 · %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-320"/>
+        <location line="+320"/>
         <source>Note #%1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="-316"/>
         <source>Aucun enregistrement à prévisualiser.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3858,6 +3861,48 @@ Gabarits : %3</source>
     <message>
         <location line="+14"/>
         <source>Ce paquet ne contient aucune carte.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+96"/>
+        <location line="+233"/>
+        <source>Prévisualisation de type de note</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-229"/>
+        <location line="+230"/>
+        <source>MODIFICATION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-222"/>
+        <source>Note d&apos;exemple :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source>Champs (modifiables) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>CSS du modèle :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+67"/>
+        <source>Aucune note disponible — valeurs d&apos;exemple</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Utilisation de valeurs d&apos;exemple</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+97"/>
+        <source>Création de type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3993,18 +4038,18 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+43"/>
-        <location line="+798"/>
+        <location line="+802"/>
         <source>Étape %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-796"/>
-        <location line="+808"/>
+        <location line="-800"/>
+        <location line="+812"/>
         <source>Proposition — %1 #%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-778"/>
+        <location line="-782"/>
         <source>CARTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4065,7 +4110,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+36"/>
+        <location line="+40"/>
         <location line="+209"/>
         <source>Rejeter la proposition</source>
         <translation type="unfinished"></translation>
@@ -4102,7 +4147,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+89"/>
+        <location line="+94"/>
         <source>Étape %1 appliquée avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5527,7 +5572,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/pipelines_view/view.py" line="-555"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="-569"/>
         <source>0 étapes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5542,7 +5587,7 @@ Voulez-vous la sauvegarder avant de continuer ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+263"/>
+        <location line="+277"/>
         <location line="+1"/>
         <source>%1 étape%2</source>
         <translation type="unfinished"></translation>
@@ -7674,7 +7719,7 @@ Veuillez corriger le template avant d&apos;enregistrer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/mcp_status_widget.py" line="+224"/>
+        <location filename="../../ui/widgets/mcp_status_widget.py" line="+229"/>
         <source>URL %1 copiée : %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7689,7 +7734,7 @@ Veuillez corriger le template avant d&apos;enregistrer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/note_editor_widget.py" line="-782"/>
+        <location filename="../../ui/widgets/note_editor_widget.py" line="-795"/>
         <source>Champ du type de note : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7699,12 +7744,17 @@ Veuillez corriger le template avant d&apos;enregistrer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+546"/>
+        <location line="+552"/>
         <source>Audio introuvable : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+21"/>
+        <source>Erreur audio : %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
         <source>Prononciation audio générée : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9130,7 +9180,7 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
 <context>
     <name>AISourcesDiagnosticTab</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-322"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-326"/>
         <source>Rechercher un document ou cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9210,12 +9260,17 @@ Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être m
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+1"/>
+        <source>Albums</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
         <source>Associer via les tags de traçabilité les fiches Anki à l&apos;ensemble des cours importés</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+223"/>
+        <location line="+225"/>
         <source>Synchronisation des fiches Anki pour l&apos;ensemble des cours en cours...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13428,7 +13483,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentInspectorPanel</name>
     <message>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1610"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-1614"/>
         <source>Retourner à la liste générale des documents</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15127,7 +15182,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ExportDialog</name>
     <message>
-        <location filename="../../ui/dialogs/export_dialog.py" line="-299"/>
+        <location filename="../../ui/dialogs/export_dialog.py" line="-301"/>
         <source>Exporter un Paquet Anki</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15182,7 +15237,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+76"/>
+        <location line="+78"/>
         <source>Sélectionner un paquet à exporter</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17923,7 +17978,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-867"/>
+        <location filename="../../ui/main_window.py" line="-881"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17933,7 +17988,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+503"/>
+        <location line="+511"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18654,13 +18709,13 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>NoteFieldEditorWidget</name>
     <message>
-        <location line="-497"/>
-        <location line="+133"/>
+        <location line="-504"/>
+        <location line="+134"/>
         <source>Écouter la prononciation audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-113"/>
+        <location line="-114"/>
         <source>Générer la prononciation audio (TTS)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18670,12 +18725,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
+        <location line="+31"/>
         <source>Arrêter la lecture</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+18"/>
         <source>Le champ est vide, impossible de générer l&apos;audio.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19329,7 +19384,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>PipelinesView</name>
     <message>
-        <location filename="../../ui/views/pipelines_view/view.py" line="-705"/>
+        <location filename="../../ui/views/pipelines_view/view.py" line="-719"/>
         <source>PIPELINE :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19409,7 +19464,7 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+222"/>
+        <location line="+236"/>
         <source>Pipeline renommé avec succès</source>
         <translation type="unfinished"></translation>
     </message>
