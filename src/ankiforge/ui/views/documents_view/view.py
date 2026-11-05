@@ -1834,6 +1834,7 @@ class DocumentsView(FileDropMixin, QWidget):
     @Slot(int)
     def _on_album_modified(self, doc_id: int) -> None:
         self.refresh_data()
+        self._select_doc_id_in_tree(doc_id)
 
     @Slot(int)
     def _on_album_forge_requested(self, doc_id: int) -> None:
