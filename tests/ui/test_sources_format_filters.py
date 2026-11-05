@@ -22,6 +22,7 @@ EXPECTED_ICONS = {
     "pdf": "ph.file-pdf",
     "md": "ph.file-text",
     "web": "ph.globe",
+    "album": "ph.images",
 }
 
 

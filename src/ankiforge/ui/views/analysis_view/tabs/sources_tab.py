@@ -66,6 +66,7 @@ FORMAT_FILTER_ICONS: dict[str, str] = {
     "pdf": "ph.file-pdf",
     "md": "ph.file-text",
     "web": "ph.globe",
+    "album": "ph.images",
 }
 """Icônes Phosphor canoniques des filtres de format de l'onglet Sources, une par clé de `current_format_filter`."""
 
@@ -1596,6 +1597,7 @@ class AISourcesDiagnosticTab(QWidget):
         self.btn_filter_pdf = FilterChipButton(self.tr("PDF"), icon_name=FORMAT_FILTER_ICONS["pdf"])
         self.btn_filter_md = FilterChipButton(self.tr("Markdown"), icon_name=FORMAT_FILTER_ICONS["md"])
         self.btn_filter_web = FilterChipButton(self.tr("Web & Vidéo"), icon_name=FORMAT_FILTER_ICONS["web"])
+        self.btn_filter_album = FilterChipButton(self.tr("Albums"), icon_name=FORMAT_FILTER_ICONS["album"])
         self.current_format_filter = "all"
 
         self.format_buttons = {
@@ -1603,6 +1605,7 @@ class AISourcesDiagnosticTab(QWidget):
             "pdf": self.btn_filter_pdf,
             "md": self.btn_filter_md,
             "web": self.btn_filter_web,
+            "album": self.btn_filter_album,
         }
 
         for fmt, b in self.format_buttons.items():
@@ -1767,6 +1770,8 @@ class AISourcesDiagnosticTab(QWidget):
                 if self.current_format_filter == "md" and ext not in ("md", "markdown"):
                     continue
                 if self.current_format_filter == "web" and ext not in ("web", "yt", "youtube"):
+                    continue
+                if self.current_format_filter == "album" and ext != "album":
                     continue
 
             if search_text and search_text not in title.lower():
