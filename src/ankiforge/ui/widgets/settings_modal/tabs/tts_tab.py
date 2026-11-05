@@ -21,6 +21,7 @@ except (ImportError, OSError):
     QMediaPlayer = None  # type: ignore[misc]
     HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
+    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QVBoxLayout,
@@ -172,6 +173,9 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         self._initial_engine: Any = self.cb_engine.currentData()
         self._initial_voice: Any = self.cb_voice.currentData()
         self._initial_rate: Any = self.cb_rate.currentData()
+        self._initial_speed: float = self.spn_tts_default_speed.value()
+        self._initial_voice_fr: str | None = self.cb_tts_default_voice_fr.currentData()
+        self._initial_voice_en: str | None = self.cb_tts_default_voice_en.currentData()
 
         # Lancement de la détection asynchrone non bloquante
         self._start_discovery_worker()
@@ -284,6 +288,68 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
 
         card_gen_layout.addLayout(row_test)
         layout.addWidget(self.card_general)
+
+        # ── SECTION 1b : PARAMÈTRES PAR DÉFAUT TTS ───────────────────────────
+        self.lbl_sec_tts_defaults = QLabel(self.tr("PARAMÈTRES PAR DÉFAUT TTS"))
+        self.lbl_sec_tts_defaults.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        layout.addWidget(self.lbl_sec_tts_defaults)
+
+        self.card_tts_defaults = SettingsCard()
+        card_tts_defaults_layout = QVBoxLayout(self.card_tts_defaults)
+        card_tts_defaults_layout.setContentsMargins(14, 12, 14, 12)
+        card_tts_defaults_layout.setSpacing(12)
+
+        # Vitesse par défaut (0.5x à 2.0x, pas 0.05, défaut 1.0x)
+        row_speed = QHBoxLayout()
+        lbl_speed = QLabel(self.tr("Vitesse par défaut :"))
+        lbl_speed.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_speed.addWidget(lbl_speed)
+        row_speed.addStretch()
+        self.spn_tts_default_speed = QDoubleSpinBox()
+        self.spn_tts_default_speed.setRange(0.5, 2.0)
+        self.spn_tts_default_speed.setSingleStep(0.05)
+        self.spn_tts_default_speed.setDecimals(2)
+        self.spn_tts_default_speed.setValue(float(SettingsService.get("tts/default_speed", 1.0)))
+        self.spn_tts_default_speed.setSuffix(" x")
+        self.spn_tts_default_speed.setFixedHeight(28)
+        row_speed.addWidget(self.spn_tts_default_speed)
+        card_tts_defaults_layout.addLayout(row_speed)
+
+        # Voix par défaut français
+        row_voice_fr = QHBoxLayout()
+        lbl_voice_fr = QLabel(self.tr("Voix par défaut (français) :"))
+        lbl_voice_fr.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_voice_fr.addWidget(lbl_voice_fr)
+        row_voice_fr.addStretch()
+        self.cb_tts_default_voice_fr = StyledComboBox()
+        self.cb_tts_default_voice_fr.setFixedWidth(280)
+        self.cb_tts_default_voice_fr.setFixedHeight(28)
+        self._populate_voice_combo(self.cb_tts_default_voice_fr, "fr")
+        saved_voice_fr = SettingsService.get("tts/voice_fr", "fr-FR-Standard")
+        idx_voice_fr = self.cb_tts_default_voice_fr.findData(saved_voice_fr)
+        if idx_voice_fr >= 0:
+            self.cb_tts_default_voice_fr.setCurrentIndex(idx_voice_fr)
+        row_voice_fr.addWidget(self.cb_tts_default_voice_fr)
+        card_tts_defaults_layout.addLayout(row_voice_fr)
+
+        # Voix par défaut anglais
+        row_voice_en = QHBoxLayout()
+        lbl_voice_en = QLabel(self.tr("Voix par défaut (anglais) :"))
+        lbl_voice_en.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_voice_en.addWidget(lbl_voice_en)
+        row_voice_en.addStretch()
+        self.cb_tts_default_voice_en = StyledComboBox()
+        self.cb_tts_default_voice_en.setFixedWidth(280)
+        self.cb_tts_default_voice_en.setFixedHeight(28)
+        self._populate_voice_combo(self.cb_tts_default_voice_en, "en")
+        saved_voice_en = SettingsService.get("tts/voice_en", "en-US-Standard")
+        idx_voice_en = self.cb_tts_default_voice_en.findData(saved_voice_en)
+        if idx_voice_en >= 0:
+            self.cb_tts_default_voice_en.setCurrentIndex(idx_voice_en)
+        row_voice_en.addWidget(self.cb_tts_default_voice_en)
+        card_tts_defaults_layout.addLayout(row_voice_en)
+
+        layout.addWidget(self.card_tts_defaults)
 
         # ── SECTION 2 : GESTIONNAIRE LOCAL PIPER (COLLAPSIBLE SECTION) ───────
         self.sec_piper = CollapsibleSection(self.tr("MOTEUR LOCAL PIPER"), parent=self, collapsed=True)
@@ -450,6 +516,26 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             if idx >= 0:
                 self.cb_engine.setCurrentIndex(idx)
         self.cb_engine.blockSignals(False)
+
+    def _populate_voice_combo(self, combo: StyledComboBox, lang: str) -> None:
+        """Remplit un sélecteur de voix par défaut avec un jeu représentatif pour la langue donnée."""
+        voices: list[tuple[str, str]] = {
+            "fr": [
+                (self.tr("fr-FR-Standard (Standard)"), "fr-FR-Standard"),
+                (self.tr("fr-FR-Wavenet (Wavenet)"), "fr-FR-Wavenet"),
+                (self.tr("fr-CA-Standard (Canada)"), "fr-CA-Standard"),
+            ],
+            "en": [
+                (self.tr("en-US-Standard (Standard)"), "en-US-Standard"),
+                (self.tr("en-US-Wavenet (Wavenet)"), "en-US-Wavenet"),
+                (self.tr("en-GB-Standard (Royaume-Uni)"), "en-GB-Standard"),
+            ],
+        }.get(lang, [])
+        combo.blockSignals(True)
+        combo.clear()
+        for label, voice_id in voices:
+            combo.addItem(label, voice_id)
+        combo.blockSignals(False)
 
     def _sync_sections(self, engine_id: str | None = None) -> None:
         """Déplie la section du moteur sélectionné et replie les autres."""
@@ -635,6 +721,11 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         SettingsService.set("tts.engine", self.cb_engine.currentData(), category="multimedia")
         SettingsService.set("tts.voice", self.cb_voice.currentData(), category="multimedia")
         SettingsService.set("tts.rate", self.cb_rate.currentData(), category="multimedia")
+        SettingsService.set("tts/default_speed", float(self.spn_tts_default_speed.value()), category="multimedia")
+        SettingsService.set("tts/voice_fr", self.cb_tts_default_voice_fr.currentData(), category="multimedia")
+        SettingsService.set("tts/voice_en", self.cb_tts_default_voice_en.currentData(), category="multimedia")
+
+        self._record_initial_state()
         if self._audio_output:
             dev_desc = self._audio_output.device().description()
             if dev_desc:
@@ -652,6 +743,12 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
             return True
         if not values_equal(self.cb_rate.currentData(), self._initial_rate):
             return True
+        if not values_equal(self.spn_tts_default_speed.value(), self._initial_speed):
+            return True
+        if not values_equal(self.cb_tts_default_voice_fr.currentData(), self._initial_voice_fr):
+            return True
+        if not values_equal(self.cb_tts_default_voice_en.currentData(), self._initial_voice_en):
+            return True
         if self._audio_output:
             dev_desc = self._audio_output.device().description()
         elif hasattr(self, "cb_device") and self.cb_device.currentText():
@@ -663,6 +760,15 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
     def save_tab(self) -> None:
         """Alias conventionnel pour save_settings()."""
         self.save_settings()
+
+    def _record_initial_state(self) -> None:
+        """Capture l'état actuel des contrôles TTS pour la détection dirty à zéro coût BDD."""
+        self._initial_engine = self.cb_engine.currentData()
+        self._initial_voice = self.cb_voice.currentData()
+        self._initial_rate = self.cb_rate.currentData()
+        self._initial_speed = self.spn_tts_default_speed.value()
+        self._initial_voice_fr = self.cb_tts_default_voice_fr.currentData()
+        self._initial_voice_en = self.cb_tts_default_voice_en.currentData()
 
     def _populate_audio_devices(self, devices_data: list[dict[str, Any]] | None = None) -> None:
         """Remplit la liste des périphériques de sortie audio disponibles."""
@@ -854,11 +960,15 @@ class TTSSettingsTab(SettingsDirtyMixin, QWidget):
         """Rafraîchit les styles et les cartes de l'onglet selon le profil de thème actif."""
         if hasattr(self, "card_general") and hasattr(self.card_general, "refresh_theme"):
             self.card_general.refresh_theme(profile)
+        if hasattr(self, "card_tts_defaults") and hasattr(self.card_tts_defaults, "refresh_theme"):
+            self.card_tts_defaults.refresh_theme(profile)
         if hasattr(self, "sec_piper") and hasattr(self.sec_piper, "refresh_theme"):
             self.sec_piper.refresh_theme(profile)
         if hasattr(self, "sec_kokoro") and hasattr(self.sec_kokoro, "refresh_theme"):
             self.sec_kokoro.refresh_theme(profile)
         self.lbl_sec_general.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
+        if hasattr(self, "lbl_sec_tts_defaults"):
+            self.lbl_sec_tts_defaults.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
 
     def closeEvent(self, event: Any) -> None:
         if self._player and QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:

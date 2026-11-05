@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCheckBox,
+    QDoubleSpinBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -764,6 +765,53 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         layout.addWidget(self.card_global_prefs)
 
+        # ── SECTION 5 : PARAMÈTRES DE GÉNÉRATION PAR DÉFAUT ──────────────────
+        self.lbl_sec_gen_defaults = QLabel(self.tr("PARAMÈTRES DE GÉNÉRATION PAR DÉFAUT"))
+        self.lbl_sec_gen_defaults.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+        layout.addWidget(self.lbl_sec_gen_defaults)
+
+        self.card_gen_defaults = SettingsCard()
+        gen_defaults_layout = QVBoxLayout(self.card_gen_defaults)
+        gen_defaults_layout.setContentsMargins(14, 12, 14, 12)
+        gen_defaults_layout.setSpacing(12)
+
+        def add_gen_default_row(label_str: str, widget: QWidget) -> QLabel:
+            row = QHBoxLayout()
+            lbl = QLabel(label_str)
+            lbl.setWordWrap(True)
+            lbl.setMinimumWidth(0)
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+            row.addWidget(lbl, 1)
+            row.addWidget(widget)
+            gen_defaults_layout.addLayout(row)
+            return lbl
+
+        # Température par défaut (0.0 à 1.0, pas 0.05, défaut 0.30)
+        self.spn_ai_temperature = QDoubleSpinBox()
+        self.spn_ai_temperature.setRange(0.0, 1.0)
+        self.spn_ai_temperature.setSingleStep(0.05)
+        self.spn_ai_temperature.setDecimals(2)
+        self.spn_ai_temperature.setValue(float(SettingsService.get("ai/default_temperature", 0.30)))
+        self.spn_ai_temperature.setFixedHeight(30)
+        add_gen_default_row(self.tr("Température par défaut :"), self.spn_ai_temperature)
+
+        # Budget max tokens par défaut (500 à 32000, pas 500, défaut 4000)
+        self.spn_ai_max_tokens = QSpinBox()
+        self.spn_ai_max_tokens.setRange(500, 32000)
+        self.spn_ai_max_tokens.setSingleStep(500)
+        self.spn_ai_max_tokens.setValue(int(SettingsService.get("ai/max_tokens_budget", 4000)))
+        self.spn_ai_max_tokens.setFixedHeight(30)
+        add_gen_default_row(self.tr("Budget max tokens par défaut :"), self.spn_ai_max_tokens)
+
+        # Délai de requête par défaut (10 à 300 s, défaut 60 s)
+        self.spn_ai_timeout = QSpinBox()
+        self.spn_ai_timeout.setRange(10, 300)
+        self.spn_ai_timeout.setValue(int(SettingsService.get("ai/request_timeout_sec", 60)))
+        self.spn_ai_timeout.setFixedHeight(30)
+        add_gen_default_row(self.tr("Délai de requête par défaut (secondes) :"), self.spn_ai_timeout)
+
+        layout.addWidget(self.card_gen_defaults)
+
         self.scroll.setWidget(self.content_widget)
         root_layout.addWidget(self.scroll)
 
@@ -1332,6 +1380,11 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         if timeout_val is not None:
             SettingsService.set("ai/generation_timeout_seconds", int(timeout_val), category="ai")
 
+        # Paramètres de génération par défaut (nouvelle section)
+        SettingsService.set("ai/default_temperature", round(self.spn_ai_temperature.value(), 2), category="ai")
+        SettingsService.set("ai/max_tokens_budget", int(self.spn_ai_max_tokens.value()), category="ai")
+        SettingsService.set("ai/request_timeout_sec", int(self.spn_ai_timeout.value()), category="ai")
+
         c_tokens_val = self.cb_consultant_token_budget.currentData()
         if c_tokens_val is not None:
             SettingsService.set("ai/consultant_token_budget", int(c_tokens_val), category="ai")
@@ -1389,6 +1442,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             "mcp_port": self.spin_mcp_port.value() if hasattr(self, "spin_mcp_port") else 8765,
             "consultant_default_tab": str(self.cb_consultant_default_tab.currentData() or "mcp") if hasattr(self, "cb_consultant_default_tab") else "mcp",
             "consultant_prompt_target": str(self.cb_consultant_prompt_target.currentData() or "mcp") if hasattr(self, "cb_consultant_prompt_target") else "mcp",
+            "ai_default_temperature": round(self.spn_ai_temperature.value(), 2),
+            "ai_max_tokens_budget": int(self.spn_ai_max_tokens.value()),
+            "ai_request_timeout_sec": int(self.spn_ai_timeout.value()),
         }
 
     def _record_initial_state(self) -> None:
@@ -1414,6 +1470,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.lbl_sec_cat.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         if hasattr(self, "lbl_sec_global_prefs"):
             self.lbl_sec_global_prefs.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+        if hasattr(self, "lbl_sec_gen_defaults"):
+            self.lbl_sec_gen_defaults.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
 
         self.card_keys.refresh_theme(profile)
         self.card_ollama.refresh_theme(profile)

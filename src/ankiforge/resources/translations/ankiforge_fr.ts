@@ -272,8 +272,8 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location line="+36"/>
         <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+744"/>
         <location line="+10"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+751"/>
-        <location line="+298"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+752"/>
+        <location line="+345"/>
         <source>%1%%</source>
         <translation type="unfinished"></translation>
     </message>
@@ -449,7 +449,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location line="+108"/>
         <location filename="../../ui/views/agents_view/view.py" line="+635"/>
         <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="+176"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-827"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-874"/>
         <source>%1 :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -586,8 +586,8 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+29"/>
         <location line="+16"/>
         <location line="+15"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+762"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+595"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+809"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+681"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8071,7 +8071,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-501"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-548"/>
         <source>Supprimer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8101,7 +8101,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+72"/>
         <source>Veuillez saisir une clé %1.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8203,7 +8203,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="+185"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="+186"/>
         <source>Famille par défaut du layout (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8213,7 +8213,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+225"/>
+        <location line="+285"/>
         <source>(%1) · %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8256,7 +8256,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+192"/>
+        <location line="+227"/>
         <source>Thème &apos;%1&apos; importé avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8374,13 +8374,13 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-289"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-309"/>
         <location line="+63"/>
         <source>Emplacement : %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+126"/>
+        <location line="+146"/>
         <source>Dépendance manquante ou non fonctionnelle :
 %1</source>
         <translation type="unfinished"></translation>
@@ -8396,7 +8396,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+197"/>
+        <location line="+217"/>
         <source>Lecture audio en cours sur &apos;%1&apos;...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8798,7 +8798,7 @@ Une nouvelle version sera automatiquement créée.</source>
 <context>
     <name>AIEnginesTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1089"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1136"/>
         <source>CLÉS API DES FOURNISSEURS CLOUD</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8809,12 +8809,12 @@ Une nouvelle version sera automatiquement créée.</source>
     </message>
     <message>
         <location line="+55"/>
-        <location line="+555"/>
+        <location line="+602"/>
         <source>Format valide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-544"/>
+        <location line="-591"/>
         <source>SERVEURS LOCAUX &amp; PASSERELLES D&apos;ACCÈS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9166,7 +9166,27 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+41"/>
+        <location line="+28"/>
+        <source>PARAMÈTRES DE GÉNÉRATION PAR DÉFAUT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Température par défaut :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Budget max tokens par défaut :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Délai de requête par défaut (secondes) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
         <source>Clé vide</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9217,7 +9237,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+233"/>
+        <location line="+243"/>
         <source>Renouveler le jeton MCP</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15878,7 +15898,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>GeneralTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-830"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-925"/>
         <source>APPARENCE &amp; INTERFACE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15954,6 +15974,26 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+5"/>
+        <source>ÉDITEUR &amp; AFFICHAGE DE TEXTE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Taille de police de l&apos;éditeur :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Afficher les numéros de ligne</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Retour à la ligne automatique</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
         <source>DOSSIERS &amp; CHEMINS DE SORTIE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15988,7 +16028,22 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+3"/>
+        <source>Demander confirmation avant de fermer l&apos;application</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Intervalle d&apos;auto-sauvegarde (secondes) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Restaurer le dernier projet ouvert au lancement</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
         <source>NOTIFICATIONS &amp; ALERTES</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16093,7 +16148,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+333"/>
+        <location line="+368"/>
         <source>Aucune famille de thème disponible pour l&apos;export.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -21171,7 +21226,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>TTSSettingsTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-653"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="-755"/>
         <source>CONFIGURATION DU MOTEUR VOCAL</source>
         <translation type="unfinished"></translation>
     </message>
@@ -21217,6 +21272,26 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+29"/>
+        <source>PARAMÈTRES PAR DÉFAUT TTS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Vitesse par défaut :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Voix par défaut (français) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Voix par défaut (anglais) :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
         <source>MOTEUR LOCAL PIPER</source>
         <translation type="unfinished"></translation>
     </message>
@@ -21272,7 +21347,37 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+36"/>
+        <location line="+17"/>
+        <source>fr-FR-Standard (Standard)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>fr-FR-Wavenet (Wavenet)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>fr-CA-Standard (Canada)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>en-US-Standard (Standard)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>en-US-Wavenet (Wavenet)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>en-GB-Standard (Royaume-Uni)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+32"/>
         <location line="+86"/>
         <source>● Installé et opérationnel</source>
         <translation type="unfinished"></translation>
@@ -21335,12 +21440,12 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+280"/>
+        <location line="+300"/>
         <source>Échec du téléchargement.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-256"/>
+        <location line="-276"/>
         <source> Kokoro déjà installé et prêt</source>
         <translation type="unfinished"></translation>
     </message>
@@ -21385,8 +21490,8 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+30"/>
-        <location line="+29"/>
+        <location line="+35"/>
+        <location line="+44"/>
         <location line="+34"/>
         <location line="+3"/>
         <source>Sortie audio système par défaut</source>

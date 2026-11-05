@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QSizePolicy,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -277,6 +278,42 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         layout.addWidget(self.card_app)
 
+        # ── SECTION 1b : ÉDITEUR & AFFICHAGE DE TEXTE ────────────────────────
+        self.lbl_sec_editor = QLabel(self.tr("ÉDITEUR & AFFICHAGE DE TEXTE"))
+        self.lbl_sec_editor.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        layout.addWidget(self.lbl_sec_editor)
+
+        self.card_editor = SettingsCard()
+        card_editor_layout = QVBoxLayout(self.card_editor)
+        card_editor_layout.setContentsMargins(14, 12, 14, 12)
+        card_editor_layout.setSpacing(12)
+
+        # 1. Taille de police de l'éditeur Markdown
+        self.spn_editor_font_size = QSpinBox()
+        self.spn_editor_font_size.setRange(9, 28)
+        self.spn_editor_font_size.setValue(int(SettingsService.get("editor/font_size", 13)))
+        self.spn_editor_font_size.setFixedHeight(30)
+        self.spn_editor_font_size.setMinimumWidth(0)
+        self.rows_labels.append(add_setting_row(card_editor_layout, self.tr("Taille de police de l'éditeur :"), self.spn_editor_font_size))
+
+        # 2. Numéros de ligne
+        self.chk_editor_line_numbers = QCheckBox(self.tr("Afficher les numéros de ligne"))
+        self.chk_editor_line_numbers.setChecked(bool(SettingsService.get("editor/line_numbers", True)))
+        self.chk_editor_line_numbers.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.chk_editor_line_numbers.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        self.chk_editor_line_numbers.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        card_editor_layout.addWidget(self.chk_editor_line_numbers)
+
+        # 3. Retour à la ligne automatique
+        self.chk_editor_word_wrap = QCheckBox(self.tr("Retour à la ligne automatique"))
+        self.chk_editor_word_wrap.setChecked(bool(SettingsService.get("editor/word_wrap", True)))
+        self.chk_editor_word_wrap.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.chk_editor_word_wrap.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        self.chk_editor_word_wrap.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        card_editor_layout.addWidget(self.chk_editor_word_wrap)
+
+        layout.addWidget(self.card_editor)
+
         # ── SECTION 2 : DOSSIERS & CHEMINS DE SORTIE ─────────────────────────
         self.lbl_sec_exp = QLabel(self.tr("DOSSIERS & CHEMINS DE SORTIE"))
         self.lbl_sec_exp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
@@ -364,6 +401,31 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             self.cb_default_profile.setCurrentIndex(idx)
 
         self.rows_labels.append(add_setting_row(card_startup_layout, self.tr("Espace de travail de démarrage :"), self.cb_default_profile))
+
+        # 3. Confirmation à la fermeture (QSettings — cycle de vie applicatif)
+        self.chk_confirm_on_exit = QCheckBox(self.tr("Demander confirmation avant de fermer l'application"))
+        self.chk_confirm_on_exit.setChecked(bool(q_settings.value("app/confirm_on_exit", True, type=bool)))
+        self.chk_confirm_on_exit.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.chk_confirm_on_exit.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        self.chk_confirm_on_exit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        card_startup_layout.addWidget(self.chk_confirm_on_exit)
+
+        # 4. Intervalle d'auto-sauvegarde (QSettings — cycle de vie applicatif)
+        self.spn_autosave_interval = QSpinBox()
+        self.spn_autosave_interval.setRange(5, 300)
+        autosave_val = q_settings.value("app/autosave_interval_sec", 30, type=int)
+        self.spn_autosave_interval.setValue(autosave_val if isinstance(autosave_val, int) else 30)
+        self.spn_autosave_interval.setFixedHeight(30)
+        self.spn_autosave_interval.setMinimumWidth(0)
+        self.rows_labels.append(add_setting_row(card_startup_layout, self.tr("Intervalle d'auto-sauvegarde (secondes) :"), self.spn_autosave_interval))
+
+        # 5. Restaurer le dernier projet au démarrage (QSettings — cycle de vie applicatif)
+        self.chk_restore_last_project = QCheckBox(self.tr("Restaurer le dernier projet ouvert au lancement"))
+        self.chk_restore_last_project.setChecked(bool(q_settings.value("app/restore_last_project", True, type=bool)))
+        self.chk_restore_last_project.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.chk_restore_last_project.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        self.chk_restore_last_project.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        card_startup_layout.addWidget(self.chk_restore_last_project)
 
         layout.addWidget(self.card_startup)
 
@@ -702,6 +764,9 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             ("app/batch_factory_style", self.cb_batch_style.currentText(), "batch_style"),
             ("app/export_path", self.le_export.text().strip(), "export_path"),
             ("notifications/system_mode", str(self.cb_notif_mode.currentData() or "system"), "notif_mode"),
+            ("editor/font_size", self.spn_editor_font_size.value(), "editor_font_size"),
+            ("editor/line_numbers", self.chk_editor_line_numbers.isChecked(), "editor_line_numbers"),
+            ("editor/word_wrap", self.chk_editor_word_wrap.isChecked(), "editor_word_wrap"),
         ):
             if not hasattr(self, "_initial") or not values_equal(self._initial.get(initial_key), current_val):
                 SettingsService.set(key, current_val, category="general")
@@ -734,6 +799,15 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         if hasattr(self, "chk_prompt_crash_report") and not values_equal(q_settings.value("feedback/prompt_on_crash", True, type=bool), self.chk_prompt_crash_report.isChecked()):
             q_settings.setValue("feedback/prompt_on_crash", self.chk_prompt_crash_report.isChecked())
             has_change = True
+        if hasattr(self, "chk_confirm_on_exit") and not values_equal(q_settings.value("app/confirm_on_exit", True, type=bool), self.chk_confirm_on_exit.isChecked()):
+            q_settings.setValue("app/confirm_on_exit", self.chk_confirm_on_exit.isChecked())
+            has_change = True
+        if hasattr(self, "spn_autosave_interval") and not values_equal(q_settings.value("app/autosave_interval_sec", 30, type=int), self.spn_autosave_interval.value()):
+            q_settings.setValue("app/autosave_interval_sec", self.spn_autosave_interval.value())
+            has_change = True
+        if hasattr(self, "chk_restore_last_project") and not values_equal(q_settings.value("app/restore_last_project", True, type=bool), self.chk_restore_last_project.isChecked()):
+            q_settings.setValue("app/restore_last_project", self.chk_restore_last_project.isChecked())
+            has_change = True
 
         if self._layout_field_changed():
             LayoutManager.save_layout_id(profile_name, selected_layout_id)
@@ -760,6 +834,12 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "update_channel": (self.cb_update_channel.currentData() or "stable") if hasattr(self, "cb_update_channel") else "stable",
             "check_interval": (self.cb_check_interval.currentData() if hasattr(self, "cb_check_interval") else 14400),
             "prompt_crash": (self.chk_prompt_crash_report.isChecked() if hasattr(self, "chk_prompt_crash_report") else True),
+            "editor_font_size": self.spn_editor_font_size.value(),
+            "editor_line_numbers": self.chk_editor_line_numbers.isChecked(),
+            "editor_word_wrap": self.chk_editor_word_wrap.isChecked(),
+            "confirm_on_exit": self.chk_confirm_on_exit.isChecked(),
+            "autosave_interval": self.spn_autosave_interval.value(),
+            "restore_last_project": self.chk_restore_last_project.isChecked(),
         }
 
     def _layout_field_changed(self) -> bool:
@@ -794,6 +874,12 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "default_profile": (self.cb_default_profile.currentData() or default_profile) if hasattr(self, "cb_default_profile") else default_profile,
             "update_channel": (self.cb_update_channel.currentData() or "stable") if hasattr(self, "cb_update_channel") else "stable",
             "prompt_crash": (self.chk_prompt_crash_report.isChecked() if hasattr(self, "chk_prompt_crash_report") else True),
+            "editor_font_size": self.spn_editor_font_size.value(),
+            "editor_line_numbers": self.chk_editor_line_numbers.isChecked(),
+            "editor_word_wrap": self.chk_editor_word_wrap.isChecked(),
+            "confirm_on_exit": self.chk_confirm_on_exit.isChecked(),
+            "autosave_interval": self.spn_autosave_interval.value(),
+            "restore_last_project": self.chk_restore_last_project.isChecked(),
         }
         return any(not values_equal(current[k], self._initial.get(k)) for k in current)
 
@@ -801,6 +887,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         """Met à jour les styles dynamiques lors d'un changement de thème."""
         self.lbl_sec_app.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         self.lbl_sec_exp.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        if hasattr(self, "lbl_sec_editor"):
+            self.lbl_sec_editor.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         if hasattr(self, "lbl_sec_startup"):
             self.lbl_sec_startup.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         if hasattr(self, "lbl_sec_notif"):
@@ -808,6 +896,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         if hasattr(self, "lbl_sec_about"):
             self.lbl_sec_about.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         self.card_app.refresh_theme(profile)
+        self.card_editor.refresh_theme(profile)
         self.card_exp.refresh_theme(profile)
         if hasattr(self, "card_startup"):
             self.card_startup.refresh_theme(profile)
@@ -819,6 +908,14 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_exp_dir"):
             self.lbl_exp_dir.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "chk_editor_line_numbers"):
+            self.chk_editor_line_numbers.setStyleSheet(f"color: {profile.text_primary};")
+        if hasattr(self, "chk_editor_word_wrap"):
+            self.chk_editor_word_wrap.setStyleSheet(f"color: {profile.text_primary};")
+        if hasattr(self, "chk_confirm_on_exit"):
+            self.chk_confirm_on_exit.setStyleSheet(f"color: {profile.text_primary};")
+        if hasattr(self, "chk_restore_last_project"):
+            self.chk_restore_last_project.setStyleSheet(f"color: {profile.text_primary};")
         if hasattr(self, "btn_check_updates") and hasattr(self.btn_check_updates, "refresh_theme"):
             self.btn_check_updates.refresh_theme(profile)
         if hasattr(self, "btn_open_feedback") and hasattr(self.btn_open_feedback, "refresh_theme"):
