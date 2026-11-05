@@ -6,6 +6,7 @@ Re-exporte l'ensemble des composants, onglets et dialogue principal pour rétroc
 from ankiforge.database.backup import backup_database
 from ankiforge.ui.widgets.settings_modal.components import (
     CollapsibleSection,
+    CollapsibleSettingsGroup,
     PasswordLineEdit,
     SettingsCard,
     SettingsNavButton,
@@ -41,6 +42,7 @@ __all__ = [
     "StatisticsTab",
     "SettingsCard",
     "CollapsibleSection",
+    "CollapsibleSettingsGroup",
     "PasswordLineEdit",
     "SettingsNavButton",
     "StorageMetricCard",

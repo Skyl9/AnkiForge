@@ -40,6 +40,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.components.buttons import apply_compact_style
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widgets.settings_modal.components.collapsible_group import CollapsibleSettingsGroup
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.settings_modal.components.storage_metric_card import StorageMetricCard
 from ankiforge.ui.widgets.toast import show_toast
@@ -150,18 +151,6 @@ class StorageMaintenanceTab(QWidget):
         self.btn_clean_media.setIcon(load_phosphor_icon("ph.broom", color=DesignTokens.COLOR_BLUE))
         self.btn_clean_media.clicked.connect(self._clean_orphan_media)
 
-        self.btn_purge_history = DangerButton(tr("Purger l'historique (> 30 jours)"), ghost=True)
-        self.btn_purge_history.setIcon(load_phosphor_icon("ph.clock-counter-clockwise", color=DesignTokens.COLOR_RED))
-        self.btn_purge_history.clicked.connect(self._purge_history)
-
-        self.btn_clear_cache = SecondaryButton("Vider les fichiers temporaires et cache")
-        self.btn_clear_cache.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.TEXT_MUTED))
-        self.btn_clear_cache.clicked.connect(self._clear_cache)
-
-        self.btn_purge_tts = SecondaryButton("Purger le cache audio TTS")
-        self.btn_purge_tts.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.COLOR_PURPLE))
-        self.btn_purge_tts.clicked.connect(self._purge_tts_cache)
-
         self.btn_transfer = SecondaryButton("Transférer du contenu inter-profils...")
         self.btn_transfer.setIcon(load_phosphor_icon("ph.arrows-left-right", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_transfer.clicked.connect(self._open_profile_transfer)
@@ -169,9 +158,6 @@ class StorageMaintenanceTab(QWidget):
         self._action_buttons = [
             self.btn_vacuum,
             self.btn_clean_media,
-            self.btn_purge_history,
-            self.btn_clear_cache,
-            self.btn_purge_tts,
             self.btn_transfer,
         ]
         self.actions_grid = QGridLayout()
@@ -180,6 +166,27 @@ class StorageMaintenanceTab(QWidget):
         for idx, btn in enumerate(self._action_buttons):
             self.actions_grid.addWidget(btn, idx, 0)
         act_layout.addLayout(self.actions_grid)
+
+        self.grp_maintenance = CollapsibleSettingsGroup(
+            self.tr("Purges Time Machine & vidages de cache"),
+            expanded=False,
+        )
+        self.btn_purge_history = DangerButton(tr("Purger l'historique (> 30 jours)"), ghost=True)
+        self.btn_purge_history.setIcon(load_phosphor_icon("ph.clock-counter-clockwise", color=DesignTokens.COLOR_RED))
+        self.btn_purge_history.clicked.connect(self._purge_history)
+        self.grp_maintenance.add_widget(self.btn_purge_history)
+
+        self.btn_clear_cache = SecondaryButton(tr("Vider les fichiers temporaires et cache"))
+        self.btn_clear_cache.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.TEXT_MUTED))
+        self.btn_clear_cache.clicked.connect(self._clear_cache)
+        self.grp_maintenance.add_widget(self.btn_clear_cache)
+
+        self.btn_purge_tts = SecondaryButton(tr("Purger le cache audio TTS"))
+        self.btn_purge_tts.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.COLOR_PURPLE))
+        self.btn_purge_tts.clicked.connect(self._purge_tts_cache)
+        self.grp_maintenance.add_widget(self.btn_purge_tts)
+
+        act_layout.addWidget(self.grp_maintenance)
 
         from ankiforge.utils.environment import get_app_qsettings
 
@@ -572,5 +579,6 @@ class StorageMaintenanceTab(QWidget):
         self.c_media.refresh_theme(profile)
         self.c_tm.refresh_theme(profile)
         self.card_act.refresh_theme(profile)
+        self.grp_maintenance.refresh_theme(profile)
         self.card_bku.refresh_theme(profile)
         self.lbl_recent_backups.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11.5px; font-family: '{profile.font_code}';")

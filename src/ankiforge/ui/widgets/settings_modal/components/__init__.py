@@ -1,3 +1,4 @@
+from ankiforge.ui.widgets.settings_modal.components.collapsible_group import CollapsibleSettingsGroup
 from ankiforge.ui.widgets.settings_modal.components.collapsible_section import CollapsibleSection
 from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import (
     LayoutGridSelector,
@@ -15,6 +16,7 @@ __all__ = [
     "apply_pill_badge_style",
     "SettingsCard",
     "CollapsibleSection",
+    "CollapsibleSettingsGroup",
     "PasswordLineEdit",
     "SettingsNavButton",
     "StorageMetricCard",

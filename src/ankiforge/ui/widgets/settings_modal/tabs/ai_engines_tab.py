@@ -40,6 +40,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.components.model_selector.badges import ModelCapabilityBadgesWidget
 from ankiforge.ui.components.model_selector.dialog import ModelDiscoveryDialog
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widgets.settings_modal.components.collapsible_group import CollapsibleSettingsGroup
 from ankiforge.ui.widgets.settings_modal.components.collapsible_section import CollapsibleSection
 from ankiforge.ui.widgets.settings_modal.components.password_line_edit import PasswordLineEdit
 from ankiforge.ui.widgets.settings_modal.components.settings_card import (
@@ -361,6 +362,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         mcp_layout.addLayout(row_mcp_top)
 
+        self.grp_mcp = CollapsibleSettingsGroup(
+            self.tr("Avancé MCP & diagnostic"),
+            expanded=False,
+        )
         row_mcp_params = QHBoxLayout()
         row_mcp_params.setSpacing(10)
 
@@ -385,7 +390,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.btn_rotate_mcp_token.clicked.connect(self._on_rotate_mcp_token)
         row_mcp_params.addWidget(self.btn_rotate_mcp_token)
 
-        mcp_layout.addLayout(row_mcp_params)
+        self.grp_mcp.add_layout(row_mcp_params)
+        mcp_layout.addWidget(self.grp_mcp)
 
         # Lignes Préférences de navigation et demandes contextuelles MCP & Agents
         consultant_default_tab_val = q_settings.value("consultant/default_tab", "mcp", type=str)
@@ -1413,6 +1419,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         self.card_ollama.refresh_theme(profile)
         if hasattr(self, "card_mcp"):
             self.card_mcp.refresh_theme(profile)
+        if hasattr(self, "grp_mcp"):
+            self.grp_mcp.refresh_theme(profile)
         if hasattr(self, "chk_mcp_enabled"):
             self.chk_mcp_enabled.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_mcp_port"):

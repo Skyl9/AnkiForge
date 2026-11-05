@@ -272,7 +272,7 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
         <location line="+36"/>
         <location filename="../../ui/views/creation_view/widgets/document_editor.py" line="+744"/>
         <location line="+10"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+745"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+751"/>
         <location line="+298"/>
         <source>%1%%</source>
         <translation type="unfinished"></translation>
@@ -449,7 +449,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
         <location line="+108"/>
         <location filename="../../ui/views/agents_view/view.py" line="+635"/>
         <location filename="../../ui/views/creation_view/dialogs/card_edit_dialog.py" line="+176"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-822"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-827"/>
         <source>%1 :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -578,7 +578,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+645"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+659"/>
         <location filename="../../ui/views/edition_view/view.py" line="-625"/>
         <location line="+211"/>
         <location line="+8"/>
@@ -586,7 +586,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+29"/>
         <location line="+16"/>
         <location line="+15"/>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+757"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="+762"/>
         <location filename="../../ui/widgets/settings_modal/tabs/tts_tab.py" line="+595"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
@@ -8131,7 +8131,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="+283"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="+291"/>
         <source>Drapeau %1 :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8239,7 +8239,7 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="+116"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="+117"/>
         <source>STOCKAGE &amp; BDD — ENVIRONNEMENT : %1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8259,12 +8259,22 @@ Variante active : %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+46"/>
         <source>Purger l&apos;historique (&gt; 30 jours)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+227"/>
+        <location line="+5"/>
+        <source>Vider les fichiers temporaires et cache</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Purger le cache audio TTS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+203"/>
         <source>Historique : %1 sauvegarde%2 disponible%3.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8751,7 +8761,7 @@ Une nouvelle version sera automatiquement créée.</source>
 <context>
     <name>AIEnginesTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1084"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/ai_engines_tab.py" line="-1089"/>
         <source>CLÉS API DES FOURNISSEURS CLOUD</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8762,12 +8772,12 @@ Une nouvelle version sera automatiquement créée.</source>
     </message>
     <message>
         <location line="+55"/>
-        <location line="+550"/>
+        <location line="+555"/>
         <source>Format valide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-539"/>
+        <location line="-544"/>
         <source>SERVEURS LOCAUX &amp; PASSERELLES D&apos;ACCÈS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8807,7 +8817,12 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+10"/>
+        <source>Avancé MCP &amp; diagnostic</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
         <source>Port d&apos;écoute :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8817,7 +8832,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+12"/>
         <source>Onglet par défaut :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9165,7 +9180,7 @@ Une nouvelle version sera automatiquement créée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+231"/>
+        <location line="+233"/>
         <source>Renouveler le jeton MCP</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10340,7 +10355,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>AnkiSyncTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="-214"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/anki_sync_tab.py" line="-221"/>
         <source>RÈGLES DE FUSION &amp; CONFLITS</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10376,6 +10391,11 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+10"/>
+        <source>Compression &amp; anti zip-bomb (.APKG / .COLPKG)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>Algorithme de compression des médias :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10405,7 +10425,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+31"/>
         <source>RÉPERTOIRE DES COLLECTIONS ANKI</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20942,12 +20962,17 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>StorageMaintenanceTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="-398"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/storage_tab.py" line="-404"/>
         <source>ACTIONS D&apos;ENTRETIEN ET D&apos;OPTIMISATION</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+34"/>
+        <source>Purges Time Machine &amp; vidages de cache</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+25"/>
         <source>Nettoyer automatiquement les médias orphelins à la fermeture de l&apos;application</source>
         <translation type="unfinished"></translation>
     </message>

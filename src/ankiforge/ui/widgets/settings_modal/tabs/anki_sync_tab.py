@@ -22,6 +22,7 @@ from ankiforge.ui.components import (
     StyledLineEdit,
 )
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widgets.settings_modal.components.collapsible_group import CollapsibleSettingsGroup
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.ui.widgets.toast import show_toast
@@ -114,6 +115,11 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         fmt_layout.setContentsMargins(14, 12, 14, 12)
         fmt_layout.setSpacing(10)
 
+        self.grp_compression = CollapsibleSettingsGroup(
+            self.tr("Compression & anti zip-bomb (.APKG / .COLPKG)"),
+            expanded=False,
+        )
+
         row_comp = QHBoxLayout()
         lbl_comp = QLabel(self.tr("Algorithme de compression des médias :"))
         lbl_comp.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
@@ -132,7 +138,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
                 break
         row_comp.addStretch()
         row_comp.addWidget(self.cb_compression)
-        fmt_layout.addLayout(row_comp)
+        self.grp_compression.add_layout(row_comp)
 
         row_deck = QHBoxLayout()
         lbl_dk = QLabel(self.tr("Paquet par défaut lors des imports rapides :"))
@@ -187,7 +193,9 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
                 break
         row_maxsize.addStretch()
         row_maxsize.addWidget(self.cb_max_import_size)
-        fmt_layout.addLayout(row_maxsize)
+        self.grp_compression.add_layout(row_maxsize)
+
+        fmt_layout.addWidget(self.grp_compression)
 
         layout.addWidget(self.card_fmt)
 
@@ -362,6 +370,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
             self.lbl_sec_flags.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         self.card_merge.refresh_theme(profile)
         self.card_fmt.refresh_theme(profile)
+        self.grp_compression.refresh_theme(profile)
         self.card_dir.refresh_theme(profile)
         if hasattr(self, "card_flags"):
             self.card_flags.refresh_theme(profile)
