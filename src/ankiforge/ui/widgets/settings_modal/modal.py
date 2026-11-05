@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -20,8 +21,14 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.settings_modal.components import (
+    CollapsibleSettingsGroup,
     SettingsNavButton,
+    SettingsSearchView,
     apply_pill_badge_style,
+)
+from ankiforge.ui.widgets.settings_modal.search_registry import (
+    SettingDescriptor,
+    SettingsRegistry,
 )
 from ankiforge.ui.widgets.settings_modal.tabs.general_tab import GeneralTab
 from ankiforge.ui.widgets.toast import show_toast
@@ -71,6 +78,12 @@ class SettingsModal(QDialog):
         self._dev_tab: DeveloperTab | None = None
         self._tabs: list[QWidget | None] = []
         self._wired_line_edits: set[int] = set()
+        self._active_tab_index = 0
+        self._search_stack_index: int | None = None
+        self._search_field: QLineEdit | None = None
+        self._search_view: SettingsSearchView | None = None
+        self._pulse_timer: QTimer | None = None
+        self._pulse_original: tuple[QWidget, str] | None = None
 
         self.setWindowTitle(self.tr("Paramètres AnkiForge"))
         self.setMinimumSize(820, 560)
@@ -355,7 +368,18 @@ class SettingsModal(QDialog):
             self._save_all()
             event.accept()
             return
+        if (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and event.key() == Qt.Key.Key_F:
+            if self._search_field is None:
+                return
+            self._search_field.setFocus()
+            self._search_field.selectAll()
+            event.accept()
+            return
         if event.key() == Qt.Key.Key_Escape:
+            if self._is_search_view_active():
+                self._restore_active_tab()
+                event.accept()
+                return
             self.close()
             event.accept()
             return
@@ -445,6 +469,19 @@ class SettingsModal(QDialog):
             self.nav_btns.append(btn)
 
         self.nav_btns[0].setChecked(True)
+
+        # Champ de recherche instantanée en tête de la barre latérale (Ctrl+F).
+        self._search_field = QLineEdit(self.sidebar)
+        self._search_field.setObjectName("SettingsSearchField")
+        self._search_field.setPlaceholderText(self.tr("Rechercher un paramètre…"))
+        self._search_field.setFixedHeight(30)
+        self._search_field.addAction(
+            load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_MUTED),
+            QLineEdit.ActionPosition.LeadingPosition,
+        )
+        self._search_field.setClearButtonEnabled(True)
+        sidebar_layout.addWidget(self._search_field)
+
         sidebar_layout.addStretch()
 
         body_layout.addWidget(self.sidebar)
@@ -457,6 +494,10 @@ class SettingsModal(QDialog):
         self.stacked_widget.addWidget(self.general_tab)
         for _ in range(num_additional):
             self.stacked_widget.addWidget(QWidget())
+
+        # Vue aplatie des résultats de recherche (page dédiée du stacked widget).
+        self._search_view = SettingsSearchView(self)
+        self._search_stack_index = self.stacked_widget.addWidget(self._search_view)
 
         body_layout.addWidget(self.stacked_widget, 1)
         main_layout.addWidget(body, 1)
@@ -507,6 +548,11 @@ class SettingsModal(QDialog):
 
         engine = get_style_engine()
         engine.theme_changed.connect(self.refresh_theme)
+
+        if self._search_field is None or self._search_view is None:
+            return
+        self._search_field.textChanged.connect(self._on_search_text_changed)
+        self._search_view.result_selected.connect(self._on_search_result_selected)
 
     def _apply_dialog_styles(self) -> None:
         self.setStyleSheet(f"""
@@ -641,12 +687,103 @@ class SettingsModal(QDialog):
     def select_tab(self, index: int) -> None:
         """Sélectionne directement un onglet par son index (ex: 1 pour Moteurs IA / MCP)."""
         if 0 <= index < len(self.nav_btns):
+            self._active_tab_index = index
             self.nav_btns[index].setChecked(True)
             self._ensure_tab_loaded(index)
             self.stacked_widget.setCurrentIndex(index)
             if not self.isActiveWindow():
                 self.raise_()
                 self.activateWindow()
+
+    def _is_search_view_active(self) -> bool:
+        """True si le stacked widget affiche actuellement la vue de recherche."""
+        return self._search_stack_index is not None and self.stacked_widget.currentIndex() == self._search_stack_index
+
+    def _on_search_text_changed(self, text: str) -> None:
+        """Bascule vers la vue de recherche dès 2 caractères, restaure l'onglet sinon."""
+        if len(text) >= 2:
+            if self._search_view is None:
+                return
+            results = SettingsRegistry.search(text)
+            self._search_view.set_results(results, text)
+            self.stacked_widget.setCurrentIndex(self._search_stack_index)
+        else:
+            self._restore_active_tab()
+
+    def _on_search_result_selected(self, descriptor: SettingDescriptor) -> None:
+        """Ouvre l'onglet cible, déplie l'accordéon parent, scroll et pulsation du widget."""
+        self.select_tab(descriptor.tab_index)
+        tab = self.stacked_widget.currentWidget()
+        QTimer.singleShot(0, lambda: self._reveal_setting(tab, descriptor))
+
+    def _restore_active_tab(self) -> None:
+        """Revient à l'onglet actif précédemment sélectionné et vide le champ de recherche."""
+        if self._search_field is None:
+            return
+        self._search_field.blockSignals(True)
+        self._search_field.clear()
+        self._search_field.blockSignals(False)
+        if self._is_search_view_active():
+            self.stacked_widget.setCurrentIndex(self._active_tab_index)
+
+    def _reveal_setting(self, tab: QWidget | None, descriptor: SettingDescriptor) -> None:
+        """Déploie l'accordéon parent, fait défiler vers le widget cible et pulse celui-ci."""
+        if tab is None:
+            return
+        # Déplier les accordéons parents pour rendre le widget cible accessible.
+        for group in tab.findChildren(CollapsibleSettingsGroup):
+            if not group.is_expanded():
+                group.set_expanded(True)
+        target = self._find_setting_widget(tab, descriptor)
+        if target is None:
+            return
+        scroll = getattr(tab, "scroll", None) or tab.findChild(QScrollArea)
+        if scroll is not None:
+            scroll.ensureWidgetVisible(target, 50, 50)
+        else:
+            target.setFocus()
+            target.raise_()
+        self._pulse_widget(target)
+
+    @staticmethod
+    def _find_setting_widget(tab: QWidget, descriptor: SettingDescriptor) -> QWidget | None:
+        """Localise le widget cible d'un descripteur dans un onglet (best-effort)."""
+        sanitized_key = descriptor.key.replace("/", "::").replace("-", "_")
+        candidates: list[QWidget] = []
+        for widget in tab.findChildren(QWidget):
+            name = widget.objectName()
+            if name and name == sanitized_key:
+                return widget
+            accessible = widget.accessibleName()
+            if accessible and (descriptor.widget.lower() in accessible.lower() or descriptor.label.lower() in accessible.lower()):
+                candidates.append(widget)
+        if candidates:
+            return candidates[0]
+        return None
+
+    def _pulse_widget(self, widget: QWidget) -> None:
+        """Applique une bordure d'accentuation temporaire (1200 ms) autour du widget."""
+        if widget is None or not widget.isVisible():
+            return
+        self._stop_pulse()
+        original_style = widget.styleSheet()
+        self._pulse_original = (widget, original_style)
+        widget.setObjectName("SearchPulseTarget")
+        widget.setStyleSheet(f"{original_style}\n#SearchPulseTarget {{ border: 2px solid {DesignTokens.ACCENT_BORDER}; border-radius: {DesignTokens.RADIUS_SM}px; }}")
+        self._pulse_timer = QTimer(self)
+        self._pulse_timer.setSingleShot(True)
+        self._pulse_timer.timeout.connect(self._stop_pulse)
+        self._pulse_timer.start(1200)
+
+    def _stop_pulse(self) -> None:
+        """Désactive la pulsation en cours et restaure le style d'origine."""
+        if self._pulse_original is None:
+            return
+        widget, original_style = self._pulse_original
+        self._pulse_original = None
+        if widget is not None:
+            widget.setObjectName("")
+            widget.setStyleSheet(original_style)
 
 
 # Aliases de compatibilité

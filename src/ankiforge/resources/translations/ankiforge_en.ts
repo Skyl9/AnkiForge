@@ -778,7 +778,7 @@ Souhaitez-vous tout de même appliquer la migration vers &apos;%2&apos; ?</sourc
     </message>
     <message>
         <location filename="../../ui/dialogs/crash_report_dialog.py" line="+141"/>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+393"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+416"/>
         <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8061,7 +8061,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+195"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+217"/>
         <source>✓ Paramètres sauvegardés</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8213,7 +8213,7 @@ Toutes les cartes, documents, personas et médias associés seront définitiveme
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+285"/>
+        <location line="+286"/>
         <source>(%1) · %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15898,7 +15898,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>GeneralTab</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-925"/>
+        <location filename="../../ui/widgets/settings_modal/tabs/general_tab.py" line="-926"/>
         <source>APPARENCE &amp; INTERFACE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16033,7 +16033,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+14"/>
         <source>Intervalle d&apos;auto-sauvegarde (secondes) :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20307,8 +20307,8 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SettingsModal</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="-515"/>
-        <location line="+313"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="-547"/>
+        <location line="+323"/>
         <source>Paramètres AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20368,18 +20368,41 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+34"/>
+        <location line="+15"/>
+        <source>Rechercher un paramètre…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+36"/>
         <source>⌨️ Ctrl+S pour enregistrer • Échap pour fermer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+69"/>
+        <location line="+74"/>
         <source>✓ Aucun paramètre modifié</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+59"/>
         <source>Application des tokens et du design system...</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SettingsSearchView</name>
+    <message>
+        <location filename="../../ui/widgets/settings_modal/components/search_view.py" line="+191"/>
+        <source>Recherche de paramètres</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Aucun réglage ne correspond à votre recherche.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Essayez un autre mot-clé (ex: « température », « zip », « langue »).</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

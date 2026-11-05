@@ -5,6 +5,7 @@ from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import 
     LayoutThumbnailCard,
 )
 from ankiforge.ui.widgets.settings_modal.components.password_line_edit import PasswordLineEdit
+from ankiforge.ui.widgets.settings_modal.components.search_view import SettingsSearchView
 from ankiforge.ui.widgets.settings_modal.components.settings_card import (
     SettingsCard,
     apply_pill_badge_style,
@@ -15,6 +16,7 @@ from ankiforge.ui.widgets.settings_modal.components.storage_metric_card import S
 __all__ = [
     "apply_pill_badge_style",
     "SettingsCard",
+    "SettingsSearchView",
     "CollapsibleSection",
     "CollapsibleSettingsGroup",
     "PasswordLineEdit",
