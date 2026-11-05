@@ -200,6 +200,8 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "get_flagged_cards": DOMAIN_CARDS,
     "suspend_card": DOMAIN_CARDS,
     "unsuspend_card": DOMAIN_CARDS,
+    "generate_card_audio": DOMAIN_CARDS,
+    "generate_cards_batch_audio": DOMAIN_CARDS,
     # Staged Bundles & Sessions 2PC (4)
     "begin_staged_bundle": DOMAIN_CARDS,
     "commit_staged_bundle": DOMAIN_CARDS,
@@ -358,6 +360,18 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     ],
     "unsuspend_card": [
         "Réactivation immédiate de la carte dans le cycle de révision SRS.",
+    ],
+    "generate_card_audio": [
+        "Génération audio unitaire : synthétise le texte d'un champ source et l'injecte dans le champ cible.",
+        "Le texte est nettoyé automatiquement (balises HTML, occlusions cloze, délimiteurs LaTeX/MathJax) avant synthèse.",
+        "Le fichier audio est stocké dans le dossier média du profil avec déduplication MD5.",
+        "Lien tracé entre la version de note et le média via NoteVersionMediaModel.",
+        "Écriture directe sur le champ cible de la version active (pas de StagedPatch pour l'outil unitaire).",
+    ],
+    "generate_cards_batch_audio": [
+        "Génération audio par lot sur plusieurs notes avec rapport détaillé succès/échec.",
+        "Chaque note est traitée indépendamment ; un échec sur une note n'interrompt pas les autres.",
+        "Plafond recommandé : traiter par sous-lots raisonnables pour éviter les timeouts TTS.",
     ],
     "correct_plate_ocr": [
         "Mise à jour directe de la couche textuelle OCR sans altération de l'image source.",

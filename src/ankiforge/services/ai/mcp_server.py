@@ -2159,6 +2159,48 @@ def check_guide_version(
     return json.dumps(payload, ensure_ascii=False)
 
 
+@mcp.tool()
+def generate_card_audio(
+    note_id: int,
+    source_field: str = "Japonais",
+    target_field: str = "Audio",
+    voice: str | None = None,
+    engine: str | None = None,
+) -> str:
+    """Génère la prononciation audio du texte d'un champ et l'injecte dans la note.
+
+    - Extrait le texte épuré du champ ``source_field``.
+    - Invoque le fournisseur TTS configuré (ou spécifié).
+    - Sauvegarde le MP3 dans le dossier média du profil actif.
+    - Enregistre le média dans MediaModel et NoteVersionMediaModel.
+    - Propose ou applique la mise à jour du champ ``target_field`` avec [sound:audio_xxx.mp3].
+    """
+    return MCPToolRegistry.generate_card_audio(
+        note_id=note_id,
+        source_field=source_field,
+        target_field=target_field,
+        voice=voice,
+        engine=engine,
+    )
+
+
+@mcp.tool()
+def generate_cards_batch_audio(
+    note_ids: list[int],
+    source_field: str = "Japonais",
+    target_field: str = "Audio",
+) -> str:
+    """Génère l'audio pour un lot de notes et met à jour le champ cible de chaque note.
+
+    Retourne un rapport détaillé avec succès et échecs par note.
+    """
+    return MCPToolRegistry.generate_cards_batch_audio(
+        note_ids=note_ids,
+        source_field=source_field,
+        target_field=target_field,
+    )
+
+
 @mcp.resource("workspace://agent-guide")
 def get_workspace_agent_guide_resource() -> str:
     """Sert le contenu du guide d'amorçage (version generic) en lecture temps réel."""

@@ -7,6 +7,7 @@ entièrement découplées de toute session de chat conversationnel in-app.
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import logging
 import re
@@ -28,8 +29,10 @@ from ankiforge.database.models import (
     DocumentPageModel,
     FolderModel,
     LLMConfigModel,
+    MediaModel,
     NoteModel,
     NoteTypeModel,
+    NoteVersionMediaModel,
     NoteVersionModel,
     PersonaModel,
     PipelineModel,
@@ -4597,6 +4600,308 @@ class MCPToolRegistry:
                 ensure_ascii=False,
             )
 
+    @staticmethod
+    def generate_card_audio(
+        note_id: int,
+        source_field: str = "Japonais",
+        target_field: str = "Audio",
+        voice: str | None = None,
+        engine: str | None = None,
+    ) -> str:
+        """Génère la prononciation audio du texte d'un champ et l'injecte dans la note.
+
+        - Extrait le texte épuré du champ ``source_field``.
+        - Invoque le fournisseur TTS configuré (ou spécifié).
+        - Sauvegarde le MP3 dans le dossier média du profil actif.
+        - Enregistre le média dans MediaModel et NoteVersionMediaModel.
+        - Met à jour le champ ``target_field`` avec [sound:audio_xxx.mp3].
+        """
+        from ankiforge.services.cards.tts_service import TTSService
+
+        try:
+            note = NoteModel.get_or_none(NoteModel.id == note_id)
+            if not note:
+                return json.dumps(
+                    {"status": "error", "message": f"La note #{note_id} est introuvable en base."},
+                    ensure_ascii=False,
+                )
+
+            active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+            if not active_v or not active_v.content:
+                return json.dumps(
+                    {"status": "error", "message": f"La note #{note_id} n'a pas de version active avec du contenu."},
+                    ensure_ascii=False,
+                )
+
+            try:
+                content = json.loads(active_v.content)
+            except Exception:
+                content = {}
+
+            if not isinstance(content, dict):
+                content = {}
+
+            if source_field not in content:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Le champ source '{source_field}' est introuvable sur la note #{note_id}.",
+                    },
+                    ensure_ascii=False,
+                )
+
+            if target_field not in content:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Le champ cible '{target_field}' est introuvable sur la note #{note_id}.",
+                    },
+                    ensure_ascii=False,
+                )
+
+            raw_text = str(content.get(source_field, ""))
+            clean_text = TTSService().normalizer.clean_for_tts(raw_text, strip_cloze=True)
+            if not clean_text:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Le texte du champ '{source_field}' est vide après nettoyage (balises HTML, cloze, maths retirées).",
+                    },
+                    ensure_ascii=False,
+                )
+
+            tts = TTSService()
+            audio_tag, audio_path = tts.synthesize(
+                clean_text,
+                engine=engine,
+                voice=voice,
+            )
+
+            # TTSService a déjà écrit le fichier sur disque et créé l'entrée MediaModel.
+            # On récupère (ou crée) le MediaModel correspondant au fichier généré.
+            media = MediaModel.get_or_none(MediaModel.filename == audio_path.name)
+            if media is None:
+                import mimetypes
+
+                mime_type, _ = mimetypes.guess_type(str(audio_path))
+                mime_type = mime_type or "audio/mpeg"
+                media = MediaModel.create(
+                    filename=audio_path.name,
+                    original_name=audio_path.name,
+                    checksum=hashlib.md5(audio_path.read_bytes(), usedforsecurity=False).hexdigest(),
+                    mime_type=mime_type,
+                )
+
+            # Lien NoteVersion -> Media
+            NoteVersionMediaModel.create(
+                note_version=active_v,
+                media=media,
+            )
+
+            # Mise à jour du champ cible dans la version active
+            content[target_field] = audio_tag
+            with db.atomic():
+                active_v.content = json.dumps(content, ensure_ascii=False)
+                active_v.save()
+
+            return json.dumps(
+                {
+                    "status": "success",
+                    "note_id": note_id,
+                    "source_field": source_field,
+                    "target_field": target_field,
+                    "audio_tag": audio_tag,
+                    "audio_file": audio_path.name,
+                    "media_id": media.id,
+                    "message": (f"Audio généré pour la note #{note_id} : champ '{target_field}' mis à jour avec {audio_tag}."),
+                },
+                ensure_ascii=False,
+            )
+        except RuntimeError as e:
+            logger.error("Erreur generate_card_audio (TTS) : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Échec de la synthèse TTS : {e}"},
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur generate_card_audio : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la génération audio : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
+    def generate_cards_batch_audio(
+        note_ids: list[int],
+        source_field: str = "Japonais",
+        target_field: str = "Audio",
+    ) -> str:
+        """Génère l'audio pour un lot de notes et met à jour le champ cible de chaque note.
+
+        Retourne un rapport détaillé avec succès et échecs par note.
+        """
+        from ankiforge.services.cards.tts_service import TTSService
+
+        try:
+            if not note_ids or not isinstance(note_ids, list) or len(note_ids) == 0:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": "note_ids doit être une liste non vide d'identifiants de notes.",
+                    },
+                    ensure_ascii=False,
+                )
+
+            tts = TTSService()
+            results: list[dict[str, Any]] = []
+            total_success = 0
+            total_failed = 0
+
+            for nid in note_ids:
+                try:
+                    note = NoteModel.get_or_none(NoteModel.id == nid)
+                    if not note:
+                        results.append(
+                            {
+                                "note_id": nid,
+                                "status": "error",
+                                "message": f"La note #{nid} est introuvable en base.",
+                            }
+                        )
+                        total_failed += 1
+                        continue
+
+                    active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                    if not active_v or not active_v.content:
+                        results.append(
+                            {
+                                "note_id": nid,
+                                "status": "error",
+                                "message": f"La note #{nid} n'a pas de version active avec du contenu.",
+                            }
+                        )
+                        total_failed += 1
+                        continue
+
+                    try:
+                        content = json.loads(active_v.content)
+                    except Exception:
+                        content = {}
+
+                    if not isinstance(content, dict):
+                        content = {}
+
+                    if source_field not in content:
+                        results.append(
+                            {
+                                "note_id": nid,
+                                "status": "error",
+                                "message": f"Le champ source '{source_field}' est introuvable sur la note #{nid}.",
+                            }
+                        )
+                        total_failed += 1
+                        continue
+
+                    if target_field not in content:
+                        results.append(
+                            {
+                                "note_id": nid,
+                                "status": "error",
+                                "message": f"Le champ cible '{target_field}' est introuvable sur la note #{nid}.",
+                            }
+                        )
+                        total_failed += 1
+                        continue
+
+                    raw_text = str(content.get(source_field, ""))
+                    clean_text = tts.normalizer.clean_for_tts(raw_text, strip_cloze=True)
+                    if not clean_text:
+                        results.append(
+                            {
+                                "note_id": nid,
+                                "status": "error",
+                                "message": f"Le texte du champ '{source_field}' est vide après nettoyage sur la note #{nid}.",
+                            }
+                        )
+                        total_failed += 1
+                        continue
+
+                    audio_tag, audio_path = tts.synthesize(clean_text)
+
+                    # TTSService a déjà écrit le fichier sur disque et créé l'entrée MediaModel.
+                    media = MediaModel.get_or_none(MediaModel.filename == audio_path.name)
+                    if media is None:
+                        import mimetypes
+
+                        mime_type, _ = mimetypes.guess_type(str(audio_path))
+                        mime_type = mime_type or "audio/mpeg"
+                        media = MediaModel.create(
+                            filename=audio_path.name,
+                            original_name=audio_path.name,
+                            checksum=hashlib.md5(audio_path.read_bytes(), usedforsecurity=False).hexdigest(),
+                            mime_type=mime_type,
+                        )
+
+                    NoteVersionMediaModel.create(
+                        note_version=active_v,
+                        media=media,
+                    )
+
+                    content[target_field] = audio_tag
+                    with db.atomic():
+                        active_v.content = json.dumps(content, ensure_ascii=False)
+                        active_v.save()
+
+                    results.append(
+                        {
+                            "note_id": nid,
+                            "status": "success",
+                            "audio_tag": audio_tag,
+                            "audio_file": audio_path.name,
+                            "media_id": media.id,
+                        }
+                    )
+                    total_success += 1
+                except RuntimeError as e:
+                    logger.error("Erreur generate_cards_batch_audio (TTS) note #%s : %s", nid, e)
+                    results.append(
+                        {
+                            "note_id": nid,
+                            "status": "error",
+                            "message": f"Échec de la synthèse TTS : {e}",
+                        }
+                    )
+                    total_failed += 1
+                except Exception as e:
+                    logger.exception("Erreur generate_cards_batch_audio note #%s : %s", nid, e)
+                    results.append(
+                        {
+                            "note_id": nid,
+                            "status": "error",
+                            "message": f"Erreur lors de la génération audio : {e}",
+                        }
+                    )
+                    total_failed += 1
+
+            overall_status = "success" if total_failed == 0 else "partial"
+            return json.dumps(
+                {
+                    "status": overall_status,
+                    "total_requested": len(note_ids),
+                    "total_success": total_success,
+                    "total_failed": total_failed,
+                    "results": results,
+                    "message": (f"Lot traité : {total_success}/{len(note_ids)} note(s) avec succès, {total_failed} échec(s)."),
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.exception("Erreur generate_cards_batch_audio : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la génération audio par lot : {e}"},
+                ensure_ascii=False,
+            )
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -5662,6 +5967,40 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                 "properties": {
                     "reason": {"type": "string", "description": "Motif explicatif de la sauvegarde (optionnel)"},
                 },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_card_audio",
+            "description": "Génère la prononciation audio du texte d'un champ d'une note et l'injecte dans le champ cible au format [sound:...].",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note_id": {"type": "integer", "description": "ID de la note cible"},
+                    "source_field": {"type": "string", "description": "Nom du champ contenant le texte à synthétiser (défaut: Japonais)"},
+                    "target_field": {"type": "string", "description": "Nom du champ destinataire de la balise [sound:...] (défaut: Audio)"},
+                    "voice": {"type": "string", "description": "Identifiant de la voix TTS (optionnel, voix par défaut du moteur)"},
+                    "engine": {"type": "string", "description": "Moteur TTS : 'edge-tts', 'piper', 'kokoro' ou 'system' (optionnel, repli automatique)"},
+                },
+                "required": ["note_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_cards_batch_audio",
+            "description": "Génère l'audio pour un lot de notes et met à jour le champ cible de chaque note avec un rapport détaillé.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note_ids": {"type": "array", "items": {"type": "integer"}, "description": "Liste des IDs de notes à traiter"},
+                    "source_field": {"type": "string", "description": "Nom du champ contenant le texte à synthétiser (défaut: Japonais)"},
+                    "target_field": {"type": "string", "description": "Nom du champ destinataire de la balise [sound:...] (défaut: Audio)"},
+                },
+                "required": ["note_ids"],
             },
         },
     },
