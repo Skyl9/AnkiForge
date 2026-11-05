@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PySide6.QtWidgets import QLabel
 
 from ankiforge.database.models import DeckModel
 from ankiforge.ui.dialogs.export_dialog import ExportDialog
@@ -132,3 +133,70 @@ def test_export_dialog_buttons_default_states(qtbot):
     for child in dialog.findChildren(SecondaryButton):
         if child.text() == "Annuler":
             assert not child.autoDefault()
+
+
+def test_export_dialog_stylesheet_scoped_to_qdialog(qtbot):
+    d1 = DeckModel.create(name="Sciences")
+    dialog = ExportDialog(default_deck_id=d1.id)
+    qtbot.addWidget(dialog)
+
+    sheet = dialog.styleSheet()
+    assert "QDialog" in sheet
+    assert "background-color" in sheet
+    # La feuille de style du dialogue ne doit pas cibler les widgets descendants
+    assert "QRadioButton {" not in sheet
+    assert "QCheckBox {" not in sheet
+    assert "QLabel {" not in sheet
+    assert "QProgressBar {" not in sheet
+
+
+def test_export_dialog_deck_button_no_emoji_with_phosphor_icon(qtbot):
+    dialog = ExportDialog()
+    qtbot.addWidget(dialog)
+
+    text = dialog.btn_select_deck.text()
+    assert "📁" not in text
+    assert "▾" not in text
+    assert "Tous les paquets (Collection entière)" in text
+
+    icon = dialog.btn_select_deck.icon()
+    assert not icon.isNull()
+
+
+def test_export_dialog_deck_button_label_compte_sans_emoji(qtbot):
+    d1 = DeckModel.create(name="Langues::Japonais")
+    dialog = ExportDialog(default_deck_id=d1.id)
+    qtbot.addWidget(dialog)
+
+    dialog._on_deck_selected_from_modal(d1.id, "Langues::Japonais")
+
+    text = dialog.btn_select_deck.text()
+    assert "📁" not in text
+    assert "▾" not in text
+    assert "Langues::Japonais" in text
+    assert "cartes" in text
+
+
+def test_export_dialog_anki_tip_sans_emoji(qtbot):
+    dialog = ExportDialog()
+    qtbot.addWidget(dialog)
+
+    tips = [label for label in dialog.findChildren(QLabel) if "Pour restaurer les drapeaux" in label.text()]
+    assert tips, "le label d'astuce Anki doit être présent"
+    assert "💡" not in tips[0].text()
+
+    icons = [w for w in dialog.findChildren(QLabel) if not w.pixmap().isNull()]
+    assert icons, "une icône Phosphor doit accompagner l'astuce"
+
+
+def test_card_export_dialog_stylesheet_scoped_to_qdialog(qtbot):
+    from ankiforge.ui.dialogs.card_export_dialog import CardExportDialog
+
+    dialog = CardExportDialog()
+    qtbot.addWidget(dialog)
+
+    sheet = dialog.styleSheet()
+    assert "QDialog" in sheet
+    assert "background-color" in sheet
+    assert "QRadioButton {" not in sheet
+    assert "QCheckBox {" not in sheet

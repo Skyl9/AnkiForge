@@ -64,7 +64,12 @@ class CardExportDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
 
         # ── En-tête ──
         header = QHBoxLayout()

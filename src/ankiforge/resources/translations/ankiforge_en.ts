@@ -670,7 +670,7 @@ Cliquer pour voir les détails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/card_export_dialog.py" line="+113"/>
+        <location filename="../../ui/dialogs/card_export_dialog.py" line="+118"/>
         <location filename="../../ui/dialogs/tag_hygiene_dialog.py" line="+375"/>
         <source>Sélection active (%1 cartes)</source>
         <translation type="unfinished"></translation>
@@ -687,7 +687,7 @@ Cliquer pour voir les détails</source>
     </message>
     <message>
         <location line="+271"/>
-        <location filename="../../ui/dialogs/export_dialog.py" line="+327"/>
+        <location filename="../../ui/dialogs/export_dialog.py" line="+340"/>
         <source>✅ %1 cartes exportées avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -954,13 +954,18 @@ Le document `%1` n&apos;a pas pu être chargé.</source>
     </message>
     <message>
         <location filename="../../ui/dialogs/export_dialog.py" line="-71"/>
-        <source>📁 %1 (%2 cartes) ▾</source>
+        <source>%1 (%2 cartes)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+2"/>
-        <location filename="../../ui/dialogs/import_dialog.py" line="+328"/>
-        <source>📁 %1 ▾</source>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1796"/>
+        <location line="+3"/>
+        <location line="+1"/>
+        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+132"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
+        <location filename="../../ui/views/edition_view/view.py" line="+745"/>
+        <source>%1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1011,7 +1016,12 @@ Le document `%1` n&apos;a pas pu être chargé.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/import_dialog.py" line="+112"/>
+        <location filename="../../ui/dialogs/import_dialog.py" line="+328"/>
+        <source>📁 %1 ▾</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+112"/>
         <location line="+9"/>
         <source>Impossible d&apos;importer l&apos;archive :
 %1</source>
@@ -1370,7 +1380,7 @@ Voulez-vous le dupliquer (Non) ou écraser sa configuration (Oui) ?</source>
     <message>
         <location line="+5"/>
         <location line="+261"/>
-        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="+1276"/>
+        <location filename="../../ui/views/analysis_view/tabs/sources_tab.py" line="-524"/>
         <location filename="../../ui/widgets/card_create_view_widget.py" line="-65"/>
         <source>Paquet : %1</source>
         <translation type="unfinished"></translation>
@@ -3113,17 +3123,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+286"/>
-        <location line="+3"/>
-        <location line="+1"/>
-        <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+132"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
-        <location filename="../../ui/views/edition_view/view.py" line="+745"/>
-        <source>%1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+60"/>
+        <location line="+350"/>
         <source>✅ %1 fiches Anki synchronisées via les tags sur l&apos;ensemble des cours !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11251,12 +11251,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardExportDialog</name>
     <message>
-        <location filename="../../ui/dialogs/card_export_dialog.py" line="-367"/>
+        <location filename="../../ui/dialogs/card_export_dialog.py" line="-372"/>
         <source>Exporter en Texte ou JSON (Analyse rapide)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+25"/>
         <source>Exportation Rapide des Cartes (Texte / JSON)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15127,12 +15127,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>ExportDialog</name>
     <message>
-        <location filename="../../ui/dialogs/export_dialog.py" line="-286"/>
+        <location filename="../../ui/dialogs/export_dialog.py" line="-299"/>
         <source>Exporter un Paquet Anki</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+25"/>
         <source>Exportation Anki (.apkg)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15147,7 +15147,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+36"/>
         <source>PORTÉE DE L&apos;EXPORT :</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15177,12 +15177,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
-        <source>💡 &lt;i&gt;Pour restaurer les drapeaux de couleur et cartes suspendues natives dans Anki Desktop, cochez « Importer la planification » lors de l&apos;import.&lt;/i&gt;</source>
+        <location line="+8"/>
+        <source>Pour restaurer les drapeaux de couleur et cartes suspendues natives dans Anki Desktop, cochez « Importer la planification » lors de l&apos;import.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+74"/>
+        <location line="+76"/>
         <source>Sélectionner un paquet à exporter</source>
         <translation type="unfinished"></translation>
     </message>

@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -60,7 +60,12 @@ class ExportDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
 
         # Header
         header = QHBoxLayout()
@@ -112,7 +117,8 @@ class ExportDialog(QDialog):
             if d:
                 self.selected_deck_name = d.name
 
-        self.btn_select_deck = SecondaryButton(f"📁 {self.selected_deck_name} ▾")
+        self.btn_select_deck = SecondaryButton(self.selected_deck_name)
+        self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_PRIMARY))
         self._update_deck_button_label()
         self.btn_select_deck.clicked.connect(self._open_deck_select_modal)
         deck_picker_row.addWidget(self.btn_select_deck, 1)
@@ -161,10 +167,19 @@ class ExportDialog(QDialog):
         self.chk_sync_tags.setToolTip(self.tr("Ajoute des tags aux notes pour garantir la visibilité des drapeaux et des cartes suspendues dans Anki, même sans importer la planification."))
         filters_layout.addWidget(self.chk_sync_tags)
 
-        lbl_anki_tip = QLabel(self.tr("💡 <i>Pour restaurer les drapeaux de couleur et cartes suspendues natives dans Anki Desktop, cochez « Importer la planification » lors de l'import.</i>"))
+        tip_row = QHBoxLayout()
+        tip_row.setSpacing(6)
+        icon_tip = QLabel()
+        icon_tip.setPixmap(load_phosphor_icon("ph.lightbulb", color=DesignTokens.COLOR_YELLOW).pixmap(16, 16))
+        icon_tip.setStyleSheet("border: none; background: transparent;")
+        lbl_anki_tip = QLabel(self.tr("Pour restaurer les drapeaux de couleur et cartes suspendues natives dans Anki Desktop, cochez « Importer la planification » lors de l'import."))
         lbl_anki_tip.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; margin-top: 2px;")
         lbl_anki_tip.setWordWrap(True)
-        filters_layout.addWidget(lbl_anki_tip)
+        lbl_anki_tip.setMinimumHeight(50)
+        tip_row.addWidget(icon_tip, 0, Qt.AlignmentFlag.AlignTop)
+        tip_row.addWidget(lbl_anki_tip, 1)
+        tip_row.setContentsMargins(0, 0, 0, 0)
+        filters_layout.addLayout(tip_row)
 
         layout.addWidget(filters_frame)
 
@@ -253,9 +268,9 @@ class ExportDialog(QDialog):
                 else:
                     cnt = 0
             formatted_cnt = f"{cnt:,}".replace(",", " ")
-            self.btn_select_deck.setText(tr("📁 %1 (%2 cartes) ▾", self.selected_deck_name, formatted_cnt))
+            self.btn_select_deck.setText(tr("%1 (%2 cartes)", self.selected_deck_name, formatted_cnt))
         except Exception:
-            self.btn_select_deck.setText(tr("📁 %1 ▾", self.selected_deck_name))
+            self.btn_select_deck.setText(tr("%1", self.selected_deck_name))
 
     @Slot(int, str)
     def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
