@@ -715,7 +715,7 @@ class DocumentsView(FileDropMixin, QWidget):
 
         self.btn_align_cards = SecondaryButton("Synchroniser les cartes")
         self.btn_align_cards.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE))
-        self.btn_align_cards.setToolTip(self.tr("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document"))
+        self.btn_align_cards.setToolTip(self.tr("Associer les fiches portant les tags de traçabilité (source:/section:/page:) aux sections de ce document"))
         self.btn_align_cards.setFixedHeight(24)
         self.btn_align_cards.setStyleSheet(f"font-size: 10px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_align_cards.clicked.connect(self._on_smart_align_document)

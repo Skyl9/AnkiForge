@@ -654,7 +654,8 @@ def test_refine_links_moves_a_chapter_card_to_its_sub_section():
     tags = parse_note_tags(NoteModel.get_by_id(membrane.id).tags)
     assert f"section:{section_key(chunks['membrane'].heading_path)}" in tags
     assert not [t for t in tags if t.startswith("chunk:")]
-    assert f"doc:{doc.id}" in tags
+    assert not [t for t in tags if t.startswith("doc:")]
+    assert f"source:{clean_source_slug(doc.title)}" in tags
     assert "ankiforge_generated" in tags
     assert NoteChunkLinkModel.get(NoteChunkLinkModel.note == membrane).resolution == "section"
 
@@ -1237,3 +1238,111 @@ def test_sync_note_coverage_force_reevaluate_switches_to_remaining_provenance():
     # Doit maintenant être rattaché à chunk2 via page:2
     assert result[0].chunk_id == chunk2.id
     assert result[0].resolution == RESOLUTION_PAGE
+
+
+def test_sync_coverage_inter_profile_collision_prevention():
+    """Une note portant un tag doc:ID périmé et source:SLUG valide est rattachée au bon document par slug."""
+    uid = uuid.uuid4().hex[:6]
+    doc_histoire = DocumentModel.create(title=f"Histoire de France {uid}", file_type="md")
+    _chunk_histoire = DocumentChunkModel.create(
+        document=doc_histoire,
+        chunk_index=0,
+        heading_path="Révolution",
+        content="La prise de la Bastille le 14 juillet 1789.",
+        content_hash=f"h_hist_{uid}",
+    )
+    doc_bio = DocumentModel.create(title=f"Biologie Cellulaire {uid}", file_type="md")
+    chunk_bio = DocumentChunkModel.create(
+        document=doc_bio,
+        chunk_index=0,
+        heading_path="La Membrane",
+        content="La bicouche phospholipidique délimite la cellule vivante.",
+        content_hash=f"h_bio_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+
+    # Note simulant un export inter-profil : doc: pointe vers l'ID d'Histoire mais source: indique Biologie
+    note = _make_note_with_tags(
+        nt,
+        [
+            f"doc:{doc_histoire.id}",
+            f"source:{clean_source_slug(doc_bio.title)}",
+            f"section:{section_key(chunk_bio.heading_path)}",
+        ],
+    )
+
+    report = CoverageAlignmentService.sync_coverage_from_tags()
+    assert report["matched_notes"] >= 1
+
+    links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note))
+    assert len(links) == 1
+    # Doit être rattaché au document de biologie (priorité sémantique) et JAMAIS à l'histoire
+    assert links[0].chunk.document_id == doc_bio.id
+    assert links[0].chunk_id == chunk_bio.id
+
+
+def test_sync_coverage_unknown_source_slug_does_not_fallback_to_doc_id():
+    """Une note ciblant une source inconnue localement reste hors couverture (zéro fausse attribution par doc_id)."""
+    uid = uuid.uuid4().hex[:6]
+    doc_local = DocumentModel.create(title=f"Cours Local {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc_local,
+        chunk_index=0,
+        heading_path="Introduction",
+        content="Contenu local de test.",
+        content_hash=f"h_loc_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+
+    # Note issue d'un document non importé dans ce profil
+    note = _make_note_with_tags(
+        nt,
+        [
+            f"doc:{doc_local.id}",
+            "source:cours_externe_totalement_inconnu",
+            "section:introduction",
+        ],
+    )
+
+    CoverageAlignmentService.sync_coverage_from_tags()
+    links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note))
+    # Ne doit pas se rattacher au document local simplement parce que doc:ID coïncide
+    assert len(links) == 0
+
+
+def test_sync_coverage_legacy_doc_id_fallback_and_self_healing():
+    """Une note legacy avec uniquement doc:ID se rattache en repli et voit ses tags réparés (doc: purgé, source: ajouté)."""
+    uid = uuid.uuid4().hex[:6]
+    doc_legacy = DocumentModel.create(title=f"Anatomie Ancienne {uid}", file_type="md")
+    chunk_legacy = DocumentChunkModel.create(
+        document=doc_legacy,
+        chunk_index=0,
+        heading_path="Ostéologie",
+        content="Le squelette humain compte 206 os constants chez l'adulte.",
+        content_hash=f"h_osteo_{uid}",
+    )
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+
+    # Note historique sans tag source:
+    note = _make_note_with_tags(
+        nt,
+        [
+            f"doc:{doc_legacy.id}",
+            f"section:{section_key(chunk_legacy.heading_path)}",
+        ],
+    )
+
+    report = CoverageAlignmentService.sync_coverage_from_tags()
+    assert report["matched_notes"] >= 1
+    assert report["repaired_notes"] >= 1
+
+    links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note))
+    assert len(links) == 1
+    assert links[0].chunk_id == chunk_legacy.id
+
+    # Auto-réparation des tags vérifiée sur l'instance rechargée
+    refreshed_note = NoteModel.get_by_id(note.id)
+    tags_after = parse_note_tags(refreshed_note.tags)
+    assert not any(t.startswith("doc:") for t in tags_after)
+    assert f"source:{clean_source_slug(doc_legacy.title)}" in tags_after
+    assert f"section:{section_key(chunk_legacy.heading_path)}" in tags_after

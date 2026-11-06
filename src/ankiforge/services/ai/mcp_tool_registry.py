@@ -2627,7 +2627,7 @@ class MCPToolRegistry:
                 + json.dumps(json_data, ensure_ascii=False, indent=2)
                 + (
                     "\n\n💡 Consigne Consultant : Cite systématiquement la source correspondante et "
-                    "intègre les tags de traçabilité suggérés (ex: `doc:ID`, `source:SLUG`, `page:NUM`) dans toute proposition de carte."
+                    "intègre les tags de traçabilité suggérés (ex: `source:SLUG`, `section:SLUG`, `page:NUM`) dans toute proposition de carte."
                 )
             )
         except Exception as e:

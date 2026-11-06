@@ -245,9 +245,14 @@ def build_document_tags(
     l'identité durable par ``section:``. Les notes anciennes portant encore ``chunk:`` sont
     lues et réécrites par la réconciliation.
 
+    De même, le tag ``doc:`` n'est **plus écrit** (ADR 0009) : l'identifiant SQLite local est
+    éphémère et non universel lors d'imports ou d'échanges inter-profils. L'identité durable
+    du document est portée par son titre normalisé ``source:<slug>``. Le paramètre ``doc_id``
+    est conservé pour la compatibilité des signatures.
+
     Args:
-        doc_id: ID du document en base SQLite.
-        doc_title: Titre du document.
+        doc_id: ID du document en base SQLite (conservé pour rétro-compatibilité, non transcrit en tag).
+        doc_title: Titre du document (produit le tag canonique durable 'source:<slug>').
         page_number: Numéro de page **résolu** (documents paginés uniquement).
         section_name: Fil d'Ariane ou titre de la section source.
         extra_tags: Tags additionnels optionnels.
@@ -257,8 +262,15 @@ def build_document_tags(
     """
     tags: list[str] = ["ankiforge_generated"]
 
-    if doc_id is not None:
-        tags.append(f"doc:{doc_id}")
+    if doc_title is None and doc_id is not None:
+        try:
+            from ankiforge.database.models import DocumentModel
+
+            doc_obj = DocumentModel.get_or_none(DocumentModel.id == doc_id)
+            if doc_obj:
+                doc_title = getattr(doc_obj, "title", None)
+        except Exception:
+            pass
 
     if doc_title and doc_title.strip().lower() not in ("saisie libre", "document"):
         slug = clean_source_slug(doc_title)
@@ -287,7 +299,13 @@ build_provenance_tags = build_document_tags
 
 
 #: Préfixes de traçabilité réécrivables par :func:`replace_provenance_tags`.
-_REWRITABLE_PROVENANCE_PREFIXES: dict[str, str] = {"section": "section:", "page": "page:", "chunk": "chunk:"}
+_REWRITABLE_PROVENANCE_PREFIXES: dict[str, str] = {
+    "section": "section:",
+    "page": "page:",
+    "chunk": "chunk:",
+    "doc": "doc:",
+    "source": "source:",
+}
 
 
 def replace_provenance_tags(

@@ -30,6 +30,7 @@ from ankiforge.services.audit.coverage_alignment_service import (
 )
 from ankiforge.utils.tags import (
     build_document_tags,
+    clean_source_slug,
     extract_tag_metadata,
     legacy_section_key,
     parse_note_tags,
@@ -134,7 +135,7 @@ def test_a_dangling_chunk_tag_does_not_prevent_the_section_from_resolving() -> N
     legacy_tags = [
         "ankiforge_generated",
         f"doc:{doc.id}",
-        f"source:section_key_{uid}",
+        f"source:{clean_source_slug(doc.title)}",
         f"section:{legacy_section_key(chunks[2].heading_path)}",
         "chunk:999999",
     ]

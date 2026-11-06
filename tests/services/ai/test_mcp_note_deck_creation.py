@@ -413,7 +413,7 @@ def test_create_note_and_batch_space_separated_tags_and_coverage(sample_setup):
         note = NoteModel.get_by_id(created_id)
         saved_tags = parse_note_tags(note.tags)
         assert "ankiforge_generated" in saved_tags
-        assert f"doc:{doc.id}" in saved_tags
+        assert not any(t.startswith("doc:") for t in saved_tags)
         assert f"source:{source_slug}" in saved_tags
         assert "page:1" in saved_tags
         assert "lecon_01" in saved_tags
@@ -463,7 +463,7 @@ def test_create_note_and_batch_space_separated_tags_and_coverage(sample_setup):
         b_note = NoteModel.get_by_id(b_note_id)
         b_saved_tags = parse_note_tags(b_note.tags)
         assert "ankiforge_generated" in b_saved_tags
-        assert f"doc:{doc.id}" in b_saved_tags
+        assert not any(t.startswith("doc:") for t in b_saved_tags)
         assert f"source:{source_slug}" in b_saved_tags
         assert "page:1" in b_saved_tags
         assert "politesse" in b_saved_tags

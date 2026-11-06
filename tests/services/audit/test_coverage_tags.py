@@ -111,7 +111,7 @@ def test_build_document_tags() -> None:
         extra_tags=["examen_2026"],
     )
     assert "ankiforge_generated" in tags
-    assert "doc:10" in tags
+    assert not any(t.startswith("doc:") for t in tags)
     assert "source:cardiologie_clinique" in tags
     assert "page:4" in tags
     assert "section:introduction" in tags
@@ -319,14 +319,39 @@ def test_sync_coverage_from_tags_continuous() -> None:
 
 def test_build_document_tags_never_writes_a_chunk_tag():
     """Invariant : `build_document_tags` n'écrit plus de `chunk:` — la section est l'identité durable."""
-    tags = build_document_tags(doc_id=7, section_name="Noyau > Ribosomes", extra_tags=["forge"])
+    tags = build_document_tags(doc_id=7, doc_title="Manuel Cellulaire.pdf", section_name="Noyau > Ribosomes", extra_tags=["forge"])
     assert not [t for t in tags if t.startswith("chunk:")]
     assert "section:noyau_ribosomes" in tags
+    assert "source:manuel_cellulaire" in tags
 
     meta = extract_tag_metadata(tags)
     assert meta["chunk_id"] is None
-    assert meta["doc_id"] == 7
+    assert meta["doc_id"] is None
+    assert meta["source_slug"] == "manuel_cellulaire"
     assert meta["section_slug"] == "noyau_ribosomes"
+
+
+def test_build_document_tags_never_writes_a_doc_id_tag():
+    """Invariant : `build_document_tags` n'écrit plus de `doc:<id>` — la source est l'identité durable (ADR 0009)."""
+    tags = build_document_tags(doc_id=42, doc_title="Biologie Humaine.pdf", page_number=3)
+    assert not any(t.startswith("doc:") for t in tags)
+    assert "source:biologie_humaine" in tags
+    assert "page:3" in tags
+
+    meta = extract_tag_metadata(tags)
+    assert meta["doc_id"] is None
+    assert meta["source_slug"] == "biologie_humaine"
+
+
+def test_replace_provenance_tags_purges_legacy_doc_and_updates_source() -> None:
+    """La réécriture avec doc=None purge doc:ID et permet de mettre à jour ou inscrire source:SLUG."""
+    tags = json.dumps(["ankiforge_generated", "doc:12", "source:ancien_slug", "page:1"])
+    rewritten = replace_provenance_tags(tags, {"doc": None, "source": "nouveau_slug"})
+    parsed = parse_note_tags(rewritten)
+    assert not any(t.startswith("doc:") for t in parsed)
+    assert "source:nouveau_slug" in parsed
+    assert "source:ancien_slug" not in parsed
+    assert "page:1" in parsed
 
 
 def test_extract_tag_metadata_still_reads_a_legacy_chunk_tag():

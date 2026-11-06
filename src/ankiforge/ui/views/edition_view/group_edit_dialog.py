@@ -219,7 +219,7 @@ class GroupEditDialog(QDialog):
         tags_layout.addLayout(row_remove)
 
         tags_note = QLabel(
-            self.tr("<i>Remarque : les tags de provenance documentaire (doc:, source:, page:, section:) sont préservés pour garantir la traçabilité.</i>"),
+            self.tr("<i>Remarque : les tags de provenance documentaire (source:, section:, page:) sont préservés pour garantir la traçabilité.</i>"),
             tags_group,
         )
         tags_note.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")

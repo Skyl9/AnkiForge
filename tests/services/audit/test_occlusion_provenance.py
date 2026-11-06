@@ -24,7 +24,7 @@ from ankiforge.services.audit.coverage_alignment_service import (
     RESOLUTION_EXACT,
     CoverageAlignmentService,
 )
-from ankiforge.utils.tags import parse_note_tags
+from ankiforge.utils.tags import clean_source_slug, parse_note_tags
 
 pytestmark = pytest.mark.integration
 
@@ -75,7 +75,8 @@ def test_attach_notes_writes_exact_link_and_canonical_provenance():
     assert links[0].resolution == RESOLUTION_EXACT
 
     tags = parse_note_tags(note.tags)
-    assert f"doc:{doc.id}" in tags
+    assert not any(t.startswith("doc:") for t in tags)
+    assert f"source:{clean_source_slug(doc.title)}" in tags
     assert "page:7" in tags
     assert any(t.startswith("section:") for t in tags)
     assert "image-occlusion" in tags

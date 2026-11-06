@@ -378,7 +378,7 @@ Cliquer pour tronquer la saisie à ce niveau</source>
     </message>
     <message>
         <location filename="../../ui/components/model_select_window.py" line="+325"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="+1594"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="+1668"/>
         <source>Voulez-vous vraiment supprimer le type de note &apos;%1&apos; ?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -778,7 +778,7 @@ Souhaitez-vous tout de même appliquer la migration vers &apos;%2&apos; ?</sourc
     </message>
     <message>
         <location filename="../../ui/dialogs/crash_report_dialog.py" line="+141"/>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="+416"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="+417"/>
         <source>Profil : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -963,7 +963,7 @@ Le document `%1` n&apos;a pas pu être chargé.</source>
         <location line="+3"/>
         <location line="+1"/>
         <location filename="../../ui/views/analysis_view/tabs/wozniak_tab.py" line="+132"/>
-        <location filename="../../ui/views/card_models_view/view.py" line="-220"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-280"/>
         <location filename="../../ui/views/edition_view/view.py" line="+745"/>
         <source>%1</source>
         <translation type="unfinished"></translation>
@@ -1225,7 +1225,30 @@ Le prompt et les paramètres actuels seront remplacés.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+405"/>
+        <location line="+353"/>
+        <source>Modèle de carte : %1
+Gabarits : %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>%1 (%2 planche%3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Album : %1
+Nombre de planches : %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+176"/>
+        <source>Le transfert s&apos;est exécuté avec %1 erreur(s) :
+%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
         <source>Une erreur est survenue pendant le transfert :
 %1</source>
         <translation type="unfinished"></translation>
@@ -3504,7 +3527,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1144"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1152"/>
         <source>Créer un nouveau type de note Anki (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3519,7 +3542,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+42"/>
+        <location line="+49"/>
         <source>Exporter le type de note (JSON) (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3549,7 +3572,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+289"/>
+        <location line="+290"/>
         <source>Type de note par défaut défini : %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3621,6 +3644,26 @@ Gabarits : %3</source>
     <message>
         <location line="+37"/>
         <source>Type de note &apos;%1&apos; importé avec succès.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Impossible de lire les modèles de carte du profil &apos;%1&apos;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Aucun modèle de carte dans le profil &apos;%1&apos;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Modèles de carte disponibles dans &apos;%1&apos; :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Modèle de carte &apos;%1&apos; importé avec succès.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5222,7 +5265,7 @@ Hors périmètre (titre seul) : seul le conteneur est exclu, ses sous-sections r
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+32"/>
+        <location line="+40"/>
         <source>✅ %1 document(s) importé(s) et aligné(s) avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11506,7 +11549,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>CardModelsView</name>
     <message>
-        <location filename="../../ui/views/card_models_view/view.py" line="-1417"/>
+        <location filename="../../ui/views/card_models_view/view.py" line="-1485"/>
         <source>Rechercher...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11531,26 +11574,31 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+21"/>
-        <location line="+1288"/>
+        <location line="+23"/>
+        <source>Importer un modèle de carte depuis un autre profil</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+1350"/>
         <source>Supprimer le type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1215"/>
+        <location line="-1276"/>
         <source>Champs :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+680"/>
+        <location line="+681"/>
         <location line="+2"/>
         <location line="+2"/>
         <source>Front, Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-683"/>
+        <location line="-684"/>
         <source>ex: Front, Back, Audio...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11663,17 +11711,17 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+7"/>
-        <location line="+615"/>
+        <location line="+616"/>
         <source>Données d&apos;exemple automatiques</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-604"/>
+        <location line="-605"/>
         <source>Masquer l&apos;aperçu en direct</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+161"/>
+        <location line="+162"/>
         <location line="+71"/>
         <source>Nom (A → Z)</source>
         <translation type="unfinished"></translation>
@@ -11833,7 +11881,23 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+57"/>
+        <location line="+29"/>
+        <source>Aucun autre espace de travail disponible pour importer un modèle de carte.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <location line="+23"/>
+        <source>Importer un modèle de carte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-22"/>
+        <source>Sélectionnez le profil source :</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+82"/>
         <source>Directive IA appliquée pour le type de note.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14035,7 +14099,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
 <context>
     <name>DocumentsView</name>
     <message>
-        <location filename="../../ui/views/documents_view/view.py" line="-2635"/>
+        <location filename="../../ui/views/documents_view/view.py" line="-2643"/>
         <source>Importer depuis le Web / YouTube</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14181,7 +14245,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="-1671"/>
-        <source>Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document</source>
+        <source>Associer les fiches portant les tags de traçabilité (source:/section:/page:) aux sections de ce document</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -14430,12 +14494,12 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+17"/>
-        <location line="+657"/>
+        <location line="+665"/>
         <source>Veuillez d&apos;abord sélectionner un document.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-652"/>
+        <location line="-660"/>
         <source>L&apos;analyse Marker OCR est disponible uniquement pour les fichiers PDF.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14520,7 +14584,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+62"/>
+        <location line="+70"/>
         <source>Veuillez sélectionner un document à indexer.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16224,7 +16288,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+16"/>
-        <source>&lt;i&gt;Remarque : les tags de provenance documentaire (doc:, source:, page:, section:) sont préservés pour garantir la traçabilité.&lt;/i&gt;</source>
+        <source>&lt;i&gt;Remarque : les tags de provenance documentaire (source:, section:, page:) sont préservés pour garantir la traçabilité.&lt;/i&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -19704,7 +19768,7 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>ProfileTransferDialog</name>
     <message>
-        <location filename="../../ui/dialogs/profile_transfer_dialog.py" line="-454"/>
+        <location filename="../../ui/dialogs/profile_transfer_dialog.py" line="-600"/>
         <source>Transférer du contenu entre Espaces de Travail — AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19749,6 +19813,36 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+13"/>
+        <source>Sélectionner tous les modèles de cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Désélectionner tous les modèles de cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Modèles de cartes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Sélectionner tous les albums</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Désélectionner tous les albums</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Albums</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location line="+5"/>
         <source>Mettre à jour les notes existantes si le GUID existe déjà (crée une nouvelle version)</source>
         <translation type="unfinished"></translation>
@@ -19760,7 +19854,7 @@ Utilisez {{ text_source }}.</source>
     </message>
     <message>
         <location line="+1"/>
-        <source>TYPES DE NOTE</source>
+        <source>MODÈLES DE CARTES</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -19774,7 +19868,17 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+1"/>
+        <source>MODÈLES SÉLECTIONNÉS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ALBUMS SÉLECTIONNÉS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+18"/>
         <source>Fermer sans rien transférer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19789,29 +19893,36 @@ Utilisez {{ text_source }}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+77"/>
+        <location line="+121"/>
         <location line="+1"/>
+        <location line="+1"/>
+        <location line="+2"/>
         <location line="+1"/>
         <source>0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-2"/>
         <source>0 (0 Ko)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+45"/>
         <source>Aucun élément sélectionné</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
-        <source>Veuillez cocher au moins un paquet ou un tag à transférer.</source>
+        <source>Veuillez cocher au moins un paquet, un tag, un modèle de carte ou un album à transférer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location line="+59"/>
+        <source>Transfert terminé avec des avertissements</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>Transfert Réussi</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20307,8 +20418,8 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SettingsModal</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/modal.py" line="-547"/>
-        <location line="+323"/>
+        <location filename="../../ui/widgets/settings_modal/modal.py" line="-548"/>
+        <location line="+324"/>
         <source>Paramètres AnkiForge</source>
         <translation type="unfinished"></translation>
     </message>
@@ -20391,17 +20502,17 @@ Utilisez {{ text_source }}.</source>
 <context>
     <name>SettingsSearchView</name>
     <message>
-        <location filename="../../ui/widgets/settings_modal/components/search_view.py" line="+191"/>
+        <location filename="../../ui/widgets/settings_modal/components/search_view.py" line="+175"/>
         <source>Recherche de paramètres</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+19"/>
         <source>Aucun réglage ne correspond à votre recherche.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+2"/>
         <source>Essayez un autre mot-clé (ex: « température », « zip », « langue »).</source>
         <translation type="unfinished"></translation>
     </message>

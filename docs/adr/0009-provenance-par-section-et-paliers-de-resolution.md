@@ -2,11 +2,13 @@
 
 **Statut :** accepté
 
-La provenance d'une carte est identifiée par le couple (document, fil d'Ariane) et non par l'identifiant du fragment qui l'a produite. `chunk:` n'est plus écrit. Le rattachement d'une note à un fragment reste une désignation précise, mais il est **tracé** : le palier qui l'a désignée est persisté sur le lien.
+La provenance d'une carte est identifiée par le couple (document, fil d'Ariane) et non par l'identifiant du fragment qui l'a produite. Les tags éphémères `chunk:` et `doc:` ne sont plus écrits. Le rattachement d'une note à un fragment reste une désignation précise, mais il est **tracé** : le palier qui l'a désignée est persisté sur le lien.
 
 ## Le défaut
 
 `build_document_tags` écrivait `chunk:<id>` comme tag de provenance. Cet identifiant désigne un artefact du découpage : il est propre à une passe d'ingestion et disparaît à la suivante. Après réingestion, les tags pointent vers des fragments qui n'existent plus et la couverture tombe à zéro alors que les cartes sont intactes. Sur le profil de développement, 24 tags `chunk:` sur 24 étaient pendants.
+
+De même, `build_document_tags` écrivait `doc:<id>` basé sur la clé primaire SQLite locale. Cet identifiant est éphémère et local au profil : en cas d'export `.apkg` et d'import sur une autre machine ou dans un autre profil, `doc:1` s'associait arbitrairement au document `id=1` du profil cible (un cours différent), corrompant la couverture. L'identité durable au niveau document est le titre normalisé `source:<slug>`, et non un entier auto-incrémenté.
 
 Le défaut de résolution qui rendait cela irréparable est un `if`/`elif` : la présence d'un `chunk:` — même invalide — court-circuitait les paliers suivants, dont la `section:` qui aurait très bien pu résoudre. Une donnée périmée devenait ainsi une preuve de présence.
 
@@ -20,10 +22,10 @@ Le défaut de résolution qui rendait cela irréparable est un `if`/`elif` : la 
 
 ## Conséquences
 
-- `build_document_tags` n'accepte plus de `chunk_id`, et n'écrit `page:` que si une page est un fait avéré. Les PDFs et Markdown continus ne produisent donc plus de `page:1` : ce tag était une supposition présentée comme un fait.
-- Les tags d'ancienne forme restent lisibles. Les clés de section issues d'une numérotation video (`[00:01]`) sont tolérées à la lecture et retirées à l'écriture : elles changeaient de valeur selon le lecteur.
-- `CoverageAlignmentService.resolve_attachment` est l'unique politique de résolution, appelée à la création, au batch et en synchronisation. `resolve_finest_chunk_for_card` n'en est qu'un wrapper.
+- `build_document_tags` n'accepte plus de `chunk_id`, n'écrit plus de tag `doc:<id>` (l'identité documentaire durable est portée par `source:<slug>`), et n'écrit `page:` que si une page est un fait avéré. Les PDFs et Markdown continus ne produisent donc plus de `page:1` : ce tag était une supposition présentée comme un fait.
+- Les tags d'ancienne forme (`doc:`, `chunk:`) restent lisibles par tolérance. Les clés de section issues d'une numérotation video (`[00:01]`) sont tolérées à la lecture et retirées à l'écriture : elles changeaient de valeur selon le lecteur.
+- `CoverageAlignmentService.resolve_attachment` est l'unique politique de résolution, appelée à la création, au batch et en synchronisation. `resolve_finest_chunk_for_card` n'en est qu'un wrapper. La résolution privilégie `source_slug` ; le repli sur `doc_id` n'est activé que si `source_slug` est absent, évitant toute collision inter-profils.
 - La colonne `NoteChunkLinkModel.resolution` est nullable : les liens antérieurs n'ont pas de palier connu, et inscrire `NULL = lexique` serait une affirmation fausse.
-- La synchronisation devient **réparatrice** : elle réécrit les tags périmés et les supprime. C'est le mécanisme par lequel les profils existants se corrigent, sans migration.
+- La synchronisation devient **réparatrice** : elle réécrit les tags périmés (`chunk:`, `doc:`) et les supprime tout en garantissant `source:`. C'est le mécanisme par lequel les profils existants se corrigent, sans migration.
 - Le rapport expose `repaired_notes` et `resolution_breakdown`. Un lien présumé par recouvrement lexical reste indiscernable d'un lien prouvé tant que l'interface ne les sépare pas — c'est la suite naturelle.
 - L'import d'un paquet Anki ne déclenche pas de synchronisation : une note importée sans étiquette de provenance n'a rien à résoudre. Le rattacher automatiquement serait une attribution non demandée.

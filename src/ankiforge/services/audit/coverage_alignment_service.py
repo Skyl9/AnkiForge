@@ -283,10 +283,14 @@ class CoverageAlignmentService:
                     continue
                 meta = extract_tag_metadata(note.tags)
                 matched_doc: DocumentModel | None = None
-                if meta["doc_id"] is not None and meta["doc_id"] in docs_by_id:
+                if meta["source_slug"] is not None:
+                    if meta["source_slug"] in docs_by_slug:
+                        matched_doc = docs_by_slug[meta["source_slug"]]
+                    # Si source_slug est spécifié mais absent de la collection locale,
+                    # NE PAS chercher par doc_id : la carte appartient à un document externe.
+                elif meta["doc_id"] is not None and meta["doc_id"] in docs_by_id:
+                    # Repli historique : uniquement si source_slug était absent (notes pré-ADR 0009)
                     matched_doc = docs_by_id[meta["doc_id"]]
-                elif meta["source_slug"] is not None and meta["source_slug"] in docs_by_slug:
-                    matched_doc = docs_by_slug[meta["source_slug"]]
                 elif meta["section_slug"] is not None:
                     for candidate_doc in docs_by_id.values():
                         if candidate_doc.id in stale_doc_ids:
@@ -407,10 +411,14 @@ class CoverageAlignmentService:
         Returns:
             ``True`` si les tags ont effectivement été modifiés (et persistés).
         """
+        doc_title = chunk.document.title if chunk.document else ""
+        source_val = clean_source_slug(doc_title) if doc_title and doc_title.strip().lower() not in ("saisie libre", "document") else None
         overrides: dict[str, str | int | None] = {
             "section": section_key(chunk.heading_path) or None,
             "page": chunk.page_number,
             "chunk": None,
+            "doc": None,
+            "source": source_val,
         }
         rewritten = replace_provenance_tags(note.tags, overrides)
         if rewritten == note.tags:
@@ -444,10 +452,11 @@ class CoverageAlignmentService:
                 continue
             meta = extract_tag_metadata(note.tags)
             resolved_doc: DocumentModel | None = None
-            if meta["doc_id"] is not None and meta["doc_id"] in docs_by_id:
+            if meta["source_slug"] is not None:
+                if meta["source_slug"] in docs_by_slug:
+                    resolved_doc = docs_by_slug[meta["source_slug"]]
+            elif meta["doc_id"] is not None and meta["doc_id"] in docs_by_id:
                 resolved_doc = docs_by_id[meta["doc_id"]]
-            elif meta["source_slug"] is not None and meta["source_slug"] in docs_by_slug:
-                resolved_doc = docs_by_slug[meta["source_slug"]]
             if resolved_doc is None or resolved_doc.id != target_doc.id:
                 link.delete_instance()
                 removed += 1
@@ -495,13 +504,13 @@ class CoverageAlignmentService:
 
         meta = extract_tag_metadata(tags)
         target_doc: DocumentModel | None = None
-        if meta["doc_id"] is not None:
-            target_doc = DocumentModel.get_or_none(DocumentModel.id == meta["doc_id"])
-        elif meta["source_slug"]:
+        if meta["source_slug"]:
             for d in DocumentModel.select():
                 if clean_source_slug(d.title) == meta["source_slug"]:
                     target_doc = d
                     break
+        elif meta["doc_id"] is not None:
+            target_doc = DocumentModel.get_or_none(DocumentModel.id == meta["doc_id"])
 
         if not target_doc:
             if force_reevaluate and existing_links:
@@ -620,14 +629,15 @@ class CoverageAlignmentService:
                     chunk=target_chunk,
                     defaults={"is_hallucinating": False, "resolution": resolution},
                 )
-                # Réécriture canonique des tags réécrivables (section/page/chunk), puis
-                # ajout des faits d'appartenance (`doc:`/`source:`) absents des notes neuves.
+                # Réécriture canonique des tags réécrivables (section/page/chunk/doc), puis
+                # ajout des faits d'appartenance (`source:`) absents des notes neuves.
                 canonical = replace_provenance_tags(
                     note.tags,
                     {
                         "section": section_key(target_chunk.heading_path) or None,
                         "page": target_chunk.page_number,
                         "chunk": None,
+                        "doc": None,
                     },
                 )
                 merged = parse_note_tags(canonical)
@@ -1419,13 +1429,13 @@ class CoverageAlignmentService:
 
         meta = extract_tag_metadata(note.tags)
         doc_target: DocumentModel | None = None
-        if meta["doc_id"] is not None:
-            doc_target = DocumentModel.get_or_none(DocumentModel.id == meta["doc_id"])
-        elif meta["source_slug"]:
+        if meta["source_slug"]:
             for d in DocumentModel.select():
                 if clean_source_slug(d.title) == meta["source_slug"]:
                     doc_target = d
                     break
+        elif meta["doc_id"] is not None:
+            doc_target = DocumentModel.get_or_none(DocumentModel.id == meta["doc_id"])
 
         if not doc_target:
             return None

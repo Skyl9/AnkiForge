@@ -24,6 +24,7 @@ from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.views.creation_view import CreationView
 from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
 from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
+from ankiforge.utils.tags import clean_source_slug
 
 pytestmark = pytest.mark.ui
 
@@ -902,7 +903,8 @@ def test_creation_view_save_anki_creates_tags_without_chunk_link(qtbot: Any, moc
 
     note = NoteModel.select().order_by(NoteModel.id.desc()).first()
     assert note is not None
-    assert f"doc:{doc.id}" in note.tags
+    assert f"doc:{doc.id}" not in note.tags
+    assert f"source:{clean_source_slug(doc.title)}" in note.tags
     assert "page:2" in note.tags
 
     # La synchronisation automatique post-sauvegarde lie désormais la note au chunk résolu (page:2)

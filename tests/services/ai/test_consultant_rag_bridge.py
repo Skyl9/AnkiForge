@@ -56,7 +56,7 @@ def test_search_knowledge_context_with_results():
     assert "Contexte Documentaire RAG" in res
     assert "[Source: Biologie Cellulaire.pdf | p.15 | mitochondrie]" in res
     assert "La mitochondrie est le siège de la respiration" in res
-    assert "doc:" in res
+    assert "source:biologie_cellulaire" in res
     assert "page:15" in res
     assert "section:mitochondrie" in res
 
@@ -72,7 +72,8 @@ def test_search_knowledge_context_with_results():
     assert data[0]["doc_id"] == doc.id
     assert data[0]["page_number"] == 15
     assert data[0]["section_slug"] == "mitochondrie"
-    assert "doc:" in " ".join(data[0]["suggested_tags"])
+    assert not any(t.startswith("doc:") for t in data[0]["suggested_tags"])
+    assert "source:biologie_cellulaire" in data[0]["suggested_tags"]
     assert "page:15" in " ".join(data[0]["suggested_tags"])
 
 
