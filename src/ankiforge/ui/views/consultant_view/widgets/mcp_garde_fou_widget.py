@@ -48,6 +48,7 @@ from ankiforge.ui.views.consultant_view.widgets.garde_fou_views import (
 from ankiforge.ui.widgets.card_create_view_widget import CardCreateViewWidget
 from ankiforge.ui.widgets.card_semantic_diff_widget import CardSemanticDiffWidget
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.environment import get_app_qsettings
 from ankiforge.utils.event_bus import MCPBundleStagedEvent, MCPPatchStagedEvent, event_bus
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -77,6 +78,7 @@ class BundleHeaderItemWidget(QWidget):
         top_row.addWidget(icon_lbl)
 
         lbl_title = QLabel(bundle.title or tr("Bloc d'opérations"))
+        lbl_title.setWordWrap(True)
         lbl_title.setStyleSheet(f"""
             font-size: 11px;
             font-weight: 700;
@@ -156,7 +158,7 @@ class PatchListItemWidget(QWidget):
             border: none;
             background: transparent;
         """)
-        lbl_title.setWordWrap(False)
+        lbl_title.setWordWrap(True)
         lbl_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         lbl_title.setMinimumWidth(0)
         top_row.addWidget(lbl_title, 1)
@@ -232,6 +234,7 @@ class HierarchicalPatchTreeWidget(QTreeWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.header().setStretchLastSection(True)
         self.setHeaderHidden(True)
         self.setRootIsDecorated(True)
         self.setIndentation(14)
@@ -446,7 +449,6 @@ class MCPGardeFouWidget(QWidget):
         from PySide6.QtCore import QTimer
 
         def _refresh_tree() -> None:
-            self.patch_tree.resizeColumnToContents(0)
             self.patch_tree.viewport().repaint()
 
         QTimer.singleShot(0, _refresh_tree)
@@ -510,7 +512,6 @@ class MCPGardeFouWidget(QWidget):
         from PySide6.QtCore import QTimer
 
         def _refresh_tree() -> None:
-            self.patch_tree.resizeColumnToContents(0)
             self.patch_tree.viewport().repaint()
 
         QTimer.singleShot(0, _refresh_tree)
@@ -534,14 +535,13 @@ class MCPGardeFouWidget(QWidget):
         main_layout.setContentsMargins(*DesignTokens.DESIGN_SYSTEM_MARGES["mcp_root"])
         main_layout.setSpacing(DesignTokens.DESIGN_SYSTEM_SPACING["mcp_root"])
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setChildrenCollapsible(False)
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setChildrenCollapsible(False)
 
         # ── 1. VOLET MAÎTRE HIÉRARCHIQUE (Gauche) ─────────────────────────────
         self.left_panel = QFrame()
         self.left_panel.setObjectName("mcp_gf_master")
-        self.left_panel.setMinimumWidth(380)
-        self.left_panel.setMaximumWidth(520)
+        self.left_panel.setMinimumWidth(280)
         self.left_panel.setStyleSheet(f"""
             QFrame#mcp_gf_master {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -660,7 +660,7 @@ class MCPGardeFouWidget(QWidget):
         self.patch_tree.currentItemChanged.connect(self._on_item_selection_changed)
         left_layout.addWidget(self.patch_tree, 1)
 
-        splitter.addWidget(self.left_panel)
+        self.splitter.addWidget(self.left_panel)
 
         # ── 2. ZONE DÉTAIL POLYMORPHE (Droite) ───────────────────────────────
         self.right_container = QFrame()
@@ -843,11 +843,26 @@ class MCPGardeFouWidget(QWidget):
         self.detail_stack.addWidget(self.detail_view)
 
         right_layout.addWidget(self.detail_stack)
-        splitter.addWidget(self.right_container)
+        self.splitter.addWidget(self.right_container)
 
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        main_layout.addWidget(splitter)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        main_layout.addWidget(self.splitter)
+
+        settings = get_app_qsettings()
+        state = settings.value("mcp/garde_fou_splitter_state")
+        restored = False
+        if state is not None:
+            restored = bool(self.splitter.restoreState(state))
+        if not restored:
+            self.splitter.setSizes([360, max(500, self.width() - 360)])
+
+        self.splitter.splitterMoved.connect(self._on_splitter_moved)
+
+    def _on_splitter_moved(self, pos: int, index: int) -> None:
+        """Sauvegarde automatiquement l'état géométrique du séparateur dans QSettings."""
+        settings = get_app_qsettings()
+        settings.setValue("mcp/garde_fou_splitter_state", self.splitter.saveState())
 
     def _set_status_filter(self, value: str) -> None:
         """Définit le filtre de statut actif et recharge la file en conséquence."""
@@ -932,9 +947,6 @@ class MCPGardeFouWidget(QWidget):
                 selected_item = item
 
         self.patch_tree.blockSignals(False)
-
-        # Redimensionner la colonne pour s'adapter au contenu des widgets personnalisés
-        self.patch_tree.resizeColumnToContents(0)
 
         # Restaurer l'état de l'arbre
         self._restore_tree_state(tree_state)

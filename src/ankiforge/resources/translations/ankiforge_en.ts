@@ -3688,7 +3688,7 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+4"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-437"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-435"/>
         <source>PAQUET</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4067,12 +4067,12 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-91"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-92"/>
         <source>Bloc d&apos;opérations</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+11"/>
         <source>%1 étapes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4083,18 +4083,18 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+43"/>
-        <location line="+868"/>
+        <location line="+878"/>
         <source>Étape %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-866"/>
-        <location line="+878"/>
+        <location line="-876"/>
+        <location line="+888"/>
         <source>Proposition — %1 #%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-848"/>
+        <location line="-858"/>
         <source>CARTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4115,7 +4115,7 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+368"/>
+        <location line="+366"/>
         <source>PROPOSITIONS EN ATTENTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4171,18 +4171,18 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+40"/>
-        <location line="+227"/>
+        <location line="+239"/>
         <source>Rejeter la proposition</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-205"/>
+        <location line="-217"/>
         <source>Tout valider le bloc</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+21"/>
-        <location line="+183"/>
+        <location line="+195"/>
         <source>Appliquer la modification</source>
         <translation type="unfinished"></translation>
     </message>

@@ -11,6 +11,7 @@ import uuid
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel
 
 from ankiforge.database.models import (
     DeckModel,
@@ -22,7 +23,13 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 from ankiforge.ui.views.consultant_view.widgets import mcp_garde_fou_widget
-from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
+from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import (
+    BundleHeaderItemWidget,
+    MCPGardeFouWidget,
+    PatchListItemWidget,
+)
+from ankiforge.utils.environment import get_app_qsettings
+from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
 
 pytestmark = [pytest.mark.ui]
 
@@ -1315,3 +1322,132 @@ def test_mcp_garde_fou_widget_filtre_tous_affiche_pending_et_aborted(qtbot):
     assert widget.count() == 2
     ids = {widget.patch_tree.itemWidget(widget.patch_tree.topLevelItem(i), 0).patch_id for i in range(2)}
     assert ids == {patch_pending.patch_id, patch_aborted.patch_id}
+
+
+def test_mcp_garde_fou_splitter_constraints(qtbot):
+    """Vérifie l'assouplissement des contraintes de largeur du volet maître."""
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+
+    assert widget.left_panel.minimumWidth() == 280
+    assert widget.left_panel.maximumWidth() >= 16777215
+    assert hasattr(widget, "splitter")
+    assert widget.splitter is not None
+
+
+def test_mcp_garde_fou_splitter_qsettings_persistence(qtbot):
+    """Vérifie la mémorisation et la restauration de la géométrie du séparateur via QSettings."""
+    settings = get_app_qsettings()
+    settings.remove("mcp/garde_fou_splitter_state")
+    try:
+        widget1 = MCPGardeFouWidget()
+        qtbot.addWidget(widget1)
+        widget1.resize(1400, 800)
+        widget1.show()
+
+        # Déplacement du séparateur
+        widget1.splitter.setSizes([450, 950])
+        widget1._on_splitter_moved(450, 1)
+
+        saved_state = settings.value("mcp/garde_fou_splitter_state")
+        assert saved_state is not None
+
+        # Deuxième widget restaure l'état persisté
+        widget2 = MCPGardeFouWidget()
+        qtbot.addWidget(widget2)
+        widget2.resize(1400, 800)
+        widget2.show()
+
+        sizes = widget2.splitter.sizes()
+        assert sizes[0] == 450
+    finally:
+        settings.remove("mcp/garde_fou_splitter_state")
+
+
+def test_mcp_garde_fou_splitter_stability_on_reload(qtbot, sample_note):
+    """Vérifie que la largeur du séparateur ne saute pas lors des rechargements ou événements."""
+    settings = get_app_qsettings()
+    settings.remove("mcp/garde_fou_splitter_state")
+    try:
+        StagedPatchRegistry.create_patch(
+            patch_type="card",
+            target_id=sample_note.id,
+            diff_payload={"type": "card", "note_id": sample_note.id, "title": "Stabilité Splitter"},
+        )
+
+        widget = MCPGardeFouWidget()
+        qtbot.addWidget(widget)
+        widget.resize(1400, 800)
+        widget.show()
+        widget.reload_pending_patches()
+
+        # Redimensionnement arbitraire
+        widget.splitter.setSizes([420, 980])
+        widget._on_splitter_moved(420, 1)
+
+        initial_left_width = widget.splitter.sizes()[0]
+        assert initial_left_width == 420
+
+        # Rechargement des patchs
+        widget.reload_pending_patches()
+        assert widget.splitter.sizes()[0] == 420
+
+        # Événement de nouveau patch staged
+        new_patch = StagedPatchRegistry.create_patch(
+            patch_type="card",
+            target_id=sample_note.id,
+            diff_payload={"type": "card", "note_id": sample_note.id, "title": "Deuxième patch"},
+        )
+        event_bus.publish(MCPPatchStagedEvent(patch_id=new_patch.patch_id, patch_type="card", target_id=sample_note.id))
+        qtbot.wait(50)
+
+        assert widget.splitter.sizes()[0] == 420
+    finally:
+        settings.remove("mcp/garde_fou_splitter_state")
+
+
+def test_mcp_garde_fou_tree_and_item_word_wrap(qtbot, sample_note):
+    """Vérifie l'étirement élastique de la colonne d'arbre et le word-wrap des libellés de titres."""
+    bundle_title = "Titre long d'un bloc d'opérations complexes devant s'enrouler sur plusieurs lignes"
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title=bundle_title,
+        explanation="Explication détaillée",
+    )
+    StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={
+            "type": "card",
+            "note_id": sample_note.id,
+            "title": "Titre très long pour une proposition de carte devant passer à la ligne",
+        },
+        bundle_id=bundle_id,
+    )
+    StagedPatchRegistry.commit_bundle(bundle_id)
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    # Arbre élastique
+    assert widget.patch_tree.header().stretchLastSection() is True
+
+    # Vérification wordWrap sur BundleHeaderItemWidget
+    bundle_item = widget.patch_tree.topLevelItem(0)
+    bundle_widget = widget.patch_tree.itemWidget(bundle_item, 0)
+    assert isinstance(bundle_widget, BundleHeaderItemWidget)
+    bundle_labels = bundle_widget.findChildren(QLabel)
+    title_labels = [label for label in bundle_labels if bundle_title in label.text()]
+    assert len(title_labels) == 1
+    assert title_labels[0].wordWrap() is True
+
+    # Vérification wordWrap sur PatchListItemWidget (enfant de bundle)
+    patch_item = bundle_item.child(0)
+    patch_widget = widget.patch_tree.itemWidget(patch_item, 0)
+    assert isinstance(patch_widget, PatchListItemWidget)
+    patch_labels = patch_widget.findChildren(QLabel)
+    patch_title_labels = [label for label in patch_labels if "Titre très long" in label.text()]
+    assert len(patch_title_labels) == 1
+    assert patch_title_labels[0].wordWrap() is True
