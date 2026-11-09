@@ -91,9 +91,9 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
    ```
    Exécute la chaîne complète (ruff check/format, mypy strict, bandit, tests rapides).
 3. **Revue de code à deux axes (Obligatoire)** :
-   - Déclencher systématiquement **`/code-review`** (deux sous-agents parallèles : Standards & Spécification) pour confronter le diff aux exigences avant toute clôture.
+   - Déclencher systématiquement **`/code-review`** (revue hybride en 3 couches : Standards, Spécification et filtre critique adversarial anti-faux-positifs) pour confronter le diff aux exigences et obtenir le verdict (`APPROVE`).
    > [!IMPORTANT]
-   > ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT de clore le ticket, de modifier son statut en `✅ Terminé`, de toucher au Kanban ou de formuler une proposition de commit avant d'avoir formellement restitué le rapport de code-review à deux axes à l'utilisateur.
+   > ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT de clore le ticket, de modifier son statut en `✅ Terminé`, de toucher au Kanban ou de formuler une proposition de commit avant d'avoir formellement restitué le rapport de code-review avec son verdict et inséré le bloc de synthèse dans le ticket Obsidian.
    - **Boucle de remédiation immédiate** : si la revue de code formule des constats ou demandes d'ajustements (standards, typage, design system, i18n) :
      1. Appliquer les corrections requises dans le code ou les tests.
      2. Si des chaînes traduisibles ont été modifiées, ré-exécuter `uv run python script/extract_translations.py`.
