@@ -30,7 +30,7 @@ class ToolPermissionCard(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(f"""
             QFrame#toolPermCard {{
-                background-color: {DesignTokens.BG_PANEL};
+                background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
@@ -46,21 +46,22 @@ class ToolPermissionCard(QFrame):
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(is_checked)
         self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.checkbox.setStyleSheet("background: transparent; border: none;")
         layout.addWidget(self.checkbox)
 
         col = QVBoxLayout()
         col.setSpacing(2)
         lbl_title = QLabel(display_title)
-        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 12px; background: transparent;")
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 12px; background: transparent; border: none;")
         col.addWidget(lbl_title)
 
         lbl_desc = QLabel(description)
-        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
+        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent; border: none;")
         lbl_desc.setWordWrap(True)
         col.addWidget(lbl_desc)
         layout.addLayout(col, 1)
 
-        badge_variant = "primary" if category == "MCP" else ("info" if category == "Natif" else "warning")
+        badge_variant = "info" if category == "MCP" else ("success" if category == "Natif" else "warning")
         self.badge = Badge(category, variant=badge_variant)
         self.badge.setFixedHeight(20)
         layout.addWidget(self.badge)

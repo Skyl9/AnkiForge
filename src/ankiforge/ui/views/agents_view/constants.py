@@ -27,21 +27,24 @@ def apply_pill_style(badge: QLabel, color_hex: str) -> None:
 # Types d'usage disponibles pour les Personas
 PERSONA_TYPE_SPECS: dict[str, dict[str, str]] = {
     "pipeline": {
-        "label": "⚡ Pipeline de Forge (DAG)",
+        "label": "Pipeline de Forge (DAG)",
+        "icon": "ph.lightning",
         "badge_text": "Pipeline",
         "badge_color": DesignTokens.COLOR_PURPLE,
         "badge_variant": "primary",
         "desc": "Conçu pour les étapes de workflow d'ingestion et de création de cartes flashcards.",
     },
     "mcp": {
-        "label": "🤝 Consultant IA (Serveur MCP)",
+        "label": "Consultant IA (Serveur MCP)",
+        "icon": "ph.handshake",
         "badge_text": "Consultant MCP",
         "badge_color": DesignTokens.COLOR_GREEN,
         "badge_variant": "success",
         "desc": "Conçu pour les diagnostics conversationnels, la boucle autonome ReAct et l'appel d'outils.",
     },
     "universal": {
-        "label": "🌐 Universel (Forge & MCP)",
+        "label": "Universel (Forge & MCP)",
+        "icon": "ph.globe",
         "badge_text": "Universel",
         "badge_color": DesignTokens.COLOR_YELLOW,
         "badge_variant": "warning",

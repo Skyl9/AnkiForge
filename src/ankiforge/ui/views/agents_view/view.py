@@ -233,7 +233,7 @@ class AgentsView(QWidget):
         self.persona_tree.customContextMenuRequested.connect(self._on_tree_context_menu)
         self.persona_tree.setStyleSheet(f"""
             QTreeWidget {{
-                background-color: transparent;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
@@ -307,8 +307,10 @@ class AgentsView(QWidget):
 
         editor_layout.addWidget(self.top_action_bar)
 
-        # Barre de Sous-Onglets style IDE
-        subtabs_bar = QHBoxLayout()
+        # Barre de Sous-Onglets style IDE rattachée
+        subtabs_container = QWidget()
+        subtabs_container.setStyleSheet(f"background: transparent; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
+        subtabs_bar = QHBoxLayout(subtabs_container)
         subtabs_bar.setContentsMargins(0, 0, 0, 0)
         subtabs_bar.setSpacing(0)
 
@@ -325,37 +327,159 @@ class AgentsView(QWidget):
         subtabs_bar.addWidget(self.btn_subtab_tools)
         subtabs_bar.addStretch()
 
-        editor_layout.addLayout(subtabs_bar)
-
-        # Stack de contenu
+        # Stack de contenu rattaché flush
         self.tabs = QStackedWidget()
         self.tabs.setObjectName("agentSubtabsStack")
         self.tabs.setStyleSheet(f"""
             QStackedWidget#agentSubtabsStack {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top: none;
+                border-bottom-left-radius: {DesignTokens.RADIUS_SM}px;
+                border-bottom-right-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
-        editor_layout.addWidget(self.tabs, 1)
+
+        tabs_container = QWidget()
+        tabs_layout = QVBoxLayout(tabs_container)
+        tabs_layout.setContentsMargins(0, 0, 0, 0)
+        tabs_layout.setSpacing(0)
+        tabs_layout.addWidget(subtabs_container)
+        tabs_layout.addWidget(self.tabs, 1)
+        editor_layout.addWidget(tabs_container, 1)
+
+        input_field_style = f"""
+            QLineEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 6px 10px;
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QLineEdit:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QLineEdit:focus {{
+                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+        """
+
+        combo_field_style = f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 4px 10px;
+                font-size: 12px;
+                font-weight: 500;
+                min-height: 24px;
+            }}
+            QComboBox:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QComboBox:focus {{
+                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 24px;
+                border-left: none;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                selection-background-color: {DesignTokens.BG_HOVER};
+                selection-color: {DesignTokens.ACCENT_PRIMARY};
+                padding: 4px;
+            }}
+        """
 
         # ── ONGLET 1 : Identité & Moteur IA ──
         tab_identity = QWidget()
+        tab_identity.setStyleSheet("background: transparent;")
         layout_identity = QVBoxLayout(tab_identity)
-        layout_identity.setContentsMargins(14, 14, 14, 14)
-        layout_identity.setSpacing(14)
+        layout_identity.setContentsMargins(12, 12, 12, 12)
+        layout_identity.setSpacing(10)
+
+        # Carte 1: Identité
+        identity_card = QFrame()
+        identity_card.setObjectName("agentIdentityCard")
+        identity_card.setStyleSheet(f"""
+            QFrame#agentIdentityCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        id_card_layout = QVBoxLayout(identity_card)
+        id_card_layout.setContentsMargins(12, 10, 12, 12)
+        id_card_layout.setSpacing(8)
+
+        id_top = QHBoxLayout()
+        id_top.setContentsMargins(0, 0, 0, 0)
+        id_top.setSpacing(6)
+        id_ico = QLabel()
+        id_ico.setPixmap(load_phosphor_icon("ph.user-focus", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        id_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_id_section = QLabel(self.tr("IDENTITÉ DU PERSONA"))
+        lbl_id_section.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        id_top.addWidget(id_ico)
+        id_top.addWidget(lbl_id_section)
+        id_top.addStretch()
+        id_card_layout.addLayout(id_top)
 
         lbl_name = QLabel(self.tr("NOM DU PERSONA :"))
-        lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-        layout_identity.addWidget(lbl_name)
-        self.name_edit = StyledLineEdit()
+        lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
+        id_card_layout.addWidget(lbl_name)
+        self.name_edit = StyledLineEdit(icon_name="ph.pencil-simple")
+        self.name_edit.setStyleSheet(input_field_style)
+        self.name_edit.setFixedHeight(34)
         self.name_edit.setPlaceholderText(self.tr("ex: Architecte de Cours, Linteur Wozniak, Consultant SRS..."))
-        layout_identity.addWidget(self.name_edit)
+        id_card_layout.addWidget(self.name_edit)
 
         lbl_desc = QLabel(self.tr("DESCRIPTION & RÔLE :"))
-        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-        layout_identity.addWidget(lbl_desc)
+        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
+        id_card_layout.addWidget(lbl_desc)
         self.desc_edit = AutoExpandingTextEdit(placeholder="ex: Découpe le cours en concepts atomiques selon la règle de formulation minimale.")
-        layout_identity.addWidget(self.desc_edit)
+        id_card_layout.addWidget(self.desc_edit)
+        layout_identity.addWidget(identity_card)
+
+        # Carte 2: Portée & Rattachement
+        scope_card = QFrame()
+        scope_card.setObjectName("agentScopeCard")
+        scope_card.setStyleSheet(f"""
+            QFrame#agentScopeCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        scope_card_layout = QVBoxLayout(scope_card)
+        scope_card_layout.setContentsMargins(12, 10, 12, 12)
+        scope_card_layout.setSpacing(8)
+
+        scope_top = QHBoxLayout()
+        scope_top.setContentsMargins(0, 0, 0, 0)
+        scope_top.setSpacing(6)
+        scope_ico = QLabel()
+        scope_ico.setPixmap(load_phosphor_icon("ph.share-network", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        scope_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_scope_section = QLabel(self.tr("RATTACHEMENT & PORTÉE"))
+        lbl_scope_section.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        scope_top.addWidget(scope_ico)
+        scope_top.addWidget(lbl_scope_section)
+        scope_top.addStretch()
+        scope_card_layout.addLayout(scope_top)
 
         row_props = QHBoxLayout()
         row_props.setSpacing(12)
@@ -363,9 +487,11 @@ class AgentsView(QWidget):
         col_folder = QVBoxLayout()
         col_folder.setSpacing(4)
         lbl_folder_title = QLabel(self.tr("DOSSIER D'APPARTENANCE :"))
-        lbl_folder_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_folder_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
         col_folder.addWidget(lbl_folder_title)
         self.folder_combo = StyledComboBox()
+        self.folder_combo.setStyleSheet(combo_field_style)
+        self.folder_combo.setFixedHeight(34)
         self.folder_combo.currentIndexChanged.connect(self._on_folder_combo_changed)
         col_folder.addWidget(self.folder_combo)
         row_props.addLayout(col_folder, 1)
@@ -373,11 +499,14 @@ class AgentsView(QWidget):
         col_scope = QVBoxLayout()
         col_scope.setSpacing(4)
         lbl_scope_title = QLabel(self.tr("PORTÉE / USAGE DE L'AGENT :"))
-        lbl_scope_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_scope_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
         col_scope.addWidget(lbl_scope_title)
         self.scope_combo = StyledComboBox()
+        self.scope_combo.setStyleSheet(combo_field_style)
+        self.scope_combo.setFixedHeight(34)
         for s_key, s_spec in PERSONA_TYPE_SPECS.items():
-            self.scope_combo.addItem(s_spec["label"], userData=s_key)
+            ico = load_phosphor_icon(s_spec.get("icon", "ph.lightning"), color=s_spec.get("badge_color", DesignTokens.TEXT_PRIMARY))
+            self.scope_combo.addItem(ico, s_spec["label"], userData=s_key)
         self.scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         col_scope.addWidget(self.scope_combo)
         row_props.addLayout(col_scope, 1)
@@ -385,14 +514,19 @@ class AgentsView(QWidget):
         col_fmt = QVBoxLayout()
         col_fmt.setSpacing(4)
         lbl_format = QLabel(self.tr("FORMAT DE SORTIE :"))
-        lbl_format.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_format.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
         col_fmt.addWidget(lbl_format)
         self.format_combo = StyledComboBox()
-        self.format_combo.addItems([self.tr("json"), self.tr("cloze"), self.tr("markdown"), self.tr("text")])
+        self.format_combo.setStyleSheet(combo_field_style)
+        self.format_combo.setFixedHeight(34)
+        self.format_combo.addItem(load_phosphor_icon("ph.code", color=DesignTokens.COLOR_YELLOW), self.tr("json"))
+        self.format_combo.addItem(load_phosphor_icon("ph.brackets-curly", color=DesignTokens.COLOR_BLUE), self.tr("cloze"))
+        self.format_combo.addItem(load_phosphor_icon("ph.article", color=DesignTokens.COLOR_PURPLE), self.tr("markdown"))
+        self.format_combo.addItem(load_phosphor_icon("ph.text-t", color=DesignTokens.TEXT_SECONDARY), self.tr("text"))
         col_fmt.addWidget(self.format_combo)
         row_props.addLayout(col_fmt, 1)
 
-        layout_identity.addLayout(row_props)
+        scope_card_layout.addLayout(row_props)
 
         self.scope_info_card = QFrame()
         self.scope_info_card.setObjectName("scope_info_card")
@@ -410,13 +544,41 @@ class AgentsView(QWidget):
         self.lbl_scope_info.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; background: transparent; border: none;")
         self.lbl_scope_info.setWordWrap(True)
         layout_scope_info.addWidget(self.lbl_scope_info)
-        layout_identity.addWidget(self.scope_info_card)
+        scope_card_layout.addWidget(self.scope_info_card)
+        layout_identity.addWidget(scope_card)
 
-        lbl_engine = QLabel(self.tr("MOTEUR IA DÉDIÉ (OPTIONNEL) :"))
-        lbl_engine.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-        layout_identity.addWidget(lbl_engine)
+        # Carte 3: Moteur IA
+        engine_card = QFrame()
+        engine_card.setObjectName("agentEngineCard")
+        engine_card.setStyleSheet(f"""
+            QFrame#agentEngineCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        engine_card_layout = QVBoxLayout(engine_card)
+        engine_card_layout.setContentsMargins(12, 10, 12, 12)
+        engine_card_layout.setSpacing(8)
+
+        engine_top = QHBoxLayout()
+        engine_top.setContentsMargins(0, 0, 0, 0)
+        engine_top.setSpacing(6)
+        engine_ico = QLabel()
+        engine_ico.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
+        engine_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_engine_section = QLabel(self.tr("MOTEUR IA DÉDIÉ (OPTIONNEL)"))
+        lbl_engine_section.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        engine_top.addWidget(engine_ico)
+        engine_top.addWidget(lbl_engine_section)
+        engine_top.addStretch()
+        engine_card_layout.addLayout(engine_top)
+
         self.engine_combo = ModelSelectorWidget(allow_inherit=True, parent=self)
-        layout_identity.addWidget(self.engine_combo)
+        if hasattr(self.engine_combo, "combo"):
+            self.engine_combo.combo.setStyleSheet(combo_field_style)
+            self.engine_combo.combo.setFixedHeight(34)
+        engine_card_layout.addWidget(self.engine_combo)
 
         self.engine_info_card = QFrame()
         self.engine_info_card.setObjectName("engine_info_card")
@@ -438,7 +600,8 @@ class AgentsView(QWidget):
         self.lbl_engine_info = QLabel(self.tr("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres."))
         self.lbl_engine_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent; border: none;")
         layout_engine_info.addWidget(self.lbl_engine_info, 1)
-        layout_identity.addWidget(self.engine_info_card)
+        engine_card_layout.addWidget(self.engine_info_card)
+        layout_identity.addWidget(engine_card)
 
         layout_identity.addStretch()
 
@@ -451,17 +614,37 @@ class AgentsView(QWidget):
 
         # ── ONGLET 2 : Instructions & Prompt Jinja2 ──
         tab_prompt = QWidget()
+        tab_prompt.setStyleSheet("background: transparent;")
         layout_prompt = QVBoxLayout(tab_prompt)
-        layout_prompt.setContentsMargins(14, 14, 14, 14)
+        layout_prompt.setContentsMargins(12, 12, 12, 12)
         layout_prompt.setSpacing(10)
 
+        prompt_card = QFrame()
+        prompt_card.setObjectName("agentPromptCard")
+        prompt_card.setStyleSheet("""
+            QFrame#agentPromptCard {
+                background-color: transparent;
+                border: none;
+            }
+        """)
+        prompt_card_layout = QVBoxLayout(prompt_card)
+        prompt_card_layout.setContentsMargins(0, 0, 0, 0)
+        prompt_card_layout.setSpacing(10)
+
         snippets_header = QHBoxLayout()
-        lbl_prompt_title = QLabel(self.tr("INSTRUCTIONS SYSTÈME (JINJA2 TEMPLATE) :"))
-        lbl_prompt_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        snippets_header.setContentsMargins(0, 0, 0, 0)
+        snippets_header.setSpacing(6)
+        prompt_ico = QLabel()
+        prompt_ico.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        prompt_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_prompt_title = QLabel(self.tr("INSTRUCTIONS (JINJA2)"))
+        lbl_prompt_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        snippets_header.addWidget(prompt_ico)
         snippets_header.addWidget(lbl_prompt_title)
         snippets_header.addStretch()
 
-        self.btn_prompt_framework = SecondaryButton("📋 Insérer un Canevas...")
+        self.btn_prompt_framework = SecondaryButton("Insérer un Canevas...")
+        self.btn_prompt_framework.setIcon(load_phosphor_icon("ph.clipboard-text", color=DesignTokens.TEXT_PRIMARY))
         apply_compact_style(self.btn_prompt_framework, height=32)
         self.btn_prompt_framework.setStyleSheet("padding: 4px 10px;")
         self.btn_prompt_framework.clicked.connect(self._on_open_prompt_frameworks_menu)
@@ -480,12 +663,12 @@ class AgentsView(QWidget):
         self.btn_preview_prompt.setStyleSheet("padding: 4px 10px;")
         self.btn_preview_prompt.clicked.connect(self._on_preview_prompt)
         snippets_header.addWidget(self.btn_preview_prompt)
-        layout_prompt.addLayout(snippets_header)
+        prompt_card_layout.addLayout(snippets_header)
 
         palette_box = QVBoxLayout()
         palette_box.setSpacing(4)
         lbl_snip = QLabel(self.tr("Insérer au curseur :"))
-        lbl_snip.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        lbl_snip.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         palette_box.addWidget(lbl_snip)
 
         self.snippets_flow = FlowWidget(margin=0, h_spacing=6, v_spacing=6)
@@ -497,7 +680,7 @@ class AgentsView(QWidget):
             self.snippets_flow.addWidget(btn_snip)
 
         palette_box.addWidget(self.snippets_flow)
-        layout_prompt.addLayout(palette_box)
+        prompt_card_layout.addLayout(palette_box)
 
         self.prompt_edit = StyledTextEdit()
         self.prompt_edit.setPlaceholderText(self.tr("Tu es un agent expert en création de flashcards Anki...\nUtilisez {{ text_source }} et les variables Jinja2."))
@@ -518,35 +701,55 @@ class AgentsView(QWidget):
             }}
         """)
         self.prompt_edit.textChanged.connect(self._update_tokens_count)
-        layout_prompt.addWidget(self.prompt_edit, 1)
+        prompt_card_layout.addWidget(self.prompt_edit, 1)
 
         self.lbl_tokens = QLabel(self.tr("Aa 0 caractères  |  ~0 Tokens estimés"))
-        self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-family: '{DesignTokens.FONT_CODE}';")
-        layout_prompt.addWidget(self.lbl_tokens)
+        self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; border: none; background: transparent;")
+        prompt_card_layout.addWidget(self.lbl_tokens)
 
+        layout_prompt.addWidget(prompt_card, 1)
         self.tabs.addWidget(tab_prompt)
 
         # ── ONGLET 3 : Permissions d'Outils MCP & Python ──
         tab_tools = QWidget()
+        tab_tools.setStyleSheet("background: transparent;")
         layout_tools = QVBoxLayout(tab_tools)
-        layout_tools.setContentsMargins(14, 14, 14, 14)
+        layout_tools.setContentsMargins(12, 12, 12, 12)
         layout_tools.setSpacing(10)
 
+        tools_card = QFrame()
+        tools_card.setObjectName("agentToolsCard")
+        tools_card.setStyleSheet("""
+            QFrame#agentToolsCard {
+                background-color: transparent;
+                border: none;
+            }
+        """)
+        tools_card_layout = QVBoxLayout(tools_card)
+        tools_card_layout.setContentsMargins(0, 0, 0, 0)
+        tools_card_layout.setSpacing(10)
+
         tools_header = QHBoxLayout()
-        lbl_tools_title = QLabel(self.tr("PERMISSIONS D'OUTILS (MCP & OUTILS PYTHON DÉTERMINISTES) :"))
-        lbl_tools_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        tools_header.setContentsMargins(0, 0, 0, 0)
+        tools_header.setSpacing(6)
+        tools_ico = QLabel()
+        tools_ico.setPixmap(load_phosphor_icon("ph.wrench", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        tools_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_tools_title = QLabel(self.tr("PERMISSIONS D'OUTILS"))
+        lbl_tools_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        tools_header.addWidget(tools_ico)
         tools_header.addWidget(lbl_tools_title)
         tools_header.addStretch()
 
         self.preset_combo = StyledComboBox()
         self.preset_combo.setFixedHeight(30)
         self.preset_combo.addItem(self.tr("Presets d'outils..."), userData="")
-        self.preset_combo.addItem(self.tr("🛡️ Auditeur Wozniak"), userData="wozniak_auditor")
-        self.preset_combo.addItem(self.tr("🎨 Architecte Modèles & CSS"), userData="css_architect")
-        self.preset_combo.addItem(self.tr("📊 Analyste SRS & Sangsues"), userData="srs_analyst")
-        self.preset_combo.addItem(self.tr("📚 Chercheur RAG & Documents"), userData="rag_researcher")
-        self.preset_combo.addItem(self.tr("⚡ Administrateur BDD & Scripts"), userData="database_admin")
-        self.preset_combo.addItem(self.tr("🌐 Consultant Universel (Tout)"), userData="universal")
+        self.preset_combo.addItem(load_phosphor_icon("ph.shield-check"), self.tr("Auditeur Wozniak"), userData="wozniak_auditor")
+        self.preset_combo.addItem(load_phosphor_icon("ph.paint-brush"), self.tr("Architecte Modèles & CSS"), userData="css_architect")
+        self.preset_combo.addItem(load_phosphor_icon("ph.chart-line-up"), self.tr("Analyste SRS & Sangsues"), userData="srs_analyst")
+        self.preset_combo.addItem(load_phosphor_icon("ph.books"), self.tr("Chercheur RAG & Documents"), userData="rag_researcher")
+        self.preset_combo.addItem(load_phosphor_icon("ph.lightning"), self.tr("Administrateur BDD & Scripts"), userData="database_admin")
+        self.preset_combo.addItem(load_phosphor_icon("ph.globe"), self.tr("Consultant Universel (Tout)"), userData="universal")
         self.preset_combo.currentIndexChanged.connect(self._on_preset_combo_changed)
         tools_header.addWidget(self.preset_combo)
 
@@ -560,7 +763,7 @@ class AgentsView(QWidget):
 
         tools_header.addWidget(self.btn_select_all)
         tools_header.addWidget(self.btn_deselect_all)
-        layout_tools.addLayout(tools_header)
+        tools_card_layout.addLayout(tools_header)
 
         tools_scroll = QScrollArea()
         tools_scroll.setWidgetResizable(True)
@@ -568,6 +771,7 @@ class AgentsView(QWidget):
         tools_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         self.tools_container = QWidget()
+        self.tools_container.setStyleSheet("background: transparent;")
         self.tools_layout = QVBoxLayout(self.tools_container)
         self.tools_layout.setContentsMargins(0, 0, 0, 0)
         self.tools_layout.setSpacing(8)
@@ -575,8 +779,9 @@ class AgentsView(QWidget):
         self._build_tools_cards()
 
         tools_scroll.setWidget(self.tools_container)
-        layout_tools.addWidget(tools_scroll, 1)
+        tools_card_layout.addWidget(tools_scroll, 1)
 
+        layout_tools.addWidget(tools_card, 1)
         self.tabs.addWidget(tab_tools)
 
         self._switch_subtab(0)
@@ -621,8 +826,11 @@ class AgentsView(QWidget):
     def _build_tools_cards(self) -> None:
         while self.tools_layout.count() > 0:
             item = self.tools_layout.takeAt(0)
-            if item and item.widget():
-                item.widget().deleteLater()
+            if item:
+                w = item.widget()
+                if w:
+                    w.setParent(None)
+                    w.deleteLater()
 
         self._tool_cards.clear()
         self._tool_checkboxes.clear()
@@ -700,6 +908,7 @@ class AgentsView(QWidget):
             self.btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=color))
         if hasattr(self, "engine_info_card"):
             bg_input = profile.bg_input if profile and hasattr(profile, "bg_input") else DesignTokens.BG_INPUT
+            border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
             radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
             self.engine_info_card.setStyleSheet(f"""
                 QFrame#engine_info_card {{
@@ -718,6 +927,113 @@ class AgentsView(QWidget):
             self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=text_muted).pixmap(14, 14))
         if hasattr(self, "desc_edit") and hasattr(self.desc_edit, "refresh_theme"):
             self.desc_edit.refresh_theme(profile)
+        if hasattr(self, "tabs"):
+            bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+            border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+            radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
+            self.tabs.setStyleSheet(f"""
+                QStackedWidget#agentSubtabsStack {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_col};
+                    border-top: none;
+                    border-bottom-left-radius: {radius_sm}px;
+                    border-bottom-right-radius: {radius_sm}px;
+                }}
+            """)
+            input_style = f"""
+                QLineEdit {{
+                    background-color: {profile.bg_input if profile else DesignTokens.BG_INPUT};
+                    border: 1px solid {border_col};
+                    border-radius: {radius_sm}px;
+                    color: {profile.text_primary if profile else DesignTokens.TEXT_PRIMARY};
+                    padding: 6px 10px;
+                    font-size: 12px;
+                    font-weight: 500;
+                }}
+                QLineEdit:hover {{
+                    border-color: {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
+                    background-color: {profile.bg_hover if profile else DesignTokens.BG_HOVER};
+                }}
+                QLineEdit:focus {{
+                    border: 1.5px solid {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
+                    background-color: {bg_panel};
+                }}
+            """
+            combo_style = f"""
+                QComboBox {{
+                    background-color: {profile.bg_input if profile else DesignTokens.BG_INPUT};
+                    border: 1px solid {border_col};
+                    border-radius: {radius_sm}px;
+                    color: {profile.text_primary if profile else DesignTokens.TEXT_PRIMARY};
+                    padding: 4px 10px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    min-height: 24px;
+                }}
+                QComboBox:hover {{
+                    border-color: {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
+                    background-color: {profile.bg_hover if profile else DesignTokens.BG_HOVER};
+                }}
+                QComboBox:focus {{
+                    border: 1.5px solid {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
+                    background-color: {bg_panel};
+                }}
+                QComboBox::drop-down {{
+                    subcontrol-origin: padding;
+                    subcontrol-position: top right;
+                    width: 24px;
+                    border-left: none;
+                }}
+                QComboBox QAbstractItemView {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_col};
+                    border-radius: {radius_sm}px;
+                    color: {profile.text_primary if profile else DesignTokens.TEXT_PRIMARY};
+                    selection-background-color: {profile.bg_hover if profile else DesignTokens.BG_HOVER};
+                    selection-color: {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
+                    padding: 4px;
+                }}
+            """
+            if hasattr(self, "name_edit"):
+                self.name_edit.setStyleSheet(input_style)
+            if hasattr(self, "folder_combo"):
+                self.folder_combo.setStyleSheet(combo_style)
+            if hasattr(self, "scope_combo"):
+                self.scope_combo.setStyleSheet(combo_style)
+            if hasattr(self, "format_combo"):
+                self.format_combo.setStyleSheet(combo_style)
+            if hasattr(self, "engine_combo") and hasattr(self.engine_combo, "combo"):
+                self.engine_combo.combo.setStyleSheet(combo_style)
+        if hasattr(self, "persona_tree"):
+            bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+            border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+            radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
+            text_pri = profile.text_primary if profile and hasattr(profile, "text_primary") else DesignTokens.TEXT_PRIMARY
+            bg_hov = profile.bg_hover if profile and hasattr(profile, "bg_hover") else DesignTokens.BG_HOVER
+            bg_act = profile.bg_active if profile and hasattr(profile, "bg_active") else DesignTokens.BG_ACTIVE
+            accent_pri = profile.accent_primary if profile and hasattr(profile, "accent_primary") else DesignTokens.ACCENT_PRIMARY
+            self.persona_tree.setStyleSheet(f"""
+                QTreeWidget {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_col};
+                    border-radius: {radius_sm}px;
+                    color: {text_pri};
+                    outline: none;
+                    padding: 4px;
+                }}
+                QTreeWidget::item {{
+                    padding: 2px 2px;
+                    border-radius: 4px;
+                    margin-bottom: 2px;
+                }}
+                QTreeWidget::item:hover {{
+                    background-color: {bg_hov};
+                }}
+                QTreeWidget::item:selected {{
+                    background-color: {bg_act};
+                    border-left: 2px solid {accent_pri};
+                }}
+            """)
 
     def refresh_data(self) -> None:
         try:
@@ -744,19 +1060,34 @@ class AgentsView(QWidget):
     def _populate_folder_combo(self) -> None:
         self.folder_combo.blockSignals(True)
         self.folder_combo.clear()
-        self.folder_combo.addItem(self.tr("📁 Aucun dossier (Racine)"), userData=None)
+        self.folder_combo.addItem(
+            load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_MUTED),
+            self.tr("Aucun dossier (Racine)"),
+            userData=None,
+        )
 
         def _add_folders_recursive(parent_id: int | None, prefix: str = "") -> None:
             children = [f for f in self._cached_folders if (f.parent.id if f.parent else None) == parent_id]
             for child in children:
-                icon_prefix = "📁 " if parent_id is None else "↳ 📁 "
-                self.folder_combo.addItem(tr("%1%2%3", prefix, icon_prefix, child.name), userData=child.id)
+                self.folder_combo.addItem(
+                    load_phosphor_icon("ph.folder", color=DesignTokens.COLOR_YELLOW),
+                    tr("%1%2", prefix, child.name),
+                    userData=child.id,
+                )
                 _add_folders_recursive(child.id, prefix=prefix + "   ")
 
         _add_folders_recursive(None)
 
-        self.folder_combo.addItem(self.tr("➕ Créer un nouveau dossier racine..."), userData="__NEW_ROOT__")
-        self.folder_combo.addItem(self.tr("➕ Créer un sous-dossier ici..."), userData="__NEW_SUB__")
+        self.folder_combo.addItem(
+            load_phosphor_icon("ph.folder-plus", color=DesignTokens.ACCENT_PRIMARY),
+            self.tr("Créer un nouveau dossier racine..."),
+            userData="__NEW_ROOT__",
+        )
+        self.folder_combo.addItem(
+            load_phosphor_icon("ph.folder-simple-plus", color=DesignTokens.ACCENT_PRIMARY),
+            self.tr("Créer un sous-dossier ici..."),
+            userData="__NEW_SUB__",
+        )
         self.folder_combo.blockSignals(False)
 
     @Slot(int)

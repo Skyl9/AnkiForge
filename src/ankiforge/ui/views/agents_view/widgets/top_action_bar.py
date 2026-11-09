@@ -20,7 +20,7 @@ class ResponsiveAgentTopActionBar(QFrame):
         self.setStyleSheet(f"""
             QFrame#agentTopActionBar {{
                 background-color: {DesignTokens.BG_PANEL};
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
