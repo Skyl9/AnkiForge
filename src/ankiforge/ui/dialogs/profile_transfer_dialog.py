@@ -176,8 +176,7 @@ class ProfileTransferDialog(QDialog):
                 background: {DesignTokens.BG_MAIN};
                 color: {DesignTokens.TEXT_SECONDARY};
                 padding: 8px 16px;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
+                border-radius: 0px;
                 font-weight: bold;
                 font-size: 11px;
             }}

@@ -25,8 +25,8 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
-# Rayon de bordure des onglets : plus carré (2px) que RADIUS_SM (6px) pour éviter l'aspect ovale/pill.
-TAB_RADIUS = 2
+# Rayon de bordure des onglets : parfaitement carré (0px) pour une découpe nette et professionnelle.
+TAB_RADIUS = 0
 
 
 class SegmentedTabButton(QPushButton):
@@ -163,7 +163,7 @@ class SegmentedTabButton(QPushButton):
                         background-color: {DesignTokens.ACCENT_PRIMARY};
                         color: {DesignTokens.TEXT_ON_ACCENT};
                         border: none;
-                        border-radius: {TAB_RADIUS}px;
+                        border-radius: 0px;
                         padding: 0 {right_pad}px 0 {base_pad}px;
                         font-size: 12px;
                         font-weight: 600;
@@ -175,7 +175,7 @@ class SegmentedTabButton(QPushButton):
                         background-color: transparent;
                         color: {DesignTokens.TEXT_SECONDARY};
                         border: none;
-                        border-radius: {TAB_RADIUS}px;
+                        border-radius: 0px;
                         padding: 0 {right_pad}px 0 {base_pad}px;
                         font-size: 12px;
                         font-weight: 500;

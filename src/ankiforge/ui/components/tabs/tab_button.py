@@ -90,8 +90,7 @@ class TabButton(QPushButton):
                     border-right: 1px solid {DesignTokens.BORDER_COLOR};
                     border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
                     border-top: 2px solid transparent;
-                    border-top-left-radius: {DesignTokens.RADIUS_SM}px;
-                    border-top-right-radius: {DesignTokens.RADIUS_SM}px;
+                    border-radius: 0px;
                     padding: 0 {padding_right}px 0 12px;
                     font-family: "{DesignTokens.FONT_MAIN}";
                     font-size: {DesignTokens.FONT_SIZE_BASE}px;
@@ -106,6 +105,7 @@ class TabButton(QPushButton):
                     color: {DesignTokens.TEXT_PRIMARY};
                     border-bottom: 1px solid {DesignTokens.BG_INPUT};
                     border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: 0px;
                     font-weight: bold;
                 }}
             """)
@@ -115,7 +115,9 @@ class TabButton(QPushButton):
                     background-color: {DesignTokens.BG_SIDEBAR};
                     color: {DesignTokens.TEXT_SECONDARY};
                     border: none;
+                    border-right: 1px solid {DesignTokens.BORDER_COLOR};
                     border-top: 2px solid transparent;
+                    border-radius: 0px;
                     padding: 0 {padding_right}px 0 8px;
                     font-family: "{DesignTokens.FONT_MAIN}";
                     font-size: 12px;
@@ -130,6 +132,8 @@ class TabButton(QPushButton):
                     color: {DesignTokens.TEXT_PRIMARY};
                     border-bottom: 1px solid {DesignTokens.BG_PANEL};
                     border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 0px;
                     font-weight: 600;
                 }}
             """)

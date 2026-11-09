@@ -338,6 +338,7 @@ class StyleEngine(QObject):
             border: none;
             border-right: 1px solid {p.border_color};
             border-top: 2px solid transparent;
+            border-radius: 0px;
             padding: 0 14px;
             font-family: "{p.font_main}";
             font-size: {p.font_size_base}px;
@@ -355,6 +356,7 @@ class StyleEngine(QObject):
             color: {p.text_primary};
             border-top: 2px solid {p.accent_primary};
             border-right: 1px solid {p.border_color};
+            border-radius: 0px;
             font-weight: bold;
         }}
         TabButton[variant="document"] {{
@@ -364,8 +366,7 @@ class StyleEngine(QObject):
             border-right: 1px solid {p.border_color};
             border-bottom: 1px solid {p.border_color};
             border-top: 2px solid transparent;
-            border-top-left-radius: {p.radius_sm}px;
-            border-top-right-radius: {p.radius_sm}px;
+            border-radius: 0px;
             padding: 0 12px;
         }}
         TabButton[variant="document"][closable="true"] {{
@@ -381,6 +382,7 @@ class StyleEngine(QObject):
             border-bottom: 1px solid {p.bg_panel};
             border-top: 2px solid {p.accent_primary};
             border-right: 1px solid {p.border_color};
+            border-radius: 0px;
             font-weight: bold;
         }}
 
@@ -704,8 +706,7 @@ class StyleEngine(QObject):
             background-color: {p.bg_input};
             color: {p.text_secondary};
             padding: 6px 14px;
-            border-top-left-radius: 4px;
-            border-top-right-radius: 4px;
+            border-radius: 0px;
             font-size: 11px;
             font-weight: 500;
         }}

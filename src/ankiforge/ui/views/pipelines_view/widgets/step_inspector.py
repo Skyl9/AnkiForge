@@ -383,7 +383,7 @@ class StepInspectorPanel(QFrame):
 
         # ── 2. Barre de Sous-Onglets Style IDE ──────────────────────────────────
         subtabs_bar = QHBoxLayout()
-        subtabs_bar.setSpacing(4)
+        subtabs_bar.setSpacing(0)
         subtabs_bar.setContentsMargins(0, 0, 0, 0)
 
         self.btn_subtab_params = SubTabButton(tr("Paramètres && Prompt"), "ph.gear", is_active=True)

@@ -476,8 +476,7 @@ class FeedbackDialog(QDialog):
                 padding: 6px 14px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-bottom: none;
-                border-top-left-radius: {DesignTokens.RADIUS_SM};
-                border-top-right-radius: {DesignTokens.RADIUS_SM};
+                border-radius: 0px;
                 margin-right: 4px;
                 font-weight: 600;
                 font-size: 12px;

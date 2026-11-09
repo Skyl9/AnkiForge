@@ -198,8 +198,7 @@ class PersonaHistoryDialog(QDialog):
                 background: {DesignTokens.BG_INPUT};
                 color: {DesignTokens.TEXT_SECONDARY};
                 padding: 8px 16px;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
+                border-radius: 0px;
                 margin-right: 2px;
             }}
             QTabBar::tab:selected {{

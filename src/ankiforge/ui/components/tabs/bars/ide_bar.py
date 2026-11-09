@@ -47,6 +47,7 @@ class IdeTabBar(QWidget):
                 border: none;
                 border-right: 1px solid {DesignTokens.BORDER_COLOR};
                 border-top: 2px solid transparent;
+                border-radius: 0px;
                 padding: 0 16px;
                 font-family: "{DesignTokens.FONT_MAIN}";
             }}
@@ -59,6 +60,7 @@ class IdeTabBar(QWidget):
                 border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
                 border-right: 1px solid {DesignTokens.BORDER_COLOR};
                 background-color: {DesignTokens.BG_PANEL};
+                border-radius: 0px;
                 font-weight: bold;
             }}
         """)
@@ -101,6 +103,7 @@ class IdeTabBar(QWidget):
                     border: none;
                     border-right: 1px solid {DesignTokens.BORDER_COLOR};
                     border-top: 2px solid transparent;
+                    border-radius: 0px;
                     padding: 0 16px;
                     font-family: "{DesignTokens.FONT_MAIN}";
                 }}
@@ -113,6 +116,7 @@ class IdeTabBar(QWidget):
                     border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
                     border-right: 1px solid {DesignTokens.BORDER_COLOR};
                     background-color: {DesignTokens.BG_PANEL};
+                    border-radius: 0px;
                     font-weight: bold;
                 }}
             """)

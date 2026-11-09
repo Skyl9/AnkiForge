@@ -228,8 +228,7 @@ class TimeMachineDialog(QDialog):
                 padding: 6px 14px;
                 font-weight: bold;
                 font-size: 11px;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
+                border-radius: 0px;
             }}
             QTabBar::tab:selected {{
                 background: {DesignTokens.BG_MAIN};

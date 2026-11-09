@@ -116,8 +116,7 @@ class ChangeNoteTypeDialog(QDialog):
                 background-color: {DesignTokens.BG_INPUT};
                 color: {DesignTokens.TEXT_SECONDARY};
                 padding: 7px 16px;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
+                border-radius: 0px;
                 margin-right: 3px;
                 font-size: 11px;
                 font-weight: 500;

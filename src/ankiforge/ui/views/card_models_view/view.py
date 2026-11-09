@@ -530,12 +530,11 @@ class CardModelsView(QWidget):
             QFrame#subtabsContainer {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         subtabs_row = QHBoxLayout(subtabs_container)
-        subtabs_row.setContentsMargins(4, 2, 4, 2)
-        subtabs_row.setSpacing(6)
+        subtabs_row.setContentsMargins(0, 0, 0, 0)
+        subtabs_row.setSpacing(0)
 
         self.btn_subtab_css = SubTabButton(tr("Style CSS"), "ph.file-css")
         self.btn_subtab_front = SubTabButton(tr("HTML Recto"), "ph.file-html")

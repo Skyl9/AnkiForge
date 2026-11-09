@@ -61,10 +61,9 @@ class ReasoningViewerDialog(QDialog):
 
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet(
-            f"QTabWidget::pane {{ border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}\n"
+            f"QTabWidget::pane {{ border: 1px solid {DesignTokens.BORDER_COLOR}; }}\n"
             f"QTabBar::tab {{ background: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; "
-            f"padding: 6px 14px; margin-right: 4px; border-top-left-radius: {DesignTokens.RADIUS_SM}px; "
-            f"border-top-right-radius: {DesignTokens.RADIUS_SM}px; }}\n"
+            f"padding: 6px 14px; margin-right: 4px; border-radius: 0px; }}\n"
             f"QTabBar::tab:selected {{ background: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; }}"
         )
 

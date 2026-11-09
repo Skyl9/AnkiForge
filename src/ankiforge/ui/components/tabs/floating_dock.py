@@ -36,8 +36,8 @@ class FloatingDockWindow(QWidget):
         self.header.setFixedHeight(36)
         self.header.setStyleSheet(f"border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
         self.header_layout = QHBoxLayout(self.header)
-        self.header_layout.setContentsMargins(8, 0, 8, 0)
-        self.header_layout.setSpacing(8)
+        self.header_layout.setContentsMargins(0, 0, 4, 0)
+        self.header_layout.setSpacing(0)
 
         from ankiforge.ui.components.tabs.bars.scrollable_bar import ScrollableTabBarWidget
 

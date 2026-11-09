@@ -27,7 +27,7 @@ class TabContainer(QWidget):
         self.setAcceptDrops(True)
         self.layout_h = QHBoxLayout(self)
         self.layout_h.setContentsMargins(0, 0, 0, 0)
-        self.layout_h.setSpacing(4)
+        self.layout_h.setSpacing(0)
         self.layout_h.addStretch()
         self._drop_index = -1
 

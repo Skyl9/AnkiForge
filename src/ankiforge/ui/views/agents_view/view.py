@@ -310,7 +310,7 @@ class AgentsView(QWidget):
         # Barre de Sous-Onglets style IDE
         subtabs_bar = QHBoxLayout()
         subtabs_bar.setContentsMargins(0, 0, 0, 0)
-        subtabs_bar.setSpacing(6)
+        subtabs_bar.setSpacing(0)
 
         self.btn_subtab_identity = SubTabButton(tr("Identité && Moteur IA"), "ph.gear")
         self.btn_subtab_prompt = SubTabButton(tr("Instructions && Prompt"), "ph.sparkle")
@@ -334,7 +334,6 @@ class AgentsView(QWidget):
             QStackedWidget#agentSubtabsStack {{
                 background-color: {DesignTokens.BG_MAIN};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         editor_layout.addWidget(self.tabs, 1)

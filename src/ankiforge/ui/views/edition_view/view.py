@@ -242,25 +242,25 @@ class EditionView(QWidget):
         self.mode_container.setStyleSheet(f"""
             QWidget {{
                 background-color: {DesignTokens.BG_INPUT};
-                border-radius: {DesignTokens.RADIUS_SM}px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """)
         mode_layout = QHBoxLayout(self.mode_container)
-        mode_layout.setContentsMargins(2, 2, 2, 2)
-        mode_layout.setSpacing(2)
+        mode_layout.setContentsMargins(0, 0, 0, 0)
+        mode_layout.setSpacing(0)
 
         self.btn_mode_notes = QPushButton(self.tr("📝 Notes"))
         self.btn_mode_notes.setCheckable(True)
         self.btn_mode_notes.setChecked(True)
-        self.btn_mode_notes.setFixedHeight(22)
+        self.btn_mode_notes.setFixedHeight(26)
         self.btn_mode_notes.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_mode_notes.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
                 color: {DesignTokens.TEXT_SECONDARY};
                 border: none;
-                border-radius: {DesignTokens.RADIUS_SM - 2}px;
+                border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 0px;
                 padding: 0 10px;
                 font-size: 11px;
                 font-weight: 600;
@@ -277,14 +277,14 @@ class EditionView(QWidget):
 
         self.btn_mode_cards = QPushButton(self.tr("🗂️ Cartes"))
         self.btn_mode_cards.setCheckable(True)
-        self.btn_mode_cards.setFixedHeight(22)
+        self.btn_mode_cards.setFixedHeight(26)
         self.btn_mode_cards.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_mode_cards.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
                 color: {DesignTokens.TEXT_SECONDARY};
                 border: none;
-                border-radius: {DesignTokens.RADIUS_SM - 2}px;
+                border-radius: 0px;
                 padding: 0 10px;
                 font-size: 11px;
                 font-weight: 600;
@@ -2926,17 +2926,17 @@ class EditionView(QWidget):
             self.mode_container.setStyleSheet(f"""
                 QWidget {{
                     background-color: {profile.bg_input};
-                    border-radius: {profile.radius_sm}px;
                     border: 1px solid {profile.border_color};
                 }}
             """)
         if hasattr(self, "btn_mode_notes") and hasattr(self, "btn_mode_cards"):
-            btn_style = f"""
+            btn_notes_style = f"""
                 QPushButton {{
                     background-color: transparent;
                     color: {profile.text_secondary};
                     border: none;
-                    border-radius: {profile.radius_sm - 2}px;
+                    border-right: 1px solid {profile.border_color};
+                    border-radius: 0px;
                     padding: 0 10px;
                     font-size: 11px;
                     font-weight: 600;
@@ -2950,8 +2950,27 @@ class EditionView(QWidget):
                     font-weight: bold;
                 }}
             """
-            self.btn_mode_notes.setStyleSheet(btn_style)
-            self.btn_mode_cards.setStyleSheet(btn_style)
+            btn_cards_style = f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {profile.text_secondary};
+                    border: none;
+                    border-radius: 0px;
+                    padding: 0 10px;
+                    font-size: 11px;
+                    font-weight: 600;
+                }}
+                QPushButton:hover {{
+                    color: {profile.text_primary};
+                }}
+                QPushButton:checked {{
+                    background-color: {profile.bg_panel};
+                    color: {profile.accent_primary};
+                    font-weight: bold;
+                }}
+            """
+            self.btn_mode_notes.setStyleSheet(btn_notes_style)
+            self.btn_mode_cards.setStyleSheet(btn_cards_style)
 
         if hasattr(self, "btn_open_folder"):
             is_active = self._active_folder_id is not None

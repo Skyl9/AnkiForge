@@ -549,10 +549,10 @@ class ABTestsView(QWidget):
 
         # ── 3. BARRE CENTRALE DE COMMUTATION DE REPRÉSENTATION ─────────────────
         switcher_bar = QHBoxLayout()
-        switcher_bar.setSpacing(6)
+        switcher_bar.setSpacing(0)
 
         lbl_view_mode = QLabel(self.tr("VUE COMPARATIVE :"))
-        lbl_view_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_view_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-right: 8px;")
         switcher_bar.addWidget(lbl_view_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.btn_subtab_preview = SubTabButton(tr("Rendu Visuel"), "ph.eye", is_active=True)
