@@ -345,6 +345,7 @@ class MCPWorkspaceGuideWidget(QWidget):
         self.splitter.setStretchFactor(1, 55)
 
         root_layout.addWidget(self.splitter, 1)
+        self.refresh_theme(None)
 
     def _on_agent_or_options_changed(self) -> None:
         """Régénère dynamiquement l'aperçu du guide en fonction de l'agent et des options."""

@@ -417,6 +417,8 @@ class MCPServerDashboardWidget(QWidget):
 
         # ── Empilement des vues ───────────────────────────────────────────
         self.stacked_widget = QStackedWidget(self)
+        self.stacked_widget.setObjectName("mcp_stacked_widget")
+        self._apply_stacked_widget_style()
 
         # Sous-onglet 0 : Cockpit de supervision Zero-Scroll
         self.supervision_widget = MCPSupervisionWidget(
@@ -541,20 +543,36 @@ class MCPServerDashboardWidget(QWidget):
     def set_pending_request(self, context_item: Any, initial_prompt: str) -> None:
         self.supervision_widget.set_pending_request(context_item, initial_prompt)
 
-    def _apply_tab_header_style(self) -> None:
+    def _apply_tab_header_style(self, profile: Any | None = None) -> None:
         """Applique le style de header IDE standardisé au conteneur d'onglets."""
+        bg_sidebar = getattr(profile, "bg_sidebar", DesignTokens.BG_SIDEBAR) if profile else DesignTokens.BG_SIDEBAR
+        border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR) if profile else DesignTokens.BORDER_COLOR
         self.tab_container.setStyleSheet(f"""
             QFrame#mcp_tabs_header {{
-                background-color: {DesignTokens.BG_SIDEBAR};
+                background-color: {bg_sidebar};
                 border: none;
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-bottom: 1px solid {border_color};
+            }}
+        """)
+
+    def _apply_stacked_widget_style(self, profile: Any | None = None) -> None:
+        """Applique le conteneur BG_PANEL standardisé pour tous les onglets du serveur MCP."""
+        bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL) if profile else DesignTokens.BG_PANEL
+        border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR) if profile else DesignTokens.BORDER_COLOR
+        self.stacked_widget.setStyleSheet(f"""
+            QStackedWidget#mcp_stacked_widget {{
+                background-color: {bg_panel};
+                border: 1px solid {border_color};
+                border-top: none;
             }}
         """)
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
         if hasattr(self, "tab_container"):
-            self._apply_tab_header_style()
+            self._apply_tab_header_style(profile)
+        if hasattr(self, "stacked_widget"):
+            self._apply_stacked_widget_style(profile)
         if hasattr(self, "sub_tab_bar") and hasattr(self.sub_tab_bar, "refresh_theme"):
             self.sub_tab_bar.refresh_theme(profile)
         if hasattr(self, "supervision_widget") and hasattr(self.supervision_widget, "refresh_theme"):

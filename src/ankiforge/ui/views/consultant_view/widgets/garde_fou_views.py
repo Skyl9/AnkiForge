@@ -63,7 +63,7 @@ class DeckOperationWidget(QWidget):
         header_card = QFrame()
         header_card.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
                 padding: 8px;
@@ -89,7 +89,7 @@ class DeckOperationWidget(QWidget):
         self.tree_frame = QFrame()
         self.tree_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
             }}
@@ -261,11 +261,12 @@ class DeckOperationWidget(QWidget):
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les couleurs au profil de thème."""
         bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+        bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
         text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
         self.tree_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: {bg_input};
+                background-color: {bg_panel};
                 border: 1px solid {border_color};
                 border-radius: 6px;
             }}
@@ -301,7 +302,7 @@ class TagDiffWidget(QWidget):
         header_card = QFrame()
         header_card.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
                 padding: 8px;
@@ -331,7 +332,7 @@ class TagDiffWidget(QWidget):
         self.tags_container = QFrame()
         self.tags_container.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
             }}
@@ -460,11 +461,12 @@ class TagDiffWidget(QWidget):
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les couleurs de la vue de tags au profil de thème."""
         bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+        bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
         text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
         self.tags_container.setStyleSheet(f"""
             QFrame {{
-                background-color: {bg_input};
+                background-color: {bg_panel};
                 border: 1px solid {border_color};
                 border-radius: 6px;
             }}
@@ -532,7 +534,7 @@ class DeletionImpactWidget(QWidget):
         self.impact_frame = QFrame()
         self.impact_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
                 padding: 10px;
@@ -855,10 +857,10 @@ class DeletionImpactWidget(QWidget):
             """)
         if hasattr(self, "impact_frame"):
             border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
-            bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+            bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
             self.impact_frame.setStyleSheet(f"""
                 QFrame {{
-                    background-color: {bg_input};
+                    background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: 6px;
                     padding: 10px;
@@ -895,7 +897,7 @@ class NoteTypePatchWidget(QWidget):
         header_card = QFrame()
         header_card.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
                 padding: 8px;
@@ -1062,7 +1064,7 @@ class NoteTypePatchWidget(QWidget):
             row = QFrame()
             row.setStyleSheet(f"""
                 QFrame {{
-                    background-color: {DesignTokens.BG_INPUT};
+                    background-color: {DesignTokens.BG_PANEL};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
                     border-radius: 4px;
                 }}

@@ -559,6 +559,19 @@ class MCPToolCatalogWidget(QWidget):
         main_layout.setSpacing(DesignTokens.DESIGN_SYSTEM_SPACING["mcp_root"])
 
         # ── 1. EN-TÊTE : RECHERCHE ET RUBAN DE PUCES ─────────────────────
+        self.card_search = QFrame(self)
+        self.card_search.setObjectName("mcp_catalog_card_search")
+        self.card_search.setStyleSheet(f"""
+            QFrame#mcp_catalog_card_search {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        search_card_layout = QVBoxLayout(self.card_search)
+        search_card_layout.setContentsMargins(12, 10, 12, 8)
+        search_card_layout.setSpacing(8)
+
         top_header_layout = QHBoxLayout()
         top_header_layout.setContentsMargins(0, 0, 0, 0)
         top_header_layout.setSpacing(12)
@@ -591,10 +604,10 @@ class MCPToolCatalogWidget(QWidget):
         self.lbl_tool_count.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; font-weight: 600;")
         top_header_layout.addWidget(self.lbl_tool_count)
 
-        main_layout.addLayout(top_header_layout)
+        search_card_layout.addLayout(top_header_layout)
 
         # Ruban horizontal défilable de puces de domaines (FilterChipButton)
-        chips_scroll = QScrollArea(self)
+        chips_scroll = QScrollArea(self.card_search)
         chips_scroll.setObjectName("mcp_catalog_chips_scroll")
         chips_scroll.setWidgetResizable(True)
         chips_scroll.setFixedHeight(46)
@@ -669,7 +682,8 @@ class MCPToolCatalogWidget(QWidget):
 
         chips_layout.addStretch()
         chips_scroll.setWidget(chips_container)
-        main_layout.addWidget(chips_scroll)
+        search_card_layout.addWidget(chips_scroll)
+        main_layout.addWidget(self.card_search)
 
         # ── 2. CORPS : SPLITTER HORIZONTAL 50% / 50% ─────────────────────
         self.splitter = QSplitter(Qt.Orientation.Horizontal, self)
@@ -880,7 +894,7 @@ class MCPToolCatalogWidget(QWidget):
         self.desc_frame.setObjectName("mcp_catalog_desc_frame")
         self.desc_frame.setStyleSheet(f"""
             QFrame#mcp_catalog_desc_frame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 10px;
@@ -907,7 +921,7 @@ class MCPToolCatalogWidget(QWidget):
         self.frame_safeguards.setObjectName("mcp_catalog_safeguards_frame")
         self.frame_safeguards.setStyleSheet(f"""
             QFrame#mcp_catalog_safeguards_frame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.COLOR_ORANGE};
                 border-left: 4px solid {DesignTokens.COLOR_ORANGE};
                 border-radius: {DesignTokens.RADIUS_SM}px;
@@ -1267,6 +1281,15 @@ class MCPToolCatalogWidget(QWidget):
         border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
         accent_primary = profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY
 
+        if hasattr(self, "card_search") and self.card_search is not None:
+            self.card_search.setStyleSheet(f"""
+                QFrame#mcp_catalog_card_search {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_col};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+            """)
+
         self.left_pane.setStyleSheet(f"""
             QFrame#mcp_catalog_left_pane {{
                 background-color: {bg_panel};
@@ -1340,7 +1363,7 @@ class MCPToolCatalogWidget(QWidget):
         if hasattr(self, "desc_frame") and self.desc_frame is not None:
             self.desc_frame.setStyleSheet(f"""
                 QFrame#mcp_catalog_desc_frame {{
-                    background-color: {bg_input};
+                    background-color: {bg_panel};
                     border: 1px solid {border_col};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     padding: 10px;
@@ -1350,7 +1373,7 @@ class MCPToolCatalogWidget(QWidget):
         if hasattr(self, "frame_safeguards") and self.frame_safeguards is not None:
             self.frame_safeguards.setStyleSheet(f"""
                 QFrame#mcp_catalog_safeguards_frame {{
-                    background-color: {bg_input};
+                    background-color: {bg_panel};
                     border: 1px solid {color_orange};
                     border-left: 4px solid {color_orange};
                     border-radius: {DesignTokens.RADIUS_SM}px;

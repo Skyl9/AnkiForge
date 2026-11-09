@@ -110,9 +110,11 @@ class MCPSupervisionWidget(QWidget):
         root_layout.setContentsMargins(*DesignTokens.DESIGN_SYSTEM_MARGES["mcp_root"])
         root_layout.setSpacing(DesignTokens.DESIGN_SYSTEM_SPACING["mcp_root"])
 
-        # ── 1. En-tête compact ─────────────────────────────────────────────
-        header_layout = QVBoxLayout()
-        header_layout.setSpacing(4)
+        # ── 1. En-tête compact dans sa carte conteneur ─────────────────────
+        self.card_header = self._create_card("mcp_card_header")
+        header_layout = QVBoxLayout(self.card_header)
+        header_layout.setContentsMargins(16, 12, 16, 12)
+        header_layout.setSpacing(6)
 
         title_row = QHBoxLayout()
         title_row.setSpacing(10)
@@ -142,7 +144,7 @@ class MCPSupervisionWidget(QWidget):
         lbl_subtitle.setWordWrap(True)
         lbl_subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12.5px; line-height: 1.35;")
         header_layout.addWidget(lbl_subtitle)
-        root_layout.addLayout(header_layout)
+        root_layout.addWidget(self.card_header)
 
         # ── 2. Bandeau Requête Contextuelle Externe (Rétractable) ──────────
         self.banner_context_request = QFrame()
@@ -151,8 +153,9 @@ class MCPSupervisionWidget(QWidget):
         self.banner_context_request.setVisible(False)
         self.banner_context_request.setStyleSheet(f"""
             QFrame#mcp_banner_context_request {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-left: 3px solid {DesignTokens.ACCENT_PRIMARY};
                 border-radius: 8px;
                 padding: 10px;
             }}
@@ -193,7 +196,7 @@ class MCPSupervisionWidget(QWidget):
         self.edit_request_prompt.setMaximumHeight(70)
         self.edit_request_prompt.setStyleSheet(f"""
             QPlainTextEdit#mcp_edit_request_prompt {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_INPUT};
                 color: {DesignTokens.TEXT_PRIMARY};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -405,7 +408,7 @@ class MCPSupervisionWidget(QWidget):
         self.edit_snippet_code.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.edit_snippet_code.setStyleSheet(f"""
             QPlainTextEdit#mcp_edit_snippet_code {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_INPUT};
                 color: {DesignTokens.TEXT_PRIMARY};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -634,14 +637,20 @@ class MCPSupervisionWidget(QWidget):
         bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
         bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
-        bg_main = getattr(profile, "bg_main", DesignTokens.BG_MAIN)
         text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
         text_secondary = getattr(profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
         text_muted = getattr(profile, "text_muted", DesignTokens.TEXT_MUTED)
         accent_primary = getattr(profile, "accent_primary", DesignTokens.ACCENT_PRIMARY)
 
         card_style_tpl = "QFrame#{name} {{ background-color: {bg}; border: 1px solid {border}; border-radius: 8px; }} QFrame#{name} QLabel {{ border: none; background: transparent; }}"
+        banner_style_tpl = (
+            "QFrame#{name} {{ background-color: {bg}; border: 1px solid {border}; "
+            "border-left: 3px solid {accent}; border-radius: 8px; padding: 10px; }} "
+            "QFrame#{name} QLabel {{ border: none; background: transparent; }}"
+        )
 
+        if hasattr(self, "card_header"):
+            self.card_header.setStyleSheet(card_style_tpl.format(name="mcp_card_header", bg=bg_panel, border=border_color))
         if hasattr(self, "card_lifecycle"):
             self.card_lifecycle.setStyleSheet(card_style_tpl.format(name="mcp_card_lifecycle", bg=bg_panel, border=border_color))
         if hasattr(self, "card_endpoints"):
@@ -649,15 +658,15 @@ class MCPSupervisionWidget(QWidget):
         if hasattr(self, "card_snippets"):
             self.card_snippets.setStyleSheet(card_style_tpl.format(name="mcp_card_snippets", bg=bg_panel, border=border_color))
         if hasattr(self, "banner_context_request"):
-            self.banner_context_request.setStyleSheet(card_style_tpl.format(name="mcp_banner_context_request", bg=bg_main, border=accent_primary))
+            self.banner_context_request.setStyleSheet(banner_style_tpl.format(name="mcp_banner_context_request", bg=bg_panel, border=border_color, accent=accent_primary))
         if hasattr(self, "edit_snippet_code"):
             self.edit_snippet_code.setStyleSheet(
-                f"QPlainTextEdit#mcp_edit_snippet_code {{ background-color: {bg_main}; color: {text_primary}; "
+                f"QPlainTextEdit#mcp_edit_snippet_code {{ background-color: {bg_input}; color: {text_primary}; "
                 f"border: 1px solid {border_color}; border-radius: 6px; font-family: {DesignTokens.FONT_CODE}; font-size: 12px; padding: 10px; }}"
             )
         if hasattr(self, "edit_request_prompt"):
             self.edit_request_prompt.setStyleSheet(
-                f"QPlainTextEdit#mcp_edit_request_prompt {{ background-color: {bg_main}; color: {text_primary}; "
+                f"QPlainTextEdit#mcp_edit_request_prompt {{ background-color: {bg_input}; color: {text_primary}; "
                 f"border: 1px solid {border_color}; border-radius: 6px; font-family: {DesignTokens.FONT_CODE}; font-size: 11.5px; padding: 6px; }}"
             )
 

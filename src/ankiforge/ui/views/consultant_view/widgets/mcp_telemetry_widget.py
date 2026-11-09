@@ -251,9 +251,11 @@ class MCPTelemetryWidget(QWidget):
         return ribbon
 
     def _setup_left_pane(self) -> QWidget:
-        container = QWidget(self)
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 8, 0)
+        self.table_container = QFrame(self)
+        self.table_container.setObjectName("mcp_telemetry_table_container")
+        self._apply_table_container_style(self.table_container)
+        layout = QVBoxLayout(self.table_container)
+        layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
 
         # Barre de filtres (recherche + chips de statut)
@@ -261,7 +263,7 @@ class MCPTelemetryWidget(QWidget):
         filter_row.setContentsMargins(0, 0, 0, 0)
         filter_row.setSpacing(8)
 
-        self.edit_search = QLineEdit(container)
+        self.edit_search = QLineEdit(self.table_container)
         self.edit_search.setObjectName("mcp_telemetry_search")
         self.edit_search.setPlaceholderText(self.tr("Rechercher un outil ou paramètre..."))
         self.edit_search.setFixedHeight(28)
@@ -282,11 +284,11 @@ class MCPTelemetryWidget(QWidget):
         filter_row.addWidget(self.edit_search, 1)
 
         # Puces de statut
-        self.chip_all = FilterChipButton(self.tr("Tous"), icon_name="ph.sparkle", parent=container)
-        self.chip_success = FilterChipButton(self.tr("Succès"), icon_name="ph.check-circle", parent=container)
-        self.chip_error = FilterChipButton(self.tr("Erreurs"), icon_name="ph.warning-circle", parent=container)
+        self.chip_all = FilterChipButton(self.tr("Tous"), icon_name="ph.sparkle", parent=self.table_container)
+        self.chip_success = FilterChipButton(self.tr("Succès"), icon_name="ph.check-circle", parent=self.table_container)
+        self.chip_error = FilterChipButton(self.tr("Erreurs"), icon_name="ph.warning-circle", parent=self.table_container)
 
-        self._status_group = QButtonGroup(container)
+        self._status_group = QButtonGroup(self.table_container)
         self._status_group.setExclusive(True)
         self._status_group.addButton(self.chip_all)
         self._status_group.addButton(self.chip_success)
@@ -303,7 +305,7 @@ class MCPTelemetryWidget(QWidget):
         layout.addLayout(filter_row)
 
         # Table des activités
-        self.table = QTableWidget(container)
+        self.table = QTableWidget(self.table_container)
         self.table.setObjectName("mcp_telemetry_table")
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(
@@ -333,7 +335,7 @@ class MCPTelemetryWidget(QWidget):
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self.table, 1)
 
-        return container
+        return self.table_container
 
     def _apply_table_style(self, profile: Any = None) -> None:
         bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
@@ -470,6 +472,18 @@ class MCPTelemetryWidget(QWidget):
         layout.addWidget(self.inspector_stack)
 
         return container
+
+    def _apply_table_container_style(self, frame: QFrame, profile: Any = None) -> None:
+        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
+        border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
+        radius_md = profile.radius_md if profile else DesignTokens.RADIUS_MD
+        frame.setStyleSheet(f"""
+            QFrame#mcp_telemetry_table_container {{
+                background-color: {bg_panel};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+            }}
+        """)
 
     def _apply_inspector_container_style(self, frame: QFrame, profile: Any = None) -> None:
         bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
@@ -758,6 +772,10 @@ class MCPTelemetryWidget(QWidget):
         self._kpi_rate.refresh_theme(profile)
         self._kpi_duration.refresh_theme(profile)
         self._apply_table_style(profile)
+
+        # Conteneur table
+        if hasattr(self, "table_container") and self.table_container:
+            self._apply_table_container_style(self.table_container, profile)
 
         # Conteneur inspecteur
         inspector_container = self.findChild(QFrame, "mcp_telemetry_inspector_container")
