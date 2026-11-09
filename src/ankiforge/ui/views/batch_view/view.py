@@ -290,7 +290,7 @@ class BatchView(QWidget):
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         target_layout = QVBoxLayout(target_card)
@@ -333,7 +333,7 @@ class BatchView(QWidget):
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         ai_layout = QVBoxLayout(ai_card)
@@ -499,7 +499,7 @@ class BatchView(QWidget):
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         compose_layout = QVBoxLayout(compose_card)
