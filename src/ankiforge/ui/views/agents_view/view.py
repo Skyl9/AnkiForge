@@ -57,7 +57,7 @@ from ankiforge.ui.shortcuts import (
     ShortcutScope,
     get_shortcut_sequence,
 )
-from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.views.agents_view.constants import (
     JINJA2_SNIPPETS,
     PERSONA_TYPE_SPECS,
@@ -192,8 +192,8 @@ class AgentsView(QWidget):
             tooltip=tr("Créer un nouveau persona d'agent IA (%1)", get_shortcut_sequence(ShortcutId.AGENTS_NEW)),
         )
         self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
-        self.btn_new.setIconSize(QSize(14, 14))
-        self.btn_new.setFixedHeight(30)
+        self.btn_new.setIconSize(QSize(16, 64))
+        self.btn_new.setFixedHeight(34)
         search_row.addWidget(self.btn_new)
         list_layout.addLayout(search_row)
 
@@ -282,8 +282,14 @@ class AgentsView(QWidget):
         # ── 2. Panneau Droit : Éditeur Riche à Sous-Onglets IDE ────────────────
         self.editor_panel = IdePanel(detachable=True)
 
-        editor_content = QWidget()
-        editor_layout = QVBoxLayout(editor_content)
+        self.editor_content = QWidget()
+        self.editor_content.setObjectName("agentEditorContent")
+        self.editor_content.setStyleSheet(f"""
+            QWidget#agentEditorContent {{
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+        """)
+        editor_layout = QVBoxLayout(self.editor_content)
         editor_layout.setContentsMargins(10, 10, 10, 10)
         editor_layout.setSpacing(10)
 
@@ -308,9 +314,9 @@ class AgentsView(QWidget):
         editor_layout.addWidget(self.top_action_bar)
 
         # Barre de Sous-Onglets style IDE rattachée
-        subtabs_container = QWidget()
-        subtabs_container.setStyleSheet(f"background: transparent; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
-        subtabs_bar = QHBoxLayout(subtabs_container)
+        self.subtabs_container = QWidget()
+        self.subtabs_container.setStyleSheet(f"background: transparent; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
+        subtabs_bar = QHBoxLayout(self.subtabs_container)
         subtabs_bar.setContentsMargins(0, 0, 0, 0)
         subtabs_bar.setSpacing(0)
 
@@ -327,24 +333,16 @@ class AgentsView(QWidget):
         subtabs_bar.addWidget(self.btn_subtab_tools)
         subtabs_bar.addStretch()
 
-        # Stack de contenu rattaché flush
+        # Stack de contenu en cartes surélevées aérées (Style Accueil / Dashboard)
         self.tabs = QStackedWidget()
         self.tabs.setObjectName("agentSubtabsStack")
-        self.tabs.setStyleSheet(f"""
-            QStackedWidget#agentSubtabsStack {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: none;
-                border-bottom-left-radius: {DesignTokens.RADIUS_SM}px;
-                border-bottom-right-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
+        self.tabs.setStyleSheet("QStackedWidget#agentSubtabsStack { background: transparent; border: none; }")
 
         tabs_container = QWidget()
         tabs_layout = QVBoxLayout(tabs_container)
         tabs_layout.setContentsMargins(0, 0, 0, 0)
-        tabs_layout.setSpacing(0)
-        tabs_layout.addWidget(subtabs_container)
+        tabs_layout.setSpacing(10)
+        tabs_layout.addWidget(self.subtabs_container)
         tabs_layout.addWidget(self.tabs, 1)
         editor_layout.addWidget(tabs_container, 1)
 
@@ -408,8 +406,8 @@ class AgentsView(QWidget):
         tab_identity = QWidget()
         tab_identity.setStyleSheet("background: transparent;")
         layout_identity = QVBoxLayout(tab_identity)
-        layout_identity.setContentsMargins(12, 12, 12, 12)
-        layout_identity.setSpacing(10)
+        layout_identity.setContentsMargins(0, 4, 0, 8)
+        layout_identity.setSpacing(12)
 
         # Carte 1: Identité
         identity_card = QFrame()
@@ -418,11 +416,12 @@ class AgentsView(QWidget):
             QFrame#agentIdentityCard {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
+        apply_shadow(identity_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
         id_card_layout = QVBoxLayout(identity_card)
-        id_card_layout.setContentsMargins(12, 10, 12, 12)
+        id_card_layout.setContentsMargins(16, 14, 16, 16)
         id_card_layout.setSpacing(8)
 
         id_top = QHBoxLayout()
@@ -461,11 +460,12 @@ class AgentsView(QWidget):
             QFrame#agentScopeCard {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
+        apply_shadow(scope_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
         scope_card_layout = QVBoxLayout(scope_card)
-        scope_card_layout.setContentsMargins(12, 10, 12, 12)
+        scope_card_layout.setContentsMargins(16, 14, 16, 16)
         scope_card_layout.setSpacing(8)
 
         scope_top = QHBoxLayout()
@@ -554,11 +554,12 @@ class AgentsView(QWidget):
             QFrame#agentEngineCard {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
+        apply_shadow(engine_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
         engine_card_layout = QVBoxLayout(engine_card)
-        engine_card_layout.setContentsMargins(12, 10, 12, 12)
+        engine_card_layout.setContentsMargins(16, 14, 16, 16)
         engine_card_layout.setSpacing(8)
 
         engine_top = QHBoxLayout()
@@ -616,19 +617,21 @@ class AgentsView(QWidget):
         tab_prompt = QWidget()
         tab_prompt.setStyleSheet("background: transparent;")
         layout_prompt = QVBoxLayout(tab_prompt)
-        layout_prompt.setContentsMargins(12, 12, 12, 12)
+        layout_prompt.setContentsMargins(0, 4, 0, 8)
         layout_prompt.setSpacing(10)
 
         prompt_card = QFrame()
         prompt_card.setObjectName("agentPromptCard")
-        prompt_card.setStyleSheet("""
-            QFrame#agentPromptCard {
-                background-color: transparent;
-                border: none;
-            }
+        prompt_card.setStyleSheet(f"""
+            QFrame#agentPromptCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
         """)
+        apply_shadow(prompt_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
         prompt_card_layout = QVBoxLayout(prompt_card)
-        prompt_card_layout.setContentsMargins(0, 0, 0, 0)
+        prompt_card_layout.setContentsMargins(16, 14, 16, 16)
         prompt_card_layout.setSpacing(10)
 
         snippets_header = QHBoxLayout()
@@ -714,19 +717,21 @@ class AgentsView(QWidget):
         tab_tools = QWidget()
         tab_tools.setStyleSheet("background: transparent;")
         layout_tools = QVBoxLayout(tab_tools)
-        layout_tools.setContentsMargins(12, 12, 12, 12)
+        layout_tools.setContentsMargins(0, 4, 0, 8)
         layout_tools.setSpacing(10)
 
         tools_card = QFrame()
         tools_card.setObjectName("agentToolsCard")
-        tools_card.setStyleSheet("""
-            QFrame#agentToolsCard {
-                background-color: transparent;
-                border: none;
-            }
+        tools_card.setStyleSheet(f"""
+            QFrame#agentToolsCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
         """)
+        apply_shadow(tools_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
         tools_card_layout = QVBoxLayout(tools_card)
-        tools_card_layout.setContentsMargins(0, 0, 0, 0)
+        tools_card_layout.setContentsMargins(16, 14, 16, 16)
         tools_card_layout.setSpacing(10)
 
         tools_header = QHBoxLayout()
@@ -788,12 +793,18 @@ class AgentsView(QWidget):
 
         # Master Stack du Panneau Droit (Empty State vs Éditeur)
         self.editor_master_stack = QStackedWidget()
+        self.editor_master_stack.setObjectName("agentEditorMasterStack")
+        self.editor_master_stack.setStyleSheet(f"""
+            QStackedWidget#agentEditorMasterStack {{
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+        """)
 
         self.empty_state_widget = PersonaEmptyStateWidget()
         self.empty_state_widget.create_from_template_requested.connect(self._on_new_agent)
         self.empty_state_widget.create_custom_requested.connect(self._on_new_agent_custom)
         self.editor_master_stack.addWidget(self.empty_state_widget)
-        self.editor_master_stack.addWidget(editor_content)
+        self.editor_master_stack.addWidget(self.editor_content)
 
         self.editor_panel.add_tab("Éditeur de Persona", self.editor_master_stack, "ph.sparkle", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
@@ -927,19 +938,41 @@ class AgentsView(QWidget):
             self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=text_muted).pixmap(14, 14))
         if hasattr(self, "desc_edit") and hasattr(self.desc_edit, "refresh_theme"):
             self.desc_edit.refresh_theme(profile)
+        bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+        if hasattr(self, "editor_master_stack"):
+            self.editor_master_stack.setStyleSheet(f"""
+                QStackedWidget#agentEditorMasterStack {{
+                    background-color: {bg_panel};
+                }}
+            """)
+        if hasattr(self, "editor_content"):
+            self.editor_content.setStyleSheet(f"""
+                QWidget#agentEditorContent {{
+                    background-color: {bg_panel};
+                }}
+            """)
+        if hasattr(self, "empty_state_widget") and hasattr(self.empty_state_widget, "refresh_theme"):
+            self.empty_state_widget.refresh_theme(profile)
+        if hasattr(self, "subtabs_container"):
+            border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+            self.subtabs_container.setStyleSheet(f"background: transparent; border-bottom: 1px solid {border_col};")
+        if hasattr(self, "top_action_bar") and hasattr(self.top_action_bar, "refresh_theme"):
+            self.top_action_bar.refresh_theme(profile)
         if hasattr(self, "tabs"):
             bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
             border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
             radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
-            self.tabs.setStyleSheet(f"""
-                QStackedWidget#agentSubtabsStack {{
-                    background-color: {bg_panel};
-                    border: 1px solid {border_col};
-                    border-top: none;
-                    border-bottom-left-radius: {radius_sm}px;
-                    border-bottom-right-radius: {radius_sm}px;
-                }}
-            """)
+            radius_md = profile.radius_md if profile and hasattr(profile, "radius_md") else DesignTokens.RADIUS_MD
+            self.tabs.setStyleSheet("QStackedWidget#agentSubtabsStack { background: transparent; border: none; }")
+            card_style = f"""
+                background-color: {bg_panel};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+            """
+            for card_name in ("agentIdentityCard", "agentScopeCard", "agentEngineCard", "agentPromptCard", "agentToolsCard"):
+                card_widget = self.findChild(QFrame, card_name)
+                if card_widget is not None:
+                    card_widget.setStyleSheet(f"QFrame#{card_name} {{ {card_style} }}")
             input_style = f"""
                 QLineEdit {{
                     background-color: {profile.bg_input if profile else DesignTokens.BG_INPUT};

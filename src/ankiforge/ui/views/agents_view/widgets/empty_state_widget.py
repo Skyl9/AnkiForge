@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
@@ -29,9 +31,14 @@ class PersonaEmptyStateWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
+        self.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")
 
         self._setup_ui()
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        """Actualise le style de fond lors d'un changement de thème."""
+        bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+        self.setStyleSheet(f"background-color: {bg_panel};")
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)

@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.buttons import apply_compact_style
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
@@ -21,9 +21,10 @@ class ResponsiveAgentTopActionBar(QFrame):
             QFrame#agentTopActionBar {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
+        apply_shadow(self, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 4, 10, 4)
         layout.setSpacing(8)
@@ -92,3 +93,15 @@ class ResponsiveAgentTopActionBar(QFrame):
         self.btn_test.setText("" if compact else "Tester")
         self.btn_import.setText("" if compact else "Importer")
         self.btn_save.setText("Sauvegarder" if w >= 560 else "Enregistrer")
+
+    def refresh_theme(self, profile: Any) -> None:
+        bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+        border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+        radius_md = profile.radius_md if profile and hasattr(profile, "radius_md") else DesignTokens.RADIUS_MD
+        self.setStyleSheet(f"""
+            QFrame#agentTopActionBar {{
+                background-color: {bg_panel};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+            }}
+        """)
