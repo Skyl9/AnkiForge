@@ -23,7 +23,7 @@ Une proposition est **non-triviale** dès lors qu'elle :
 - Repose sur des garanties non vérifiables par le compilateur (concurrence, idempotence, ordre).
 - Possède un rayon d'impact irréversible (déploiement, migration BDD, changement d'API publique).
 
-## Quand NE PAS utiliser ce skill
+## When NOT to use this skill
 
 ⛔ **Interdits bloquants** :
 
