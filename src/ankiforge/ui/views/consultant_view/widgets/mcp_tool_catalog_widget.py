@@ -1067,7 +1067,7 @@ class MCPToolCatalogWidget(QWidget):
         for tool in self._filtered_tools:
             item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, tool)
-            item.setSizeHint(QSize(0, 52))
+            item.setSizeHint(QSize(0, 60))
 
             row_widget = MCPToolListRowWidget(tool)
             self.tool_list.addItem(item)

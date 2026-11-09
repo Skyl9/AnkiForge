@@ -39,12 +39,12 @@ from ankiforge.services.ai.mcp_server import (
     init_agent_workspace,
 )
 from ankiforge.ui.components.badges import Badge, StatusBadge
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +154,7 @@ class MCPWorkspaceGuideWidget(QWidget):
         self.btn_browse = SecondaryButton(self.tr("Parcourir..."), parent=self.card_init)
         self.btn_browse.setObjectName("mcp_btn_browse_workspace")
         self.btn_browse.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_browse, height=30)
         self.btn_browse.clicked.connect(self._on_browse_workspace)
         path_row.addWidget(self.btn_browse)
         init_layout.addLayout(path_row)
@@ -175,13 +176,15 @@ class MCPWorkspaceGuideWidget(QWidget):
 
         self.btn_init_workspace = PrimaryButton(self.tr("Amorcer le workspace"), parent=self.card_init)
         self.btn_init_workspace.setObjectName("mcp_btn_init_workspace")
-        self.btn_init_workspace.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_init_workspace.setIcon(load_on_accent_icon("ph.sparkle"))
+        apply_compact_style(self.btn_init_workspace, height=30)
         self.btn_init_workspace.clicked.connect(self._on_init_workspace)
         btn_action_row.addWidget(self.btn_init_workspace)
 
         self.btn_check_version = SecondaryButton(self.tr("Vérifier la version"), parent=self.card_init)
         self.btn_check_version.setObjectName("mcp_btn_check_version")
         self.btn_check_version.setIcon(load_phosphor_icon("ph.shield-check", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_check_version, height=30)
         self.btn_check_version.clicked.connect(self._on_check_version)
         btn_action_row.addWidget(self.btn_check_version)
 
@@ -292,7 +295,7 @@ class MCPWorkspaceGuideWidget(QWidget):
         lbl_preview_icon.setPixmap(load_phosphor_icon("ph.book-open", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
         preview_header.addWidget(lbl_preview_icon)
 
-        lbl_preview_title = QLabel(self.tr("Guide Méthodologique Compilé"), self.card_preview)
+        lbl_preview_title = QLabel(self.tr("Guide Méthodologique"), self.card_preview)
         lbl_preview_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: 700; border: none; background: transparent;")
         preview_header.addWidget(lbl_preview_title)
 
@@ -302,15 +305,25 @@ class MCPWorkspaceGuideWidget(QWidget):
 
         preview_header.addStretch()
 
-        self.btn_copy_guide = SecondaryButton(self.tr("Copier le Markdown"), parent=self.card_preview)
+        self.btn_copy_guide = SecondaryButton(
+            self.tr("Copier"),
+            tooltip=self.tr("Copier le Markdown compilé"),
+            parent=self.card_preview,
+        )
         self.btn_copy_guide.setObjectName("mcp_btn_copy_guide")
         self.btn_copy_guide.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_copy_guide, height=30)
         self.btn_copy_guide.clicked.connect(self._copy_markdown)
         preview_header.addWidget(self.btn_copy_guide)
 
-        self.btn_refresh_preview = SecondaryButton(self.tr("Rafraîchir"), parent=self.card_preview)
+        self.btn_refresh_preview = SecondaryButton(
+            self.tr("Rafraîchir"),
+            tooltip=self.tr("Rafraîchir la compilation du guide"),
+            parent=self.card_preview,
+        )
         self.btn_refresh_preview.setObjectName("mcp_btn_refresh_preview")
         self.btn_refresh_preview.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_refresh_preview, height=30)
         self.btn_refresh_preview.clicked.connect(self._on_agent_or_options_changed)
         preview_header.addWidget(self.btn_refresh_preview)
 

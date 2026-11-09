@@ -138,7 +138,8 @@ class SegmentedTabButton(QPushButton):
 
     def _update_display(self) -> None:
         suffix = f"  {self.badge_text}" if self.badge_text and self._badge_label is None else ""
-        self.setText(f" {self.raw_text}{suffix}" if self.icon_name else f"{self.raw_text}{suffix}")
+        escaped_text = self.raw_text.replace("&", "&&")
+        self.setText(f" {escaped_text}{suffix}" if self.icon_name else f"{escaped_text}{suffix}")
         self._apply_style(self.isChecked())
 
     def _on_toggled(self, checked: bool) -> None:

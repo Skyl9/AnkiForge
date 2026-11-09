@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.badges import Badge
-from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton, apply_compact_style
 from ankiforge.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
@@ -259,21 +259,25 @@ class MCPSupervisionWidget(QWidget):
 
         self.btn_start = PrimaryButton(self.tr("Démarrer"))
         self.btn_start.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_ON_ACCENT))
+        apply_compact_style(self.btn_start, height=30)
         self.btn_start.clicked.connect(self.start_requested.emit)
         btn_row_ops.addWidget(self.btn_start)
 
         self.btn_stop = SecondaryButton(self.tr("Arrêter"))
         self.btn_stop.setIcon(load_phosphor_icon("ph.stop", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_stop, height=30)
         self.btn_stop.clicked.connect(self.stop_requested.emit)
         btn_row_ops.addWidget(self.btn_stop)
 
         self.btn_restart = SecondaryButton(self.tr("Redémarrer"))
         self.btn_restart.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_restart, height=30)
         self.btn_restart.clicked.connect(self.restart_requested.emit)
         btn_row_ops.addWidget(self.btn_restart)
 
         self.btn_rotate_token = SecondaryButton(self.tr("Renouveler"))
         self.btn_rotate_token.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_rotate_token, height=30)
         self.btn_rotate_token.clicked.connect(self.rotate_token_requested.emit)
         btn_row_ops.addWidget(self.btn_rotate_token)
         btn_row_ops.addStretch()
@@ -360,13 +364,15 @@ class MCPSupervisionWidget(QWidget):
         snippets_layout.setSpacing(10)
 
         header_snippets_row = QHBoxLayout()
-        lbl_snippets_sec = QLabel(self.tr("CONFIGURATIONS CLIENTS PRÊTES À L'EMPLOI"))
+        lbl_snippets_sec = QLabel(self.tr("CONFIGURATIONS CLIENTS"))
         lbl_snippets_sec.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; background: transparent; border: none;")
+        lbl_snippets_sec.setWordWrap(True)
         header_snippets_row.addWidget(lbl_snippets_sec)
         header_snippets_row.addStretch()
 
         self.btn_copy_snippet = PrimaryButton(self.tr("Copier la configuration"))
         self.btn_copy_snippet.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_ON_ACCENT))
+        apply_compact_style(self.btn_copy_snippet, height=30)
         self.btn_copy_snippet.clicked.connect(self.copy_current_snippet)
         header_snippets_row.addWidget(self.btn_copy_snippet)
         snippets_layout.addLayout(header_snippets_row)

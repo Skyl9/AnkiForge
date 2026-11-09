@@ -467,15 +467,13 @@ class MCPServerDashboardWidget(QWidget):
 
     def _on_telemetry_count_changed(self, count: int) -> None:
         """Actualise dynamiquement l'intitulé et le badge du sous-onglet Activité."""
-        text = tr("Activité (%1)", count) if count > 0 else self.tr("Activité")
-        self.sub_tab_bar.set_tab_text("telemetrie", text)
+        self.sub_tab_bar.set_tab_text("telemetrie", self.tr("Activité"))
         badge_val = str(count) if count > 0 else ""
         self.sub_tab_bar.set_tab_badge("telemetrie", badge_val)
 
     def _on_queue_updated(self, count: int) -> None:
         """Actualise dynamiquement l'intitulé et le badge du sous-onglet Garde-Fou."""
-        text = tr("Garde-Fou & Validation (%1)", count) if count > 0 else self.tr("Garde-Fou & Validation")
-        self.sub_tab_bar.set_tab_text("garde_fou", text)
+        self.sub_tab_bar.set_tab_text("garde_fou", self.tr("Garde-Fou & Validation"))
         badge_val = str(count) if count > 0 else ""
         self.sub_tab_bar.set_tab_badge("garde_fou", badge_val)
         icon_color = DesignTokens.COLOR_RED if count > 0 else DesignTokens.TEXT_SECONDARY
