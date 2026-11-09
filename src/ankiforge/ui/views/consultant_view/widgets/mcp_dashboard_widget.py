@@ -391,14 +391,19 @@ class MCPServerDashboardWidget(QWidget):
         outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.setSpacing(0)
 
-        # ── Barre de sous-onglets supérieure (SegmentedTabBar) ────────────
-        self.tab_container = QWidget()
+        # ── Bandeau supérieur d'onglets (style IdePanel header) ────────────
+        self.tab_container = QFrame()
+        self.tab_container.setObjectName("mcp_tabs_header")
+        self.tab_container.setFixedHeight(36)
+        self._apply_tab_header_style()
+
         tab_layout = QHBoxLayout(self.tab_container)
         tab_layout.setContentsMargins(0, 0, 0, 0)
         tab_layout.setSpacing(0)
 
         self.sub_tab_bar = SegmentedTabBar(mode="subtab", parent=self)
         self.sub_tab_bar.setObjectName("mcp_sub_tab_bar")
+        self.sub_tab_bar.setFixedHeight(36)
         self.sub_tab_bar.add_tab("supervision", self.tr("Supervision & Configuration"), icon_name="ph.sliders")
         self.sub_tab_bar.add_tab("garde_fou", self.tr("Garde-Fou & Validation"), icon_name="ph.shield-check")
         self.sub_tab_bar.add_tab("catalogue", self.tr("Catalogue d'Outils"), icon_name="ph.wrench")
@@ -538,8 +543,20 @@ class MCPServerDashboardWidget(QWidget):
     def set_pending_request(self, context_item: Any, initial_prompt: str) -> None:
         self.supervision_widget.set_pending_request(context_item, initial_prompt)
 
+    def _apply_tab_header_style(self) -> None:
+        """Applique le style de header IDE standardisé au conteneur d'onglets."""
+        self.tab_container.setStyleSheet(f"""
+            QFrame#mcp_tabs_header {{
+                background-color: {DesignTokens.BG_SIDEBAR};
+                border: none;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
+        if hasattr(self, "tab_container"):
+            self._apply_tab_header_style()
         if hasattr(self, "sub_tab_bar") and hasattr(self.sub_tab_bar, "refresh_theme"):
             self.sub_tab_bar.refresh_theme(profile)
         if hasattr(self, "supervision_widget") and hasattr(self.supervision_widget, "refresh_theme"):

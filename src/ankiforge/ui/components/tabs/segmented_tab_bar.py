@@ -50,8 +50,8 @@ class SegmentedTabButton(QPushButton):
 
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(30 if variant == "subtab" else 32)
-        self.setIconSize(QSize(15, 15))
+        self.setFixedHeight(36 if variant == "subtab" else 32)
+        self.setIconSize(QSize(16, 16) if variant == "subtab" else QSize(15, 15))
 
         size_policy = self.sizePolicy()
         size_policy.setHorizontalPolicy(QSizePolicy.Policy.Minimum)
@@ -86,6 +86,7 @@ class SegmentedTabButton(QPushButton):
             QLabel {{
                 background-color: {bg_color};
                 color: {text_color};
+                border: none;
                 border-radius: 8px;
                 padding: 0 5px;
                 font-size: 10px;
@@ -147,7 +148,8 @@ class SegmentedTabButton(QPushButton):
 
     def _apply_style(self, active: bool) -> None:
         if self.icon_name:
-            icon_color = DesignTokens.ACCENT_PRIMARY if active else DesignTokens.TEXT_MUTED
+            custom_color = self.property("custom_icon_color")
+            icon_color = str(custom_color) if custom_color else (DesignTokens.ACCENT_PRIMARY if active else DesignTokens.TEXT_SECONDARY)
             self.setIcon(load_phosphor_icon(self.icon_name, color=icon_color))
 
         bw = self._badge_width()
@@ -184,20 +186,22 @@ class SegmentedTabButton(QPushButton):
                     }}
                 """)
         else:
-            # Mode "subtab" par défaut (souligné accent style IDE)
-            base_pad = 14
-            right_pad = (bw + 16) if bw > 0 else base_pad
+            # Mode "subtab" (style IDE de référence avec indicateur supérieur 2px)
+            base_pad = 16
+            right_pad = (bw + 18) if bw > 0 else base_pad
             if active:
                 self.setStyleSheet(f"""
                     QPushButton {{
                         background-color: {DesignTokens.BG_PANEL};
                         color: {DesignTokens.TEXT_PRIMARY};
-                        border: 1px solid {DesignTokens.BORDER_COLOR};
-                        border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                        border-radius: {TAB_RADIUS}px;
-                        padding: 2px {right_pad}px 2px {base_pad}px;
-                        font-size: 11.5px;
-                        font-weight: bold;
+                        border: none;
+                        border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                        border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                        border-radius: 0px;
+                        padding: 0 {right_pad}px 0 {base_pad}px;
+                        font-family: "{DesignTokens.FONT_MAIN}";
+                        font-size: 12px;
+                        font-weight: 600;
                     }}
                 """)
             else:
@@ -205,10 +209,14 @@ class SegmentedTabButton(QPushButton):
                     QPushButton {{
                         background-color: transparent;
                         color: {DesignTokens.TEXT_SECONDARY};
-                        border: 1px solid transparent;
-                        border-radius: {TAB_RADIUS}px;
-                        padding: 2px {right_pad}px 2px {base_pad}px;
-                        font-size: 11.5px;
+                        border: none;
+                        border-top: 2px solid transparent;
+                        border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                        border-radius: 0px;
+                        padding: 0 {right_pad}px 0 {base_pad}px;
+                        font-family: "{DesignTokens.FONT_MAIN}";
+                        font-size: 12px;
+                        font-weight: 500;
                     }}
                     QPushButton:hover {{
                         background-color: {DesignTokens.BG_HOVER};
@@ -226,9 +234,17 @@ class SegmentedTabButton(QPushButton):
         """Met à jour l'icône de l'onglet."""
         if isinstance(icon, str):
             self.icon_name = icon
+            self.setProperty("custom_icon_color", None)
             self._apply_style(self.isChecked())
         elif hasattr(icon, "pixmap") or hasattr(icon, "isNull"):
             self.setIcon(icon)
+
+    def set_icon_color(self, color: str) -> None:
+        """Définit une couleur d'icône personnalisée persistante."""
+        self.setProperty("custom_icon_color", color if color else None)
+        if self.icon_name:
+            c = color if color else (DesignTokens.ACCENT_PRIMARY if self.isChecked() else DesignTokens.TEXT_SECONDARY)
+            self.setIcon(load_phosphor_icon(self.icon_name, color=c))
 
     def resizeEvent(self, event: Any) -> None:
         super().resizeEvent(event)
@@ -261,7 +277,7 @@ class SegmentedTabBar(QWidget):
 
         self.layout_h = QHBoxLayout(self)
         self.layout_h.setContentsMargins(0, 0, 0, 0)
-        self.layout_h.setSpacing(4 if self.variant == "subtab" else 2)
+        self.layout_h.setSpacing(0 if self.variant == "subtab" else 2)
 
         if self.variant == "segmented":
             self.setStyleSheet(f"""
@@ -272,6 +288,9 @@ class SegmentedTabBar(QWidget):
                     padding: 2px;
                 }}
             """)
+        elif self.variant == "subtab":
+            self.setFixedHeight(36)
+            self.setStyleSheet("background: transparent; border: none;")
 
         self.btn_group = QButtonGroup(self)
         self.btn_group.setExclusive(True)
@@ -373,6 +392,16 @@ class SegmentedTabBar(QWidget):
             btn = self._tabs_by_id.get(tab_id_or_index)
             if btn:
                 btn.set_icon(icon)
+
+    def set_tab_icon_color(self, tab_id_or_index: str | int, color: str) -> None:
+        """Met à jour la couleur personnalisée de l'icône d'un onglet."""
+        if isinstance(tab_id_or_index, int):
+            if 0 <= tab_id_or_index < len(self._tabs):
+                self._tabs[tab_id_or_index].set_icon_color(color)
+        else:
+            btn = self._tabs_by_id.get(tab_id_or_index)
+            if btn:
+                btn.set_icon_color(color)
 
     def set_tab_badge(self, tab_id: str, badge_text: str) -> None:
         """Met à jour le badge d'un onglet."""
