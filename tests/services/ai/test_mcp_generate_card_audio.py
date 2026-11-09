@@ -15,7 +15,6 @@ from ankiforge.database.models import (
     MediaModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
 )
 from ankiforge.services.ai.mcp_server import mcp
@@ -236,13 +235,11 @@ def test_generate_card_audio_success_with_mocked_tts(audio_note_dataset, monkeyp
     assert active["Audio"] == data["audio_tag"]
     assert active["Japonais"] == "こんにちは"  # Le champ source n'est pas modifié
 
-    # Vérifier que le média est enregistré dans MediaModel et NoteVersionMediaModel
+    # Vérifier que le média est enregistré dans MediaModel
     filename = data["audio_tag"].replace("[sound:", "").rstrip("]")
     media = MediaModel.get_or_none(MediaModel.filename == filename)
     assert media is not None
     assert media.mime_type == "audio/mpeg"
-    link = NoteVersionMediaModel.get_or_none((NoteVersionMediaModel.note_version == active_version_id(audio_note_dataset["n1"])) & (NoteVersionMediaModel.media == media))
-    assert link is not None
 
 
 def test_generate_card_audio_cleans_html_tags(audio_note_dataset, monkeypatch):

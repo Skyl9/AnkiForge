@@ -20,7 +20,6 @@ from ankiforge.database.models import (
     MediaModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
 )
 from ankiforge.services.cards.flag_service import FlagService
@@ -35,7 +34,6 @@ def setup_settings_test_db():
     """Initialise une base propre pour chaque test."""
     LLMConfigModel.delete().execute()
     CardModel.delete().execute()
-    NoteVersionMediaModel.delete().execute()
     NoteVersionModel.delete().execute()
     NoteModel.delete().execute()
     NoteTypeModel.delete().execute()

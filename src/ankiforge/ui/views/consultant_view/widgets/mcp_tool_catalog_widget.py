@@ -365,7 +365,7 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
         "Génération audio unitaire : synthétise le texte d'un champ source et l'injecte dans le champ cible.",
         "Le texte est nettoyé automatiquement (balises HTML, occlusions cloze, délimiteurs LaTeX/MathJax) avant synthèse.",
         "Le fichier audio est stocké dans le dossier média du profil avec déduplication MD5.",
-        "Lien tracé entre la version de note et le média via NoteVersionMediaModel.",
+        "Enregistrement du média dédupliqué dans MediaModel et insertion de la balise sonore.",
         "Écriture directe sur le champ cible de la version active (pas de StagedPatch pour l'outil unitaire).",
     ],
     "generate_cards_batch_audio": [

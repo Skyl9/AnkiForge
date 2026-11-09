@@ -20,7 +20,6 @@ from ankiforge.database.models import (
     PersonaFolderModel,
     PersonaModel,
     PipelineModel,
-    PromptModel,
     SettingModel,
 )
 from ankiforge.services.cards import import_manager as import_manager_mod
@@ -742,10 +741,6 @@ def test_colpkg_replacement_sanctuarizes_studio_scope(tmp_path: Path, monkeypatc
         system_prompt="Tu es un enseignant-chercheur. Règles Wozniak strictes.",
         description="Enseignant-chercheur",
     )
-    prompt = PromptModel.create(
-        name="Prompt Fiches Anatomie",
-        content="Formule des cartes sur {{topic}}",
-    )
     pipeline = PipelineModel.create(
         name="Pipeline Découpage Neuro",
         description="DAG de synthèse",
@@ -798,7 +793,6 @@ def test_colpkg_replacement_sanctuarizes_studio_scope(tmp_path: Path, monkeypatc
     assert DocumentChunkModel.get_by_id(chunk.id).content == "Fragment détaillé sur les synapses."
     assert PersonaFolderModel.get_by_id(p_folder.id).name == "Dossier Personas"
     assert PersonaModel.get_by_id(persona.id).name == "Expert Neuro"
-    assert PromptModel.get_by_id(prompt.id).name == "Prompt Fiches Anatomie"
     assert PipelineModel.get_by_id(pipeline.id).name == "Pipeline Découpage Neuro"
     assert SettingModel.get(SettingModel.key == "theme/current").value == "nordic_frost"
 

@@ -441,7 +441,10 @@ def test_migration_051_purge_obsolete_tables_and_rollback(mock_db):
 
     # S'assurer que les tables et index existent avant la migration
     for table in obsolete_tables:
-        db.execute_sql(f"CREATE TABLE IF NOT EXISTS {table} (id INTEGER PRIMARY KEY);")
+        if table == "batch_tasks":
+            db.execute_sql(f"CREATE TABLE IF NOT EXISTS {table} (id INTEGER PRIMARY KEY, status TEXT);")
+        else:
+            db.execute_sql(f"CREATE TABLE IF NOT EXISTS {table} (id INTEGER PRIMARY KEY);")
         assert db.table_exists(table), f"La table {table} devrait exister avant la migration."
     db.execute_sql("CREATE INDEX IF NOT EXISTS idx_batch_tasks_status ON batch_tasks (status);")
 

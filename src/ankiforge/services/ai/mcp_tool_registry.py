@@ -32,7 +32,6 @@ from ankiforge.database.models import (
     MediaModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
     PersonaModel,
     PipelineModel,
@@ -1665,18 +1664,12 @@ class MCPToolRegistry:
             "pipeline_runs",
             "mediamodel",
             "audit_records",
-            "batch_runs",
-            "batch_tasks",
-            "ai_cache",
             "embedding_cache",
             "ignored_duplicates",
-            "job",
             "linter_rules",
             "note_chunk_links",
-            "note_version_media",
             "persona_folders",
             "persona_versions",
-            "prompt",
             "python_tool",
             "token_usage",
             "staged_bundles",
@@ -4613,7 +4606,7 @@ class MCPToolRegistry:
         - Extrait le texte épuré du champ ``source_field``.
         - Invoque le fournisseur TTS configuré (ou spécifié).
         - Sauvegarde le MP3 dans le dossier média du profil actif.
-        - Enregistre le média dans MediaModel et NoteVersionMediaModel.
+        - Enregistre le média dans MediaModel.
         - Met à jour le champ ``target_field`` avec [sound:audio_xxx.mp3].
         """
         from ankiforge.services.cards.tts_service import TTSService
@@ -4691,12 +4684,6 @@ class MCPToolRegistry:
                     checksum=hashlib.md5(audio_path.read_bytes(), usedforsecurity=False).hexdigest(),
                     mime_type=mime_type,
                 )
-
-            # Lien NoteVersion -> Media
-            NoteVersionMediaModel.create(
-                note_version=active_v,
-                media=media,
-            )
 
             # Mise à jour du champ cible dans la version active
             content[target_field] = audio_tag
@@ -4841,11 +4828,6 @@ class MCPToolRegistry:
                             checksum=hashlib.md5(audio_path.read_bytes(), usedforsecurity=False).hexdigest(),
                             mime_type=mime_type,
                         )
-
-                    NoteVersionMediaModel.create(
-                        note_version=active_v,
-                        media=media,
-                    )
 
                     content[target_field] = audio_tag
                     with db.atomic():

@@ -22,15 +22,6 @@ from ankiforge.database.base import BaseModel
 logger = logging.getLogger(__name__)
 
 
-class PromptModel(BaseModel):
-    """Stocke les templates Jinja2 personnalisés."""
-
-    name = CharField(unique=True)
-    content = TextField()
-    description = TextField(null=True)
-    is_active = BooleanField(default=True)
-
-
 class LLMConfigModel(BaseModel):
     """Stocke les configurations physiques des modèles d'IA (Le 'Moteur')."""
 

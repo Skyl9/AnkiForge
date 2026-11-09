@@ -38,7 +38,6 @@ from ankiforge.database.models import (
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
     db,
 )
@@ -1481,7 +1480,6 @@ class ImportManager:
             AuditRecordModel.delete().execute()
             IgnoredDuplicateModel.delete().execute()
             CardModel.delete().execute()
-            NoteVersionMediaModel.delete().execute()
             NoteVersionModel.delete().execute()
             NoteModel.delete().execute()
             DeckModel.update(parent_deck=None).execute()

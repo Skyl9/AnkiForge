@@ -163,19 +163,6 @@ class MediaModel(BaseModel):
         table_name = "mediamodel"
 
 
-class NoteVersionMediaModel(BaseModel):
-    """Table de liaison entre une version de note et ses médias associés."""
-
-    note_version = ForeignKeyField(NoteVersionModel, backref="medias", on_delete="CASCADE")
-    # RESTRICT intentionnel : un média référencé par au moins une version de note ne doit jamais
-    # être supprimé (son checksum/fichier est réutilisé par la déduplication). Le nettoyage passe
-    # par le flux dédié (media_manager) qui désassocie d'abord, puis supprime en dernier recours.
-    media = ForeignKeyField(MediaModel, backref="note_versions", on_delete="RESTRICT")
-
-    class Meta:
-        table_name = "noteversionmediamodel"
-
-
 class CardModel(BaseModel):
     """La carte physique générée par la Note et rangée dans un Deck."""
 

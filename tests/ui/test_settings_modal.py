@@ -19,7 +19,6 @@ from ankiforge.database.models import (
     MediaModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
 )
 from ankiforge.services.settings_service import SettingsService
@@ -45,7 +44,6 @@ def setup_settings_test_db():
     # Nettoyage
     LLMConfigModel.delete().execute()
     CardModel.delete().execute()
-    NoteVersionMediaModel.delete().execute()
     NoteVersionModel.delete().execute()
     NoteModel.delete().execute()
     NoteTypeModel.delete().execute()
@@ -74,7 +72,7 @@ def test_settings_modal_creation_and_tabs(qtbot):
     assert isinstance(modal.anki_tab, AnkiSyncTab)
     assert isinstance(modal.tts_tab, TTSSettingsTab)
     assert isinstance(modal.maint_tab, StorageMaintenanceTab)
-    assert modal.stacked_widget.count() in (8, 9)
+    assert modal.stacked_widget.count() in (8, 9, 10)
 
     # Navigation dans tous les onglets
     for i in range(modal.stacked_widget.count()):

@@ -1,4 +1,4 @@
-"""Dépôt des paramètres applicatifs, de la télémétrie d'usage des tokens et du cache IA."""
+"""Dépôt des paramètres applicatifs et de la télémétrie d'usage des tokens."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from typing import Any
 from peewee import fn
 
 from ankiforge.database.models import (
-    AICacheModel,
     SettingModel,
     TokenUsageModel,
 )
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class SettingRepository(BaseRepository):
-    """Dépôt d'accès aux données de la configuration applicative, du cache IA et de la télémétrie des tokens."""
+    """Dépôt d'accès aux données de la configuration applicative et de la télémétrie des tokens."""
 
     def get_setting(self, key: str, default: Any = None) -> Any:
         """Retourne la valeur d'un paramètre par sa clé."""
@@ -128,50 +127,3 @@ class SettingRepository(BaseRepository):
             "total_cost_usd": float(query.get("total_cost") or 0.0),
             "total_calls": query.get("total_calls") or 0,
         }
-
-    def get_cached_ai_response(
-        self,
-        prompt_hash: str,
-        system_prompt_hash: str = "",
-        model_id: str = "",
-        temperature: float = 0.7,
-    ) -> str | None:
-        """Recherche une réponse dans le cache de requêtes IA."""
-        try:
-            record = AICacheModel.get_or_none(
-                AICacheModel.prompt_hash == prompt_hash,
-                AICacheModel.system_prompt_hash == system_prompt_hash,
-                AICacheModel.model_id == model_id,
-                AICacheModel.temperature == temperature,
-            )
-            return record.response_content if record else None
-        except Exception as e:
-            logger.debug("AI Cache miss or error: %s", e)
-            return None
-
-    def cache_ai_response(
-        self,
-        prompt_hash: str,
-        system_prompt_hash: str,
-        model_id: str,
-        temperature: float,
-        response_content: str,
-    ) -> AICacheModel:
-        """Stocke une réponse IA dans le cache."""
-        with self.atomic():
-            record, _ = AICacheModel.get_or_create(
-                prompt_hash=prompt_hash,
-                system_prompt_hash=system_prompt_hash,
-                model_id=model_id,
-                temperature=temperature,
-                defaults={"response_content": response_content},
-            )
-            if record.response_content != response_content:
-                record.response_content = response_content
-                record.save()
-            return record
-
-    def clear_ai_cache(self) -> int:
-        """Vide le cache IA de toutes ses entrées."""
-        with self.atomic():
-            return int(AICacheModel.delete().execute())

@@ -1,4 +1,4 @@
-"""Modèles Peewee des tâches système, des paramètres utilisateur et du cache IA."""
+"""Modèles Peewee des paramètres utilisateur."""
 
 import datetime
 import json
@@ -8,32 +8,12 @@ from typing import Any
 from peewee import (
     CharField,
     DateTimeField,
-    FloatField,
-    IntegerField,
     TextField,
 )
 
 from ankiforge.database.base import BaseModel, db
 
 logger = logging.getLogger(__name__)
-
-
-class JobModel(BaseModel):
-    """Table de suivi des tâches de fond (Parsing PDF, Batch IA long, etc.) Permet la reprise après crash."""
-
-    job_type = CharField()
-    target = CharField()
-    status = CharField(default="pending")  # 'pending', 'processing', 'completed', 'failed', 'cancelled'
-    progress = IntegerField(default=0)
-    params = TextField(null=True)
-    error_log = TextField(null=True)
-    created_at = DateTimeField(default=datetime.datetime.now)
-    updated_at = DateTimeField(default=datetime.datetime.now)
-
-    def save(self, *args: Any, **kwargs: Any) -> int:
-        """Persiste la tâche système en rafraîchissant l'horodatage updated_at."""
-        self.updated_at = datetime.datetime.now()
-        return int(super().save(*args, **kwargs))
 
 
 class SettingModel(BaseModel):
@@ -134,18 +114,3 @@ class SettingModel(BaseModel):
         except Exception as e:
             logger.debug("Remarque sur la suppression de la catégorie '%s': %s", category, e)
             return 0
-
-
-class AICacheModel(BaseModel):
-    """Stocke le cache des appels de complétion d'IA pour économiser les coûts et le réseau."""
-
-    prompt_hash = CharField(index=True)
-    system_prompt_hash = CharField()
-    model_id = CharField()
-    temperature = FloatField()
-    response_content = TextField()
-    created_at = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        table_name = "ai_cache"
-        indexes = ((("prompt_hash", "system_prompt_hash", "model_id", "temperature"), True),)

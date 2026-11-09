@@ -1,4 +1,4 @@
-"""Dépôt des modèles de persona, des dossiers de persona, des versions de persona, des configurations LLM et des prompts."""
+"""Dépôt des modèles de persona, des dossiers de persona, des versions de persona et des configurations LLM."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from ankiforge.database.models import (
     PersonaFolderModel,
     PersonaModel,
     PersonaVersionModel,
-    PromptModel,
 )
 from ankiforge.repositories.base import BaseRepository
 from ankiforge.services.ai.model_catalog import ModelCatalog
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class PersonaRepository(BaseRepository):
-    """Dépôt d'accès aux données des personas IA, des dossiers, des configurations de moteur LLM et des prompts."""
+    """Dépôt d'accès aux données des personas IA, des dossiers et des configurations de moteur LLM."""
 
     def get_all_folders(self) -> list[PersonaFolderModel]:
         """Retourne tous les dossiers de persona."""
@@ -241,15 +240,3 @@ class PersonaRepository(BaseRepository):
         with self.atomic():
             config.delete_instance()
             return True
-
-    def get_all_prompts(self) -> list[PromptModel]:
-        """Retourne tous les modèles de prompt."""
-        return list(PromptModel.select().order_by(PromptModel.name.asc()))
-
-    def get_prompt_by_name(self, name: str) -> PromptModel | None:
-        """Retourne un modèle de prompt par son nom."""
-        try:
-            return PromptModel.get_or_none(PromptModel.name == name)
-        except Exception as e:
-            logger.error("Failed to get prompt by name '%s': %s", name, e)
-            return None

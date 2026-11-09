@@ -13,7 +13,6 @@ from ankiforge.database.models import (
     MediaModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
 )
 from ankiforge.services.profile_content_transfer import ProfileContentTransfer
@@ -27,7 +26,6 @@ CARD_MODELS = [
     NoteVersionModel,
     CardModel,
     MediaModel,
-    NoteVersionMediaModel,
     FlagDefinitionModel,
 ]
 

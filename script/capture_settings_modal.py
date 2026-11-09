@@ -20,7 +20,6 @@ from ankiforge.database.models import (
     MediaModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
     SettingModel,
     db,
@@ -37,7 +36,6 @@ def seed_settings_data():
         CardModel,
         NoteVersionModel,
         MediaModel,
-        NoteVersionMediaModel,
         LLMConfigModel,
         SettingModel,
     ]

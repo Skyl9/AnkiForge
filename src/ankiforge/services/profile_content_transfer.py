@@ -24,7 +24,6 @@ from ankiforge.database.models import (
     MediaModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
     PersonaFolderModel,
     PersonaModel,
@@ -69,7 +68,6 @@ class ProfileContentTransfer:
         NoteVersionModel,
         CardModel,
         MediaModel,
-        NoteVersionMediaModel,
     ]
 
     @staticmethod
@@ -451,21 +449,6 @@ class ProfileContentTransfer:
                                     "original_name": m_name,
                                     "checksum": chk,
                                     "mime_type": mimetypes.guess_type(str(file_path))[0] or "application/octet-stream",
-                                    "size": file_path.stat().st_size,
-                                }
-
-                    for nvm in NoteVersionMediaModel.select().where(NoteVersionMediaModel.note_version == v):
-                        m = nvm.media
-                        if m and m.filename and m.filename not in media_files_to_transfer:
-                            file_path = source_media_dir / m.filename
-                            if file_path.is_file():
-                                chk = str(m.checksum) if m.checksum else ProfileContentTransfer._calculate_md5(str(file_path))
-                                media_files_to_transfer[m.filename] = {
-                                    "path": file_path,
-                                    "filename": m.filename,
-                                    "original_name": str(m.original_name) if m.original_name else m.filename,
-                                    "checksum": chk,
-                                    "mime_type": str(m.mime_type) if m.mime_type else "application/octet-stream",
                                     "size": file_path.stat().st_size,
                                 }
 

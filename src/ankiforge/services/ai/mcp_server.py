@@ -2172,7 +2172,7 @@ def generate_card_audio(
     - Extrait le texte épuré du champ ``source_field``.
     - Invoque le fournisseur TTS configuré (ou spécifié).
     - Sauvegarde le MP3 dans le dossier média du profil actif.
-    - Enregistre le média dans MediaModel et NoteVersionMediaModel.
+    - Enregistre le média dans MediaModel.
     - Propose ou applique la mise à jour du champ ``target_field`` avec [sound:audio_xxx.mp3].
     """
     return MCPToolRegistry.generate_card_audio(

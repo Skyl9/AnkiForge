@@ -17,7 +17,6 @@ from ankiforge.database.models.ai import (
     PersonaFolderModel,
     PersonaModel,
     PersonaVersionModel,
-    PromptModel,
     StagedBundleModel,
     StagedPatchModel,
 )
@@ -26,14 +25,12 @@ from ankiforge.database.models.audit import (
     IgnoredDuplicateModel,
     LinterRuleModel,
 )
-from ankiforge.database.models.batch import BatchRunModel, BatchTaskModel
 from ankiforge.database.models.cards import (
     CardModel,
     DeckModel,
     MediaModel,
     NoteModel,
     NoteTypeModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
 )
 from ankiforge.database.models.flags import (
@@ -54,11 +51,7 @@ from ankiforge.database.models.rag import (
     FolderModel,
     NoteChunkLinkModel,
 )
-from ankiforge.database.models.system import (
-    AICacheModel,
-    JobModel,
-    SettingModel,
-)
+from ankiforge.database.models.system import SettingModel
 from ankiforge.database.models.usage import TokenUsageModel
 from ankiforge.database.seeds import (
     seed_default_linter_rules,
@@ -79,12 +72,10 @@ __all__ = [
     "NoteModel",
     "NoteVersionModel",
     "MediaModel",
-    "NoteVersionMediaModel",
     "CardModel",
     "FlagDefinitionModel",
     "ProfileFlagLabelModel",
     # IA & Personas
-    "PromptModel",
     "LLMConfigModel",
     "TokenUsageModel",
     "PersonaFolderModel",
@@ -92,9 +83,6 @@ __all__ = [
     "PersonaVersionModel",
     "StagedBundleModel",
     "StagedPatchModel",
-    # Batch Factory
-    "BatchRunModel",
-    "BatchTaskModel",
     # Pipelines DAG
     "PipelineModel",
     "PipelineRunModel",
@@ -107,13 +95,11 @@ __all__ = [
     "DocumentChunkModel",
     "NoteChunkLinkModel",
     "EmbeddingCacheModel",
-    # Système, Cache & Audit
-    "JobModel",
+    # Système & Audit
     "LinterRuleModel",
     "AuditRecordModel",
     "SettingModel",
     "IgnoredDuplicateModel",
-    "AICacheModel",
     # Seeds
     "seed_initial_data",
     "seed_default_linter_rules",
