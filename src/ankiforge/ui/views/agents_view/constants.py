@@ -67,9 +67,9 @@ MCP_BASE_TOOLS_SPEC: dict[str, dict[str, str]] = {
 JINJA2_SNIPPETS: list[tuple[str, str, str]] = [
     ("{{ text_source }}", "Texte Source", "Contenu brut du document ou de la section sélectionnée"),
     ("{{ last_output }}", "Sortie Précédente", "Résultat de l'étape DAG immédiatement antérieure"),
-    ("{{ fields }}", "Champs NoteType", "Liste des champs du type de note cible (ex: Front, Back)"),
+    ("{{ fields }}", "Champs du Modèle", "Liste des champs du modèle de carte cible (ex: Front, Back)"),
     ("{{ retrieved_chunks }}", "Extraits RAG", "Fragments documentaires pertinents extraits par FAISS"),
-    ("{{ item }}", "Élément Lot (Map-Reduce)", "Objet ou texte en cours de traitement en boucle parallèle"),
+    ("{{ item }}", "Élément du Lot", "Contenu individuel en cours de traitement par lot"),
     ("{{ initial_prompt }}", "Consigne Initiale", "Consigne d'origine saisie par l'utilisateur"),
-    ("{{ state.variables.xxx }}", "Variable DAG", "Accès à une variable arbitraire du PipelineRunState"),
+    ("{{ state.variables.xxx }}", "Variable de Flux", "Accès aux variables partagées du flux de création"),
 ]

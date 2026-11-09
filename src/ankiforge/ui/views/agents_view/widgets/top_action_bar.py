@@ -41,7 +41,7 @@ class ResponsiveAgentTopActionBar(QFrame):
         self.lbl_agent_title = QLabel(self.tr("Agent sélectionné"))
         self.lbl_agent_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
         self.lbl_agent_title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        self.lbl_agent_title.setMaximumWidth(220)
+        self.lbl_agent_title.setMaximumWidth(380)
         layout.addWidget(self.lbl_agent_title, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Badges sémantiques
@@ -93,6 +93,10 @@ class ResponsiveAgentTopActionBar(QFrame):
         self.btn_test.setText("" if compact else "Tester")
         self.btn_import.setText("" if compact else "Importer")
         self.btn_save.setText("Sauvegarder" if w >= 560 else "Enregistrer")
+        if compact:
+            self.lbl_agent_title.setMaximumWidth(max(160, w - 280))
+        else:
+            self.lbl_agent_title.setMaximumWidth(max(260, min(420, w - 460)))
 
     def refresh_theme(self, profile: Any) -> None:
         bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL

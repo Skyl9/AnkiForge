@@ -188,12 +188,12 @@ class AgentsView(QWidget):
         search_row.addWidget(self.edit_search, 1)
 
         self.btn_new = PrimaryButton(
-            "Nouvel Agent",
+            self.tr("Nouvel Agent"),
             tooltip=tr("Créer un nouveau persona d'agent IA (%1)", get_shortcut_sequence(ShortcutId.AGENTS_NEW)),
         )
         self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
-        self.btn_new.setIconSize(QSize(16, 64))
-        self.btn_new.setFixedHeight(34)
+        self.btn_new.setIconSize(QSize(14, 14))
+        apply_compact_style(self.btn_new, height=30)
         search_row.addWidget(self.btn_new)
         list_layout.addLayout(search_row)
 
@@ -259,10 +259,13 @@ class AgentsView(QWidget):
         list_toolbar = QHBoxLayout()
         list_toolbar.setSpacing(6)
 
-        self.btn_new_folder = SecondaryButton("Nouveau Dossier", tooltip=self.tr("Créer un dossier pour organiser l'arborescence d'agents"))
+        self.btn_new_folder = SecondaryButton(
+            self.tr("Nouveau Dossier"),
+            tooltip=self.tr("Créer un dossier pour organiser l'arborescence d'agents"),
+        )
         self.btn_new_folder.setIcon(load_phosphor_icon("ph.folder-plus", color=DesignTokens.TEXT_PRIMARY))
         self.btn_new_folder.setIconSize(QSize(14, 14))
-        self.btn_new_folder.setFixedHeight(30)
+        apply_compact_style(self.btn_new_folder, height=30)
 
         self.btn_clone = IconButton(
             "ph.copy",
@@ -640,30 +643,36 @@ class AgentsView(QWidget):
         prompt_ico = QLabel()
         prompt_ico.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         prompt_ico.setStyleSheet("border: none; background: transparent;")
-        lbl_prompt_title = QLabel(self.tr("INSTRUCTIONS (JINJA2)"))
+        lbl_prompt_title = QLabel(self.tr("INSTRUCTIONS & PROMPT"))
         lbl_prompt_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
         snippets_header.addWidget(prompt_ico)
         snippets_header.addWidget(lbl_prompt_title)
         snippets_header.addStretch()
 
-        self.btn_prompt_framework = SecondaryButton("Insérer un Canevas...")
+        self.btn_prompt_framework = SecondaryButton(
+            self.tr("Canevas..."),
+            tooltip=self.tr("Insérer un canevas de prompt prêt à l'emploi (Cloze, Wozniak, Langues...)"),
+        )
         self.btn_prompt_framework.setIcon(load_phosphor_icon("ph.clipboard-text", color=DesignTokens.TEXT_PRIMARY))
         apply_compact_style(self.btn_prompt_framework, height=32)
-        self.btn_prompt_framework.setStyleSheet("padding: 4px 10px;")
         self.btn_prompt_framework.clicked.connect(self._on_open_prompt_frameworks_menu)
         snippets_header.addWidget(self.btn_prompt_framework)
 
-        self.btn_var_help = SecondaryButton("Guide des Variables")
+        self.btn_var_help = SecondaryButton(
+            self.tr("Variables"),
+            tooltip=self.tr("Guide des variables Jinja2 disponibles au runtime"),
+        )
         self.btn_var_help.setIcon(load_phosphor_icon("ph.question", color=DesignTokens.TEXT_PRIMARY))
         apply_compact_style(self.btn_var_help, height=32)
-        self.btn_var_help.setStyleSheet("padding: 4px 10px;")
         self.btn_var_help.clicked.connect(self._on_open_variable_helper)
         snippets_header.addWidget(self.btn_var_help)
 
-        self.btn_preview_prompt = SecondaryButton("Aperçu Interpolé (Jinja2)")
+        self.btn_preview_prompt = SecondaryButton(
+            self.tr("Aperçu"),
+            tooltip=self.tr("Aperçu du prompt interpolé avec des données réelles"),
+        )
         self.btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         apply_compact_style(self.btn_preview_prompt, height=32)
-        self.btn_preview_prompt.setStyleSheet("padding: 4px 10px;")
         self.btn_preview_prompt.clicked.connect(self._on_preview_prompt)
         snippets_header.addWidget(self.btn_preview_prompt)
         prompt_card_layout.addLayout(snippets_header)

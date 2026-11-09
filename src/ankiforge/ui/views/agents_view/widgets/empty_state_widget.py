@@ -46,7 +46,7 @@ class PersonaEmptyStateWidget(QWidget):
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         container = QFrame()
-        container.setMaximumWidth(580)
+        container.setMaximumWidth(700)
         container.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -103,14 +103,16 @@ class PersonaEmptyStateWidget(QWidget):
         cta_layout.setSpacing(12)
         cta_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.btn_templates = PrimaryButton("✨ Parcourir les Modèles Prêts à l'Emploi")
+        self.btn_templates = PrimaryButton(self.tr("Parcourir les Modèles Prêts à l'Emploi"))
         self.btn_templates.setIcon(load_on_accent_icon("ph.sparkle"))
         self.btn_templates.setIconSize(QSize(16, 16))
         self.btn_templates.setFixedHeight(36)
         self.btn_templates.clicked.connect(self.create_from_template_requested.emit)
         cta_layout.addWidget(self.btn_templates)
 
-        self.btn_blank = SecondaryButton("➕ Créer un Agent Vierge")
+        self.btn_blank = SecondaryButton(self.tr("Créer un Agent Vierge"))
+        self.btn_blank.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_blank.setIconSize(QSize(16, 16))
         self.btn_blank.setFixedHeight(36)
         self.btn_blank.clicked.connect(self.create_custom_requested.emit)
         cta_layout.addWidget(self.btn_blank)
@@ -131,9 +133,17 @@ class PersonaEmptyStateWidget(QWidget):
         guide_layout.setContentsMargins(12, 10, 12, 10)
         guide_layout.setSpacing(8)
 
-        lbl_guide_title = QLabel(self.tr("💡 Comment tirer le meilleur parti des Personas :"))
+        guide_header = QHBoxLayout()
+        guide_header.setSpacing(6)
+        guide_ico = QLabel()
+        guide_ico.setPixmap(load_phosphor_icon("ph.lightbulb", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        guide_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_guide_title = QLabel(self.tr("Comment tirer le meilleur parti des Personas :"))
         lbl_guide_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
-        guide_layout.addWidget(lbl_guide_title)
+        guide_header.addWidget(guide_ico)
+        guide_header.addWidget(lbl_guide_title)
+        guide_header.addStretch()
+        guide_layout.addLayout(guide_header)
 
         tips = [
             ("1. Choisissez un modèle", "Sélectionnez un profil pré-configuré (Langues, Médecine, Sciences, Wozniak, Cloze)."),
@@ -148,8 +158,9 @@ class PersonaEmptyStateWidget(QWidget):
             lbl_step.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
             lbl_text = QLabel(tr("— %1", text))
             lbl_text.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-            row.addWidget(lbl_step)
-            row.addWidget(lbl_text, 1)
+            lbl_text.setWordWrap(True)
+            row.addWidget(lbl_step, 0, Qt.AlignmentFlag.AlignTop)
+            row.addWidget(lbl_text, 1, Qt.AlignmentFlag.AlignTop)
             guide_layout.addLayout(row)
 
         container_layout.addWidget(guide_frame)
