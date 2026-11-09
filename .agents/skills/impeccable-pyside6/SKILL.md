@@ -1,15 +1,17 @@
 ---
 name: impeccable-pyside6
 description: >-
-  Craft UI de précision et éradication méthodique du slop Qt pour PySide6 selon la
-  philosophie Impeccable (distill, typeset, arrange, harden, polish, quieter, bolder).
-  Transforme les widgets bruts en interfaces desktop de qualité studio (Linear/Raycast)
-  conformes à DESIGN.md. Use when the user asks to "impeccable", "craft ui",
-  "finition ui", "anti-slop qt", "distill", "typeset", "polish", "harden",
-  "quieter", "bolder", "passes de finition", "sublimer l'ui" or wants to refine
-  a PySide6 view through systematic finishing passes. When NOT to use: Do not use
-  for exploring conceptual UX directions (use ui-anti-slop), one-off layout bugfixes
-  (use ui-visual-polish), or general component coding from scratch (use ui-pyside6-design).
+  Craft UI de précision, éradication du slop Qt et audit nouvel utilisateur
+  pour PySide6 selon la philosophie Impeccable (first-eyes, clarify, distill,
+  arrange, typeset, harden, polish, quieter, bolder). Transforme les widgets
+  bruts en interfaces desktop studio (Linear/Raycast) conformes à DESIGN.md.
+  Use when the user asks to "impeccable", "craft ui", "finition ui", "anti-slop qt",
+  "first-eyes", "clarify", "regard extérieur", "nouvel utilisateur", "onboarding",
+  "fresh eyes", "distill", "typeset", "polish", "harden", "quieter", "bolder",
+  "passes de finition", "sublimer l'ui" or wants to refine a PySide6 view
+  through systematic finishing passes. When NOT to use: Do not use for exploring
+  conceptual UX directions (use ui-anti-slop), one-off layout bugfixes (use
+  ui-visual-polish), or general component coding from scratch (use ui-pyside6-design).
 ---
 
 # Impeccable PySide6 — Craft UI & Passes de Finition
@@ -32,22 +34,29 @@ Ne jamais tolérer le code d'interface paresseux généré par les LLM :
 
 ---
 
-## 2. Les 6 Passes Chirurgicales
+## 2. La Chaîne des 8 Passes Chirurgicales
 
-Chaque commande applique une transformation ciblée et mesurable :
+La refonte complète d'une interface suit cet ordre séquentiel strict :
+**`/first-eyes`** ➔ **`/clarify`** ➔ **`/distill`** ➔ **`/arrange`** ➔ **`/typeset`** ➔ **`/harden`** ➔ **`/polish`**
 
-1. `/distill` : **Épuration radicale**. Supprime le bruit visuel, les bordures étouffantes,
+1. `/first-eyes` : **Regard Extérieur & Onboarding**. Simule un utilisateur "Jour 1",
+   applique le test des 3 secondes, l'état base vierge (`EmptyStateWidget`), évalue
+   l'effet cockpit et exige un tooltip sur tout bouton désactivé (`references/first-time-user-walkthrough.md`).
+   Sortie obligatoire : *Journal de bord des 60 premières secondes* à la 1ère personne.
+2. `/clarify` : **UX Writing & Anti-Jargon**. Traduit la tuyauterie interne (MCP, Peewee,
+   NoteType, Chunk, Vector Store) en bénéfices produit humains et messages non anxiogènes.
+3. `/distill` : **Épuration radicale**. Supprime le bruit visuel, les bordures étouffantes,
    les séparateurs redondants et les arrière-plans incohérents.
-2. `/typeset` : **Hiérarchie typographique**. Impose les tailles (16px titre, 11px section
-   uppercase, 12px corps, 10px aide), contrastes et polices (`FONT_MAIN`, `FONT_CODE`).
-3. `/arrange` : **Rythme spatial & Alignements**. Aligne tout sur la grille de 4px
+4. `/arrange` : **Rythme spatial & Alignements**. Aligne tout sur la grille de 4px
    (`SPACING_SM=8`, `SPACING_MD=12`, `SPACING_LG=16`, `SPACING_XL=24`), équilibre
    les marges (`setContentsMargins`), et place les spacers verticaux élastiques.
-4. `/harden` : **Robustesse desktop**. Éprouve le redimensionnement (1280×800 et 820×560),
+5. `/typeset` : **Hiérarchie typographique**. Impose les tailles (16px titre, 11px section
+   uppercase, 12px corps, 10px aide), contrastes et polices (`FONT_MAIN`, `FONT_CODE`).
+6. `/harden` : **Robustesse desktop**. Éprouve le redimensionnement (1280×800 et 820×560),
    élimine tout scrollbar horizontal, sécurise les débordements de traduction i18n (+30%).
-5. `/polish` : **Micro-affordances & Craft**. Pointeur main sur clics, états complets
+7. `/polish` : **Micro-affordances & Craft**. Pointeur main sur clics, états complets
    (`:hover`, `:pressed`, `:disabled`), ombres subtiles (`apply_shadow`), icônes Phosphor.
-6. `/quieter` ou `/bolder` : **Pondération visuelle**. Atténue la saturation visuelle
+8. `/quieter` ou `/bolder` : **Pondération visuelle**. Atténue la saturation visuelle
    (boutons ghost, textes secondaires) ou affirme l'action primaire focalisée.
 
 Détail des protocoles d'exécution dans `references/workflows-commands.md`.

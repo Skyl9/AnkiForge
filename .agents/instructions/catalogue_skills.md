@@ -21,7 +21,7 @@ Le dépôt héberge 53 compétences agentiques autonomes conformes au standard i
 - `ui-pyside6-design` (`.agents/skills/ui-pyside6-design/SKILL.md`) : Développement d'interfaces PySide6, dockings JetBrains, respect des tokens `DESIGN.md`, et internationalisation `tr()` (`ADR 0013`).
 - `ui-anti-slop` (`.agents/skills/ui-anti-slop/SKILL.md`) : Direction artistique et conception UX anti-slop, avec propositions ancrées dans le métier AnkiForge.
 - `ui-visual-polish` (`.agents/skills/ui-visual-polish/SKILL.md`) : Diagnostic et correction ciblée des défauts graphiques PySide6, avec validation des états et régressions visuelles.
-- `impeccable-pyside6` (`.agents/skills/impeccable-pyside6/SKILL.md`) : Craft UI de précision, éradication du slop Qt et passes de finition chirurgicales (distill, typeset, arrange, harden, polish, quieter, bolder) selon DESIGN.md.
+- `impeccable-pyside6` (`.agents/skills/impeccable-pyside6/SKILL.md`) : Craft UI de précision, éradication du slop Qt, regard nouvel utilisateur (first-eyes, clarify) et passes de finition chirurgicales (distill, arrange, typeset, harden, polish, quieter, bolder) selon DESIGN.md.
 - `ui-screenshot` (`.agents/skills/ui-screenshot/SKILL.md`) : Capture d'écrans haute résolution en mode headless/offscreen et inspection visuelle des vues.
 - `ingestion-multimedia` (`.agents/skills/ingestion-multimedia/SKILL.md`) : Parsing et extraction multimédia de sources brutes (Marker OCR, PDF, YouTube, audio, docx, epub) vers Markdown.
 - `rag-smart-coverage` (`.agents/skills/rag-smart-coverage/SKILL.md`) : Découpage sémantique (`ChunkingService`), vecteurs FAISS/ChromaDB et alignement déterministe de couverture (`ADR 0009` et `ADR 0010`).

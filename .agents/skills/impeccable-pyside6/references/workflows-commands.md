@@ -4,20 +4,63 @@ Ce guide détaille l'exécution méthodique des passes de finition inspirées du
 
 ---
 
-## Vue d'Ensemble des 6 Passes Chirurgicales
+## Vue d'Ensemble des 8 Passes Chirurgicales
+
+La chaîne idéale de refonte complète d'une interface suit cet ordre séquentiel strict :
+**`/first-eyes`** ➔ **`/clarify`** ➔ **`/distill`** ➔ **`/arrange`** ➔ **`/typeset`** ➔ **`/harden`** ➔ **`/polish`**
 
 | Commande | Intention Clé | Question d'Évaluation |
 | :--- | :--- | :--- |
+| `/first-eyes` | **Regard Extérieur & Onboarding** | *Que comprend et ressent un novice découvrant cet écran pour la toute première fois ?* |
+| `/clarify` | **UX Writing & Anti-Jargon** | *Ce texte parle-t-il la langue de l'utilisateur ou la tuyauterie du code backend ?* |
 | `/distill` | **Élimination du bruit visuel** | *Quel élément graphique n'apporte aucune information fonctionnelle ?* |
-| `/typeset` | **Hiérarchie & Rythme typographique** | *Le texte guide-t-il l'œil instantanément vers l'essentiel ?* |
 | `/arrange` | **Alignement & Grille spatiale (4px)** | *Les marges et espacements suivent-ils un rythme mathématique strict ?* |
+| `/typeset` | **Hiérarchie & Rythme typographique** | *Le texte guide-t-il l'œil instantanément vers l'essentiel ?* |
 | `/harden` | **Robustesse & Responsive desktop** | *Le layout survit-il au redimensionnement extrême (1280×800 et 820×560) ?* |
 | `/polish` | **Affordance & Micro-interactions** | *L'interface réagit-elle au survol, au clic et au focus avec fluidité ?* |
 | `/quieter` ou `/bolder` | **Pondération & Contraste d'attention** | *L'intensité visuelle est-elle équilibrée ou surcharge-t-elle l'esprit ?* |
 
 ---
 
-## 1. Passe `/distill` : Épuration et Clarté Radicale
+## 1. Passe `/first-eyes` : Simulation "Nouvel Utilisateur" & Onboarding
+
+### Objectif
+Sortir du prisme de développeur pour auditer l'écran avec la naïveté totale d'un utilisateur "Jour 1" qui vient d'installer AnkiForge.
+
+### Protocole d'Exécution
+1. Appliquer le test des 3 secondes à froid (Où suis-je ? Que puis-je faire ? Par quoi commencer ?).
+2. Simuler l'état "Base vierge" (0 document, 0 carte, 0 deck) et auditer l'`EmptyStateWidget`.
+3. Détecter l'effet "cockpit d'avion" : identifier les paramètres experts à replier ou masquer.
+4. Auditer les boutons désactivés (`setEnabled(False)`) et exiger un tooltip explicatif.
+
+### Format de Restitution Obligatoire : "Journal de bord des 60 premières secondes"
+Lorsque l'utilisateur sollicite `/first-eyes` ou demande un avis extérieur sur une vue, l'agent **DOIT impérativement démarrer sa réponse** par un récit incarné à la première personne :
+
+> **Journal de bord (Première immersion) :**
+> *"J'ouvre cet écran pour la première fois. Mon regard est immédiatement attiré par [élément], mais je ne sais pas si c'est cliquable. Je lis le terme '[jargon]', qui ne m'évoque rien du tout. J'hésite à cliquer sur le bouton principal car j'ai peur de [peur/incompréhension]. Le tableau est complètement vide et je ne vois pas par quelle action débuter mon travail..."*
+
+Ce récit est immédiatement suivi par le tableau des frictions cognitives :
+`Friction Constatée | Cause UI/Conceptuelle | Impact Psychologique | Correctif Immédiat PySide6`
+
+Consulter la méthode détaillée dans `references/first-time-user-walkthrough.md`.
+
+---
+
+## 2. Passe `/clarify` : UX Writing & Éradication du Jargon
+
+### Objectif
+Traduire la tuyauterie interne du code en une microcopy bienveillante, fluide et axée sur l'action et le bénéfice pour l'utilisateur.
+
+### Protocole d'Exécution
+1. **Épurer les termes développeurs** : Remplacer systématiquement *MCP, init_workspace, NoteType, Chunk, Vector Store, Peewee* par leurs équivalents humains.
+2. **Recomposer les messages d'erreur** : Appliquer la formule en 3 temps : *(1) Ce qui s'est passé + (2) Cause probable sans stacktrace + (3) Action de déblocage*.
+3. **Sécuriser les actions critiques** : Ajouter une mention rassurante avant génération ou export (innocuité des fichiers d'origine, gratuité du modèle local).
+
+Consulter le lexique complet dans `references/first-time-user-walkthrough.md`.
+
+---
+
+## 3. Passe `/distill` : Épuration et Clarté Radicale
 
 ### Objectif
 Supprimer les ornements superflus, les bordures étouffantes, les fonds hétérogènes et les lignes de séparation redondantes pour laisser respirer le contenu.
@@ -28,29 +71,9 @@ Supprimer les ornements superflus, les bordures étouffantes, les fonds hétéro
 3. **Unifier les fonds** : S'assurer que le contenu repose sur `BG_PANEL` ou `BG_MAIN`, sans sous-boîtes contrastées inutiles.
 4. **Débruiter les icônes** : Supprimer les icônes purement décoratives qui n'aident pas à l'action.
 
-```python
-# Exemple distill
-# Avant : 3 QGroupBox, 2 séparateurs HLine, fond hétérogène
-# Après : 1 conteneur fluide, titres en-tête clairs, 0 séparateur inutile
-```
-
 ---
 
-## 2. Passe `/typeset` : Hiérarchie Typographique Studio
-
-### Objectif
-Imposer une typographie lisible, hiérarchisée et élégante, guidant l'attention de l'utilisateur avec précision.
-
-### Protocole d'Exécution
-1. **Titres Majeurs (14-16px, Semibold 600)** : `COLOR_TEXT_PRIMARY`, marge inférieure nette.
-2. **Sous-titres & Sections (11-12px, Bold 600, Uppercase)** : `letter-spacing: 0.5px`, couleur `COLOR_TEXT_MUTED`.
-3. **Corps & Formulaires (12-13px, Regular 400)** : `COLOR_TEXT_PRIMARY` ou `SECONDARY`, lisibilité optimale sur `FONT_MAIN`.
-4. **Aides & Métadonnées (10-11px, Muted)** : `COLOR_TEXT_MUTED`, placé sous les champs sans encombrer.
-5. **Code & Données Précises (11-12px, Monospace)** : Utiliser systématiquement `FONT_CODE` (JetBrains Mono / monospace).
-
----
-
-## 3. Passe `/arrange` : Rythme Spatial et Alignements Optiques
+## 4. Passe `/arrange` : Rythme Spatial et Alignements Optiques
 
 ### Objectif
 Harmoniser toutes les dimensions selon la grille de 4px d'AnkiForge (`4, 8, 12, 16, 24px`) et aligner optiquement les composants.
@@ -72,7 +95,21 @@ Harmoniser toutes les dimensions selon la grille de 4px d'AnkiForge (`4, 8, 12, 
 
 ---
 
-## 4. Passe `/harden` : Résilience et Responsive Desktop
+## 5. Passe `/typeset` : Hiérarchie Typographique Studio
+
+### Objectif
+Imposer une typographie lisible, hiérarchisée et élégante, guidant l'attention de l'utilisateur avec précision.
+
+### Protocole d'Exécution
+1. **Titres Majeurs (14-16px, Semibold 600)** : `COLOR_TEXT_PRIMARY`, marge inférieure nette.
+2. **Sous-titres & Sections (11-12px, Bold 600, Uppercase)** : `letter-spacing: 0.5px`, couleur `COLOR_TEXT_MUTED`.
+3. **Corps & Formulaires (12-13px, Regular 400)** : `COLOR_TEXT_PRIMARY` ou `SECONDARY`, lisibilité optimale sur `FONT_MAIN`.
+4. **Aides & Métadonnées (10-11px, Muted)** : `COLOR_TEXT_MUTED`, placé sous les champs sans encombrer.
+5. **Code & Données Précises (11-12px, Monospace)** : Utiliser systématiquement `FONT_CODE` (JetBrains Mono / monospace).
+
+---
+
+## 6. Passe `/harden` : Résilience et Responsive Desktop
 
 ### Objectif
 Garantir que le widget ne casse jamais, ne tronque pas de texte et s'adapte sans faille aux dimensions d'écran critiques.
@@ -86,7 +123,7 @@ Garantir que le widget ne casse jamais, ne tronque pas de texte et s'adapte sans
 
 ---
 
-## 5. Passe `/polish` : Affordance et Micro-Détails
+## 7. Passe `/polish` : Affordance et Micro-Détails
 
 ### Objectif
 Donner à l'interface le toucher soigné d'un produit professionnel : curseurs, ombres d'élévation, transitions et retours visuels.
@@ -99,7 +136,7 @@ Donner à l'interface le toucher soigné d'un produit professionnel : curseurs, 
 
 ---
 
-## 6. Commandes d'Ajustement : `/quieter` & `/bolder`
+## 8. Commandes d'Ajustement : `/quieter` & `/bolder`
 
 ### `/quieter` (Atténuer la Charge Cognitive)
 À utiliser lorsqu'une vue est visuellement agressive ou encombrée :
