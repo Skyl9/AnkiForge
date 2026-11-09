@@ -233,3 +233,111 @@ def test_mcp_supervision_widget_theme_refresh(qtbot) -> None:
     widget.refresh_theme(JETBRAINS_DARK)
     assert "mcp_card_snippets" in widget.card_snippets.styleSheet()
     assert "border: none" in widget.lbl_snippet_hint.styleSheet()
+
+
+def test_mcp_supervision_widget_ping_and_uptime(qtbot, monkeypatch) -> None:
+    """Vérifie le fonctionnement du ping et l'affichage de l'uptime."""
+    widget = MCPSupervisionWidget(initial_status="stopped", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    # Quand le serveur est arrêté
+    assert not widget.btn_ping.isEnabled()
+    widget.test_connection_ping()
+    assert "arrêté" in widget.lbl_ping_result.text()
+
+    # Quand le serveur passe à running
+    widget.set_status("running", port=8765, token="tok_test_ping")
+    assert widget.btn_ping.isEnabled()
+    assert "Uptime" in widget.lbl_uptime.text()
+    assert widget.status_badge.text() == widget.tr("Actif")
+
+    # Tester le ping réussi
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    import urllib.request
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout: FakeResponse())
+
+    widget.test_connection_ping()
+    qtbot.waitUntil(lambda: "200 OK" in widget.lbl_ping_result.text(), timeout=2000)
+
+
+def test_mcp_supervision_widget_quick_exports_and_flash(qtbot) -> None:
+    """Vérifie la copie de la commande export ENV et de l'URL authentifiée avec feedback bouton."""
+    widget = MCPSupervisionWidget(
+        initial_status="running",
+        initial_port=8765,
+        initial_token="super_secret_token_abc123",
+    )
+    qtbot.addWidget(widget)
+
+    # Export Shell
+    widget.copy_env_export()
+    clipboard = QGuiApplication.clipboard()
+    assert clipboard is not None
+    assert "export ANKIFORGE_MCP_TOKEN=super_secret_token_abc123" in clipboard.text()
+    assert widget.btn_copy_env_export.text() == widget.tr("Copié !")
+
+    # URL avec jeton
+    widget.copy_authenticated_url()
+    assert "http://127.0.0.1:8765/mcp?token=super_secret_token_abc123" in clipboard.text()
+    assert widget.btn_copy_auth_url.text() == widget.tr("Copié !")
+
+
+def test_mcp_supervision_widget_kpi_listeners(qtbot) -> None:
+    """Vérifie la mise à jour des mini-KPIs d'activité en temps réel."""
+    from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
+
+    tracker = get_mcp_activity_tracker()
+    widget = MCPSupervisionWidget(initial_status="running", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    # Simuler un événement de tracking
+    tracker.signals.activity_started.emit({"tool_name": "audit_deck_wozniak"})
+    qtbot.waitUntil(lambda: widget.lbl_kpi_last_tool.text() == "audit_deck_wozniak", timeout=2000)
+
+    # Simuler la purge
+    tracker.signals.history_cleared.emit()
+    qtbot.waitUntil(lambda: widget.lbl_kpi_calls.text() == "0", timeout=2000)
+    assert widget.lbl_kpi_last_tool.text() == widget.tr("Aucun appel")
+
+
+def test_mcp_supervision_widget_open_client_config(qtbot, tmp_path, monkeypatch) -> None:
+    """Vérifie l'ouverture ou la création du fichier de configuration client."""
+    widget = MCPSupervisionWidget(initial_status="running", initial_port=8765, initial_token="tok_cfg")
+    qtbot.addWidget(widget)
+
+    fake_config_file = tmp_path / "claude" / "claude_desktop_config.json"
+    monkeypatch.setattr(widget, "_get_client_config_path", lambda client: fake_config_file)
+
+    opened_urls: list[str] = []
+    from PySide6.QtGui import QDesktopServices
+
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened_urls.append(url.toString()) or True)
+
+    widget.open_client_config()
+    assert fake_config_file.exists()
+    assert "tok_cfg" in fake_config_file.read_text(encoding="utf-8")
+    assert len(opened_urls) == 1
+
+
+def test_mcp_supervision_widget_button_styles_and_no_pulse_dot(qtbot) -> None:
+    """Vérifie l'application des styles chromatiques sur les boutons d'opérations et l'absence du pulse dot."""
+    widget = MCPSupervisionWidget(initial_status="stopped", initial_port=8765)
+    qtbot.addWidget(widget)
+
+    assert not hasattr(widget, "pulse_dot")
+    assert "mcp_btn_start" in widget.btn_start.styleSheet()
+    assert "mcp_btn_stop" in widget.btn_stop.styleSheet()
+    assert "mcp_btn_restart" in widget.btn_restart.styleSheet()
+
+    # Changement d'état : les icônes sont colorées quand le bouton est actif
+    widget.set_status("running")
+    assert not widget.btn_start.isEnabled()
+    assert widget.btn_stop.isEnabled()
+    assert widget.btn_restart.isEnabled()
