@@ -68,7 +68,7 @@ class RetentionCurveWidget(QWidget):
         self._load_badge = QLabel(self.tr("Charge : —"))
         self._load_badge.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         self._load_badge.setStyleSheet(
-            f"background-color: {DesignTokens.COLOR_BLUE_BG}; color: {DesignTokens.COLOR_BLUE_TEXT}; border: 1px solid {DesignTokens.COLOR_BLUE_BORDER}; border-radius: 9999px; padding: 2px 10px;"
+            f"background-color: {DesignTokens.COLOR_BLUE_BG}; color: {DesignTokens.COLOR_BLUE_TEXT}; border: 1px solid {DesignTokens.COLOR_BLUE_BORDER}; border-radius: 4px; padding: 2px 10px;"
         )
 
         self._stability_label = QLabel(self.tr("S moy. : —"))
@@ -198,6 +198,6 @@ class RetentionCurveWidget(QWidget):
         self._title_label.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self._stability_label.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
         self._load_badge.setStyleSheet(
-            f"background-color: {DesignTokens.COLOR_BLUE_BG}; color: {DesignTokens.COLOR_BLUE_TEXT}; border: 1px solid {DesignTokens.COLOR_BLUE_BORDER}; border-radius: 9999px; padding: 2px 10px;"
+            f"background-color: {DesignTokens.COLOR_BLUE_BG}; color: {DesignTokens.COLOR_BLUE_TEXT}; border: 1px solid {DesignTokens.COLOR_BLUE_BORDER}; border-radius: 4px; padding: 2px 10px;"
         )
         self.update()

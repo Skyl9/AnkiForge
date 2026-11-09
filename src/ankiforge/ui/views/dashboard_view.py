@@ -69,7 +69,7 @@ class DashboardHeroBanner(QFrame):
         self.icon_wrapper.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_ACTIVE};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius: 4px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """)
@@ -103,7 +103,7 @@ class DashboardHeroBanner(QFrame):
             DashboardHeroBanner {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius: 4px;
             }}
         """)
 
@@ -112,7 +112,7 @@ class DashboardHeroBanner(QFrame):
         self.icon_wrapper.setStyleSheet(f"""
             QFrame {{
                 background-color: {profile.bg_active};
-                border-radius: {profile.radius_md}px;
+                border-radius: 4px;
                 border: 1px solid {profile.border_color};
             }}
         """)
@@ -146,7 +146,7 @@ class DashboardActionButton(QFrame):
         self.icon_wrapper.setStyleSheet(f"""
             QFrame {{
                 background-color: {bg_color};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: 4px;
                 border: none;
             }}
         """)
@@ -186,7 +186,7 @@ class DashboardActionButton(QFrame):
             DashboardActionButton {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius: 4px;
             }}
             DashboardActionButton:hover {{
                 background-color: {DesignTokens.BG_HOVER};
@@ -208,7 +208,7 @@ class DashboardActionButton(QFrame):
         self.icon_wrapper.setStyleSheet(f"""
             QFrame {{
                 background-color: {profile.bg_active};
-                border-radius: {profile.radius_sm}px;
+                border-radius: 4px;
                 border: none;
             }}
         """)
@@ -297,7 +297,7 @@ class DiagnosticCardWidget(QFrame):
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {border_color};
                 border-left: 3px solid {left_accent};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: 4px;
             }}
             DiagnosticCardWidget:hover {{
                 background-color: {DesignTokens.BG_HOVER};
@@ -363,7 +363,7 @@ class ProactiveDiagnosticsWidget(QFrame):
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-left: 3px solid {DesignTokens.COLOR_GREEN};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: 4px;
             }}
         """)
         empty_layout = QHBoxLayout(empty_card)
@@ -430,7 +430,7 @@ class ActivityItem(QFrame):
         icon_wrapper.setStyleSheet(f"""
             QFrame {{
                 background-color: {bg_color};
-                border-radius: 17px;
+                border-radius: 4px;
                 border: none;
             }}
         """)
@@ -474,7 +474,7 @@ class ActivityItem(QFrame):
             ActivityItem {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: 4px;
             }}
             ActivityItem:hover {{
                 background-color: {DesignTokens.BG_HOVER};
@@ -540,7 +540,7 @@ class DashboardDropZone(QFrame):
             DashboardDropZone {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 2px dashed {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius: 4px;
             }}
             DashboardDropZone:hover {{
                 border: 2px dashed {DesignTokens.ACCENT_PRIMARY};
@@ -612,7 +612,7 @@ class StatItem(QFrame):
             StatItem {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: 4px;
             }}
         """)
 
@@ -864,7 +864,7 @@ class DashboardView(QWidget):
             QFrame#ActivityEmptyState {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px dashed {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: 4px;
             }}
         """)
         eb_layout = QVBoxLayout(empty_box)

@@ -317,7 +317,7 @@ class IdePanel(QFrame):
             QPushButton {{
                 background-color: transparent;
                 border: none;
-                border-radius: 4px;
+                border-radius: 0px;
             }}
             QPushButton:hover {{
                 background-color: {DesignTokens.BG_HOVER};
