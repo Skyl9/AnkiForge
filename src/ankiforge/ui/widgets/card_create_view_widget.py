@@ -1,8 +1,10 @@
-"""Widget dédié à l'affichage de création de carte pour le Garde-Fou.
+"""Widget dédié à l'affichage et à l'édition de création de carte pour le Garde-Fou.
 
 Destiné aux patches de création (`note_create`, `batch_note_create`) qui n'ont pas
 d'état « avant » et ne méritent donc pas une comparaison champ par champ (diff).
-Affiche simplement les champs, le paquet, le type de note et les tags de la nouvelle carte.
+Offre une séparation nette entre l'éditeur de champs (panneau gauche) et l'aperçu
+dynamique de la carte rendue via CardPreviewWidget (panneau droit) dans un QSplitter
+avec modes d'affichage segmentés (Côte à côte, Champs seuls, Aperçu seul).
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QByteArray, Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -20,6 +22,8 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -30,6 +34,7 @@ from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.model_select_window import ModelSelectWindow
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
+from ankiforge.utils.environment import get_app_qsettings
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.tags import split_tag_tokens
@@ -66,7 +71,7 @@ class TagBadgeButton(QPushButton):
 
 
 class CardCreateFieldRow(QFrame):
-    """Champ éditable d'une nouvelle carte (nom + valeur modifiable)."""
+    """Champ éditable d'une nouvelle carte (nom + valeur modifiable + compteur de mots)."""
 
     value_changed = Signal(str, str)  # field_name, new_value
 
@@ -80,7 +85,10 @@ class CardCreateFieldRow(QFrame):
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                margin-bottom: 6px;
+                margin-bottom: 8px;
+            }}
+            QFrame#CardCreateFieldRow:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
         self._setup_ui(field_value)
@@ -106,28 +114,36 @@ class CardCreateFieldRow(QFrame):
         header.addWidget(lbl_name)
 
         word_count = len(field_value.split()) if field_value else 0
-        badge_words = Badge(tr("%1 mots", word_count), variant="neutral")
-        header.addWidget(badge_words)
+        self.badge_words = Badge(tr("%1 mots", word_count), variant="neutral")
+        header.addWidget(self.badge_words)
         header.addStretch()
         layout.addLayout(header)
 
         self.value_edit = QPlainTextEdit()
         self.value_edit.setPlainText(field_value)
-        self.value_edit.setMaximumHeight(100)
+        self.value_edit.setMinimumHeight(75)
         self.value_edit.setStyleSheet(f"""
             QPlainTextEdit {{
-                border: none;
-                background-color: transparent;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                background-color: {DesignTokens.BG_PANEL};
                 color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 11px;
+                font-size: 12px;
                 font-family: {DesignTokens.FONT_CODE};
+                padding: 6px;
+            }}
+            QPlainTextEdit:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
         self.value_edit.textChanged.connect(self._on_text_changed)
         layout.addWidget(self.value_edit, 1)
 
     def _on_text_changed(self) -> None:
-        self.value_changed.emit(self.field_name, self.value_edit.toPlainText())
+        text = self.value_edit.toPlainText()
+        word_count = len(text.split()) if text else 0
+        self.badge_words.setText(tr("%1 mots", word_count))
+        self.value_changed.emit(self.field_name, text)
 
     @property
     def value(self) -> str:
@@ -140,8 +156,8 @@ class CardCreateViewWidget(QWidget):
 
     Destiné aux patches de création (`note_create`, `batch_note_create`) qui n'ont pas
     d'état « avant » et ne méritent donc pas une comparaison champ par champ (diff).
-    Permet d'éditer les champs, les tags (en badges modifiables), le paquet et le type de note,
-    avec un aperçu rendu via CardPreviewWidget.
+    Sépare nettement les champs éditables (gauche) et l'aperçu dynamique rendu (droite)
+    avec sélecteur de mode (Côte à côte, Champs seuls, Aperçu seul) et persistance d'état.
     """
 
     content_edited = Signal(object)  # dict[str, str] ou dict complet
@@ -157,6 +173,7 @@ class CardCreateViewWidget(QWidget):
         self._notes_list: list[dict[str, Any]] = []
         self._current_note_index: int = 0
         self._tag_badges: list[TagBadgeButton] = []
+        self._current_view_mode: str = "split"
 
         self._setup_ui()
 
@@ -165,7 +182,7 @@ class CardCreateViewWidget(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(8)
 
-        # ── En-tête (titre + métadonnées) ──────────────────────────────
+        # ── 1. En-tête (titre, métadonnées, sélecteur de disposition) ────
         header = QFrame()
         header.setObjectName("CardCreateHeader")
         header.setStyleSheet(f"""
@@ -173,11 +190,11 @@ class CardCreateViewWidget(QWidget):
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 8px 12px;
+                padding: 6px 10px;
             }}
         """)
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(6, 6, 6, 6)
+        header_layout.setContentsMargins(6, 4, 6, 4)
         header_layout.setSpacing(8)
 
         ico = QLabel()
@@ -185,8 +202,8 @@ class CardCreateViewWidget(QWidget):
         header_layout.addWidget(ico)
 
         self.lbl_title = QLabel(tr("Nouvelle carte"))
-        self.lbl_title.setStyleSheet(f"font-size: 14px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
-        header_layout.addWidget(self.lbl_title, 1)
+        self.lbl_title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
+        header_layout.addWidget(self.lbl_title)
 
         self.lbl_deck = QLabel()
         self.lbl_deck.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
@@ -196,21 +213,60 @@ class CardCreateViewWidget(QWidget):
         self.lbl_note_type.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
         header_layout.addWidget(self.lbl_note_type)
 
-        self.btn_change_deck = SecondaryButton(tr("Changer le paquet"))
+        self.btn_change_deck = SecondaryButton(tr("Changer paquet"))
         self.btn_change_deck.setIcon(load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_SECONDARY))
         self.btn_change_deck.setFixedHeight(28)
         self.btn_change_deck.clicked.connect(self._on_change_deck)
         header_layout.addWidget(self.btn_change_deck)
 
-        self.btn_change_note_type = SecondaryButton(tr("Changer le type de note"))
+        self.btn_change_note_type = SecondaryButton(tr("Changer modèle"))
         self.btn_change_note_type.setIcon(load_phosphor_icon("ph.note", color=DesignTokens.TEXT_SECONDARY))
         self.btn_change_note_type.setFixedHeight(28)
         self.btn_change_note_type.clicked.connect(self._on_change_note_type)
         header_layout.addWidget(self.btn_change_note_type)
 
+        header_layout.addStretch()
+
+        # Sélecteur de mode d'affichage segmenté (Côte à côte / Champs / Aperçu)
+        self.view_mode_group = QWidget()
+        view_mode_layout = QHBoxLayout(self.view_mode_group)
+        view_mode_layout.setContentsMargins(0, 0, 0, 0)
+        view_mode_layout.setSpacing(2)
+
+        self.btn_mode_split = QPushButton(tr("Côte à côte"))
+        self.btn_mode_split.setIcon(load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_mode_split.setCheckable(True)
+        self.btn_mode_split.setFixedHeight(26)
+        self.btn_mode_split.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_mode_split.setToolTip(tr("Affichage partagé : Champs à gauche, Aperçu à droite"))
+        self.btn_mode_split.clicked.connect(lambda: self.set_view_mode("split"))
+
+        self.btn_mode_fields = QPushButton(tr("Champs"))
+        self.btn_mode_fields.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_mode_fields.setCheckable(True)
+        self.btn_mode_fields.setFixedHeight(26)
+        self.btn_mode_fields.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_mode_fields.setToolTip(tr("Plein écran : Édition complète des champs de la carte"))
+        self.btn_mode_fields.clicked.connect(lambda: self.set_view_mode("fields"))
+
+        self.btn_mode_preview = QPushButton(tr("Aperçu"))
+        self.btn_mode_preview.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_mode_preview.setCheckable(True)
+        self.btn_mode_preview.setFixedHeight(26)
+        self.btn_mode_preview.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_mode_preview.setToolTip(tr("Plein écran : Prévisualisation WebView de la carte créée"))
+        self.btn_mode_preview.clicked.connect(lambda: self.set_view_mode("preview"))
+
+        self._apply_mode_button_styles()
+
+        view_mode_layout.addWidget(self.btn_mode_split)
+        view_mode_layout.addWidget(self.btn_mode_fields)
+        view_mode_layout.addWidget(self.btn_mode_preview)
+        header_layout.addWidget(self.view_mode_group)
+
         main_layout.addWidget(header)
 
-        # ── Navigation lot (cachée si pas batch) ───────────────────────
+        # ── 2. Navigation de lot (si batch_note_create) ────────────────
         self.nav_widget = QWidget()
         self.nav_widget.setVisible(False)
         self.nav_row = QHBoxLayout(self.nav_widget)
@@ -218,6 +274,7 @@ class CardCreateViewWidget(QWidget):
         self.nav_row.setSpacing(6)
 
         self.btn_nav_prev = SecondaryButton(tr("Précédent"))
+        self.btn_nav_prev.setIcon(load_phosphor_icon("ph.caret-left", color=DesignTokens.TEXT_PRIMARY))
         self.btn_nav_prev.setFixedHeight(28)
         self.btn_nav_prev.clicked.connect(self._go_prev)
         self.nav_row.addWidget(self.btn_nav_prev)
@@ -227,6 +284,7 @@ class CardCreateViewWidget(QWidget):
         self.nav_row.addWidget(self.lbl_nav_pos)
 
         self.btn_nav_next = SecondaryButton(tr("Suivant"))
+        self.btn_nav_next.setIcon(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_PRIMARY))
         self.btn_nav_next.setFixedHeight(28)
         self.btn_nav_next.clicked.connect(self._go_next)
         self.nav_row.addWidget(self.btn_nav_next)
@@ -234,7 +292,38 @@ class CardCreateViewWidget(QWidget):
         self.nav_row.addStretch()
         main_layout.addWidget(self.nav_widget)
 
-        # ── Champs de la carte ─────────────────────────────────────────
+        # ── 3. Splitter Horizontal (Champs à gauche | Aperçu à droite) ──
+        self.content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.content_splitter.setChildrenCollapsible(False)
+
+        # ── Panneau Gauche : Édition des champs et des tags ────────────
+        self.left_panel = QFrame()
+        self.left_panel.setObjectName("CardCreateLeftPanel")
+        self.left_panel.setStyleSheet("""
+            QFrame#CardCreateLeftPanel {
+                background-color: transparent;
+                border: none;
+            }
+        """)
+        left_layout = QVBoxLayout(self.left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(8)
+
+        # En-tête des champs
+        fields_header = QHBoxLayout()
+        fields_header.setContentsMargins(4, 2, 4, 2)
+        fields_header.setSpacing(6)
+
+        lbl_fields_title = QLabel(tr("CHAMPS DE LA CARTE"))
+        lbl_fields_title.setStyleSheet(f"font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: {DesignTokens.TEXT_MUTED};")
+        fields_header.addWidget(lbl_fields_title)
+
+        self.badge_fields_count = Badge(tr("0 champ"), variant="neutral")
+        fields_header.addWidget(self.badge_fields_count)
+        fields_header.addStretch()
+        left_layout.addLayout(fields_header)
+
+        # Scroll des champs (pleine hauteur)
         self.fields_scroll = QScrollArea()
         self.fields_scroll.setWidgetResizable(True)
         self.fields_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -242,18 +331,17 @@ class CardCreateViewWidget(QWidget):
 
         self.fields_content = QWidget()
         self.fields_layout = QVBoxLayout(self.fields_content)
-        self.fields_layout.setContentsMargins(0, 0, 0, 0)
+        self.fields_layout.setContentsMargins(0, 0, 4, 0)
         self.fields_layout.setSpacing(0)
         self.fields_layout.addStretch()
 
         self.fields_scroll.setWidget(self.fields_content)
-        self.fields_scroll.setMaximumHeight(300)
-        main_layout.addWidget(self.fields_scroll, 1)
+        left_layout.addWidget(self.fields_scroll, 1)
 
-        # ── Tags en badges modifiables ─────────────────────────────────
-        tags_card = QFrame()
-        tags_card.setObjectName("CardCreateTags")
-        tags_card.setStyleSheet(f"""
+        # Tags en badges modifiables (intégré au volet gauche)
+        self.tags_card = QFrame()
+        self.tags_card.setObjectName("CardCreateTags")
+        self.tags_card.setStyleSheet(f"""
             QFrame#CardCreateTags {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -261,7 +349,7 @@ class CardCreateViewWidget(QWidget):
                 padding: 6px 10px;
             }}
         """)
-        tags_layout = QHBoxLayout(tags_card)
+        tags_layout = QHBoxLayout(self.tags_card)
         tags_layout.setContentsMargins(8, 6, 8, 6)
         tags_layout.setSpacing(6)
 
@@ -289,43 +377,112 @@ class CardCreateViewWidget(QWidget):
                 font-size: 10px;
                 padding: 0 6px;
             }}
+            QLineEdit:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
         """)
         tags_layout.addWidget(self.new_tag_edit)
-        main_layout.addWidget(tags_card)
+        left_layout.addWidget(self.tags_card)
 
-        # ── Aperçu via CardPreviewWidget ───────────────────────────────
-        preview_card = QFrame()
-        preview_card.setObjectName("CardCreatePreview")
-        preview_card.setStyleSheet(f"""
-            QFrame#CardCreatePreview {{
+        self.content_splitter.addWidget(self.left_panel)
+
+        # ── Panneau Droit : Aperçu dynamique de la carte Anki ──────────
+        self.right_panel = QFrame()
+        self.right_panel.setObjectName("CardCreateRightPanel")
+        self.right_panel.setStyleSheet(f"""
+            QFrame#CardCreateRightPanel {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
-        preview_layout = QVBoxLayout(preview_card)
-        preview_layout.setContentsMargins(8, 6, 8, 6)
-        preview_layout.setSpacing(4)
+        right_layout = QVBoxLayout(self.right_panel)
+        right_layout.setContentsMargins(6, 6, 6, 6)
+        right_layout.setSpacing(4)
 
-        preview_header = QHBoxLayout()
-        preview_header.setContentsMargins(0, 0, 0, 0)
-        preview_header.setSpacing(6)
+        # Prévisualisation avec contrôles (Recto/Verso, modes appareils, zoom)
+        self.preview_widget = CardPreviewWidget(parent=self, show_header=True)
+        self.preview_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        right_layout.addWidget(self.preview_widget, 1)
 
-        prev_icon = QLabel()
-        prev_icon.setPixmap(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
-        preview_header.addWidget(prev_icon)
+        self.content_splitter.addWidget(self.right_panel)
 
-        prev_lbl = QLabel(tr("APERÇU"))
-        prev_lbl.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {DesignTokens.TEXT_MUTED};")
-        preview_header.addWidget(prev_lbl)
-        preview_header.addStretch()
-        preview_layout.addLayout(preview_header)
+        self.content_splitter.setStretchFactor(0, 1)
+        self.content_splitter.setStretchFactor(1, 1)
+        self.content_splitter.splitterMoved.connect(self._on_splitter_moved)
 
-        self.preview_widget = CardPreviewWidget(parent=self, show_header=False)
-        self.preview_widget.setMinimumHeight(160)
-        self.preview_widget.setMaximumHeight(320)
-        preview_layout.addWidget(self.preview_widget, 1)
-        main_layout.addWidget(preview_card)
+        main_layout.addWidget(self.content_splitter, 1)
+
+        # Restaurer la configuration géométrique et le mode d'affichage
+        self._restore_settings()
+
+    def _apply_mode_button_styles(self) -> None:
+        """Applique le style cohérent aux boutons du sélecteur de disposition."""
+        for btn in (self.btn_mode_split, self.btn_mode_fields, self.btn_mode_preview):
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 4px;
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    font-size: 11px;
+                    font-weight: 500;
+                    padding: 0 8px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                    border-color: {DesignTokens.ACCENT_PRIMARY};
+                }}
+                QPushButton:checked {{
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                    color: {DesignTokens.ACCENT_PRIMARY};
+                    font-weight: 700;
+                }}
+            """)
+
+    def set_view_mode(self, mode: str) -> None:
+        """Bascule le mode d'affichage ('split', 'fields', 'preview')."""
+        self._current_view_mode = mode
+        self.btn_mode_split.setChecked(mode == "split")
+        self.btn_mode_fields.setChecked(mode == "fields")
+        self.btn_mode_preview.setChecked(mode == "preview")
+
+        if mode == "fields":
+            self.left_panel.setVisible(True)
+            self.right_panel.setVisible(False)
+        elif mode == "preview":
+            self.left_panel.setVisible(False)
+            self.right_panel.setVisible(True)
+        else:  # split
+            self.left_panel.setVisible(True)
+            self.right_panel.setVisible(True)
+            # Répartir équitablement si nécessaire
+            half = max(200, self.content_splitter.width() // 2)
+            if half > 200:
+                self.content_splitter.setSizes([half, half])
+
+        settings = get_app_qsettings()
+        settings.setValue("mcp/card_create_view_mode", mode)
+
+    def _on_splitter_moved(self, pos: int, index: int) -> None:
+        """Sauvegarde l'état du séparateur dans les préférences utilisateur."""
+        settings = get_app_qsettings()
+        settings.setValue("mcp/card_create_splitter_state", self.content_splitter.saveState())
+
+    def _restore_settings(self) -> None:
+        """Restaure les préférences de découpage et de mode d'affichage."""
+        settings = get_app_qsettings()
+        state = settings.value("mcp/card_create_splitter_state")
+        if isinstance(state, (QByteArray, bytes)):
+            self.content_splitter.restoreState(state)
+        else:
+            self.content_splitter.setSizes([420, 480])
+
+        mode = str(settings.value("mcp/card_create_view_mode") or "split")
+        if mode not in ("split", "fields", "preview"):
+            mode = "split"
+        self.set_view_mode(mode)
 
     def set_patch(self, patch: Any) -> None:
         """Configure l'affichage à partir d'un patch staged (`note_create` ou `batch_note_create`)."""
@@ -411,9 +568,12 @@ class CardCreateViewWidget(QWidget):
                 w.deleteLater()
         self._field_rows.clear()
 
+        count = len(self._fields)
+        self.badge_fields_count.setText(tr("%1 champ(s)", count))
+
         if not self._fields:
-            lbl_empty = QLabel(tr("Aucun champ défini"))
-            lbl_empty.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic;")
+            lbl_empty = QLabel(tr("Aucun champ défini pour cette carte."))
+            lbl_empty.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic; padding: 12px;")
             self.fields_layout.insertWidget(self.fields_layout.count() - 1, lbl_empty)
             return
 
@@ -556,6 +716,7 @@ class CardCreateViewWidget(QWidget):
         """Adapte les styles au profil de thème actif."""
         self.style().unpolish(self)
         self.style().polish(self)
+        self._apply_mode_button_styles()
         if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "refresh_theme"):
             self.preview_widget.refresh_theme(profile)
 
