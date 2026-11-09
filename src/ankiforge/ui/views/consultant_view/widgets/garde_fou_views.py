@@ -15,6 +15,7 @@ import json
 import logging
 from typing import Any
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -113,19 +114,19 @@ class DeckOperationWidget(QWidget):
         eg_layout.setSpacing(8)
 
         lbl_edit_name = QLabel(tr("Nom du paquet (modifiable) :"))
-        lbl_edit_name.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        lbl_edit_name.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.TEXT_MUTED};")
         eg_layout.addWidget(lbl_edit_name)
 
         self.deck_name_input = QLineEdit()
-        self.deck_name_input.setFixedHeight(30)
+        self.deck_name_input.setFixedHeight(32)
         self.deck_name_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
+                border-radius: 6px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 font-size: 12px;
-                padding: 0 8px;
+                padding: 0 10px;
             }}
             QLineEdit:focus {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
@@ -134,19 +135,19 @@ class DeckOperationWidget(QWidget):
         eg_layout.addWidget(self.deck_name_input)
 
         lbl_edit_desc = QLabel(tr("Description du paquet :"))
-        lbl_edit_desc.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        lbl_edit_desc.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.TEXT_MUTED};")
         eg_layout.addWidget(lbl_edit_desc)
 
         self.desc_input = QTextEdit()
-        self.desc_input.setFixedHeight(60)
+        self.desc_input.setMinimumHeight(60)
         self.desc_input.setStyleSheet(f"""
             QTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
+                border-radius: 6px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 font-size: 11px;
-                padding: 6px;
+                padding: 6px 10px;
             }}
             QTextEdit:focus {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
@@ -182,9 +183,9 @@ class DeckOperationWidget(QWidget):
             row_old = QHBoxLayout()
             row_old.setSpacing(8)
             lbl_from = QLabel(tr("Ancien chemin : %1", old_name))
+            lbl_from.setWordWrap(True)
             lbl_from.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-weight: 600; font-size: 12px;")
-            row_old.addWidget(lbl_from)
-            row_old.addStretch()
+            row_old.addWidget(lbl_from, 1)
             badge_old = Badge(tr("Actuel"), variant="danger")
             row_old.addWidget(badge_old)
             self.tree_layout.addLayout(row_old)
@@ -192,9 +193,9 @@ class DeckOperationWidget(QWidget):
             row_new = QHBoxLayout()
             row_new.setSpacing(8)
             lbl_to = QLabel(tr("Nouveau chemin : %1", new_name))
+            lbl_to.setWordWrap(True)
             lbl_to.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN_TEXT}; font-weight: 600; font-size: 12px;")
-            row_new.addWidget(lbl_to)
-            row_new.addStretch()
+            row_new.addWidget(lbl_to, 1)
             badge_new = Badge(tr("Proposé"), variant="success")
             row_new.addWidget(badge_new)
             self.tree_layout.addLayout(row_new)
@@ -357,19 +358,19 @@ class TagDiffWidget(QWidget):
         ec_layout.setSpacing(6)
 
         lbl_edit = QLabel(tr("Tags ajoutés (séparés par des virgules) :"))
-        lbl_edit.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        lbl_edit.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.TEXT_MUTED};")
         ec_layout.addWidget(lbl_edit)
 
         self.tags_input = QLineEdit()
-        self.tags_input.setFixedHeight(30)
+        self.tags_input.setFixedHeight(32)
         self.tags_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
+                border-radius: 6px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 font-size: 12px;
-                padding: 0 8px;
+                padding: 0 10px;
             }}
             QLineEdit:focus {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
@@ -405,7 +406,7 @@ class TagDiffWidget(QWidget):
 
         # Section Tags Ajoutés
         lbl_add = QLabel(tr("Tags ajoutés (+%1) :", len(self._added_tags)))
-        lbl_add.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_GREEN_TEXT};")
+        lbl_add.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.COLOR_GREEN_TEXT};")
         self.tags_layout.addWidget(lbl_add)
 
         row_add = QHBoxLayout()
@@ -423,7 +424,7 @@ class TagDiffWidget(QWidget):
 
         # Section Tags Retirés
         lbl_rem = QLabel(tr("Tags retirés (-%1) :", len(self._removed_tags)))
-        lbl_rem.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_RED_TEXT};")
+        lbl_rem.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.COLOR_RED_TEXT};")
         self.tags_layout.addWidget(lbl_rem)
 
         row_rem = QHBoxLayout()
@@ -520,11 +521,12 @@ class DeletionImpactWidget(QWidget):
         banner_text_layout.setSpacing(2)
 
         lbl_danger_title = QLabel(tr("AVERTISSEMENT : SUPPRESSION DÉFINITIVE"))
-        lbl_danger_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {DesignTokens.COLOR_RED_TEXT};")
+        lbl_danger_title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.COLOR_RED_TEXT};")
         banner_text_layout.addWidget(lbl_danger_title)
 
         lbl_danger_desc = QLabel(tr("Cette action détruira définitivement les enregistrements sélectionnés de votre collection."))
         lbl_danger_desc.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_PRIMARY};")
+        lbl_danger_desc.setWordWrap(True)
         banner_text_layout.addWidget(lbl_danger_desc)
 
         banner_layout.addLayout(banner_text_layout, 1)
@@ -545,15 +547,17 @@ class DeletionImpactWidget(QWidget):
         self.impact_layout.setSpacing(6)
 
         lbl_impact_header = QLabel(tr("Détail de l'impact calculé :"))
-        lbl_impact_header.setStyleSheet(f"font-size: 12px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
+        lbl_impact_header.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.TEXT_MUTED};")
         self.impact_layout.addWidget(lbl_impact_header)
 
         self.lbl_target_info = QLabel()
         self.lbl_target_info.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_SECONDARY};")
+        self.lbl_target_info.setWordWrap(True)
         self.impact_layout.addWidget(self.lbl_target_info)
 
         self.lbl_cards_count = QLabel()
         self.lbl_cards_count.setStyleSheet(f"font-size: 11px; color: {DesignTokens.COLOR_RED_TEXT}; font-weight: 600;")
+        self.lbl_cards_count.setWordWrap(True)
         self.impact_layout.addWidget(self.lbl_cards_count)
 
         self.lbl_reason = QLabel()
@@ -594,7 +598,7 @@ class DeletionImpactWidget(QWidget):
         preview_header.addWidget(ico_trash)
 
         self.lbl_preview_title = QLabel(tr("Contenu de la note ciblée pour destruction (Lecture seule)"))
-        self.lbl_preview_title.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_RED_TEXT};")
+        self.lbl_preview_title.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.COLOR_RED_TEXT};")
         preview_header.addWidget(self.lbl_preview_title)
         preview_header.addStretch()
 
@@ -612,19 +616,22 @@ class DeletionImpactWidget(QWidget):
 
         self.btn_nav_prev = SecondaryButton(tr("Précédente"))
         self.btn_nav_prev.setIcon(load_phosphor_icon("ph.caret-left", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_nav_prev.setFixedHeight(26)
+        self.btn_nav_prev.setFixedHeight(32)
+        self.btn_nav_prev.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_nav_prev.clicked.connect(self._go_prev)
         nav_row.addWidget(self.btn_nav_prev)
 
         self.combo_nav = StyledComboBox()
-        self.combo_nav.setFixedHeight(26)
+        self.combo_nav.setFixedHeight(32)
         self.combo_nav.setMinimumWidth(220)
+        self.combo_nav.setCursor(Qt.CursorShape.PointingHandCursor)
         self.combo_nav.currentIndexChanged.connect(self._on_combo_index_changed)
         nav_row.addWidget(self.combo_nav)
 
         self.btn_nav_next = SecondaryButton(tr("Suivante"))
         self.btn_nav_next.setIcon(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_nav_next.setFixedHeight(26)
+        self.btn_nav_next.setFixedHeight(32)
+        self.btn_nav_next.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_nav_next.clicked.connect(self._go_next)
         nav_row.addWidget(self.btn_nav_next)
 
@@ -924,17 +931,18 @@ class NoteTypePatchWidget(QWidget):
         selector_row.setSpacing(8)
 
         lbl_selector = QLabel(tr("Note d'exemple :"))
-        lbl_selector.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        lbl_selector.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.TEXT_MUTED};")
         selector_row.addWidget(lbl_selector)
 
         self.combo_note = StyledComboBox()
-        self.combo_note.setFixedHeight(26)
+        self.combo_note.setFixedHeight(32)
         self.combo_note.setMinimumWidth(220)
+        self.combo_note.setCursor(Qt.CursorShape.PointingHandCursor)
         self.combo_note.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
+                border-radius: 6px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 font-size: 11px;
                 padding: 0 8px;
@@ -954,13 +962,14 @@ class NoteTypePatchWidget(QWidget):
 
         # ── Éditeur des champs ──────────────────────────────────────────
         lbl_fields = QLabel(tr("Champs (modifiables) :"))
-        lbl_fields.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        lbl_fields.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.TEXT_MUTED};")
         layout.addWidget(lbl_fields)
 
         self.fields_scroll = QScrollArea()
         self.fields_scroll.setWidgetResizable(True)
         self.fields_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.fields_scroll.setMaximumHeight(220)
+        self.fields_scroll.setMinimumHeight(120)
+        self.fields_scroll.setMaximumHeight(320)
         self.fields_container = QWidget()
         self.fields_container_layout = QVBoxLayout(self.fields_container)
         self.fields_container_layout.setContentsMargins(0, 0, 0, 0)
@@ -970,20 +979,21 @@ class NoteTypePatchWidget(QWidget):
 
         # ── Éditeur du CSS ──────────────────────────────────────────────
         lbl_css = QLabel(tr("CSS du modèle :"))
-        lbl_css.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_SECONDARY};")
+        lbl_css.setStyleSheet(f"font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {DesignTokens.TEXT_MUTED};")
         layout.addWidget(lbl_css)
 
         self.css_edit = QPlainTextEdit()
-        self.css_edit.setFixedHeight(100)
+        self.css_edit.setMinimumHeight(80)
+        self.css_edit.setMaximumHeight(160)
         self.css_edit.setStyleSheet(f"""
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
+                border-radius: 6px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 font-family: {DesignTokens.FONT_CODE};
                 font-size: 11px;
-                padding: 6px;
+                padding: 6px 10px;
             }}
             QPlainTextEdit:focus {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
@@ -1079,14 +1089,15 @@ class NoteTypePatchWidget(QWidget):
             row_layout.addWidget(lbl)
 
             edit = QLineEdit(str(value))
+            edit.setFixedHeight(32)
             edit.setStyleSheet(f"""
                 QLineEdit {{
                     background-color: {DesignTokens.BG_INPUT};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: 3px;
+                    border-radius: 4px;
                     color: {DesignTokens.TEXT_PRIMARY};
                     font-size: 11px;
-                    padding: 0 6px;
+                    padding: 0 8px;
                 }}
                 QLineEdit:focus {{
                     border-color: {DesignTokens.ACCENT_PRIMARY};

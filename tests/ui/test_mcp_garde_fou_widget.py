@@ -1451,3 +1451,157 @@ def test_mcp_garde_fou_tree_and_item_word_wrap(qtbot, sample_note):
     patch_title_labels = [label for label in patch_labels if "Titre très long" in label.text()]
     assert len(patch_title_labels) == 1
     assert patch_title_labels[0].wordWrap() is True
+
+
+def test_mcp_garde_fou_impeccable_craft_improvements(qtbot, sample_note) -> None:
+    """Vérifie les améliorations Impeccable (EmptyStateWidget, tooltips, hauteurs, curseurs)."""
+    from ankiforge.ui.components.panels import EmptyStateWidget
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget.reload_pending_patches()
+
+    # 1. Empty state est un EmptyStateWidget officiel
+    assert isinstance(widget.empty_view, EmptyStateWidget)
+
+    # 2. Compteur neutre quand 0
+    assert widget.badge_count.text() == "0"
+    assert widget.badge_count.current_variant == "neutral"
+
+    # 3. Tooltips sur boutons désactivés
+    assert "Aucune proposition" in widget.btn_apply_all.toolTip()
+    assert "Aucune proposition" in widget.btn_reject_all.toolTip()
+
+    # 4. Hauteurs normalisées
+    assert widget.search_input.height() == 32
+    assert widget.btn_apply_all.height() == 32
+    assert widget.btn_reject_all.height() == 32
+    assert widget.btn_apply.height() == 36
+    assert widget.btn_reject.height() == 36
+
+    # 5. Curseurs main interactifs
+    assert widget.patch_tree.cursor().shape() == Qt.CursorShape.PointingHandCursor
+    assert widget.chip_pending.cursor().shape() == Qt.CursorShape.PointingHandCursor
+    assert widget.btn_apply.cursor().shape() == Qt.CursorShape.PointingHandCursor
+    assert widget.btn_reject.cursor().shape() == Qt.CursorShape.PointingHandCursor
+
+    # 6. Ajout d'un patch : le badge devient accent et les tooltips s'enrichissent
+    _patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={
+            "type": "card",
+            "note_id": sample_note.id,
+            "title": "Proposition Craft",
+            "original": {"Front": "A"},
+            "modified": {"Front": "B"},
+        },
+    )
+    widget.reload_pending_patches()
+
+    assert widget.count() == 1
+    assert widget.badge_count.text() == "1"
+    assert widget.badge_count.current_variant == "accent"
+    assert "Valider l'ensemble" in widget.btn_apply_all.toolTip()
+    assert "Rejeter l'ensemble" in widget.btn_reject_all.toolTip()
+
+    # Nettoyage
+    widget.btn_apply.click()
+
+
+def test_mcp_garde_fou_shortcuts_activation(qtbot, sample_note) -> None:
+    """Vérifie l'existence et la liaison des raccourcis clavier Ctrl+Return et Delete."""
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+
+    assert hasattr(widget, "_shortcut_apply")
+    assert hasattr(widget, "_shortcut_reject")
+
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={
+            "type": "card",
+            "note_id": sample_note.id,
+            "title": "Test Raccourcis",
+            "original": {"Front": "Q1"},
+            "modified": {"Front": "Q2"},
+        },
+    )
+    widget.reload_pending_patches()
+    assert widget.count() == 1
+
+    # Déclenchement de l'action de validation via le slot du raccourci
+    applied_signals: list[str] = []
+    widget.patch_applied.connect(applied_signals.append)
+    widget._shortcut_apply.activated.emit()
+
+    assert len(applied_signals) == 1
+    assert applied_signals[0] == patch.patch_id
+    assert widget.count() == 0
+
+
+def test_mcp_garde_fou_status_filters_and_aborted_workflow(qtbot, sample_note) -> None:
+    """Vérifie la gestion avancée des filtres En attente / Annulés / Tous et la restauration de proposition."""
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+
+    # 1. Empty state adapté à chaque filtre
+    widget._set_status_filter("pending")
+    assert "Garde-Fou au repos" in widget.empty_view.title_lbl.text()
+    assert widget.btn_apply_all.isVisible()
+
+    widget._set_status_filter("aborted")
+    assert "Aucune proposition annulée" in widget.empty_view.title_lbl.text()
+    assert not widget.btn_apply_all.isVisible()
+    assert not widget.btn_reject_all.isVisible()
+    assert widget.lbl_batch_hint.isVisible()
+
+    widget._set_status_filter("all")
+    assert "Aucune proposition" in widget.empty_view.title_lbl.text()
+    assert widget.btn_apply_all.isVisible()
+
+    # 2. Création d'un patch et annulation
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={
+            "type": "card",
+            "note_id": sample_note.id,
+            "title": "Proposition à annuler",
+            "original": {"Front": "QInit"},
+            "modified": {"Front": "QModif"},
+        },
+    )
+    StagedPatchRegistry.abort_staged_patch(patch.patch_id, reason="Changement d'avis utilisateur")
+
+    # 3. Consultation en mode Annulés
+    widget._set_status_filter("aborted")
+    assert widget.count() == 1
+    assert widget.select_patch_by_id(patch.patch_id)
+
+    # La bannière d'annulation et le bouton de restauration sont visibles
+    assert widget.abort_banner.isVisible()
+    assert "Changement d'avis" in widget.lbl_abort_banner_desc.text()
+    assert widget.btn_restore_patch.isVisible()
+    assert not widget.btn_apply.isVisible()
+
+    # 4. Restauration de la proposition en attente
+    widget.btn_restore_patch.click()
+
+    # Le filtre "aborted" est désormais vide
+    widget.reload_pending_patches()
+    assert widget.count() == 0
+
+    # La proposition est revenue dans "pending"
+    widget._set_status_filter("pending")
+    assert widget.count() == 1
+    assert widget.btn_apply.isVisible()
+    assert not widget.abort_banner.isVisible()
+    assert not widget.btn_restore_patch.isVisible()
+
+    # Nettoyage
+    widget.btn_apply.click()

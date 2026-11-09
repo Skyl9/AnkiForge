@@ -12,12 +12,13 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QSizePolicy,
     QSplitter,
     QStackedWidget,
@@ -38,7 +39,8 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
 )
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.components.panels import EmptyStateWidget
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.views.consultant_view.widgets.garde_fou_views import (
     DeckOperationWidget,
     DeletionImpactWidget,
@@ -65,9 +67,10 @@ class BundleHeaderItemWidget(QWidget):
         self._setup_ui(bundle, pending_count)
 
     def _setup_ui(self, bundle: StagedBundleModel, pending_count: int) -> None:
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(2)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(4)
 
         top_row = QHBoxLayout()
         top_row.setContentsMargins(0, 0, 0, 0)
@@ -80,22 +83,27 @@ class BundleHeaderItemWidget(QWidget):
         lbl_title = QLabel(bundle.title or tr("Bloc d'opérations"))
         lbl_title.setWordWrap(True)
         lbl_title.setStyleSheet(f"""
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 12px;
+            font-weight: 600;
             color: {DesignTokens.TEXT_PRIMARY};
             border: none;
             background: transparent;
         """)
         top_row.addWidget(lbl_title, 1)
 
-        badge_text = tr("%1 étapes", bundle.total_steps)
-        badge_variant = "accent"
-        if bundle.current_step > 1:
-            badge_text = tr("Étape %1/%2", bundle.current_step, bundle.total_steps)
-            badge_variant = "warning"
-        bundle_badge = Badge(badge_text, variant=badge_variant)
-        bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
-        top_row.addWidget(bundle_badge)
+        if bundle.status == "aborted":
+            bundle_badge = Badge(tr("Annulé"), variant="warning")
+            bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+            top_row.addWidget(bundle_badge)
+        else:
+            badge_text = tr("%1 étapes", bundle.total_steps)
+            badge_variant = "accent"
+            if bundle.current_step > 1:
+                badge_text = tr("Étape %1/%2", bundle.current_step, bundle.total_steps)
+                badge_variant = "warning"
+            bundle_badge = Badge(badge_text, variant=badge_variant)
+            bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+            top_row.addWidget(bundle_badge)
         layout.addLayout(top_row)
 
         if bundle.explanation:
@@ -141,20 +149,25 @@ class PatchListItemWidget(QWidget):
         self._setup_ui(patch)
 
     def _setup_ui(self, patch: StagedPatchModel) -> None:
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 4, 6, 4)
-        layout.setSpacing(3)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(4)
 
-        # Ligne 1 : Titre + Badge de type
+        # Ligne 1 : Titre + Badge de type + Badge d'état si annulé
         top_row = QHBoxLayout()
         top_row.setContentsMargins(0, 0, 0, 0)
         top_row.setSpacing(6)
 
+        is_aborted = patch.status == "aborted"
+        title_color = DesignTokens.TEXT_MUTED if is_aborted else DesignTokens.TEXT_PRIMARY
+        title_weight = "500" if is_aborted else "600"
+
         lbl_title = QLabel(self.title)
         lbl_title.setStyleSheet(f"""
-            font-size: 11px;
-            font-weight: 600;
-            color: {DesignTokens.TEXT_PRIMARY};
+            font-size: 12px;
+            font-weight: {title_weight};
+            color: {title_color};
             border: none;
             background: transparent;
         """)
@@ -183,6 +196,12 @@ class PatchListItemWidget(QWidget):
         type_badge = Badge(type_label, variant=type_variant)
         type_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         top_row.addWidget(type_badge)
+
+        if is_aborted:
+            abort_badge = Badge(tr("Annulé"), variant="warning")
+            abort_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+            top_row.addWidget(abort_badge)
+
         layout.addLayout(top_row)
 
         # Ligne 2 : Identifiant et date
@@ -240,24 +259,27 @@ class HierarchicalPatchTreeWidget(QTreeWidget):
         self.setIndentation(14)
         self.setAnimated(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(f"""
             QTreeWidget {{
                 background-color: transparent;
                 border: none;
             }}
             QTreeWidget::item {{
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
-                background-color: {DesignTokens.BG_INPUT};
-                margin-bottom: 4px;
+                border: 1px solid transparent;
+                border-radius: 6px;
+                background-color: transparent;
+                margin-bottom: 2px;
                 padding: 2px;
             }}
             QTreeWidget::item:selected {{
                 background-color: {DesignTokens.BG_ACTIVE};
-                border-color: {DesignTokens.ACCENT_PRIMARY};
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 6px;
             }}
             QTreeWidget::item:hover:!selected {{
                 background-color: {DesignTokens.BG_HOVER};
+                border-radius: 6px;
             }}
         """)
         self._selectable_items: list[QTreeWidgetItem] = []
@@ -313,8 +335,17 @@ class MCPGardeFouWidget(QWidget):
         self._current_patch: StagedPatchModel | None = None
         self._notified_patch_ids: set[str] = set()
         self._current_status_filter: str = "pending"
+        self._skip_confirm_for_test: bool = False
 
         self._setup_ui()
+
+        # Raccourcis clavier (Power User)
+        self._shortcut_apply = QShortcut(QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Return), self)
+        self._shortcut_apply.activated.connect(self._apply_current_patch)
+        self._shortcut_apply_enter = QShortcut(QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Enter), self)
+        self._shortcut_apply_enter.activated.connect(self._apply_current_patch)
+        self._shortcut_reject = QShortcut(QKeySequence(Qt.Key.Key_Delete), self)
+        self._shortcut_reject.activated.connect(self._reject_current_patch)
 
         # Abonnement direct au bus d'événements pour le rafraîchissement incrémental
         event_bus.subscribe(MCPPatchStagedEvent, self._on_mcp_patch_staged)
@@ -550,7 +581,7 @@ class MCPGardeFouWidget(QWidget):
             }}
         """)
         left_layout = QVBoxLayout(self.left_panel)
-        left_layout.setContentsMargins(10, 10, 10, 10)
+        left_layout.setContentsMargins(12, 12, 12, 12)
         left_layout.setSpacing(8)
 
         # En-tête de la liste
@@ -558,30 +589,31 @@ class MCPGardeFouWidget(QWidget):
         header_row.setContentsMargins(0, 0, 0, 0)
         lbl_title = QLabel(tr("PROPOSITIONS EN ATTENTE"))
         lbl_title.setStyleSheet(f"""
-            font-size: 10px;
-            font-weight: 700;
+            font-size: 11px;
+            font-weight: 600;
             letter-spacing: 0.5px;
+            text-transform: uppercase;
             color: {DesignTokens.TEXT_MUTED};
         """)
         header_row.addWidget(lbl_title)
         header_row.addStretch()
 
-        self.badge_count = Badge("0", variant="danger")
+        self.badge_count = Badge("0", variant="neutral")
         header_row.addWidget(self.badge_count)
         left_layout.addLayout(header_row)
 
         # Barre de recherche / filtrage
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(tr("Filtrer les propositions..."))
-        self.search_input.setFixedHeight(26)
+        self.search_input.setFixedHeight(32)
         self.search_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
+                border-radius: 6px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 font-size: 11px;
-                padding: 0 8px;
+                padding: 0 10px;
             }}
             QLineEdit:focus {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
@@ -606,12 +638,15 @@ class MCPGardeFouWidget(QWidget):
 
         self.chip_pending = FilterChipButton(tr("En attente"), icon_name="ph.clock")
         self.chip_pending.setChecked(True)
+        self.chip_pending.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chip_pending.toggled.connect(lambda checked: self._set_status_filter("pending") if checked else None)
 
         self.chip_aborted = FilterChipButton(tr("Annulés"), icon_name="ph.trash")
+        self.chip_aborted.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chip_aborted.toggled.connect(lambda checked: self._set_status_filter("aborted") if checked else None)
 
         self.chip_all = FilterChipButton(tr("Tous"), icon_name="ph.list")
+        self.chip_all.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chip_all.toggled.connect(lambda checked: self._set_status_filter("all") if checked else None)
 
         self._status_chips: list[FilterChipButton] = [self.chip_pending, self.chip_aborted, self.chip_all]
@@ -626,12 +661,13 @@ class MCPGardeFouWidget(QWidget):
         batch_row.setContentsMargins(0, 0, 0, 0)
         batch_row.setSpacing(6)
 
-        self.btn_apply_all = SecondaryButton(tr("Tout appliquer"))
+        self.btn_apply_all = SecondaryButton(tr("Tout valider"))
         self.btn_apply_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
-        self.btn_apply_all.setFixedHeight(30)
+        self.btn_apply_all.setFixedHeight(32)
+        self.btn_apply_all.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_apply_all.setStyleSheet("""
             QPushButton {
-                padding: 4px 8px;
+                padding: 4px 10px;
                 font-size: 11px;
                 font-weight: 600;
             }
@@ -641,16 +677,29 @@ class MCPGardeFouWidget(QWidget):
 
         self.btn_reject_all = SecondaryButton(tr("Tout rejeter"))
         self.btn_reject_all.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.COLOR_RED))
-        self.btn_reject_all.setFixedHeight(30)
+        self.btn_reject_all.setFixedHeight(32)
+        self.btn_reject_all.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_reject_all.setStyleSheet("""
             QPushButton {
-                padding: 4px 8px;
+                padding: 4px 10px;
                 font-size: 11px;
                 font-weight: 600;
             }
         """)
         self.btn_reject_all.clicked.connect(self._reject_all_patches)
         batch_row.addWidget(self.btn_reject_all)
+
+        self.lbl_batch_hint = QLabel()
+        self.lbl_batch_hint.setStyleSheet(f"""
+            font-size: 11px;
+            color: {DesignTokens.TEXT_MUTED};
+            font-style: italic;
+            border: none;
+            background: transparent;
+        """)
+        self.lbl_batch_hint.setVisible(False)
+        batch_row.addWidget(self.lbl_batch_hint)
+        batch_row.addStretch()
 
         left_layout.addLayout(batch_row)
 
@@ -677,49 +726,36 @@ class MCPGardeFouWidget(QWidget):
 
         self.detail_stack = QStackedWidget()
 
-        # Index 0 : Vue Vide
-        self.empty_view = QWidget()
-        empty_layout = QVBoxLayout(self.empty_view)
-        empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.setSpacing(12)
-
-        icon_empty = QLabel()
-        icon_empty.setPixmap(load_phosphor_icon("ph.shield-check", color=DesignTokens.TEXT_MUTED).pixmap(56, 56))
-        icon_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(icon_empty)
-
-        lbl_empty_title = QLabel(tr("Aucune proposition en attente"))
-        lbl_empty_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        lbl_empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(lbl_empty_title)
-
-        lbl_empty_sub = QLabel(tr("Toutes les propositions d'agents MCP ont été validées ou rejetées."))
-        lbl_empty_sub.setStyleSheet(f"font-size: 12px; color: {DesignTokens.TEXT_MUTED};")
-        lbl_empty_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(lbl_empty_sub)
-
+        # Index 0 : Vue Vide (EmptyStateWidget officiel avec guidage d'onboarding)
+        self.empty_view = EmptyStateWidget(
+            icon_name="ph.shield-check",
+            title=tr("Garde-Fou au repos"),
+            description=tr("Toutes les propositions d'agents IA ont été traitées.\nVotre collection Anki est parfaitement synchronisée et protégée."),
+            parent=self,
+        )
         self.detail_stack.addWidget(self.empty_view)
 
         # Index 1 : Vue Détail Polymorphe
         self.detail_view = QWidget()
         detail_view_layout = QVBoxLayout(self.detail_view)
-        detail_view_layout.setContentsMargins(12, 12, 12, 12)
-        detail_view_layout.setSpacing(10)
+        detail_view_layout.setContentsMargins(16, 16, 16, 16)
+        detail_view_layout.setSpacing(12)
 
         # Barre supérieure de détail (Titre + Métadonnées + Feedback)
         detail_header = QHBoxLayout()
         detail_header.setContentsMargins(0, 0, 0, 0)
-        detail_header.setSpacing(10)
+        detail_header.setSpacing(12)
 
         title_col = QVBoxLayout()
-        title_col.setSpacing(2)
+        title_col.setSpacing(4)
 
         self.lbl_detail_title = QLabel()
         self.lbl_detail_title.setStyleSheet(f"""
-            font-size: 14px;
-            font-weight: 700;
+            font-size: 15px;
+            font-weight: 600;
             color: {DesignTokens.TEXT_PRIMARY};
         """)
+        self.lbl_detail_title.setWordWrap(True)
         title_col.addWidget(self.lbl_detail_title)
 
         self.lbl_detail_meta = QLabel()
@@ -728,6 +764,7 @@ class MCPGardeFouWidget(QWidget):
             color: {DesignTokens.TEXT_MUTED};
             font-family: {DesignTokens.FONT_CODE};
         """)
+        self.lbl_detail_meta.setWordWrap(True)
         title_col.addWidget(self.lbl_detail_meta)
 
         self.lbl_abort_reason = QLabel()
@@ -749,12 +786,48 @@ class MCPGardeFouWidget(QWidget):
 
         self.btn_copy_feedback = SecondaryButton(tr("Copier le feedback"))
         self.btn_copy_feedback.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_SECONDARY))
-        self.btn_copy_feedback.setFixedHeight(28)
-        self.btn_copy_feedback.setToolTip(tr("Copie une synthèse pour le terminal CLI de l'agent externe"))
+        self.btn_copy_feedback.setFixedHeight(32)
+        self.btn_copy_feedback.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_copy_feedback.setToolTip(tr("Copier le compte-rendu d'arbitrage pour l'assistant IA"))
         self.btn_copy_feedback.clicked.connect(self._copy_feedback)
         detail_header.addWidget(self.btn_copy_feedback)
 
         detail_view_layout.addLayout(detail_header)
+
+        # ── Bannière d'annulation claire pour propositions annulées ─────────
+        self.abort_banner = QFrame()
+        self.abort_banner.setObjectName("mcp_gf_abort_banner")
+        self.abort_banner.setStyleSheet(f"""
+            QFrame#mcp_gf_abort_banner {{
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
+                border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 10px 14px;
+            }}
+        """)
+        abort_layout = QHBoxLayout(self.abort_banner)
+        abort_layout.setContentsMargins(10, 8, 10, 8)
+        abort_layout.setSpacing(12)
+
+        icon_prohibit = QLabel()
+        icon_prohibit.setPixmap(load_phosphor_icon("ph.prohibit", color=DesignTokens.COLOR_YELLOW).pixmap(24, 24))
+        abort_layout.addWidget(icon_prohibit)
+
+        abort_text_col = QVBoxLayout()
+        abort_text_col.setSpacing(2)
+
+        lbl_banner_title = QLabel(tr("PROPOSITION ANNULÉE PAR L'ASSISTANT IA"))
+        lbl_banner_title.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.COLOR_YELLOW_TEXT}; letter-spacing: 0.5px;")
+        abort_text_col.addWidget(lbl_banner_title)
+
+        self.lbl_abort_banner_desc = QLabel()
+        self.lbl_abort_banner_desc.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_PRIMARY};")
+        self.lbl_abort_banner_desc.setWordWrap(True)
+        abort_text_col.addWidget(self.lbl_abort_banner_desc)
+
+        abort_layout.addLayout(abort_text_col, 1)
+        self.abort_banner.setVisible(False)
+        detail_view_layout.addWidget(self.abort_banner)
 
         # ── QStackedWidget Polymorphe (4 pages) ──────────────────────────────
         self.polymorphic_stack = QStackedWidget()
@@ -787,24 +860,31 @@ class MCPGardeFouWidget(QWidget):
 
         # ── Barre d'Action Séquentielle Inférieure ───────────────────────────
         action_bar = QHBoxLayout()
-        action_bar.setContentsMargins(0, 0, 0, 0)
-        action_bar.setSpacing(10)
+        action_bar.setContentsMargins(0, 8, 0, 0)
+        action_bar.setSpacing(12)
 
         self.btn_reject = SecondaryButton(tr("Rejeter la proposition"))
         self.btn_reject.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.COLOR_RED))
-        self.btn_reject.setFixedHeight(32)
+        self.btn_reject.setFixedHeight(36)
+        self.btn_reject.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_reject.setToolTip(tr("Rejeter la proposition (Suppr)"))
         self.btn_reject.setStyleSheet(f"""
             QPushButton {{
-                background-color: {DesignTokens.COLOR_RED_BG};
-                color: {DesignTokens.COLOR_RED};
-                border: 1px solid {DesignTokens.COLOR_RED};
-                border-radius: 4px;
+                background-color: transparent;
+                color: {DesignTokens.COLOR_RED_TEXT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
                 font-weight: 600;
-                padding: 0 14px;
+                padding: 0 16px;
             }}
             QPushButton:hover {{
-                background-color: {DesignTokens.COLOR_RED};
-                color: white;
+                background-color: {DesignTokens.COLOR_RED_BG};
+                border-color: {DesignTokens.COLOR_RED};
+                color: {DesignTokens.COLOR_RED_TEXT};
+            }}
+            QPushButton:disabled {{
+                opacity: 0.45;
+                border-color: {DesignTokens.BORDER_COLOR};
             }}
         """)
         self.btn_reject.clicked.connect(self._reject_current_patch)
@@ -814,15 +894,17 @@ class MCPGardeFouWidget(QWidget):
 
         self.btn_apply_bundle_all = SecondaryButton(tr("Tout valider le bloc"))
         self.btn_apply_bundle_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
-        self.btn_apply_bundle_all.setFixedHeight(32)
+        self.btn_apply_bundle_all.setFixedHeight(36)
+        self.btn_apply_bundle_all.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_apply_bundle_all.setToolTip(tr("Valider toutes les étapes du lot en une seule transaction"))
         self.btn_apply_bundle_all.setStyleSheet(f"""
             QPushButton {{
                 background-color: {DesignTokens.COLOR_GREEN_BG};
-                color: {DesignTokens.COLOR_GREEN};
-                border: 1px solid {DesignTokens.COLOR_GREEN};
-                border-radius: 4px;
+                color: {DesignTokens.COLOR_GREEN_TEXT};
+                border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
+                border-radius: 6px;
                 font-weight: 600;
-                padding: 0 14px;
+                padding: 0 16px;
             }}
             QPushButton:hover {{
                 background-color: {DesignTokens.COLOR_GREEN};
@@ -833,11 +915,37 @@ class MCPGardeFouWidget(QWidget):
         self.btn_apply_bundle_all.setVisible(False)
         action_bar.addWidget(self.btn_apply_bundle_all)
 
-        self.btn_apply = PrimaryButton(tr("Appliquer la modification"))
+        self.btn_apply = PrimaryButton(tr("Valider la modification"))
         self.btn_apply.setIcon(load_on_accent_icon("ph.check"))
-        self.btn_apply.setFixedHeight(32)
+        self.btn_apply.setFixedHeight(36)
+        self.btn_apply.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_apply.setToolTip(tr("Valider la modification (Ctrl+Entrée)"))
+        apply_shadow(self.btn_apply, blur=12, offset_y=1, color=DesignTokens.ACCENT_GLOW)
         self.btn_apply.clicked.connect(self._apply_current_patch)
         action_bar.addWidget(self.btn_apply)
+
+        self.btn_restore_patch = SecondaryButton(tr("Rétablir en attente"))
+        self.btn_restore_patch.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
+        self.btn_restore_patch.setFixedHeight(36)
+        self.btn_restore_patch.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_restore_patch.setToolTip(tr("Rétablir cette proposition dans la file d'attente pour révision"))
+        self.btn_restore_patch.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
+                color: {DesignTokens.COLOR_YELLOW_TEXT};
+                border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};
+                border-radius: 6px;
+                font-weight: 600;
+                padding: 0 16px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.COLOR_YELLOW};
+                color: white;
+            }}
+        """)
+        self.btn_restore_patch.clicked.connect(self._restore_current_patch)
+        self.btn_restore_patch.setVisible(False)
+        action_bar.addWidget(self.btn_restore_patch)
 
         detail_view_layout.addLayout(action_bar)
         self.detail_stack.addWidget(self.detail_view)
@@ -954,16 +1062,46 @@ class MCPGardeFouWidget(QWidget):
         # Mise à jour des compteurs et états
         total_count = len(self._patches)
         self.badge_count.setText(str(total_count))
-        self.badge_count.set_variant("danger" if total_count else "neutral")
+        self.badge_count.set_variant("accent" if total_count else "neutral")
+
+        self._update_filter_chip_labels()
+
+        # Adapter la barre d'actions globales selon le filtre
+        if self._current_status_filter == "aborted":
+            self.btn_apply_all.setVisible(False)
+            self.btn_reject_all.setVisible(False)
+            self.lbl_batch_hint.setVisible(True)
+            self.lbl_batch_hint.setText(tr("Historique en lecture seule"))
+        else:
+            self.btn_apply_all.setVisible(True)
+            self.btn_reject_all.setVisible(True)
+            self.lbl_batch_hint.setVisible(False)
 
         if not self._patches:
             self._current_patch = None
             self.detail_stack.setCurrentIndex(0)
+            if self._current_status_filter == "aborted":
+                self.empty_view.title_lbl.setText(tr("Aucune proposition annulée"))
+                self.empty_view.desc_lbl.setText(tr("L'historique des propositions d'assistants IA annulées ou rejetées est vide."))
+                self.empty_view.icon_lbl.setPixmap(load_phosphor_icon("ph.prohibit", color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
+            elif self._current_status_filter == "all":
+                self.empty_view.title_lbl.setText(tr("Aucune proposition"))
+                self.empty_view.desc_lbl.setText(tr("Aucune proposition d'assistant IA (en attente ou annulée) n'a encore été enregistrée."))
+                self.empty_view.icon_lbl.setPixmap(load_phosphor_icon("ph.tray", color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
+            else:
+                self.empty_view.title_lbl.setText(tr("Garde-Fou au repos"))
+                self.empty_view.desc_lbl.setText(tr("Toutes les propositions d'agents IA ont été traitées.\nVotre collection Anki est parfaitement synchronisée et protégée."))
+                self.empty_view.icon_lbl.setPixmap(load_phosphor_icon("ph.shield-check", color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
+
             self.btn_apply_all.setEnabled(False)
             self.btn_reject_all.setEnabled(False)
+            self.btn_apply_all.setToolTip(tr("Aucune proposition en attente à traiter."))
+            self.btn_reject_all.setToolTip(tr("Aucune proposition en attente à traiter."))
         else:
             self.btn_apply_all.setEnabled(True)
             self.btn_reject_all.setEnabled(True)
+            self.btn_apply_all.setToolTip(tr("Valider l'ensemble des %1 proposition(s) en attente.", total_count))
+            self.btn_reject_all.setToolTip(tr("Rejeter l'ensemble des %1 proposition(s) en attente.", total_count))
             if selected_item is not None:
                 self.patch_tree.setCurrentItem(selected_item)
             else:
@@ -971,6 +1109,18 @@ class MCPGardeFouWidget(QWidget):
                 self.patch_tree.setCurrentRow(target_row)
 
         self.queue_updated.emit(total_count)
+
+    def _update_filter_chip_labels(self) -> None:
+        """Met à jour les libellés des puces de filtrage avec les compteurs correspondants."""
+        try:
+            pending_count = StagedPatchModel.select().where(StagedPatchModel.status.in_(["pending", "partial"])).count()
+            aborted_count = StagedPatchModel.select().where(StagedPatchModel.status == "aborted").count()
+            total_count = pending_count + aborted_count
+            self.chip_pending.setText(tr("En attente (%1)", pending_count))
+            self.chip_aborted.setText(tr("Annulés (%1)", aborted_count))
+            self.chip_all.setText(tr("Tous (%1)", total_count))
+        except Exception as e:
+            logger.debug(f"Impossible d'actualiser les compteurs de filtres : {e}")
 
     def select_patch_by_id(self, patch_id: str) -> bool:
         """Sélectionne un patch spécifique dans l'arborescence par son identifiant unique."""
@@ -1014,38 +1164,50 @@ class MCPGardeFouWidget(QWidget):
         if patch.bundle:
             title = str(payload.get("title") or tr("Étape %1 — %2", patch.step_order, patch.patch_type))
             meta_str = tr(
-                "Bundle : %1 · Étape %2/%3 · ID: %4",
-                patch.bundle.title,
+                "Lot : « %1 » • Étape %2 sur %3 • Réf. %4",
+                patch.bundle.title or tr("Sans titre"),
                 patch.step_order,
                 patch.bundle.total_steps,
                 patch.patch_id[:8],
             )
             self.btn_apply.setText(tr("Valider cette étape"))
+            self.btn_apply.setToolTip(tr("Valider cette étape (Ctrl+Entrée)"))
             self.btn_reject.setText(tr("Rejeter la suite du bloc"))
+            self.btn_reject.setToolTip(tr("Interrompre et rejeter la suite du bloc (Suppr)"))
             self.btn_apply_bundle_all.setVisible(True)
         else:
             title = str(payload.get("title") or tr("Proposition — %1 #%2", patch.patch_type, patch.target_id))
-            meta_str = f"ID: {patch.patch_id} · Type: {patch.patch_type.upper()}"
+            meta_str = tr("Réf. %1 • Type : %2", patch.patch_id[:8], patch.patch_type.upper())
             if patch.target_id:
-                meta_str += tr(" · Note ciblée : #%1", patch.target_id)
-            self.btn_apply.setText(tr("Appliquer la modification"))
+                meta_str += tr(" • Note ciblée #%1", patch.target_id)
+            self.btn_apply.setText(tr("Valider la modification"))
+            self.btn_apply.setToolTip(tr("Valider la modification (Ctrl+Entrée)"))
             self.btn_reject.setText(tr("Rejeter la proposition"))
+            self.btn_reject.setToolTip(tr("Rejeter la proposition (Suppr)"))
             self.btn_apply_bundle_all.setVisible(False)
 
         is_aborted = patch.status == "aborted"
         if is_aborted:
             self.btn_apply.setEnabled(False)
             self.btn_reject.setEnabled(False)
-            self.btn_apply.setToolTip(tr("Cette proposition a été annulée par l'agent."))
-            self.btn_reject.setToolTip(tr("Une proposition annulée ne peut pas être rejetée à nouveau."))
-            self.lbl_abort_reason.setText(tr("Annulé par l'agent : %1", patch.reason) if patch.reason else tr("Annulé par l'agent."))
+            self.btn_apply.setVisible(False)
+            self.btn_reject.setVisible(False)
+            self.btn_apply_bundle_all.setVisible(False)
+            self.btn_restore_patch.setVisible(True)
+
+            reason_str = patch.reason or tr("Annulé par l'assistant IA lors de la phase de révision.")
+            self.lbl_abort_banner_desc.setText(tr("Motif : %1", reason_str))
+            self.abort_banner.setVisible(True)
+            self.lbl_abort_reason.setText(tr("Annulé : %1", reason_str))
             self.lbl_abort_reason.show()
             self.badge_abort_status.show()
         else:
             self.btn_apply.setEnabled(True)
             self.btn_reject.setEnabled(True)
-            self.btn_apply.setToolTip("")
-            self.btn_reject.setToolTip("")
+            self.btn_apply.setVisible(True)
+            self.btn_reject.setVisible(True)
+            self.btn_restore_patch.setVisible(False)
+            self.abort_banner.setVisible(False)
             self.lbl_abort_reason.hide()
             self.badge_abort_status.hide()
 
@@ -1170,6 +1332,22 @@ class MCPGardeFouWidget(QWidget):
             self.patch_rejected.emit(patch_id)
             self.reload_pending_patches()
 
+    def _restore_current_patch(self) -> None:
+        """Rétablit une proposition annulée en statut 'pending' pour révision ou application."""
+        if not self._current_patch:
+            return
+
+        patch_id = self._current_patch.patch_id
+        self._current_patch.status = "pending"
+        self._current_patch.save()
+
+        if self._current_patch.bundle and self._current_patch.bundle.status == "aborted":
+            self._current_patch.bundle.status = "pending"
+            self._current_patch.bundle.save()
+
+        show_toast(self, tr("Proposition %1 rétablie en attente !", patch_id[:8]), level="success")
+        self.reload_pending_patches()
+
     def _apply_bundle_all(self) -> None:
         """Applique l'intégralité du bundle en une transaction atomique unique."""
         if not self._current_patch or not self._current_patch.bundle:
@@ -1238,6 +1416,20 @@ class MCPGardeFouWidget(QWidget):
         if not self._patches:
             return
 
+        if not getattr(self, "_skip_confirm_for_test", False) and self.isVisible():
+            reply = QMessageBox.question(
+                self,
+                tr("Confirmation de rejet groupé"),
+                tr(
+                    "Voulez-vous vraiment rejeter l'ensemble des %1 proposition(s) en attente ?\nCette action est irréversible.",
+                    len(self._patches),
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
         count = len(self._patches)
         handled_bundles: set[str] = set()
 
@@ -1257,23 +1449,23 @@ class MCPGardeFouWidget(QWidget):
         self.reload_pending_patches()
 
     def _copy_feedback(self) -> None:
-        """Copie une synthèse d'arbitrage dans le presse-papier pour le terminal de l'agent."""
+        """Copie une synthèse d'arbitrage dans le presse-papier pour l'assistant IA."""
         if not self._current_patch:
             return
 
         p = self._current_patch
         payload = staged_payload_of(p)
         feedback_lines = [
-            "[Garde-Fou AnkiForge] Feedback pour l'agent MCP :",
-            f"- Patch ID : {p.patch_id}",
+            tr("[AnkiForge] Compte-rendu d'arbitrage utilisateur :"),
+            f"- Réf. : {p.patch_id}",
             f"- Cible : Note #{p.target_id} (Type: {p.patch_type})",
             f"- Titre : {payload.get('title', '')}",
-            "- Statut d'arbitrage : Validé avec retouches / En attente de révision",
-            "- Directives complémentaires : Merci d'affiner la concision selon les 20 règles de Wozniak.",
+            tr("- Statut d'arbitrage : Validé avec retouches / En attente de révision"),
+            tr("- Directives complémentaires : Merci d'affiner la concision selon les 20 règles de Wozniak."),
         ]
         text = "\n".join(feedback_lines)
         QGuiApplication.clipboard().setText(text)
-        show_toast(self, tr("Synthèse de feedback copiée dans le presse-papier"), level="success")
+        show_toast(self, tr("Compte-rendu copié dans le presse-papier"), level="success")
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
@@ -1294,6 +1486,17 @@ class MCPGardeFouWidget(QWidget):
                     background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+        if hasattr(self, "abort_banner"):
+            color_yellow_bg = getattr(profile, "color_yellow_bg", DesignTokens.COLOR_YELLOW_BG)
+            color_yellow_border = getattr(profile, "color_yellow_border", DesignTokens.COLOR_YELLOW_BORDER)
+            self.abort_banner.setStyleSheet(f"""
+                QFrame#mcp_gf_abort_banner {{
+                    background-color: {color_yellow_bg};
+                    border: 1px solid {color_yellow_border};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 10px 14px;
                 }}
             """)
         if hasattr(self, "diff_viewer") and hasattr(self.diff_viewer, "refresh_theme"):
