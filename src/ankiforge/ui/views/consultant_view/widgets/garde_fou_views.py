@@ -62,8 +62,9 @@ class DeckOperationWidget(QWidget):
 
         # En-tête d'opération
         header_card = QFrame()
+        header_card.setObjectName("deck_header_card")
         header_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#deck_header_card {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -79,7 +80,7 @@ class DeckOperationWidget(QWidget):
         h_layout.addWidget(self.icon_badge)
 
         self.lbl_op_title = QLabel(tr("Opération sur les paquets"))
-        self.lbl_op_title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
+        self.lbl_op_title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         h_layout.addWidget(self.lbl_op_title, 1)
 
         self.badge_mode = Badge(tr("PAQUET"), variant="warning")
@@ -88,8 +89,9 @@ class DeckOperationWidget(QWidget):
 
         # Zone d'arborescence visuelle
         self.tree_frame = QFrame()
+        self.tree_frame.setObjectName("deck_tree_frame")
         self.tree_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#deck_tree_frame {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -102,8 +104,9 @@ class DeckOperationWidget(QWidget):
 
         # Zone d'édition directe
         edit_group = QFrame()
+        edit_group.setObjectName("deck_edit_group")
         edit_group.setStyleSheet(f"""
-            QFrame {{
+            QFrame#deck_edit_group {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -266,7 +269,7 @@ class DeckOperationWidget(QWidget):
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
         text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
         self.tree_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#deck_tree_frame {{
                 background-color: {bg_panel};
                 border: 1px solid {border_color};
                 border-radius: 6px;
@@ -301,8 +304,9 @@ class TagDiffWidget(QWidget):
 
         # En-tête
         header_card = QFrame()
+        header_card.setObjectName("tag_header_card")
         header_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#tag_header_card {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -318,7 +322,7 @@ class TagDiffWidget(QWidget):
         h_layout.addWidget(icon_tag)
 
         self.lbl_target = QLabel(tr("Opération de tagging"))
-        self.lbl_target.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
+        self.lbl_target.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         h_layout.addWidget(self.lbl_target, 1)
 
         self.badge_mode = Badge(tr("AJOUT"), variant="accent")
@@ -331,8 +335,9 @@ class TagDiffWidget(QWidget):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         self.tags_container = QFrame()
+        self.tags_container.setObjectName("tag_tags_container")
         self.tags_container.setStyleSheet(f"""
-            QFrame {{
+            QFrame#tag_tags_container {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -346,8 +351,9 @@ class TagDiffWidget(QWidget):
 
         # Édition directe
         edit_card = QFrame()
+        edit_card.setObjectName("tag_edit_card")
         edit_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#tag_edit_card {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -466,7 +472,7 @@ class TagDiffWidget(QWidget):
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
         text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
         self.tags_container.setStyleSheet(f"""
-            QFrame {{
+            QFrame#tag_tags_container {{
                 background-color: {bg_panel};
                 border: 1px solid {border_color};
                 border-radius: 6px;
@@ -501,8 +507,9 @@ class DeletionImpactWidget(QWidget):
 
         # ── 1. Bannière rouge vif d'avertissement critique ─────────────
         self.alert_banner = QFrame()
+        self.alert_banner.setObjectName("deletion_alert_banner")
         self.alert_banner.setStyleSheet(f"""
-            QFrame {{
+            QFrame#deletion_alert_banner {{
                 background-color: {DesignTokens.COLOR_RED_BG};
                 border: 2px solid {DesignTokens.COLOR_RED};
                 border-radius: 8px;
@@ -521,11 +528,11 @@ class DeletionImpactWidget(QWidget):
         banner_text_layout.setSpacing(2)
 
         lbl_danger_title = QLabel(tr("AVERTISSEMENT : SUPPRESSION DÉFINITIVE"))
-        lbl_danger_title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.COLOR_RED_TEXT};")
+        lbl_danger_title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.COLOR_RED_TEXT}; border: none; background: transparent;")
         banner_text_layout.addWidget(lbl_danger_title)
 
         lbl_danger_desc = QLabel(tr("Cette action détruira définitivement les enregistrements sélectionnés de votre collection."))
-        lbl_danger_desc.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_PRIMARY};")
+        lbl_danger_desc.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         lbl_danger_desc.setWordWrap(True)
         banner_text_layout.addWidget(lbl_danger_desc)
 
@@ -534,8 +541,9 @@ class DeletionImpactWidget(QWidget):
 
         # ── 2. Cadre de décompte d'impact ──────────────────────────────
         self.impact_frame = QFrame()
+        self.impact_frame.setObjectName("deletion_impact_frame")
         self.impact_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#deletion_impact_frame {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -845,7 +853,7 @@ class DeletionImpactWidget(QWidget):
         color_red = getattr(profile, "color_red", DesignTokens.COLOR_RED)
         color_red_bg = getattr(profile, "color_red_bg", DesignTokens.COLOR_RED_BG)
         self.alert_banner.setStyleSheet(f"""
-            QFrame {{
+            QFrame#deletion_alert_banner {{
                 background-color: {color_red_bg};
                 border: 2px solid {color_red};
                 border-radius: 8px;
@@ -866,11 +874,10 @@ class DeletionImpactWidget(QWidget):
             border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
             bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
             self.impact_frame.setStyleSheet(f"""
-                QFrame {{
+                QFrame#deletion_impact_frame {{
                     background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: 6px;
-                    padding: 10px;
                 }}
             """)
 
@@ -902,8 +909,9 @@ class NoteTypePatchWidget(QWidget):
 
         # ── En-tête d'opération ──────────────────────────────────────────
         header_card = QFrame()
+        header_card.setObjectName("notetype_header_card")
         header_card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#notetype_header_card {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
@@ -1072,8 +1080,9 @@ class NoteTypePatchWidget(QWidget):
         fields = self._edited_fields if self._edited_fields else {str(f): f"Exemple {f}" for f in self._fields_schema}
         for field_name, value in fields.items():
             row = QFrame()
+            row.setObjectName("notetype_field_row")
             row.setStyleSheet(f"""
-                QFrame {{
+                QFrame#notetype_field_row {{
                     background-color: {DesignTokens.BG_PANEL};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
                     border-radius: 4px;

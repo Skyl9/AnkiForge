@@ -51,6 +51,7 @@ class TagBadgeButton(QPushButton):
         super().__init__(f"✕ {tag}", parent)
         self.tag = tag
         self.setFixedHeight(24)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(f"""
             QPushButton {{
@@ -193,39 +194,23 @@ class CardCreateViewWidget(QWidget):
                 padding: 6px 10px;
             }}
         """)
-        header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(6, 4, 6, 4)
-        header_layout.setSpacing(8)
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(6, 6, 6, 6)
+        header_layout.setSpacing(6)
+
+        # Ligne 1 : Titre + Sélecteur de mode d'affichage
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(8)
 
         ico = QLabel()
         ico.setPixmap(load_phosphor_icon("ph.plus-circle", color=DesignTokens.COLOR_GREEN).pixmap(18, 18))
-        header_layout.addWidget(ico)
+        top_row.addWidget(ico)
 
         self.lbl_title = QLabel(tr("Nouvelle carte"))
         self.lbl_title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {DesignTokens.TEXT_PRIMARY};")
-        header_layout.addWidget(self.lbl_title)
-
-        self.lbl_deck = QLabel()
-        self.lbl_deck.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
-        header_layout.addWidget(self.lbl_deck)
-
-        self.lbl_note_type = QLabel()
-        self.lbl_note_type.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
-        header_layout.addWidget(self.lbl_note_type)
-
-        self.btn_change_deck = SecondaryButton(tr("Changer paquet"))
-        self.btn_change_deck.setIcon(load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_SECONDARY))
-        self.btn_change_deck.setFixedHeight(28)
-        self.btn_change_deck.clicked.connect(self._on_change_deck)
-        header_layout.addWidget(self.btn_change_deck)
-
-        self.btn_change_note_type = SecondaryButton(tr("Changer modèle"))
-        self.btn_change_note_type.setIcon(load_phosphor_icon("ph.note", color=DesignTokens.TEXT_SECONDARY))
-        self.btn_change_note_type.setFixedHeight(28)
-        self.btn_change_note_type.clicked.connect(self._on_change_note_type)
-        header_layout.addWidget(self.btn_change_note_type)
-
-        header_layout.addStretch()
+        top_row.addWidget(self.lbl_title)
+        top_row.addStretch()
 
         # Sélecteur de mode d'affichage segmenté (Côte à côte / Champs / Aperçu)
         self.view_mode_group = QWidget()
@@ -262,7 +247,54 @@ class CardCreateViewWidget(QWidget):
         view_mode_layout.addWidget(self.btn_mode_split)
         view_mode_layout.addWidget(self.btn_mode_fields)
         view_mode_layout.addWidget(self.btn_mode_preview)
-        header_layout.addWidget(self.view_mode_group)
+        top_row.addWidget(self.view_mode_group)
+        header_layout.addLayout(top_row)
+
+        # Ligne 2 : Métadonnées Paquet & Modèle avec boutons de changement compacts
+        meta_row = QHBoxLayout()
+        meta_row.setContentsMargins(0, 0, 0, 0)
+        meta_row.setSpacing(8)
+
+        self.lbl_deck = QLabel()
+        self.lbl_deck.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
+        meta_row.addWidget(self.lbl_deck)
+
+        self.btn_change_deck = SecondaryButton(tr("Changer"))
+        self.btn_change_deck.setIcon(load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_change_deck.setFixedHeight(26)
+        self.btn_change_deck.setStyleSheet("""
+            QPushButton {
+                padding: 2px 8px;
+                font-size: 11px;
+            }
+        """)
+        self.btn_change_deck.setToolTip(tr("Changer le paquet de destination"))
+        self.btn_change_deck.clicked.connect(self._on_change_deck)
+        meta_row.addWidget(self.btn_change_deck)
+
+        lbl_sep = QLabel("•")
+        lbl_sep.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
+        meta_row.addWidget(lbl_sep)
+
+        self.lbl_note_type = QLabel()
+        self.lbl_note_type.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE};")
+        meta_row.addWidget(self.lbl_note_type)
+
+        self.btn_change_note_type = SecondaryButton(tr("Changer"))
+        self.btn_change_note_type.setIcon(load_phosphor_icon("ph.note", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_change_note_type.setFixedHeight(26)
+        self.btn_change_note_type.setStyleSheet("""
+            QPushButton {
+                padding: 2px 8px;
+                font-size: 11px;
+            }
+        """)
+        self.btn_change_note_type.setToolTip(tr("Changer le modèle de note"))
+        self.btn_change_note_type.clicked.connect(self._on_change_note_type)
+        meta_row.addWidget(self.btn_change_note_type)
+
+        meta_row.addStretch()
+        header_layout.addLayout(meta_row)
 
         main_layout.addWidget(header)
 
@@ -346,27 +378,39 @@ class CardCreateViewWidget(QWidget):
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 6px 10px;
+                padding: 4px 8px;
             }}
         """)
         tags_layout = QHBoxLayout(self.tags_card)
-        tags_layout.setContentsMargins(8, 6, 8, 6)
+        tags_layout.setContentsMargins(6, 4, 6, 4)
         tags_layout.setSpacing(6)
 
         lbl_tags_title = QLabel(tr("TAGS"))
         lbl_tags_title.setStyleSheet(f"font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: {DesignTokens.ACCENT_PRIMARY};")
         tags_layout.addWidget(lbl_tags_title)
 
+        tags_scroll = QScrollArea()
+        tags_scroll.setWidgetResizable(True)
+        tags_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        tags_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        tags_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        tags_scroll.setFixedHeight(28)
+        tags_scroll.setStyleSheet("background: transparent; border: none;")
+
         self.tags_container = QWidget()
+        self.tags_container.setStyleSheet("background: transparent; border: none;")
         self.tags_flow = QHBoxLayout(self.tags_container)
         self.tags_flow.setContentsMargins(0, 0, 0, 0)
         self.tags_flow.setSpacing(4)
         self.tags_flow.addStretch()
-        tags_layout.addWidget(self.tags_container, 1)
+        tags_scroll.setWidget(self.tags_container)
+        tags_layout.addWidget(tags_scroll, 1)
 
         self.new_tag_edit = QLineEdit()
         self.new_tag_edit.setPlaceholderText(tr("Ajouter un tag…"))
         self.new_tag_edit.setFixedHeight(24)
+        self.new_tag_edit.setMinimumWidth(80)
+        self.new_tag_edit.setMaximumWidth(120)
         self.new_tag_edit.returnPressed.connect(self._on_new_tag_added)
         self.new_tag_edit.setStyleSheet(f"""
             QLineEdit {{
@@ -594,6 +638,8 @@ class CardCreateViewWidget(QWidget):
         """Affiche les tags sous forme de badges cliquables."""
         for badge in self._tag_badges:
             self.tags_flow.removeWidget(badge)
+            badge.setParent(None)
+            badge.hide()
             badge.deleteLater()
         self._tag_badges.clear()
 

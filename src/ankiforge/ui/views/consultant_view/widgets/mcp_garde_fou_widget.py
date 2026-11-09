@@ -93,8 +93,8 @@ class BundleHeaderItemWidget(QWidget):
 
         if bundle.status == "aborted":
             bundle_badge = Badge(tr("Annulé"), variant="warning")
-            bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
-            top_row.addWidget(bundle_badge)
+            bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+            top_row.addWidget(bundle_badge, 0, Qt.AlignmentFlag.AlignTop)
         else:
             badge_text = tr("%1 étapes", bundle.total_steps)
             badge_variant = "accent"
@@ -102,8 +102,8 @@ class BundleHeaderItemWidget(QWidget):
                 badge_text = tr("Étape %1/%2", bundle.current_step, bundle.total_steps)
                 badge_variant = "warning"
             bundle_badge = Badge(badge_text, variant=badge_variant)
-            bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
-            top_row.addWidget(bundle_badge)
+            bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+            top_row.addWidget(bundle_badge, 0, Qt.AlignmentFlag.AlignTop)
         layout.addLayout(top_row)
 
         if bundle.explanation:
@@ -119,8 +119,9 @@ class BundleHeaderItemWidget(QWidget):
             lbl_desc.setMinimumWidth(0)
             layout.addWidget(lbl_desc)
 
-        # Ensure minimum height for the widget
-        self.setMinimumHeight(48)
+        # Hauteur minimale adaptée selon présence de description
+        min_h = 56 if bundle.explanation else 44
+        self.setMinimumHeight(min_h)
 
     def sizeHint(self) -> QSize:
         """Retourne la taille suggérée respectant la hauteur minimale."""
@@ -625,27 +626,21 @@ class MCPGardeFouWidget(QWidget):
         # Filtre de statut des propositions (En attente / Annulés / Tous)
         filter_row = QHBoxLayout()
         filter_row.setContentsMargins(0, 0, 0, 0)
-        filter_row.setSpacing(6)
+        filter_row.setSpacing(4)
 
-        lbl_filter = QLabel(tr("Statut :"))
-        lbl_filter.setStyleSheet(f"""
-            font-size: 11px;
-            color: {DesignTokens.TEXT_MUTED};
-            border: none;
-            background: transparent;
-        """)
-        filter_row.addWidget(lbl_filter)
-
-        self.chip_pending = FilterChipButton(tr("En attente"), icon_name="ph.clock")
+        self.chip_pending = FilterChipButton(tr("Attente"), icon_name="ph.clock")
         self.chip_pending.setChecked(True)
+        self.chip_pending.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.chip_pending.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chip_pending.toggled.connect(lambda checked: self._set_status_filter("pending") if checked else None)
 
         self.chip_aborted = FilterChipButton(tr("Annulés"), icon_name="ph.trash")
+        self.chip_aborted.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.chip_aborted.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chip_aborted.toggled.connect(lambda checked: self._set_status_filter("aborted") if checked else None)
 
         self.chip_all = FilterChipButton(tr("Tous"), icon_name="ph.list")
+        self.chip_all.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.chip_all.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chip_all.toggled.connect(lambda checked: self._set_status_filter("all") if checked else None)
 
@@ -787,10 +782,11 @@ class MCPGardeFouWidget(QWidget):
         self.btn_copy_feedback = SecondaryButton(tr("Copier le feedback"))
         self.btn_copy_feedback.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_SECONDARY))
         self.btn_copy_feedback.setFixedHeight(32)
+        self.btn_copy_feedback.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.btn_copy_feedback.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_copy_feedback.setToolTip(tr("Copier le compte-rendu d'arbitrage pour l'assistant IA"))
         self.btn_copy_feedback.clicked.connect(self._copy_feedback)
-        detail_header.addWidget(self.btn_copy_feedback)
+        detail_header.addWidget(self.btn_copy_feedback, 0, Qt.AlignmentFlag.AlignTop)
 
         detail_view_layout.addLayout(detail_header)
 
@@ -1116,7 +1112,7 @@ class MCPGardeFouWidget(QWidget):
             pending_count = StagedPatchModel.select().where(StagedPatchModel.status.in_(["pending", "partial"])).count()
             aborted_count = StagedPatchModel.select().where(StagedPatchModel.status == "aborted").count()
             total_count = pending_count + aborted_count
-            self.chip_pending.setText(tr("En attente (%1)", pending_count))
+            self.chip_pending.setText(tr("Attente (%1)", pending_count))
             self.chip_aborted.setText(tr("Annulés (%1)", aborted_count))
             self.chip_all.setText(tr("Tous (%1)", total_count))
         except Exception as e:
@@ -1172,6 +1168,8 @@ class MCPGardeFouWidget(QWidget):
             )
             self.btn_apply.setText(tr("Valider cette étape"))
             self.btn_apply.setToolTip(tr("Valider cette étape (Ctrl+Entrée)"))
+            self.btn_apply.setIcon(load_on_accent_icon("ph.check"))
+            self.btn_apply.setStyleSheet("")
             self.btn_reject.setText(tr("Rejeter la suite du bloc"))
             self.btn_reject.setToolTip(tr("Interrompre et rejeter la suite du bloc (Suppr)"))
             self.btn_apply_bundle_all.setVisible(True)
@@ -1180,8 +1178,46 @@ class MCPGardeFouWidget(QWidget):
             meta_str = tr("Réf. %1 • Type : %2", patch.patch_id[:8], patch.patch_type.upper())
             if patch.target_id:
                 meta_str += tr(" • Note ciblée #%1", patch.target_id)
-            self.btn_apply.setText(tr("Valider la modification"))
-            self.btn_apply.setToolTip(tr("Valider la modification (Ctrl+Entrée)"))
+
+            # Adaptation sémantique, visuelle et sécuritaire selon le type d'opération
+            if p_type in ("card_delete", "deck_delete", "delete_empty_cards", "empty_cards_delete", "note_delete", "batch_card_deletion", "batch_note_delete"):
+                self.btn_apply.setText(tr("Confirmer la suppression"))
+                self.btn_apply.setToolTip(tr("Confirmer la destruction définitive (Ctrl+Entrée)"))
+                self.btn_apply.setIcon(load_phosphor_icon("ph.trash", color="#ffffff"))
+                self.btn_apply.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {DesignTokens.COLOR_RED};
+                        color: #ffffff;
+                        border: 1px solid {DesignTokens.COLOR_RED};
+                        border-radius: 6px;
+                        font-weight: 600;
+                        padding: 0 16px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {DesignTokens.COLOR_RED_TEXT};
+                    }}
+                """)
+            elif p_type in ("note_create", "batch_note_create"):
+                self.btn_apply.setText(tr("Créer la carte"))
+                self.btn_apply.setToolTip(tr("Valider et créer la carte dans la collection (Ctrl+Entrée)"))
+                self.btn_apply.setIcon(load_on_accent_icon("ph.plus-circle"))
+                self.btn_apply.setStyleSheet("")
+            elif p_type in ("deck_create", "create_deck", "deck_rename", "rename_deck"):
+                self.btn_apply.setText(tr("Appliquer au paquet"))
+                self.btn_apply.setToolTip(tr("Valider l'opération sur le paquet (Ctrl+Entrée)"))
+                self.btn_apply.setIcon(load_on_accent_icon("ph.folder-check"))
+                self.btn_apply.setStyleSheet("")
+            elif p_type in ("set_tags", "set_tags_bulk", "tag_add", "tag_remove", "tags") or (isinstance(payload, dict) and ("tags_added" in payload or "tags_removed" in payload)):
+                self.btn_apply.setText(tr("Enregistrer les tags"))
+                self.btn_apply.setToolTip(tr("Appliquer les modifications d'étiquettes (Ctrl+Entrée)"))
+                self.btn_apply.setIcon(load_on_accent_icon("ph.tag-chevron"))
+                self.btn_apply.setStyleSheet("")
+            else:
+                self.btn_apply.setText(tr("Valider la modification"))
+                self.btn_apply.setToolTip(tr("Valider la modification (Ctrl+Entrée)"))
+                self.btn_apply.setIcon(load_on_accent_icon("ph.check"))
+                self.btn_apply.setStyleSheet("")
+
             self.btn_reject.setText(tr("Rejeter la proposition"))
             self.btn_reject.setToolTip(tr("Rejeter la proposition (Suppr)"))
             self.btn_apply_bundle_all.setVisible(False)
