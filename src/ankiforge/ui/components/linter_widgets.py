@@ -228,7 +228,7 @@ class WozniakKpiCard(QFrame):
             """)
             self.setStyleSheet(f"""
                 WozniakKpiCard {{
-                    background-color: {DesignTokens.BG_MAIN};
+                    background-color: {DesignTokens.BG_PANEL};
                     border: 1px dashed {DesignTokens.BORDER_COLOR};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                 }}

@@ -149,7 +149,7 @@ class AIWozniakLinterTab(QWidget):
         self.score_badge = QLabel(self.tr("Score : --"))
         self.score_badge.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         self.score_badge.setStyleSheet(
-            f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 12px;"
+            f"background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 12px;"
         )
 
         row1.addWidget(lbl_ico)
@@ -192,8 +192,10 @@ class AIWozniakLinterTab(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; } QWidget#wozniakScrollContent { background: transparent; }")
 
         self.scroll_content = QWidget()
+        self.scroll_content.setObjectName("wozniakScrollContent")
         self.items_layout = QVBoxLayout(self.scroll_content)
         self.items_layout.setContentsMargins(0, 0, 0, 0)
         self.items_layout.setSpacing(12)
