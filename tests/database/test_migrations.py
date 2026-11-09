@@ -52,9 +52,16 @@ def test_run_migrations_idempotency(mock_db):
     assert "033_chunk_strategy_version" in router.done, "La migration 033 devrait être marquée comme terminée."
     assert "036_embedding_cache_and_missing_indexes" in router.done, "La migration 036 devrait être marquée comme terminée."
     assert "046_drop_consultant_chat_tables" in router.done, "La migration 046 devrait être marquée comme terminée."
+    assert "051_purge_obsolete_database_tables" in router.done, "La migration 051 devrait être marquée comme terminée."
     assert db.table_exists("settings"), "La table settings devrait exister."
     assert not db.table_exists("consultant_sessions"), "La table consultant_sessions ne devrait plus exister (purge 046)."
     assert not db.table_exists("consultant_messages"), "La table consultant_messages ne devrait plus exister (purge 046)."
+    assert not db.table_exists("jobmodel"), "La table jobmodel ne devrait plus exister (purge 051)."
+    assert not db.table_exists("promptmodel"), "La table promptmodel ne devrait plus exister (purge 051)."
+    assert not db.table_exists("ai_cache"), "La table ai_cache ne devrait plus exister (purge 051)."
+    assert not db.table_exists("noteversionmediamodel"), "La table noteversionmediamodel ne devrait plus exister (purge 051)."
+    assert not db.table_exists("batch_tasks"), "La table batch_tasks ne devrait plus exister (purge 051)."
+    assert not db.table_exists("batch_runs"), "La table batch_runs ne devrait plus exister (purge 051)."
     assert db.table_exists("embedding_cache"), "La table embedding_cache devrait exister."
 
     llm_cols = [c.name for c in db.get_columns("llm_configs")]
@@ -88,6 +95,7 @@ def test_run_migrations_idempotency(mock_db):
     assert "031_seed_dedicated_mcp_agents" in router.done
     assert "033_chunk_strategy_version" in router.done
     assert "036_embedding_cache_and_missing_indexes" in router.done
+    assert "051_purge_obsolete_database_tables" in router.done
 
 
 def test_dedicated_agent_migration_repairs_empty_existing_prompts(mock_db):
@@ -412,3 +420,71 @@ def test_foreign_keys_restaure_meme_en_cas_derreur(mock_db, monkeypatch):
     off_idx = next(i for i, a in enumerate(appels) if "PRAGMA foreign_keys = OFF" in a)
     on_idx = next(i for i, a in enumerate(appels) if "PRAGMA foreign_keys = ON" in a)
     assert on_idx > off_idx, "PRAGMA foreign_keys = ON doit intervenir après PRAGMA foreign_keys = OFF"
+
+
+def test_migration_051_purge_obsolete_tables_and_rollback(mock_db):
+    """Vérifie l'aller-retour complet de la migration 051 : purge des 6 tables et rollback fidèle."""
+    from peewee_migrate import Migrator
+
+    mod_051 = importlib.import_module("ankiforge.database.migrations.051_purge_obsolete_database_tables")
+    migrate_051 = mod_051.migrate
+    rollback_051 = mod_051.rollback
+
+    obsolete_tables = [
+        "noteversionmediamodel",
+        "batch_tasks",
+        "batch_runs",
+        "jobmodel",
+        "promptmodel",
+        "ai_cache",
+    ]
+
+    # S'assurer que les tables et index existent avant la migration
+    for table in obsolete_tables:
+        db.execute_sql(f"CREATE TABLE IF NOT EXISTS {table} (id INTEGER PRIMARY KEY);")
+        assert db.table_exists(table), f"La table {table} devrait exister avant la migration."
+    db.execute_sql("CREATE INDEX IF NOT EXISTS idx_batch_tasks_status ON batch_tasks (status);")
+
+    migrator = Migrator(db)
+
+    # 1. Exécuter la migration 051
+    migrate_051(migrator, db)
+
+    # Vérifier que toutes les 6 tables ont disparu
+    for table in obsolete_tables:
+        assert not db.table_exists(table), f"La table {table} aurait dû être supprimée par la migration 051."
+
+    # Vérifier l'idempotence de la migration (un deuxième appel ne lève aucune exception)
+    migrate_051(migrator, db)
+
+    # 2. Exécuter le rollback de la migration 051
+    rollback_051(migrator, db)
+
+    # Vérifier que toutes les 6 tables ont été restaurées
+    for table in obsolete_tables:
+        assert db.table_exists(table), f"La table {table} aurait dû être recréée par le rollback 051."
+
+    # Vérifier que les colonnes clés existent sur les tables restaurées
+    job_cols = [c.name for c in db.get_columns("jobmodel")]
+    assert "job_type" in job_cols
+    assert "status" in job_cols
+
+    prompt_cols = [c.name for c in db.get_columns("promptmodel")]
+    assert "name" in prompt_cols
+    assert "content" in prompt_cols
+
+    ai_cache_cols = [c.name for c in db.get_columns("ai_cache")]
+    assert "prompt_hash" in ai_cache_cols
+    assert "response_content" in ai_cache_cols
+
+    batch_tasks_cols = [c.name for c in db.get_columns("batch_tasks")]
+    assert "task_id" in batch_tasks_cols
+    assert "status" in batch_tasks_cols
+
+    batch_runs_cols = [c.name for c in db.get_columns("batch_runs")]
+    assert "total_tasks" in batch_runs_cols
+
+    # 3. Re-tester la migration après rollback
+    migrate_051(migrator, db)
+    for table in obsolete_tables:
+        assert not db.table_exists(table), f"La table {table} aurait dû être re-supprimée après rollback."
