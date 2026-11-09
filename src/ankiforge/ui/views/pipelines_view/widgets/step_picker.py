@@ -100,7 +100,7 @@ class StepPickerDialog(QDialog):
         self.resize(780, 520)
         self.setStyleSheet(f"""
             QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_PANEL};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
             QScrollArea, QScrollArea > QWidget > QWidget {{
@@ -289,7 +289,7 @@ class PersonaSelectorDialog(QDialog):
         self.resize(460, 380)
         self.setStyleSheet(f"""
             QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_PANEL};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
             QScrollArea, QScrollArea > QWidget > QWidget {{

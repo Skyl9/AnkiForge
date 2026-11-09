@@ -49,7 +49,7 @@ class DagHelpDialog(QDialog):
         self.resize(680, 620)
         self.setStyleSheet(f"""
             QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_PANEL};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
             QDialog QLabel {{

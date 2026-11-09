@@ -38,7 +38,7 @@ class StepTestDialog(QDialog):
         self.resize(650, 480)
         self.setStyleSheet(f"""
             QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_PANEL};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
             QDialog QLabel {{
@@ -124,7 +124,7 @@ class PipelineRunDialog(QDialog):
         self.resize(750, 520)
         self.setStyleSheet(f"""
             QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_PANEL};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
             QDialog QLabel {{

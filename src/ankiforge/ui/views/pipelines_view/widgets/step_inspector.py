@@ -159,7 +159,7 @@ class PromptPreviewDialog(QDialog):
         self.resize(750, 560)
         self.setStyleSheet(f"""
             QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_PANEL};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
             QDialog QLabel {{
@@ -410,7 +410,10 @@ class StepInspectorPanel(QFrame):
         self.params_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.params_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.params_scroll.setStyleSheet(f"""
-            QScrollArea {{ background: transparent; border: none; }}
+            QScrollArea, QScrollArea > QWidget > QWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: none;
+            }}
             QScrollBar:vertical {{ background: {DesignTokens.BG_INPUT}; width: 6px; border-radius: 3px; }}
             QScrollBar::handle:vertical {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; min-height: 20px; }}
         """)
@@ -427,13 +430,17 @@ class StepInspectorPanel(QFrame):
         self.dag_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.dag_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.dag_scroll.setStyleSheet(f"""
-            QScrollArea {{ background: transparent; border: none; }}
+            QScrollArea, QScrollArea > QWidget > QWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: none;
+            }}
             QScrollBar:vertical {{ background: {DesignTokens.BG_INPUT}; width: 6px; border-radius: 3px; }}
             QScrollBar::handle:vertical {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; min-height: 20px; }}
         """)
 
         self.dag_content_widget = QWidget()
-        self.dag_content_widget.setStyleSheet("background: transparent;")
+        self.dag_content_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.dag_content_widget.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")
         self.layout_dag = QVBoxLayout(self.dag_content_widget)
         self.layout_dag.setContentsMargins(0, 4, 4, 0)
         self.layout_dag.setSpacing(10)
@@ -626,7 +633,8 @@ class StepInspectorPanel(QFrame):
     def _build_params_form(self, step_type: str) -> None:
         """Génère le formulaire spécifique au type d'étape avec assistance de chips Jinja2 et aperçu."""
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        container.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")
         layout_params = QVBoxLayout(container)
         layout_params.setContentsMargins(4, 4, 4, 4)
         layout_params.setSpacing(12)
@@ -1222,3 +1230,36 @@ class StepInspectorPanel(QFrame):
     def _on_test_step_clicked(self) -> None:
         if self.step_data:
             self.test_step_requested.emit(self.step_data)
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Actualise les couleurs lors d'un changement de thème."""
+        bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+        bg_input = profile.bg_input if profile and hasattr(profile, "bg_input") else DesignTokens.BG_INPUT
+        border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+        radius_md = profile.radius_md if profile and hasattr(profile, "radius_md") else DesignTokens.RADIUS_MD
+        self.setStyleSheet(f"""
+            QFrame#StepInspector {{
+                background-color: {bg_panel};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+            }}
+            QFrame#StepInspector QLabel {{
+                background: transparent;
+            }}
+        """)
+        scroll_style = f"""
+            QScrollArea, QScrollArea > QWidget > QWidget {{
+                background-color: {bg_panel};
+                border: none;
+            }}
+            QScrollBar:vertical {{ background: {bg_input}; width: 6px; border-radius: 3px; }}
+            QScrollBar::handle:vertical {{ background: {border_col}; border-radius: 3px; min-height: 20px; }}
+        """
+        if hasattr(self, "params_scroll"):
+            self.params_scroll.setStyleSheet(scroll_style)
+            if self.params_scroll.widget():
+                self.params_scroll.widget().setStyleSheet(f"background-color: {bg_panel};")
+        if hasattr(self, "dag_scroll"):
+            self.dag_scroll.setStyleSheet(scroll_style)
+        if hasattr(self, "dag_content_widget"):
+            self.dag_content_widget.setStyleSheet(f"background-color: {bg_panel};")

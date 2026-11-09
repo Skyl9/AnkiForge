@@ -172,8 +172,15 @@ class PipelinesView(QWidget):
         self.pipeline_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         main_layout.addWidget(self.pipeline_panel, 1)
 
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
+        self.content_widget = QWidget()
+        self.content_widget.setObjectName("pipelineContentWidget")
+        self.content_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.content_widget.setStyleSheet(f"""
+            QWidget#pipelineContentWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+        """)
+        content_layout = QVBoxLayout(self.content_widget)
         content_layout.setContentsMargins(16, 16, 16, 16)
         content_layout.setSpacing(12)
 
@@ -272,9 +279,20 @@ class PipelinesView(QWidget):
         self.step_scroll.setWidgetResizable(True)
         self.step_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.step_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.step_scroll.setStyleSheet(f"QScrollArea {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
+        self.step_scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+        """)
 
         self.steps_inner = QWidget()
+        self.steps_inner.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.steps_inner.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")
         self.steps_layout = QVBoxLayout(self.steps_inner)
         self.steps_layout.setContentsMargins(8, 8, 8, 8)
         self.steps_layout.setSpacing(8)
@@ -300,7 +318,7 @@ class PipelinesView(QWidget):
         self.splitter.setSizes([380, 620])
         content_layout.addWidget(self.splitter, 1)
 
-        self.pipeline_panel.add_tab("Éditeur de Pipelines DAG", content_widget, icon_name="ph.git-branch", closable=False)
+        self.pipeline_panel.add_tab("Éditeur de Pipelines DAG", self.content_widget, icon_name="ph.git-branch", closable=False)
 
     def _connect_signals(self) -> None:
         self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
@@ -733,7 +751,7 @@ class PipelinesView(QWidget):
         dlg = QDialog(self)
         dlg.setWindowTitle(self.tr("Bibliothèque de Modèles Prédéfinis"))
         dlg.resize(620, 420)
-        dlg.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_PRIMARY};")
+        dlg.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY};")
 
         dlg_layout = QVBoxLayout(dlg)
         dlg_layout.setContentsMargins(16, 16, 16, 16)
@@ -909,3 +927,30 @@ class PipelinesView(QWidget):
             show_toast(self, tr("Pipeline '%1' importé depuis '%2'.", imported.name, source_profile))
         except Exception as e:
             log_and_notify_error(e, context="Import de pipeline depuis un profil", parent=self, title="Erreur d'importation")
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Met à jour les couleurs réactives lors d'un changement de thème."""
+        bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+        border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+        radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
+        if hasattr(self, "content_widget"):
+            self.content_widget.setStyleSheet(f"""
+                QWidget#pipelineContentWidget {{
+                    background-color: {bg_panel};
+                }}
+            """)
+        if hasattr(self, "step_scroll"):
+            self.step_scroll.setStyleSheet(f"""
+                QScrollArea {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_col};
+                    border-radius: {radius_sm}px;
+                }}
+                QScrollArea > QWidget > QWidget {{
+                    background-color: {bg_panel};
+                }}
+            """)
+        if hasattr(self, "steps_inner"):
+            self.steps_inner.setStyleSheet(f"background-color: {bg_panel};")
+        if hasattr(self, "inspector") and hasattr(self.inspector, "refresh_theme"):
+            self.inspector.refresh_theme(profile)
