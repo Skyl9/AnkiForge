@@ -247,7 +247,7 @@ class FieldSemanticDiffRow(QFrame):
         self.left_col.setObjectName("left_col")
         self.left_col.setStyleSheet(f"""
             QFrame#left_col {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
             }}
@@ -298,7 +298,7 @@ class FieldSemanticDiffRow(QFrame):
         self.right_col.setObjectName("right_col")
         self.right_col.setStyleSheet(f"""
             QFrame#right_col {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
             }}
@@ -355,7 +355,6 @@ class FieldSemanticDiffRow(QFrame):
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
         bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
-        bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
         text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
         text_secondary = getattr(profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
@@ -372,7 +371,7 @@ class FieldSemanticDiffRow(QFrame):
         if hasattr(self, "left_col"):
             self.left_col.setStyleSheet(f"""
                 QFrame#left_col {{
-                    background-color: {bg_input};
+                    background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: 4px;
                 }}
@@ -380,7 +379,7 @@ class FieldSemanticDiffRow(QFrame):
         if hasattr(self, "right_col"):
             self.right_col.setStyleSheet(f"""
                 QFrame#right_col {{
-                    background-color: {bg_input};
+                    background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: 4px;
                 }}
@@ -510,6 +509,12 @@ class CardSemanticDiffWidget(QWidget):
         diff_tab_layout.setSpacing(6)
 
         self.diff_stack = QStackedWidget()
+        self.diff_stack.setStyleSheet("""
+            QStackedWidget {
+                background-color: transparent;
+                border: none;
+            }
+        """)
 
         # --- Page 0 : Diff de cartes / scissions / créations de notes ---
         self.card_diff_page = QWidget()
@@ -596,7 +601,7 @@ class CardSemanticDiffWidget(QWidget):
         self.preview_toolbar.setObjectName("preview_toolbar")
         self.preview_toolbar.setStyleSheet(f"""
             QFrame#preview_toolbar {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 4px 8px;
@@ -697,7 +702,7 @@ class CardSemanticDiffWidget(QWidget):
         orig_header.setObjectName("orig_preview_header")
         orig_header.setStyleSheet(f"""
             QFrame#orig_preview_header {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
                 border-top-left-radius: {DesignTokens.RADIUS_SM}px;
                 border-top-right-radius: {DesignTokens.RADIUS_SM}px;
@@ -749,7 +754,7 @@ class CardSemanticDiffWidget(QWidget):
         mod_header.setObjectName("mod_preview_header")
         mod_header.setStyleSheet(f"""
             QFrame#mod_preview_header {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
                 border-top-left-radius: {DesignTokens.RADIUS_SM}px;
                 border-top-right-radius: {DesignTokens.RADIUS_SM}px;
@@ -2252,7 +2257,7 @@ class CardSemanticDiffWidget(QWidget):
         if hasattr(self, "preview_toolbar"):
             self.preview_toolbar.setStyleSheet(f"""
                 QFrame#preview_toolbar {{
-                    background-color: {bg_input};
+                    background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     padding: 4px 8px;
@@ -2276,6 +2281,9 @@ class CardSemanticDiffWidget(QWidget):
                     border-radius: {DesignTokens.RADIUS_SM}px;
                 }}
             """)
+
+        if hasattr(self, "diff_stack"):
+            self.diff_stack.setStyleSheet("background-color: transparent; border: none;")
 
         for row in self._field_rows.values():
             if hasattr(row, "refresh_theme"):

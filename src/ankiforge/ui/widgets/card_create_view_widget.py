@@ -83,7 +83,7 @@ class CardCreateFieldRow(QFrame):
         self.setObjectName("CardCreateFieldRow")
         self.setStyleSheet(f"""
             QFrame#CardCreateFieldRow {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 margin-bottom: 8px;
@@ -188,7 +188,7 @@ class CardCreateViewWidget(QWidget):
         header.setObjectName("CardCreateHeader")
         header.setStyleSheet(f"""
             QFrame#CardCreateHeader {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 6px 10px;
@@ -303,7 +303,7 @@ class CardCreateViewWidget(QWidget):
         self.nav_widget.setObjectName("batch_nav_bar")
         self.nav_widget.setStyleSheet(f"""
             QFrame#batch_nav_bar {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 4px 8px;
@@ -392,7 +392,7 @@ class CardCreateViewWidget(QWidget):
         self.tags_card.setObjectName("CardCreateTags")
         self.tags_card.setStyleSheet(f"""
             QFrame#CardCreateTags {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 4px 8px;
@@ -509,7 +509,7 @@ class CardCreateViewWidget(QWidget):
         for btn in (self.btn_mode_split, self.btn_mode_fields, self.btn_mode_preview):
             btn.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: {DesignTokens.BG_INPUT};
+                    background-color: {DesignTokens.BG_PANEL};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
                     border-radius: 4px;
                     color: {DesignTokens.TEXT_PRIMARY};
@@ -804,7 +804,7 @@ class CardCreateViewWidget(QWidget):
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
-        bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+        bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
 
         self.style().unpolish(self)
@@ -814,7 +814,7 @@ class CardCreateViewWidget(QWidget):
         if hasattr(self, "nav_widget"):
             self.nav_widget.setStyleSheet(f"""
                 QFrame#batch_nav_bar {{
-                    background-color: {bg_input};
+                    background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     padding: 4px 8px;
@@ -823,7 +823,7 @@ class CardCreateViewWidget(QWidget):
         if hasattr(self, "tags_card"):
             self.tags_card.setStyleSheet(f"""
                 QFrame#CardCreateTags {{
-                    background-color: {bg_input};
+                    background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     padding: 4px 8px;

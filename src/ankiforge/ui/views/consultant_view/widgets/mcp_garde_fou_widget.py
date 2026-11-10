@@ -143,7 +143,8 @@ class PatchListItemWidget(QWidget):
         payload = staged_payload_of(patch)
 
         if is_step:
-            self.title = str(payload.get("title") or tr("Étape %1 — %2", patch.step_order, self.patch_type))
+            raw_title = str(payload.get("title") or tr("Étape %1 — %2", patch.step_order, self.patch_type))
+            self.title = raw_title if raw_title.startswith("↳ ") else f"↳ {raw_title}"
         else:
             self.title = str(payload.get("title") or tr("Proposition — %1 #%2", self.patch_type, self.target_id))
 
@@ -152,7 +153,8 @@ class PatchListItemWidget(QWidget):
     def _setup_ui(self, patch: StagedPatchModel) -> None:
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
+        left_margin = 18 if self.is_step else 8
+        layout.setContentsMargins(left_margin, 6, 8, 6)
         layout.setSpacing(4)
 
         # Ligne 1 : Titre + Badge de type + Badge d'état si annulé
@@ -256,8 +258,8 @@ class HierarchicalPatchTreeWidget(QTreeWidget):
         super().__init__(parent)
         self.header().setStretchLastSection(True)
         self.setHeaderHidden(True)
-        self.setRootIsDecorated(True)
-        self.setIndentation(14)
+        self.setRootIsDecorated(False)
+        self.setIndentation(0)
         self.setAnimated(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -265,6 +267,15 @@ class HierarchicalPatchTreeWidget(QTreeWidget):
             QTreeWidget {{
                 background-color: transparent;
                 border: none;
+            }}
+            QTreeWidget::branch {{
+                background-color: transparent;
+            }}
+            QTreeWidget::branch:selected {{
+                background-color: transparent;
+            }}
+            QTreeWidget::branch:hover {{
+                background-color: transparent;
             }}
             QTreeWidget::item {{
                 border: 1px solid transparent;
@@ -751,6 +762,12 @@ class MCPGardeFouWidget(QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
 
         self.detail_stack = QStackedWidget()
+        self.detail_stack.setStyleSheet("""
+            QStackedWidget {
+                background-color: transparent;
+                border: none;
+            }
+        """)
 
         # Index 0 : Vue Vide (EmptyStateWidget officiel avec guidage d'onboarding)
         self.empty_view = EmptyStateWidget(
@@ -763,6 +780,7 @@ class MCPGardeFouWidget(QWidget):
 
         # Index 1 : Vue Détail Polymorphe
         self.detail_view = QWidget()
+        self.detail_view.setStyleSheet("background-color: transparent; border: none;")
         detail_view_layout = QVBoxLayout(self.detail_view)
         detail_view_layout.setContentsMargins(16, 16, 16, 16)
         detail_view_layout.setSpacing(12)
@@ -853,6 +871,12 @@ class MCPGardeFouWidget(QWidget):
 
         # ── QStackedWidget Polymorphe (4 pages) ──────────────────────────────
         self.polymorphic_stack = QStackedWidget()
+        self.polymorphic_stack.setStyleSheet("""
+            QStackedWidget {
+                background-color: transparent;
+                border: none;
+            }
+        """)
 
         # Page 0 : Diff sémantique mot à mot pour les cartes
         self.diff_viewer = CardSemanticDiffWidget()
@@ -1663,6 +1687,12 @@ class MCPGardeFouWidget(QWidget):
                     border-radius: {DesignTokens.RADIUS_SM}px;
                 }}
             """)
+        if hasattr(self, "detail_stack"):
+            self.detail_stack.setStyleSheet("background-color: transparent; border: none;")
+        if hasattr(self, "polymorphic_stack"):
+            self.polymorphic_stack.setStyleSheet("background-color: transparent; border: none;")
+        if hasattr(self, "detail_view"):
+            self.detail_view.setStyleSheet("background-color: transparent; border: none;")
         if hasattr(self, "lbl_detail_title"):
             self.lbl_detail_title.setStyleSheet(f"""
                 font-size: 15px;

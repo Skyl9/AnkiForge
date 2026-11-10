@@ -503,7 +503,7 @@ def render_anki_card(
                 <meta charset="utf-8">
                 <style>
                     body {{ background-color: #f8fafc; color: #1e293b; margin: 0; padding: 15px; }}
-                    body.nightMode {{ background-color: #0f172a; color: #e2e8f0; }}
+                    body.nightMode {{ background-color: #1e2128; color: #e2e8f0; }}
                     .card {{
                         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                         font-size: 18px;
@@ -514,7 +514,7 @@ def render_anki_card(
                         border-radius: 8px;
                         box-sizing: border-box;
                     }}
-                    .nightMode .card {{ background-color: #1e293b; color: #e2e8f0; }}
+                    .nightMode .card {{ background-color: #1e2128; color: #e2e8f0; }}
                     ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
                     ::-webkit-scrollbar-track {{ background: transparent; }}
                     ::-webkit-scrollbar-thumb {{ background: #555; border-radius: 5px; }}

@@ -63,7 +63,7 @@ class CardPreviewWidget(QWidget):
         self.card_selector.setFixedHeight(26)
         self.card_selector.setStyleSheet(f"""
             QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
@@ -152,11 +152,13 @@ class CardPreviewWidget(QWidget):
             from PySide6.QtWidgets import QTextBrowser
 
             mock_browser = QTextBrowser(self.flashcard_frame)
+            mock_browser.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: none; color: {DesignTokens.TEXT_PRIMARY};")
             mock_browser.setHtmlSafe = lambda html, base_url=None: mock_browser.setHtml(html)
             mock_browser.cleanup = lambda: None
             self.web_view = mock_browser
         else:
             self.web_view = SafeWebEngineView(self.flashcard_frame)
+            self.web_view.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: none;")
 
         self.web_view.setMinimumHeight(240)
         frame_layout.addWidget(self.web_view)
