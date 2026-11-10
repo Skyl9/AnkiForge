@@ -77,13 +77,16 @@ class ProfileManager(metaclass=_ProfileManagerMeta):
         return sorted(p.name for p in self.profiles_dir.iterdir() if p.is_dir())
 
     def create_profile(self, name: str) -> Path:
-        """Crée ~/.ankiforge[-dev]/profiles/<name>/ankiforge.db + media/."""
+        """Crée ~/.ankiforge[-dev]/profiles/<name>/ankiforge.db + media/ + staging/."""
         logger.info("Création d'un nouveau profil utilisateur : '%s'", name)
         profile_dir = self.profiles_dir / name
         profile_dir.mkdir(parents=True, exist_ok=True)
 
         media_dir = profile_dir / "media"
         media_dir.mkdir(exist_ok=True)
+
+        staging_dir = profile_dir / "staging"
+        staging_dir.mkdir(exist_ok=True)
 
         return profile_dir
 
@@ -101,6 +104,22 @@ class ProfileManager(metaclass=_ProfileManagerMeta):
     def get_media_dir(self, profile_name: str) -> Path:
         """Retourne le chemin du dossier médias pour un profil donné."""
         return self.profiles_dir / profile_name / "media"
+
+    def get_staging_dir(self, profile_name: str | None = None) -> Path:
+        """Retourne le chemin du dossier de staging pour un profil donné, en le créant si nécessaire.
+
+        Args:
+            profile_name: Nom du profil. Si None, utilise le profil actif.
+
+        Returns:
+            Path vers le dossier staging du profil.
+        """
+        from ankiforge.utils.paths import get_active_profile
+
+        target_profile = profile_name or get_active_profile()
+        staging_dir = self.profiles_dir / target_profile / "staging"
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        return staging_dir
 
     def switch_profile(self, profile_name: str) -> None:
         """Ferme la DB courante, ouvre celle du nouveau profil."""
