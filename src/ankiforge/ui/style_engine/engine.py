@@ -9,7 +9,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 from ankiforge.ui.style_engine.appearance import (
     AppearancePreference,
@@ -1226,6 +1226,8 @@ class StyleEngine(QObject):
             profile = self._current_theme
             for widget in application.allWidgets():
                 try:
+                    if not isinstance(widget, QWidget):
+                        continue
                     if hasattr(widget, "refresh_theme") and callable(widget.refresh_theme):
                         try:
                             widget.refresh_theme(profile)
@@ -1237,8 +1239,8 @@ class StyleEngine(QObject):
                     style.unpolish(widget)
                     style.polish(widget)
                     widget.update()
-                except RuntimeError as err:
-                    logger.debug("Widget Qt détruit pendant la propagation de style : %s", err)
+                except (RuntimeError, TypeError) as err:
+                    logger.debug("Widget Qt détruit ou ignoré pendant la propagation de style : %s", err)
 
     def clear_custom_library(self) -> None:
         """Vide le registre en mémoire des familles et thèmes personnalisés."""

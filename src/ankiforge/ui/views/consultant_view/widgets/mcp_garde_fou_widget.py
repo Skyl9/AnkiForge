@@ -1197,10 +1197,26 @@ class MCPGardeFouWidget(QWidget):
                         background-color: {DesignTokens.COLOR_RED_TEXT};
                     }}
                 """)
-            elif p_type in ("note_create", "batch_note_create"):
+            elif p_type == "batch_note_create":
+                batch_notes = payload.get("notes") or payload.get("cards") or []
+                batch_count = len(batch_notes) if isinstance(batch_notes, list) else 0
+                if batch_count > 1:
+                    self.btn_apply.setText(tr("Créer le lot (%1 cartes)", batch_count))
+                    self.btn_apply.setToolTip(tr("Valider et créer l'ensemble du lot de cartes (Ctrl+Entrée)"))
+                else:
+                    self.btn_apply.setText(tr("Créer la carte"))
+                    self.btn_apply.setToolTip(tr("Valider et créer la carte dans la collection (Ctrl+Entrée)"))
+                self.btn_apply.setIcon(load_on_accent_icon("ph.plus-circle"))
+                self.btn_apply.setStyleSheet("")
+            elif p_type == "note_create":
                 self.btn_apply.setText(tr("Créer la carte"))
                 self.btn_apply.setToolTip(tr("Valider et créer la carte dans la collection (Ctrl+Entrée)"))
                 self.btn_apply.setIcon(load_on_accent_icon("ph.plus-circle"))
+                self.btn_apply.setStyleSheet("")
+            elif p_type in ("note_type_create", "note_type_refactor", "note_type_change", "propose_note_type_refactor"):
+                self.btn_apply.setText(tr("Appliquer au modèle de note"))
+                self.btn_apply.setToolTip(tr("Valider et enregistrer les modifications du modèle de note (Ctrl+Entrée)"))
+                self.btn_apply.setIcon(load_on_accent_icon("ph.file-text"))
                 self.btn_apply.setStyleSheet("")
             elif p_type in ("deck_create", "create_deck", "deck_rename", "rename_deck"):
                 self.btn_apply.setText(tr("Appliquer au paquet"))
@@ -1506,7 +1522,11 @@ class MCPGardeFouWidget(QWidget):
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
         bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
+        bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
         border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+        text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
+        text_muted = getattr(profile, "text_muted", DesignTokens.TEXT_MUTED)
+        accent = getattr(profile, "accent_primary", DesignTokens.ACCENT_PRIMARY)
 
         if hasattr(self, "left_panel"):
             self.left_panel.setStyleSheet(f"""
@@ -1522,6 +1542,55 @@ class MCPGardeFouWidget(QWidget):
                     background-color: {bg_panel};
                     border: 1px solid {border_color};
                     border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+        if hasattr(self, "lbl_detail_title"):
+            self.lbl_detail_title.setStyleSheet(f"""
+                font-size: 15px;
+                font-weight: 600;
+                color: {text_primary};
+            """)
+        if hasattr(self, "lbl_detail_meta"):
+            self.lbl_detail_meta.setStyleSheet(f"""
+                font-size: 11px;
+                color: {text_muted};
+                font-family: {DesignTokens.FONT_CODE};
+            """)
+        if hasattr(self, "search_input"):
+            self.search_input.setStyleSheet(f"""
+                QLineEdit {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-radius: 6px;
+                    color: {text_primary};
+                    font-size: 11px;
+                    padding: 0 10px;
+                }}
+                QLineEdit:focus {{
+                    border-color: {accent};
+                }}
+            """)
+        if hasattr(self, "btn_reject") and self.btn_reject.isVisible():
+            color_red_text = getattr(profile, "color_red_text", DesignTokens.COLOR_RED_TEXT)
+            color_red_bg = getattr(profile, "color_red_bg", DesignTokens.COLOR_RED_BG)
+            color_red = getattr(profile, "color_red", DesignTokens.COLOR_RED)
+            self.btn_reject.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {color_red_text};
+                    border: 1px solid {border_color};
+                    border-radius: 6px;
+                    font-weight: 600;
+                    padding: 0 16px;
+                }}
+                QPushButton:hover {{
+                    background-color: {color_red_bg};
+                    border-color: {color_red};
+                    color: {color_red_text};
+                }}
+                QPushButton:disabled {{
+                    opacity: 0.45;
+                    border-color: {border_color};
                 }}
             """)
         if hasattr(self, "abort_banner"):
@@ -1547,6 +1616,8 @@ class MCPGardeFouWidget(QWidget):
             self.create_view.refresh_theme(profile)
         if hasattr(self, "note_type_view") and hasattr(self.note_type_view, "refresh_theme"):
             self.note_type_view.refresh_theme(profile)
+        if hasattr(self, "patch_tree"):
+            self.reload_pending_patches()
 
     def cleanup(self) -> None:
         """Arrête les chargements Chromium et libère les ressources WebEngine."""

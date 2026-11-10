@@ -83,6 +83,9 @@ def evaluate_wozniak_card(card_fields: dict[str, Any]) -> tuple[bool, int, list[
 def compute_field_word_diff_html(original: str, modified: str) -> str:
     """Calcule un diff mot-à-mot intra-ligne avec suppressions rouges barrées et ajouts verts.
 
+    Préserve les balises HTML et les marqueurs d'occlusion cloze comme unités atomiques,
+    tout en assurant des retours à la ligne propres via <br>.
+
     Args:
         original: Texte de la base de données.
         modified: Texte proposé par l'agent.
@@ -93,35 +96,56 @@ def compute_field_word_diff_html(original: str, modified: str) -> str:
     if not original and not modified:
         return f"<span style='color: {DesignTokens.TEXT_MUTED}; font-style: italic;'>{tr('Vide')}</span>"
 
-    orig_tokens = re.findall(r"\S+|\s+", original)
-    mod_tokens = re.findall(r"\S+|\s+", modified)
+    diff_regex = r"<[^>]+>|\{\{c\d+::|\}\}|[^\s<>\{\}]+|\s+"
+    orig_tokens = re.findall(diff_regex, original)
+    mod_tokens = re.findall(diff_regex, modified)
 
     matcher = difflib.SequenceMatcher(None, orig_tokens, mod_tokens)
     result_diff: list[str] = []
 
+    def _render_token(tok: str) -> str:
+        if tok in ("<br>", "<br/>", "<br />"):
+            return "<br>"
+        return html.escape(tok)
+
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
-            result_diff.append(html.escape("".join(orig_tokens[i1:i2])))
+            rendered = "".join(_render_token(tok) for tok in orig_tokens[i1:i2])
+            result_diff.append(rendered)
         elif tag == "delete":
-            del_text = html.escape("".join(orig_tokens[i1:i2]))
+            del_toks = orig_tokens[i1:i2]
+            del_text = "".join(html.escape(t) for t in del_toks)
+            has_br = any(t in ("<br>", "<br/>", "<br />") for t in del_toks)
+            br_suffix = "<br>" if has_br else ""
             result_diff.append(
-                f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; text-decoration: line-through; border-radius: 2px; padding: 1px 2px;'>{del_text}</span>"
+                f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; "
+                f"color: {DesignTokens.COLOR_RED}; text-decoration: line-through; "
+                f"border-radius: 2px; padding: 1px 2px;'>{del_text}</span>{br_suffix}"
             )
         elif tag == "insert":
-            ins_text = html.escape("".join(mod_tokens[j1:j2]))
+            ins_toks = mod_tokens[j1:j2]
+            ins_text = "".join(html.escape(t) for t in ins_toks)
+            has_br = any(t in ("<br>", "<br/>", "<br />") for t in ins_toks)
+            br_suffix = "<br>" if has_br else ""
             result_diff.append(
-                f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
+                f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; "
+                f"color: {DesignTokens.COLOR_GREEN}; font-weight: 600; "
+                f"border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>{br_suffix}"
             )
         elif tag == "replace":
-            del_text = html.escape("".join(orig_tokens[i1:i2]))
-            ins_text = html.escape("".join(mod_tokens[j1:j2]))
+            del_toks = orig_tokens[i1:i2]
+            ins_toks = mod_tokens[j1:j2]
+            del_text = "".join(html.escape(t) for t in del_toks)
+            ins_text = "".join(html.escape(t) for t in ins_toks)
+            has_br = any(t in ("<br>", "<br/>", "<br />") for t in del_toks + ins_toks)
+            br_suffix = "<br>" if has_br else ""
             result_diff.append(
                 f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; "
                 f"color: {DesignTokens.COLOR_RED}; text-decoration: line-through; "
                 f"border-radius: 2px; padding: 1px 2px;'>{del_text}</span> "
                 f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; "
                 f"color: {DesignTokens.COLOR_GREEN}; font-weight: 600; "
-                f"border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
+                f"border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>{br_suffix}"
             )
 
     return "".join(result_diff).replace("\n", "<br>")
@@ -219,16 +243,16 @@ class FieldSemanticDiffRow(QFrame):
         cols_layout.setSpacing(8)
 
         # Colonne Gauche : BDD (Lecture seule)
-        left_col = QFrame()
-        left_col.setObjectName("left_col")
-        left_col.setStyleSheet(f"""
+        self.left_col = QFrame()
+        self.left_col.setObjectName("left_col")
+        self.left_col.setStyleSheet(f"""
             QFrame#left_col {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
             }}
         """)
-        left_layout = QVBoxLayout(left_col)
+        left_layout = QVBoxLayout(self.left_col)
         left_layout.setContentsMargins(8, 6, 8, 6)
         left_layout.setSpacing(4)
 
@@ -255,6 +279,8 @@ class FieldSemanticDiffRow(QFrame):
         self.orig_browser = QTextBrowser()
         self.orig_browser.setMinimumHeight(60)
         self.orig_browser.setMaximumHeight(140)
+        self.orig_browser.setLineWrapMode(QTextBrowser.LineWrapMode.WidgetWidth)
+        self.orig_browser.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.orig_browser.setHtml(compute_field_word_diff_html(self._orig_val, self._mod_val))
         self.orig_browser.setStyleSheet(f"""
             QTextBrowser {{
@@ -265,12 +291,12 @@ class FieldSemanticDiffRow(QFrame):
             }}
         """)
         left_layout.addWidget(self.orig_browser, 1)
-        cols_layout.addWidget(left_col, 1)
+        cols_layout.addWidget(self.left_col, 1)
 
         # Colonne Droite : Proposition Agent MCP (Éditable en direct)
-        right_col = QFrame()
-        right_col.setObjectName("right_col")
-        right_col.setStyleSheet(f"""
+        self.right_col = QFrame()
+        self.right_col.setObjectName("right_col")
+        self.right_col.setStyleSheet(f"""
             QFrame#right_col {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -280,7 +306,7 @@ class FieldSemanticDiffRow(QFrame):
                 border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
-        right_layout = QVBoxLayout(right_col)
+        right_layout = QVBoxLayout(self.right_col)
         right_layout.setContentsMargins(8, 6, 8, 6)
         right_layout.setSpacing(4)
 
@@ -307,6 +333,8 @@ class FieldSemanticDiffRow(QFrame):
         self.mod_editor = QPlainTextEdit()
         self.mod_editor.setMinimumHeight(60)
         self.mod_editor.setMaximumHeight(140)
+        self.mod_editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        self.mod_editor.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.mod_editor.setPlainText(self._mod_val)
         self.mod_editor.setReadOnly(self.is_applied)
         self.mod_editor.setStyleSheet(f"""
@@ -319,9 +347,65 @@ class FieldSemanticDiffRow(QFrame):
         """)
         self.mod_editor.textChanged.connect(self._on_text_changed)
         right_layout.addWidget(self.mod_editor, 1)
-        cols_layout.addWidget(right_col, 1)
+        cols_layout.addWidget(self.right_col, 1)
 
         layout.addLayout(cols_layout)
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Adapte les styles au profil de thème actif."""
+        bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
+        bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+        border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+        text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
+        text_secondary = getattr(profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
+        accent = getattr(profile, "accent_primary", DesignTokens.ACCENT_PRIMARY)
+
+        self.setStyleSheet(f"""
+            QFrame#FieldSemanticDiffRow {{
+                background-color: {bg_panel};
+                border: 1px solid {border_color};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                margin-bottom: 8px;
+            }}
+        """)
+        if hasattr(self, "left_col"):
+            self.left_col.setStyleSheet(f"""
+                QFrame#left_col {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-radius: 4px;
+                }}
+            """)
+        if hasattr(self, "right_col"):
+            self.right_col.setStyleSheet(f"""
+                QFrame#right_col {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-radius: 4px;
+                }}
+                QFrame#right_col:focus-within {{
+                    border-color: {accent};
+                }}
+            """)
+        if hasattr(self, "orig_browser"):
+            self.orig_browser.setStyleSheet(f"""
+                QTextBrowser {{
+                    border: none;
+                    background-color: transparent;
+                    color: {text_secondary};
+                    font-size: 11px;
+                }}
+            """)
+            self.orig_browser.setHtml(compute_field_word_diff_html(self._orig_val, self._mod_val))
+        if hasattr(self, "mod_editor"):
+            self.mod_editor.setStyleSheet(f"""
+                QPlainTextEdit {{
+                    border: none;
+                    background-color: transparent;
+                    color: {text_primary};
+                    font-size: 11px;
+                }}
+            """)
 
     def _on_text_changed(self) -> None:
         new_text = self.mod_editor.toPlainText()
@@ -793,6 +877,8 @@ class CardSemanticDiffWidget(QWidget):
             item = self.model_layout.takeAt(0)
             w = item.widget()
             if w:
+                w.hide()
+                w.setParent(None)
                 w.deleteLater()
 
         if p_type == "note_type_create":
@@ -816,6 +902,8 @@ class CardSemanticDiffWidget(QWidget):
             item = self.model_layout.takeAt(0)
             w = item.widget()
             if w:
+                w.hide()
+                w.setParent(None)
                 w.deleteLater()
         if self._batch_view is None:
             self._batch_view = BatchNoteCreateView()
@@ -1713,6 +1801,8 @@ class CardSemanticDiffWidget(QWidget):
             item = self.fields_layout.takeAt(0)
             w = item.widget()
             if w:
+                w.hide()
+                w.setParent(None)
                 w.deleteLater()
         self._field_rows.clear()
         self._tags_row = None
@@ -2119,6 +2209,80 @@ class CardSemanticDiffWidget(QWidget):
 
     def refresh_theme(self, profile: Any) -> None:
         """Rafraîchit les styles et l'aperçu rendu selon le thème actif."""
+        bg_panel = getattr(profile, "bg_panel", DesignTokens.BG_PANEL)
+        bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+        bg_hover = getattr(profile, "bg_hover", DesignTokens.BG_HOVER)
+        border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+        text_primary = getattr(profile, "text_primary", DesignTokens.TEXT_PRIMARY)
+        text_secondary = getattr(profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
+        accent = getattr(profile, "accent_primary", DesignTokens.ACCENT_PRIMARY)
+
+        if hasattr(self, "tab_widget"):
+            self.tab_widget.setStyleSheet(f"""
+                QTabWidget::pane {{
+                    border: 1px solid {border_color};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    background-color: {bg_panel};
+                }}
+                QTabBar::tab {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-bottom: none;
+                    border-top-left-radius: 4px;
+                    border-top-right-radius: 4px;
+                    color: {text_secondary};
+                    padding: 6px 14px;
+                    margin-right: 2px;
+                    font-size: 11px;
+                    font-weight: 500;
+                }}
+                QTabBar::tab:selected {{
+                    background-color: {bg_panel};
+                    color: {accent};
+                    font-weight: 600;
+                    border-color: {border_color};
+                }}
+                QTabBar::tab:hover:!selected {{
+                    background-color: {bg_hover};
+                    color: {text_primary};
+                }}
+            """)
+
+        if hasattr(self, "preview_toolbar"):
+            self.preview_toolbar.setStyleSheet(f"""
+                QFrame#preview_toolbar {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 4px 8px;
+                }}
+            """)
+
+        if hasattr(self, "orig_card_frame"):
+            self.orig_card_frame.setStyleSheet(f"""
+                QFrame#orig_card_frame {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_color};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+
+        if hasattr(self, "mod_card_frame"):
+            self.mod_card_frame.setStyleSheet(f"""
+                QFrame#mod_card_frame {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_color};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+
+        for row in self._field_rows.values():
+            if hasattr(row, "refresh_theme"):
+                row.refresh_theme(profile)
+
+        if self._tags_row and hasattr(self._tags_row, "refresh_theme"):
+            self._tags_row.refresh_theme(profile)
+
         if hasattr(self, "preview_orig") and hasattr(self.preview_orig, "refresh_theme"):
             self.preview_orig.refresh_theme(profile)
         if hasattr(self, "preview_mod") and hasattr(self.preview_mod, "refresh_theme"):

@@ -1075,6 +1075,8 @@ class NoteTypePatchWidget(QWidget):
             item = self.fields_container_layout.takeAt(0)
             w = item.widget()
             if w:
+                w.hide()
+                w.setParent(None)
                 w.deleteLater()
         self._field_edits = {}
         fields = self._edited_fields if self._edited_fields else {str(f): f"Exemple {f}" for f in self._fields_schema}
@@ -1167,22 +1169,50 @@ class NoteTypePatchWidget(QWidget):
             self.lbl_title.setText(tr("Prévisualisation de type de note"))
             self.badge_mode.setText(tr("MODIFICATION"))
             self.badge_mode.set_variant("warning")
-            target = payload.get("target_model") or payload.get("target_model_name") or payload.get("target_model_id")
+            target = (
+                payload.get("target_model")
+                or payload.get("target_model_name")
+                or payload.get("target_model_id")
+                or payload.get("note_type_id")
+                or payload.get("note_type_name")
+                or payload.get("model_id")
+                or payload.get("model_name")
+                or patch.target_id
+            )
             if target is not None:
                 if isinstance(target, int) or (isinstance(target, str) and str(target).isdigit()):
                     self._note_type = NoteTypeModel.get_or_none(NoteTypeModel.id == int(target))
                 else:
                     self._note_type = NoteTypeModel.get_or_none(NoteTypeModel.name == str(target).strip())
-            if self._note_type:
+
+            # Résolution des champs (payload en priorité, sinon note_type, sinon fallback)
+            raw_fields = payload.get("fields_schema") or payload.get("fields")
+            if raw_fields and isinstance(raw_fields, list):
+                self._fields_schema = [str(f) for f in raw_fields]
+            elif self._note_type:
                 try:
                     self._fields_schema = [str(f) for f in json.loads(self._note_type.fields_schema or "[]")]
                 except Exception:
                     self._fields_schema = []
+            if not self._fields_schema:
+                self._fields_schema = ["Front", "Back"]
+
+            # Résolution des gabarits
+            raw_tpls = payload.get("templates_after") or payload.get("templates")
+            if raw_tpls and isinstance(raw_tpls, list):
+                self._templates = raw_tpls
+            elif self._note_type:
                 try:
                     parsed_templates = json.loads(self._note_type.templates or "[]")
                     self._templates = parsed_templates if isinstance(parsed_templates, list) else []
                 except Exception:
                     self._templates = []
+
+            # Résolution du style CSS
+            payload_css = payload.get("css_after") or payload.get("css_style") or payload.get("css")
+            if payload_css:
+                self._edited_css = str(payload_css)
+            elif self._note_type:
                 self._edited_css = self._note_type.css_style or ""
 
         self.css_edit.blockSignals(True)
@@ -1205,7 +1235,7 @@ class NoteTypePatchWidget(QWidget):
     def _on_note_selected(self, index: int) -> None:
         """Charge les champs de la note sélectionnée et rafraîchit l'aperçu."""
         if not self._notes or index < 0 or index >= len(self._notes):
-            self._edited_fields = {}
+            self._edited_fields = {str(f): f"Exemple {f}" for f in self._fields_schema}
             self._rebuild_fields()
             self._render_preview()
             return

@@ -264,7 +264,62 @@ def main():
         ),
     )
 
-    # G. Patch 8 : Proposition annulée par l'agent (Aborted)
+    # H. Patch 9 : Scission atomique de carte (card_split)
+    patch_split = StagedPatchRegistry.create_patch(
+        patch_type="card_split",
+        target_id=entities["note_basic"].id,
+        diff_payload={
+            "type": "card_split",
+            "note_id": entities["note_basic"].id,
+            "title": "Scission atomique : Dualité onde-corpuscule",
+            "original": {
+                "Front": "Expliquer la dualité onde-corpuscule et donner la formule de de Broglie.",
+                "Back": "La matière possède à la fois des propriétés d'ondes et de particules. La longueur d'onde associée est lambda = h / p.",
+            },
+            "modified": [
+                {
+                    "Front": "Qu'énonce le principe de <b>dualité onde-corpuscule</b> ?",
+                    "Back": "Toute particule matérielle manifeste simultanément des propriétés ondulatoires et corpusculaires.",
+                },
+                {
+                    "Front": "Formule de la <b>longueur d'onde de de Broglie</b> (lambda = ?) :",
+                    "Back": "lambda = h / p (avec h cte de Planck, p impulsion)",
+                },
+            ],
+        },
+    )
+
+    # I. Patch 10 : Lot de création de notes (batch_note_create)
+    patch_batch_create = StagedPatchRegistry.create_patch(
+        patch_type="batch_note_create",
+        diff_payload={
+            "title": "Lot de 3 kanjis JLPT N5",
+            "deck_id": entities["deck_japonais"].id,
+            "deck_name": entities["deck_japonais"].name,
+            "model_id": entities["nt_basic"].id,
+            "model_name": entities["nt_basic"].name,
+            "notes": [
+                {"fields": {"Front": "日 (sens & lecture)", "Back": "Jour, Soleil — にち (nichi) / ひ (hi)"}, "tags": "kanji n5"},
+                {"fields": {"Front": "月 (sens & lecture)", "Back": "Lune, Mois — げつ (getsu) / つき (tsuki)"}, "tags": "kanji n5"},
+                {"fields": {"Front": "木 (sens & lecture)", "Back": "Arbre, Bois — もく (moku) / き (ki)"}, "tags": "kanji n5"},
+            ],
+        },
+    )
+
+    # J. Patch 11 : Refactorisation de modèle de note (note_type_refactor)
+    patch_model_refactor = StagedPatchRegistry.create_patch(
+        patch_type="note_type_refactor",
+        target_id=entities["nt_basic"].id,
+        diff_payload={
+            "title": "Modernisation typographique du modèle Basique",
+            "note_type_id": entities["nt_basic"].id,
+            "note_type_name": "Basique",
+            "templates_before": [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}],
+            "templates_after": [{"name": "Carte 1", "qfmt": "<div class='card front'>{{Front}}</div>", "afmt": "{{FrontSide}}<hr id=answer><div class='card back'>{{Back}}</div>"}],
+            "css_before": ".card { font-family: arial; font-size: 20px; }",
+            "css_after": ".card { font-family: 'Inter', sans-serif; font-size: 18px; line-height: 1.5; color: #1e293b; }\n.front { font-weight: 600; }\n.back { color: #334155; }",
+        },
+    )
     patch_aborted = StagedPatchRegistry.create_patch(
         patch_type="card",
         target_id=entities["note_basic"].id,
@@ -359,6 +414,54 @@ def main():
     path_aborted_screen = out_dir / "09_garde_fou_aborted_patch.png"
     widget.grab().save(str(path_aborted_screen))
     print(f"✅ Capture 9 (Aborted) : {path_aborted_screen}")
+
+    # Revenir en filtre pending
+    widget._set_status_filter("pending")
+    app.processEvents()
+
+    # -------------------------------------------------------------
+    # 11. CAPTURE : Scission Atomique de Carte (card_split)
+    # -------------------------------------------------------------
+    widget._display_patch(patch_split)
+    app.processEvents()
+    path_split_screen = out_dir / "11_garde_fou_card_split.png"
+    widget.grab().save(str(path_split_screen))
+    print(f"✅ Capture 11 (Card Split) : {path_split_screen}")
+
+    # -------------------------------------------------------------
+    # 12. CAPTURE : Lot de Création de Cartes (batch_note_create)
+    # -------------------------------------------------------------
+    widget._display_patch(patch_batch_create)
+    app.processEvents()
+    path_batch_create_screen = out_dir / "12_garde_fou_batch_create.png"
+    widget.grab().save(str(path_batch_create_screen))
+    print(f"✅ Capture 12 (Batch Create) : {path_batch_create_screen}")
+
+    # -------------------------------------------------------------
+    # 13. CAPTURE : Refactorisation Modèle de Note (note_type_refactor)
+    # -------------------------------------------------------------
+    widget._display_patch(patch_model_refactor)
+    app.processEvents()
+    path_model_refactor_screen = out_dir / "13_garde_fou_note_type_refactor.png"
+    widget.grab().save(str(path_model_refactor_screen))
+    print(f"✅ Capture 13 (Model Refactor) : {path_model_refactor_screen}")
+
+    # -------------------------------------------------------------
+    # 14. CAPTURE : Thème Clair (JetBrains Light)
+    # -------------------------------------------------------------
+    engine.apply_theme("jetbrains_light", app)
+    widget.refresh_theme(engine.current_theme)
+    app.processEvents()
+    widget._display_patch(patch_basic)
+    app.processEvents()
+    path_light_screen = out_dir / "14_garde_fou_light_clean.png"
+    widget.grab().save(str(path_light_screen))
+    print(f"✅ Capture 14 (Light Theme) : {path_light_screen}")
+
+    # Rétablir le thème sombre IDE
+    engine.apply_theme("jetbrains_dark", app)
+    widget.refresh_theme(engine.current_theme)
+    app.processEvents()
 
 
 if __name__ == "__main__":

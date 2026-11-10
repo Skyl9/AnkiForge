@@ -299,11 +299,28 @@ class CardCreateViewWidget(QWidget):
         main_layout.addWidget(header)
 
         # ── 2. Navigation de lot (si batch_note_create) ────────────────
-        self.nav_widget = QWidget()
+        self.nav_widget = QFrame()
+        self.nav_widget.setObjectName("batch_nav_bar")
+        self.nav_widget.setStyleSheet(f"""
+            QFrame#batch_nav_bar {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 8px;
+            }}
+        """)
         self.nav_widget.setVisible(False)
         self.nav_row = QHBoxLayout(self.nav_widget)
-        self.nav_row.setContentsMargins(0, 0, 0, 0)
-        self.nav_row.setSpacing(6)
+        self.nav_row.setContentsMargins(8, 4, 8, 4)
+        self.nav_row.setSpacing(8)
+
+        icon_batch = QLabel()
+        icon_batch.setPixmap(load_phosphor_icon("ph.stack", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        self.nav_row.addWidget(icon_batch)
+
+        lbl_batch = QLabel(tr("Lot :"))
+        lbl_batch.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {DesignTokens.ACCENT_PRIMARY};")
+        self.nav_row.addWidget(lbl_batch)
 
         self.btn_nav_prev = SecondaryButton(tr("Précédent"))
         self.btn_nav_prev.setIcon(load_phosphor_icon("ph.caret-left", color=DesignTokens.TEXT_PRIMARY))
@@ -394,8 +411,35 @@ class CardCreateViewWidget(QWidget):
         tags_scroll.setFrameShape(QFrame.Shape.NoFrame)
         tags_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         tags_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        tags_scroll.setFixedHeight(28)
-        tags_scroll.setStyleSheet("background: transparent; border: none;")
+        tags_scroll.setFixedHeight(34)
+        tags_scroll.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar:horizontal {
+                height: 3px;
+                background: transparent;
+                border: none;
+                margin: 0px;
+            }
+            QScrollBar::groove:horizontal {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar::handle:horizontal {
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 1px;
+                min-width: 16px;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal,
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                width: 0px;
+                height: 0px;
+                background: transparent;
+                border: none;
+            }
+        """)
 
         self.tags_container = QWidget()
         self.tags_container.setStyleSheet("background: transparent; border: none;")
@@ -760,9 +804,31 @@ class CardCreateViewWidget(QWidget):
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les styles au profil de thème actif."""
+        bg_input = getattr(profile, "bg_input", DesignTokens.BG_INPUT)
+        border_color = getattr(profile, "border_color", DesignTokens.BORDER_COLOR)
+
         self.style().unpolish(self)
         self.style().polish(self)
         self._apply_mode_button_styles()
+
+        if hasattr(self, "nav_widget"):
+            self.nav_widget.setStyleSheet(f"""
+                QFrame#batch_nav_bar {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 4px 8px;
+                }}
+            """)
+        if hasattr(self, "tags_card"):
+            self.tags_card.setStyleSheet(f"""
+                QFrame#CardCreateTags {{
+                    background-color: {bg_input};
+                    border: 1px solid {border_color};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 4px 8px;
+                }}
+            """)
         if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "refresh_theme"):
             self.preview_widget.refresh_theme(profile)
 
