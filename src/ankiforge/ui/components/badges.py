@@ -45,7 +45,7 @@ class Badge(QLabel):
             letter-spacing: 0.4px;
         """
 
-        if variant == "filled":
+        if variant in ("filled", "primary"):
             style += f"background-color: {base_color}; color: {DesignTokens.TEXT_ON_ACCENT};"
         elif variant == "outline":
             style += f"background-color: transparent; border: 1px solid {base_color}; color: {base_color};"

@@ -208,7 +208,7 @@ class StorageMaintenanceTab(QWidget):
                 width: 16px;
                 height: 16px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
                 background-color: {DesignTokens.BG_INPUT};
             }}
             QCheckBox::indicator:hover {{
