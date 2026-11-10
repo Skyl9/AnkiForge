@@ -22,6 +22,8 @@ Le document produit sert de base directe pour le découpage en tickets via **`/t
    - Rédiger la spécification dans un artefact Markdown dédié (`spec_<nom>.md`) pour lecture et validation immédiate par l'utilisateur.
    - Si une copie est persistée dans le vault Obsidian pour traçabilité de tâche, la placer obligatoirement dans `ankiforge_obsidian/Tickets/ticket-actif/` (ou `Archives/` post-clôture). La racine `Tickets/` ne doit **JAMAIS** héberger de fichiers à plat.
    - Toute spécification technique à vocation pérenne doit être intégrée dans `docs/` (Zensical) et non confinée au vault de tickets.
+5. **Revue Contradictoire de Spécification (`/doubt-driven-development`)** :
+   - Pour tout chantier structurant (modèle Peewee, RAG, FastMCP, threading Qt), soumettre la spécification à une passe critique confrontant les 5 Piliers d'Adversité Systémique avant le découpage en tickets.
 
 ## Gabarit de Spécification
 

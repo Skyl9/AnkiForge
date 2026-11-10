@@ -29,8 +29,9 @@ L'agent **DOIT impérativement instancier un sous-agent d'investigation** (`invo
 
 - **1. Contrôle d'existence et de signature réelle (Codebase Reality Check)** : Le sous-agent inspecte le code réel pour vérifier chaque classe, méthode, outil MCP ou constante mentionné. **Interdiction formelle de supposer une API de mémoire** (ex: vérifier la signature réelle de `find_duplicate_cards`, la méthode canonique de ré-indexation `reindex_document`, et la fonction de notification de mutation `_notify_mcp_mutation`).
 - **2. Éradication du jargon magique** : Remplacer chaque formule séduisante mais floue par un contrat déterministe (seuils mathématiques précis pour les verdicts, assainissement HTML/cloze explicite, formules de décompte chiffrées).
-- **3. Validation de la chaîne d'architecture du dépôt** : Identifier l'ensemble des fichiers devant être modifiés de concert (ex: pour tout outil FastMCP `@mcp.tool()`, lister impérativement la triade `mcp_server.py` + `mcp_tool_registry.py` + `consultant_engine.py` + `mcp_tool_catalog_widget.py` + assertions de décompte dans les tests pour éviter le post-mortem `T-25`).
-- **4. Matrice d'ordonnancement & Garde-fou GF-TT-1** : Ordonnancer strictement le graphe de dépendances. **Interdiction absolue d'assigner `ready-for-agent` à un ticket qui dépend d'un autre ticket non encore fusionné.**
+- **3. Validation de la chaîne d'architecture du dépôt** : Identifier l'ensemble des fichiers devant être modifiés de concert (ex: pour tout outil FastMCP `@mcp.tool()`, synchroniser la triade `mcp_server.py` + `mcp_tool_registry.py` + `mcp_tool_catalog_widget.py` + assertions de décompte dans les tests).
+- **4. Stress-test des hypothèses (`/doubt-driven-development`)** : Évaluer le nombre de suppositions techniques non prouvées ; si $\ge 2$ éléments restent obscurs, instruire les doutes avant de figer les tickets.
+- **5. Matrice d'ordonnancement & Garde-fou GF-TT-1** : Ordonnancer strictement le graphe de dépendances. **Interdiction absolue d'assigner `ready-for-agent` à un ticket qui dépend d'un autre ticket non encore fusionné.**
 
 ### 2. Définir des tranches verticales (Tracer Bullets)
 Chaque ticket doit respecter les règles suivantes :

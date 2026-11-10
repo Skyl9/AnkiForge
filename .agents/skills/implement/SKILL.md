@@ -20,6 +20,13 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
    - **Règle anti-boucle** : appliquer la modification en une seule passe atomique (One-shot pass) sans relecture circulaire.
 2. **Clarifier la couture (Seam)** :
    - Vérifier les critères d'acceptation et identifier le point d'entrée modulaire (modèle, service, ou widget Qt).
+3. **Audit de Certitude & Déclencheur Automatique de Doute (Garde-Fou du Seuil d'Inconnus)** :
+   - Recenser les composants techniques touchés (modèles Peewee, tables, signatures de méthodes, threading Qt, contrats FastMCP).
+   - Classer chaque assertion en `[Prouvé]` (lu physiquement dans le code) vs `[Supposition]` / `[Inconnu]` (assumé de mémoire).
+   - **Déclenchement Automatique de `/doubt-driven-development`** : Si $\ge 2$ suppositions ou inconnus subsistent (schéma de jointure non certifié, contrat FastMCP flou, complexité algorithmique incertaine) :
+     - 🛑 **Interdiction formelle de coder ou d'écrire le premier test rouge**.
+     - Exécuter une passe contradictoire `/doubt-driven-development` ("Penser contre le plan") pour confronter les suppositions aux 5 Piliers d'Adversité Systémique.
+     - Inspecter physiquement les sources jusqu'à transformer 100% des suppositions bloquantes en faits certifiés (`[Prouvé]`).
 
 ## 2. Développement Test-First (/tdd)
 

@@ -11,8 +11,7 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
 
 ## 1. Principes Directeurs : La Prière et la Contrainte
 
-- **Le skill est une prière, le hook est une contrainte** : ce skill n'interdit rien par caprice ; il explicite le *pourquoi* technique de chaque règle.
-- **Ne pas dupliquer la contrainte** : le contrôle automatique est garanti par le hook git pre-push natif (`.githooks/pre-push`) et le script canonique `script/verify.py`. Ce skill te préserve de brûler un cycle d'itération sur un interdit déjà écrit.
+- **Le skill est une prière, le hook est une contrainte** : ce skill explicite le *pourquoi* technique de chaque règle. Le contrôle automatique est garanti par `.githooks/pre-push` et `script/verify.py` ; ce skill évite de brûler un cycle d'itération sur un interdit déjà écrit.
 
 ## 2. Règles Non Négociables d'Écriture (Le Pourquoi)
 
@@ -80,9 +79,9 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
     - *Pourquoi* : Concaténer des fragments traduits (ex: `tr("Cartes : %1", n) + tr(" dans le paquet '%1'", p)`) produit une syntaxe grammaticalement invalide dans les langues cibles dont l'ordre des mots diffère (SOV en japonais/turc, VSO en arabe, verbe rejeté en allemand) et isole des fragments incompréhensibles pour les traducteurs.
     - *Garantie automatique* : Formuler systématiquement des phrases entières complètes pour chaque branche conditionnelle (`tr("Cartes ciblées : %1 carte(s) dans le paquet '%2'.", n, p)` vs `tr("Cartes ciblées : %1 carte(s).", n)`).
 
-18. **Triple synchronisation des outils FastMCP (Zéro déconnexion du dispatch)** :
-    - *Pourquoi* : L'agent conversationnel interne `ConsultantEngine` utilise son propre routeur local vers `mcp_tool_registry.py` sans passer par le socket FastMCP. Déclarer un outil uniquement dans FastMCP ou omettre son dispatch local provoque l'exception `Tool not found` lors des interactions utilisateur avec l'agent Consultant.
-    - *Garantie automatique* : Tout nouvel outil FastMCP `@mcp.tool()` doit être synchronisé simultanément dans : (1) `mcp_server.py`, (2) `mcp_tool_catalog_widget.py` (`TOOL_DOMAIN_MAP`/`TOOL_SAFEGUARDS_MAP`), et (3) `consultant_engine.py` (`DEFAULT_CONSULTANT_TOOLS` + `ConsultantEngine._execute_tool_call()`).
+18. **Triple synchronisation des outils FastMCP (Zéro outil orphelin)** :
+    - *Pourquoi* : Depuis le découplage et la suppression de l'ancien moteur in-app (`consultant_engine.py`), le serveur FastMCP persistant in-process et le catalogue UI partagent le registre centralisé `mcp_tool_registry.py`. Omettre l'un des maillons rend l'outil invisible aux agents externes, non documenté dans l'IHM ou inaccessible aux schémas JSON.
+    - *Garantie automatique* : Tout nouvel outil FastMCP doit être synchronisé simultanément dans la triade : (1) `src/ankiforge/services/ai/mcp_server.py` (`@mcp.tool()`), (2) `src/ankiforge/services/ai/mcp_tool_registry.py` (méthode registre déléguée + schéma dans `DEFAULT_CONSULTANT_TOOLS`), et (3) `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py` (`TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP`).
 
 19. **Variables locales contextuelles qualifiées dans les grands répartiteurs (Zéro collision Mypy `[assignment]`)** :
     - *Pourquoi* : Dans une longue méthode de dispatching ou de routage (`ConsultantEngine._execute_tool_call()`, `_apply_patch_step()`, etc.), réutiliser un nom de variable court ou générique (`p_id`, `data`, `res`) assigné plus haut dans une autre branche avec un type distinct (`str` vs `int`) déclenche l'erreur bloquante Mypy strict `Incompatible types in assignment`.
@@ -117,12 +116,16 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
     - *Garantie automatique* : Dans tout test d'audit de fuite de logs par sentinelle, filtrer explicitement sur les enregistrements du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankiforge.<service>")]`) ou isoler le logger Peewee (`logging.getLogger("peewee").setLevel(logging.INFO)`).
 
 27. **Principe de Parcimonie d'Exécution de la Porte Canonique (Frugalité CI/Agentique)** :
-    - *Pourquoi* : La suite de tests pytest s'enrichit continuellement (> 3800 tests, ~45s à 90s). Relancer `script/verify.py` complet à l'aveugle sans modification de code gaspille des ressources. L'étape `crap-check` s'exécute en étape 8 après `pytest-fast` (étape 7) pour exploiter le rapport LCOV de couverture de tests.
-    - *Garantie automatique* :
-      - Contrôle statique rapide : `uv run python script/verify.py --no-tests` (~10s, étapes 1-6).
-      - Audit CRAP seul : `uv run python script/verify.py --crap` (< 1s, sur LCOV existant).
-      - Étape ciblée : `uv run python script/verify.py --step <nom>` (ex: `--step mypy`).
-      - Les sous-agents de revue ne doivent **jamais** relancer `verify.py` complet si l'état a déjà été certifié.
+    - *Pourquoi* : La suite pytest (> 3800 tests, ~45-90s) ne doit pas être relancée à l'aveugle sans modification de code. L'étape `crap-check` s'exécute en étape 8 après `pytest-fast` (étape 7) pour exploiter le rapport LCOV.
+    - *Garantie automatique* : Privilégier `verify.py --no-tests` (~10s, étapes 1-6), `verify.py --crap` (< 1s), ou `--step <nom>`. Les sous-agents de revue ne doivent **jamais** relancer `verify.py` complet si l'état est déjà certifié.
+
+28. **Interdiction de `try: ... except: continue` sans logging (Règle Bandit B112 / CWE-703)** :
+    - *Pourquoi* : Un bloc `try: ... except Exception: continue` nu sans journalisation avale silencieusement des exceptions inattendues (syntaxe corrompue, I/O, type mismatch) et rend les régressions indétectables. L'audit statique de sécurité Bandit (étape 6 de `verify.py`) échoue immédiatement en signalant une vulnérabilité de gestion d'erreur CWE-703.
+    - *Garantie automatique* : Toujours nommer l'exception et consigner un message explicatif (`logger.warning("Message : %s", err)` ou `logger.debug(...)`) avant d'exécuter un saut d'itération `continue`.
+
+29. **Validation par profils réels et benchmarks étalons (Recette sans mock)** :
+    - *Pourquoi* : Les tests unitaires sous SQLite in-memory (`:memory:`) certifient la logique pure mais ne testent pas les interactions de fichiers physiques (verrouillage `.profile.lock`, répertoires `reports/`, persistance multi-profils et encodage UTF-8 sous le système de fichiers réel).
+    - *Garantie automatique* : Après les tests unitaires et la porte `verify.py`, valider les fonctionnalités complexes sur un profil étalon de développement isolé (ex. `NouvelEnvironnement` sous `~/.ankiforge-dev/profiles/NouvelEnvironnement/`) via un sous-agent QA dédié avant clôture.
 
 ## 3. Commande Canonique Unique de Vérification
 
@@ -136,14 +139,10 @@ uv run python script/verify.py --crap       # contrôle ciblé du score CRAP seu
 uv run python script/verify.py --step <nom> # exécution d'une étape ciblée (ex: --step mypy, --step crap)
 uv run python script/verify.py --all-tests  # vérification avec suite complète (sans filtre slow)
 ```
-- **Exécution par agent** : outil `run_command` (Antigravity / Gemini), outil `Bash` (Claude Code), ou shell.
-
-### Le hook pre-push versionné
-
-Situé dans `.githooks/pre-push`, il s'exécute automatiquement avant tout `git push`. En cas d'échec d'une seule étape de `script/verify.py`, le push est rejeté.
+- **Exécution** : via `run_command` (Gemini), `Bash` (Claude), ou shell. Le hook `.githooks/pre-push` rejette tout push si une étape de `script/verify.py` échoue.
 
 ## ⛔ Ne PAS utiliser ce skill si...
 
-- Tu souhaites auditer la conformité globale ou produire un rapport formel sous `audits/` : utiliser `audit-qualite-code`, `audit-tests-ci` ou `audit-ankiforge`.
-- Tu prépares des propositions de commits atomiques à la fin d'une tâche : utiliser `proposer-commits`.
-- Tu travailles spécifiquement sur le modèle de données Peewee ou une migration SQLite : utiliser `peewee-expert`.
+- Audit global ou rapport formel sous `audits/` : utiliser `audit-qualite-code`, `audit-tests-ci` ou `audit-ankiforge`.
+- Formulation de propositions de commits atomiques : utiliser `proposer-commits`.
+- Modèle de données Peewee ou migration SQLite : utiliser `peewee-expert`.

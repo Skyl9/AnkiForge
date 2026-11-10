@@ -1,101 +1,66 @@
 ---
 name: doubt-driven-development
 description: >-
-  Soumet chaque proposition technique ou décision de l'utilisateur à une critique active et systématique ("penser contre") avant validation. Identifie les hypothèses implicites, les effets de bord cachés, les défaillances silencieuses et les incohérences avec le codebase. Use when the user asks to "penser contre moi", "critiquer ma proposition", "revue contradictoire", "adversarial review", "doubt-driven-development", or when making high-stakes architectural or security-critical choices. When NOT to use: Do not use for mechanical refactorings (renaming, formatting), one-line changes, or when the user explicitly requests speed over verification.
+  Soumet chaque proposition technique, cadrage ou implémentation à une critique active et systématique ("penser contre") avant validation. Identifie les hypothèses implicites, défaillances silencieuses et active le doute automatique si le nombre d'inconnus dépasse le seuil critique.
+  Use when the user asks to "penser contre moi", "critiquer ma proposition", "revue contradictoire", "adversarial review", "doubt-driven-development", "refait une passe critique", or when implementing with unverified assumptions.
+  When NOT to use: Do not use for mechanical refactorings, trivial one-liners, or when speed is explicitly requested.
 ---
 
 # Doubt-Driven Development — Critique Active ("Penser Contre")
 
-Une réponse affirmée avec assurance n'est pas nécessairement exacte. Dans les sessions longues, l'accumulation de contexte transforme insensiblement de simples hypothèses en prétendus « faits ». Le développement guidé par le doute matérialise une contre-revue dans un contexte vierge — biaisée pour **réfuter** plutôt que valider — avant qu'une décision structurante ne soit figée.
+Une réponse affirmée avec assurance n'est pas nécessairement exacte. Dans les sessions longues, l'accumulation de contexte transforme insensiblement de simples hypothèses en prétendus « faits ». Le Doubt-Driven Development matérialise une contre-revue dans un contexte vierge — biaisée pour **réfuter** plutôt que valider — avant qu'une décision structurante ne soit figée.
 
-Ce skill a pour fonction explicite de **penser contre l'utilisateur** : critiquer activement ses propositions, chercher ce qui claque, et proposer des améliorations concrètes. Ce n'est pas une validation bienveillante, c'est un stress-test.
+Ce skill a pour fonction explicite de **penser contre l'auteur** : stress-tester l'artefact, chercher ce qui claque, et proposer des améliorations concrètes.
 
-> **Références** :
-> - `references/orchestration-patterns.md` : Règles d'orchestration (les sous-agents n'invoquent pas d'autres sous-agents).
-> - `references/adversarial-review-guide.md` : Guide d'escalade cross-modèle et grille de classification.
+## 🎯 1. Seuil d'Activation Automatique (Unknowns Ratio)
 
-## Périmètre d'Application
+Avant d'écrire du code ou de figer une architecture, classer chaque assertion technique :
+- **`[Prouvé]`** : Fait certifié par lecture physique du code source (`read_file`, schéma SQLite, doc officielle).
+- **`[Supposition]`** : Hypothèse non vérifiée (ex. "ce champ existe", "cette boucle est rapide", "ce mock suffit").
+- **`[Inconnu]`** : Zone d'ombre explicite (ex. concurrence de threads Qt, latence réseau, contrat flou).
 
-Une proposition est **non-triviale** dès lors qu'elle :
+> [!IMPORTANT]
+> **Règle du Seuil Incompressible** : Si $\text{Suppositions} + \text{Inconnus} \ge 2$ (ou si le ratio d'inconnus $\ge 30\%$), **le Doubt-Driven Development se déclenche AUTOMATIQUEMENT**. Interdiction formelle de coder avant d'avoir instruit les doutes et transformé les suppositions en faits certifiés.
 
-- Introduit ou altère des embranchements logiques.
-- Traverse une frontière entre modules ou services.
-- Repose sur des garanties non vérifiables par le compilateur (concurrence, idempotence, ordre).
-- Possède un rayon d'impact irréversible (déploiement, migration BDD, changement d'API publique).
+## 🔄 2. Matrice d'Intervention aux 5 Étapes du Ticket AnkiForge
 
-## When NOT to use this skill
+| Étape Ticket | Question Contradictoire Clé | Déclencheur DDD |
+| :--- | :--- | :--- |
+| **1. Cadrage (`/triage`, `/grill-with-docs`)** | Résout-on le bon problème ? Existe-t-il une solution 10x plus simple sans ajouter de modèle/outil ? | Besoin flou, frontière floue. |
+| **2. Spécification (`/to-spec`)** | La spec viole-t-elle des invariants des 5 Piliers ? Quels sont les cas d'erreur ignorés ? | Changement d'API ou de schéma. |
+| **3. Découpage (`/to-tickets`)** | Les tickets sont-ils couplés ? Les signatures prescrites correspondent-elles au code réel ? | $\ge 3$ fichiers ou jargon dense. |
+| **4. Implémentation (`/implement`, `/tdd`)** | L'implémentation repose-t-elle sur des suppositions ? Quel invariant relationnel/perf est menacé ? | **Automatique si $\ge 2$ suppositions.** |
+| **5. Clôture & Revue (`/code-review`)** | Quels effets de bord silencieux ou fuites de ressources ont échappé aux tests rapides ? | Systématique avant merge/commit. |
 
-⛔ **Interdits bloquants** :
+## 🏛️ 3. Les 5 Piliers d'Adversité Systémique (Passes Multi-Cycles)
 
-- Opérations mécaniques (renommage, formatage, déplacement de fichiers).
-- Modifications triviales d'une ligne dont la correction est évidente.
-- L'utilisateur a expressément demandé la vitesse d'exécution plutôt que la vérification approfondie.
-- Relecture globale post-implémentation d'une branche entière → utiliser `/code-review`.
-- Propositions déjà validées par l'utilisateur après une première passe de ce skill (éviter la boucle infinie de relecture).
+À chaque cycle critique (commandé via *"Refait une passe critique"* ou auto-déclenché), balayer méthodiquement :
 
-## Processus en 5 Étapes
+| Pilier d'Adversité | Question Contradictoire | Exemples de Pièges Détectés |
+| :--- | :--- | :--- |
+| **1. Réalité Relationnelle BDD** | L'artefact présume-t-il de relations directes inexistantes dans Peewee ? | Joindre `NoteModel` à `DeckModel` sans le pivot `CardModel` (`OperationalError`). |
+| **2. Échelle & Complexité** | L'opération dégénère-t-elle en $\mathcal{O}(N \times K)$ sur 50k cartes ? | Scanner 50k cartes avec 150 regex (7,5M tests) au lieu d'un automate compilé en $\mathcal{O}(N)$. |
+| **3. Sémantique & Bilinguisme** | Les marqueurs linguistiques couvrent-ils les variations de registre et négations ? | Oublier que la négation (`n'est pas`) prouve une distinction, ou confondre un acronyme court. |
+| **4. Sécurité Filesystem & Formats** | Les fichiers ou exceptions masquent-ils des failles ? | Injection `try: except: continue` (Bandit B112/CWE-703), traversée de répertoires (`../../`). |
+| **5. Overlays Transactionnels** | L'analyse prend-elle en compte l'état en mémoire et le Two-Phase Commit ? | Ignorer l'overlay virtuel Staged Bundles (`is_staged=True`) empêchant de mesurer le gain. |
 
-### Étape 1 — CLAIM : Nommer l'affirmation
+## 🧭 4. Processus Opérationnel en 5 Étapes
 
-Formuler l'affirmation de l'utilisateur en 2 ou 3 lignes, avec son enjeu.
+1. **CLAIM** : Formuler l'affirmation technique en 2-3 lignes et isoler son enjeu.
+2. **EXTRACT** : Transmettre uniquement l'artefact et le contrat technique sans les conclusions de l'auteur.
+3. **DOUBT** : Mandat contradictoire biaisé pour réfuter. Chercher les cas limites, violations de contrat et fausses certitudes.
+4. **RECONCILE** : Classer les retours (Contrat ambigu ➔ reformuler ; Défaut ➔ corriger ; Compromis ➔ documenter ; Faux positif ➔ rejeter).
+5. **CONVERGENCE** : Arrêt dès que les remarques deviennent mineures, après accord explicite ou au terme des passes thématiques.
 
-```
-CLAIM: "Le pipeline DAG délégué à l'agent externe MCP retourne le prompt de persona à chaque étape pour éviter le drift."
-WHY THIS MATTERS: Cela change le modèle d'exécution de l'orchestrateur et introduit une dépendance réseau à chaque étape.
-```
-
-### Étape 2 — EXTRACT : Isoler l'unité minimale
-
-Transmettre uniquement l'**artefact** (proposition, diff, spécification) et le **contrat** (invariants ou spec). Ne jamais transmettre le raisonnement ou la CLAIM : donner sa conclusion biaise le relecteur.
-
-### Étape 3 — DOUBT : Prompt contradictoire
-
-Transmettre au relecteur un mandat contradictoire explicite. Exemple :
-
-> "Revue contradictoire. Identifie les défaillances, incohérences et hypothèses implicites dans cet artefact. Pars du principe que l'auteur est trop confiant. Cherche les cas limites non gérés, les violations du contrat existant, et les effets de bord sur les composants voisins. Liste chaque point sous forme : [Risque / Conséquence / Correction suggérée]."
-
-### Étape 4 — RECONCILE : Arbitrer les retours
-
-Classer chaque remarque selon la préséance :
-
-1. **Contrat ambigu** → reformuler le contrat.
-2. **Défaut actionnable** → corriger l'artefact.
-3. **Compromis assumé** → documenter explicitement (avantages / inconvénients / verdict).
-4. **Bruit / Faux positif** → contexte manquant, rejeter avec justification.
-
-### Étape 5 — STOP : Fin de boucle
-
-S'arrêter dès que :
-- Les remarques deviennent mineures ;
-- 3 cycles maximum sont atteints (escalader vers l'humain au-delà) ;
-- L'utilisateur valide explicitement la version corrigée.
-
-## Garde-fous Procéduraux
-
-Avant de livrer une critique, vérifier systématiquement :
-
-- [ ] L'artefact a été lu sur le disque (pas de présomption sur son contenu).
-- [ ] Les fichiers cibles mentionnés existent et leur contenu a été inspecté.
-- [ ] Les ADR et `CONTEXT.md` applicables ont été consultés.
-- [ ] La critique identifie au moins un risque concret (sinon, elle est inutile).
-- [ ] Chaque risque s'accompagne d'une correction ou d'un compromis documenté.
-
-## Format de Restitution
-
-La critique doit être rendue sous forme de tableau :
+## 📋 Format de Restitution
 
 | # | Point critiqué | Risque / Inconvénient | Correction suggérée | Statut (accepte / refuse / compromis) |
 
-Puis un **verdict final** clair : accepter, accepter avec réserves, ou refuser et proposer une alternative.
+Verdict final motivé : **Accepter**, **Accepter avec réserves**, ou **Refuser**.
 
-## Exemple d'application
+## ⛔ Ne PAS utiliser ce skill si...
 
-L'utilisateur propose : « Refondre l'outil MCP `trigger_pipeline_run` pour qu'il retourne le prompt de la persona à chaque étape. »
-
-Critique active :
-1. **Latence** : chaque étape ajoute un aller-retour MCP → acceptable pour 6-7 étapes, mais non négligeable à l'échelle.
-2. **Perte d'autonomie du DAG** : l'orchestrateur devient passif → trade-off assumé si l'agent externe maîtrise la génération.
-3. **Pas d'écriture BDD directe** → le résultat doit aller dans le Garde-Fou MCP (staging), pas en base directe.
-4. **Interface instable** → contrat texte à formaliser (prompt retourné, contenu attendu, statut).
-
-Verdict : **Accepter avec réserves**, sous réserve de formaliser le contrat d'API et le timeout par étape.
+- Opérations mécaniques (renommage, formatage, déplacement de fichiers).
+- Modifications triviales d'une ligne dont la correction est évidente.
+- Vitesse explicitement demandée par l'utilisateur.
+- Proposition déjà validée après une première passe sans nouvel élément.

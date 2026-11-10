@@ -46,8 +46,12 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
 
 - **Éviter le N+1** : ne jamais faire `for note in notes: note.deck.name` en boucle sans join/prefetch.
   ```python
-  # ✅ Join
+  # ❌ Interdit — Crash immédiat OperationalError: no foreign key between NoteModel and DeckModel !
+  # NoteModel ne référence pas directement DeckModel (seul CardModel possède une FK vers DeckModel).
   notes = NoteModel.select(NoteModel, DeckModel).join(DeckModel)
+
+  # ✅ Jointure avec pivot explicite via CardModel
+  notes = NoteModel.select(NoteModel, CardModel, DeckModel).join(CardModel, on=(CardModel.note == NoteModel.id)).switch(CardModel).join(DeckModel, on=(CardModel.deck == DeckModel.id))
 
   # ✅ Prefetch multi-relations
   prefetch(NoteModel.select(), ChunkModel.select())
@@ -91,6 +95,10 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
   - Les stubs `types-peewee` infèrent les requêtes `Model.select(...)` comme des itérables de l'instance du modèle (`ModelSelect[T]`).
   - L'usage de `.tuples()` ou `.dicts()` rompt le typage strict `mypy` (`Value of type "Model" is not indexable [index]`).
   - Privilégier un `select(Model.field)` ciblé et parcourir `for obj in query: val = obj.field`.
+  - **Exception d'aspiration mémoire haute performance (`.dicts()`)** : Lorsque l'aspiration immédiate en mémoire est impérative pour libérer le verrou SQLite (< 50ms) sur de gros volumes, annoter rigoureusement via `cast` pour satisfaire Mypy strict sans `type: ignore` :
+    ```python
+    raw_rows: list[dict[str, Any]] = list(cast(Iterable[dict[str, Any]], query.dicts()))
+    ```
 
 ## ⛔ Ne PAS utiliser ce skill si...
 

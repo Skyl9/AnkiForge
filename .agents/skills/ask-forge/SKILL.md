@@ -65,6 +65,9 @@ Le trajet naturel d'une fonctionnalité ou d'une évolution :
 
 Dans tous les cas, **`/implement`** s'appuie en interne sur **`/tdd`** (cycle red-green tranche par tranche), puis se conclut par une revue à deux axes **`/code-review`** (Conformité aux Standards + Respect de la Spécification) et la vérification canonique `uv run python script/verify.py`.
 
+> [!TIP]
+> **Stress-Test Transversal (`/doubt-driven-development`)** : À chaque jalon (cadrage, spec, tickets, implémentation), soumettre le plan à une passe critique contradictoire. Dans `/implement`, ce stress-test est **automatique** dès que $\ge 2$ suppositions subsistent sur le code réel.
+
 ## Rampes d'accès
 
 Situations initiales générant du travail avant d'intégrer le flux principal :

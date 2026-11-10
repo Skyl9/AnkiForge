@@ -1,6 +1,6 @@
 ## Catalogue des Compétences Agentiques (`.agents/skills/`)
 
-Le dépôt héberge 53 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
+Le dépôt héberge 54 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
 
 > [!IMPORTANT]
 > **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les compétences dont la spécification ou les déclencheurs emploient l'anglais.
@@ -39,6 +39,7 @@ Le dépôt héberge 53 compétences agentiques autonomes conformes au standard i
 - `audit-securite` (`.agents/skills/audit-securite/SKILL.md`) : Audit statique Bandit, masquage des secrets et sécurité de la sandbox d'exécution.
 - `audit-tests-ci` (`.agents/skills/audit-tests-ci/SKILL.md`) : Discipline de mock des LLM, contraintes headless Qt et fiabilité des pipelines CI/CD.
 - `audit-ui-ux-holistique` (`.agents/skills/audit-ui-ux-holistique/SKILL.md`) : Audit transversal Senior UI/UX et architecture front PySide6, détection de dérive de design face à DESIGN.md et génération de tickets Obsidian.
+- `diagnostic-lacunes-collection` (`.agents/skills/diagnostic-lacunes-collection/SKILL.md`) : Audit neuro-symbolique et détection des lacunes de connaissances de la collection (Approche F, ADR 0057, 3 pathologies, décloisonnement et remédiation par Staged Bundles).
 
 ### 4. Flux d'Ingénierie Agentique (Workflow AnkiForge)
 - `ask-forge` (`.agents/skills/ask-forge/SKILL.md`) : Aiguilleur et routeur de tâches d'ingénierie articulé avec le suivi Kanban Obsidian.

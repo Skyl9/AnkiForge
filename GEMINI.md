@@ -24,7 +24,7 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 
 ## Catalogue des Compétences Agentiques (`.agents/skills/`)
 
-Le dépôt héberge 53 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
+Le dépôt héberge 54 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
 
 > [!IMPORTANT]
 > **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les compétences dont la spécification ou les déclencheurs emploient l'anglais.
@@ -63,6 +63,7 @@ Le dépôt héberge 53 compétences agentiques autonomes conformes au standard i
 - `audit-securite` (`.agents/skills/audit-securite/SKILL.md`) : Audit statique Bandit, masquage des secrets et sécurité de la sandbox d'exécution.
 - `audit-tests-ci` (`.agents/skills/audit-tests-ci/SKILL.md`) : Discipline de mock des LLM, contraintes headless Qt et fiabilité des pipelines CI/CD.
 - `audit-ui-ux-holistique` (`.agents/skills/audit-ui-ux-holistique/SKILL.md`) : Audit transversal Senior UI/UX et architecture front PySide6, détection de dérive de design face à DESIGN.md et génération de tickets Obsidian.
+- `diagnostic-lacunes-collection` (`.agents/skills/diagnostic-lacunes-collection/SKILL.md`) : Audit neuro-symbolique et détection des lacunes de connaissances de la collection (Approche F, ADR 0057, 3 pathologies, décloisonnement et remédiation par Staged Bundles).
 
 ### 4. Flux d'Ingénierie Agentique (Workflow AnkiForge)
 - `ask-forge` (`.agents/skills/ask-forge/SKILL.md`) : Aiguilleur et routeur de tâches d'ingénierie articulé avec le suivi Kanban Obsidian.
@@ -204,9 +205,13 @@ L'agent ne doit **JAMAIS** exécuter de `git commit` ou `git push` de manière a
 
 ### 10. Principe de Parcimonie d'Exécution de la Porte de Vérification (`verify.py`)
 - **Frugalité d'exécution** : Interdiction formelle de relancer `script/verify.py` complet ou la suite pytest à l'aveugle lorsqu'aucune modification de code n'a eu lieu depuis la dernière exécution certifiée.
-- **Positionnement de CRAP après Pytest** : Le calcul du score CRAP ($CC^2 	imes (1 - cov)^3 + CC$) s'exécute en étape 8, immédiatement après `pytest-fast` (étape 7), car il exploite le rapport de couverture LCOV (`coverage/lcov.info`) généré par les tests.
+- **Positionnement de CRAP après Pytest** : Le calcul du score CRAP ($CC^2 \times (1 - cov)^3 + CC$) s'exécute en étape 8, immédiatement après `pytest-fast` (étape 7), car il exploite le rapport de couverture LCOV (`coverage/lcov.info`) généré par les tests.
 - **Discipline des sous-agents de revue** : Les sous-agents de code-review ne doivent **JAMAIS** ré-exécuter un `verify.py` complet incluant pytest si la porte a déjà été validée sur le diff en cours. Ils doivent s'appuyer sur le statut certifié ou employer des contrôles ciblés (`uv run python script/verify.py --no-tests` pour les étapes statiques 1-6 en < 10s, `uv run python script/verify.py --crap` pour le diff CRAP seul en < 1s, ou un test unitaire ciblé).
 - **Développement itératif ciblé** : Pendant les phases de diagnostic, TDD ou retouches ponctuelles, cibler précisément les tests modifiés (`pytest tests/path/test_xxx.py`) et valider l'intégrité statique via `verify.py --no-tests` sans brûler les ~45s de la suite pytest complète à chaque micro-itération.
+
+### 11. Déclencheur Automatique de Doute Pré-Implémentation (`doubt-driven-development`)
+- **Éradication des suppositions de mémoire** : Tout plan d'implémentation doit reposer sur des faits prouvés par lecture physique directe des sources (`read_file`, schéma SQLite Peewee, AST, doc officielle), jamais sur des présomptions de mémoire.
+- **Seuil d'inconnus incompressible** : Dès lors que $\ge 2$ hypothèses (ou >= 2 inconnus techniques) subsistent lors de la prise en charge d'un ticket (schéma relationnel, modèle Peewee, threading Qt, contrats d'outils FastMCP, complexité algorithmique $\mathcal{O}(N)$), l'agent **DOIT suspendre immédiatement l'écriture du code** et déclencher une passe contradictoire `doubt-driven-development` ("Penser contre le plan"). Cette analyse confronte les choix aux 5 Piliers d'Adversité Systémique pour transformer chaque supposition en fait certifié avant le premier test TDD.
 <!-- CANONICAL:END:regles_ingenierie -->
 
 <!-- CANONICAL:START:architecture_points_cles -->
