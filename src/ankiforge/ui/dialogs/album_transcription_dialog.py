@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QCheckBox,
-    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFrame,
@@ -36,7 +35,7 @@ from ankiforge.services.ai.vision_category_service import (
     get_image_data_type,
 )
 from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton
+from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton, StyledComboBox
 from ankiforge.ui.components.model_selector import ModelSelectorWidget
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
@@ -259,17 +258,7 @@ class AlbumTranscriptionDialog(QDialog):
         lbl_dt.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         dt_row.addWidget(lbl_dt)
 
-        self.combo_data_type = QComboBox()
-        self.combo_data_type.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 12px;
-                padding: 4px 8px;
-            }}
-        """)
+        self.combo_data_type = StyledComboBox()
         dt_row.addWidget(self.combo_data_type, 1)
         data_type_layout.addLayout(dt_row)
 

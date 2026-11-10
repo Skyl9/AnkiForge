@@ -1,13 +1,18 @@
-from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QSpinBox, QTextEdit, QVBoxLayout
+from __future__ import annotations
+
+from typing import Any
+
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QSpinBox, QTextEdit, QVBoxLayout, QWidget
 
 from ankiforge.database.models import LLMConfigModel, PersonaModel
 from ankiforge.ui.components import ActionButton, PrimaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
 class BatchEditDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("✨ Audit & Modification par l'IA"))
         self.setMinimumWidth(500)
@@ -18,14 +23,14 @@ class BatchEditDialog(QDialog):
 
         # 1. Choix du Moteur IA
         layout.addWidget(QLabel(self.tr("<b>1. Moteur IA :</b>")))
-        self.cb_llm = QComboBox()
+        self.cb_llm = StyledComboBox()
         for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
             self.cb_llm.addItem(llm.display_name, userData=llm.id)
         layout.addWidget(self.cb_llm)
 
         # 2. Choix du mode opératoire (Agent ou Libre)
         layout.addWidget(QLabel(self.tr("<b>2. Instruction (Agent ou Prompt libre) :</b>")))
-        self.cb_agent = QComboBox()
+        self.cb_agent = StyledComboBox()
         self.cb_agent.addItem(self.tr("-- ✍️ Prompt Libre (Saisir ci-dessous) --"), userData=None)
         for agent in PersonaModel.select().order_by(PersonaModel.name):
             self.cb_agent.addItem(tr("Agent : %1", agent.name), userData=agent.id)
@@ -67,7 +72,7 @@ class BatchEditDialog(QDialog):
         btn_layout.addWidget(self.btn_start)
         layout.addLayout(btn_layout)
 
-    def _on_agent_changed(self):
+    def _on_agent_changed(self) -> None:
         agent_id = self.cb_agent.currentData()
         if agent_id:
             agent = PersonaModel.get_by_id(agent_id)
@@ -79,7 +84,7 @@ class BatchEditDialog(QDialog):
             self.text_prompt.setReadOnly(False)
             self.text_prompt.setStyleSheet("")
 
-    def get_data(self):
+    def get_data(self) -> dict[str, Any]:
         """Retourne les choix de l'utilisateur."""
         return {
             "llm_id": self.cb_llm.currentData(),

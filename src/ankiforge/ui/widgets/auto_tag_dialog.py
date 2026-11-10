@@ -3,13 +3,14 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QHeaderView, QLabel, QProgressBar, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QHeaderView, QLabel, QProgressBar, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
 
 from ankiforge.database.models import LLMConfigModel, NoteModel, NoteVersionModel, db
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import AIReponseParser
 from ankiforge.ui.components import PrimaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon
 from ankiforge.utils.tags import parse_note_tags, serialize_note_tags
@@ -124,7 +125,7 @@ class AutoTagDialog(QDialog):
 
         # Moteur IA
         layout.addWidget(QLabel(self.tr("Moteur IA à utiliser :")))
-        self.llm_selector = QComboBox()
+        self.llm_selector = StyledComboBox()
         self._populate_llms()
         layout.addWidget(self.llm_selector)
 

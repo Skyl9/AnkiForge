@@ -18,7 +18,6 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -36,6 +35,7 @@ from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.cards.note_type_service import NoteTypeService
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -62,15 +62,15 @@ class ChangeNoteTypeDialog(QDialog):
         self.note_ids = list(note_ids)
         self.migrated_count: int = 0
         self.target_model_name: str = ""
-        self.combo_sample_note: QComboBox | None = None
+        self.combo_sample_note: StyledComboBox | None = None
 
         # Chargement des notes et des types de notes disponibles
         self._notes: list[NoteModel] = list(NoteModel.select().where(NoteModel.id.in_(self.note_ids)))
         self._models: list[NoteTypeModel] = list(NoteTypeModel.select().order_by(NoteTypeModel.name.asc()))
 
         self._selected_target_model: NoteTypeModel | None = None
-        self._field_combos: list[QComboBox] = []
-        self._template_combos: list[QComboBox] = []
+        self._field_combos: list[StyledComboBox] = []
+        self._template_combos: list[StyledComboBox] = []
         self._source_fields_list: list[str] = []
         self._target_fields_list: list[str] = []
         self._source_templates_list: list[dict[str, Any]] = []
@@ -188,21 +188,8 @@ class ChangeNoteTypeDialog(QDialog):
         lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; font-weight: 500;")
         target_row.addWidget(lbl_target)
 
-        self.combo_target_model = QComboBox()
+        self.combo_target_model = StyledComboBox()
         self.combo_target_model.setMinimumWidth(260)
-        self.combo_target_model.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px 10px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 12px;
-            }}
-            QComboBox::drop-down {{
-                border: none;
-            }}
-        """)
         for m in self._models:
             self.combo_target_model.addItem(m.name, userData=m.id)
         self.combo_target_model.currentIndexChanged.connect(self._on_target_model_changed)
@@ -326,17 +313,7 @@ class ChangeNoteTypeDialog(QDialog):
 
         self.combo_sample_note = None
         if len(self.note_ids) > 1:
-            self.combo_sample_note = QComboBox()
-            self.combo_sample_note.setStyleSheet(f"""
-                QComboBox {{
-                    background-color: {DesignTokens.BG_INPUT};
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: 4px;
-                    padding: 2px 8px;
-                    font-size: 11px;
-                    color: {DesignTokens.TEXT_PRIMARY};
-                }}
-            """)
+            self.combo_sample_note = StyledComboBox(density="compact")
             for idx, n in enumerate(self._notes):
                 self.combo_sample_note.addItem(tr("Note #%1 (%2/%3)", n.id, idx + 1, len(self._notes)), userData=idx)
             self.combo_sample_note.currentIndexChanged.connect(self._on_sample_note_changed)
@@ -552,17 +529,7 @@ class ChangeNoteTypeDialog(QDialog):
                 self.table_fields.setCellWidget(row, 1, arrow_lbl)
 
                 # Colonne 2 : ComboBox champ cible
-                combo = QComboBox()
-                combo.setStyleSheet(f"""
-                    QComboBox {{
-                        background-color: {DesignTokens.BG_INPUT};
-                        border: 1px solid {DesignTokens.BORDER_COLOR};
-                        border-radius: {DesignTokens.RADIUS_SM}px;
-                        padding: 3px 8px;
-                        color: {DesignTokens.TEXT_PRIMARY};
-                        font-size: 11px;
-                    }}
-                """)
+                combo = StyledComboBox(density="compact")
                 combo.addItem(self.ignore_field_label, userData="")
                 for tf in self._target_fields_list:
                     combo.addItem(tf, userData=tf)
@@ -611,17 +578,7 @@ class ChangeNoteTypeDialog(QDialog):
             arrow_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 13px;")
             self.table_templates.setCellWidget(row, 1, arrow_lbl)
 
-            combo = QComboBox()
-            combo.setStyleSheet(f"""
-                QComboBox {{
-                    background-color: {DesignTokens.BG_INPUT};
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                    padding: 3px 8px;
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    font-size: 11px;
-                }}
-            """)
+            combo = StyledComboBox(density="compact")
             combo.addItem(self.delete_card_label, userData=None)
             for t_idx, tmpl in enumerate(self._target_templates_list):
                 t_label = tr("Gabarit %1 : %2", t_idx + 1, tmpl.get("name", f"Carte {t_idx + 1}"))
@@ -639,13 +596,13 @@ class ChangeNoteTypeDialog(QDialog):
 
         self._update_cards_metrics_banner()
 
-    def get_field_target_combo(self, row: int) -> QComboBox | None:
+    def get_field_target_combo(self, row: int) -> StyledComboBox | None:
         """Accesseur d'aide pour tests et interactions."""
         if 0 <= row < len(self._field_combos):
             return self._field_combos[row]
         return None
 
-    def get_template_target_combo(self, row: int) -> QComboBox | None:
+    def get_template_target_combo(self, row: int) -> StyledComboBox | None:
         """Accesseur d'aide pour tests et interactions."""
         if 0 <= row < len(self._template_combos):
             return self._template_combos[row]

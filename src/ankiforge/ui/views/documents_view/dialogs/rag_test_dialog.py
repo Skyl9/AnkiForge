@@ -5,7 +5,6 @@ from pathlib import Path
 from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
-    QComboBox,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -21,6 +20,7 @@ from ankiforge.database.models import DocumentModel
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.ui.components import GlowLineEdit, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -139,25 +139,10 @@ class RAGTestDialog(QDialog):
         mode_row = QHBoxLayout()
         lbl_mode = QLabel(self.tr("Canal de recherche :"))
         lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
-        self.mode_cb = QComboBox()
-        self.mode_cb.setFixedHeight(28)
+        self.mode_cb = StyledComboBox(density="compact")
         self.mode_cb.addItem(self.tr("🧬 RAG Hybride (FAISS Dense + BM25 Sparse avec RRF)"), "hybrid")
         self.mode_cb.addItem(self.tr("🌌 Sémantique Dense Pure (FAISS L2)"), "dense")
         self.mode_cb.addItem(self.tr("🔤 Lexicale Exacte Pure (BM25 Okapi)"), "sparse")
-        self.mode_cb.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 2px 8px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 11px;
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 18px;
-            }}
-        """)
         mode_row.addWidget(lbl_mode)
         mode_row.addWidget(self.mode_cb, 1)
         layout.addLayout(mode_row)

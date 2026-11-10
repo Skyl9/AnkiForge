@@ -15,7 +15,6 @@ from PySide6.QtGui import QBrush, QColor, QFont
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -34,6 +33,7 @@ from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.parsing.web_importer import WebImporter, WebImportError, WebImportRequest, WebImportResult, payload_to_result
 from ankiforge.services.workers.url_import_worker import UrlImportTask, UrlImportWorker
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
@@ -126,10 +126,9 @@ class UrlImportDialog(QDialog):
         self.chk_js.setToolTip(self.tr("Tente un rendu via le moteur Web intégré lorsque le contenu statique est vide (sites générés côté client)."))
         self.chk_js.setStyleSheet(self._checkbox_style())
 
-        self.cmb_folder = QComboBox()
+        self.cmb_folder = StyledComboBox()
         self.cmb_folder.setToolTip(self.tr("Dossier de destination dans la bibliothèque de documents."))
         self.cmb_folder.setMinimumWidth(180)
-        self.cmb_folder.setStyleSheet(self._combo_style())
 
         options_frame = QFrame()
         options_frame.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px;")
@@ -261,14 +260,6 @@ class UrlImportDialog(QDialog):
 
     def _checkbox_style(self) -> str:
         return f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px; background: transparent; border: none; spacing: 6px;"
-
-    def _combo_style(self) -> str:
-        return (
-            f"QComboBox {{ background:{DesignTokens.BG_INPUT}; color:{DesignTokens.TEXT_PRIMARY};"
-            f" border:1px solid {DesignTokens.BORDER_COLOR}; border-radius:{DesignTokens.RADIUS_SM}px; padding:4px 8px; }}"
-            f"QComboBox QAbstractItemView {{ background:{DesignTokens.BG_PANEL}; color:{DesignTokens.TEXT_PRIMARY};"
-            f" selection-background-color:{DesignTokens.ACCENT_PRIMARY}; }}"
-        )
 
     def _table_style(self) -> str:
         return (

@@ -12,7 +12,6 @@ import logging
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QHBoxLayout,
     QHeaderView,
@@ -31,6 +30,7 @@ from ankiforge.services.cards.taxonomy_service import (
     TaxonomyService,
 )
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -209,7 +209,7 @@ class TaxonomyAuditDialog(QDialog):
             self.table.setCellWidget(row, 3, edit_target)
 
             # 4. Mode (Remplacer / Scinder)
-            combo_mode = QComboBox()
+            combo_mode = StyledComboBox(density="compact")
             combo_mode.addItem(self.tr("Remplacer (_)"), "replace")
             combo_mode.addItem(self.tr("Scinder en plusieurs"), "split")
             if "has_spaces" in item.anomalies:
@@ -245,7 +245,7 @@ class TaxonomyAuditDialog(QDialog):
             target_text = edit_target.text().strip() if isinstance(edit_target, QLineEdit) else ""
 
             combo_mode = self.table.cellWidget(r, 4)
-            mode = combo_mode.currentData() if isinstance(combo_mode, QComboBox) else "replace"
+            mode = combo_mode.currentData() if isinstance(combo_mode, StyledComboBox) else "replace"
 
             if mode == "split":
                 repairs.append(

@@ -6,7 +6,6 @@ import logging
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QFrame,
     QGroupBox,
@@ -28,6 +27,7 @@ from ankiforge.services.cards.group_edit_service import (
     GroupEditService,
 )
 from ankiforge.ui.components import ActionButton, PrimaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.components.tag_completer import TagAutocompleter
 from ankiforge.ui.components.tag_select_window import TagSelectWindow
 from ankiforge.ui.theme import DesignTokens
@@ -256,7 +256,7 @@ class GroupEditDialog(QDialog):
         lbl_f_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         vbox_field.addWidget(lbl_f_target)
 
-        self.combo_field = QComboBox(self.field_options_widget)
+        self.combo_field = StyledComboBox(self.field_options_widget)
         for f_name in self._available_fields:
             self.combo_field.addItem(f_name)
         vbox_field.addWidget(self.combo_field)
@@ -269,7 +269,7 @@ class GroupEditDialog(QDialog):
         lbl_f_action.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         vbox_action.addWidget(lbl_f_action)
 
-        self.combo_action = QComboBox(self.field_options_widget)
+        self.combo_action = StyledComboBox(self.field_options_widget)
         self.combo_action.addItem(self.tr("Remplacer par"), "replace")
         self.combo_action.addItem(self.tr("Ajouter à la fin (suffixer)"), "append")
         self.combo_action.addItem(self.tr("Ajouter au début (préfixer)"), "prepend")

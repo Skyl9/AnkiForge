@@ -13,7 +13,6 @@ import logging
 from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -36,7 +35,7 @@ from ankiforge.services.cards.bulk_hygiene_service import (
     TagMergePlan,
     TagMergeResult,
 )
-from ankiforge.ui.components import ActionButton, PrimaryButton
+from ankiforge.ui.components import ActionButton, PrimaryButton, StyledComboBox
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.deck_select_window import ALL_DECKS_NODE_ID, DeckSelectWindow
 from ankiforge.ui.theme import DesignTokens
@@ -131,22 +130,9 @@ class TagClusterCard(QFrame):
         target_lbl.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         target_layout.addWidget(target_lbl)
 
-        self.target_combo = QComboBox(self)
+        self.target_combo = StyledComboBox(self, density="compact")
         self.target_combo.setEditable(True)
         self.target_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.target_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 3px 8px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-weight: bold;
-            }}
-            QComboBox:focus {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
 
         # Remplir le combo avec toutes les variantes connues
         for tf in self.cluster.tags:
@@ -369,7 +355,7 @@ class TagHygieneDialog(QDialog):
         toolbar.setSpacing(8)
 
         # Sélecteur de portée
-        self.scope_combo = QComboBox(self)
+        self.scope_combo = StyledComboBox(self, density="compact")
         self.scope_combo.addItem(tr("Toute la collection"), "all")
         if self.selected_note_ids:
             self.scope_combo.addItem(tr("Sélection active (%1 cartes)", len(self.selected_note_ids)), "selection")

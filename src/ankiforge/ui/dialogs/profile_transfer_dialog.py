@@ -12,7 +12,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -28,6 +27,7 @@ from PySide6.QtWidgets import (
 from ankiforge.services.profile_content_transfer import ProfileContentTransfer, TransferReport
 from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -134,31 +134,7 @@ class ProfileTransferDialog(QDialog):
         lbl_source.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         source_layout.addWidget(lbl_source)
 
-        self.combo_source = QComboBox()
-        self.combo_source.setFixedHeight(34)
-        self.combo_source.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px 10px;
-                font-size: 11px;
-            }}
-            QComboBox:hover {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 24px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignTokens.BG_PANEL};
-                color: {DesignTokens.TEXT_PRIMARY};
-                selection-background-color: {DesignTokens.BG_ACTIVE};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-            }}
-        """)
+        self.combo_source = StyledComboBox()
         self.combo_source.currentTextChanged.connect(self._on_source_profile_changed)
         source_layout.addWidget(self.combo_source, 1)
 

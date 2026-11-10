@@ -9,7 +9,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -27,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import LinterRuleModel, seed_default_linter_rules
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.i18n import tr
@@ -49,7 +49,7 @@ class LinterRulesManagerDialog(QDialog):
                 background-color: {DesignTokens.BG_MAIN};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
-            QLineEdit, QTextEdit, QComboBox {{
+            QLineEdit, QTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 color: {DesignTokens.TEXT_PRIMARY};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -57,7 +57,7 @@ class LinterRulesManagerDialog(QDialog):
                 padding: 6px;
                 font-family: {DesignTokens.FONT_MAIN};
             }}
-            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{
+            QLineEdit:focus, QTextEdit:focus {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
             QListWidget {{
@@ -126,7 +126,7 @@ class LinterRulesManagerDialog(QDialog):
         search_row.addWidget(self.search_input)
         left_layout.addLayout(search_row)
 
-        self.category_filter_combo = QComboBox()
+        self.category_filter_combo = StyledComboBox()
         self.category_filter_combo.addItem(self.tr("Toutes les catégories"), userData="all")
         self.category_filter_combo.currentIndexChanged.connect(self._filter_rules)
         left_layout.addWidget(self.category_filter_combo)

@@ -14,7 +14,6 @@ from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
@@ -36,7 +35,7 @@ from ankiforge.services.feedback_service import (
     SystemDiagnosticInfo,
 )
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
-from ankiforge.ui.components.inputs import GlowLineEdit
+from ankiforge.ui.components.inputs import GlowLineEdit, StyledComboBox
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.toast import ToastLevel, show_toast
 from ankiforge.utils.environment import KOFI_URL
@@ -247,7 +246,7 @@ class FeedbackDialog(QDialog):
         lbl_sev.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         col_sev.addWidget(lbl_sev)
 
-        self.bug_severity_combo = QComboBox()
+        self.bug_severity_combo = StyledComboBox()
         self.bug_severity_combo.addItems(
             [
                 self.tr("Normal"),
@@ -401,7 +400,7 @@ class FeedbackDialog(QDialog):
         lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         col_cat.addWidget(lbl_cat)
 
-        self.feature_cat_combo = QComboBox()
+        self.feature_cat_combo = StyledComboBox()
         self.feature_cat_combo.addItems(
             [
                 self.tr("Studio de Création"),
@@ -421,7 +420,7 @@ class FeedbackDialog(QDialog):
         lbl_prio.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
         col_prio.addWidget(lbl_prio)
 
-        self.feature_prio_combo = QComboBox()
+        self.feature_prio_combo = StyledComboBox()
         self.feature_prio_combo.addItems(
             [
                 self.tr("Très utile"),
@@ -514,25 +513,6 @@ class FeedbackDialog(QDialog):
             QTextEdit#DiagPreviewEdit {{
                 font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 11px;
-            }}
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM};
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 4px 8px;
-                font-size: 12px;
-                min-height: 26px;
-            }}
-            QComboBox:focus {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignTokens.BG_PANEL};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                selection-background-color: {DesignTokens.BG_ACTIVE};
-                selection-color: {DesignTokens.ACCENT_PRIMARY};
             }}
             QCheckBox {{
                 color: {DesignTokens.TEXT_PRIMARY};

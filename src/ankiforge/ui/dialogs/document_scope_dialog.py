@@ -16,7 +16,6 @@ from typing import Any
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
-    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -43,7 +42,7 @@ from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.markdown.structurer import MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService, HeadingTreeNode
 from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.components import PrimaryButton, SecondaryButton
+from ankiforge.ui.components import PrimaryButton, SecondaryButton, StyledComboBox
 from ankiforge.ui.dialogs.scope_mode_exclusivity import (
     CheckableButton,
     PageSubMode,
@@ -841,33 +840,14 @@ class DocumentScopeWidget(ScopeModeExclusivityMixin, QWidget):
         struct_scope_layout.setContentsMargins(0, 0, 0, 0)
         struct_scope_layout.setSpacing(6)
 
-        combo_style = f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
-                padding: 3px 8px;
-                font-size: 11px;
-                min-height: 22px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignTokens.BG_PANEL};
-                color: {DesignTokens.TEXT_PRIMARY};
-                selection-background-color: {DesignTokens.BG_ACTIVE};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-            }}
-        """
         lbl_c_start = QLabel(self.tr("De :"))
         lbl_c_start.setFixedWidth(24)
         lbl_c_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
-        self.combo_c_start = QComboBox()
-        self.combo_c_start.setStyleSheet(combo_style)
+        self.combo_c_start = StyledComboBox(density="compact")
         lbl_c_end = QLabel(self.tr("À :"))
         lbl_c_end.setFixedWidth(16)
         lbl_c_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
-        self.combo_c_end = QComboBox()
-        self.combo_c_end.setStyleSheet(combo_style)
+        self.combo_c_end = StyledComboBox(density="compact")
         self.combo_c_start.currentIndexChanged.connect(self._on_chapter_range_changed)
         self.combo_c_end.currentIndexChanged.connect(self._on_chapter_range_changed)
         struct_scope_layout.addWidget(lbl_c_start)

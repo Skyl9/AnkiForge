@@ -6,7 +6,6 @@ from typing import Any
 from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -26,6 +25,7 @@ from ankiforge.services.markdown.ai_structurer import (
     StructuringProfile,
 )
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.components.model_selector import ModelSelectorWidget
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.i18n import tr
@@ -154,19 +154,10 @@ class AIDocumentStructureDialog(QDialog):
         col_prof.setSpacing(4)
         lbl_prof = QLabel(self.tr("Profil pédagogique :"))
         lbl_prof.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {DesignTokens.TEXT_SECONDARY};")
-        self.cb_profile = QComboBox()
+        self.cb_profile = StyledComboBox()
         self.cb_profile.addItem(self.tr("🎓 Synthèse Didactique & Pédagogique (Cours, KaTeX, Définitions)"), StructuringProfile.DIDACTIC.value)
         self.cb_profile.addItem(self.tr("📝 Retranscription Polie & Chapitrée (Verbatim structuré)"), StructuringProfile.POLISHED_VERBATIM.value)
         self.cb_profile.addItem(self.tr("⚡ Fiche de Synthèse (Cheatsheet, Tableaux, Points Clés)"), StructuringProfile.EXECUTIVE_SUMMARY.value)
-        self.cb_profile.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 5px;
-                font-size: 12px;
-            }}
-        """)
         col_prof.addWidget(lbl_prof)
         col_prof.addWidget(self.cb_profile)
         row_settings.addLayout(col_prof, 1)
