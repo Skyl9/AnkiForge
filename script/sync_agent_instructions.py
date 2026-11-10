@@ -110,8 +110,10 @@ def render_adapter_content(existing_content: str, adapter: TargetAdapter, blocks
 
         block_body = blocks[block_name]
         header = BLOCK_HEADER_TEMPLATE.format(block_name=block_name)
-        replacement = f"\\1\n{header}\n\n{block_body}\n\\3"
-        content = pattern.sub(replacement, content)
+        content = pattern.sub(
+            lambda m, h=header, b=block_body: f"{m.group(1)}\n{h}\n\n{b}\n{m.group(3)}",
+            content,
+        )
 
     return content, issues
 
