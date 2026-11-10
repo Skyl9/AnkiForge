@@ -2224,6 +2224,58 @@ def diagnose_domain_knowledge_gaps(
     )
 
 
+@mcp.tool()
+def ingest_authority_source(
+    transport_mode: str,
+    locator: str = "",
+    title: str = "",
+    inline_content: str = "",
+    authority_metadata_json: str = "{}",
+    force_update: bool = False,
+) -> str:
+    """Importe une source documentaire de référence avec certification d'autorité épistémique.
+
+    Modes de transport :
+    - `url` : téléchargement via WebImporter avec contrôle anti-SSRF complet
+      (blocage IP privées, DNS Rebinding, schémas http/https uniquement).
+    - `file_staging` : fichier lourd déposé dans le dossier `staging/` du profil
+      actif. Extraction multi-format (PDF, DOCX, EPUB, etc.) via
+      DocumentParser. Si PDF, archivage du média original. Confinement strict
+      (rejet chemins absolus, traversées `../`, symlinks).
+    - `inline_markdown` : contenu Markdown direct injecté (plafond strict
+      32 000 caractères).
+
+    Args:
+        transport_mode: Mode de transport ('url', 'file_staging',
+          'inline_markdown').
+        locator: URL complète (mode `url`) ou chemin relatif dans `staging/`
+          (mode `file_staging`).
+        title: Titre optionnel. Si absent : extrait du HTML (`url`), nom de
+          fichier sans extension (`file_staging`), ou premier H1
+          (`inline_markdown`). Repli : "Source d'Autorité".
+        inline_content: Contenu Markdown brut (mode `inline_markdown` uniquement).
+        authority_metadata_json: Certificat d'autorité JSON (ex:
+          `{"authority_score": 95.0, "authority_type": "RFC", "issuer": "IETF"}`).
+          `authority_score` normalisé 0.0-100.0.
+        force_update: Si `true`, met à jour un document existant détecté par
+          `source_url` ou `source_sha256` identique (idempotence). Sinon
+          renvoie `already_exists`.
+
+    Returns:
+        JSON string avec status (`created` | `updated` | `already_exists` |
+        `error` | `payload_too_large`), `document_id`, `title`,
+        `authority_score`, `authority_type`, `source_sha256`, `index_status`.
+    """
+    return MCPToolRegistry.ingest_authority_source(
+        transport_mode=transport_mode,
+        locator=locator,
+        title=title,
+        inline_content=inline_content,
+        authority_metadata_json=authority_metadata_json,
+        force_update=force_update,
+    )
+
+
 @mcp.resource("workspace://agent-guide")
 def get_workspace_agent_guide_resource() -> str:
     """Sert le contenu du guide d'amorçage (version generic) en lecture temps réel."""

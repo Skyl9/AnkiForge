@@ -136,7 +136,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "set_tags_bulk": DOMAIN_TAGS,
     "audit_tag_hygiene": DOMAIN_TAGS,
     "merge_tag_clusters": DOMAIN_TAGS,
-    # 4. RAG & Documents (12)
+    # 4. RAG & Documents (13)
     "search_knowledge_context": DOMAIN_DOCUMENTS,
     "search_document": DOMAIN_DOCUMENTS,
     "format_markdown_document": DOMAIN_DOCUMENTS,
@@ -150,6 +150,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "neutralize_document_region": DOMAIN_DOCUMENTS,
     "update_document_content": DOMAIN_DOCUMENTS,
     "reindex_document": DOMAIN_DOCUMENTS,
+    "ingest_authority_source": DOMAIN_DOCUMENTS,
     "trigger_manual_backup": DOMAIN_DOCUMENTS,
     "diagnose_domain_knowledge_gaps": DOMAIN_DOCUMENTS,
     # 5. Albums & Planches (3)
@@ -216,6 +217,15 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
         "Lecture seule : aucun effet de bord physique sur la collection ni sur la base SQLite.",
         "Décloisonnement complet : inspecte 100% des cartes du profil pour éliminer les faux manques.",
         "Diagnostic tripartite : évalue concepts absents (Type 1), non-atomicité (Type 2) et manque de liant (Type 3).",
+    ],
+    "ingest_authority_source": [
+        "Trois modes de transport sécurisés : url (anti-SSRF complet), file_staging (confinement staging/ profil), inline_markdown (plafond 32k car.).",
+        "Anti-SSRF durci : blocage IP privées (RFC1918, loopback, link-local, multicast, unspecified), vérification socket connectée (DNS Rebinding), schémas http/https uniquement.",
+        "Confinement staging strict : rejet chemins absolus, vérification is_relative_to, interdiction symlinks, nettoyage auto fichiers temporaires.",
+        "Certification d'autorité : score normalisé 0-100, type déclaré (RFC, ACADEMIC, OFFICIAL_DOC, COURSE...), certificat JSON robuste (tolère blocs markdown).",
+        "Idempotence cryptographique : détection doublons par source_url ou source_sha256 (SHA-256 contenu normalisé), force_update pour mise à jour contrôlée.",
+        "Dégradation gracieuse RAG : indexation FAISS/BM25 optionnelle, statut imported_unindexed si embeddings indisponibles sans échec ingestion SQLite.",
+        "Notification réactive : émet event MCP document_create pour rafraîchissement interface temps réel.",
     ],
     "abort_staged_patch": [
         "Annulation unitaire : ne modifie que le patch ciblé et conserve le bundle ainsi que ses patches frères.",

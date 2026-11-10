@@ -98,13 +98,24 @@ class _DelegateWaiter:
 
 
 def robust_json_loads(text: Any) -> Any:
-    r"""Décode une chaîne JSON de manière ultra-résistante face aux anti-slashs LaTeX non échappés (ex: \Sigma, \delta, \frac, \alpha, \[, \], etc.) et aux retours chariots bruts."""
+    r"""Décode une chaîne JSON ultra-résistante (anti-slashs LaTeX, retours chariots, blocs Markdown)."""
+
     if not isinstance(text, str):
         return text
 
     clean = text.strip()
     if not clean:
         return {}
+
+    # 0. Retirer les clôtures de blocs de code Markdown (```json ... ``` ou ``` ... ```)
+    # Cela permet aux LLMs d'inclure le JSON dans des blocs de code sans casser le parsing
+    if clean.startswith("```"):
+        lines = clean.splitlines()
+        if len(lines) >= 2 and lines[0].startswith("```"):
+            content_lines = lines[1:]
+            if content_lines and content_lines[-1].strip() == "```":
+                content_lines = content_lines[:-1]
+            clean = "\n".join(content_lines).strip()
 
     # 1. Essai direct standard (permet de préserver les \uXXXX unicode natifs)
     try:
@@ -122,7 +133,8 @@ def robust_json_loads(text: Any) -> Any:
     def _fix_latex_backslashes(s: str) -> str:
         # Ne pas toucher à \uXXXX (unicode hex à 4 chiffres)
         res = re.sub(r"(?<!\\)\\(?!u[0-9a-fA-F]{4})([a-zA-Z]{2,})", r"\\\\\1", s)
-        # Doubler les \ devant les symboles mathématiques et délimiteurs (ex: \[, \], \{, \}, \$, \_, \^, \(, \), \ )
+        # Doubler les \ devant les symboles mathématiques et délimiteurs
+        # (ex: \[, \], \{, \}, \$, \_, \^, \(, \), \ )
         res = re.sub(r'(?<!\\)\\([^a-zA-Z0-9"\\/])', r"\\\\\1", res)
         # Doubler les \ isolés devant une lettre (ex: \d, \a, \b, \f, \s, etc.)
         res = re.sub(r"(?<!\\)\\(?!u[0-9a-fA-F]{4})([a-zA-Z0-9])", r"\\\\\1", res)
@@ -4904,6 +4916,304 @@ class MCPToolRegistry:
             include_suspended=include_suspended,
         )
 
+    @classmethod
+    def ingest_authority_source(
+        cls,
+        transport_mode: str,
+        locator: str = "",
+        title: str = "",
+        inline_content: str = "",
+        authority_metadata_json: str = "{}",
+        force_update: bool = False,
+    ) -> str:
+        """Importe une source documentaire de référence avec certification d'autorité.
+
+        Modes de transport :
+        - url : téléchargement via WebImporter avec contrôle anti-SSRF complet
+        - file_staging : fichier lourd déposé dans le staging du profil (extraction via DocumentParser)
+        - inline_markdown : contenu Markdown direct (plafond 32 000 caractères)
+
+        Args:
+            transport_mode: Mode de transport ('url', 'file_staging', 'inline_markdown')
+            locator: URL (mode url) ou chemin relatif dans staging/ (mode file_staging)
+            title: Titre optionnel (déduit automatiquement si absent)
+            inline_content: Contenu Markdown brut (mode inline_markdown)
+            authority_metadata_json: Certificat d'autorité JSON (score, type, etc.)
+            force_update: Si True, met à jour un document existant (idempotence par source_url ou source_sha256)
+
+        Returns:
+            JSON string avec status, document_id, title, etc.
+        """
+        import hashlib
+        import json
+        from pathlib import Path
+
+        from ankiforge.database.models import DocumentModel
+        from ankiforge.repositories.document_repository import DocumentRepository
+        from ankiforge.services.ai.mcp_server import _notify_mcp_mutation
+        from ankiforge.services.parsing.document_parser import DocumentParser
+        from ankiforge.services.parsing.web_importer import WebImporter, WebImportError, WebImportRequest
+        from ankiforge.services.profile_manager import ProfileManager
+        from ankiforge.services.reindex_service import reindex_document
+
+        logger.info("Ingestion autorité source : mode=%s, locator=%s", transport_mode, locator)
+
+        # Validation du mode de transport
+        valid_modes = ("url", "file_staging", "inline_markdown")
+        if transport_mode not in valid_modes:
+            return json.dumps(
+                {"status": "error", "message": f"Mode de transport invalide : {transport_mode}. Modes supportés : {valid_modes}"},
+                ensure_ascii=False,
+            )
+
+        # Décodage robuste du certificat d'autorité
+        authority_meta = robust_json_loads(authority_metadata_json)
+        if not isinstance(authority_meta, dict):
+            authority_meta = {}
+
+        authority_score = authority_meta.get("authority_score")
+        if authority_score is not None:
+            try:
+                authority_score = float(authority_score)
+                if not (0.0 <= authority_score <= 100.0):
+                    return json.dumps(
+                        {"status": "error", "message": "authority_score doit être entre 0.0 et 100.0"},
+                        ensure_ascii=False,
+                    )
+            except (ValueError, TypeError):
+                return json.dumps(
+                    {"status": "error", "message": "authority_score invalide : doit être un nombre"},
+                    ensure_ascii=False,
+                )
+
+        authority_type = authority_meta.get("authority_type")
+        if authority_type is not None and not isinstance(authority_type, str):
+            return json.dumps(
+                {"status": "error", "message": "authority_type doit être une chaîne de caractères"},
+                ensure_ascii=False,
+            )
+
+        # Variables pour le contenu extrait
+        extracted_content = ""
+        source_url = None
+        file_type = "md"
+        original_media = None
+        deduced_title = ""
+
+        try:
+            if transport_mode == "url":
+                if not locator:
+                    return json.dumps(
+                        {"status": "error", "message": "Mode 'url' : le paramètre 'locator' (URL) est requis"},
+                        ensure_ascii=False,
+                    )
+                source_url = locator.strip()
+                # Téléchargement et extraction via WebImporter
+                importer = WebImporter()
+                request = WebImportRequest(url=source_url, timeout=30.0)
+                result = importer.analyze_url(request)
+                extracted_content = result.content
+                deduced_title = title.strip() or result.title or "Source d'Autorité Web"
+                file_type = "web"
+
+            elif transport_mode == "file_staging":
+                if not locator:
+                    return json.dumps(
+                        {"status": "error", "message": "Mode 'file_staging' : le paramètre 'locator' (chemin relatif dans staging/) est requis"},
+                        ensure_ascii=False,
+                    )
+                # Confinement strict dans le staging du profil actif
+                profile_manager = ProfileManager()
+                staging_dir = profile_manager.get_staging_dir()
+                file_path = Path(locator)
+
+                # Rejet des chemins absolus
+                if file_path.is_absolute():
+                    return json.dumps(
+                        {"status": "error", "message": "Chemin absolu refusé : le fichier doit être relatif au dossier staging/ du profil"},
+                        ensure_ascii=False,
+                    )
+
+                # Résolution sécurisée : vérifier que le fichier est bien dans staging/
+                try:
+                    resolved_path = (staging_dir / file_path).resolve()
+                    staging_resolved = staging_dir.resolve()
+                    if not resolved_path.is_relative_to(staging_resolved):
+                        return json.dumps(
+                            {"status": "error", "message": "Tentative de traversée de répertoire (Path Traversal) détectée"},
+                            ensure_ascii=False,
+                        )
+                except ValueError:
+                    return json.dumps(
+                        {"status": "error", "message": "Chemin invalide : impossible de résoudre relativement au staging"},
+                        ensure_ascii=False,
+                    )
+
+                # Rejet des liens symboliques
+                if resolved_path.is_symlink():
+                    return json.dumps(
+                        {"status": "error", "message": "Liens symboliques interdits dans le dossier de staging"},
+                        ensure_ascii=False,
+                    )
+
+                if not resolved_path.exists():
+                    return json.dumps(
+                        {"status": "error", "message": f"Fichier introuvable dans le staging : {locator}"},
+                        ensure_ascii=False,
+                    )
+
+                # Déduction du titre depuis le nom de fichier
+                deduced_title = title.strip() or resolved_path.stem or "Source d'Autorité Fichier"
+                file_type = resolved_path.suffix.lower().lstrip(".") or "md"
+
+                # Extraction via DocumentParser
+                parser = DocumentParser()
+                extracted_content = parser.parse_document(resolved_path)
+
+                # Si c'est un PDF, archiver le média original
+                if file_type == "pdf":
+                    from ankiforge.services.cards.media_manager import MediaManager
+
+                    media_manager = MediaManager()
+                    original_media = media_manager.store_document_source(str(resolved_path))
+
+                # Nettoyage sécurisé du fichier temporaire dans staging
+                try:
+                    resolved_path.unlink()
+                    logger.info("Fichier staging nettoyé : %s", resolved_path)
+                except OSError as e:
+                    logger.warning("Impossible de supprimer le fichier staging %s : %s", resolved_path, e)
+
+            elif transport_mode == "inline_markdown":
+                if not inline_content:
+                    return json.dumps(
+                        {"status": "error", "message": "Mode 'inline_markdown' : le paramètre 'inline_content' est requis"},
+                        ensure_ascii=False,
+                    )
+                # Garde-fou volumétrique strict
+                if len(inline_content) > 32000:
+                    return json.dumps(
+                        {
+                            "status": "payload_too_large",
+                            "message": (f"Contenu trop volumineux ({len(inline_content)} caractères). Maximum : 32 000 caractères. Utilisez le mode 'file_staging' pour les documents lourds."),
+                        },
+                        ensure_ascii=False,
+                    )
+                extracted_content = inline_content
+                # Déduction du titre : premier H1 ou repli par défaut
+                deduced_title = title.strip()
+                if not deduced_title:
+                    for line in inline_content.splitlines():
+                        if line.startswith("# "):
+                            deduced_title = line[2:].strip()
+                            break
+                    if not deduced_title:
+                        deduced_title = "Source d'Autorité Markdown"
+                file_type = "md"
+
+            # Garantir l'unicité du titre
+            repo = DocumentRepository()
+            final_title = repo._unique_title(deduced_title, source_url)
+
+            # Calcul de l'empreinte SHA-256 du contenu brut normalisé
+            normalized_content = extracted_content.strip()
+            source_sha256 = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+
+            # Vérification d'idempotence : même source_url ou même source_sha256
+            existing_doc = None
+            if source_url:
+                existing_doc = repo.get_document_by_source_url(source_url)
+            if not existing_doc:
+                # Chercher par source_sha256
+                try:
+                    existing_doc = DocumentModel.select().where(DocumentModel.source_sha256 == source_sha256).order_by(DocumentModel.created_at.desc()).first()
+                except Exception:
+                    pass
+
+            if existing_doc and not force_update:
+                return json.dumps(
+                    {
+                        "status": "already_exists",
+                        "document_id": existing_doc.id,
+                        "title": existing_doc.title,
+                        "message": "Document déjà existant (source_url ou source_sha256 identique). Utilisez force_update=true pour mettre à jour.",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            # Persistance via DocumentRepository.save_imported_document
+            doc = repo.save_imported_document(
+                title=final_title,
+                content=extracted_content,
+                file_type=file_type,
+                source_url=source_url,
+                doc_id_to_update=existing_doc.id if (existing_doc and force_update) else None,
+                original_media=original_media,
+            )
+
+            # Mise à jour des métadonnées d'autorité
+            doc.authority_score = authority_score
+            doc.authority_type = authority_type
+            doc.authority_certificate = json.dumps(authority_meta, ensure_ascii=False)
+            doc.source_sha256 = source_sha256
+            doc.save()
+
+            # Indexation RAG (dégradation gracieuse si embeddings indisponibles)
+            index_status = "indexed"
+            try:
+                reindex_result = reindex_document(doc.id)
+                if reindex_result != "ok":
+                    index_status = "imported_unindexed"
+                    logger.warning("Indexation RAG échouée pour doc %d : %s", doc.id, reindex_result)
+            except Exception as e:
+                index_status = "imported_unindexed"
+                logger.warning("Indexation RAG indisponible pour doc %d : %s", doc.id, e)
+
+            # Notification d'interface réactive
+            _notify_mcp_mutation(
+                {
+                    "type": "document_create",
+                    "domain": "docs",
+                    "document_id": doc.id,
+                    "document_title": doc.title,
+                    "source_sha256": source_sha256,
+                }
+            )
+
+            status = "updated" if (existing_doc and force_update) else "created"
+            return json.dumps(
+                {
+                    "status": status,
+                    "document_id": doc.id,
+                    "title": doc.title,
+                    "authority_score": authority_score,
+                    "authority_type": authority_type,
+                    "source_sha256": source_sha256,
+                    "index_status": index_status,
+                    "content_length": len(extracted_content),
+                    "message": f"Source d'autorité '{doc.title}' {status} avec succès (indexation : {index_status}).",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        except WebImportError as e:
+            logger.error("Erreur import web pour '%s' : %s", locator, e)
+            return json.dumps(
+                {"status": "error", "message": f"Échec de l'import web : {e.message}", "category": e.category},
+                ensure_ascii=False,
+            )
+        except FileNotFoundError as e:
+            logger.error("Fichier introuvable : %s", e)
+            return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+        except ValueError as e:
+            logger.error("Erreur de validation : %s", e)
+            return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+        except Exception as e:
+            logger.exception("Erreur inattendue lors de l'ingestion d'autorité : %s", e)
+            return json.dumps({"status": "error", "message": f"Erreur interne : {e}"}, ensure_ascii=False)
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -6024,6 +6334,40 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "include_suspended": {"type": "boolean", "description": "Inclure ou non les cartes suspendues dans l'audit (défaut: false)"},
                 },
                 "required": ["subject"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ingest_authority_source",
+            "description": (
+                "Importe une source documentaire de référence (URL publique, fichier lourd "
+                "en staging, ou Markdown direct) avec certification d'autorité épistémique. "
+                "Supporte 3 modes de transport : 'url' (téléchargement web sécurisé "
+                "anti-SSRF), 'file_staging' (fichier déposé dans le staging du profil, "
+                "extraction multi-format), 'inline_markdown' (contenu direct < 32k "
+                "caractères). Enregistre score d'autorité (0-100), type (RFC, ACADEMIC, "
+                "etc.), certificat JSON et empreinte SHA-256 pour idempotence."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "transport_mode": {
+                        "type": "string",
+                        "enum": ["url", "file_staging", "inline_markdown"],
+                        "description": ("Mode de transport : 'url' (téléchargement web), 'file_staging' (fichier local dans staging/), 'inline_markdown' (contenu direct)"),
+                    },
+                    "locator": {"type": "string", "description": "URL complète (mode url) ou chemin relatif dans staging/ (mode file_staging)"},
+                    "title": {"type": "string", "description": "Titre optionnel (déduit automatiquement si absent : H1 pour markdown, titre HTML pour URL, nom de fichier pour staging)"},
+                    "inline_content": {"type": "string", "description": "Contenu Markdown brut (mode inline_markdown uniquement, max 32 000 caractères)"},
+                    "authority_metadata_json": {
+                        "type": "string",
+                        "description": ("Certificat d'autorité JSON : authority_score (0-100), authority_type (RFC, ACADEMIC, OFFICIAL_DOC, COURSE, TECHNICAL_SPEC...), métadonnées additionnelles"),
+                    },
+                    "force_update": {"type": "boolean", "description": "Si true, met à jour un document existant détecté par source_url ou source_sha256 identique (défaut: false)"},
+                },
+                "required": ["transport_mode"],
             },
         },
     },
