@@ -447,6 +447,20 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Résorption séquentielle du CRAP** : stratégie en deux phases articulée entre l'écriture de tests ciblés sur les fonctions modérément complexes sous-couvertes (Axe 2, gain rapide) et le refactoring d'architecture des méthodes monstres à $CC > 25$ (Axe 1, décomposition structurelle).
   _Avoid_ : réécriture intégrale aveugle, dégradation de couverture
 
+## Ancrage Documentaire & Curation de Deck (RAG Grounding & Deck Curation)
+
+- **Lacune conceptuelle (Coverage Gap)** : section ou fragment d'un document de référence indexé dans le RAG pour lequel aucune note ou carte du paquet analysé n'est actuellement rattachée par `CoverageAlignmentService`.
+  _Avoid_ : manque flou, trou de mémoire, concept orphelin, notion manquante vague
+- **Ancrage factuel (Factual Grounding)** : degré de correspondance et d'adéquation vérifiable entre les assertions formulées dans les champs d'une note et le texte source des fragments rattachés (`NoteChunkLinkModel`).
+  _Avoid_ : vérité absolue, vérification LLM aveugle, confiance implicite
+- **Diagnostic de couverture de deck** : analyse croisée passive quantifiant le taux de couverture d'un paquet de cartes face à un corpus documentaire de référence et listant les lacunes prioritaires sans altérer la collection.
+  _Avoid_ : scan de deck, audit Wozniak seul, inspection brute
+- **Enrichissement de deck** : processus structuré d'ajout ou de révision de cartes visant à combler des lacunes conceptuelles identifiées, conditionné à une preuve textuelle issue des sources du profil et soumis via Staged Bundles.
+  _Avoid_ : génération automatique libre, prompt de cartes sans source, expansion de deck aveugle
+- **Ingestion web locale** : importation directe du contenu textuel épuré d'une page web vers un document Markdown du profil actif, immédiatement segmenté et indexé dans le RAG local sans dépendance externe ni API payante.
+  _Avoid_ : scraping cloud, web search API, fetch distant opaque
+
+
 
 
 
