@@ -9,7 +9,6 @@ from typing import Any
 from PySide6.QtCore import QPoint, Qt, QTimer, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
-    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -354,7 +353,7 @@ class BatchView(QWidget):
         ai_layout.addLayout(ai_top)
 
         self.engine_combo = StyledComboBox()
-        self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.engine_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.engine_combo.setMinimumContentsLength(8)
         self.engine_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
@@ -367,7 +366,7 @@ class BatchView(QWidget):
         ai_layout.addWidget(self.btn_no_engine_help)
 
         self.pipeline_combo = StyledComboBox()
-        self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.pipeline_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToContents)
         self.pipeline_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
         ai_layout.addWidget(self.pipeline_combo)

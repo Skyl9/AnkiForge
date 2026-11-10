@@ -8,7 +8,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
-    QComboBox,
     QDialog,
     QHBoxLayout,
     QLineEdit,
@@ -20,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.layouts.layout_manager import LayoutManager
 from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.style_engine.themes import get_theme_families
@@ -68,7 +68,7 @@ class WidgetGalleryWindow(QDialog):
 
         toolbar = QHBoxLayout()
 
-        self.theme_combo = QComboBox(self)
+        self.theme_combo = StyledComboBox(self)
         for family in get_theme_families():
             self.theme_combo.addItem(family.name, family.id)
         engine = get_style_engine()
@@ -80,7 +80,7 @@ class WidgetGalleryWindow(QDialog):
         self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
         toolbar.addWidget(self.theme_combo)
 
-        self.layout_combo = QComboBox(self)
+        self.layout_combo = StyledComboBox(self)
         for metadata in LayoutManager.get_available_layouts():
             self.layout_combo.addItem(metadata["name"], metadata["id"])
         self.layout_combo.setEnabled(False)

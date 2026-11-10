@@ -6,10 +6,11 @@ from typing import cast
 from peewee import prefetch
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QAction, QColor
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
+from PySide6.QtWidgets import QAbstractItemView, QFrame, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.utils.hierarchy import descendants_prefix
 from ankiforge.utils.i18n import tr
@@ -84,7 +85,7 @@ class NoteTableWidget(RoundedPanel):
         lbl_mode.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
         toolbar_layout.addWidget(lbl_mode)
 
-        self.view_mode_cb = QComboBox()
+        self.view_mode_cb = StyledComboBox(density="compact")
         for label, mode_id in (
             (tr("Vue : Cartes (Métadonnées)"), VIEW_MODE_CARDS),
             (tr("Vue : Notes (Texte)"), VIEW_MODE_NOTES),

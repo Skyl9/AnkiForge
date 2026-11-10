@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QFont, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -34,7 +33,7 @@ from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmen
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.reindex_activity_service import ReindexActivityService
 from ankiforge.ui.components.buttons import FilterChipButton, PrimaryButton, SecondaryButton, apply_compact_style
-from ankiforge.ui.components.inputs import GlowLineEdit
+from ankiforge.ui.components.inputs import GlowLineEdit, StyledComboBox
 from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.widgets.toast import show_toast
@@ -1540,20 +1539,11 @@ class AISourcesDiagnosticTab(QWidget):
         self.search_input.setMinimumWidth(220)
         self.search_input.textChanged.connect(self.refresh_data)
 
-        self.status_combo = QComboBox()
+        self.status_combo = StyledComboBox(density="compact")
         self.status_combo.addItems([self.tr("Tous les statuts"), self.tr("Couverts à 100%"), self.tr("Trous à forger (<100%)"), self.tr("Non indexés")])
-        self.status_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px 8px;
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-        """)
         self.status_combo.currentIndexChanged.connect(self.refresh_data)
 
-        self.sort_combo = QComboBox()
+        self.sort_combo = StyledComboBox(density="compact")
         self.sort_combo.addItems(
             [
                 self.tr("Taux de couverture ↓"),
@@ -1564,15 +1554,6 @@ class AISourcesDiagnosticTab(QWidget):
                 self.tr("Date d'importation ↓"),
             ]
         )
-        self.sort_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px 8px;
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-        """)
         self.sort_combo.currentIndexChanged.connect(self.refresh_data)
 
         self.btn_refresh = SecondaryButton("Actualiser")

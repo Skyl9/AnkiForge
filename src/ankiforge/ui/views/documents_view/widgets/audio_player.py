@@ -21,7 +21,6 @@ except (ImportError, OSError):
     QMediaPlayer = None  # type: ignore[misc]
     HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -30,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -107,7 +107,7 @@ class AudioPlayerWidget(QFrame):
         self.lbl_time.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
         top_row.addWidget(self.lbl_time)
 
-        self.combo_speed = QComboBox()
+        self.combo_speed = StyledComboBox(density="compact")
         self.combo_speed.addItems([self.tr("0.75x"), self.tr("1.0x"), self.tr("1.25x"), self.tr("1.5x"), self.tr("2.0x")])
         self.combo_speed.setCurrentIndex(1)  # 1.0x
         self.combo_speed.setFixedWidth(70)
@@ -164,14 +164,6 @@ class AudioPlayerWidget(QFrame):
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 2px 6px;
-                font-size: 11px;
             }}
         """)
 

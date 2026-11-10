@@ -7,7 +7,6 @@ from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -21,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.models import SimilarityBadgeDelegate, SrsMasteryDelegate
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
@@ -157,8 +157,7 @@ class DuplicateMatrixTable(QFrame):
         lbl_threshold.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
         lbl_threshold.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 
-        self.combo_threshold = QComboBox()
-        self.combo_threshold.setFixedHeight(26)
+        self.combo_threshold = StyledComboBox(density="compact")
         self.combo_threshold.addItems([self.tr("Seuil > 80%"), self.tr("Seuil > 90%"), self.tr("Seuil > 95%")])
         self.combo_threshold.setCurrentIndex(1)
 

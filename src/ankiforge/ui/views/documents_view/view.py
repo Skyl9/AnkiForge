@@ -8,7 +8,6 @@ from PySide6.QtCore import QPoint, QSize, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QColor, QTextCursor
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
@@ -61,6 +60,7 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
 )
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.dialogs.url_import_dialog import UrlImportDialog
 from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.shortcuts import (
@@ -723,31 +723,9 @@ class DocumentsView(FileDropMixin, QWidget):
 
         cov_layout.addWidget(self.coverage_card)
 
-        self.chapters_filter = QComboBox()
+        self.chapters_filter = StyledComboBox(density="compact")
         self.chapters_filter.addItems([self.tr("Toutes les sections"), self.tr("Couvertes"), self.tr("Non couvertes")])
-        self.chapters_filter.setFixedHeight(24)
         self.chapters_filter.setToolTip(self.tr("Filtrer les sections selon leur état de couverture"))
-        self.chapters_filter.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 2px 8px;
-                font-size: 10px;
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 18px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                selection-background-color: {DesignTokens.BG_HOVER};
-                selection-color: {DesignTokens.TEXT_PRIMARY};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-        """)
         self.chapters_filter.currentIndexChanged.connect(self._apply_chapters_filter)
         cov_layout.addWidget(self.chapters_filter)
 

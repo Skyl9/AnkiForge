@@ -58,22 +58,8 @@ class CardPreviewWidget(QWidget):
             self.controls_layout.addWidget(lbl_preview)
 
         # Sélecteur de carte (Carte n°1, Carte n°2)
-        self.card_selector = StyledComboBox()
+        self.card_selector = StyledComboBox(density="compact")
         self.card_selector.setMinimumWidth(100)
-        self.card_selector.setFixedHeight(26)
-        self.card_selector.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 0 8px;
-                font-size: 11px;
-            }}
-            QComboBox:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
         self.card_selector.hide()
         self.controls_layout.addWidget(self.card_selector)
 

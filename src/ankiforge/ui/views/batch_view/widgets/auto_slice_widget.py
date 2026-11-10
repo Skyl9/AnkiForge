@@ -7,7 +7,6 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -21,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.services.batch.slicing_service import GranularityLevel, SliceUnit, SlicingMode, SlicingService
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -137,7 +137,7 @@ class AutoSliceWidget(QWidget):
 
         lbl_depth = QLabel(self.tr("Profondeur de découpe :"))
         lbl_depth.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
-        self.combo_depth = QComboBox()
+        self.combo_depth = StyledComboBox(density="compact")
         self.combo_depth.addItems(
             [
                 self.tr("H1 uniquement (Grands chapitres)"),
@@ -147,10 +147,6 @@ class AutoSliceWidget(QWidget):
             ]
         )
         self.combo_depth.setCurrentIndex(1)
-        combo_style = (
-            f"font-size: 11px; background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 8px;"
-        )
-        self.combo_depth.setStyleSheet(combo_style)
         self.combo_depth.currentIndexChanged.connect(self._on_headings_control_changed)
 
         lbl_fusion = QLabel(self.tr("Seuil de fusion micro-sections :"))

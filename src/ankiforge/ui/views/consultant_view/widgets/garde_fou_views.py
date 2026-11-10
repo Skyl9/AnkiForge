@@ -943,22 +943,8 @@ class NoteTypePatchWidget(QWidget):
         selector_row.addWidget(lbl_selector)
 
         self.combo_note = StyledComboBox()
-        self.combo_note.setFixedHeight(32)
         self.combo_note.setMinimumWidth(220)
         self.combo_note.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.combo_note.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 11px;
-                padding: 0 8px;
-            }}
-            QComboBox:focus {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
         self.combo_note.currentIndexChanged.connect(self._on_note_selected)
         selector_row.addWidget(self.combo_note)
 

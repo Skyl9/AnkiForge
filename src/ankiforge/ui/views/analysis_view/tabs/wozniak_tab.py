@@ -6,7 +6,6 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -34,7 +33,7 @@ from ankiforge.services.settings_service import SettingsService
 from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
-from ankiforge.ui.components.inputs import GlowLineEdit
+from ankiforge.ui.components.inputs import GlowLineEdit, StyledComboBox
 from ankiforge.ui.components.linter_rules_dialog import LinterRulesManagerDialog
 from ankiforge.ui.components.linter_widgets import (
     KatexLivePreviewWidget,
@@ -101,18 +100,9 @@ class AIWozniakLinterTab(QWidget):
         self.btn_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_PRIMARY))
         self.btn_deck.clicked.connect(self.open_deck_select_dialog)
 
-        self.engine_combo = QComboBox()
+        self.engine_combo = StyledComboBox(density="compact")
         self.engine_combo.setMinimumWidth(190)
-        self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.engine_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px 8px;
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-        """)
+        self.engine_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToContents)
 
         configs = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
         if not configs:

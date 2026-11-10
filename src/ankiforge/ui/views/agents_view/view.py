@@ -369,42 +369,6 @@ class AgentsView(QWidget):
             }}
         """
 
-        combo_field_style = f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 4px 10px;
-                font-size: 12px;
-                font-weight: 500;
-                min-height: 24px;
-            }}
-            QComboBox:hover {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-            QComboBox:focus {{
-                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_PANEL};
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 24px;
-                border-left: none;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                selection-background-color: {DesignTokens.BG_HOVER};
-                selection-color: {DesignTokens.ACCENT_PRIMARY};
-                padding: 4px;
-            }}
-        """
-
         # ── ONGLET 1 : Identité & Moteur IA ──
         tab_identity = QWidget()
         tab_identity.setStyleSheet("background: transparent;")
@@ -493,8 +457,6 @@ class AgentsView(QWidget):
         lbl_folder_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
         col_folder.addWidget(lbl_folder_title)
         self.folder_combo = StyledComboBox()
-        self.folder_combo.setStyleSheet(combo_field_style)
-        self.folder_combo.setFixedHeight(34)
         self.folder_combo.currentIndexChanged.connect(self._on_folder_combo_changed)
         col_folder.addWidget(self.folder_combo)
         row_props.addLayout(col_folder, 1)
@@ -505,8 +467,6 @@ class AgentsView(QWidget):
         lbl_scope_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
         col_scope.addWidget(lbl_scope_title)
         self.scope_combo = StyledComboBox()
-        self.scope_combo.setStyleSheet(combo_field_style)
-        self.scope_combo.setFixedHeight(34)
         for s_key, s_spec in PERSONA_TYPE_SPECS.items():
             ico = load_phosphor_icon(s_spec.get("icon", "ph.lightning"), color=s_spec.get("badge_color", DesignTokens.TEXT_PRIMARY))
             self.scope_combo.addItem(ico, s_spec["label"], userData=s_key)
@@ -520,8 +480,6 @@ class AgentsView(QWidget):
         lbl_format.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
         col_fmt.addWidget(lbl_format)
         self.format_combo = StyledComboBox()
-        self.format_combo.setStyleSheet(combo_field_style)
-        self.format_combo.setFixedHeight(34)
         self.format_combo.addItem(load_phosphor_icon("ph.code", color=DesignTokens.COLOR_YELLOW), self.tr("json"))
         self.format_combo.addItem(load_phosphor_icon("ph.brackets-curly", color=DesignTokens.COLOR_BLUE), self.tr("cloze"))
         self.format_combo.addItem(load_phosphor_icon("ph.article", color=DesignTokens.COLOR_PURPLE), self.tr("markdown"))
@@ -579,9 +537,6 @@ class AgentsView(QWidget):
         engine_card_layout.addLayout(engine_top)
 
         self.engine_combo = ModelSelectorWidget(allow_inherit=True, parent=self)
-        if hasattr(self.engine_combo, "combo"):
-            self.engine_combo.combo.setStyleSheet(combo_field_style)
-            self.engine_combo.combo.setFixedHeight(34)
         engine_card_layout.addWidget(self.engine_combo)
 
         self.engine_info_card = QFrame()
@@ -1001,51 +956,8 @@ class AgentsView(QWidget):
                     background-color: {bg_panel};
                 }}
             """
-            combo_style = f"""
-                QComboBox {{
-                    background-color: {profile.bg_input if profile else DesignTokens.BG_INPUT};
-                    border: 1px solid {border_col};
-                    border-radius: {radius_sm}px;
-                    color: {profile.text_primary if profile else DesignTokens.TEXT_PRIMARY};
-                    padding: 4px 10px;
-                    font-size: 12px;
-                    font-weight: 500;
-                    min-height: 24px;
-                }}
-                QComboBox:hover {{
-                    border-color: {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
-                    background-color: {profile.bg_hover if profile else DesignTokens.BG_HOVER};
-                }}
-                QComboBox:focus {{
-                    border: 1.5px solid {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
-                    background-color: {bg_panel};
-                }}
-                QComboBox::drop-down {{
-                    subcontrol-origin: padding;
-                    subcontrol-position: top right;
-                    width: 24px;
-                    border-left: none;
-                }}
-                QComboBox QAbstractItemView {{
-                    background-color: {bg_panel};
-                    border: 1px solid {border_col};
-                    border-radius: {radius_sm}px;
-                    color: {profile.text_primary if profile else DesignTokens.TEXT_PRIMARY};
-                    selection-background-color: {profile.bg_hover if profile else DesignTokens.BG_HOVER};
-                    selection-color: {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
-                    padding: 4px;
-                }}
-            """
             if hasattr(self, "name_edit"):
                 self.name_edit.setStyleSheet(input_style)
-            if hasattr(self, "folder_combo"):
-                self.folder_combo.setStyleSheet(combo_style)
-            if hasattr(self, "scope_combo"):
-                self.scope_combo.setStyleSheet(combo_style)
-            if hasattr(self, "format_combo"):
-                self.format_combo.setStyleSheet(combo_style)
-            if hasattr(self, "engine_combo") and hasattr(self.engine_combo, "combo"):
-                self.engine_combo.combo.setStyleSheet(combo_style)
         if hasattr(self, "persona_tree"):
             bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
             border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR

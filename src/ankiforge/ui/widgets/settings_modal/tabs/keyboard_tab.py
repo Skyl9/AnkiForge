@@ -15,7 +15,6 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -30,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components.buttons import SecondaryButton
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.shortcuts.catalog import (
     get_shortcut_catalog,
     get_shortcut_definition,
@@ -138,7 +138,7 @@ class KeyboardTab(SettingsDirtyMixin, QWidget):
         self.le_search.textChanged.connect(self._filter_table)
         filter_row.addWidget(self.le_search, 2)
 
-        self.cb_category = QComboBox(self.card_controls)
+        self.cb_category = StyledComboBox(self.card_controls)
         self.cb_category.addItem(self.tr("Toutes les catégories"), None)
         for cat in ShortcutCategory:
             self.cb_category.addItem(cat.value, cat.value)

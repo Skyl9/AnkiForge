@@ -35,7 +35,6 @@ except (ImportError, OSError):
     QMediaPlayer = None  # type: ignore[misc]
     HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
-    QComboBox,
     QCompleter,
     QHBoxLayout,
     QLabel,
@@ -53,6 +52,7 @@ from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeM
 from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import ActionButton, PrimaryButton, RoundedPanel
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
@@ -873,7 +873,7 @@ class NoteEditorWidget(QWidget):
         self.current_deck_id: int | None = None
         self.field_editors: dict[str, QTextEdit] = {}
         self.is_creating = False
-        self.creation_model_cb: QComboBox | None = None
+        self.creation_model_cb: StyledComboBox | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -1039,7 +1039,7 @@ class NoteEditorWidget(QWidget):
 
         model_layout = QHBoxLayout()
         model_layout.addWidget(QLabel(self.tr("Type de note :")))
-        self.creation_model_cb = QComboBox()
+        self.creation_model_cb = StyledComboBox()
         models = NoteTypeModel.select()
         for m in models:
             self.creation_model_cb.addItem(m.name, m.id)

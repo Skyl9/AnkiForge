@@ -24,7 +24,6 @@ from PySide6.QtCore import QAbstractItemModel, QMetaMethod, QObject, Qt
 from PySide6.QtGui import QCloseEvent, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -41,6 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.layouts.layout_manager import LayoutManager
 from ankiforge.ui.theme import DesignTokens
@@ -335,7 +335,7 @@ class ShellPreviewWindow(QMainWindow):
         selector_layout = QHBoxLayout(selector_bar)
         selector_layout.setContentsMargins(8, 6, 8, 6)
         selector_layout.addWidget(_caption_label(tr("Disposition :"), selector_bar))
-        self.layout_combo = QComboBox(selector_bar)
+        self.layout_combo = StyledComboBox(selector_bar)
         for metadata in LayoutManager.get_available_layouts():
             self.layout_combo.addItem(metadata["name"], metadata["id"])
         self.layout_combo.currentIndexChanged.connect(self._on_layout_changed)

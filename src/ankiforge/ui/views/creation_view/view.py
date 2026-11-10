@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QCheckBox,
-    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -433,7 +432,7 @@ class CreationView(QWidget):
         ai_layout.addLayout(ai_top)
 
         self.engine_combo = StyledComboBox()
-        self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.engine_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.engine_combo.setMinimumContentsLength(8)
         self.engine_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
@@ -446,7 +445,7 @@ class CreationView(QWidget):
         ai_layout.addWidget(self.btn_no_engine_help)
 
         self.pipeline_combo = StyledComboBox()
-        self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.pipeline_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.pipeline_combo.setMinimumContentsLength(8)
         self.pipeline_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
