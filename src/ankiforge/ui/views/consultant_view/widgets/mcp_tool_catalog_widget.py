@@ -151,6 +151,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "update_document_content": DOMAIN_DOCUMENTS,
     "reindex_document": DOMAIN_DOCUMENTS,
     "trigger_manual_backup": DOMAIN_DOCUMENTS,
+    "diagnose_domain_knowledge_gaps": DOMAIN_DOCUMENTS,
     # 5. Albums & Planches (3)
     "list_albums": DOMAIN_ALBUMS,
     "get_album_plates": DOMAIN_ALBUMS,
@@ -211,6 +212,11 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
 
 # Garde-fous et directives de sécurité spécifiques
 TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
+    "diagnose_domain_knowledge_gaps": [
+        "Lecture seule : aucun effet de bord physique sur la collection ni sur la base SQLite.",
+        "Décloisonnement complet : inspecte 100% des cartes du profil pour éliminer les faux manques.",
+        "Diagnostic tripartite : évalue concepts absents (Type 1), non-atomicité (Type 2) et manque de liant (Type 3).",
+    ],
     "abort_staged_patch": [
         "Annulation unitaire : ne modifie que le patch ciblé et conserve le bundle ainsi que ses patches frères.",
         "Le patch doit être en attente ; les patchs déjà appliqués, rejetés ou annulés sont refusés explicitement.",

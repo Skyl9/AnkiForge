@@ -2201,6 +2201,29 @@ def generate_cards_batch_audio(
     )
 
 
+@mcp.tool()
+def diagnose_domain_knowledge_gaps(
+    subject: str,
+    target_deck: str = "",
+    reference_document_id: int | None = None,
+    blueprint_json: str = "",
+    include_suspended: bool = False,
+) -> str:
+    """Diagnostique les lacunes de connaissances sur un domaine à l'échelle de toute la collection.
+
+    Décloisonne l'analyse en inspectant 100% des cartes du profil pour éliminer les faux manques.
+    Évalue les 3 pathologies cognitives : concepts absents (Type 1), défauts d'atomicité du bloc principal (Type 2),
+    et manque de liant/nuances fines bilingues FR/EN (Type 3). Calcule les scores d'avancement DomainMetrics.
+    """
+    return MCPToolRegistry.diagnose_domain_knowledge_gaps(
+        subject=subject,
+        target_deck=target_deck,
+        reference_document_id=reference_document_id,
+        blueprint_json=blueprint_json,
+        include_suspended=include_suspended,
+    )
+
+
 @mcp.resource("workspace://agent-guide")
 def get_workspace_agent_guide_resource() -> str:
     """Sert le contenu du guide d'amorçage (version generic) en lecture temps réel."""

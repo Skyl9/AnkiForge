@@ -4884,6 +4884,26 @@ class MCPToolRegistry:
                 ensure_ascii=False,
             )
 
+    @classmethod
+    def diagnose_domain_knowledge_gaps(
+        cls,
+        subject: str,
+        target_deck: str = "",
+        reference_document_id: int | None = None,
+        blueprint_json: str = "",
+        include_suspended: bool = False,
+    ) -> str:
+        """Diagnostique les lacunes de connaissances sur un domaine à l'échelle de toute la collection."""
+        from ankiforge.services.rag.domain_gap_detector import diagnose_domain_knowledge_gaps as _diagnose
+
+        return _diagnose(
+            subject=subject,
+            target_deck=target_deck,
+            reference_document_id=reference_document_id,
+            blueprint_json=blueprint_json,
+            include_suspended=include_suspended,
+        )
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -5983,6 +6003,27 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "target_field": {"type": "string", "description": "Nom du champ destinataire de la balise [sound:...] (défaut: Audio)"},
                 },
                 "required": ["note_ids"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "diagnose_domain_knowledge_gaps",
+            "description": (
+                "Diagnostique les lacunes de connaissances sur un domaine à l'échelle de toute la collection. "
+                "Évalue concepts absents (Type 1), non-atomicité (Type 2) et manque de liant bilingue (Type 3)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "subject": {"type": "string", "description": "Intitulé du sujet ou domaine d'étude à auditer"},
+                    "target_deck": {"type": "string", "description": "Paquet principal cible (optionnel, sert à quantifier les cartes transversales repêchées)"},
+                    "reference_document_id": {"type": "integer", "description": "Identifiant d'un document de référence du profil (optionnel)"},
+                    "blueprint_json": {"type": "string", "description": "Cartographie conceptuelle JSON fournie par l'agent externe avec concepts et relations (optionnel)"},
+                    "include_suspended": {"type": "boolean", "description": "Inclure ou non les cartes suspendues dans l'audit (défaut: false)"},
+                },
+                "required": ["subject"],
             },
         },
     },
