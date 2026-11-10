@@ -50,6 +50,15 @@ class DocumentModel(BaseModel):
     neutralized_regions = TextField(null=True)
     chunk_strategy_version = IntegerField(default=ChunkingService.CHUNKING_VERSION)
 
+    #: Score de fiabilité épistémique normalisé (0.0 - 100.0) pour certification d'autorité.
+    authority_score = FloatField(null=True, index=True)
+    #: Type d'autorité déclarée (ex: RFC, ACADEMIC, OFFICIAL_DOC, COURSE, TECHNICAL_SPEC).
+    authority_type = CharField(null=True, index=True, max_length=64)
+    #: Certificat d'autorité complet (JSON) : métadonnées de provenance, validation, score détaillé.
+    authority_certificate = TextField(null=True)
+    #: Empreinte SHA-256 du contenu source brut normalisé (64 hex chars) pour idempotence.
+    source_sha256 = CharField(max_length=64, null=True, index=True)
+
 
 class DocumentPageModel(BaseModel):
     """Représente une page individuelle au sein d'un Document de type Album/Livre scanné."""
