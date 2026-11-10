@@ -309,8 +309,8 @@ class WebImporter:
         """Refuse les hôtes de réseaux privés/internes — anti-SSRF.
 
         Bloque les IP littérales privées (RFC1918, loopback, link-local, CGNAT,
-        multicast) et les hôtes DNS qui résolvent vers ces plages, afin qu'un
-        import web ne puisse pas être détourné pour sonder l'environnement interne.
+        multicast, unspecified) et les hôtes DNS qui résolvent vers ces plages,
+        afin qu'un import web ne puisse pas être détourné pour sonder l'environnement interne.
         """
         parsed = urlparse(url)
         host = parsed.hostname
@@ -320,7 +320,7 @@ class WebImporter:
             ip = ipaddress.ip_address(host.split("%")[0])
         except ValueError:
             ip = None
-        if ip is not None and (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved):
+        if ip is not None and (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified):
             return True
         try:
             infos = socket.getaddrinfo(host, None)
@@ -332,7 +332,7 @@ class WebImporter:
                 resolved = ipaddress.ip_address(addr)
             except ValueError:
                 continue
-            if resolved.is_private or resolved.is_loopback or resolved.is_link_local or resolved.is_multicast or resolved.is_reserved:
+            if resolved.is_private or resolved.is_loopback or resolved.is_link_local or resolved.is_multicast or resolved.is_reserved or resolved.is_unspecified:
                 return True
         return False
 
@@ -344,6 +344,7 @@ class WebImporter:
             if self._is_private_host(current_url):
                 raise WebImportError("Adresse réseau privé (environnement interne) refusée pour l'import web.", category="network")
             try:
+                # Utiliser stream=True pour pouvoir vérifier l'IP de la socket connectée avant de lire le corps
                 resp = requests.get(current_url, headers=headers, timeout=request.timeout, stream=True, allow_redirects=False)
             except requests.exceptions.Timeout:
                 raise WebImportError("Le site met trop de temps à répondre (délai dépassé). Réessayez ou vérifiez votre connexion.", category="timeout") from None
@@ -354,6 +355,44 @@ class WebImporter:
             except requests.exceptions.RequestException:
                 raise WebImportError("Erreur réseau inattendue pendant le téléchargement.", category="network") from None
 
+            # Vérification anti-DNS-Rebinding : contrôler l'IP réelle de la socket connectée
+            # Cette vérification TOCTOU (Time-Of-Check-Time-Of-Use) garantit que la connexion
+            # n'a pas été redirigée vers une adresse interne après la résolution DNS initiale.
+            try:
+                raw = getattr(resp, "raw", None)
+                if raw is not None:
+                    fp1 = getattr(raw, "_fp", None)
+                    if fp1 is not None:
+                        fp2 = getattr(fp1, "fp", None)
+                        if fp2 is not None:
+                            raw_sock = getattr(fp2, "raw", None)
+                            if raw_sock is not None:
+                                sock = getattr(raw_sock, "_sock", None)
+                                if sock is not None:
+                                    peer = sock.getpeername()
+                                    peer_ip = peer[0]
+                                    try:
+                                        resolved_ip = ipaddress.ip_address(peer_ip.split("%")[0])
+                                        is_private = (
+                                            resolved_ip.is_private
+                                            or resolved_ip.is_loopback
+                                            or resolved_ip.is_link_local
+                                            or resolved_ip.is_multicast
+                                            or resolved_ip.is_reserved
+                                            or resolved_ip.is_unspecified
+                                        )
+                                        if is_private:
+                                            resp.close()
+                                            raise WebImportError(
+                                                "Connexion vers une adresse réseau privée détectée (DNS Rebinding bloqué).",
+                                                category="network",
+                                            )
+                                    except ValueError:
+                                        pass  # Adresse non-IP (ex: IPv6 avec zone), ignorer
+            except Exception:
+                # En cas d'erreur d'accès à la socket, on continue (ne pas bloquer les cas légitimes)
+                pass
+
             if resp.status_code in (301, 302, 303, 307, 308):
                 location = resp.headers.get("Location")
                 resp.close()
@@ -361,9 +400,14 @@ class WebImporter:
                 if not location:
                     raise WebImportError("Redirection sans destination (en-tête Location manquant).", category="network") from None
                 current_url = urljoin(current_url, location)
+                # Re-vérifier l'hôte de la redirection
+                if self._is_private_host(current_url):
+                    raise WebImportError("Redirection vers une adresse réseau privée refusée.", category="network")
                 continue
             break
         else:
+            if resp is not None:
+                resp.close()
             raise WebImportError("Trop de redirections enchaînées : le site boucle probablement sur des liens.", category="network")
 
         if resp is None:
@@ -399,6 +443,7 @@ class WebImporter:
 
         resp.encoding = resp.encoding or resp.apparent_encoding or "utf-8"
         html = raw.decode(resp.encoding or "utf-8", errors="replace")
+        resp.close()
         return FetchResult(
             html=html,
             final_url=resp.url,
@@ -568,6 +613,38 @@ class WebImporter:
             image_timeout: float = min(request.timeout, 10.0)
             try:
                 resp = requests.get(absolute, headers={"User-Agent": DEFAULT_USER_AGENT}, timeout=image_timeout, stream=True)
+                # Vérification anti-DNS-Rebinding pour les images aussi
+                try:
+                    raw = getattr(resp, "raw", None)
+                    if raw is not None:
+                        fp1 = getattr(raw, "_fp", None)
+                        if fp1 is not None:
+                            fp2 = getattr(fp1, "fp", None)
+                            if fp2 is not None:
+                                raw_sock = getattr(fp2, "raw", None)
+                                if raw_sock is not None:
+                                    sock = getattr(raw_sock, "_sock", None)
+                                    if sock is not None:
+                                        peer = sock.getpeername()
+                                        peer_ip = peer[0]
+                                        try:
+                                            resolved_ip = ipaddress.ip_address(peer_ip.split("%")[0])
+                                            is_private = (
+                                                resolved_ip.is_private
+                                                or resolved_ip.is_loopback
+                                                or resolved_ip.is_link_local
+                                                or resolved_ip.is_multicast
+                                                or resolved_ip.is_reserved
+                                                or resolved_ip.is_unspecified
+                                            )
+                                            if is_private:
+                                                resp.close()
+                                                return match.group(0)
+                                        except ValueError:
+                                            pass
+                except Exception:
+                    pass
+
                 content_type = resp.headers.get("Content-Type", "") or ""
                 if resp.status_code != 200 or "image/" not in content_type.lower():
                     resp.close()
