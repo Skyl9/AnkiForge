@@ -10,7 +10,8 @@ import json
 import uuid
 
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QPointF, Qt
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QLabel
 
 from ankiforge.database.models import (
@@ -1384,6 +1385,113 @@ def test_mcp_garde_fou_splitter_qsettings_persistence(qtbot):
         assert sizes[0] == 450
     finally:
         settings.remove("mcp/garde_fou_splitter_state")
+
+
+def test_mcp_garde_fou_splitter_collapse_and_toggle(qtbot, sample_note):
+    """Vérifie le collapse complet du volet maître, les boutons toggle et la réouverture au bord."""
+    settings = get_app_qsettings()
+    settings.remove("mcp/garde_fou_splitter_state")
+    settings.remove("mcp/garde_fou_saved_left_width")
+    try:
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="card",
+            target_id=sample_note.id,
+            diff_payload={
+                "type": "card",
+                "note_id": sample_note.id,
+                "title": "Proposition Test Collapse",
+                "original": {"Front": "Q1"},
+                "modified": {"Front": "Q2"},
+            },
+        )
+        widget = MCPGardeFouWidget()
+        qtbot.addWidget(widget)
+        widget.resize(1200, 800)
+        widget.show()
+        widget.reload_pending_patches()
+        widget.select_patch_by_id(patch.patch_id)
+
+        # 1. Propriétés de collapsibilité
+        assert widget.splitter.isCollapsible(0) is True
+        assert widget.splitter.isCollapsible(1) is False
+        assert widget.is_left_panel_collapsed() is False
+        assert widget.btn_collapse_left.isVisible() is True
+        assert widget.btn_uncollapse_left.isVisible() is False
+
+        # 2. Définition d'une largeur personnalisée
+        widget.splitter.setSizes([420, 780])
+        widget._on_splitter_moved(420, 1)
+        assert widget._saved_left_panel_width == 420
+
+        # 3. Collapse via le bouton d'en-tête gauche
+        widget.btn_collapse_left.click()
+        assert widget.is_left_panel_collapsed() is True
+        assert widget.splitter.sizes()[0] == 0
+        assert widget.btn_collapse_left.isVisible() is False
+        assert widget.btn_uncollapse_left.isVisible() is True
+        # Marge gauche rétrécie à 4px pour coller la poignée contre la sidebar
+        assert widget.layout().contentsMargins().left() == 4
+        # La largeur préférée est préservée et non écrasée par 0
+        assert widget._saved_left_panel_width == 420
+
+        # 4. Réouverture via le bouton de détail
+        widget.btn_uncollapse_left.click()
+        assert widget.is_left_panel_collapsed() is False
+        assert widget.splitter.sizes()[0] == 420
+        assert widget.btn_collapse_left.isVisible() is True
+        assert widget.btn_uncollapse_left.isVisible() is False
+        assert widget.layout().contentsMargins().left() == 16
+
+        # 5. Collapse via toggle_left_panel(False) et réouverture via clic sur le handle replié
+        widget.toggle_left_panel(False)
+        assert widget.is_left_panel_collapsed() is True
+        handle = widget.splitter.handle(1)
+        assert handle.cursor().shape() == Qt.CursorShape.PointingHandCursor
+        assert "rouvrir" in handle.toolTip().lower()
+
+        # Clic sur le handle replié
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            QPointF(2.0, 100.0),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        handle.mousePressEvent(press_event)
+        assert widget.is_left_panel_collapsed() is False
+        assert widget.splitter.sizes()[0] == 420
+
+        # 6. Collapse et réouverture via clic au contact de la sidebar (zone de bordure gauche x <= 24)
+        widget.toggle_left_panel(False)
+        assert widget.is_left_panel_collapsed() is True
+        edge_click = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            QPointF(10.0, 200.0),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        widget.mousePressEvent(edge_click)
+        assert widget.is_left_panel_collapsed() is False
+        assert widget.splitter.sizes()[0] == 420
+
+        # 7. Double-clic sur le séparateur bascule l'état
+        dbl_click = QMouseEvent(
+            QEvent.Type.MouseButtonDblClick,
+            QPointF(2.0, 100.0),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        handle.mouseDoubleClickEvent(dbl_click)
+        assert widget.is_left_panel_collapsed() is True
+
+        handle.mouseDoubleClickEvent(dbl_click)
+        assert widget.is_left_panel_collapsed() is False
+        assert widget.splitter.sizes()[0] == 420
+    finally:
+        settings.remove("mcp/garde_fou_splitter_state")
+        settings.remove("mcp/garde_fou_saved_left_width")
 
 
 def test_mcp_garde_fou_splitter_stability_on_reload(qtbot, sample_note):

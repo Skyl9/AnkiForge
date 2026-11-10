@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut
+from PySide6.QtGui import QEnterEvent, QGuiApplication, QKeySequence, QMouseEvent, QShortcut
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
     QSplitter,
+    QSplitterHandle,
     QStackedWidget,
     QTreeWidget,
     QTreeWidgetItem,
@@ -36,6 +37,7 @@ from ankiforge.services.ai.staged_patch_registry import (
 from ankiforge.ui.components import (
     Badge,
     FilterChipButton,
+    IconButton,
     PrimaryButton,
     SecondaryButton,
 )
@@ -334,6 +336,57 @@ class HierarchicalPatchTreeWidget(QTreeWidget):
         self.register_selectable_item(item)
 
 
+class GardeFouSplitterHandle(QSplitterHandle):
+    """Poignée de séparateur réactive avec support du collapse total et de la réouverture au clic/hover."""
+
+    def __init__(self, orientation: Qt.Orientation, parent: QSplitter) -> None:
+        super().__init__(orientation, parent)
+        self.setMouseTracking(True)
+        self._update_affordance()
+
+    def _update_affordance(self) -> None:
+        splitter = self.splitter()
+        if splitter and splitter.sizes() and splitter.sizes()[0] == 0:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.setToolTip(tr("Cliquer ou glisser pour rouvrir le volet des propositions"))
+        else:
+            self.setCursor(Qt.CursorShape.SplitHCursor)
+            self.setToolTip(tr("Double-cliquer pour replier le volet, ou glisser pour redimensionner"))
+
+    def enterEvent(self, event: QEnterEvent) -> None:
+        self._update_affordance()
+        super().enterEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            splitter = self.splitter()
+            if splitter and splitter.sizes() and splitter.sizes()[0] == 0:
+                parent_widget = splitter.parentWidget()
+                if hasattr(parent_widget, "toggle_left_panel"):
+                    parent_widget.toggle_left_panel(True)
+                    event.accept()
+                    return
+        super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            splitter = self.splitter()
+            if splitter:
+                parent_widget = splitter.parentWidget()
+                if hasattr(parent_widget, "toggle_left_panel"):
+                    parent_widget.toggle_left_panel()
+                    event.accept()
+                    return
+        super().mouseDoubleClickEvent(event)
+
+
+class GardeFouSplitter(QSplitter):
+    """QSplitter horizontal spécialisé fournissant GardeFouSplitterHandle."""
+
+    def createHandle(self) -> QSplitterHandle:
+        return GardeFouSplitterHandle(self.orientation(), self)
+
+
 class MCPGardeFouWidget(QWidget):
     """Panneau de supervision et de validation des propositions MCP en disposition Maître-Detail."""
 
@@ -348,6 +401,7 @@ class MCPGardeFouWidget(QWidget):
         self._notified_patch_ids: set[str] = set()
         self._current_status_filter: str = "pending"
         self._skip_confirm_for_test: bool = False
+        self._saved_left_panel_width: int = 380
 
         self._setup_ui()
 
@@ -578,8 +632,18 @@ class MCPGardeFouWidget(QWidget):
         main_layout.setContentsMargins(*DesignTokens.DESIGN_SYSTEM_MARGES["mcp_root"])
         main_layout.setSpacing(DesignTokens.DESIGN_SYSTEM_SPACING["mcp_root"])
 
-        self.splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.splitter.setChildrenCollapsible(False)
+        self.splitter = GardeFouSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setObjectName("GardeFouSplitter")
+        self.splitter.setStyleSheet(f"""
+            QSplitter#GardeFouSplitter::handle:horizontal {{
+                background-color: transparent;
+                width: 6px;
+            }}
+            QSplitter#GardeFouSplitter::handle:horizontal:hover {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 3px;
+            }}
+        """)
 
         # ── 1. VOLET MAÎTRE HIÉRARCHIQUE (Gauche) ─────────────────────────────
         self.left_panel = QFrame()
@@ -612,6 +676,14 @@ class MCPGardeFouWidget(QWidget):
 
         self.badge_count = Badge("0", variant="neutral")
         header_row.addWidget(self.badge_count)
+
+        self.btn_collapse_left = IconButton(
+            "ph.sidebar-simple",
+            tooltip=tr("Replier le volet de sélection"),
+            size=24,
+        )
+        self.btn_collapse_left.clicked.connect(lambda: self.toggle_left_panel(False))
+        header_row.addWidget(self.btn_collapse_left)
         left_layout.addLayout(header_row)
 
         # Barre de recherche / filtrage
@@ -796,6 +868,15 @@ class MCPGardeFouWidget(QWidget):
         title_row = QHBoxLayout()
         title_row.setContentsMargins(0, 0, 0, 0)
         title_row.setSpacing(8)
+
+        self.btn_uncollapse_left = IconButton(
+            "ph.sidebar-simple",
+            tooltip=tr("Afficher le volet de sélection"),
+            size=24,
+        )
+        self.btn_uncollapse_left.clicked.connect(lambda: self.toggle_left_panel(True))
+        self.btn_uncollapse_left.setVisible(False)
+        title_row.addWidget(self.btn_uncollapse_left)
 
         self.lbl_detail_title = QLabel()
         self.lbl_detail_title.setStyleSheet(f"""
@@ -1025,22 +1106,101 @@ class MCPGardeFouWidget(QWidget):
 
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
+        self.splitter.setChildrenCollapsible(True)
+        self.splitter.setCollapsible(0, True)
+        self.splitter.setCollapsible(1, False)
         main_layout.addWidget(self.splitter)
 
         settings = get_app_qsettings()
+        saved_width_raw = settings.value("mcp/garde_fou_saved_left_width", 380)
+        try:
+            self._saved_left_panel_width = max(280, int(str(saved_width_raw)))
+        except (ValueError, TypeError):
+            self._saved_left_panel_width = 380
+
         state = settings.value("mcp/garde_fou_splitter_state")
         restored = False
         if state is not None:
             restored = bool(self.splitter.restoreState(state))
         if not restored:
-            self.splitter.setSizes([360, max(500, self.width() - 360)])
+            self.splitter.setSizes([self._saved_left_panel_width, max(500, self.width() - self._saved_left_panel_width)])
 
         self.splitter.splitterMoved.connect(self._on_splitter_moved)
+        self._update_collapse_state()
 
-    def _on_splitter_moved(self, pos: int, index: int) -> None:
-        """Sauvegarde automatiquement l'état géométrique du séparateur dans QSettings."""
+    def is_left_panel_collapsed(self) -> bool:
+        """Indique si le volet maître de sélection est actuellement replié à 0."""
+        sizes = self.splitter.sizes()
+        return bool(sizes and sizes[0] == 0)
+
+    def toggle_left_panel(self, expand: bool | None = None) -> None:
+        """Bascule ou force l'état déplié/replié du volet maître gauche."""
+        is_collapsed = self.is_left_panel_collapsed()
+        should_expand = is_collapsed if expand is None else expand
+
+        total_width = sum(self.splitter.sizes())
+        if total_width <= 0:
+            total_width = max(800, self.width())
+
+        if should_expand:
+            target_left = max(280, min(self._saved_left_panel_width, max(280, total_width - 320)))
+            target_right = max(200, total_width - target_left)
+            self.splitter.setSizes([target_left, target_right])
+        else:
+            current_left = self.splitter.sizes()[0]
+            if current_left >= 280:
+                self._saved_left_panel_width = current_left
+                settings = get_app_qsettings()
+                settings.setValue("mcp/garde_fou_saved_left_width", self._saved_left_panel_width)
+            self.splitter.setSizes([0, total_width])
+
+        self._update_collapse_state()
+        self._save_splitter_state()
+
+    def _update_collapse_state(self) -> None:
+        """Synchronise les affordances visuelles et les marges avec l'état de collapse."""
+        collapsed = self.is_left_panel_collapsed()
+        if hasattr(self, "btn_uncollapse_left"):
+            self.btn_uncollapse_left.setVisible(collapsed)
+        if hasattr(self, "btn_collapse_left"):
+            self.btn_collapse_left.setVisible(not collapsed)
+
+        # Ajuster la marge gauche : 4px quand replié pour coller la poignée au contact direct de la sidebar
+        m = DesignTokens.DESIGN_SYSTEM_MARGES["mcp_root"]
+        left_margin = 4 if collapsed else m[0]
+        layout = self.layout()
+        if layout:
+            layout.setContentsMargins(left_margin, m[1], m[2], m[3])
+
+        handle = self.splitter.handle(1)
+        if isinstance(handle, GardeFouSplitterHandle):
+            handle._update_affordance()
+
+    def _save_splitter_state(self) -> None:
+        """Sauvegarde l'état géométrique du séparateur dans QSettings."""
         settings = get_app_qsettings()
         settings.setValue("mcp/garde_fou_splitter_state", self.splitter.saveState())
+
+    def _on_splitter_moved(self, pos: int, index: int) -> None:
+        """Gère le déplacement interactif du séparateur et persiste la géométrie."""
+        sizes = self.splitter.sizes()
+        if sizes and sizes[0] >= 280:
+            self._saved_left_panel_width = sizes[0]
+            settings = get_app_qsettings()
+            settings.setValue("mcp/garde_fou_saved_left_width", self._saved_left_panel_width)
+
+        self._update_collapse_state()
+        self._save_splitter_state()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        """Permet de rouvrir le volet en collant son curseur contre la sidebar (zone de bordure gauche)."""
+        if event.button() == Qt.MouseButton.LeftButton and self.is_left_panel_collapsed():
+            pos_x = event.position().x() if hasattr(event, "position") else event.pos().x()
+            if pos_x <= 24:
+                self.toggle_left_panel(True)
+                event.accept()
+                return
+        super().mousePressEvent(event)
 
     def _set_status_filter(self, value: str) -> None:
         """Définit le filtre de statut actif et recharge la file en conséquence."""
