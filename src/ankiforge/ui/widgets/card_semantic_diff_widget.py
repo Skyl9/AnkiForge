@@ -318,11 +318,12 @@ class FieldSemanticDiffRow(QFrame):
         right_icon.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
         right_header.addWidget(right_icon)
 
-        lbl_right = QLabel(tr("Proposition Agent MCP (Éditable)"))
+        lbl_right_text = tr("Proposition Agent MCP (Lecture seule)") if self.is_applied else tr("Proposition Agent MCP (Éditable)")
+        lbl_right = QLabel(lbl_right_text)
         lbl_right.setStyleSheet(f"""
             font-size: 10px;
             font-weight: 600;
-            color: {DesignTokens.COLOR_GREEN};
+            color: {DesignTokens.TEXT_MUTED if self.is_applied else DesignTokens.COLOR_GREEN};
             border: none;
             background: transparent;
         """)
@@ -921,12 +922,12 @@ class CardSemanticDiffWidget(QWidget):
         """Extrait automatiquement les composantes d'un patch staged et configure le visualiseur."""
         if isinstance(patch, StagedPatchModel):
             p_type = patch.patch_type
-            is_applied = patch.status == "applied"
+            is_applied = patch.status in ("applied", "aborted")
             payload = staged_payload_of(patch)
             target_id = patch.target_id
         else:
             p_type = patch.get("patch_type") or patch.get("type", "card")
-            is_applied = patch.get("status") == "applied"
+            is_applied = patch.get("status") in ("applied", "aborted")
             raw_pl = patch.get("diff_payload") or patch
             if isinstance(raw_pl, str):
                 try:

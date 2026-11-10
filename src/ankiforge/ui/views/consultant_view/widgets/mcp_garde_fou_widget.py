@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import StagedBundleModel, StagedPatchModel
+from ankiforge.database.models import StagedBundleModel, StagedPatchModel, db
 from ankiforge.services.ai.staged_patch_registry import (
     StagedPatchRegistry,
     staged_payload_of,
@@ -588,15 +588,15 @@ class MCPGardeFouWidget(QWidget):
         # En-tête de la liste
         header_row = QHBoxLayout()
         header_row.setContentsMargins(0, 0, 0, 0)
-        lbl_title = QLabel(tr("PROPOSITIONS EN ATTENTE"))
-        lbl_title.setStyleSheet(f"""
+        self.lbl_master_title = QLabel(tr("PROPOSITIONS EN ATTENTE"))
+        self.lbl_master_title.setStyleSheet(f"""
             font-size: 11px;
             font-weight: 600;
             letter-spacing: 0.5px;
             text-transform: uppercase;
             color: {DesignTokens.TEXT_MUTED};
         """)
-        header_row.addWidget(lbl_title)
+        header_row.addWidget(self.lbl_master_title)
         header_row.addStretch()
 
         self.badge_count = Badge("0", variant="neutral")
@@ -623,7 +623,7 @@ class MCPGardeFouWidget(QWidget):
         self.search_input.textChanged.connect(self._filter_list)
         left_layout.addWidget(self.search_input)
 
-        # Filtre de statut des propositions (En attente / Annulés / Tous)
+        # Filtre de statut binaire (En attente / Annulés) - 50%/50% anti-troncature
         filter_row = QHBoxLayout()
         filter_row.setContentsMargins(0, 0, 0, 0)
         filter_row.setSpacing(4)
@@ -639,20 +639,16 @@ class MCPGardeFouWidget(QWidget):
         self.chip_aborted.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chip_aborted.toggled.connect(lambda checked: self._set_status_filter("aborted") if checked else None)
 
-        self.chip_all = FilterChipButton(tr("Tous"), icon_name="ph.list")
-        self.chip_all.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.chip_all.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.chip_all.toggled.connect(lambda checked: self._set_status_filter("all") if checked else None)
-
-        self._status_chips: list[FilterChipButton] = [self.chip_pending, self.chip_aborted, self.chip_all]
+        self._status_chips: list[FilterChipButton] = [self.chip_pending, self.chip_aborted]
 
         for chip in self._status_chips:
             filter_row.addWidget(chip)
 
         left_layout.addLayout(filter_row)
 
-        # Boutons de lot globaux
-        batch_row = QHBoxLayout()
+        # Actions de lot pour les propositions en attente
+        self.pending_batch_widget = QWidget()
+        batch_row = QHBoxLayout(self.pending_batch_widget)
         batch_row.setContentsMargins(0, 0, 0, 0)
         batch_row.setSpacing(6)
 
@@ -683,20 +679,55 @@ class MCPGardeFouWidget(QWidget):
         """)
         self.btn_reject_all.clicked.connect(self._reject_all_patches)
         batch_row.addWidget(self.btn_reject_all)
-
-        self.lbl_batch_hint = QLabel()
-        self.lbl_batch_hint.setStyleSheet(f"""
-            font-size: 11px;
-            color: {DesignTokens.TEXT_MUTED};
-            font-style: italic;
-            border: none;
-            background: transparent;
-        """)
-        self.lbl_batch_hint.setVisible(False)
-        batch_row.addWidget(self.lbl_batch_hint)
         batch_row.addStretch()
+        left_layout.addWidget(self.pending_batch_widget)
 
-        left_layout.addLayout(batch_row)
+        # Actions de lot pour les propositions annulées
+        self.aborted_batch_widget = QWidget()
+        aborted_batch_row = QHBoxLayout(self.aborted_batch_widget)
+        aborted_batch_row.setContentsMargins(0, 0, 0, 0)
+        aborted_batch_row.setSpacing(6)
+
+        self.btn_restore_all = SecondaryButton(tr("Tout rétablir"))
+        self.btn_restore_all.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
+        self.btn_restore_all.setFixedHeight(32)
+        self.btn_restore_all.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_restore_all.setStyleSheet(f"""
+            QPushButton {{
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+                color: {DesignTokens.COLOR_YELLOW_TEXT};
+                border-color: {DesignTokens.COLOR_YELLOW_BORDER};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
+            }}
+        """)
+        self.btn_restore_all.clicked.connect(self._restore_all_aborted)
+        aborted_batch_row.addWidget(self.btn_restore_all)
+
+        self.btn_clear_aborted = SecondaryButton(tr("Vider l'historique"))
+        self.btn_clear_aborted.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+        self.btn_clear_aborted.setFixedHeight(32)
+        self.btn_clear_aborted.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_clear_aborted.setStyleSheet(f"""
+            QPushButton {{
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 600;
+                color: {DesignTokens.COLOR_RED_TEXT};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.COLOR_RED_BG};
+                border-color: {DesignTokens.COLOR_RED};
+            }}
+        """)
+        self.btn_clear_aborted.clicked.connect(self._clear_all_aborted)
+        aborted_batch_row.addWidget(self.btn_clear_aborted)
+        aborted_batch_row.addStretch()
+        self.aborted_batch_widget.setVisible(False)
+        left_layout.addWidget(self.aborted_batch_widget)
 
         # Arbre hiérarchique maître (avec alias de compatibilité patch_list)
         self.patch_tree = HierarchicalPatchTreeWidget()
@@ -744,6 +775,10 @@ class MCPGardeFouWidget(QWidget):
         title_col = QVBoxLayout()
         title_col.setSpacing(4)
 
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.setSpacing(8)
+
         self.lbl_detail_title = QLabel()
         self.lbl_detail_title.setStyleSheet(f"""
             font-size: 15px;
@@ -751,7 +786,14 @@ class MCPGardeFouWidget(QWidget):
             color: {DesignTokens.TEXT_PRIMARY};
         """)
         self.lbl_detail_title.setWordWrap(True)
-        title_col.addWidget(self.lbl_detail_title)
+        title_row.addWidget(self.lbl_detail_title)
+
+        self.badge_abort_status = Badge(tr("Annulé par l'agent"), variant="warning")
+        self.badge_abort_status.hide()
+        title_row.addWidget(self.badge_abort_status)
+        title_row.addStretch()
+
+        title_col.addLayout(title_row)
 
         self.lbl_detail_meta = QLabel()
         self.lbl_detail_meta.setStyleSheet(f"""
@@ -761,22 +803,6 @@ class MCPGardeFouWidget(QWidget):
         """)
         self.lbl_detail_meta.setWordWrap(True)
         title_col.addWidget(self.lbl_detail_meta)
-
-        self.lbl_abort_reason = QLabel()
-        self.lbl_abort_reason.setStyleSheet(f"""
-            font-size: 11px;
-            color: {DesignTokens.COLOR_YELLOW};
-            font-family: {DesignTokens.FONT_CODE};
-            border: none;
-            background: transparent;
-        """)
-        self.lbl_abort_reason.setWordWrap(True)
-        self.lbl_abort_reason.hide()
-        title_col.addWidget(self.lbl_abort_reason)
-
-        self.badge_abort_status = Badge(tr("Annulé par l'agent"), variant="warning")
-        self.badge_abort_status.hide()
-        title_col.addWidget(self.badge_abort_status)
         detail_header.addLayout(title_col, 1)
 
         self.btn_copy_feedback = SecondaryButton(tr("Copier le feedback"))
@@ -886,6 +912,30 @@ class MCPGardeFouWidget(QWidget):
         self.btn_reject.clicked.connect(self._reject_current_patch)
         action_bar.addWidget(self.btn_reject)
 
+        self.btn_delete_aborted = SecondaryButton(tr("Supprimer définitivement"))
+        self.btn_delete_aborted.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+        self.btn_delete_aborted.setFixedHeight(36)
+        self.btn_delete_aborted.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_delete_aborted.setToolTip(tr("Purger définitivement cette proposition annulée de l'historique"))
+        self.btn_delete_aborted.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.COLOR_RED_TEXT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                font-weight: 600;
+                padding: 0 16px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.COLOR_RED_BG};
+                border-color: {DesignTokens.COLOR_RED};
+                color: {DesignTokens.COLOR_RED_TEXT};
+            }}
+        """)
+        self.btn_delete_aborted.clicked.connect(self._delete_current_aborted_patch)
+        self.btn_delete_aborted.setVisible(False)
+        action_bar.addWidget(self.btn_delete_aborted)
+
         action_bar.addStretch()
 
         self.btn_apply_bundle_all = SecondaryButton(tr("Tout valider le bloc"))
@@ -970,6 +1020,8 @@ class MCPGardeFouWidget(QWidget):
 
     def _set_status_filter(self, value: str) -> None:
         """Définit le filtre de statut actif et recharge la file en conséquence."""
+        if value not in ("pending", "aborted"):
+            value = "pending"
         self._current_status_filter = value
         for chip in self._status_chips:
             chip.setChecked(chip is self._chip_for(value))
@@ -977,7 +1029,7 @@ class MCPGardeFouWidget(QWidget):
 
     def _chip_for(self, value: str) -> FilterChipButton:
         """Retourne le chip associé à une valeur de filtre."""
-        return {"pending": self.chip_pending, "aborted": self.chip_aborted, "all": self.chip_all}[value]
+        return self.chip_aborted if value == "aborted" else self.chip_pending
 
     def reload_pending_patches(self) -> None:
         """Recharge l'arborescence complète des bundles et propositions en attente."""
@@ -996,12 +1048,8 @@ class MCPGardeFouWidget(QWidget):
         selected_item: QTreeWidgetItem | None = None
 
         # 1. Chargement des Staged Bundles selon le filtre de statut actif
-        if self._current_status_filter == "aborted":
-            target_statuses = ["aborted"]
-        elif self._current_status_filter == "all":
-            target_statuses = ["pending", "partial", "aborted"]
-        else:
-            target_statuses = ["pending", "partial"]
+        is_aborted_filter = self._current_status_filter == "aborted"
+        target_statuses = ["aborted"] if is_aborted_filter else ["pending", "partial"]
 
         bundles = list(StagedBundleModel.select().where(StagedBundleModel.status.in_(target_statuses)).order_by(StagedBundleModel.created_at.asc()))
 
@@ -1062,42 +1110,44 @@ class MCPGardeFouWidget(QWidget):
 
         self._update_filter_chip_labels()
 
-        # Adapter la barre d'actions globales selon le filtre
-        if self._current_status_filter == "aborted":
-            self.btn_apply_all.setVisible(False)
-            self.btn_reject_all.setVisible(False)
-            self.lbl_batch_hint.setVisible(True)
-            self.lbl_batch_hint.setText(tr("Historique en lecture seule"))
+        # Adapter l'en-tête et la barre d'actions de lot selon le filtre
+        if is_aborted_filter:
+            self.lbl_master_title.setText(tr("PROPOSITIONS ANNULÉES"))
+            self.pending_batch_widget.setVisible(False)
+            self.aborted_batch_widget.setVisible(True)
+            self.btn_restore_all.setEnabled(total_count > 0)
+            self.btn_clear_aborted.setEnabled(total_count > 0)
+            if total_count > 0:
+                self.btn_restore_all.setToolTip(tr("Rétablir l'ensemble des %1 proposition(s) annulée(s) en attente.", total_count))
+                self.btn_clear_aborted.setToolTip(tr("Supprimer définitivement l'ensemble des %1 proposition(s) annulée(s).", total_count))
+            else:
+                self.btn_restore_all.setToolTip(tr("Aucune proposition annulée à traiter."))
+                self.btn_clear_aborted.setToolTip(tr("Aucune proposition annulée à traiter."))
         else:
-            self.btn_apply_all.setVisible(True)
-            self.btn_reject_all.setVisible(True)
-            self.lbl_batch_hint.setVisible(False)
+            self.lbl_master_title.setText(tr("PROPOSITIONS EN ATTENTE"))
+            self.pending_batch_widget.setVisible(True)
+            self.aborted_batch_widget.setVisible(False)
+            self.btn_apply_all.setEnabled(total_count > 0)
+            self.btn_reject_all.setEnabled(total_count > 0)
+            if total_count > 0:
+                self.btn_apply_all.setToolTip(tr("Valider l'ensemble des %1 proposition(s) en attente.", total_count))
+                self.btn_reject_all.setToolTip(tr("Rejeter l'ensemble des %1 proposition(s) en attente.", total_count))
+            else:
+                self.btn_apply_all.setToolTip(tr("Aucune proposition en attente à traiter."))
+                self.btn_reject_all.setToolTip(tr("Aucune proposition en attente à traiter."))
 
         if not self._patches:
             self._current_patch = None
             self.detail_stack.setCurrentIndex(0)
-            if self._current_status_filter == "aborted":
+            if is_aborted_filter:
                 self.empty_view.title_lbl.setText(tr("Aucune proposition annulée"))
                 self.empty_view.desc_lbl.setText(tr("L'historique des propositions d'assistants IA annulées ou rejetées est vide."))
                 self.empty_view.icon_lbl.setPixmap(load_phosphor_icon("ph.prohibit", color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
-            elif self._current_status_filter == "all":
-                self.empty_view.title_lbl.setText(tr("Aucune proposition"))
-                self.empty_view.desc_lbl.setText(tr("Aucune proposition d'assistant IA (en attente ou annulée) n'a encore été enregistrée."))
-                self.empty_view.icon_lbl.setPixmap(load_phosphor_icon("ph.tray", color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
             else:
                 self.empty_view.title_lbl.setText(tr("Garde-Fou au repos"))
                 self.empty_view.desc_lbl.setText(tr("Toutes les propositions d'agents IA ont été traitées.\nVotre collection Anki est parfaitement synchronisée et protégée."))
                 self.empty_view.icon_lbl.setPixmap(load_phosphor_icon("ph.shield-check", color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
-
-            self.btn_apply_all.setEnabled(False)
-            self.btn_reject_all.setEnabled(False)
-            self.btn_apply_all.setToolTip(tr("Aucune proposition en attente à traiter."))
-            self.btn_reject_all.setToolTip(tr("Aucune proposition en attente à traiter."))
         else:
-            self.btn_apply_all.setEnabled(True)
-            self.btn_reject_all.setEnabled(True)
-            self.btn_apply_all.setToolTip(tr("Valider l'ensemble des %1 proposition(s) en attente.", total_count))
-            self.btn_reject_all.setToolTip(tr("Rejeter l'ensemble des %1 proposition(s) en attente.", total_count))
             if selected_item is not None:
                 self.patch_tree.setCurrentItem(selected_item)
             else:
@@ -1111,10 +1161,8 @@ class MCPGardeFouWidget(QWidget):
         try:
             pending_count = StagedPatchModel.select().where(StagedPatchModel.status.in_(["pending", "partial"])).count()
             aborted_count = StagedPatchModel.select().where(StagedPatchModel.status == "aborted").count()
-            total_count = pending_count + aborted_count
             self.chip_pending.setText(tr("Attente (%1)", pending_count))
             self.chip_aborted.setText(tr("Annulés (%1)", aborted_count))
-            self.chip_all.setText(tr("Tous (%1)", total_count))
         except Exception as e:
             logger.debug(f"Impossible d'actualiser les compteurs de filtres : {e}")
 
@@ -1245,22 +1293,21 @@ class MCPGardeFouWidget(QWidget):
             self.btn_apply.setVisible(False)
             self.btn_reject.setVisible(False)
             self.btn_apply_bundle_all.setVisible(False)
+            self.btn_delete_aborted.setVisible(True)
             self.btn_restore_patch.setVisible(True)
 
-            reason_str = patch.reason or tr("Annulé par l'assistant IA lors de la phase de révision.")
+            reason_str = patch.reason or payload.get("abort_reason") or payload.get("reason") or tr("Annulé par l'assistant IA lors de la phase de révision.")
             self.lbl_abort_banner_desc.setText(tr("Motif : %1", reason_str))
             self.abort_banner.setVisible(True)
-            self.lbl_abort_reason.setText(tr("Annulé : %1", reason_str))
-            self.lbl_abort_reason.show()
             self.badge_abort_status.show()
         else:
             self.btn_apply.setEnabled(True)
             self.btn_reject.setEnabled(True)
             self.btn_apply.setVisible(True)
             self.btn_reject.setVisible(True)
+            self.btn_delete_aborted.setVisible(False)
             self.btn_restore_patch.setVisible(False)
             self.abort_banner.setVisible(False)
-            self.lbl_abort_reason.hide()
             self.badge_abort_status.hide()
 
         self.lbl_detail_title.setText(title)
@@ -1400,6 +1447,22 @@ class MCPGardeFouWidget(QWidget):
         show_toast(self, tr("Proposition %1 rétablie en attente !", patch_id[:8]), level="success")
         self.reload_pending_patches()
 
+    def _delete_current_aborted_patch(self) -> None:
+        """Supprime définitivement de l'historique la proposition annulée sélectionnée."""
+        if not self._current_patch:
+            return
+
+        patch_id = self._current_patch.patch_id
+        bundle = self._current_patch.bundle
+
+        with db.atomic():
+            self._current_patch.delete_instance()
+            if bundle and bundle.patches.count() == 0:
+                bundle.delete_instance()
+
+        show_toast(self, tr("Proposition %1 supprimée définitivement.", patch_id[:8]), level="info")
+        self.reload_pending_patches()
+
     def _apply_bundle_all(self) -> None:
         """Applique l'intégralité du bundle en une transaction atomique unique."""
         if not self._current_patch or not self._current_patch.bundle:
@@ -1498,6 +1561,62 @@ class MCPGardeFouWidget(QWidget):
                 self.patch_rejected.emit(patch.patch_id)
 
         show_toast(self, tr("%1 proposition(s) rejetée(s).", count), level="info")
+        self.reload_pending_patches()
+
+    def _restore_all_aborted(self) -> None:
+        """Rétablit l'ensemble des propositions annulées en statut 'pending'."""
+        if not self._patches:
+            return
+
+        count = len(self._patches)
+        with db.atomic():
+            for patch in list(self._patches):
+                patch.status = "pending"
+                patch.save()
+                if patch.bundle and patch.bundle.status == "aborted":
+                    patch.bundle.status = "pending"
+                    patch.bundle.save()
+
+        show_toast(self, tr("%1 proposition(s) rétablie(s) en attente.", count), level="success")
+        self.reload_pending_patches()
+
+    def _clear_all_aborted(self) -> None:
+        """Supprime définitivement de l'historique toutes les propositions annulées."""
+        if not self._patches:
+            return
+
+        if not getattr(self, "_skip_confirm_for_test", False) and self.isVisible():
+            reply = QMessageBox.question(
+                self,
+                tr("Vider l'historique des propositions annulées"),
+                tr(
+                    "Voulez-vous vraiment supprimer définitivement les %1 proposition(s) annulée(s) ?\nCette action est irréversible.",
+                    len(self._patches),
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        count = len(self._patches)
+        with db.atomic():
+            bundles_to_check: set[StagedBundleModel] = set()
+            for patch in list(self._patches):
+                if patch.bundle:
+                    bundles_to_check.add(patch.bundle)
+                patch.delete_instance()
+
+            for bundle in bundles_to_check:
+                if bundle and bundle.patches.count() == 0:
+                    bundle.delete_instance()
+
+            # Nettoyer les éventuels bundles aborted orphelins
+            for b in StagedBundleModel.select().where(StagedBundleModel.status == "aborted"):
+                if b.patches.count() == 0:
+                    b.delete_instance()
+
+        show_toast(self, tr("%1 proposition(s) annulée(s) supprimée(s).", count), level="info")
         self.reload_pending_patches()
 
     def _copy_feedback(self) -> None:

@@ -330,7 +330,7 @@ def main():
         },
     )
     patch_aborted.status = "aborted"
-    patch_aborted.abort_reason = "Violation règle #4 Wozniak (plus de 50 mots) détectée par le linter interne"
+    patch_aborted.reason = "Violation règle #4 Wozniak (plus de 50 mots) détectée par le linter interne"
     patch_aborted.save()
 
     # Recharger le widget avec tous les patches

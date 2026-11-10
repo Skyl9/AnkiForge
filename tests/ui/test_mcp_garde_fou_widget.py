@@ -1289,12 +1289,13 @@ def test_mcp_garde_fou_widget_filtre_annules_affiche_patch_abonne(qtbot):
     assert widget.btn_reject.isEnabled() is False
 
     # Motif d'abandon et badge d'état affichés
-    assert "Motif d'abandon test" in widget.lbl_abort_reason.text()
+    assert "Motif d'abandon test" in widget.lbl_abort_banner_desc.text()
+    assert widget.abort_banner.isVisible()
     assert widget.badge_abort_status.isVisible()
 
 
-def test_mcp_garde_fou_widget_filtre_tous_affiche_pending_et_aborted(qtbot):
-    """Le filtre 'Tous' affiche à la fois les patches en attente et les patches annulés."""
+def test_mcp_garde_fou_widget_bascule_pending_aborted_et_actions_de_lot(qtbot):
+    """Vérifie la bascule entre propositions en attente et annulées, et l'alternance des actions de lot."""
     note1 = _make_note_abort("tous1")
     note2 = _make_note_abort("tous2")
     patch_pending = StagedPatchRegistry.create_patch(
@@ -1315,13 +1316,33 @@ def test_mcp_garde_fou_widget_filtre_tous_affiche_pending_et_aborted(qtbot):
     widget.reload_pending_patches()
 
     assert widget.count() == 1  # seul le pending par défaut
+    assert widget.current_patch_id == patch_pending.patch_id
+    assert widget.pending_batch_widget.isVisible()
+    assert not widget.aborted_batch_widget.isVisible()
+    assert widget.lbl_master_title.text() == "PROPOSITIONS EN ATTENTE"
 
-    widget.chip_all.click()
+    # Basculer sur les propositions annulées
+    widget.chip_aborted.click()
+    qtbot.waitUntil(lambda: widget.count() == 1)
+
+    assert widget.count() == 1
+    assert widget.current_patch_id == patch_aborted.patch_id
+    assert not widget.pending_batch_widget.isVisible()
+    assert widget.aborted_batch_widget.isVisible()
+    assert widget.lbl_master_title.text() == "PROPOSITIONS ANNULÉES"
+    assert widget.btn_restore_patch.isVisible()
+    assert widget.btn_delete_aborted.isVisible()
+    assert widget.badge_abort_status.isVisible()
+
+    # Rétablir en attente via l'action de lot
+    widget._skip_confirm_for_test = True
+    widget.btn_restore_all.click()
+    qtbot.waitUntil(lambda: widget.count() == 0)
+
+    # Revenir sur les propositions en attente : 2 propositions désormais
+    widget.chip_pending.click()
     qtbot.waitUntil(lambda: widget.count() == 2)
-
     assert widget.count() == 2
-    ids = {widget.patch_tree.itemWidget(widget.patch_tree.topLevelItem(i), 0).patch_id for i in range(2)}
-    assert ids == {patch_pending.patch_id, patch_aborted.patch_id}
 
 
 def test_mcp_garde_fou_splitter_constraints(qtbot):
@@ -1556,13 +1577,10 @@ def test_mcp_garde_fou_status_filters_and_aborted_workflow(qtbot, sample_note) -
 
     widget._set_status_filter("aborted")
     assert "Aucune proposition annulée" in widget.empty_view.title_lbl.text()
-    assert not widget.btn_apply_all.isVisible()
-    assert not widget.btn_reject_all.isVisible()
-    assert widget.lbl_batch_hint.isVisible()
-
-    widget._set_status_filter("all")
-    assert "Aucune proposition" in widget.empty_view.title_lbl.text()
-    assert widget.btn_apply_all.isVisible()
+    assert not widget.pending_batch_widget.isVisible()
+    assert widget.aborted_batch_widget.isVisible()
+    assert widget.btn_restore_all.isVisible()
+    assert widget.btn_clear_aborted.isVisible()
 
     # 2. Création d'un patch et annulation
     patch = StagedPatchRegistry.create_patch(
@@ -1605,3 +1623,39 @@ def test_mcp_garde_fou_status_filters_and_aborted_workflow(qtbot, sample_note) -
 
     # Nettoyage
     widget.btn_apply.click()
+
+
+def test_mcp_garde_fou_aborted_deletion_and_clear(qtbot, sample_note) -> None:
+    """Vérifie la suppression unitaire et la purge complète de l'historique des propositions annulées."""
+    patch1 = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={"type": "card", "note_id": sample_note.id, "title": "Annulé 1"},
+    )
+    patch2 = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=sample_note.id,
+        diff_payload={"type": "card", "note_id": sample_note.id, "title": "Annulé 2"},
+    )
+    StagedPatchRegistry.abort_staged_patch(patch1.patch_id, reason="Abandon 1")
+    StagedPatchRegistry.abort_staged_patch(patch2.patch_id, reason="Abandon 2")
+
+    widget = MCPGardeFouWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    widget._set_status_filter("aborted")
+
+    assert widget.count() == 2
+    widget._skip_confirm_for_test = True
+
+    # 1. Suppression unitaire de patch1 via btn_delete_aborted
+    widget.select_patch_by_id(patch1.patch_id)
+    assert widget.btn_delete_aborted.isVisible()
+    widget.btn_delete_aborted.click()
+    qtbot.waitUntil(lambda: widget.count() == 1)
+    assert widget.current_patch_id == patch2.patch_id
+
+    # 2. Purge de l'historique restant via btn_clear_aborted
+    widget.btn_clear_aborted.click()
+    qtbot.waitUntil(lambda: widget.count() == 0)
+    assert "Aucune proposition annulée" in widget.empty_view.title_lbl.text()
