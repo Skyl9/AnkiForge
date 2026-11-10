@@ -34,9 +34,15 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
 3. **Multi-fenêtrage & Layouts** :
    - Panneaux détachables style JetBrains via `IdePanel`.
    - Compatibilité totale avec les 4 dispositions d'interface (`ide`, `macos`, `dashboard`, `glassmorphism`).
-4. **Synchronisation d'arborescence (`QTreeWidget`)** :
+4. **Synchronisation d'arborescence & isolation des colonnes (`QTreeWidget`)** :
    - Pour les cellules avec widget personnalisé : synchroniser explicitement `item.setCheckState()` et `widget.set_check_state()`.
    - Pour les propagations hiérarchiques, mettre à jour les parents en parcours inverse (`reversed(all_items())`).
+   - ⛔ **Garde-fou artefacts de sélection et colonnes fantômes** : Lorsqu'un `QTreeWidget` héberge des widgets d'items personnalisés avec cartes ou bordures arrondies, appliquer impérativement :
+     ```python
+     self.setRootIsDecorated(False)
+     self.setIndentation(0)
+     ```
+     et configurer la sélection d'un seul tenant sur `QTreeWidget::item:selected`. Ne **JAMAIS** utiliser l'indentation système de Qt pour décaler des sous-éléments d'un lot, car Qt réserve une colonne de décoration qui dessine un pavé de sélection disjoint inesthétique. Gérer l'indentation hiérarchique directement à l'intérieur du widget d'item (ex: `layout.setContentsMargins(18, 6, 8, 6)` et préfixe textuel `↳ `).
 5. **Héritage de style QSS & isolation des bordures (Vigilance critique)** :
    - Dans Qt StyleSheet, les sélecteurs de conteneurs (ex: `QFrame`, `QWidget`, ou sélecteurs sans sélecteur d'enfant direct `>`) se propagent en cascade à tous les enfants imbriqués (`QLabel`, `QFrame`, boutons).
    - **Garde-fou bordures** : ne jamais appliquer de bordure générique (`border: 1px solid/dashed ...`) sur un conteneur sans ciblage strict par `setObjectName` (`#mon_widget`), sans sélecteur strict d'enfant direct (`#conteneur > QWidget`), ou sans réinitialiser explicitement `border: none;` sur les enfants pour éviter l'héritage parasite de bordures (ex: retour d'expérience `AgentsView`).
@@ -68,10 +74,27 @@ En tant qu'**Architecte Frontend PySide6 / Qt**, tu développes, refactorises et
 11. **Respect des signatures natives Qt sous typage strict (`mypy`)** :
     - Ne jamais sous-classer un widget natif (`QTreeWidget`, `QTableWidget`, etc.) en surchargeant une méthode (`setItemWidget`, `item`, etc.) avec une arité ou des types incompatibles avec la classe parente. Cela brise le principe de substitution de Liskov et déclenche l'erreur `mypy strict` `[override]`.
     - Préférer des méthodes d'aide dédiées avec un nom distinct ou passer explicitement les arguments attendus par la classe mère (`column=0`).
+12. **Neutralisation de l'héritage de fond des `QStackedWidget` (Anti-Noir Profond `BG_MAIN`)** :
+    - Dans la feuille de style globale (`engine.py`), la règle `QMainWindow, QDialog, QStackedWidget { background-color: {p.bg_main}; }` applique par défaut le fond noir profond (`#0f1115`) sur l'ensemble des `QStackedWidget`.
+    - Tout panneau ou conteneur studio (par exemple stylé en `BG_PANEL` `#1e2128`) qui englobe un ou plusieurs `QStackedWidget` (ex: piles de détail, comparateurs polymorphes, sélecteurs d'onglets) **DOIT IMPÉRATIVEMENT** neutraliser cet héritage en rendant explicitement les conteneurs intermédiaires transparents :
+      ```python
+      self.detail_stack.setStyleSheet("background-color: transparent; border: none;")
+      self.polymorphic_stack.setStyleSheet("background-color: transparent; border: none;")
+      ```
+    - Cette transparence doit être préservée dans les méthodes de rafraîchissement dynamique de thème (`refresh_theme`).
 
 ## 2. Composants Clés & Bonnes Pratiques
 
 - **`VirtualTableView`** : vue tableau optimisée pour les gros volumes de notes, sélection étendue (`ExtendedSelection`), synchronisation stricte entre surlignage et coches de la colonne 0.
+- **Architecture des Volets Maîtres Rétractables (`QSplitter` Collapsible & Réouverture Sidebar)** :
+  Pour concevoir une vue maître-détail spacieuse dont le volet latéral gauche peut s'effondrer à 0 pixel pour maximiser la marge de lecture :
+  1. **Collapsibilité asymétrique** : remplacer `setChildrenCollapsible(False)` par `setCollapsible(0, True)` (le volet gauche peut s'effondrer à 0) et `setCollapsible(1, False)` (le volet droit de contenu ne doit jamais être replié accidentellement).
+  2. **Persistance protégée dans `QSettings`** : mémoriser la largeur préférée dans une clé dédiée (ex: `saved_left_width = max(280, ...)`). Lors d'un collapse à 0, ne **JAMAIS** écraser cette largeur préférée par 0 dans les settings. La réouverture doit toujours restituer la dimension préférée de l'utilisateur.
+  3. **Affordance de réouverture au contact de la sidebar** :
+     - Réduire dynamiquement la marge gauche du layout lors du repli (ex. de 16px à 4px) pour plaquer physiquement la poignée de séparation contre la sidebar.
+     - Étendre la zone de capture du clic dans `mousePressEvent` du widget hôte (ex: `x <= 24px`) pour que l'utilisateur rouvre instantanément le panneau en collant son curseur sur la sidebar, sans viser chirurgicalement le pixel du séparateur.
+     - Sous-classer `QSplitterHandle` (`GardeFouSplitterHandle`) pour allumer la poignée en `DesignTokens.ACCENT_PRIMARY` au survol, adopter le curseur `PointingHandCursor`, afficher une infobulle explicite, et rouvrir au simple clic ou double-clic.
+  4. **Boutons jumeaux d'action explicite (`ph.sidebar-simple`)** : disposer un bouton de repli discret dans l'en-tête gauche et un bouton de réouverture dans la barre de titre du panneau droit (visible uniquement lorsque le volet est replié).
 - **Workers asynchrones** : aucune opération lourde ou réseau sur le thread principal de rendu Qt. Déléguer systématiquement à un `QThread` ou au pool de workers (`QThreadPool`).
 - **Accessibilité & Navigation clavier** : gérer `:focus`, `:hover` et les raccourcis clavier standards.
 - **Lecteur de documentation embarqué léger sans Chromium (`DocReaderDialog`)** : pour afficher des guides Markdown riches intégrant des images SVG/PNG relatives sans le poids de WebEngine, alimenter un `QTextBrowser` et définir impérativement l'URL de base du document :
