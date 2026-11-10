@@ -460,6 +460,15 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Ingestion web locale** : importation directe du contenu textuel épuré d'une page web vers un document Markdown du profil actif, immédiatement segmenté et indexé dans le RAG local sans dépendance externe ni API payante.
   _Avoid_ : scraping cloud, web search API, fetch distant opaque
 
+## Composants d'Interface & Sélection Déroulante (Design System)
+
+- **Boîte de sélection stylisée (`StyledComboBox`)** : composant canonique de liste déroulante d'AnkiForge sous-classant `QComboBox`, intégrant obligatoirement la protection contre le défilement accidentel à la molette (`ComboBoxWheelFilter`), la gestion standardisée des densités (`normal` vs `compact`) et le rendu vectoriel des chevrons via `StyleEngine`.
+  _Avoid_ : QComboBox brute, liste déroulante custom locale, combobox non protégée
+- **Densité de sélection (Selection Density)** : régime dimensionnel standardisé d'un contrôle de saisie ou de sélection, décliné en `normal` (36 px, pour formulaires et modales) et `compact` (28 px, pour barres d'outils et inspecteurs denses), piloté par la propriété dynamique Qt `density`.
+  _Avoid_ : hauteur codée en dur, setFixedHeight arbitraire, style CSS inline
+- **Protection molette ComboBox (`ComboBoxWheelFilter`)** : mécanisme d'interception et de filtrage d'événements neutralisant le changement intempestif d'option lors du défilement d'une page ou d'un formulaire lorsque le menu popup n'est pas activement déployé.
+  _Avoid_ : scroll libre non protégé, écouteur molette bricolé
+
 
 
 

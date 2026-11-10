@@ -28,9 +28,55 @@ from ankiforge.ui.style_engine.themes import (
     get_unique_builtin_themes,
 )
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.paths import get_resource_path
+from ankiforge.utils.paths import get_app_data_dir, get_resource_path
 
 logger = logging.getLogger(__name__)
+
+_arrow_svg_cache: dict[str, str] = {}
+
+
+def _get_combobox_arrow_svg(color: str) -> str:
+    """Génère ou récupère dans le cache un fichier SVG de flèche ComboBox teinté."""
+    if not color:
+        return ""
+    clean_hex = color.strip().replace("#", "").replace("(", "_").replace(")", "_").replace(",", "_").replace(" ", "")
+    if clean_hex in _arrow_svg_cache:
+        cached_path = _arrow_svg_cache[clean_hex]
+        if Path(cached_path).exists():
+            return cached_path
+
+    try:
+        dest_dir = get_app_data_dir() / "theme_assets"
+    except Exception:
+        dest_dir = Path.home() / ".ankiforge" / "theme_assets"
+
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_file = dest_dir / f"caret-down_{clean_hex}.svg"
+        if not dest_file.exists():
+            candidates = [
+                get_resource_path("src", "ressources", "phosphor-icons", "SVGs", "regular", "caret-down.svg"),
+                get_resource_path("ressources", "phosphor-icons", "SVGs", "regular", "caret-down.svg"),
+            ]
+            src_file = next((p for p in candidates if p.exists()), None)
+            if src_file:
+                content = src_file.read_text(encoding="utf-8")
+                tinted = content.replace('stroke="currentColor"', f'stroke="{color}"')
+                dest_file.write_text(tinted, encoding="utf-8")
+            else:
+                fallback = (
+                    f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">'
+                    f'<rect width="256" height="256" fill="none"/>'
+                    f'<polyline points="208 96 128 176 48 96" fill="none" stroke="{color}" stroke-linecap="round" stroke-linejoin="round" stroke-width="24"/>'
+                    f"</svg>"
+                )
+                dest_file.write_text(fallback, encoding="utf-8")
+        result = str(dest_file).replace("\\", "/")
+        _arrow_svg_cache[clean_hex] = result
+        return result
+    except Exception as e:
+        logger.debug("Impossible d'écrire l'asset SVG teinté ComboBox: %s", e)
+        return ""
 
 
 class StyleEngine(QObject):
@@ -110,6 +156,10 @@ class StyleEngine(QObject):
 
         check_icon_path = str(get_resource_path("src", "ressources", "icons", "check_white.svg")).replace("\\", "/")
         dash_icon_path = str(get_resource_path("src", "ressources", "icons", "dash_white.svg")).replace("\\", "/")
+
+        arrow_secondary_path = _get_combobox_arrow_svg(p.text_secondary)
+        arrow_accent_path = _get_combobox_arrow_svg(p.accent_primary)
+        arrow_muted_path = _get_combobox_arrow_svg(p.text_muted)
 
         return f"""
         /* --- Base & Conteneurs --- */
@@ -289,7 +339,14 @@ class StyleEngine(QObject):
             selection-background-color: {p.accent_primary};
             selection-color: #ffffff;
         }}
-        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, AutoExpandingTextEdit:focus, QComboBox:focus {{
+        QComboBox {{
+            padding-right: 28px;
+        }}
+        QComboBox:hover {{
+            border: 1.5px solid {p.accent_primary};
+            background-color: {p.bg_hover};
+        }}
+        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, AutoExpandingTextEdit:focus, QComboBox:focus, QComboBox:on {{
             border: 1.5px solid {p.accent_primary};
             background-color: {p.bg_panel};
         }}
@@ -297,6 +354,10 @@ class StyleEngine(QObject):
             background-color: {p.bg_main};
             color: {p.text_muted};
             border-color: {p.border_light};
+        }}
+        QComboBox[density="compact"] {{
+            padding: 2px 22px 2px 8px;
+            font-size: {p.font_size_sm}px;
         }}
 
         /* GlowLineEdit / Omnibox / Search inputs */
@@ -474,17 +535,45 @@ class StyleEngine(QObject):
         QComboBox::drop-down {{
             subcontrol-origin: padding;
             subcontrol-position: top right;
-            width: 24px;
+            width: 26px;
             border-left: none;
+        }}
+        QComboBox[density="compact"]::drop-down {{
+            width: 22px;
+        }}
+        QComboBox::down-arrow {{
+            image: url({arrow_secondary_path});
+            width: 12px;
+            height: 12px;
+        }}
+        QComboBox[density="compact"]::down-arrow {{
+            width: 10px;
+            height: 10px;
+        }}
+        QComboBox::down-arrow:on, QComboBox::down-arrow:focus {{
+            image: url({arrow_accent_path});
+        }}
+        QComboBox::down-arrow:disabled {{
+            image: url({arrow_muted_path});
         }}
         QComboBox QAbstractItemView {{
             background-color: {p.bg_panel};
             border: 1px solid {p.border_color};
             border-radius: {p.radius_sm}px;
             color: {p.text_primary};
-            selection-background-color: {p.bg_hover};
-            selection-color: {p.accent_primary};
+            selection-background-color: transparent;
             padding: 4px;
+            outline: none;
+        }}
+        QComboBox QAbstractItemView::item {{
+            min-height: 28px;
+            padding: 4px 10px;
+            border-radius: {max(2, p.radius_sm - 2)}px;
+            color: {p.text_primary};
+        }}
+        QComboBox QAbstractItemView::item:hover, QComboBox QAbstractItemView::item:selected {{
+            background-color: {p.bg_hover};
+            color: {p.accent_primary};
         }}
 
         /* --- Panneaux & Cartes Sémantiques (QFrame) --- */

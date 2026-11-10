@@ -584,9 +584,23 @@ class ComboBoxWheelFilter(QObject):
 class StyledComboBox(QComboBox):
     """ComboBox avec style design system et protection contre le défilement intempestif à la molette."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, *, density: str = "normal") -> None:
         super().__init__(parent)
-        self.setFixedHeight(36)
+        self.set_density(density)
+
+    def set_density(self, density: str) -> None:
+        """Configure le profil de densité ('normal' ou 'compact')."""
+        clean_density = density if density in ("normal", "compact") else "normal"
+        self.setProperty("density", clean_density)
+        if clean_density == "compact":
+            self.setFixedHeight(28)
+        else:
+            self.setFixedHeight(36)
+        style = self.style()
+        if style:
+            style.unpolish(self)
+            style.polish(self)
+        self.update()
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         ComboBoxWheelFilter.handle_wheel_event(self, event)
