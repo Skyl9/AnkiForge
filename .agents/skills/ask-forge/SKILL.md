@@ -60,7 +60,7 @@ Le trajet naturel d'une fonctionnalité ou d'une évolution :
    - **`/prototype`** pour répondre avec du code jetable exploratoire,
    - `/handoff` rentrant pour intégrer les enseignements dans le fil de conception.
 3. **Embranchement : est-ce un chantier multi-sessions ?**
-   - **Oui** → **`/to-spec`** (synthétise la discussion en spécification), puis **`/to-tickets`** pour découper le travail en tranches verticales publiées directement dans `ankiforge_obsidian/Tickets/` et positionnées dans le Kanban `Avancement du projet.md`. Chaque ticket déclare ses blocages mutuels. Lancer ensuite **`/implement`** par ticket en nettoyant le contexte entre chaque unité (`/clear`).
+   - **Oui** → **`/to-spec`** (synthétise la discussion en spécification), puis **`/to-tickets`** pour découper le travail en tranches verticales. Si la tâche est volumineuse, floue ou jargonneuse, `/to-tickets` instancie obligatoirement un sous-agent d'ancrage réel (Reality Checker) pour valider les vraies signatures du code avant publication. Seuls les tickets sans bloquant actif entrent dans `ready-for-agent`. Lancer ensuite **`/implement`** par ticket en nettoyant le contexte entre chaque unité (`/clear`).
    - **Non** → **`/implement`** directement dans le contexte courant.
 
 Dans tous les cas, **`/implement`** s'appuie en interne sur **`/tdd`** (cycle red-green tranche par tranche), puis se conclut par une revue à deux axes **`/code-review`** (Conformité aux Standards + Respect de la Spécification) et la vérification canonique `uv run python script/verify.py`.

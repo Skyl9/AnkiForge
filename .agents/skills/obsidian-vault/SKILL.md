@@ -102,13 +102,16 @@ Avant d'assigner un statut à un ticket, l'agent **DOIT** vérifier que le ticke
 
 | Statut | Condition obligatoire |
 | :--- | :--- |
-| `ready-for-agent` | Aucun point ouvert, aucune question en attente, aucun critère d'acceptation non tranché. Le ticket est autonome et immédiatement implémentable. |
+| `ready-for-agent` | Aucun point ouvert, aucune question en attente, aucun critère d'acceptation non tranché, **ET AUCUN PRÉREQUIS NON LIVRÉ**. Le ticket est autonome et immédiatement implémentable sans attendre un autre ticket. |
 | `needs-info` | Au moins une question en attente, un point ouvert ou un arbitrage non tranché bloquant l'implémentation. |
 | `ready-for-spec` | Le besoin est cadré conceptuellement mais nécessite une spécification détaillée ou une interview d'architecture. |
 | `ready-for-human` | Nécessite un jugement ou une intervention humaine exclusive (décision stratégique, traduction littéraire, audit visuel réel). |
 | `in-progress` | Le ticket est activement pris en charge par un agent ou l'utilisateur. |
 
 **Garde-fou bloquant (GF-OV-1)** : Il est formellement INTERDIT d'assigner le statut `ready-for-agent` à un ticket qui comporte un point ouvert, une question en attente ou un critère d'acceptation non tranché (ex: choix de moteur math, politique de sanitiseur HTML, comportement par défaut non défini). Dans ce cas, le statut doit être `needs-info` jusqu'à résolution de l'arbitrage par l'utilisateur. Le champ `Comments` du ticket peut documenter le point ouvert, mais cela ne le rend pas éligible à `ready-for-agent`.
+
+**Garde-fou bloquant (GF-OV-2 — Zéro ticket dépendant en ready-for-agent)** :
+Il est formellement INTERDIT d'assigner le statut `ready-for-agent` ou d'insérer dans la colonne `## 🚀 Prêt pour Agent` un ticket dont le champ `Prérequis` ou `Bloqué par` mentionne un ticket qui n'est pas encore dans la colonne `## ✅ Terminé (done)`. Un ticket ayant des dépendances non satisfaites doit obligatoirement être positionné en `needs-info` ou `needs-triage`.
 
 ## 📌 Format d'une Entrée Kanban (`Avancement du projet.md`)
 

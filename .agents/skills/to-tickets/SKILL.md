@@ -18,6 +18,20 @@ Le gestionnaire de tickets cible exclusif est le vault **Obsidian** (`ankiforge_
 ### 1. Rassembler le contexte
 Analyser la discussion en cours, la spécification ou les retours d'interview (`grill-with-docs`). Utiliser le glossaire de domaine `CONTEXT.md` et respecter les ADRs existants.
 
+### 1 bis. Dé-jargonisation et Ancrage Réel via Sous-Agent d'Investigation (Obligatoire si volumineux, flou ou jargonneux)
+
+Si la tâche répond à **au moins l'un** de ces trois critères :
+1. **Volumineuse** : traverse $\ge 3$ fichiers/services, introduit de nouveaux modèles/outils ou scinde une épique de priorité $\ge \text{P1}$ ;
+2. **Plutôt mal définie** : heuristiques de calcul approximatives, formats d'erreur omis, gestion des doublons ou d'idempotence non tranchée ;
+3. **Très jargonneuse** : mobilise des concepts denses du domaine (RAG, Smart Coverage, FastMCP, Two-Phase Commit, Staged Bundles, règles Wozniak, FTS5 BM25, adresses de région ADR 0010, etc.) ;
+
+L'agent **DOIT impérativement instancier un sous-agent d'investigation** (`invoke_subagent` avec le rôle `Ticket Grounding & Reality Checker`) avant toute rédaction de ticket :
+
+- **1. Contrôle d'existence et de signature réelle (Codebase Reality Check)** : Le sous-agent inspecte le code réel pour vérifier chaque classe, méthode, outil MCP ou constante mentionné. **Interdiction formelle de supposer une API de mémoire** (ex: vérifier la signature réelle de `find_duplicate_cards`, la méthode canonique de ré-indexation `reindex_document`, et la fonction de notification de mutation `_notify_mcp_mutation`).
+- **2. Éradication du jargon magique** : Remplacer chaque formule séduisante mais floue par un contrat déterministe (seuils mathématiques précis pour les verdicts, assainissement HTML/cloze explicite, formules de décompte chiffrées).
+- **3. Validation de la chaîne d'architecture du dépôt** : Identifier l'ensemble des fichiers devant être modifiés de concert (ex: pour tout outil FastMCP `@mcp.tool()`, lister impérativement la triade `mcp_server.py` + `mcp_tool_registry.py` + `consultant_engine.py` + `mcp_tool_catalog_widget.py` + assertions de décompte dans les tests pour éviter le post-mortem `T-25`).
+- **4. Matrice d'ordonnancement & Garde-fou GF-TT-1** : Ordonnancer strictement le graphe de dépendances. **Interdiction absolue d'assigner `ready-for-agent` à un ticket qui dépend d'un autre ticket non encore fusionné.**
+
 ### 2. Définir des tranches verticales (Tracer Bullets)
 Chaque ticket doit respecter les règles suivantes :
 - **Tranche verticale complète** : traverse chaque couche nécessaire (modèle, service/logique, interface Qt, tests), jamais un découpage horizontal en silos.
@@ -71,8 +85,10 @@ Une fois validé, publier chaque ticket **directement** dans le vault Obsidian s
    Historique et notes d'exécution.
    ```
 
-2. **Insertion dans le Kanban** : Dans `ankiforge_obsidian/Avancement du projet.md`, insérer la carte sous la colonne `## 📋 Prêt pour Agent (Ready for Agent)` :
-   `- [ ] [[Tickets/<NomFichierSansExt>|<Libellé Court>]] #tags <Emoji Priorité>`
+2. **Insertion dans le Kanban** :
+   - Si le ticket n'a **aucun bloquant** et est immédiatement codable : insérer la carte sous la colonne `## 🚀 Prêt pour Agent (ready-for-agent)`.
+   - Si le ticket est **bloqué par un prérequis non terminé** : insérer la carte sous `## 📥 Backlog & Idées (needs-triage)` ou `## 🔎 En Attente d'Infos (needs-info)` avec le tag du bloquant.
+   `- [ ] [[Tickets/ticket-actif/<NomFichierSansExt>|<Libellé Court>]] #tags <Emoji Priorité>`
 
 3. **Règle anti-boucle** : Écrire le ticket, insérer la ligne dans le Kanban, puis s'arrêter immédiatement (One-shot pass). Ne jamais faire de relecture circulaire.
 
