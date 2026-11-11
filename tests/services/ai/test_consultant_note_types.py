@@ -13,8 +13,11 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
+    StagedPatchModel,
 )
 from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankiforge.services.ai.patch_appliers.model_applier import ModelPatchApplier
+from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -132,3 +135,171 @@ def test_apply_model_patch_via_mcp_tool_registry(custom_model_data):
     fresh_nt = NoteTypeModel.get_by_id(nt.id)
     assert fresh_nt.css_style == new_css
     assert "Contre-indications" in fresh_nt.fields_schema
+
+
+def test_propose_note_type_refactor_modele_inexistant_retourne_json_erreur():
+    res = MCPToolRegistry.propose_note_type_refactor(
+        note_type_name="Modèle Inexistant",
+        new_css=".card {}",
+    )
+    parsed = json.loads(res)
+    assert parsed["status"] == "error"
+    assert "message" in parsed
+    assert StagedPatchModel.select().count() == 0
+
+
+def test_propose_note_type_refactor_aucune_modification_retourne_json_erreur(custom_model_data):
+    nt = custom_model_data["nt"]
+    avant = StagedPatchModel.select().count()
+    res = MCPToolRegistry.propose_note_type_refactor(note_type_name=nt.name)
+    parsed = json.loads(res)
+    assert parsed["status"] == "error"
+    assert "message" in parsed
+    assert StagedPatchModel.select().count() == avant
+
+
+def test_propose_note_type_refactor_champs_pas_une_liste_retourne_json_erreur(custom_model_data):
+    nt = custom_model_data["nt"]
+    avant = StagedPatchModel.select().count()
+    res = MCPToolRegistry.propose_note_type_refactor(
+        note_type_name=nt.name,
+        new_fields_schema_json=json.dumps({"Organe": 1}),
+    )
+    parsed = json.loads(res)
+    assert parsed["status"] == "error"
+    assert StagedPatchModel.select().count() == avant
+
+
+def test_propose_note_type_refactor_champs_liste_vide_retourne_json_erreur(custom_model_data):
+    nt = custom_model_data["nt"]
+    res = MCPToolRegistry.propose_note_type_refactor(
+        note_type_name=nt.name,
+        new_fields_schema_json=json.dumps([]),
+    )
+    parsed = json.loads(res)
+    assert parsed["status"] == "error"
+    assert StagedPatchModel.select().count() == 0
+
+
+def test_propose_note_type_refactor_templates_pas_des_dicts_retourne_json_erreur(custom_model_data):
+    nt = custom_model_data["nt"]
+    avant = StagedPatchModel.select().count()
+    res = MCPToolRegistry.propose_note_type_refactor(
+        note_type_name=nt.name,
+        new_templates_json=json.dumps([" pas un dict "]),
+    )
+    parsed = json.loads(res)
+    assert parsed["status"] == "error"
+    assert StagedPatchModel.select().count() == avant
+
+
+def test_propose_note_type_refactor_template_sans_qfmt_ou_afmt_retourne_json_erreur(custom_model_data):
+    nt = custom_model_data["nt"]
+    mauvais_templates = [{"name": "Incomplet", "afmt": "{{Front}}"}]  # pas de qfmt
+    res = MCPToolRegistry.propose_note_type_refactor(
+        note_type_name=nt.name,
+        new_templates_json=json.dumps(mauvais_templates),
+    )
+    parsed = json.loads(res)
+    assert parsed["status"] == "error"
+    assert "errors" in parsed
+    assert StagedPatchModel.select().count() == 0
+
+
+def test_propose_note_type_refactor_template_reference_champ_inexistant(custom_model_data):
+    nt = custom_model_data["nt"]
+    mauvais_templates = [{"name": "T", "qfmt": "{{ChampInexistant}}", "afmt": "{{FrontSide}}"}]  # FrontSide absent
+    res = MCPToolRegistry.propose_note_type_refactor(
+        note_type_name=nt.name,
+        new_templates_json=json.dumps(mauvais_templates),
+    )
+    parsed = json.loads(res)
+    assert parsed["status"] == "error"
+    assert "ChampInexistant" in parsed["message"] or any("ChampInexistant" in e for e in parsed.get("errors", []))
+    assert StagedPatchModel.select().count() == 0
+
+
+def test_propose_note_type_refactor_succes_staged_diff_bdd_incelee(custom_model_data):
+    nt = custom_model_data["nt"]
+    nouveau_champs = ["Organe", "Symptôme", "Diagnostic", "Traitement", "Pronostic"]
+    nouveau_css = ".card { font-family: 'Inter', sans-serif; }"
+    avant = StagedPatchModel.select().count()
+    res = MCPToolRegistry.propose_note_type_refactor(
+        note_type_name=nt.name,
+        new_fields_schema_json=json.dumps(nouveau_champs),
+        new_css=nouveau_css,
+        explanation="Ajout du champ Pronostic et police moderne.",
+    )
+    parsed = json.loads(res)
+    assert parsed.get("status") == "staged_diff"
+    assert parsed.get("type") == "model"
+    assert "patch_id" in parsed
+    assert StagedPatchModel.select().count() == avant + 1
+    # La BDD ne doit pas encore avoir changé
+    fresh_nt = NoteTypeModel.get_by_id(nt.id)
+    assert "Pronostic" not in fresh_nt.fields_schema
+
+
+def test_model_applier_rejette_structure_invalide(custom_model_data):
+    nt = custom_model_data["nt"]
+    donnees_invalides = {
+        "type": "model",
+        "note_type_name": nt.name,
+        "note_type_id": nt.id,
+        "title": "Rejet structure",
+        "original": {
+            "nom": nt.name,
+            "description": nt.description or "",
+            "fields_schema": ["Organe", "Symptôme"],
+            "templates": [{"name": "T", "qfmt": "{{Organe}}", "afmt": "{{Symptôme}}"}],
+            "css_style": "",
+        },
+        "modified": {
+            "fields_schema": ["Organe"],
+            "templates": [{"name": "T", "qfmt": "{{ChampInexistant}}", "afmt": "{{Symptôme}}"}],
+            "css_style": "",
+            "description": "",
+        },
+        "metadata": {"note_type_name": nt.name, "note_type_id": nt.id},
+    }
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="model",
+        target_id=nt.id,
+        diff_payload=donnees_invalides,
+    )
+    res = ModelPatchApplier().apply(patch, {"modified": donnees_invalides["modified"], "metadata": donnees_invalides["metadata"]})
+    assert res["status"] == "error"
+    assert "patch_id" in res
+    # Rollback : la BDD n'a pas changé (valeur d'origine du fixture custom_model_data)
+    fresh_nt = NoteTypeModel.get_by_id(nt.id)
+    assert "ChampInexistant" not in fresh_nt.templates
+    assert fresh_nt.fields_schema == json.dumps(["Organe", "Symptôme", "Diagnostic", "Traitement"])
+
+
+def test_model_applique_structure_valide(custom_model_data):
+    nt = custom_model_data["nt"]
+    nouveau_css = ".card { color: red; }"
+    donnees_valides = {
+        "type": "model",
+        "note_type_name": nt.name,
+        "note_type_id": nt.id,
+        "title": "Application valide",
+        "original": {
+            "nom": nt.name,
+            "description": nt.description or "",
+            "fields_schema": ["Organe", "Symptôme"],
+            "templates": [{"name": "T", "qfmt": "{{Organe}}", "afmt": "{{Symptôme}}"}],
+            "css_style": "",
+        },
+        "modified": {"css_style": nouveau_css},
+        "metadata": {"note_type_name": nt.name, "note_type_id": nt.id},
+    }
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="model",
+        target_id=nt.id,
+        diff_payload=donnees_valides,
+    )
+    res = ModelPatchApplier().apply(patch, {"modified": donnees_valides["modified"], "metadata": donnees_valides["metadata"]})
+    assert res["status"] == "applied"
+    fresh_nt = NoteTypeModel.get_by_id(nt.id)
+    assert fresh_nt.css_style == nouveau_css
