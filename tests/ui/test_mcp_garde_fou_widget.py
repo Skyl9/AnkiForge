@@ -23,6 +23,7 @@ from ankiforge.database.models import (
     StagedPatchModel,
 )
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankiforge.ui.components import Badge
 from ankiforge.ui.views.consultant_view.widgets import mcp_garde_fou_widget
 from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import (
     BundleHeaderItemWidget,
@@ -1767,3 +1768,142 @@ def test_mcp_garde_fou_aborted_deletion_and_clear(qtbot, sample_note) -> None:
     widget.btn_clear_aborted.click()
     qtbot.waitUntil(lambda: widget.count() == 0)
     assert "Aucune proposition annulée" in widget.empty_view.title_lbl.text()
+
+
+def test_mcp_garde_fou_building_bundle_visible_immediately(qtbot) -> None:
+    """Un bundle en création apparaît immédiatement avec badge 'En préparation'."""
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Préparation Neuro",
+        explanation="Rédaction des cartes en cours...",
+    )
+    bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == bundle_id)
+    try:
+        widget = MCPGardeFouWidget()
+        qtbot.addWidget(widget)
+        widget.show()
+        qtbot.wait(50)
+
+        # Le nœud bundle est présent dès la création (avant tout patch)
+        assert widget.patch_tree.topLevelItemCount() == 1
+        bundle_item = widget.patch_tree.topLevelItem(0)
+        assert bundle_item.data(0, Qt.ItemDataRole.UserRole) == f"bundle:{bundle_id}"
+        assert bundle_item.isExpanded()
+
+        bundle_widget = widget.patch_tree.itemWidget(bundle_item, 0)
+        assert isinstance(bundle_widget, BundleHeaderItemWidget)
+        badges = bundle_widget.findChildren(Badge)
+        prep_badges = [b for b in badges if b.text() == f"En préparation ({bundle.total_steps})"]
+        assert len(prep_badges) == 1
+        assert prep_badges[0].current_variant == "neutral"
+    finally:
+        StagedPatchRegistry.abort_bundle(bundle_id)
+
+
+def test_mcp_garde_fou_incremental_patch_in_building_bundle(qtbot) -> None:
+    """Un patch créé pendant la construction s'insère comme enfant du bundle building."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle En Cours", explanation="Exp")
+    try:
+        widget = MCPGardeFouWidget()
+        qtbot.addWidget(widget)
+        widget.show()
+        qtbot.wait(50)
+
+        assert widget.patch_tree.topLevelItemCount() == 1
+        bundle_item = widget.patch_tree.topLevelItem(0)
+        assert bundle_item.childCount() == 0
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="card",
+            diff_payload={"title": "Étape Building", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+            bundle_id=bundle_id,
+        )
+        qtbot.wait(50)
+
+        bundle_item = widget.patch_tree.topLevelItem(0)
+        assert bundle_item.childCount() == 1
+        child = bundle_item.child(0)
+        assert child.data(0, Qt.ItemDataRole.UserRole) == patch.patch_id
+        assert widget.count() == 1
+    finally:
+        StagedPatchRegistry.abort_bundle(bundle_id)
+
+
+def test_mcp_garde_fou_apply_buttons_disabled_while_building(qtbot) -> None:
+    """Tant que le bundle est building, btn_apply et btn_apply_all sont désactivés."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Verrou", explanation="Exp")
+    try:
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="card",
+            diff_payload={"title": "Étape", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+            bundle_id=bundle_id,
+        )
+        widget = MCPGardeFouWidget()
+        qtbot.addWidget(widget)
+        widget.show()
+        widget.reload_pending_patches()
+
+        widget.select_patch_by_id(patch.patch_id)
+        assert widget.current_patch_id == patch.patch_id
+        assert widget.btn_apply.isEnabled() is False
+        assert widget.btn_apply_all.isEnabled() is False
+        assert "commit_staged_bundle" in widget.btn_apply.toolTip()
+    finally:
+        StagedPatchRegistry.abort_bundle(bundle_id)
+
+
+def test_mcp_garde_fou_commit_transitions_pending_buttons_enabled(qtbot) -> None:
+    """commit_bundle() bascule le bundle en pending et réactive les boutons d'application."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Commit", explanation="Exp")
+    try:
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="card",
+            diff_payload={"title": "Étape", "original": {"Front": "Q"}, "modified": {"Front": "Q2"}},
+            bundle_id=bundle_id,
+        )
+        widget = MCPGardeFouWidget()
+        qtbot.addWidget(widget)
+        widget.show()
+        widget.reload_pending_patches()
+
+        # Pendant la construction: bouton d'application désactivé
+        widget.select_patch_by_id(patch.patch_id)
+        assert widget.btn_apply.isEnabled() is False
+
+        # Commit: bascule en pending
+        StagedPatchRegistry.commit_bundle(bundle_id)
+        qtbot.wait(50)
+        widget.reload_pending_patches()
+
+        # Le badge 'En préparation' a disparu
+        bundle_item = widget.patch_tree.topLevelItem(0)
+        bundle_widget = widget.patch_tree.itemWidget(bundle_item, 0)
+        assert isinstance(bundle_widget, BundleHeaderItemWidget)
+        badges = bundle_widget.findChildren(Badge)
+        prep_badges = [b for b in badges if b.text().startswith("En préparation")]
+        assert len(prep_badges) == 0
+
+        # Boutons réactivés
+        widget.select_patch_by_id(patch.patch_id)
+        assert widget.btn_apply.isEnabled() is True
+        assert widget.btn_apply_all.isEnabled() is True
+    finally:
+        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == bundle_id)
+        if bundle and bundle.status == "aborted":
+            StagedPatchRegistry.abort_bundle(bundle_id)
+
+
+def test_mcp_garde_fou_reload_inclut_bundles_building(qtbot) -> None:
+    """reload_pending_patches() affiche un bundle building, même sans étape."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Seul", explanation="Exp")
+    try:
+        widget = MCPGardeFouWidget()
+        qtbot.addWidget(widget)
+        widget.show()
+        widget.reload_pending_patches()
+
+        assert widget.patch_tree.topLevelItemCount() == 1
+        bundle_item = widget.patch_tree.topLevelItem(0)
+        assert bundle_item.data(0, Qt.ItemDataRole.UserRole) == f"bundle:{bundle_id}"
+        assert bundle_item.childCount() == 0
+    finally:
+        StagedPatchRegistry.abort_bundle(bundle_id)

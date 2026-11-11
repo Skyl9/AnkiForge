@@ -10,10 +10,12 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
+    StagedBundleModel,
     db,
 )
 from ankiforge.services.ai.mcp_server import mcp
 from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankiforge.utils.event_bus import MCPBundleStagedEvent, event_bus
 
 pytestmark = pytest.mark.integration
 
@@ -585,3 +587,77 @@ def test_apply_staged_patch_defensive_merge_preserves_unmentioned_fields(sample_
     assert content["Japonais"] == "猫"
     assert content["Francais"] == "Chat"
     assert content["Kanji"] == "猫"
+
+
+def test_begin_bundle_creates_building_bundle(sample_data):
+    """begin_bundle() instancie un bundle en statut 'building' avec 0 étape."""
+    bundle_id = StagedPatchRegistry.begin_bundle(
+        title="Bundle Préparation",
+        explanation="Rédaction en cours par l'agent IA",
+    )
+    bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == bundle_id)
+    assert bundle is not None
+    assert bundle.status == "building"
+    assert bundle.total_steps == 0
+    # Nettoyage de l'état de classe pour les tests suivants
+    StagedPatchRegistry.abort_bundle(bundle_id)
+
+
+def test_begin_bundle_emits_building_event(sample_data):
+    """begin_bundle() émet un MCPBundleStagedEvent avec status='building'."""
+    captured: list[MCPBundleStagedEvent] = []
+
+    def on_event(ev: MCPBundleStagedEvent) -> None:
+        captured.append(ev)
+
+    event_bus.subscribe(MCPBundleStagedEvent, on_event)
+    try:
+        bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Événement", explanation="Exp")
+        assert any(e.bundle_id == bundle_id and e.status == "building" and e.total_steps == 0 for e in captured), captured
+    finally:
+        event_bus.unsubscribe(MCPBundleStagedEvent, on_event)
+        StagedPatchRegistry.abort_bundle(bundle_id)
+
+
+def test_create_patch_notifies_during_building(sample_data):
+    """Un patch créé sur un bundle 'building' notifie l'IHM immédiatement (pas de blocage)."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Patch", explanation="Exp")
+    patch = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Étape 1", "original": {}, "modified": {}},
+        bundle_id=bundle_id,
+    )
+    bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == bundle_id)
+    assert bundle.status == "building"
+    assert patch.status == "pending"
+    assert patch.bundle is not None
+    assert patch.bundle.bundle_id == bundle_id
+    StagedPatchRegistry.abort_bundle(bundle_id)
+
+
+def test_commit_bundle_transitions_to_pending(sample_data):
+    """commit_bundle() bascule le bundle de 'building' à 'pending' et notifie."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Commit", explanation="Exp")
+    StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Étape 1", "original": {}, "modified": {}},
+        bundle_id=bundle_id,
+    )
+    res = StagedPatchRegistry.commit_bundle(bundle_id)
+    assert res["status"] == "staged"
+    bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == bundle_id)
+    assert bundle.status == "pending"
+
+
+def test_abort_bundle_transitions_to_aborted(sample_data):
+    """abort_bundle() passe le bundle et ses étapes en statut 'aborted'."""
+    bundle_id = StagedPatchRegistry.begin_bundle(title="Bundle Abort", explanation="Exp")
+    StagedPatchRegistry.create_patch(
+        patch_type="card",
+        diff_payload={"title": "Étape 1", "original": {}, "modified": {}},
+        bundle_id=bundle_id,
+    )
+    ok = StagedPatchRegistry.abort_bundle(bundle_id, reason="Annulation utilisateur")
+    assert ok is True
+    bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == bundle_id)
+    assert bundle.status == "aborted"
