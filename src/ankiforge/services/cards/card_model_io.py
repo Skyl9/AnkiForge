@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ankiforge.database.models import NoteTypeModel
+from ankiforge.database.models import DEFAULT_LATEX_POST, DEFAULT_LATEX_PRE, NoteTypeModel
 from ankiforge.database.note_type_catalog import cloze_starter_pack_entry
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,9 @@ class CardModelIO:
             "fields_schema": fields,
             "templates": templates,
             "css_style": model.css_style or "",
+            "latex_pre": model.latex_pre or DEFAULT_LATEX_PRE,
+            "latex_post": model.latex_post or DEFAULT_LATEX_POST,
+            "latex_svg": model.latex_svg if model.latex_svg is not None else True,
             "demo_cards": demo_cards,
         }
 
@@ -116,6 +119,9 @@ class CardModelIO:
             "metadata": model_dict["metadata"],
             "fields_schema": model_dict["fields_schema"],
             "templates_count": len(model_dict["templates"]),
+            "latex_pre": model_dict.get("latex_pre", DEFAULT_LATEX_PRE),
+            "latex_post": model_dict.get("latex_post", DEFAULT_LATEX_POST),
+            "latex_svg": model_dict.get("latex_svg", True),
         }
 
         with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -129,6 +135,9 @@ class CardModelIO:
             zf.writestr("templates.json", json.dumps(templates, indent=2, ensure_ascii=False))
 
             zf.writestr("style.css", model_dict.get("css_style", ""))
+            zf.writestr("latex_pre.tex", model_dict.get("latex_pre", DEFAULT_LATEX_PRE))
+            zf.writestr("latex_post.tex", model_dict.get("latex_post", DEFAULT_LATEX_POST))
+            zf.writestr("latex_svg.json", json.dumps({"latex_svg": model_dict.get("latex_svg", True)}))
 
             zf.writestr("demo_cards.json", json.dumps(model_dict.get("demo_cards", []), indent=2, ensure_ascii=False))
 
@@ -169,12 +178,18 @@ class CardModelIO:
 
         css_style = data.get("css_style", "")
         demo_cards = data.get("demo_cards", [])
+        latex_pre = data.get("latex_pre", DEFAULT_LATEX_PRE)
+        latex_post = data.get("latex_post", DEFAULT_LATEX_POST)
+        latex_svg = data.get("latex_svg", True)
 
         normalized_data = {
             "name": name,
             "fields_schema": fields,
             "templates": templates,
             "css_style": css_style,
+            "latex_pre": latex_pre,
+            "latex_post": latex_post,
+            "latex_svg": latex_svg,
             "metadata": data.get("metadata", {}),
             "demo_cards": demo_cards,
         }
@@ -216,6 +231,28 @@ class CardModelIO:
                     demos_raw = zf.read("demo_cards.json").decode("utf-8")
                     demo_cards = json.loads(demos_raw)
 
+                latex_pre = DEFAULT_LATEX_PRE
+                if "latex_pre.tex" in file_list:
+                    latex_pre = zf.read("latex_pre.tex").decode("utf-8")
+                elif "latex_pre" in manifest:
+                    latex_pre = manifest.get("latex_pre", DEFAULT_LATEX_PRE)
+
+                latex_post = DEFAULT_LATEX_POST
+                if "latex_post.tex" in file_list:
+                    latex_post = zf.read("latex_post.tex").decode("utf-8")
+                elif "latex_post" in manifest:
+                    latex_post = manifest.get("latex_post", DEFAULT_LATEX_POST)
+
+                latex_svg = True
+                if "latex_svg.json" in file_list:
+                    try:
+                        latex_svg_data = json.loads(zf.read("latex_svg.json").decode("utf-8"))
+                        latex_svg = latex_svg_data.get("latex_svg", True)
+                    except Exception:
+                        pass
+                elif "latex_svg" in manifest:
+                    latex_svg = manifest.get("latex_svg", True)
+
                 name = manifest.get("metadata", {}).get("name", path.stem)
                 fields = manifest.get("fields_schema", ["Front", "Back"])
 
@@ -224,6 +261,9 @@ class CardModelIO:
                     "fields_schema": fields,
                     "templates": templates,
                     "css_style": css_style,
+                    "latex_pre": latex_pre,
+                    "latex_post": latex_post,
+                    "latex_svg": latex_svg,
                     "metadata": manifest.get("metadata", {}),
                     "demo_cards": demo_cards,
                 }
@@ -266,6 +306,9 @@ class CardModelIO:
         fields_json = json.dumps(model_data["fields_schema"], ensure_ascii=False)
         templates_json = json.dumps(model_data["templates"], ensure_ascii=False)
         css_style = model_data.get("css_style", "")
+        latex_pre = model_data.get("latex_pre", DEFAULT_LATEX_PRE)
+        latex_post = model_data.get("latex_post", DEFAULT_LATEX_POST)
+        latex_svg = model_data.get("latex_svg", True)
         description = str(model_data.get("description", "") or model_data.get("metadata", {}).get("description", "") or "").strip()
 
         if overwrite_existing is True:
@@ -309,6 +352,9 @@ class CardModelIO:
                 existing.fields_schema = fields_json
                 existing.templates = templates_json
                 existing.css_style = css_style
+                existing.latex_pre = latex_pre
+                existing.latex_post = latex_post
+                existing.latex_svg = latex_svg
                 existing.description = description
                 existing.save()
                 logger.info("Modèle de carte '%s' écrasé en base de données avec succès.", name)
@@ -326,6 +372,9 @@ class CardModelIO:
             fields_schema=fields_json,
             templates=templates_json,
             css_style=css_style,
+            latex_pre=latex_pre,
+            latex_post=latex_post,
+            latex_svg=latex_svg,
             description=description,
         )
         logger.info("Modèle de carte '%s' enregistré en base de données avec succès.", name)
