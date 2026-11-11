@@ -11960,7 +11960,7 @@ Utilisez {{ text_source }} et les variables Jinja2.</source>
     </message>
     <message>
         <location line="+5"/>
-        <source>Texte lisible (*.txt — une carte par bloc avec en-têtes et délimiteurs)</source>
+        <source>Texte importable Anki (*.txt — format TSV avec en-têtes Anki)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
