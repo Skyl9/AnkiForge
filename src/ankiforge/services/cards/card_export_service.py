@@ -64,6 +64,17 @@ class CardExportService:
                 except (json.JSONDecodeError, TypeError) as err:
                     logger.debug("Erreur décodage JSON pour la note #%s: %s", getattr(note, "id", "?"), err)
 
+            field_order: list[str] = []
+            if note.note_type and note.note_type.fields_schema:
+                try:
+                    parsed_schema = json.loads(note.note_type.fields_schema)
+                    if isinstance(parsed_schema, list):
+                        field_order = [str(f) for f in parsed_schema]
+                except Exception:
+                    field_order = []
+            if not field_order:
+                field_order = list(fields_dict.keys())
+
             first_card = note.cards.first()
             deck_name = first_card.deck.name if first_card and first_card.deck else "Par défaut"
             card_flags = int(getattr(first_card, "flags", 0) or 0) if first_card else 0
@@ -97,6 +108,7 @@ class CardExportService:
                 "deck": deck_name,
                 "model": model_name,
                 "fields": fields_dict,
+                "field_order": field_order,
                 "tags": tags_list,
                 "provenance": {
                     "tags": prov_tags,
@@ -124,55 +136,57 @@ class CardExportService:
         lines = [json.dumps(card, ensure_ascii=False) for card in data]
         return "\n".join(lines) + ("\n" if lines else "")
 
-    def format_text(self, data: list[dict[str, Any]]) -> str:
-        """Sérialise les cartes en format texte lisible humain, une carte par bloc délimité."""
-        blocks: list[str] = []
-        for idx, card in enumerate(data, 1):
-            lines: list[str] = []
-            lines.append("=" * 80)
-            card_id_str = f" #{card['id']}" if "id" in card else f" #{idx}"
-            lines.append(f"CARTE{card_id_str} — Paquet : {card.get('deck', 'N/A')} | Modèle : {card.get('model', 'N/A')}")
+    def format_text(self, data: list[dict[str, Any]], include_ids: bool | None = None) -> str:
+        """Sérialise les cartes au format TSV importable directement dans Anki (Anki 2.1.54+).
 
-            status_str = f"Statut : {card.get('status', 'new')} | Drapeaux : {card.get('flags', 0)} | Suspendue : {'Oui' if card.get('is_suspended') else 'Non'}"
-            lines.append(status_str)
+        Génère les en-têtes standard Anki (#separator:tab, #html:true, #guid, #notetype, #deck, #tags)
+        suivis des lignes de données tabulées avec échappement TSV standard.
+        """
+        import csv
+        import io
 
-            tags_str = ", ".join(card.get("tags", [])) if card.get("tags") else "Aucun"
-            lines.append(f"Tags : {tags_str}")
+        if not data:
+            return ""
 
-            prov = card.get("provenance", {})
-            prov_tags = prov.get("tags", [])
-            sources = prov.get("sources", [])
-            if prov_tags or sources:
-                prov_summary_parts = []
-                if prov_tags:
-                    prov_summary_parts.append(f"Tags : {', '.join(prov_tags)}")
-                if sources:
-                    for src in sources:
-                        doc_title = src.get("document_title", "")
-                        page = src.get("page_number")
-                        page_str = f" (p. {page})" if page is not None else ""
-                        heading = src.get("heading_path", "")
-                        res = src.get("resolution", "")
-                        res_str = f" [{res}]" if res else ""
-                        prov_summary_parts.append(f"Source : {doc_title}{page_str} > {heading}{res_str}")
-                lines.append(f"Provenance : {' | '.join(prov_summary_parts)}")
+        has_guid = include_ids if include_ids is not None else any("guid" in card for card in data)
 
-            lines.append("-" * 80)
+        lines: list[str] = [
+            "#separator:tab",
+            "#html:true",
+        ]
+
+        if has_guid:
+            lines.append("#guid column:1")
+            lines.append("#notetype column:2")
+            lines.append("#deck column:3")
+            lines.append("#tags column:4")
+        else:
+            lines.append("#notetype column:1")
+            lines.append("#deck column:2")
+            lines.append("#tags column:3")
+
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter="\t", lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
+
+        for card in data:
+            row: list[str] = []
+            if has_guid:
+                row.append(str(card.get("guid", "")))
+
+            row.append(str(card.get("model", "")))
+            row.append(str(card.get("deck", "")))
+
+            tags = card.get("tags", [])
+            row.append(" ".join(tags) if isinstance(tags, list) else str(tags))
 
             fields = card.get("fields", {})
-            if fields:
-                for fname, fval in fields.items():
-                    lines.append(f"[{fname}]")
-                    lines.append(fval.strip())
-                    lines.append("")
-            else:
-                lines.append("(Aucun champ renseigné)")
-                lines.append("")
+            field_order = card.get("field_order") or list(fields.keys())
+            for fname in field_order:
+                row.append(str(fields.get(fname, "")))
 
-            lines.append("=" * 80)
-            blocks.append("\n".join(lines))
+            writer.writerow(row)
 
-        return "\n\n".join(blocks)
+        return "\n".join(lines) + "\n" + output.getvalue()
 
     def format_markdown(self, data: list[dict[str, Any]]) -> str:
         """Sérialise les cartes en format Markdown structuré."""
@@ -249,7 +263,7 @@ class CardExportService:
         elif fmt in ("markdown", "md"):
             content = self.format_markdown(data)
         else:
-            content = self.format_text(data)
+            content = self.format_text(data, include_ids=include_ids)
 
         out_path = Path(output_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -291,7 +305,7 @@ class CardExportService:
             elif fmt in ("markdown", "md"):
                 file_content = self.format_markdown([card])
             else:
-                file_content = self.format_text([card])
+                file_content = self.format_text([card], include_ids=include_ids)
 
             target_file.write_text(file_content, encoding="utf-8")
 

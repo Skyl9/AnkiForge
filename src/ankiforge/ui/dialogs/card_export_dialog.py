@@ -188,7 +188,7 @@ class CardExportDialog(QDialog):
         self.format_group.addButton(self.radio_jsonl)
         format_layout.addWidget(self.radio_jsonl)
 
-        self.radio_text = QRadioButton(self.tr("Texte lisible (*.txt — une carte par bloc avec en-têtes et délimiteurs)"))
+        self.radio_text = QRadioButton(self.tr("Texte importable Anki (*.txt — format TSV avec en-têtes Anki)"))
         self.radio_text.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         self.format_group.addButton(self.radio_text)
         format_layout.addWidget(self.radio_text)
