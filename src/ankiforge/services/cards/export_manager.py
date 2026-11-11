@@ -21,6 +21,8 @@ from typing import Any
 import genanki
 
 from ankiforge.database.models import (
+    DEFAULT_LATEX_POST,
+    DEFAULT_LATEX_PRE,
     CardModel,
     DeckModel,
     NoteModel,
@@ -34,6 +36,19 @@ from ankiforge.utils.tags import normalize_tag_input, split_tag_tokens
 
 # Suppression des avertissements genanki pour le parsing LaTeX / HTML
 logger = logging.getLogger(__name__)
+
+
+class AnkiForgeGenankiModel(genanki.Model):
+    """Sous-classe de genanki.Model permettant de persister latexsvg dans le paquet APKG."""
+
+    def __init__(self, *args: Any, latex_svg: bool = True, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.latex_svg = latex_svg
+
+    def to_json(self, timestamp: float, deck_id: int) -> dict[str, Any]:
+        data = super().to_json(timestamp, deck_id)
+        data["latexsvg"] = self.latex_svg
+        return data
 
 
 class AnkiForgeCard(genanki.Card):
@@ -272,13 +287,16 @@ class ExportManager:
 
                 mid = nt.anki_id if nt.anki_id else self.generate_stable_id(nt.name)
                 model_type = genanki.Model.CLOZE if is_cloze else 0
-                g_model = genanki.Model(
+                g_model = AnkiForgeGenankiModel(
                     model_id=mid,
                     name=nt.name,
                     fields=[{"name": f} for f in fields_list],
                     templates=g_templates,
                     css=nt.css_style or "",
                     model_type=model_type,
+                    latex_pre=nt.latex_pre or DEFAULT_LATEX_PRE,
+                    latex_post=nt.latex_post or DEFAULT_LATEX_POST,
+                    latex_svg=nt.latex_svg if nt.latex_svg is not None else True,
                 )
                 genanki_models[nt.id] = (g_model, fields_list)
 
