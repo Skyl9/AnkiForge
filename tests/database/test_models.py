@@ -6,6 +6,8 @@ import pytest
 from peewee import IntegrityError
 
 from ankiforge.database.models import (
+    DEFAULT_LATEX_POST,
+    DEFAULT_LATEX_PRE,
     DocumentChunkModel,
     DocumentModel,
     DocumentPageModel,
@@ -32,6 +34,40 @@ def test_note_version_default_source():
     version = note.add_version({"Front": "Test"})
 
     assert version.source == "manual"
+
+
+def test_notetype_latex_fields_defaults_and_custom():
+    """Vérifie les valeurs par défaut et la persistance des champs LaTeX (latex_pre, latex_post, latex_svg)."""
+    # 1. Test des valeurs par défaut
+    nt_default = NoteTypeModel.create(name="Basic Latex Default", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    assert nt_default.latex_pre == DEFAULT_LATEX_PRE
+    assert nt_default.latex_post == DEFAULT_LATEX_POST
+    assert nt_default.latex_svg is True
+
+    # 2. Test avec valeurs personnalisées
+    custom_pre = r"""\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+"""
+    custom_post = r"\end{document}"
+    nt_custom = NoteTypeModel.create(
+        name="Basic Latex Custom",
+        fields_schema='["Front", "Back"]',
+        templates="[]",
+        css_style="",
+        latex_pre=custom_pre,
+        latex_post=custom_post,
+        latex_svg=False,
+    )
+    assert nt_custom.latex_pre == custom_pre
+    assert nt_custom.latex_post == custom_post
+    assert nt_custom.latex_svg is False
+
+    # 3. Rechargement depuis la base pour vérifier la persistance
+    nt_reloaded = NoteTypeModel.get_by_id(nt_custom.id)
+    assert nt_reloaded.latex_pre == custom_pre
+    assert nt_reloaded.latex_post == custom_post
+    assert nt_reloaded.latex_svg is False
 
 
 def test_deck_hierarchy_and_card_cascade():

@@ -212,3 +212,81 @@ def test_export_manager_quick_export(tmp_path):
     assert count_dir == 1
     assert out_dir.is_dir()
     assert (out_dir / f"card_{note.id}.json").exists()
+
+
+@pytest.mark.integration
+def test_export_latex_fields_in_apkg(tmp_path):
+    """Vérifie que les champs LaTeX (latex_pre, latex_post, latex_svg) sont correctement exportés dans le .apkg."""
+    import sqlite3
+    import zipfile
+
+    custom_latex_pre = r"""\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\begin{document}
+"""
+    custom_latex_post = r"\end{document}"
+
+    deck = DeckModel.create(name="LatexDeck")
+    nt = NoteTypeModel.create(
+        name="LatexModel",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style="",
+        latex_pre=custom_latex_pre,
+        latex_post=custom_latex_post,
+        latex_svg=False,
+    )
+
+    note = NoteModel.create(guid="latex_guid_1", note_type=nt)
+    NoteVersionModel.create(note=note, content=json.dumps({"Front": "Q", "Back": "A"}), is_active=True)
+    CardModel.create(note=note, deck=deck)
+
+    manager = ExportManager()
+    output_apkg = tmp_path / "latex_deck.apkg"
+
+    count = manager.export_package(
+        output_path=output_apkg,
+        deck_id=deck.id,
+        status_filter="all",
+        include_media=False,
+    )
+
+    assert count == 1
+    assert output_apkg.exists()
+
+    # Vérification du contenu du fichier .apkg
+    with zipfile.ZipFile(output_apkg, "r") as zf:
+        namelist = zf.namelist()
+        assert "collection.anki2" in namelist
+
+        # Extraction et inspection directe de la base Anki générée
+        extracted_db = tmp_path / "collection.anki2"
+        zf.extract("collection.anki2", tmp_path)
+
+        conn = sqlite3.connect(extracted_db)
+        cursor = conn.cursor()
+
+        # Debug: lister les tables
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = cursor.fetchall()
+        print(f"Tables in exported apkg: {tables}")
+
+        # Vérifier que le modèle a les bons champs LaTeX dans la table col
+        cursor.execute("SELECT models FROM col")
+        row = cursor.fetchone()
+        assert row is not None
+        models_json = json.loads(row[0])
+        print(f"Models in col: {json.dumps(models_json, indent=2)}")
+
+        # Trouver le modèle par son nom
+        model_data = None
+        for _mid, mdata in models_json.items():
+            if mdata.get("name") == "LatexModel":
+                model_data = mdata
+                break
+        assert model_data is not None, "LatexModel not found in exported models"
+        assert model_data["latexPre"] == custom_latex_pre
+        assert model_data["latexPost"] == custom_latex_post
+        assert model_data["latexsvg"] is False
+
+        conn.close()

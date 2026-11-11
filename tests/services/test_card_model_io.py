@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.database.models import NoteTypeModel
+from ankiforge.database.models import DEFAULT_LATEX_POST, DEFAULT_LATEX_PRE, NoteTypeModel
 from ankiforge.services.cards.card_model_io import BUNDLE_EXTENSION, CardModelIO
 
 pytestmark = pytest.mark.integration
@@ -166,3 +166,137 @@ def test_starter_pack_cloze_installable_on_demand():
     assert cloze_model.name == "Texte à trous (Cloze)"
     assert json.loads(cloze_model.fields_schema) == ["Texte", "Remarques extra"]
     assert "{{cloze:" in cloze_model.templates
+
+
+def test_export_to_dict_includes_latex_fields():
+    """Vérifie que export_to_dict inclut les champs LaTeX avec valeurs par défaut et personnalisées."""
+    # 1. Test avec valeurs par défaut
+    model_default = NoteTypeModel.create(
+        name="Default Latex Model",
+        fields_schema=json.dumps(["Front", "Back"]),
+        templates=json.dumps([{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+    )
+
+    data = CardModelIO.export_to_dict(model=model_default)
+    assert data["latex_pre"] == DEFAULT_LATEX_PRE
+    assert data["latex_post"] == DEFAULT_LATEX_POST
+    assert data["latex_svg"] is True
+
+    # 2. Test avec valeurs personnalisées
+    custom_pre = r"""\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+"""
+    custom_post = r"\end{document}"
+
+    model_custom = NoteTypeModel.create(
+        name="Custom Latex Model",
+        fields_schema=json.dumps(["Front", "Back"]),
+        templates=json.dumps([{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+        latex_pre=custom_pre,
+        latex_post=custom_post,
+        latex_svg=False,
+    )
+
+    data = CardModelIO.export_to_dict(model=model_custom)
+    assert data["latex_pre"] == custom_pre
+    assert data["latex_post"] == custom_post
+    assert data["latex_svg"] is False
+
+
+def test_export_and_read_bundle_includes_latex(tmp_path: Path):
+    """Vérifie que l'export/lecture de bundle .afmodel conserve les champs LaTeX."""
+    custom_pre = r"""\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+"""
+    custom_post = r"\end{document}"
+
+    model = NoteTypeModel.create(
+        name="Latex Bundle Model",
+        fields_schema=json.dumps(["Front", "Back"]),
+        templates=json.dumps([{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+        latex_pre=custom_pre,
+        latex_post=custom_post,
+        latex_svg=False,
+    )
+
+    out_file = tmp_path / "latex_model.afmodel"
+    CardModelIO.export_to_bundle(model=model, output_path=out_file)
+
+    # Lecture de l'archive
+    is_valid, parsed_data, err_msg = CardModelIO.read_bundle_file(out_file)
+    assert is_valid is True
+    assert err_msg == ""
+    assert parsed_data is not None
+    assert parsed_data["latex_pre"] == custom_pre
+    assert parsed_data["latex_post"] == custom_post
+    assert parsed_data["latex_svg"] is False
+
+
+def test_validate_and_parse_json_includes_latex():
+    """Vérifie que validate_and_parse_json gère les champs LaTeX."""
+    json_data = {
+        "name": "JSON Latex Model",
+        "fields_schema": ["Front", "Back"],
+        "templates": [{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+        "css_style": "",
+        "latex_pre": r"""\documentclass{article}\begin{document}""",
+        "latex_post": r"\end{document}",
+        "latex_svg": False,
+    }
+
+    is_valid, parsed_data, err_msg = CardModelIO.validate_and_parse_json(json.dumps(json_data))
+    assert is_valid is True
+    assert err_msg == ""
+    assert parsed_data["latex_pre"] == r"""\documentclass{article}\begin{document}"""
+    assert parsed_data["latex_post"] == r"\end{document}"
+    assert parsed_data["latex_svg"] is False
+
+    # Test avec valeurs par défaut (champs manquants)
+    json_data_minimal = {
+        "name": "Minimal Model",
+        "fields_schema": ["Front", "Back"],
+        "templates": [{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+        "css_style": "",
+    }
+    is_valid2, parsed_data2, err_msg2 = CardModelIO.validate_and_parse_json(json.dumps(json_data_minimal))
+    assert is_valid2 is True
+    assert parsed_data2["latex_pre"] == DEFAULT_LATEX_PRE
+    assert parsed_data2["latex_post"] == DEFAULT_LATEX_POST
+    assert parsed_data2["latex_svg"] is True
+
+
+def test_save_model_to_db_includes_latex():
+    """Vérifie que save_model_to_db persiste les champs LaTeX."""
+    custom_pre = r"""\documentclass[11pt]{article}\begin{document}"""
+    custom_post = r"\end{document}"
+
+    model_data = {
+        "name": "DB Latex Model",
+        "fields_schema": ["Front", "Back"],
+        "templates": [{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+        "css_style": "",
+        "latex_pre": custom_pre,
+        "latex_post": custom_post,
+        "latex_svg": False,
+    }
+
+    # Enregistrement initial
+    inst, created = CardModelIO.save_model_to_db(model_data)
+    assert created is True
+    assert inst.latex_pre == custom_pre
+    assert inst.latex_post == custom_post
+    assert inst.latex_svg is False
+
+    # Mise à jour avec overwrite
+    model_data["latex_pre"] = r"""\documentclass[12pt]{article}\begin{document}"""
+    model_data["latex_svg"] = True
+    inst2, created2 = CardModelIO.save_model_to_db(model_data, overwrite_existing=True)
+    assert created2 is False
+    assert inst2.id == inst.id
+    assert inst2.latex_pre == r"""\documentclass[12pt]{article}\begin{document}"""
+    assert inst2.latex_svg is True

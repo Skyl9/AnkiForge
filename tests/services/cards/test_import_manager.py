@@ -220,3 +220,77 @@ def test_commit_import_with_default_deck_alias(mock_db):
     assert card2 is not None
     assert card2.deck.name == "Sécurité"
     assert card2.deck.anki_id == 500
+
+
+def test_import_latex_fields_from_apkg_analysis(tmp_path):
+    """Vérifie que l'analyse d'import extrait correctement les champs LaTeX depuis le JSON Anki."""
+    import os
+    import tempfile
+    import zipfile
+
+    # Créer un .apkg minimal avec un modèle contenant des champs LaTeX personnalisés
+    custom_latex_pre = r"""\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+"""
+    custom_latex_post = r"\end{document}"
+
+    # On crée un .apkg factice en créant une structure ZIP avec collection.anki2
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Créer une base SQLite Anki minimale
+        import sqlite3
+
+        db_path = os.path.join(tmpdir, "collection.anki2")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Tables minimales
+        cursor.execute("CREATE TABLE col (models TEXT, decks TEXT)")
+        cursor.execute("CREATE TABLE notetypes (id INTEGER PRIMARY KEY, name TEXT, config TEXT)")
+        cursor.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, guid TEXT, mid INTEGER, tags TEXT, flds TEXT)")
+        cursor.execute("CREATE TABLE cards (id INTEGER PRIMARY KEY, nid INTEGER, did INTEGER, ord INTEGER, ivl INTEGER, reps INTEGER, lapses INTEGER, flags INTEGER, queue INTEGER)")
+
+        # Modèle avec champs LaTeX
+        model_config = {
+            "css": "",
+            "latexPre": custom_latex_pre,
+            "latexPost": custom_latex_post,
+            "latexsvg": False,
+        }
+        import json
+
+        cursor.execute("INSERT INTO notetypes (id, name, config) VALUES (1, 'LatexModel', ?)", (json.dumps(model_config),))
+
+        model_json = {
+            "1": {
+                "name": "LatexModel",
+                "flds": [{"name": "Front"}, {"name": "Back"}],
+                "tmpls": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+                "latexPre": custom_latex_pre,
+                "latexPost": custom_latex_post,
+                "latexsvg": False,
+            }
+        }
+        decks_json = {"1": {"id": 1, "name": "Test Deck"}}
+        cursor.execute("INSERT INTO col (models, decks) VALUES (?, ?)", (json.dumps(model_json), json.dumps(decks_json)))
+        cursor.execute("INSERT INTO notes (id, guid, mid, tags, flds) VALUES (1, 'import_latex_guid', 1, '', 'Question\x1fAnswer')")
+        cursor.execute("INSERT INTO cards (id, nid, did, ord, ivl, reps, lapses, flags, queue) VALUES (1, 1, 1, 0, 0, 0, 0, 0, 0)")
+        conn.commit()
+        conn.close()
+
+        # Créer le .apkg
+        apkg_path = tmp_path / "test_latex_import.apkg"
+        with zipfile.ZipFile(apkg_path, "w") as zf:
+            zf.write(db_path, "collection.anki2")
+            zf.writestr("media", "{}")
+
+        # Analyser l'import
+        manager = ImportManager()
+        analysis = manager.analyze_archive(apkg_path)
+
+        # Vérifier que les champs LaTeX sont extraits
+        assert len(analysis.raw_models) == 1
+        model_info = list(analysis.raw_models.values())[0]
+        assert model_info["latex_pre"] == custom_latex_pre
+        assert model_info["latex_post"] == custom_latex_post
+        assert model_info["latex_svg"] is False
