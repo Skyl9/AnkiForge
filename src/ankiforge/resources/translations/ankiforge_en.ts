@@ -643,7 +643,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+688"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+700"/>
         <location filename="../../ui/views/edition_view/view.py" line="-625"/>
         <location line="+211"/>
         <location line="+8"/>
@@ -3470,7 +3470,7 @@ Clic droit pour exclure cette section de l&apos;analyse.</source>
     </message>
     <message>
         <location line="+2"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+97"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="+101"/>
         <location line="+109"/>
         <source>Annulé</source>
         <translation type="unfinished"></translation>
@@ -4158,12 +4158,17 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-105"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_garde_fou_widget.py" line="-109"/>
         <source>Bloc d&apos;opérations</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+12"/>
+        <source>En préparation (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
         <source>%1 étapes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4174,18 +4179,18 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+44"/>
-        <location line="+1245"/>
+        <location line="+1255"/>
         <source>Étape %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1242"/>
-        <location line="+1258"/>
+        <location line="-1252"/>
+        <location line="+1268"/>
         <source>Proposition — %1 #%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1222"/>
+        <location line="-1232"/>
         <source>CARTE</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4216,13 +4221,13 @@ Gabarits : %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+312"/>
-        <location line="+645"/>
+        <location line="+316"/>
+        <location line="+647"/>
         <source>PROPOSITIONS EN ATTENTE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-629"/>
+        <location line="-631"/>
         <source>Replier le volet de sélection</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4263,19 +4268,19 @@ Gabarits : %3</source>
     </message>
     <message>
         <location line="+54"/>
-        <location line="+484"/>
+        <location line="+490"/>
         <source>Garde-Fou au repos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-483"/>
-        <location line="+484"/>
+        <location line="-489"/>
+        <location line="+490"/>
         <source>Toutes les propositions d&apos;agents IA ont été traitées.
 Votre collection Anki est parfaitement synchronisée et protégée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-458"/>
+        <location line="-464"/>
         <source>Afficher le volet de sélection</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4301,18 +4306,18 @@ Votre collection Anki est parfaitement synchronisée et protégée.</source>
     </message>
     <message>
         <location line="+53"/>
-        <location line="+476"/>
+        <location line="+482"/>
         <source>Rejeter la proposition</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-472"/>
-        <location line="+473"/>
+        <location line="-478"/>
+        <location line="+479"/>
         <source>Rejeter la proposition (Suppr)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-450"/>
+        <location line="-456"/>
         <source>Supprimer définitivement</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4333,18 +4338,18 @@ Votre collection Anki est parfaitement synchronisée et protégée.</source>
     </message>
     <message>
         <location line="+19"/>
-        <location line="+395"/>
+        <location line="+401"/>
         <source>Valider la modification</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-391"/>
-        <location line="+392"/>
+        <location line="-397"/>
+        <location line="+398"/>
         <source>Valider la modification (Ctrl+Entrée)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-387"/>
+        <location line="-393"/>
         <source>Rétablir en attente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4354,7 +4359,7 @@ Votre collection Anki est parfaitement synchronisée et protégée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+217"/>
+        <location line="+219"/>
         <source>PROPOSITIONS ANNULÉES</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4375,7 +4380,14 @@ Votre collection Anki est parfaitement synchronisée et protégée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+10"/>
+        <location line="+181"/>
+        <location line="+2"/>
+        <source>En attente de finalisation par l&apos;agent IA (commit_staged_bundle)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-181"/>
         <source>Valider l&apos;ensemble des %1 proposition(s) en attente.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4523,7 +4535,7 @@ Votre collection Anki est parfaitement synchronisée et protégée.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+102"/>
+        <location line="+111"/>
         <source>Étape %1 appliquée avec succès !</source>
         <translation type="unfinished"></translation>
     </message>
