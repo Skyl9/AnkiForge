@@ -185,15 +185,17 @@ class StagedPatchRegistry:
 
         logger.info("Patch en attente créé : %s (type: %s, cible: %s, bundle: %s, step: %s)", p_id, patch_type, target_id, bundle_obj.bundle_id if bundle_obj else None, step_order)
 
-        # Les patchs individuels hors bundle ou scellés notifient immédiatement l'IHM
-        if not bundle_obj or bundle_obj.status != "building":
-            cls._notify_staged_patch(
-                patch_id=p_id,
-                patch_type=patch_type,
-                target_id=target_id,
-                title=str(payload.get("title") or f"Proposition — {patch_type} #{target_id}"),
-                details=payload,
-            )
+        # Notification systématique vers l'IHM (y compris pendant la construction du bundle)
+        details_enriched = dict(payload)
+        if bundle_obj:
+            details_enriched["bundle_id"] = bundle_obj.bundle_id
+        cls._notify_staged_patch(
+            patch_id=p_id,
+            patch_type=patch_type,
+            target_id=target_id,
+            title=str(payload.get("title") or f"Proposition — {patch_type} #{target_id}"),
+            details=details_enriched,
+        )
         return patch
 
     @classmethod
@@ -338,6 +340,12 @@ class StagedPatchRegistry:
 
         cls._active_bundles[b_id] = StagedOverlay(bundle_id=b_id)
         cls._current_bundle_id = b_id
+        cls._notify_bundle_staged(
+            bundle_id=b_id,
+            title=clean_title,
+            total_steps=0,
+            status="building",
+        )
         logger.info("Session de bundle ouverte : %s ('%s')", b_id, clean_title)
         return b_id
 
@@ -389,6 +397,7 @@ class StagedPatchRegistry:
             bundle_id=bundle.bundle_id,
             title=bundle.title,
             total_steps=bundle.total_steps,
+            status="pending",
             details={
                 "bundle_id": bundle.bundle_id,
                 "title": bundle.title,
@@ -587,8 +596,9 @@ class StagedPatchRegistry:
         }
 
     @classmethod
-    def _notify_bundle_staged(cls, bundle_id: str, title: str, total_steps: int, details: dict[str, Any]) -> None:
+    def _notify_bundle_staged(cls, bundle_id: str, title: str, total_steps: int, status: str = "pending", details: dict[str, Any] | None = None) -> None:
         """Déclenche la notification de scellement d'un staged bundle."""
+        details = details or {}
         try:
             from ankiforge.utils.event_bus import MCPBundleStagedEvent, event_bus
 
@@ -597,6 +607,7 @@ class StagedPatchRegistry:
                     bundle_id=bundle_id,
                     title=title,
                     total_steps=total_steps,
+                    status=status,
                     details=details,
                 )
             )
@@ -611,6 +622,7 @@ class StagedPatchRegistry:
                     "bundle_id": bundle_id,
                     "title": title,
                     "total_steps": total_steps,
+                    "status": status,
                     **details,
                 }
             )

@@ -369,11 +369,17 @@ class MCPPatchStagedEvent(AppEvent):
 
 @dataclass(frozen=True)
 class MCPBundleStagedEvent(AppEvent):
-    """Événement émis lors du scellement d'un Staged Bundle par un agent MCP."""
+    """Événement émis lors du scellement d'un Staged Bundle par un agent MCP.
+
+    ``status`` porte le statut de cycle de vie du bundle :
+    ``"building"`` (préparation par l'agent IA), ``"pending"`` (scellé, prêt pour revue
+    humaine) ou ``"aborted"`` (abandonné).
+    """
 
     bundle_id: str = ""
     title: str = ""
     total_steps: int = 0
+    status: str = "pending"
     details: dict[str, Any] = field(default_factory=dict)
 
 

@@ -93,7 +93,11 @@ class BundleHeaderItemWidget(QWidget):
         """)
         top_row.addWidget(lbl_title, 1)
 
-        if bundle.status == "aborted":
+        if bundle.status == "building":
+            bundle_badge = Badge(tr("En préparation (%1)", bundle.total_steps), variant="neutral")
+            bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+            top_row.addWidget(bundle_badge, 0, Qt.AlignmentFlag.AlignTop)
+        elif bundle.status == "aborted":
             bundle_badge = Badge(tr("Annulé"), variant="warning")
             bundle_badge.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
             top_row.addWidget(bundle_badge, 0, Qt.AlignmentFlag.AlignTop)
@@ -498,20 +502,24 @@ class MCPGardeFouWidget(QWidget):
         if not event.bundle_id:
             return
 
+        # Récupérer le bundle depuis la BDD (nécessaire aussi pour mettre à jour un nœud existant)
+        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == event.bundle_id)
+        if not bundle:
+            # Fallback si le bundle n'est pas encore en BDD (peu probable)
+            bundle = StagedBundleModel(bundle_id=event.bundle_id, title=event.title, total_steps=event.total_steps)
+
         # Déduplication : vérifier si le nœud bundle existe déjà
         bundle_key = f"bundle:{event.bundle_id}"
         for i in range(self.patch_tree.topLevelItemCount()):
             item = self.patch_tree.topLevelItem(i)
             if item and item.data(0, Qt.ItemDataRole.UserRole) == bundle_key:
-                # Bundle déjà présent, ne rien faire
-                logger.debug(f"_on_mcp_bundle_staged: bundle already exists: {bundle_key}")
+                # Bundle déjà présent (ex: créé en building) -> mettre à jour l'en-tête et le statut
+                bundle_widget = self.patch_tree.itemWidget(item, 0)
+                if isinstance(bundle_widget, BundleHeaderItemWidget):
+                    bundle_widget._setup_ui(bundle, event.total_steps)
+                    item.setSizeHint(0, bundle_widget.sizeHint())
+                logger.debug(f"_on_mcp_bundle_staged: bundle mis à jour: {bundle_key}")
                 return
-
-        # Récupérer le bundle depuis la BDD
-        bundle = StagedBundleModel.get_or_none(StagedBundleModel.bundle_id == event.bundle_id)
-        if not bundle:
-            # Fallback si le bundle n'est pas encore en BDD (peu probable)
-            bundle = StagedBundleModel(bundle_id=event.bundle_id, title=event.title, total_steps=event.total_steps)
 
         bundle_item = QTreeWidgetItem()
         bundle_item.setData(0, Qt.ItemDataRole.UserRole, bundle_key)
@@ -1233,13 +1241,15 @@ class MCPGardeFouWidget(QWidget):
 
         # 1. Chargement des Staged Bundles selon le filtre de statut actif
         is_aborted_filter = self._current_status_filter == "aborted"
-        target_statuses = ["aborted"] if is_aborted_filter else ["pending", "partial"]
+        target_statuses = ["aborted"] if is_aborted_filter else ["pending", "partial", "building"]
 
         bundles = list(StagedBundleModel.select().where(StagedBundleModel.status.in_(target_statuses)).order_by(StagedBundleModel.created_at.asc()))
 
         for bundle in bundles:
             bundle_patches = list(bundle.patches.where(StagedPatchModel.status.in_(target_statuses)).order_by(StagedPatchModel.step_order.asc()))
-            if not bundle_patches:
+            # Un bundle en préparation (building) s'affiche même sans étape,
+            # afin d'offrir une visibilité immédiate de la génération en cours.
+            if not bundle_patches and bundle.status != "building":
                 continue
 
             bundle_item = QTreeWidgetItem()
@@ -1311,10 +1321,14 @@ class MCPGardeFouWidget(QWidget):
             self.lbl_master_title.setText(tr("PROPOSITIONS EN ATTENTE"))
             self.pending_batch_widget.setVisible(True)
             self.aborted_batch_widget.setVisible(False)
-            self.btn_apply_all.setEnabled(total_count > 0)
+            any_building = any(p.bundle and p.bundle.status == "building" for p in self._patches)
+            self.btn_apply_all.setEnabled(total_count > 0 and not any_building)
             self.btn_reject_all.setEnabled(total_count > 0)
             if total_count > 0:
-                self.btn_apply_all.setToolTip(tr("Valider l'ensemble des %1 proposition(s) en attente.", total_count))
+                if any_building:
+                    self.btn_apply_all.setToolTip(tr("En attente de finalisation par l'agent IA (commit_staged_bundle)"))
+                else:
+                    self.btn_apply_all.setToolTip(tr("Valider l'ensemble des %1 proposition(s) en attente.", total_count))
                 self.btn_reject_all.setToolTip(tr("Rejeter l'ensemble des %1 proposition(s) en attente.", total_count))
             else:
                 self.btn_apply_all.setToolTip(tr("Aucune proposition en attente à traiter."))
@@ -1485,14 +1499,23 @@ class MCPGardeFouWidget(QWidget):
             self.abort_banner.setVisible(True)
             self.badge_abort_status.show()
         else:
-            self.btn_apply.setEnabled(True)
-            self.btn_reject.setEnabled(True)
-            self.btn_apply.setVisible(True)
-            self.btn_reject.setVisible(True)
             self.btn_delete_aborted.setVisible(False)
             self.btn_restore_patch.setVisible(False)
             self.abort_banner.setVisible(False)
             self.badge_abort_status.hide()
+
+            is_building = bool(patch.bundle and patch.bundle.status == "building")
+            if is_building:
+                self.btn_apply.setEnabled(False)
+                self.btn_apply.setToolTip(tr("En attente de finalisation par l'agent IA (commit_staged_bundle)"))
+                self.btn_reject.setEnabled(False)
+                self.btn_reject.setToolTip(tr("En attente de finalisation par l'agent IA (commit_staged_bundle)"))
+                self.btn_apply_bundle_all.setVisible(False)
+            else:
+                self.btn_apply.setEnabled(True)
+                self.btn_reject.setEnabled(True)
+            self.btn_apply.setVisible(True)
+            self.btn_reject.setVisible(True)
 
         self.lbl_detail_title.setText(title)
         self.lbl_detail_meta.setText(meta_str)
