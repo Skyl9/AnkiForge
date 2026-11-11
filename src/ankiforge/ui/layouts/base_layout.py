@@ -1,6 +1,7 @@
 """Base Layout for Pluggable UI Architecture in AnkiForge."""
 
 from abc import abstractmethod
+from collections.abc import Callable
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QStackedWidget, QWidget
@@ -67,7 +68,7 @@ class BaseLayout(QWidget):
         pass
 
     @abstractmethod
-    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
+    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget] | Callable[[], type[QWidget]]]]) -> None:
         """Construit les éléments de navigation à partir du registre central des vues."""
         pass
 

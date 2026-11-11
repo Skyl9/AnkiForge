@@ -57,15 +57,6 @@ setup_ssl_certificates()
 from dotenv import load_dotenv
 from PySide6.QtCore import QCoreApplication, QTranslator
 
-from ankiforge.database.backup import backup_database
-from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import init_db, seed_initial_data
-from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.ui.main_window import MainWindow
-from ankiforge.ui.theme import setup_dynamic_theme
-from ankiforge.utils.logger import install_crash_handlers, setup_logging, shutdown_logging
-from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_resource_path
-
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
 # ruff : noqa: E402
@@ -142,6 +133,14 @@ def main(argv: list[str] | None = None) -> None:
         sys.stdout.write(f"AnkiForge v{__version__} - Smoke Test Passed\n")
         sys.exit(0)
 
+    # Imports lourds diffères après les drapeaux immédiats (--help / --version / --smoke-test)
+    # afin que ces commandes rapides ne paient pas le coût des modules graphiques, IA et BDD.
+    from ankiforge.database.backup import backup_database
+    from ankiforge.database.migration import run_migrations
+    from ankiforge.database.models import init_db, seed_initial_data
+    from ankiforge.services.ai.flexible_service import AIManager
+    from ankiforge.ui.main_window import MainWindow
+    from ankiforge.ui.theme import setup_dynamic_theme
     from ankiforge.utils.environment import (
         AppEnvironment,
         clone_production_data_to_development,
@@ -152,7 +151,8 @@ def main(argv: list[str] | None = None) -> None:
         is_development,
         set_environment,
     )
-    from ankiforge.utils.paths import get_project_root
+    from ankiforge.utils.logger import install_crash_handlers, setup_logging, shutdown_logging
+    from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_project_root, get_resource_path
 
     # Gestion précoce des drapeaux d'environnement CLI
     if known_args.dev:
@@ -332,8 +332,6 @@ def main(argv: list[str] | None = None) -> None:
 
     FlagService.migrate_legacy_settings()
     ai_manager = AIManager()
-
-    setup_dynamic_theme(app)
 
     # Initialisation et chargement sécurisé des extensions
     from ankiforge.services.plugins import get_plugin_manager

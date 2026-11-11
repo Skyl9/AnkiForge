@@ -3,6 +3,8 @@
 Barre supérieure unifiée (Unified Toolbar), contrôles segmentés arrondis, typographie épurée et affichage pleine largeur.
 """
 
+from collections.abc import Callable
+
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -238,7 +240,7 @@ class MacosLayout(BaseLayout):
         if btn is not None:
             btn.set_nav_badge(count)
 
-    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
+    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget] | Callable[[], type[QWidget]]]]) -> None:
         # Nettoyer
         for btn in self._nav_buttons.values():
             self._button_group.removeButton(btn)

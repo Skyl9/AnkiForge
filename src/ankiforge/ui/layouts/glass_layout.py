@@ -3,6 +3,8 @@
 Design contemporain avec panneaux semi-transparents, bordures lumineuses et esthétique futuriste.
 """
 
+from collections.abc import Callable
+
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -223,7 +225,7 @@ class GlassmorphismLayout(BaseLayout):
         if btn is not None:
             btn.set_nav_badge(count)
 
-    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
+    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget] | Callable[[], type[QWidget]]]]) -> None:
         for btn in self._nav_buttons.values():
             self._button_group.removeButton(btn)
             btn.deleteLater()

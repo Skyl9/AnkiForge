@@ -365,7 +365,7 @@ class ShellPreviewWindow(QMainWindow):
     # ── Construction de la coquille ───────────────────────────────────────────
 
     @staticmethod
-    def _main_window_registry() -> dict[str, tuple[str, str, str, type[QWidget]]]:
+    def _main_window_registry() -> dict[str, tuple[str, str, str, type[QWidget] | Callable[[], type[QWidget]]]]:
         from ankiforge.ui.main_window import MainWindow
 
         try:

@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 import sys
+from collections.abc import Callable
 from typing import Any, ClassVar, cast
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
@@ -16,7 +17,6 @@ from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — r
 from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
 from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.agents_view import AgentsView
 from ankiforge.utils.environment import KOFI_URL, is_development, is_testing
 from ankiforge.utils.event_bus import (
     OpenConsultantRequestedEvent,
@@ -52,39 +52,99 @@ class DummyView(QWidget):
 class MainWindow(QMainWindow):
     """Fenêtre principale ankiforge_obsidian."""
 
-    #: view_id -> (catégorie, icône, titre, WidgetClass)
+    #: view_id -> (catégorie, icône, titre, fabrique_ou_classe)
     #:
     #: La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés
     #: ne peuvent être résolus qu'une fois le traducteur installé, donc au premier usage. Une
     #: constante de classe figerait le français à l'import du module — c'est-à-dire avant
     #: `install_translator()` — et la navigation resterait française dans une interface
-    #: anglaise. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne
-    #: casse rien, les vues d'un même groupe partagent toujours la même clef.
+    #: anglaise. Le 4e élément est soit une classe Qt directe, soit une fabrique paresseuse
+    #: (`Callable[[], type[QWidget]]`) qui n'importe le module de vue qu'à la première
+    #: navigation, allégeant le chemin critique de démarrage. La catégorie sert de clef de
+    #: regroupement dans le layout IDE : la traduire ne casse rien, les vues d'un même groupe
+    #: partagent toujours la même clef.
     @staticmethod
-    def view_registry() -> dict[str, tuple[str, str, str, type[QWidget]]]:
-        from ankiforge.ui.views.ab_tests_view import ABTestsView
-        from ankiforge.ui.views.analysis_view import AnalysisView
-        from ankiforge.ui.views.batch_view import BatchView
-        from ankiforge.ui.views.card_models_view import CardModelsView
-        from ankiforge.ui.views.consultant_view import MCPServerView
-        from ankiforge.ui.views.creation_view import CreationView
-        from ankiforge.ui.views.dashboard_view import DashboardView
-        from ankiforge.ui.views.documents_view import DocumentsView
-        from ankiforge.ui.views.edition_view import EditionView
-        from ankiforge.ui.views.pipelines_view import PipelinesView
+    def _resolve_view_class(module_name: str, class_name: str) -> type[QWidget]:
+        """Résout paresseusement une classe de vue depuis `ankiforge.ui.views.<module_name>`.
 
+        L'import du module n'est effectué qu'à la première navigation vers la vue concernée,
+        ce qui allège le constructeur de `MainWindow` (pas d'import des 10 vues lourdes au
+        démarrage).
+        """
+        import importlib
+
+        mod = importlib.import_module(f"ankiforge.ui.views.{module_name}")
+        return getattr(mod, class_name)
+
+    @staticmethod
+    def view_registry() -> dict[str, tuple[str, str, str, type[QWidget] | Callable[[], type[QWidget]]]]:
         return {
-            "dashboard": (tr("Général"), "squares-four", tr("Tableau de bord"), DashboardView),
-            "creation": (tr("Forge & Outils"), "magic-wand", tr("Studio de Création"), CreationView),
-            "edition": (tr("Forge & Outils"), "cards", tr("Édition & Navigateur"), EditionView),
-            "analysis": (tr("Forge & Outils"), "chart-line-up", tr("Analyse & Audit IA"), AnalysisView),
-            "consultant": (tr("Forge & Outils"), "plugs-connected", tr("Serveur MCP & Agents"), MCPServerView),
-            "batch": (tr("Forge & Outils"), "factory", tr("Batch Factory"), BatchView),
-            "documents": (tr("Bibliothèque"), "file-text", tr("My Documents"), DocumentsView),
-            "card-models": (tr("Bibliothèque"), "swatches", tr("Types de note"), CardModelsView),
-            "agents": (tr("Laboratoire IA"), "cpu", tr("Éditeur d'Agents"), AgentsView),
-            "pipelines": (tr("Laboratoire IA"), "git-merge", tr("Pipelines"), PipelinesView),
-            "ab-tests": (tr("Laboratoire IA"), "scales", tr("Tests A/B"), ABTestsView),
+            "dashboard": (
+                tr("Général"),
+                "squares-four",
+                tr("Tableau de bord"),
+                lambda: MainWindow._resolve_view_class("dashboard_view", "DashboardView"),
+            ),
+            "creation": (
+                tr("Forge & Outils"),
+                "magic-wand",
+                tr("Studio de Création"),
+                lambda: MainWindow._resolve_view_class("creation_view", "CreationView"),
+            ),
+            "edition": (
+                tr("Forge & Outils"),
+                "cards",
+                tr("Édition & Navigateur"),
+                lambda: MainWindow._resolve_view_class("edition_view", "EditionView"),
+            ),
+            "analysis": (
+                tr("Forge & Outils"),
+                "chart-line-up",
+                tr("Analyse & Audit IA"),
+                lambda: MainWindow._resolve_view_class("analysis_view", "AnalysisView"),
+            ),
+            "consultant": (
+                tr("Forge & Outils"),
+                "plugs-connected",
+                tr("Serveur MCP & Agents"),
+                lambda: MainWindow._resolve_view_class("consultant_view", "MCPServerView"),
+            ),
+            "batch": (
+                tr("Forge & Outils"),
+                "factory",
+                tr("Batch Factory"),
+                lambda: MainWindow._resolve_view_class("batch_view", "BatchView"),
+            ),
+            "documents": (
+                tr("Bibliothèque"),
+                "file-text",
+                tr("My Documents"),
+                lambda: MainWindow._resolve_view_class("documents_view", "DocumentsView"),
+            ),
+            "card-models": (
+                tr("Bibliothèque"),
+                "swatches",
+                tr("Types de note"),
+                lambda: MainWindow._resolve_view_class("card_models_view", "CardModelsView"),
+            ),
+            "agents": (
+                tr("Laboratoire IA"),
+                "cpu",
+                tr("Éditeur d'Agents"),
+                lambda: MainWindow._resolve_view_class("agents_view", "AgentsView"),
+            ),
+            "pipelines": (
+                tr("Laboratoire IA"),
+                "git-merge",
+                tr("Pipelines"),
+                lambda: MainWindow._resolve_view_class("pipelines_view", "PipelinesView"),
+            ),
+            "ab-tests": (
+                tr("Laboratoire IA"),
+                "scales",
+                tr("Tests A/B"),
+                lambda: MainWindow._resolve_view_class("ab_tests_view", "ABTestsView"),
+            ),
         }
 
     mcp_data_mutated = Signal(dict)
@@ -859,16 +919,23 @@ class MainWindow(QMainWindow):
 
         # Lazy Instantiation de la vue réelle si c'est encore un DummyView
         if view_id in self._view_registry:
-            cat, icon, title, cls = self._view_registry[view_id]
+            cat, icon, title, entry = self._view_registry[view_id]
             current_widget = self._view_widgets.get(view_id)
-            if isinstance(current_widget, DummyView) and cls != DummyView:
-                try:
-                    real_widget = cast(Any, cls)(ai_manager=self.ai_manager, profile_name=self.profile_name)
-                except TypeError:
-                    try:
-                        real_widget = cast(Any, cls)(ai_manager=self.ai_manager)
-                    except TypeError:
-                        real_widget = cast(Any, cls)()
+            if isinstance(current_widget, DummyView):
+                # Résolution paresseuse : fabrique (lambda) -> classe, ou classe directe.
+                cls: Any = entry() if callable(entry) and not isinstance(entry, type) else entry
+                if cls != DummyView:
+                    if isinstance(cls, type):
+                        try:
+                            real_widget = cast(Any, cls)(ai_manager=self.ai_manager, profile_name=self.profile_name)
+                        except TypeError:
+                            try:
+                                real_widget = cast(Any, cls)(ai_manager=self.ai_manager)
+                            except TypeError:
+                                real_widget = cast(Any, cls)()
+                    else:
+                        # La fabrique (ex: vue d'addon) a deja retourne une instance prête.
+                        real_widget = cls
 
                 if hasattr(real_widget, "set_shortcut_manager") and hasattr(self, "shortcut_manager"):
                     real_widget.set_shortcut_manager(self.shortcut_manager)
