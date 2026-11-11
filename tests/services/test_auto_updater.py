@@ -482,3 +482,89 @@ def test_apply_update_and_restart_dev_mode_safety(tmp_path: Path) -> None:
         success, msg = apply_update_and_restart(dummy_file)
         assert success is True
         assert "Mode Développement" in msg
+
+
+def test_apply_update_and_restart_macos_detache_attend_mort_pid(tmp_path: Path) -> None:
+    """T-25/T-42 : relance macOS détachée via /bin/sh, attend la mort du PID, pas de -a LaunchServices."""
+    fake_update = tmp_path / "AnkiForge-Update.dmg"
+    fake_update.write_bytes(b"fake dmg")
+    dest_app = Path("/Applications/AnkiForge.app")
+
+    run_mock = MagicMock()
+    run_mock.returncode = 0
+
+    def fake_attach(cmd, *args, **kwargs):
+        try:
+            mp_idx = list(cmd).index("-mountpoint")
+            mount_dir = list(cmd)[mp_idx + 1]
+            app_bundle = Path(mount_dir) / "AnkiForge.app"
+            app_bundle.mkdir(parents=True, exist_ok=True)
+        except (ValueError, IndexError):
+            pass
+        return run_mock
+
+    run_mock.side_effect = fake_attach
+    popen_mock = MagicMock()
+
+    with (
+        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankiforge.services.auto_updater.platform.system", return_value="Darwin"),
+        patch("ankiforge.services.auto_updater.validate_update_file_confinement", return_value=fake_update),
+        patch("ankiforge.services.auto_updater.is_standalone_app", return_value=True),
+        patch("ankiforge.services.auto_updater.os.getpid", return_value=4242),
+        patch("ankiforge.services.auto_updater._find_current_macos_app_bundle", return_value=dest_app),
+        patch("ankiforge.services.auto_updater.subprocess.run", run_mock),
+        patch("ankiforge.services.auto_updater.subprocess.Popen", popen_mock),
+    ):
+        success, msg = apply_update_and_restart(fake_update)
+
+    assert success is True
+    assert "Redémarrage en cours" in msg
+    popen_mock.assert_called_once()
+    args, kwargs = popen_mock.call_args
+    cmd = args[0]
+    assert kwargs.get("start_new_session") is True
+    assert cmd[0] == "/bin/sh"
+    assert cmd[1] == "-c"
+    assert cmd[2] == 'while kill -0 "$1" 2>/dev/null; do sleep 0.2; done; /usr/bin/open "$2"'
+    assert cmd[3] == "_"
+    assert cmd[4] == "4242"
+    assert cmd[5] == str(dest_app)
+    assert "-a" not in cmd
+
+
+def test_apply_update_and_restart_linux_detache_attend_mort_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """T-25/T-42 : relance Linux (AppImage) détachée via /bin/sh, attend la mort du PID, passage par argv."""
+    fake_update = tmp_path / "AnkiForge-Update.AppImage"
+    fake_update.write_bytes(b"fake appimage")
+    target_appimage = tmp_path / "AnkiForge.AppImage"
+    target_appimage.write_bytes(b"old")
+
+    popen_mock = MagicMock()
+    replace_mock = MagicMock()
+
+    monkeypatch.setenv("APPIMAGE", str(target_appimage))
+
+    with (
+        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankiforge.services.auto_updater.platform.system", return_value="Linux"),
+        patch("ankiforge.services.auto_updater.validate_update_file_confinement", return_value=fake_update),
+        patch("ankiforge.services.auto_updater.is_standalone_app", return_value=True),
+        patch("ankiforge.services.auto_updater.os.getpid", return_value=7777),
+        patch("ankiforge.services.auto_updater.os.replace", replace_mock),
+        patch("ankiforge.services.auto_updater.subprocess.Popen", popen_mock),
+    ):
+        success, msg = apply_update_and_restart(fake_update)
+
+    assert success is True
+    assert "Redémarrage" in msg
+    popen_mock.assert_called_once()
+    args, kwargs = popen_mock.call_args
+    cmd = args[0]
+    assert kwargs.get("start_new_session") is True
+    assert cmd[0] == "/bin/sh"
+    assert cmd[1] == "-c"
+    assert cmd[2] == 'while kill -0 "$1" 2>/dev/null; do sleep 0.2; done; "$2"'
+    assert cmd[3] == "_"
+    assert cmd[4] == "7777"
+    assert cmd[5] == str(target_appimage)

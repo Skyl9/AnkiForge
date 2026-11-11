@@ -421,9 +421,19 @@ def apply_update_and_restart(update_file: Path) -> tuple[bool, str]:
             except OSError:
                 pass
 
-            # Relance de l'application mise à jour
-            logger.info("Lancement de la nouvelle version : %s", dest_app)
-            subprocess.Popen(["/usr/bin/open", "-a", dest_app_str], start_new_session=True)  # nosec: B603
+            # Relance sécurisée détachée attendant la fin du processus courant (anti-conflit lock & LaunchServices)
+            current_pid = os.getpid()
+            logger.info("Planification de la relance macOS après fermeture du PID %d : %s", current_pid, dest_app)
+            # /bin/sh avec passage strict d'arguments positionnels (zéro interpolation de chaîne)
+            restart_cmd = [
+                "/bin/sh",
+                "-c",
+                'while kill -0 "$1" 2>/dev/null; do sleep 0.2; done; /usr/bin/open "$2"',
+                "_",
+                str(current_pid),
+                dest_app_str,
+            ]
+            subprocess.Popen(restart_cmd, start_new_session=True)  # nosec: B603
             return True, "Mise à jour macOS effectuée. Redémarrage en cours..."
         except Exception as err:
             logger.exception("Échec de la mise à jour macOS : %s", err)
@@ -456,7 +466,16 @@ def apply_update_and_restart(update_file: Path) -> tuple[bool, str]:
                 logger.info("Remplacement atomique de l'AppImage : %s -> %s", validated_file, target_path)
                 os.replace(validated_file, target_path)
                 target_path_str = str(target_path)
-                subprocess.Popen([target_path_str], start_new_session=True)  # nosec: B603
+                current_pid = os.getpid()
+                restart_cmd = [
+                    "/bin/sh",
+                    "-c",
+                    'while kill -0 "$1" 2>/dev/null; do sleep 0.2; done; "$2"',
+                    "_",
+                    str(current_pid),
+                    target_path_str,
+                ]
+                subprocess.Popen(restart_cmd, start_new_session=True)  # nosec: B603
                 return True, "AppImage mise à jour. Redémarrage..."
             else:
                 validated_file_str = str(validated_file)
