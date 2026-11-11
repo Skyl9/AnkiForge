@@ -113,6 +113,7 @@ def test_extract_card_export_data_structure(sample_export_data):
     assert card1["flags"] == 2
     assert card1["is_suspended"] is False
     assert card1["fields"] == {"Recto": "Rôle de la mitochondrie ?", "Verso": "Production d'ATP."}
+    assert card1["field_order"] == ["Recto", "Verso"]
     assert card1["tags"] == ["bio", "cellule", "doc:1", "page:12", "section:mitochondrie"]
 
     # Provenance
@@ -130,6 +131,7 @@ def test_extract_card_export_data_structure(sample_export_data):
     card2 = data[1]
     assert card2["deck"] == "Sciences::Mathématiques"
     assert card2["model"] == "Texte à trous"
+    assert card2["field_order"] == ["Texte", "Remarque"]
     assert card2["is_suspended"] is True
     assert card2["fields"]["Texte"] == "Le théorème de {{c1::Pythagore}} : a² + b² = c²"
     assert card2["provenance"]["sources"] == []
@@ -180,7 +182,7 @@ def test_format_jsonl(sample_export_data):
 
 
 def test_format_text_blocks(sample_export_data):
-    """Vérifie la génération de texte lisible avec une carte par bloc."""
+    """Vérifie la génération TSV importable directement dans Anki avec en-têtes officielles."""
     notes = sample_export_data["notes"]
     service = CardExportService()
     data = service.extract_export_data(notes, include_ids=True)
@@ -190,10 +192,36 @@ def test_format_text_blocks(sample_export_data):
     assert "Rôle de la mitochondrie ?" in text_output
     assert "Production d'ATP." in text_output
     assert "Sciences::Mathématiques" in text_output
-    assert "Théorème de" in text_output or "théorème de" in text_output
-    # Vérification des séparateurs de blocs
-    assert "===" in text_output
-    assert "---" in text_output
+    assert "Le théorème de {{c1::Pythagore}}" in text_output
+    # En-têtes directives Anki 2.1.54+
+    assert "#separator:tab" in text_output
+    assert "#html:true" in text_output
+    assert "#guid column:1" in text_output
+    assert "#notetype column:2" in text_output
+    assert "#deck column:3" in text_output
+    assert "#tags column:4" in text_output
+    # Structure tabulée : chaque ligne de données contient des tabulations
+    data_lines = [line for line in text_output.splitlines() if line and not line.startswith("#")]
+    assert data_lines, "Aucune ligne de données TSV"
+    assert all("\t" in line for line in data_lines), "Chaque ligne de données doit être séparée par des tabulations"
+
+
+def test_format_text_without_ids_decalage_colonnes(sample_export_data):
+    """Vérifie le décalage des colonnes quand les identifiants sont exclus."""
+    notes = sample_export_data["notes"]
+    service = CardExportService()
+    data = service.extract_export_data(notes, include_ids=False)
+
+    text_output = service.format_text(data)
+    assert "#separator:tab" in text_output
+    assert "#html:true" in text_output
+    assert "#guid column:1" not in text_output
+    assert "#notetype column:1" in text_output
+    assert "#deck column:2" in text_output
+    assert "#tags column:3" in text_output
+    data_lines = [line for line in text_output.splitlines() if line and not line.startswith("#")]
+    assert data_lines
+    assert all("\t" in line for line in data_lines)
 
 
 def test_format_markdown_blocks(sample_export_data):

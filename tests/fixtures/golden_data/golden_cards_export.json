@@ -6,6 +6,10 @@
       "Recto": "Rôle de la mitochondrie ?",
       "Verso": "Production d'ATP."
     },
+    "field_order": [
+      "Recto",
+      "Verso"
+    ],
     "tags": [
       "bio",
       "cellule",
@@ -39,6 +43,10 @@
       "Texte": "Le théorème de {{c1::Pythagore}} : a² + b² = c²",
       "Remarque": "Triangle rectangle"
     },
+    "field_order": [
+      "Texte",
+      "Remarque"
+    ],
     "tags": [
       "maths",
       "algebre"
