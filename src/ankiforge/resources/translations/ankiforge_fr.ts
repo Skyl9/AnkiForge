@@ -1204,7 +1204,7 @@ Le document `%1` n&apos;a pas pu être chargé.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/dialogs/model_import_dialog.py" line="+114"/>
+        <location filename="../../ui/dialogs/model_import_dialog.py" line="+116"/>
         <source>&lt;b&gt;Auteur :&lt;/b&gt; %1 | &lt;b&gt;Version :&lt;/b&gt; v%2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19369,12 +19369,12 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>ModelImportDialog</name>
     <message>
-        <location filename="../../ui/dialogs/model_import_dialog.py" line="-98"/>
+        <location filename="../../ui/dialogs/model_import_dialog.py" line="-99"/>
         <source>Importer un type de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+27"/>
+        <location line="+28"/>
         <source>Prévisualisation du type de note à importer</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19406,11 +19406,6 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
     <message>
         <location line="+4"/>
         <source>Écraser le type de note existant</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+23"/>
-        <source>APERÇU DU RENDU EN DIRECT :</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
