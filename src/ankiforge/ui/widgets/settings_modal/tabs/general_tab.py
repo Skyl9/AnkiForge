@@ -2,11 +2,14 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
     QHBoxLayout,
     QLabel,
     QSizePolicy,
@@ -356,6 +359,68 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
 
         card_exp_layout.addLayout(exp_row)
         layout.addWidget(self.card_exp)
+
+        # ── SECTION 2b : COMPILATEUR LATEX & RENDU SCIENTIFIQUE ──────────────
+        self.lbl_sec_latex = QLabel(self.tr("COMPILATEUR LATEX & RENDU SCIENTIFIQUE"))
+        self.lbl_sec_latex.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        layout.addWidget(self.lbl_sec_latex)
+
+        self.card_latex = SettingsCard()
+        card_latex_layout = QVBoxLayout(self.card_latex)
+        card_latex_layout.setContentsMargins(14, 12, 14, 12)
+        card_latex_layout.setSpacing(12)
+
+        # 1. Toggle activation compilation native
+        self.chk_latex_enabled = QCheckBox(self.tr("Activer la compilation LaTeX native (balises [latex]...[/latex])"))
+        self.chk_latex_enabled.setChecked(bool(SettingsService.get("latex/compiler_enabled", False)))
+        self.chk_latex_enabled.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.chk_latex_enabled.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        self.chk_latex_enabled.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        card_latex_layout.addWidget(self.chk_latex_enabled)
+
+        # 2. Indicateur de statut de l'environnement
+        self.lbl_latex_status_title = QLabel(self.tr("Statut de l'environnement :"))
+        self.lbl_latex_status_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        card_latex_layout.addWidget(self.lbl_latex_status_title)
+
+        self.lbl_latex_status = QLabel()
+        self.lbl_latex_status.setWordWrap(True)
+        self.lbl_latex_status.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px;")
+        card_latex_layout.addWidget(self.lbl_latex_status)
+
+        # 3. Chemins personnalisés (bouton pour ouvrir la configuration avancée)
+        custom_row = QHBoxLayout()
+        self.lbl_latex_custom = QLabel(self.tr("Chemins personnalisés (si détection automatique échoue) :"))
+        self.lbl_latex_custom.setWordWrap(True)
+        self.lbl_latex_custom.setMinimumWidth(0)
+        self.lbl_latex_custom.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        custom_row.addWidget(self.lbl_latex_custom, 1)
+
+        self.btn_latex_custom_paths = SecondaryButton(self.tr("Configurer..."))
+        self.btn_latex_custom_paths.setIcon(load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_latex_custom_paths.setToolTip(self.tr("Ouvrir la boîte de dialogue des chemins personnalisés pour latex, dvisvgm, dvipng"))
+        self.btn_latex_custom_paths.setAccessibleName("Configurer les chemins LaTeX personnalisés")
+        self.btn_latex_custom_paths.setFixedHeight(30)
+        self.btn_latex_custom_paths.clicked.connect(self._open_latex_custom_paths)
+        custom_row.addWidget(self.btn_latex_custom_paths)
+
+        card_latex_layout.addLayout(custom_row)
+
+        # 4. Bouton de test de l'environnement
+        test_row = QHBoxLayout()
+        test_row.addStretch()
+
+        self.btn_test_latex = SecondaryButton(self.tr("Tester l'environnement"))
+        self.btn_test_latex.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_test_latex.setToolTip(self.tr("Lancer un diagnostic complet de la chaîne LaTeX sans bloquer l'interface"))
+        self.btn_test_latex.setAccessibleName("Tester l'environnement LaTeX")
+        self.btn_test_latex.setFixedHeight(30)
+        self.btn_test_latex.clicked.connect(self._test_latex_environment)
+        test_row.addWidget(self.btn_test_latex)
+
+        card_latex_layout.addLayout(test_row)
+
+        layout.addWidget(self.card_latex)
 
         # ── SECTION 3 : ESPACES DE TRAVAIL & DÉMARRAGE ──────────────────────
         self.lbl_sec_startup = QLabel(self.tr("ESPACES DE TRAVAIL & DÉMARRAGE"))
@@ -767,6 +832,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             ("editor/font_size", self.spn_editor_font_size.value(), "editor_font_size"),
             ("editor/line_numbers", self.chk_editor_line_numbers.isChecked(), "editor_line_numbers"),
             ("editor/word_wrap", self.chk_editor_word_wrap.isChecked(), "editor_word_wrap"),
+            ("latex/compiler_enabled", self.chk_latex_enabled.isChecked() if hasattr(self, "chk_latex_enabled") else False, "latex_enabled"),
         ):
             if not hasattr(self, "_initial") or not values_equal(self._initial.get(initial_key), current_val):
                 SettingsService.set(key, current_val, category="general")
@@ -840,6 +906,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "confirm_on_exit": self.chk_confirm_on_exit.isChecked(),
             "autosave_interval": self.spn_autosave_interval.value(),
             "restore_last_project": self.chk_restore_last_project.isChecked(),
+            "latex_enabled": self.chk_latex_enabled.isChecked() if hasattr(self, "chk_latex_enabled") else False,
         }
 
     def _layout_field_changed(self) -> bool:
@@ -880,6 +947,7 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             "confirm_on_exit": self.chk_confirm_on_exit.isChecked(),
             "autosave_interval": self.spn_autosave_interval.value(),
             "restore_last_project": self.chk_restore_last_project.isChecked(),
+            "latex_enabled": self.chk_latex_enabled.isChecked() if hasattr(self, "chk_latex_enabled") else False,
         }
         return any(not values_equal(current[k], self._initial.get(k)) for k in current)
 
@@ -889,6 +957,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.lbl_sec_exp.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         if hasattr(self, "lbl_sec_editor"):
             self.lbl_sec_editor.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        if hasattr(self, "lbl_sec_latex"):
+            self.lbl_sec_latex.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         if hasattr(self, "lbl_sec_startup"):
             self.lbl_sec_startup.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         if hasattr(self, "lbl_sec_notif"):
@@ -898,6 +968,8 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         self.card_app.refresh_theme(profile)
         self.card_editor.refresh_theme(profile)
         self.card_exp.refresh_theme(profile)
+        if hasattr(self, "card_latex"):
+            self.card_latex.refresh_theme(profile)
         if hasattr(self, "card_startup"):
             self.card_startup.refresh_theme(profile)
         if hasattr(self, "card_notif"):
@@ -908,10 +980,18 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_exp_dir"):
             self.lbl_exp_dir.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_latex_status_title"):
+            self.lbl_latex_status_title.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_latex_status"):
+            self.lbl_latex_status.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11.5px;")
+        if hasattr(self, "lbl_latex_custom"):
+            self.lbl_latex_custom.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "chk_editor_line_numbers"):
             self.chk_editor_line_numbers.setStyleSheet(f"color: {profile.text_primary};")
         if hasattr(self, "chk_editor_word_wrap"):
             self.chk_editor_word_wrap.setStyleSheet(f"color: {profile.text_primary};")
+        if hasattr(self, "chk_latex_enabled"):
+            self.chk_latex_enabled.setStyleSheet(f"color: {profile.text_primary};")
         if hasattr(self, "chk_confirm_on_exit"):
             self.chk_confirm_on_exit.setStyleSheet(f"color: {profile.text_primary};")
         if hasattr(self, "chk_restore_last_project"):
@@ -924,6 +1004,10 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
             self.btn_import_theme.setIcon(load_phosphor_icon("ph.upload-simple", color=profile.text_primary))
         if hasattr(self, "btn_export_theme"):
             self.btn_export_theme.setIcon(load_phosphor_icon("ph.download-simple", color=profile.text_primary))
+        if hasattr(self, "btn_latex_custom_paths") and hasattr(self.btn_latex_custom_paths, "refresh_theme"):
+            self.btn_latex_custom_paths.refresh_theme(profile)
+        if hasattr(self, "btn_test_latex") and hasattr(self.btn_test_latex, "refresh_theme"):
+            self.btn_test_latex.refresh_theme(profile)
         if hasattr(self, "lbl_effective_variant_title"):
             self.lbl_effective_variant_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11.5px; font-weight: 500;")
         if hasattr(self, "lbl_effective_variant_badge"):
@@ -995,6 +1079,110 @@ class GeneralTab(SettingsDirtyMixin, QWidget):
         except Exception as err:
             logger.error("Erreur lors de l'export du thème %s : %s", file_path, err)
             show_toast(self, tr("Échec de l'export du thème : %1", err), is_error=True)
+
+    def _update_latex_status(self) -> None:
+        """Met à jour l'indicateur de statut LaTeX dans l'UI."""
+        from ankiforge.services.cards.latex_environment_service import LatexEnvironmentService
+
+        service = LatexEnvironmentService()
+        status = service.get_full_status()
+
+        if status.is_fully_available:
+            self.lbl_latex_status.setText(tr("✅ Environnement LaTeX prêt — %1", status.message))
+            self.lbl_latex_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px;")
+        elif status.latex or status.dvisvgm:
+            self.lbl_latex_status.setText(tr("⚠️ Environnement partiel — %1", status.message))
+            self.lbl_latex_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11.5px;")
+        else:
+            self.lbl_latex_status.setText(tr("❌ Environnement LaTeX non détecté — %1", status.message))
+            self.lbl_latex_status.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11.5px;")
+
+    def _open_latex_custom_paths(self) -> None:
+        """Ouvre la boîte de dialogue de configuration des chemins LaTeX personnalisés."""
+        from PySide6.QtWidgets import QVBoxLayout
+
+        from ankiforge.ui.components import StyledLineEdit
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Chemins LaTeX personnalisés"))
+        dialog.setMinimumWidth(500)
+        layout = QVBoxLayout(dialog)
+
+        form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        form.setFormAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        form.setHorizontalSpacing(16)
+        form.setVerticalSpacing(12)
+
+        # Récupérer les valeurs actuelles
+        from ankiforge.services.settings_service import SettingsService
+
+        latex_path = SettingsService.get("latex/binary_path", "")
+        dvisvgm_path = SettingsService.get("latex/dvisvgm_path", "")
+        dvipng_path = SettingsService.get("latex/dvipng_path", "")
+
+        le_latex = StyledLineEdit()
+        le_latex.setPlaceholderText(self.tr("Chemin vers latex ou pdflatex"))
+        le_latex.setText(latex_path)
+        le_latex.setMinimumWidth(350)
+        form.addRow(self.tr("latex / pdflatex :"), le_latex)
+
+        le_dvisvgm = StyledLineEdit()
+        le_dvisvgm.setPlaceholderText(self.tr("Chemin vers dvisvgm"))
+        le_dvisvgm.setText(dvisvgm_path)
+        le_dvisvgm.setMinimumWidth(350)
+        form.addRow(self.tr("dvisvgm :"), le_dvisvgm)
+
+        le_dvipng = StyledLineEdit()
+        le_dvipng.setPlaceholderText(self.tr("Chemin vers dvipng (optionnel)"))
+        le_dvipng.setText(dvipng_path)
+        le_dvipng.setMinimumWidth(350)
+        form.addRow(self.tr("dvipng :"), le_dvipng)
+
+        layout.addLayout(form)
+
+        # Boutons
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            SettingsService.set("latex/binary_path", le_latex.text().strip(), category="general")
+            SettingsService.set("latex/dvisvgm_path", le_dvisvgm.text().strip(), category="general")
+            SettingsService.set("latex/dvipng_path", le_dvipng.text().strip(), category="general")
+            self._update_latex_status()
+
+    def _test_latex_environment(self) -> None:
+        """Lance un diagnostic complet de l'environnement LaTeX en arrière-plan."""
+        from PySide6.QtCore import QThreadPool
+
+        from ankiforge.services.cards.latex_environment_service import LatexEnvironmentService
+        from ankiforge.ui.widgets.toast import show_toast
+
+        self.btn_test_latex.setEnabled(False)
+        self.btn_test_latex.setText(self.tr("Test en cours..."))
+
+        def run_test() -> None:
+            service = LatexEnvironmentService()
+            service.clear_cache()
+            status = service.get_full_status()
+
+            # Mettre à jour l'UI dans le thread principal
+            def update_ui() -> None:
+                self._update_latex_status()
+                self.btn_test_latex.setEnabled(True)
+                self.btn_test_latex.setText(self.tr("Tester l'environnement"))
+                if status.is_fully_available:
+                    show_toast(self, tr("✅ Test réussi : %1", status.message), is_error=False)
+                else:
+                    show_toast(self, tr("⚠️ Test partiel : %1", status.message), is_error=True)
+
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(0, update_ui)
+
+        QThreadPool.globalInstance().start(run_test)
 
     def _on_open_feedback_clicked(self) -> None:
         """Déclenche l'événement d'ouverture de la boîte de dialogue de feedback."""
