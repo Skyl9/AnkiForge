@@ -80,18 +80,23 @@ def test_get_mathjax_script_contains_valid_delimiters_and_settings() -> None:
 
 
 def test_preprocess_math_blocks_legacy_tags() -> None:
-    """Vérifie la conversion de toutes les balises mathématiques historiques Anki."""
+    """Vérifie la conversion des balises mathématiques historiques Anki.
+
+    - [latex]...[/latex], [$]...[/$], [$$]...[/$$] sont laissées inchangées
+      et traitées ultérieurement par _process_latex_blocks (compilation SVG hybride).
+    - [math]...[/math] est convertie en \\(..\\) pour KaTeX.
+    """
     raw = "1. [latex]\\frac{a}{b}[/latex] 2. [math]x^2[/math] 3. [$]\\alpha[/$] 4. [$$]\\beta[/$$]"
     processed = _preprocess_math_blocks(raw)
 
-    assert "\\[\\frac{a}{b}\\]" in processed
+    # [latex] passe inchangé (traité par _process_latex_blocks)
+    assert "[latex]\\frac{a}{b}[/latex]" in processed
+    # [math] est converti en \\(..\\)
     assert "\\(x^2\\)" in processed
-    assert "\\(\\alpha\\)" in processed
-    assert "\\[\\beta\\]" in processed
-    assert "[latex]" not in processed
+    # [$] et [$$] passent inchangés (traités par _process_latex_blocks)
+    assert "[$]\\alpha[/$]" in processed
+    assert "[$$]\\beta[/$$]" in processed
     assert "[math]" not in processed
-    assert "[$]" not in processed
-    assert "[$$]" not in processed
 
 
 def test_preprocess_math_blocks_sanitizes_html_inside_math() -> None:

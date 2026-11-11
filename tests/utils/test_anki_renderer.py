@@ -1,11 +1,15 @@
 # noinspection PyProtectedMember
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
+from ankiforge.database.models.cards import NoteTypeModel
 from ankiforge.utils.anki_renderer import (
     _is_empty,
     _process_conditionals,
     _process_front_side,
+    _process_latex_blocks,
     _sanitize_fields,
     render_anki_card,
 )
@@ -147,3 +151,147 @@ def test_render_anki_card_newline_conversion_and_palette_cleaning() -> None:
 
     # Vérifier que les retours à la ligne \n ont été convertis en <br>
     assert "Ligne 1<br>Ligne 2<br>Ligne 3" in rendered
+
+
+def _make_mock_compiler(ready: bool = True, filename: str = "latex-abc123.svg") -> MagicMock:
+    """Crée un LatexCompilerService mock."""
+    compiler = MagicMock()
+    compiler.is_ready.return_value = ready
+    compiler.compile_snippet_to_media.return_value = filename
+    return compiler
+
+
+def _make_mock_note_type(latex_pre: str = "", latex_post: str = "", latex_svg: bool = True) -> MagicMock:
+    """Crée un NoteTypeModel mock avec les champs LaTeX."""
+    mock = MagicMock(spec=NoteTypeModel)
+    mock.latex_pre = latex_pre
+    mock.latex_post = latex_post
+    mock.latex_svg = latex_svg
+    return mock
+
+
+def test_process_latex_blocks_compiler_ready_replaces_with_img() -> None:
+    """[latex]...[/latex] est remplacé par <img class="latex" src="..."> quand le compilateur est prêt."""
+    html = "Texte avant [latex]\\frac{1}{2}[/latex] texte après"
+    compiler = _make_mock_compiler(ready=True)
+    note_type = _make_mock_note_type()
+
+    result = _process_latex_blocks(html, note_type, compiler)
+
+    assert '<img class="latex" src="latex-abc123.svg">' in result
+    assert "[latex]" not in result
+    assert "[/latex]" not in result
+    compiler.compile_snippet_to_media.assert_called_once_with("\\frac{1}{2}", note_type)
+
+
+def test_process_latex_blocks_compiler_not_ready_fallback_span() -> None:
+    """Repli sur <span class="af-latex-uncompiled"> quand le compilateur n'est pas prêt."""
+    html = "Formule [latex]E = mc^2[/latex] ici"
+    compiler = _make_mock_compiler(ready=False)
+    note_type = _make_mock_note_type()
+
+    result = _process_latex_blocks(html, note_type, compiler)
+
+    assert '<span class="af-latex-uncompiled"' in result
+    assert "E = mc^2" in result
+    assert "[latex]" not in result
+    compiler.compile_snippet_to_media.assert_not_called()
+
+
+def test_process_latex_blocks_dollar_variants() -> None:
+    """Les variantes [$]...[/$] et [$$]...[/$$] sont aussi gérées."""
+    html = "Inline [$]\\alpha[/$] et display [$$]\\sum_{i=1}^n x_i[/$$]"
+    compiler = _make_mock_compiler(ready=True)
+    note_type = _make_mock_note_type()
+
+    result = _process_latex_blocks(html, note_type, compiler)
+
+    assert '<img class="latex" src="latex-abc123.svg">' in result
+    assert "[$]" not in result
+    assert "[/$]" not in result
+    assert "[$$]" not in result
+    assert "[/$$]" not in result
+    assert compiler.compile_snippet_to_media.call_count == 2
+
+
+def test_process_latex_blocks_compiler_exception_fallback() -> None:
+    """En cas d'exception de compilation, repli sur span de secours."""
+    html = "Test [latex]\\undefined[/latex]"
+    compiler = _make_mock_compiler(ready=True)
+    compiler.compile_snippet_to_media.side_effect = Exception("Erreur compilation")
+    note_type = _make_mock_note_type()
+
+    result = _process_latex_blocks(html, note_type, compiler)
+
+    assert '<span class="af-latex-uncompiled"' in result
+    assert "\\undefined" in result
+
+
+def test_process_latex_blocks_none_compiler_fallback() -> None:
+    """Quand compiler_service est None, repli sur span."""
+    html = "Test [latex]x^2[/latex]"
+    result = _process_latex_blocks(html, None, None)
+
+    assert '<span class="af-latex-uncompiled"' in result
+    assert "x^2" in result
+
+
+def test_render_anki_card_latex_with_compiler_ready() -> None:
+    """render_anki_card remplace [latex] par une image SVG quand le compilateur est prêt."""
+    raw_html = "Formule : [latex]\\frac{1}{2}[/latex]"
+    css = ""
+    fields = {}
+    note_type = _make_mock_note_type()
+
+    with patch("ankiforge.utils.anki_renderer.LatexCompilerService") as mock_compiler_cls:
+        compiler_instance = _make_mock_compiler(ready=True)
+        mock_compiler_cls.return_value = compiler_instance
+
+        result = render_anki_card(
+            raw_html=raw_html,
+            css=css,
+            fields_dict=fields,
+            is_recto=True,
+            note_type=note_type,
+        )
+
+        assert '<img class="latex" src="latex-abc123.svg">' in result
+        assert "[latex]" not in result
+
+
+def test_render_anki_card_latex_without_compiler_fallback() -> None:
+    """render_anki_card utilise le span de repli quand aucun note_type n'est fourni."""
+    raw_html = "Formule : [latex]\\frac{1}{2}[/latex]"
+    css = ""
+    fields = {}
+
+    result = render_anki_card(
+        raw_html=raw_html,
+        css=css,
+        fields_dict=fields,
+        is_recto=True,
+        note_type=None,
+    )
+
+    assert '<span class="af-latex-uncompiled"' in result
+    assert "\\frac{1}{2}" in result
+    assert "[latex]" not in result
+
+
+def test_render_anki_card_katex_delimiters_preserved() -> None:
+    """Les délimiteurs KaTeX $..$ et \\(..\\) sont préservés (non convertis en SVG)."""
+    raw_html = "Math inline : $x^2$ et \\(\\alpha\\)"
+    css = ""
+    fields = {}
+    note_type = _make_mock_note_type()
+
+    result = render_anki_card(
+        raw_html=raw_html,
+        css=css,
+        fields_dict=fields,
+        is_recto=True,
+        note_type=note_type,
+    )
+
+    assert "$x^2$" in result
+    assert "\\(\\alpha\\)" in result
