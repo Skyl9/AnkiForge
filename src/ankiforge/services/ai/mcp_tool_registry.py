@@ -1501,7 +1501,10 @@ class MCPToolRegistry:
         try:
             nt = NoteTypeModel.get_or_none(NoteTypeModel.name == note_type_name.strip())
             if not nt:
-                return f"Erreur : Le modèle de carte '{note_type_name}' n'a pas été trouvé."
+                return json.dumps(
+                    {"status": "error", "message": f"Le modèle de carte '{note_type_name}' n'a pas été trouvé."},
+                    ensure_ascii=False,
+                )
 
             orig_fields = robust_json_loads(nt.fields_schema) if nt.fields_schema else ["Front", "Back"]
             orig_templates = robust_json_loads(nt.templates) if nt.templates else []
@@ -1517,14 +1520,79 @@ class MCPToolRegistry:
             }
 
             mod_dict = dict(orig_dict)
+
+            if not any((new_fields_schema_json, new_css, new_templates_json, new_description)):
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": "Aucune modification fournie (champs, CSS, gabarits ou description requis).",
+                    },
+                    ensure_ascii=False,
+                )
+
+            # Validation du schéma des champs si fourni
             if new_fields_schema_json:
-                mod_dict["fields_schema"] = robust_json_loads(new_fields_schema_json)
+                try:
+                    parsed_fields = robust_json_loads(new_fields_schema_json)
+                except Exception as e:
+                    return json.dumps(
+                        {"status": "error", "message": f"Format JSON invalide pour new_fields_schema_json : {e}"},
+                        ensure_ascii=False,
+                    )
+                if not isinstance(parsed_fields, list) or not all(isinstance(f, str) and f.strip() for f in parsed_fields):
+                    return json.dumps(
+                        {
+                            "status": "error",
+                            "message": "new_fields_schema_json doit être une liste JSON de noms de champs non vides.",
+                        },
+                        ensure_ascii=False,
+                    )
+                mod_dict["fields_schema"] = [f.strip() for f in parsed_fields]
+
+            # Validation des gabarits si fournis
+            if new_templates_json:
+                try:
+                    parsed_templates = robust_json_loads(new_templates_json)
+                except Exception as e:
+                    return json.dumps(
+                        {"status": "error", "message": f"Format JSON invalide pour new_templates_json : {e}"},
+                        ensure_ascii=False,
+                    )
+                if not isinstance(parsed_templates, list) or not all(isinstance(t, dict) for t in parsed_templates):
+                    return json.dumps(
+                        {
+                            "status": "error",
+                            "message": "new_templates_json doit être une liste JSON de gabarits (objets dictionnaires).",
+                        },
+                        ensure_ascii=False,
+                    )
+                mod_dict["templates"] = parsed_templates
+
             if new_css:
                 mod_dict["css_style"] = new_css
-            if new_templates_json:
-                mod_dict["templates"] = robust_json_loads(new_templates_json)
             if new_description:
                 mod_dict["description"] = new_description
+
+            # Validation structurelle complète du candidat fusionné
+            from ankiforge.services.cards.note_type_service import NoteTypeService
+
+            candidate_model = {
+                "name": nt.name,
+                "fields_schema": mod_dict["fields_schema"],
+                "templates": mod_dict["templates"],
+                "css_style": mod_dict.get("css_style", ""),
+                "description": mod_dict.get("description", ""),
+            }
+            is_valid, validation_errors = NoteTypeService.validate_structure(candidate_model)
+            if not is_valid:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Validation échouée pour le modèle '{nt.name}' : {'; '.join(validation_errors)}",
+                        "errors": validation_errors,
+                    },
+                    ensure_ascii=False,
+                )
 
             from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
 
@@ -1552,7 +1620,10 @@ class MCPToolRegistry:
             return json.dumps(staged_payload, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error("Erreur propose_note_type_refactor : %s", e)
-            return f"Erreur lors de la préparation de la refactorisation de modèle : {e}"
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la préparation de la refactorisation de modèle : {e}"},
+                ensure_ascii=False,
+            )
 
     @staticmethod
     def propose_css_tune(note_type_name: str, css_snippet: str, selector: str = "") -> str:

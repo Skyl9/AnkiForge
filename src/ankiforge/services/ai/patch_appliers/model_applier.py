@@ -161,13 +161,34 @@ class ModelPatchApplier(PatchApplierStrategy):
             return {"status": "error", "message": f"Modèle de note cible introuvable pour le patch {patch_id}."}
 
         modified = diff_data.get("modified", {})
-        with db.atomic():
-            self._update_model_attributes(nt, modified)
-            nt.save()
+        try:
+            with db.atomic():
+                self._update_model_attributes(nt, modified)
 
-            patch.status = "applied"
-            patch.applied_at = datetime.datetime.now()
-            patch.save()
+                from ankiforge.services.ai.mcp_tool_registry import robust_json_loads
+                from ankiforge.services.cards.note_type_service import NoteTypeService
+
+                current_model = {
+                    "name": nt.name,
+                    "fields_schema": (robust_json_loads(nt.fields_schema) if nt.fields_schema else ["Front", "Back"]),
+                    "templates": robust_json_loads(nt.templates) if nt.templates else [],
+                    "css_style": nt.css_style or "",
+                    "description": nt.description or "",
+                }
+                is_valid, validation_errors = NoteTypeService.validate_structure(current_model)
+                if not is_valid:
+                    raise ValueError("; ".join(validation_errors))
+
+                nt.save()
+
+                patch.status = "applied"
+                patch.applied_at = datetime.datetime.now()
+                patch.save()
+        except ValueError as ve:
+            return {"status": "error", "message": f"Structure de modèle invalide : {ve}", "patch_id": patch_id}
+        except Exception as err:
+            logger.error("Erreur application modèle : %s", err)
+            return {"status": "error", "message": str(err), "patch_id": patch_id}
 
         if notify_mutation:
             notify_mutation("note_type_update", nt.id, {"note_type_id": nt.id, "note_type_name": nt.name, "patch_id": patch_id})
