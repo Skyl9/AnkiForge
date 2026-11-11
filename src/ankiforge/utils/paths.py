@@ -192,6 +192,19 @@ def get_media_dir(profile_name: str | None = None) -> Path:
     return media_dir
 
 
+def get_artifacts_dir(profile_name: str | None = None) -> Path:
+    """Retourne le répertoire des artefacts et fichiers volumineux du profil actif.
+
+    Le dossier ``~/.ankiforge/profiles/<profil>/artifacts/`` est créé automatiquement
+    s'il n'existe pas, garantissant l'isolation par profil pour les sorties d'agents
+    externes devant être délestées sur disque (anti-troncature des payloads JSON).
+    """
+    target_prof = profile_name if profile_name is not None else get_active_profile()
+    artifacts_dir = get_profile_dir(target_prof) / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    return artifacts_dir
+
+
 def ensure_media_decompressed(path: Path) -> Path:
     """Si le fichier média est compressé avec Zstandard (archives Anki v3), le décompresse sur place."""
     if not path.is_file():

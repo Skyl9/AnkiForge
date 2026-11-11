@@ -1,6 +1,6 @@
 """Sous-onglet interactif Catalogue des Outils MCP (Model Context Protocol).
 
-Permet d'explorer, de filtrer par catégorie et de rechercher parmi les 63 outils
+Permet d'explorer, de filtrer par catégorie et de rechercher parmi les 65 outils
 exposés par le serveur MCP local d'AnkiForge, avec affichage détaillé des schémas
 JSON de paramètres, des règles de Two-Phase Commit et des garde-fous associés.
 """
@@ -163,13 +163,15 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "trigger_pipeline_run": DOMAIN_PIPELINES,
     "provide_pipeline_step_content": DOMAIN_PIPELINES,
     "abort_pipeline_run": DOMAIN_PIPELINES,
-    # 7. Agents MCP & Workspaces (6)
+    # 7. Agents MCP & Workspaces (8)
     "list_mcp_agents": DOMAIN_AGENTS,
     "get_mcp_agent_details": DOMAIN_AGENTS,
     "invoke_mcp_agent": DOMAIN_AGENTS,
     "create_or_update_mcp_agent": DOMAIN_AGENTS,
     "init_agent_workspace": DOMAIN_AGENTS,
     "check_guide_version": DOMAIN_AGENTS,
+    "read_mcp_artifact": DOMAIN_AGENTS,
+    "write_mcp_artifact": DOMAIN_AGENTS,
     # 8. Documentation & Aide (4)
     "search_app_documentation": DOMAIN_DOCS,
     "read_app_doc_page": DOMAIN_DOCS,
@@ -394,6 +396,16 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     ],
     "trigger_manual_backup": [
         "Création d'un instantané atomique SQLite compatible WAL exclu de la rotation standard.",
+    ],
+    "read_mcp_artifact": [
+        "Sandbox de lecture : l'accès est borné au dossier artifacts du profil actif (get_artifacts_dir).",
+        "Assainissement du nom : Path(filename).name interdit toute traversée de répertoire (..).",
+        "Plafond de taille : lecture bornée à max_bytes (défaut 100 000 octets, plafond 10 Mo) contre la saturation de contexte.",
+    ],
+    "write_mcp_artifact": [
+        "Sandbox d'écriture : écriture exclusive dans le dossier artifacts du profil actif, zéro écriture en dehors.",
+        "Assainissement du nom : Path(filename).name interdit toute traversée de répertoire (..).",
+        "Encodage UTF-8 et empreinte SHA-256 retournée pour vérification d'intégrité de l'artefact.",
     ],
 }
 

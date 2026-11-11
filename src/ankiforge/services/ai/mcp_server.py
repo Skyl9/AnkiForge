@@ -1691,6 +1691,12 @@ def get_table_schema_resource(table_name: str) -> str:
         return json.dumps({"status": "error", "error_code": "INTERNAL_ERROR", "message": f"Erreur interne : {e}"}, ensure_ascii=False)
 
 
+@mcp.resource("artifact://{filename}")
+def get_artifact_resource(filename: str) -> str:
+    """Fournit le contenu brut d'un artefact d'échange agent via une ressource MCP standardisée."""
+    return MCPToolRegistry.read_mcp_artifact(filename)
+
+
 # =====================================================================
 # PROMPTS MCP (MODÈLES DE GUIDAGE IA)
 # =====================================================================
@@ -2274,6 +2280,18 @@ def ingest_authority_source(
         authority_metadata_json=authority_metadata_json,
         force_update=force_update,
     )
+
+
+@mcp.tool()
+def write_mcp_artifact(filename: str, content: str, mime_type: str = "text/plain") -> str:
+    """Écrit un artefact d'échange agent et retourne une référence vérifiée (file_path, file_uri, sha256, taille)."""
+    return MCPToolRegistry.write_mcp_artifact(filename, content, mime_type)
+
+
+@mcp.tool()
+def read_mcp_artifact(filename: str, max_bytes: int = 100_000) -> str:
+    """Lit de manière sécurisée un artefact d'échange agent avec plafonnement de la taille lue."""
+    return MCPToolRegistry.read_mcp_artifact(filename, max_bytes)
 
 
 @mcp.resource("workspace://agent-guide")

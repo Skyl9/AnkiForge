@@ -43,7 +43,7 @@ from ankiforge.services.ai.linter import WozniakLinterEngine
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.utils.c_bridge import get_similarity
-from ankiforge.utils.paths import get_active_profile
+from ankiforge.utils.paths import get_active_profile, get_artifacts_dir
 from ankiforge.utils.tags import parse_note_tags, split_tag_tokens
 
 logger = logging.getLogger(__name__)
@@ -5214,6 +5214,85 @@ class MCPToolRegistry:
             logger.exception("Erreur inattendue lors de l'ingestion d'autorité : %s", e)
             return json.dumps({"status": "error", "message": f"Erreur interne : {e}"}, ensure_ascii=False)
 
+    @staticmethod
+    def write_mcp_artifact(filename: str, content: str, mime_type: str = "text/plain") -> str:
+        """Écrit un artefact d'échange agent (UTF-8) dans artifacts/ et retourne sa référence vérifiée (file_path, file_uri, sha256, taille)."""
+        try:
+            safe_name = Path(filename).name
+            if not safe_name or safe_name in (".", ".."):
+                return json.dumps(
+                    {"status": "error", "message": "Nom de fichier d'artefact invalide."},
+                    ensure_ascii=False,
+                )
+            artifacts_dir = get_artifacts_dir()
+            target_file = artifacts_dir / safe_name
+            target_file.write_text(content, encoding="utf-8")
+            stat_info = target_file.stat()
+            digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+            lines_count = content.count("\n") + 1 if content else 0
+            return json.dumps(
+                {
+                    "status": "success",
+                    "filename": safe_name,
+                    "file_path": str(target_file),
+                    "file_uri": target_file.as_uri(),
+                    "size_bytes": stat_info.st_size,
+                    "lines_count": lines_count,
+                    "sha256": digest,
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.error("Erreur write_mcp_artifact : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de l'écriture de l'artefact : {e}"},
+                ensure_ascii=False,
+            )
+
+    @staticmethod
+    def read_mcp_artifact(filename: str, max_bytes: int = 100_000) -> str:
+        """Lit de manière sécurisée un artefact d'échange agent avec plafonnement de taille.
+
+        L'assainissement du nom de fichier interdit toute traversée de répertoire.
+        La lecture est bornée à ``max_bytes`` pour éviter toute saturation de contexte.
+        """
+        try:
+            safe_name = Path(filename).name
+            if not safe_name or safe_name in (".", ".."):
+                return json.dumps(
+                    {"status": "error", "message": "Nom de fichier d'artefact invalide."},
+                    ensure_ascii=False,
+                )
+            artifacts_dir = get_artifacts_dir()
+            target_file = artifacts_dir / safe_name
+            if not target_file.is_file():
+                return json.dumps(
+                    {"status": "error", "message": f"Artefact '{safe_name}' introuvable."},
+                    ensure_ascii=False,
+                )
+            eff_max = max(1, min(int(max_bytes), 10_000_000))
+            data = target_file.read_bytes()[:eff_max]
+            content = data.decode("utf-8", errors="replace")
+            stat_info = target_file.stat()
+            return json.dumps(
+                {
+                    "status": "success",
+                    "filename": safe_name,
+                    "file_path": str(target_file),
+                    "content": content,
+                    "size_bytes": stat_info.st_size,
+                    "read_bytes": len(data),
+                    "truncated": stat_info.st_size > len(data),
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            logger.error("Erreur read_mcp_artifact : %s", e)
+            return json.dumps(
+                {"status": "error", "message": f"Erreur lors de la lecture de l'artefact : {e}"},
+                ensure_ascii=False,
+            )
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -6134,6 +6213,37 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
                     "reason": {"type": "string", "description": "Motif de la modification (optionnel)"},
                 },
                 "required": ["document_id", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_mcp_artifact",
+            "description": "Lit de manière sécurisée un artefact d'échange agent stocké dans le dossier artifacts du profil actif, avec plafonnement de la taille lue.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {"type": "string", "description": "Nom du fichier d'artefact à lire (traversée de répertoire interdite)"},
+                    "max_bytes": {"type": "integer", "description": "Nombre maximal d'octets à lire (défaut: 100 000)"},
+                },
+                "required": ["filename"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_mcp_artifact",
+            "description": "Écrit un artefact d'échange agent et retourne une référence vérifiée (file_path, file_uri, sha256, taille).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {"type": "string", "description": "Nom du fichier d'artefact à écrire (traversée de répertoire interdite)"},
+                    "content": {"type": "string", "description": "Contenu textuel UTF-8 de l'artefact"},
+                    "mime_type": {"type": "string", "description": "Type MIME de l'artefact (défaut: text/plain)"},
+                },
+                "required": ["filename", "content"],
             },
         },
     },
