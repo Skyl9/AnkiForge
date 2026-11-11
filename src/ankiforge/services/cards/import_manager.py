@@ -750,6 +750,9 @@ class ImportManager:
                                     "fields": [f["name"] for f in m_info.get("flds", [])],
                                     "templates": m_info.get("tmpls", []),
                                     "css": m_info.get("css", ""),
+                                    "latex_pre": m_info.get("latexPre", ""),
+                                    "latex_post": m_info.get("latexPost", ""),
+                                    "latex_svg": m_info.get("latexsvg", True),
                                 }
                     except Exception as e:
                         logger.warning("Erreur extraction models col: %s", e)
@@ -768,12 +771,18 @@ class ImportManager:
                                     logger.debug("Remarque extraction champs notetype %s: %s", mid, f_err)
 
                             css_style = ""
+                            latex_pre = ""
+                            latex_post = ""
+                            latex_svg = True
                             if config_blob:
                                 try:
                                     c_str = config_blob.decode("utf-8", errors="ignore") if isinstance(config_blob, bytes | bytearray) else str(config_blob)
                                     if c_str.strip().startswith("{"):
                                         c_json = json.loads(c_str)
                                         css_style = c_json.get("css", "")
+                                        latex_pre = c_json.get("latexPre", "")
+                                        latex_post = c_json.get("latexPost", "")
+                                        latex_svg = c_json.get("latexsvg", True)
                                 except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
                                     logger.debug("Échec décodage JSON css config_blob : %s", e)
                                 if not css_style and isinstance(config_blob, bytes | bytearray):
@@ -817,6 +826,9 @@ class ImportManager:
                                 "fields": field_names,
                                 "templates": tmpls,
                                 "css": css_style,
+                                "latex_pre": latex_pre,
+                                "latex_post": latex_post,
+                                "latex_svg": latex_svg,
                             }
                     except Exception as e:
                         logger.warning("Erreur extraction table notetypes: %s", e)
@@ -1065,6 +1077,9 @@ class ImportManager:
                 fields_schema = json.dumps(fields_data)
                 templates_json = json.dumps(m_info.get("templates", []), ensure_ascii=False)
                 css = m_info.get("css", "")
+                latex_pre = m_info.get("latex_pre", "")
+                latex_post = m_info.get("latex_post", "")
+                latex_svg = m_info.get("latex_svg", True)
 
                 existing_nt = None
                 matched_by_id = False
@@ -1092,6 +1107,11 @@ class ImportManager:
                         existing_nt.templates = templates_json
                         if css:
                             existing_nt.css_style = css
+                        if latex_pre:
+                            existing_nt.latex_pre = latex_pre
+                        if latex_post:
+                            existing_nt.latex_post = latex_post
+                        existing_nt.latex_svg = latex_svg
                         existing_nt.save()
                         nt_obj = existing_nt
                     else:
@@ -1105,6 +1125,11 @@ class ImportManager:
                             existing_nt.templates = templates_json
                         if css:
                             existing_nt.css_style = css
+                        if latex_pre:
+                            existing_nt.latex_pre = latex_pre
+                        if latex_post:
+                            existing_nt.latex_post = latex_post
+                        existing_nt.latex_svg = latex_svg
 
                         is_isomorphic = self._is_structurally_isomorphic(existing_fields, incoming_fields)
                         if is_isomorphic or existing_fields == incoming_fields:
@@ -1154,6 +1179,9 @@ class ImportManager:
                                 fields_schema=fields_schema,
                                 templates=templates_json,
                                 css_style=css,
+                                latex_pre=latex_pre,
+                                latex_post=latex_post,
+                                latex_svg=latex_svg,
                             )
                 else:
                     target_anki_id = int_mid
@@ -1165,6 +1193,9 @@ class ImportManager:
                         fields_schema=fields_schema,
                         templates=templates_json,
                         css_style=css,
+                        latex_pre=latex_pre,
+                        latex_post=latex_post,
+                        latex_svg=latex_svg,
                     )
                 model_cache[m_name] = nt_obj
                 model_cache[str(_mid)] = nt_obj
@@ -1509,6 +1540,9 @@ class ImportManager:
                 fields_schema = json.dumps(fields_data)
                 templates_json = json.dumps(m_info.get("templates", []), ensure_ascii=False)
                 css = m_info.get("css", "")
+                latex_pre = m_info.get("latex_pre", "")
+                latex_post = m_info.get("latex_post", "")
+                latex_svg = m_info.get("latex_svg", True)
 
                 target_name = m_name
                 counter = 1
@@ -1522,6 +1556,9 @@ class ImportManager:
                     fields_schema=fields_schema,
                     templates=templates_json,
                     css_style=css,
+                    latex_pre=latex_pre,
+                    latex_post=latex_post,
+                    latex_svg=latex_svg,
                 )
                 model_cache[m_name] = nt_obj
                 model_cache[target_name] = nt_obj
