@@ -1,0 +1,20 @@
+# Conventions d'Ingénierie — AnkiForge
+
+Ce fichier rassemble les règles non négociables applicables au code et aux
+contributions du projet AnkiForge (source : `AGENTS.md`, `GEMINI.md`,
+`DESIGN.md`, `docs/adr/`).
+
+## Règles principales
+
+1. **Typage statique strict 100%** (`mypy`, `disallow_untyped_defs = true`) sous `src/ankiforge/`.
+2. **Zéro `print()`** : logging asynchrone uniquement (`logging.getLogger(__name__)`).
+3. **Internationalisation** : chaînes affichées via `tr()` ; `tr(f"...")` interdit.
+4. **Tests Qt headless** : `QT_QPA_PLATFORM=offscreen`, `pytest-qt`, aucun snapshot visuel en assertion.
+5. **Mocks LLM obligatoires** : zéro appel API payant en test.
+6. **Design Tokens** : aucune couleur en dur ; se référer à `src/ankiforge/ui/theme.py`.
+7. **Discipline Git** : aucun commit autonome ; propositions de commits via `proposer-commits`.
+
+## Portée du workspace
+
+- Fichiers système (gabarits, règles, glossaire) : audités et resynchronisables.
+- Dossiers utilisateur (`profiles/**`, `_shared_models/**`) : sanctuarisés, jamais altérés.

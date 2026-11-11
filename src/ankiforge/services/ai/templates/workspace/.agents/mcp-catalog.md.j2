@@ -1,0 +1,18 @@
+# Catalogue des Outils MCP — AnkiForge
+
+Ce fichier répertorie l'ensemble des outils exposés par le serveur FastMCP
+in-process d'AnkiForge. Il est compilé en direct par introspection de
+`mcp._tool_manager.list_tools()` et trié lexicographiquement (insensible à la
+casse) pour garantir un empreinte déterministe.
+
+Profil actif : {{ active_profile }}
+Nombre d'outils : {{ mcp_tools|length }}
+
+## Outils
+
+{% for tool in mcp_tools %}
+- `{{ tool }}`
+{% endfor %}
+
+> Ce fichier est régénéré à chaque audit de dérive. Une liste d'outils différente
+> de celle du serveur produit un statut `DESYNC` sur `.agents/mcp-catalog.md`.
