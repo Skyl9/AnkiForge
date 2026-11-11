@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QSplitter
 from pytestqt.qtbot import QtBot
 
 from ankiforge.database.models import (
@@ -16,6 +16,7 @@ from ankiforge.database.models import (
 from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
 from ankiforge.ui.dialogs.starter_pack_dialog import StarterPackDialog
+from ankiforge.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
@@ -65,6 +66,39 @@ def test_model_import_dialog(qtbot: QtBot):
 
     assert dlg.name_input.text() == "Physics Quantum"
     assert not dlg.collision_frame.isVisible()
+
+    # Dimensions minimales et taille par défaut confortables
+    assert dlg.minimumSize().width() == 980
+    assert dlg.minimumSize().height() == 680
+    assert dlg.size().width() == 1100
+    assert dlg.size().height() == 750
+
+    # Panneau gauche encapsulé dans une QScrollArea fluide
+    ancestor = dlg.name_input
+    while ancestor is not None and not isinstance(ancestor, QScrollArea):
+        ancestor = ancestor.parentWidget()
+    assert isinstance(ancestor, QScrollArea)
+    assert ancestor.widgetResizable() is True
+    assert ancestor.frameShape() == QFrame.Shape.NoFrame
+
+    # Splitter non repliable avec répartition spacieuse (preview plus large que métadonnées)
+    splitters = dlg.findChildren(QSplitter)
+    assert len(splitters) == 1
+    splitter = splitters[0]
+    assert splitter.isCollapsible(0) is False
+    assert splitter.isCollapsible(1) is False
+    dlg.show()
+    with qtbot.waitExposed(dlg):
+        pass
+    sizes = splitter.sizes()
+    assert sizes[1] > sizes[0] > 0
+
+    # Doublon de titre d'aperçu supprimé au profit de l'en-tête natif
+    preview_titles = [w for w in dlg.findChildren(QLabel) if "APERÇU DU RENDU EN DIRECT" in w.text()]
+    assert len(preview_titles) == 0
+
+    # Typographie DesignTokens.FONT_MAIN injectée dans la feuille de style
+    assert f'font-family: "{DesignTokens.FONT_MAIN}"' in dlg.styleSheet()
 
     # Confirmer l'importation
     dlg._on_confirm_import()
