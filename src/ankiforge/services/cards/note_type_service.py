@@ -803,6 +803,7 @@ class NoteTypeService:
             is_recto=True,
             is_dark_mode=is_dark_mode,
             template_index=idx,
+            note_type=nt,
         )
 
         back_html = render_anki_card(
@@ -813,6 +814,7 @@ class NoteTypeService:
             front_html=front_html,
             is_dark_mode=is_dark_mode,
             template_index=idx,
+            note_type=nt,
         )
 
         return {

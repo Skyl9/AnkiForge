@@ -34,6 +34,7 @@ class CardPreviewWidget(QWidget):
         self.current_fields: dict[str, str] = {}
         self.current_templates: list[dict[str, Any]] = []
         self.current_css: str = ""
+        self.current_note_type: NoteTypeModel | None = None
         self._device_mode: str = "desktop"
         self.is_recto: bool = True
         self._is_preview_dark: bool = is_dark_mode()
@@ -261,6 +262,7 @@ class CardPreviewWidget(QWidget):
             return
 
         self.current_fields = fields_dict
+        self.current_note_type = note_type
 
         if override_templates is not None:
             self.current_templates = override_templates
@@ -358,6 +360,7 @@ class CardPreviewWidget(QWidget):
             front_html=tmpl.get("qfmt", ""),
             is_dark_mode=self._is_preview_dark,
             template_index=card_idx,
+            note_type=self.current_note_type,
         )
 
         media_dir = get_media_dir()

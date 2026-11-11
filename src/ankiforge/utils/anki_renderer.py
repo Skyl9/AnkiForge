@@ -1,13 +1,19 @@
-"""Rendu et assainissement des modèles de cartes Anki (champs, médias, mathématiques KaTeX)."""
+"""Rendu et assainissement des modèles de cartes Anki (champs, médias, mathématiques KaTeX et LaTeX hybride)."""
 
 import html
 import json
 import logging
 import re
 from collections.abc import Mapping
-from typing import Any
+from html import escape as html_escape
+from typing import TYPE_CHECKING, Any
 
+from ankiforge.services.cards.latex_compiler_service import LatexCompilerService
+from ankiforge.utils.i18n import tr
 from ankiforge.utils.paths import get_resource_path
+
+if TYPE_CHECKING:
+    from ankiforge.database.models.cards import NoteTypeModel
 
 logger = logging.getLogger(__name__)
 
@@ -301,18 +307,17 @@ def _process_front_side(html: str, front_html: str, safe_fields: dict[str, str])
 def _preprocess_math_blocks(html: str) -> str:
     """Normalise et prépare les blocs mathématiques pour KaTeX.
 
-    - Convertit les balises Anki historiques [latex]...[/latex], [math]...[/math], [$]...[/$], [$$]...[/$$].
+    - Convertit les balises KaTeX standards : $..$, \\(..\\), \\[..\\], $$..$$.
+    - Les balises [latex]...[/latex], [$]...[/$], [$$]...[/$$] sont laissées intactes
+      et seront traitées par _process_latex_blocks (compilation SVG hybride).
     - Nettoie les balises parasites (<br>, &nbsp;, &amp;, etc.) à l'intérieur des délimiteurs mathématiques.
     - Transforme les clozes imbriqués (<span class='cloze'>...</span>) en macro KaTeX \\htmlClass{cloze}{...}
       pour garantir un rendu KaTeX continu tout en conservant le style visuel de trou cloze.
     """
-    # 1. Conversion des balises math Anki historiques et variantes
-    html = re.sub(r"\[latex\](.*?)\[/latex\]", lambda m: r"\[" + m.group(1) + r"\]", html, flags=re.DOTALL | re.IGNORECASE)
+    # 1. Conversion des balises math KaTeX standard uniquement (pas [latex] / [$] / [$$])
     html = re.sub(r"\[math\](.*?)\[/math\]", lambda m: r"\(" + m.group(1) + r"\)", html, flags=re.DOTALL | re.IGNORECASE)
-    html = html.replace("[$]", r"\(").replace("[/$]", r"\)")
-    html = html.replace("[$$]", r"\[").replace("[/$$]", r"\]")
 
-    # 2. Nettoyage interne des blocs mathématiques
+    # 2. Nettoyage interne des blocs mathématiques KaTeX
     math_pattern = re.compile(r"(\\\[.*?\\\]|\\\(.*?\\\)|\$\$.*?\$\$)", flags=re.DOTALL)
 
     def _clean_block(m: re.Match[str]) -> str:
@@ -446,6 +451,49 @@ def _process_media_references(html: str) -> str:
     return html
 
 
+def _process_latex_blocks(html: str, note_type: "NoteTypeModel | None", compiler_service: Any) -> str:
+    """Remplace les balises [latex]...[/latex], [$]...[/$], [$$]...[/$$] par des images SVG compilées.
+
+    - Si le compilateur est disponible : chaque bloc est compilé via
+      compiler_service.compile_snippet_to_media() et remplacé par
+      <img class="latex" src="latex-<hash>.svg">.
+    - Si le compilateur est indisponible ou en échec : repli sur une balise
+      <span class="af-latex-uncompiled"> contenant le code source LaTeX échappé,
+      avec une infobulle explicative (aucun crash JS KaTeX).
+
+    Args:
+        html: HTML contenant d'éventuelles balises LaTeX à compiler.
+        note_type: NoteTypeModel fournissant latex_pre / latex_post / latex_svg.
+        compiler_service: Instance de LatexCompilerService (ou None).
+
+    Returns:
+        HTML avec les balises LaTeX remplacées par des images ou des spans de repli.
+    """
+    if not html:
+        return html
+
+    compiler_ready = compiler_service is not None and note_type is not None and compiler_service.is_ready()
+
+    def _fallback(content: str) -> str:
+        escaped = html_escape(content.strip())
+        return f'<span class="af-latex-uncompiled" title="{tr("Compilation LaTeX indisponible")}">{escaped}</span>'
+
+    def _compile_replace(m: re.Match[str]) -> str:
+        snippet = m.group(1).strip()
+        if not compiler_ready:
+            return _fallback(snippet)
+        try:
+            media_filename = compiler_service.compile_snippet_to_media(snippet, note_type)
+            return f'<img class="latex" src="{media_filename}">'
+        except Exception:
+            return _fallback(snippet)
+
+    html = re.sub(r"\[latex\](.*?)\[/latex\]", _compile_replace, html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"\[\$](.*?)\[/\$]", _compile_replace, html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"\[\$\$](.*?)\[/\$\$]", _compile_replace, html, flags=re.DOTALL | re.IGNORECASE)
+    return html
+
+
 def render_anki_card(
     raw_html: str,
     css: str,
@@ -454,6 +502,7 @@ def render_anki_card(
     front_html: str = "",
     is_dark_mode: bool = False,
     template_index: int = 0,
+    note_type: "NoteTypeModel | None" = None,
 ) -> str:
     """Simule le rendu HTML d'une carte Anki.
 
@@ -491,6 +540,10 @@ def render_anki_card(
 
     # Pré-traitement et normalisation des blocs mathématiques KaTeX / LaTeX
     html = _preprocess_math_blocks(html)
+
+    # Compilation hybride LaTeX [latex]...[/latex] -> <img class="latex" src="...">
+    compiler_service = LatexCompilerService()
+    html = _process_latex_blocks(html, note_type, compiler_service)
 
     # Résolution des médias (images et balises audio [sound:...])
     html = _process_media_references(html)
