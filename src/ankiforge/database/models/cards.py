@@ -22,6 +22,17 @@ from ankiforge.database.models.flags import FlagDefinitionModel
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_LATEX_PRE = r"""\documentclass[12pt]{article}
+\special{papersize=3in,5in}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb,amsmath}
+\pagestyle{empty}
+\setlength{\parindent}{0in}
+\begin{document}
+"""
+
+DEFAULT_LATEX_POST = r"\end{document}"
+
 
 class DeckModel(BaseModel):
     """Représente un paquet Anki et sa hiérarchie (Subdecks)."""
@@ -45,6 +56,9 @@ class NoteTypeModel(BaseModel):
     fields_schema = TextField(default='["Front", "Back"]')  # JSON: Liste des noms des champs ["Front", "Back"]
     templates = TextField(default="[]")  # JSON: Les formats HTML des différentes cartes
     css_style = TextField(default="")  # Le CSS global du modèle
+    latex_pre = TextField(default=DEFAULT_LATEX_PRE)  # Préambule LaTeX (\\documentclass, \\usepackage...)
+    latex_post = TextField(default=DEFAULT_LATEX_POST)  # Postambule LaTeX (\\end{document})
+    latex_svg = BooleanField(default=True)  # Génération SVG vectorielle (dvisvgm) au lieu de PNG
 
 
 class NoteModel(BaseModel):

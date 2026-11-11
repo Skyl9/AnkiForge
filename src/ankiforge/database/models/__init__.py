@@ -26,6 +26,8 @@ from ankiforge.database.models.audit import (
     LinterRuleModel,
 )
 from ankiforge.database.models.cards import (
+    DEFAULT_LATEX_POST,
+    DEFAULT_LATEX_PRE,
     CardModel,
     DeckModel,
     MediaModel,
@@ -75,6 +77,8 @@ __all__ = [
     "CardModel",
     "FlagDefinitionModel",
     "ProfileFlagLabelModel",
+    "DEFAULT_LATEX_PRE",
+    "DEFAULT_LATEX_POST",
     # IA & Personas
     "LLMConfigModel",
     "TokenUsageModel",
