@@ -1,3 +1,6 @@
+from ankiforge.ui.views.card_models_view.widgets.latex_editor_widget import (
+    LatexModelEditorWidget,
+)
 from ankiforge.ui.views.card_models_view.widgets.responsive_action_bar import (
     ResponsiveTopActionBar,
 )
@@ -9,6 +12,7 @@ from ankiforge.ui.views.card_models_view.widgets.tag_pill_button import (
 )
 
 __all__ = [
+    "LatexModelEditorWidget",
     "TagPillButton",
     "SubTabButton",
     "ResponsiveTopActionBar",

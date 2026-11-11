@@ -63,6 +63,7 @@ from ankiforge.ui.shortcuts import (
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.card_models_view.utils import extract_css_classes, sort_note_types
 from ankiforge.ui.views.card_models_view.widgets import (
+    LatexModelEditorWidget,
     ResponsiveTopActionBar,
     SubTabButton,
     TagPillButton,
@@ -539,10 +540,12 @@ class CardModelsView(QWidget):
         self.btn_subtab_css = SubTabButton(tr("Style CSS"), "ph.file-css")
         self.btn_subtab_front = SubTabButton(tr("HTML Recto"), "ph.file-html")
         self.btn_subtab_back = SubTabButton(tr("HTML Verso"), "ph.file-html")
+        self.btn_subtab_latex = SubTabButton(tr("LaTeX"), "ph.function")
 
         subtabs_row.addWidget(self.btn_subtab_css)
         subtabs_row.addWidget(self.btn_subtab_front)
         subtabs_row.addWidget(self.btn_subtab_back)
+        subtabs_row.addWidget(self.btn_subtab_latex)
         subtabs_row.addStretch()
 
         bottom_res_layout.addWidget(subtabs_container)
@@ -566,6 +569,9 @@ class CardModelsView(QWidget):
             mode="html",
         )
         self.editor_stack.addWidget(self.back_html_wrapper)
+
+        self.latex_editor_wrapper = LatexModelEditorWidget()
+        self.editor_stack.addWidget(self.latex_editor_wrapper)
 
         bottom_res_layout.addWidget(self.editor_stack, 1)
         self.editor_vertical_splitter.addWidget(bottom_resizable_container)
@@ -696,6 +702,7 @@ class CardModelsView(QWidget):
         self.btn_subtab_css.clicked.connect(lambda: self._switch_subtab(0))
         self.btn_subtab_front.clicked.connect(lambda: self._switch_subtab(1))
         self.btn_subtab_back.clicked.connect(lambda: self._switch_subtab(2))
+        self.btn_subtab_latex.clicked.connect(lambda: self._switch_subtab(3))
 
         self.btn_preview_refresh.clicked.connect(self._update_preview)
         self.btn_close_preview.clicked.connect(self._hide_preview_panel)
@@ -712,17 +719,20 @@ class CardModelsView(QWidget):
         self._last_active_editor = ed_type
 
     def _switch_subtab(self, index: int) -> None:
-        if index in (0, 1, 2):
+        if index in (0, 1, 2, 3):
             self.editor_stack.setCurrentIndex(index)
             self.btn_subtab_css.set_active(index == 0)
             self.btn_subtab_front.set_active(index == 1)
             self.btn_subtab_back.set_active(index == 2)
+            self.btn_subtab_latex.set_active(index == 3)
             if index == 1:
                 self._last_active_editor = "front"
             elif index == 2:
                 self._last_active_editor = "back"
             elif index == 0:
                 self._last_active_editor = "css"
+            elif index == 3:
+                self._last_active_editor = "latex"
 
     @Slot()
     def _toggle_preview_panel(self) -> None:
@@ -1086,6 +1096,12 @@ class CardModelsView(QWidget):
                 ".card {\n  font-family: arial;\n  font-size: 20px;\n  text-align: center;\n  color: #1e293b;\n  background-color: #ffffff;\n}\n\n.cloze {\n  font-weight: bold;\n  color: #3b82f6;\n}"
             )
             self.css_editor_wrapper.setPlainText(model.css_style or default_css)
+
+            self.latex_editor_wrapper.set_model_values(
+                getattr(model, "latex_pre", "") or "",
+                getattr(model, "latex_post", "") or "",
+                getattr(model, "latex_svg", True),
+            )
 
             self._templates_list = []
             if model.templates:
@@ -1695,6 +1711,12 @@ class CardModelsView(QWidget):
             self._current_model.description = self.description_input.text().strip()
             self._current_model.templates = json.dumps(self._templates_list, ensure_ascii=False)
             self._current_model.css_style = css
+
+            latex_pre, latex_post, latex_svg = self.latex_editor_wrapper.get_model_values()
+            self._current_model.latex_pre = latex_pre
+            self._current_model.latex_post = latex_post
+            self._current_model.latex_svg = latex_svg
+
             self._current_model.save()
 
             self._dirty = False
@@ -1709,6 +1731,8 @@ class CardModelsView(QWidget):
             self.card_preview_widget.refresh_theme(profile)
         if hasattr(self, "snippet_drawer") and hasattr(self.snippet_drawer, "refresh_theme"):
             self.snippet_drawer.refresh_theme(profile)
+        if hasattr(self, "latex_editor_wrapper") and hasattr(self.latex_editor_wrapper, "refresh_theme"):
+            self.latex_editor_wrapper.refresh_theme()
         self._update_tags_toolbar()
         self._switch_subtab(self.editor_stack.currentIndex())
 
