@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QRadioButton,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -36,8 +37,8 @@ class ModelImportDialog(QDialog):
         self.imported_model: NoteTypeModel | None = None
 
         self.setWindowTitle(self.tr("Importer un type de note"))
-        self.setMinimumSize(850, 580)
-        self.resize(920, 620)
+        self.setMinimumSize(980, 680)
+        self.resize(1100, 750)
         self.setModal(True)
         self._setup_ui()
 
@@ -46,6 +47,7 @@ class ModelImportDialog(QDialog):
             QDialog {{
                 background-color: {DesignTokens.BG_MAIN};
                 color: {DesignTokens.TEXT_PRIMARY};
+                font-family: "{DesignTokens.FONT_MAIN}";
             }}
         """)
 
@@ -176,7 +178,13 @@ class ModelImportDialog(QDialog):
         self.name_input.textChanged.connect(self._check_name_collision)
 
         left_layout.addStretch()
-        splitter.addWidget(left_widget)
+
+        scroll_left = QScrollArea()
+        scroll_left.setWidgetResizable(True)
+        scroll_left.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_left.setStyleSheet("background: transparent;")
+        scroll_left.setWidget(left_widget)
+        splitter.addWidget(scroll_left)
 
         # Panneau Droit : Aperçu WebEngine Live
         right_widget = QWidget()
@@ -184,15 +192,13 @@ class ModelImportDialog(QDialog):
         right_layout.setContentsMargins(10, 0, 0, 0)
         right_layout.setSpacing(6)
 
-        lbl_preview_title = QLabel(self.tr("APERÇU DU RENDU EN DIRECT :"))
-        lbl_preview_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
-        right_layout.addWidget(lbl_preview_title)
-
         self.preview_widget = CardPreviewWidget()
         right_layout.addWidget(self.preview_widget, 1)
 
         splitter.addWidget(right_widget)
-        splitter.setSizes([360, 480])
+        splitter.setCollapsible(0, False)
+        splitter.setCollapsible(1, False)
+        splitter.setSizes([380, 720])
         layout.addWidget(splitter, 1)
 
         # ── Barre d'actions inférieure ─────────────────────────────────────────
