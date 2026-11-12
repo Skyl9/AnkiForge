@@ -163,7 +163,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "trigger_pipeline_run": DOMAIN_PIPELINES,
     "provide_pipeline_step_content": DOMAIN_PIPELINES,
     "abort_pipeline_run": DOMAIN_PIPELINES,
-    # 7. Agents MCP & Workspaces (8)
+    # 7. Agents MCP & Workspaces (10)
     "list_mcp_agents": DOMAIN_AGENTS,
     "get_mcp_agent_details": DOMAIN_AGENTS,
     "invoke_mcp_agent": DOMAIN_AGENTS,
@@ -172,6 +172,8 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "check_guide_version": DOMAIN_AGENTS,
     "read_mcp_artifact": DOMAIN_AGENTS,
     "write_mcp_artifact": DOMAIN_AGENTS,
+    "audit_workspace_drift": DOMAIN_AGENTS,
+    "sync_agent_workspace": DOMAIN_AGENTS,
     # 8. Documentation & Aide (4)
     "search_app_documentation": DOMAIN_DOCS,
     "read_app_doc_page": DOMAIN_DOCS,
@@ -337,6 +339,18 @@ TOOL_SAFEGUARDS_MAP: dict[str, list[str]] = {
     ],
     "check_guide_version": [
         "Audit d'intégrité non destructif : compare l'empreinte cryptographique SHA-256 du guide.",
+    ],
+    "audit_workspace_drift": [
+        "Lecture seule : audit du workspace sans aucun effet de bord sur les fichiers ni la base SQLite.",
+        "Déclinaison par liste blanche : seuls les fichiers cibles des gabarits Jinja2 sont comparés (aucun os.walk aveugle).",
+        "Confinement strict : rejet des racines système et des répertoires hors du dossier utilisateur.",
+        "Sanctuarisation : les dossiers utilisateur (``profiles/``, ``_shared_models/``) et les liens symboliques ne sont jamais altérés.",
+    ],
+    "sync_agent_workspace": [
+        "Remédiation 3-Way non destructive : met à jour uniquement les fichiers système en dérive (``OUTDATED``, ``DESYNC``).",
+        "Sanctuarisation absolue : préserve 100% des fichiers utilisateur (``profiles/``, ``_shared_models/``) et les liens symboliques.",
+        "Politique ``keep_local`` : les personnalisations humaines détectées sur les fichiers système sont conservées, jamais écrasées.",
+        "Écriture atomique du manifeste via un fichier ``.tmp`` puis ``replace()``.",
     ],
     "create_deck": [
         "Écriture directe et idempotente : crée le paquet et toute son arborescence hiérarchique Parent::Enfant.",

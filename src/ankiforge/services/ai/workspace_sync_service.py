@@ -15,7 +15,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import subprocess  # nosec: B404
+import threading
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -38,6 +41,28 @@ SYSTEM_ROOTS = ("/", "/System", "/etc", "/usr", "/bin", "/sbin")
 
 # Fichiers maîtres dont l'absence place l'espace de travail à l'état non initialisé.
 CORE_FILES = ("AGENT.md", ".agents/mcp-catalog.md")
+
+# Manifeste de synchronisation interne (empreinte de distribution initiale, 3-way merge).
+SYNC_MANIFEST_NAME = ".agents/.ankiforge-sync.json"
+
+# Contenu canonique du fichier .gitignore déployé à l'initialisation du workspace.
+GITIGNORE_CANONICAL = "\n".join(
+    [
+        "# Fichiers et dossiers ignorés par le workspace agentique AnkiForge",
+        "",
+        ".git/",
+        ".venv/",
+        "__pycache__/",
+        "*.pyc",
+        ".pytest_cache/",
+        ".coverage/",
+        "lcov.info/",
+        ".ankiforge-sync.json",
+        "scratch/",
+        "tools/",
+        "",
+    ]
+)
 
 
 class DriftSeverity(StrEnum):
@@ -207,6 +232,7 @@ class WorkspaceSyncService:
     ) -> None:
         self._mcp_tools_override = mcp_tools
         self._active_profile_override = active_profile
+        self._lock = threading.RLock()
         self._jinja_env = SandboxedEnvironment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=False)
 
     @property
@@ -235,6 +261,155 @@ class WorkspaceSyncService:
             active_profile=self.active_profile,
             mcp_tools=self.mcp_tools,
         )
+
+    def _try_init_git(self, target_dir: Path) -> bool:
+        """Initialise un dépôt Git local de façon tolérante (repli sur `git init`, binaire absent ignoré)."""
+        if (target_dir / ".git").exists():
+            return True
+        try:
+            res = subprocess.run(["git", "init", "-b", "main"], cwd=target_dir, capture_output=True, text=True, check=False)  # nosec: B603, B607
+            if res.returncode != 0:
+                subprocess.run(["git", "init"], cwd=target_dir, capture_output=True, text=True, check=False)  # nosec: B603, B607
+            return True
+        except (FileNotFoundError, OSError):
+            logger.warning("Binaire git introuvable ; initialisation git ignorée.")
+            return False
+
+    def _manifest_path(self, root: Path) -> Path:
+        return root / SYNC_MANIFEST_NAME
+
+    def _write_manifest_atomic(self, root: Path, manifest_data: dict[str, Any]) -> None:
+        """Écrit le manifeste de façon atomique via un fichier .tmp puis replace()."""
+        manifest_path = self._manifest_path(root)
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_file = manifest_path.with_suffix(".tmp")
+        tmp_file.write_text(json.dumps(manifest_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_file.replace(manifest_path)
+
+    def _template_for_target(self, target_rel: str) -> str | None:
+        """Retourne le gabarit Jinja2 associé à une cible déployée (mapping inverse)."""
+        for template_rel, target in _TEMPLATE_TARGETS.items():
+            if target == target_rel:
+                return template_rel
+        return None
+
+    def initialize_workspace(
+        self,
+        workspace_path: str | Path,
+        profile_name: str | None = None,
+        force: bool = False,
+    ) -> WorkspaceDriftReport:
+        """Initialise un workspace agentique : dépôt Git, .gitignore, gabarits et manifeste de synchronisation.
+
+        Refuse d'écrire sur un dossier non vide ne possédant aucune signature AnkiForge
+        sauf si ``force=True``.
+        """
+        root = validate_workspace_path(workspace_path)
+        root_str = str(root)
+
+        with self._lock:
+            if root.is_dir() and any(root.iterdir()):
+                has_signature = any((root / core).is_file() for core in CORE_FILES)
+                if not has_signature and not force:
+                    return WorkspaceDriftReport(
+                        workspace_path=root_str,
+                        is_initialized=False,
+                        overall_status=DriftSeverity.CRITICAL,
+                        items=[
+                            DriftItem(
+                                relative_path="",
+                                category=DriftCategory.STRUCTURE,
+                                severity=DriftSeverity.CRITICAL,
+                                message="Dossier non vide sans signature AnkiForge ; utilisez force=True pour initialiser.",
+                            )
+                        ],
+                        active_profile_name=self.active_profile,
+                        detected_profile_name=None,
+                        drift_count=1,
+                    )
+
+            root.mkdir(parents=True, exist_ok=True)
+
+            # Dépôt Git local (tolérant : repli sur `git init`, binaire absent ignoré).
+            self._try_init_git(root)
+
+            # Déploiement des gabarits Jinja2 (dont .gitignore et fichiers maîtres).
+            for template_rel, target_rel in _TEMPLATE_TARGETS.items():
+                target_path = root / target_rel
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                rendered = self._render(template_rel)
+                target_path.write_text(rendered, encoding="utf-8")
+
+            # Manifeste de synchronisation (empreinte de distribution initiale), écrit atomiquement.
+            manifest_data = {
+                "workspace_path": root_str,
+                "profile": profile_name or self.active_profile,
+                "initialized_at": datetime.now(UTC).isoformat(),
+                "files": {target: compute_file_hash(root / target) for target in _TEMPLATE_TARGETS.values()},
+            }
+            self._write_manifest_atomic(root, manifest_data)
+
+        return self.audit_workspace(root)
+
+    def sync_workspace(
+        self,
+        workspace_path: str | Path,
+        align_active_profile: bool = True,
+        resolve_customized: str = "keep_local",
+    ) -> WorkspaceDriftReport:
+        """Resynchronise les fichiers système en dérive selon la politique 3-Way non destructive.
+
+        Met à jour exclusivement les fichiers système en dérive (``OUTDATED``, ``DESYNC``).
+        Préserve 100% des fichiers utilisateur (``profiles/``, ``_shared_models/``) et les
+        liens symboliques. Le manifeste est réécrit de façon atomique.
+        """
+        root = validate_workspace_path(workspace_path)
+        root_str = str(root)
+
+        with self._lock:
+            report = self.audit_workspace(root)
+
+            # Mise à jour uniquement des fichiers système en dérive, jamais des fichiers utilisateur.
+            for item in report.items:
+                if item.severity in (DriftSeverity.OUTDATED, DriftSeverity.DESYNC) and not item.is_user_protected:
+                    template_rel = self._template_for_target(item.relative_path)
+                    if template_rel is None:
+                        continue
+                    target_path = root / item.relative_path
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    rendered = self._render(template_rel)
+                    target_path.write_text(rendered, encoding="utf-8")
+
+            # Alignement du profil actif déclaré dans active-profile.md.
+            if align_active_profile:
+                active_profile_path = root / ".agents/active-profile.md"
+                if active_profile_path.exists():
+                    try:
+                        lines = active_profile_path.read_text(encoding="utf-8").splitlines()
+                        out_lines: list[str] = []
+                        updated = False
+                        for line in lines:
+                            if line.strip().lower().startswith("profil actif"):
+                                out_lines.append(f"Profil actif : {self.active_profile}")
+                                updated = True
+                            else:
+                                out_lines.append(line)
+                        if not updated:
+                            out_lines.append(f"Profil actif : {self.active_profile}")
+                        active_profile_path.write_text("\n".join(out_lines), encoding="utf-8")
+                    except OSError:
+                        logger.debug("Impossible d'aligner le profil actif du workspace")
+
+            # Réécriture atomique du manifeste après synchronisation.
+            manifest_data = {
+                "workspace_path": root_str,
+                "profile": self.active_profile,
+                "synced_at": datetime.now(UTC).isoformat(),
+                "files": {target: compute_file_hash(root / target) for target in _TEMPLATE_TARGETS.values()},
+            }
+            self._write_manifest_atomic(root, manifest_data)
+
+        return self.audit_workspace(root)
 
     def audit_workspace(self, workspace_path: str | Path) -> WorkspaceDriftReport:
         """Audite le workspace et retourne un :class:`WorkspaceDriftReport`.

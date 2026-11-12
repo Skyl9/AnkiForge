@@ -2165,6 +2165,39 @@ def check_guide_version(
     return json.dumps(payload, ensure_ascii=False)
 
 
+_DEFAULT_WORKSPACE_PATH = str(Path.home() / "ankiforge_agentique")
+
+
+@mcp.tool()
+def audit_workspace_drift(workspace_path: str = "") -> str:
+    """Audite le dérive d'un workspace agentique et retourne le rapport JSON complet.
+
+    Permet à un agent externe (Antigravity, Claude Code) de s'auto-auditer au démarrage.
+    L'audit est en lecture seule : aucun fichier n'est altéré.
+    """
+    from ankiforge.services.ai.workspace_sync_service import WorkspaceSyncService
+
+    path = workspace_path.strip() if workspace_path else _DEFAULT_WORKSPACE_PATH
+    service = WorkspaceSyncService()
+    report = service.audit_workspace(path)
+    return report.to_json()
+
+
+@mcp.tool()
+def sync_agent_workspace(workspace_path: str = "", align_active_profile: bool = True) -> str:
+    """Resynchronise un workspace agentique selon la politique 3-Way non destructive.
+
+    Met à jour exclusivement les fichiers système en dérive (OUTDATED, DESYNC) et
+    préserve 100% des fichiers utilisateur (profils, modèles partagés, symlinks).
+    """
+    from ankiforge.services.ai.workspace_sync_service import WorkspaceSyncService
+
+    path = workspace_path.strip() if workspace_path else _DEFAULT_WORKSPACE_PATH
+    service = WorkspaceSyncService()
+    report = service.sync_workspace(path, align_active_profile=align_active_profile)
+    return report.to_json()
+
+
 @mcp.tool()
 def generate_card_audio(
     note_id: int,
