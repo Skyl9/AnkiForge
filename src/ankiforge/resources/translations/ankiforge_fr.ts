@@ -32,10 +32,10 @@ L&apos;accès simultané au même profil est formellement bloqué pour éviter t
     </message>
     <message>
         <location line="+1"/>
-        <location filename="../../ui/main_window.py" line="+77"/>
+        <location filename="../../ui/main_window.py" line="+83"/>
         <location filename="../../ui/widget_gallery/families/layouts.py" line="+30"/>
         <source>Général</source>
-        <extracomment>view_id -&gt; (catégorie, icône, titre, WidgetClass) La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés ne peuvent être résolus qu&apos;une fois le traducteur installé, donc au premier usage. Une constante de classe figerait le français à l&apos;import du module — c&apos;est-à-dire avant `install_translator()` — et la navigation resterait française dans une interface anglaise. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne casse rien, les vues d&apos;un même groupe partagent toujours la même clef.</extracomment>
+        <extracomment>view_id -&gt; (catégorie, icône, titre, fabrique_ou_classe) La table est produite par `view_registry()` plutôt que déclarée en dur : les libellés ne peuvent être résolus qu&apos;une fois le traducteur installé, donc au premier usage. Une constante de classe figerait le français à l&apos;import du module — c&apos;est-à-dire avant `install_translator()` — et la navigation resterait française dans une interface anglaise. Le 4e élément est soit une classe Qt directe, soit une fabrique paresseuse (`Callable[[], type[QWidget]]`) qui n&apos;importe le module de vue qu&apos;à la première navigation, allégeant le chemin critique de démarrage. La catégorie sert de clef de regroupement dans le layout IDE : la traduire ne casse rien, les vues d&apos;un même groupe partagent toujours la même clef.</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -643,7 +643,7 @@ Voulez-vous vraiment continuer ?</source>
         <location line="+50"/>
         <location line="+5"/>
         <location filename="../../ui/views/agents_view/widgets/persona_item.py" line="+49"/>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+700"/>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py" line="+714"/>
         <location filename="../../ui/views/edition_view/view.py" line="-625"/>
         <location line="+211"/>
         <location line="+8"/>
@@ -1666,9 +1666,9 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/layouts/dashboard_layout.py" line="+34"/>
-        <location filename="../../ui/layouts/glass_layout.py" line="+34"/>
-        <location filename="../../ui/layouts/macos_layout.py" line="+34"/>
+        <location filename="../../ui/layouts/dashboard_layout.py" line="+36"/>
+        <location filename="../../ui/layouts/glass_layout.py" line="+36"/>
+        <location filename="../../ui/layouts/macos_layout.py" line="+36"/>
         <source> %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1708,95 +1708,95 @@ Voulez-vous mettre à jour les documents existants (contenu rafraîchi) ?</sourc
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="-37"/>
+        <location filename="../../ui/main_window.py" line="-43"/>
         <source>[%1] View Content Placeholder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+45"/>
         <location filename="../../ui/widget_gallery/families/layouts.py" line="+0"/>
         <source>Tableau de bord</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <location line="+1"/>
-        <location line="+1"/>
-        <location line="+1"/>
-        <location line="+1"/>
+        <location line="+4"/>
+        <location line="+6"/>
+        <location line="+6"/>
+        <location line="+6"/>
+        <location line="+6"/>
         <location filename="../../ui/widget_gallery/families/layouts.py" line="+1"/>
         <source>Forge &amp; Outils</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-4"/>
+        <location line="-22"/>
         <source>Studio de Création</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <location filename="../../ui/widget_gallery/families/layouts.py" line="+0"/>
         <source>Édition &amp; Navigateur</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Analyse &amp; Audit IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Serveur MCP &amp; Agents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Batch Factory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <location line="+1"/>
+        <location line="+4"/>
+        <location line="+6"/>
         <location filename="../../ui/views/dashboard_view.py" line="+732"/>
         <location filename="../../ui/widget_gallery/families/layouts.py" line="+1"/>
         <source>Bibliothèque</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-1"/>
+        <location line="-4"/>
         <location filename="../../ui/widget_gallery/families/layouts.py" line="+0"/>
         <source>My Documents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Types de note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <location line="+1"/>
-        <location line="+1"/>
+        <location line="+4"/>
+        <location line="+6"/>
+        <location line="+6"/>
         <source>Laboratoire IA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-2"/>
+        <location line="-10"/>
         <source>Éditeur d&apos;Agents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Pipelines</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Tests A/B</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+27"/>
         <source>AnkiForge%1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1838,7 +1838,7 @@ Souhaitez-vous reprendre l&apos;exécution de ce pipeline ?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+345"/>
+        <location line="+352"/>
         <source>Vous avez du travail non enregistré dans :
 %1
 
@@ -4885,38 +4885,33 @@ Cette action est irréversible.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_workspace_guide_widget.py" line="+363"/>
-        <source>Erreur lors de la génération de l&apos;aperçu : %1</source>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_workspace_guide_widget.py" line="+392"/>
+        <source>Audit terminé : %1 écart(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+48"/>
-        <source>Guide &apos;%1&apos; généré avec succès dans : %2</source>
+        <location line="+7"/>
+        <source>Resynchronisation terminée : %1 écart(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
-        <source>Échec de l&apos;amorçage : %1</source>
+        <location line="+7"/>
+        <source>Workspace amorcé : %1 écart(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+21"/>
-        <source>Fichier non trouvé : %1</source>
+        <location line="+13"/>
+        <source>%1 écart(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
-        <source>Guide désynchronisé (%1)</source>
+        <location line="+67"/>
+        <source>%1 ≠ %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
-        <source>Intégrité SHA-256 validée (%1)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+60"/>
-        <source>%1 outils autorisés</source>
+        <location line="+20"/>
+        <source>%1 élément(s) protégé(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -18679,48 +18674,32 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MCPWorkspaceGuideWidget</name>
     <message>
-        <location filename="../../ui/views/consultant_view/widgets/mcp_workspace_guide_widget.py" line="-395"/>
-        <source>Amorçage de Workspace Agent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+7"/>
-        <source>Générez les adaptateurs d&apos;instructions personnalisés et vérifiez l&apos;intégrité de vos guides.</source>
+        <location filename="../../ui/views/consultant_view/widgets/mcp_workspace_guide_widget.py" line="-363"/>
+        <source>Espace de travail agentique</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+8"/>
-        <source>Type d&apos;agent &amp; format cible :</source>
+        <source>État global :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
-        <source>Claude Code / Desktop (CLAUDE.md)</source>
+        <location line="+4"/>
+        <location line="+268"/>
+        <location line="+17"/>
+        <source>Non Initialisé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Google Gemini (GEMINI.md)</source>
+        <location line="-281"/>
+        <location line="+265"/>
+        <location line="+85"/>
+        <source>—</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Cursor / Windsurf (.cursorrules)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Antigravity CLI (GEMINI.md)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Universel / Générique (ANKIFORGE_GUIDE.md)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Répertoire de travail cible :</source>
+        <location line="-344"/>
+        <source>Répertoire de travail :</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -18729,143 +18708,211 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+7"/>
         <source>Parcourir...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+10"/>
-        <source>Inclure le catalogue exhaustif des 58 outils</source>
+        <location line="+8"/>
+        <source>Matrice de conformité</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+7"/>
+        <source>Composant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Statut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Détail</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Vérifier le drift</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Resynchroniser</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
         <source>Amorcer le workspace</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>Vérifier la version</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+14"/>
-        <source>État du guide sur disque :</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+4"/>
-        <source>Non vérifié</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+25"/>
-        <source>Personas MCP &amp; Agents Dédiés</source>
+        <location line="+28"/>
+        <source>Inspecteur contextuel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+6"/>
-        <source>Actualiser</source>
+        <location line="+275"/>
+        <location line="+26"/>
+        <source>Sélectionnez un composant dans la matrice.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+23"/>
-        <source>Sélectionnez un agent pour inspecter sa consigne.</source>
+        <location line="-293"/>
+        <source>Explication</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+7"/>
-        <source>Prompt système (Consigne IA) :</source>
+        <location line="+6"/>
+        <source>Diff</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+35"/>
-        <source>Guide Méthodologique</source>
+        <location line="+6"/>
+        <source>Aperçu Markdown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+11"/>
-        <source>Copier</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Copier le Markdown compilé</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>Rafraîchir</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Rafraîchir la compilation du guide</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+57"/>
+        <location line="+82"/>
         <source>Sélectionner le répertoire cible du workspace</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+16"/>
-        <source>Veuillez sélectionner un répertoire cible pour amorcer le workspace.</source>
+        <location line="+10"/>
+        <source>Renseignez un répertoire de workspace.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+31"/>
-        <source>Non défini</source>
+        <location line="+50"/>
+        <source>Aucun écart</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Renseignez un dossier cible.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+11"/>
-        <source>Absent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Obsolète</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>À jour</source>
+        <location line="+17"/>
+        <source>Synchronisé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+4"/>
+        <source>Dérive Détectée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
         <source>Erreur</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>Guide méthodologique copié dans le presse-papiers.</source>
+        <location line="+31"/>
+        <source>Non initialisé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
-        <source>(Aucune persona configurée)</source>
+        <location line="+0"/>
+        <source>Workspace non initialisé</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+3"/>
-        <source>Aucune persona IA configurée dans la collection.</source>
+        <source>Conforme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+26"/>
-        <source>(Aucune description)</source>
+        <location line="+0"/>
+        <source>Fichiers maîtres présents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>Accès universel à tous les outils</source>
+        <location line="+6"/>
+        <source>Non détecté</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>active-profile.md absent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Aligné</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Dérive</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+4"/>
+        <source>Absent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-4"/>
+        <source>.agents/mcp-catalog.md manquant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Conventions manquantes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Aucune</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Aucune compétence référencée</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Sanctuarisé</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Aucun</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Aucun dossier utilisateur détecté</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Aucun détail disponible.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Racine du workspace</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>%1 — %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Fichier absent sur disque.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Aucun fichier associé à ce composant.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Identique.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -18905,7 +18952,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="-881"/>
+        <location filename="../../ui/main_window.py" line="-888"/>
         <source>Nouveau jeton d&apos;authentification MCP généré.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18915,7 +18962,7 @@ Tous les clients MCP externes connectés (Claude Desktop, etc.) devront être mi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+511"/>
+        <location line="+518"/>
         <source>Modifications non sauvegardées</source>
         <translation type="unfinished"></translation>
     </message>
