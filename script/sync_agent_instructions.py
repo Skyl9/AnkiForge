@@ -78,10 +78,10 @@ def extract_canonical_blocks(instructions_dir: Path) -> dict[str, str]:
 def generate_initial_adapter_template(adapter_path: str, expected_blocks: list[str]) -> str:
     """Génère le gabarit initial pour un adaptateur absent sur disque."""
     title_by_file: dict[str, str] = {
-        "CLAUDE.md": "# Instructions Anthropic Claude Code — AnkiForge\n\nCe document fournit les règles d'ingénierie et le contexte de référence pour l'agent CLI Anthropic Claude Code.\n",
-        "AGENTS.md": "# AGENTS.md — Référence Multi-Agents AnkiForge\n\nGuide opérationnel et aide-mémoire canonique pour les agents de développement.\n",
-        "GEMINI.md": "# 🤖 Instructions Agentiques (System Prompt) - AnkiForge Orchestrator\n\nSystem Prompt orchestrateur et référentiel pour les modèles Google Antigravity / Gemini.\n",
-        ".github/copilot-instructions.md": "# AnkiForge Copilot Instructions\n\nInstructions d'assistance et de complétion de code pour GitHub Copilot dans AnkiForge.\n",
+        "CLAUDE.md": "# Instructions Anthropic Claude Code — AnkiDraft\n\nCe document fournit les règles d'ingénierie et le contexte de référence pour l'agent CLI Anthropic Claude Code.\n",
+        "AGENTS.md": "# AGENTS.md — Référence Multi-Agents AnkiDraft\n\nGuide opérationnel et aide-mémoire canonique pour les agents de développement.\n",
+        "GEMINI.md": "# 🤖 Instructions Agentiques (System Prompt) - AnkiDraft Orchestrator\n\nSystem Prompt orchestrateur et référentiel pour les modèles Google Antigravity / Gemini.\n",
+        ".github/copilot-instructions.md": "# AnkiDraft Copilot Instructions\n\nInstructions d'assistance et de complétion de code pour GitHub Copilot dans AnkiDraft.\n",
     }
     header = title_by_file.get(adapter_path, f"# Instructions pour {adapter_path}\n\n")
     blocks_stubs = "\n\n".join(f"<!-- CANONICAL:START:{b} -->\n<!-- CANONICAL:END:{b} -->" for b in expected_blocks)

@@ -1,10 +1,10 @@
-# AnkiForge Copilot Instructions
+# AnkiDraft Copilot Instructions
 
 ## Project shape
 
-AnkiForge is a Python 3.12+ desktop application for forging and auditing Anki
+AnkiDraft is a Python 3.12+ desktop application for forging and auditing Anki
 cards. It is a local-first PySide6/Qt application: daily SRS reviews remain in
-the official Anki application, while AnkiForge handles document ingestion,
+the official Anki application, while AnkiDraft handles document ingestion,
 generation, auditing, editing, and `.apkg`/`.colpkg` import with `.apkg` export.
 
 The main runtime path is:
@@ -34,7 +34,7 @@ The code is organized around these layers:
 The AI workflow system has two complementary paths. `PipelineOrchestrator`
 executes persisted pipeline steps using a shared `PipelineRunState`; supported
 step types are `LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`,
-`HUMAN_VALIDATION`, and `PYTHON_TOOL`, with conditional success/failure
+`HUMAN_VALIDATION`, `PYTHON_TOOL`, and `AUDIO_TTS`, with conditional success/failure
 branches. `ConsultantEngine` provides the conversational ReAct path and calls
 the in-process MCP registry for safe collection queries, audits, searches, and
 proposals requiring human approval.
@@ -99,7 +99,7 @@ uv run python script/crap.py --top 15        # top 15 des fonctions les plus à 
 
 ### Gouvernance des Compétences Agentiques & Métadonnées
 ```bash
-uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py # audit statique des 50 skills
+uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py # audit statique des 54 skills
 ```
 
 ### Documentation Zensical
@@ -134,7 +134,7 @@ Toutes les synthèses, explications, interactions, documentations et proposition
 
 ### 3. Logging Asynchrone & Interdiction Absolue de `print()`
 - **Zéro `print()`** : application stricte de la règle Ruff `T20`. Utiliser systématiquement `logger = logging.getLogger(__name__)` avec le niveau sémantique approprié (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).
-- **Haute performance non bloquante** : tous les logs transitent par le pipeline asynchrone `QueueHandler` / `QueueListener` défini dans `ankiforge.utils.logger`.
+- **Haute performance non bloquante** : tous les logs transitent par le pipeline asynchrone `QueueHandler` / `QueueListener` défini dans `ankidraft.utils.logger`.
 - **Sanitisation des secrets** : le filtre `SecretRedactionFilter` masque automatiquement les clés d'API (`sk-*`, `AIza*`), en-têtes `Bearer` et jetons avant toute écriture sur disque.
 
 ### 4. Tests Headless Qt & Isolation
@@ -182,7 +182,7 @@ L'agent ne doit **JAMAIS** exécuter de `git commit` ou `git push` de manière a
 
 ## Points Clés d'Architecture Technique
 
-- **Multi-profils & Isolation stricte** : Chaque profil utilisateur possède sa propre base SQLite (`~/.ankiforge/profiles/<nom>/ankiforge.db`) et son dossier de médias dédié. Le verrou de profil (`ProfileManager`) garantit l'exclusivité d'accès mono-instance par profil tout en autorisant le multi-processus sur des profils disjoints.
+- **Multi-profils & Isolation stricte** : Chaque profil utilisateur possède sa propre base SQLite (`~/.ankidraft/profiles/<nom>/ankidraft.db`) et son dossier de médias dédié. Le verrou de profil (`ProfileManager`) garantit l'exclusivité d'accès mono-instance par profil tout en autorisant le multi-processus sur des profils disjoints.
 - **Dispositions d'interface (4 Layouts) & Miniatures** : 4 architectures interchangeables à chaud (`ide`, `macos`, `dashboard`, `glassmorphism`) sélectionnables via une grille 2x2 de miniatures d'aperçu haute résolution (`LayoutGridSelector` / `LayoutThumbnailCard`).
 - **Délimitation & Modes de portée exclusifs** : `ScopeModeExclusivityMixin` (`src/ankidraft/ui/dialogs/scope_mode_exclusivity.py`) constitue la couture unique gouvernant les modes de sélection documentaire (`sections`, `pages`, `chapitres`). `activate_scope_mode()` et `restore_scope_mode()` préservent fidèlement les sélections et délimitations utilisateur.
 - **Composition de lots (Batch Slice Composer)** : Dialogue modal unique `BatchSliceComposerDialog` permettant le découpage documentaire en mode Direct (`DocumentScopeWidget`, 1 partie cochée = 1 tâche) ou Auto (`AutoSliceWidget` avec règles de découpage paramétrables).

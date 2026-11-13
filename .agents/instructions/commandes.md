@@ -49,7 +49,7 @@ uv run python script/crap.py --top 15        # top 15 des fonctions les plus à 
 
 ### Gouvernance des Compétences Agentiques & Métadonnées
 ```bash
-uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py # audit statique des 50 skills
+uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py # audit statique des 54 skills
 ```
 
 ### Documentation Zensical

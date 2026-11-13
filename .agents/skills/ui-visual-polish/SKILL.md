@@ -45,7 +45,7 @@ plus petit changement fiable, sans transformer une demande de polish en refonte.
 3. Exécuter le test UI ciblé avec l'environnement headless du projet :
    `uv run pytest tests/ui/test_<vue>.py`.
 4. Si le changement touche uniquement le style, lancer au minimum :
-   `uv run ruff check src/ankiforge/ui tests/ui`.
+   `uv run ruff check src/ankidraft/ui tests/ui`.
 5. Comparer avant/après en termes de défaut supprimé, sans valider une capture
    uniquement parce qu'elle paraît plus décorative.
 

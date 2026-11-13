@@ -23,7 +23,7 @@ AnkiForge fonctionne rigoureusement en **mono-contexte** :
 │   └── adr/                       ← Registre des décisions d'architecture structurantes
 │       ├── 0001-...md
 │       └── 0038-...md
-└── src/ankiforge/
+└── src/ankidraft/
 ```
 
 - `CONTEXT.md` est un **glossaire pur** et rien d'autre. Il ne contient aucun détail d'implémentation, aucun code, aucune table SQL.

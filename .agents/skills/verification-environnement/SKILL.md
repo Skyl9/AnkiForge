@@ -125,7 +125,7 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
 
 29. **Validation par profils réels et benchmarks étalons (Recette sans mock)** :
     - *Pourquoi* : Les tests unitaires sous SQLite in-memory (`:memory:`) certifient la logique pure mais ne testent pas les interactions de fichiers physiques (verrouillage `.profile.lock`, répertoires `reports/`, persistance multi-profils et encodage UTF-8 sous le système de fichiers réel).
-    - *Garantie automatique* : Après les tests unitaires et la porte `verify.py`, valider les fonctionnalités complexes sur un profil étalon de développement isolé (ex. `NouvelEnvironnement` sous `~/.ankiforge-dev/profiles/NouvelEnvironnement/`) via un sous-agent QA dédié avant clôture.
+    - *Garantie automatique* : Après les tests unitaires et la porte `verify.py`, valider les fonctionnalités complexes sur un profil étalon de développement isolé (ex. `NouvelEnvironnement` sous `~/.ankidraft-dev/profiles/NouvelEnvironnement/`) via un sous-agent QA dédié avant clôture.
 
 ## 3. Commande Canonique Unique de Vérification
 

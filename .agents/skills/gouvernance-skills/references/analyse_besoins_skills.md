@@ -16,17 +16,17 @@ Avant de proposer quoi que ce soit, dépasser l'audit statique du script :
    - chaque commande `uv run ...` doit exister dans `pyproject.toml` ;
    - chaque path fichier/dossier référencé doit exister ;
    - chaque inventaire cité (`DESIGN.md` §1.1, `03_modele_donnees_synchro.md`, `07_inventaire_composants_ui.md`)
-     doit contenir les classes/modèles réels (`rg -n "^class" src/ankiforge/`);
+     doit contenir les classes/modèles réels (`rg -n "^class" src/ankidraft/`);
    - les seuils (compteur de tests `AGENTS.md`) doivent matcher `uv run pytest --collect-only -q`.
 3. **Cartographier les zones blanches** : pour chaque skill, noter les sujets adjacents évoqués
    dans la doc (`docs/Dossier_architecture/`, `PRODUCT.md`) mais **hors périmètre** du skill.
 
 Commandes de croisement utiles :
 ```bash
-uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py --json
+uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py --json
 grep -A5 '\[project.scripts\]' pyproject.toml
 rg -n "^class (?!.*Test)" src/ankidraft/ --glob "*.py"
-rg -ln "~/.ankiforge|profiles|apkg|colpkg|pdf|pptx|docx|youtube|ocr" src/ tests/ docs/ | sort
+rg -ln "~/.ankidraft|profiles|apkg|colpkg|pdf|pptx|docx|youtube|ocr" src/ tests/ docs/ | sort
 ```
 
 ---

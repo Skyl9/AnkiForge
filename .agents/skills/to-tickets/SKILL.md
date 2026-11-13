@@ -60,7 +60,7 @@ Une fois validé, publier chaque ticket **directement** dans le vault Obsidian s
    **Priorité :** 🔴 P0 / 🟡 P1 / 🟢 P2 / ⚪ P3
    **Piliers & Modules :** <Module> / <Sous-module>
    **Lien Tableau :** [[Avancement du projet]]
-   **Fichiers Cibles :** `src/ankiforge/...`
+   **Fichiers Cibles :** `src/ankidraft/...`
 
    ---
 

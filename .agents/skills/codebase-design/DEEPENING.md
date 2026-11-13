@@ -14,7 +14,7 @@ Lors de l'évaluation d'un candidat à l'approfondissement, classifier ses dépe
 
 ### 2. Localement substituable (Persistance Peewee)
 - **Nature** : Dépendances disposant d'un équivalent local transparent en test.
-- **Exemple AnkiForge** : SQLite sur disque (`~/.ankiforge/profiles/<profile>/ankiforge.db`) en production ➔ SQLite en mémoire partagée (`file:memdb_test_<worker>?mode=memory&cache=shared` via la fixture `mock_db`) en test.
+- **Exemple AnkiDraft** : SQLite sur disque (`~/.ankidraft/profiles/<profile>/ankidraft.db`) en production ➔ SQLite en mémoire partagée (`file:memdb_test_<worker>?mode=memory&cache=shared` via la fixture `mock_db`) en test.
 - **Stratégie** : La couture est interne au framework BDD. Le module approfondi s'exécute contre la base mémoire sans introduire de port artificiel dans son interface publique.
 
 ### 3. Outillage Multimédia & Outils Lourds

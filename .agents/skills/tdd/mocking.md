@@ -21,7 +21,7 @@ def test_extraction_pipeline_with_mocked_llm():
     mock_provider = MagicMock()
     mock_provider.generate_text.return_value = '{"cards": [{"front": "Q", "back": "A"}]}'
 
-    with patch("ankiforge.services.ai.flexible_service.create_provider", return_value=mock_provider):
+    with patch("ankidraft.services.ai.flexible_service.create_provider", return_value=mock_provider):
         result = run_extraction_step(text="Source document")
         assert len(result.cards) == 1
         assert result.cards[0].front == "Q"

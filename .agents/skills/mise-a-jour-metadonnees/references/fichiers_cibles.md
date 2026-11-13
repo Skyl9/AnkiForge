@@ -42,7 +42,7 @@ grep -cE "^\d+\. \*\*" GEMINI.md
 - `## Key Files / Entry Points` — fichiers clés `src/ankidraft/`
 - `## CI/CD Pipeline` — jobs GitHub Actions
 - `## Environment Variables` — `.env`, flags CLI
-- `## Agent Skills Catalog (.agents/skills/)` — catalogue des 15 compétences spécialisées
+- `## Catalogue des Compétences Agentiques (.agents/skills/)` — catalogue des 54 compétences spécialisées
 - `## Documentation References` — liens vers GEMINI.md, AGENTS.md, copilot-instructions, skills, DESIGN.md, docs/
 
 **Détection de désync :**
@@ -62,7 +62,7 @@ find src/ankidraft -name "*.py" -newer AGENTS.md -not -path "*/__pycache__/*" | 
 ```
 
 **Sections à mettre à jour :**
-- Compteur tests : `all 146+ tests` → mettre à jour le chiffre
+- Compteur tests : `tests-4200+` → mettre à jour le chiffre
 - Nouveau fichier clé : ajouter dans `## Key Files / Entry Points`
 - Nouvelle commande : ajouter dans `## Key Commands`
 
@@ -175,7 +175,7 @@ grep -rInE "^class \w+Model\(BaseModel\)" src/ankidraft/database/ --include="*.p
 **Détection de désync :**
 ```bash
 # Vérification globale automatisée de l'ensemble du parc de skills et des fichiers de référence
-uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py
+uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py
 ```
 
 **Scoring de maturité & rédaction :** `grille_evaluation.md` (5 axes /20, rangs A-D) et

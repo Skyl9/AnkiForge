@@ -31,7 +31,7 @@ En tant qu'**Expert RAG & Couverture Documentaire**, tu régis la chaîne de seg
 
 ## 3. Indexation Vectorielle & Recherche RAG
 
-- **VectorManager** : gère les embeddings locaux et l'index FAISS/ChromaDB sous `~/.ankiforge/profiles/<profile>/vector_store/`.
+- **VectorManager** : gère les embeddings locaux et l'index FAISS/ChromaDB sous `~/.ankidraft/profiles/<profile>/vector_store/`.
 - **Filtrage à deux niveaux** :
   - À l'indexation : exclure les sections écartées.
   - À la requête : `_drop_excluded_results()` élimine dynamiquement tout résultat issu d'une région neutralisée ou écartée depuis la dernière indexation.

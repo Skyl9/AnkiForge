@@ -59,7 +59,7 @@ Toute création ou modification de ticket actif respecte cette structure et se s
 **Priorité :** 🔴 P0 / 🟡 P1 / 🟢 P2 / ⚪ P3
 **Piliers & Modules :** <Module Principal> / <Sous-module>
 **Lien Tableau :** [[Avancement du projet]]
-**Fichiers Cibles :** `src/ankiforge/...`
+**Fichiers Cibles :** `src/ankidraft/...`
 
 ---
 

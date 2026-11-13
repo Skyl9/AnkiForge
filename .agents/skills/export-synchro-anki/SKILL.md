@@ -24,7 +24,7 @@ perte de données, en respectant l'isolation par profil et l'atomicité des comm
 
 - **Périmètre** : `services/cards/` (`import_manager`, `export_manager`, `media_manager`,
   `duplicate_manager`, `card_model_io`, `album_service`, `store_manager`) + isolation profils
-  (`~/.ankiforge/profiles/<name>/`, médias inclus).
+  (`~/.ankidraft/profiles/<name>/`, médias inclus).
 - **Principes** : import **transactionnel et réversible** (`db.atomic()`), **IDs stables** pour éviter
   les doublons lors de ré-imports, jamais de paquet corrompu, aucune modification d'une base réelle
   sans demande explicite.

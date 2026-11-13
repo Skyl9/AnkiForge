@@ -62,7 +62,7 @@ Toujours spécifier l'identifiant de langage (`python`, `bash`, `yaml`, `json`, 
 
 ```markdown
 \`\`\`python title="Exemple d'appel d'outil MCP" linenums="1"
-from ankiforge.services.ai.mcp_server import get_deck_stats
+from ankidraft.services.ai.mcp_server import get_deck_stats
 
 stats = get_deck_stats("Médecine::Pharmacologie")
 print(f"Cartes totales : {stats.total_cards}")  # (1)

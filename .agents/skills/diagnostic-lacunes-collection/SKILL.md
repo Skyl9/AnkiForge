@@ -103,7 +103,7 @@ rapport_json = mcp.call_tool(
 
 ## 📊 4. Consultation des Rapports Persistants sur Disque
 
-Le service génère systématiquement deux fichiers atomiques sous `~/.ankiforge/profiles/<nom>/reports/` (ou `~/.ankiforge-dev/profiles/<nom>/reports/`) :
+Le service génère systématiquement deux fichiers atomiques sous `~/.ankidraft/profiles/<nom>/reports/` (ou `~/.ankidraft-dev/profiles/<nom>/reports/`) :
 - `domain_gaps_<slug>_latest.json` : arborescence complète pour traitement automatisé avec l'objet `telemetry`.
 - `domain_gaps_<slug>_latest.md` : synthèse visuelle exécutif pour l'humain intégrant :
   - Le badge d'état (`🟢 MATURE`, `🟡 EN COURS`, `🔴 VIERGE`).

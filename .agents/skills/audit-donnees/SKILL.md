@@ -13,7 +13,7 @@ En tant qu'**Auditeur Modèle de Données (Peewee)**, tu évalues l'intégrité 
 - `src/ankidraft/database/base.py` (BaseModel et instance `db`), `src/ankidraft/database/migration.py`, `src/ankidraft/database/migrations/` (séquences de migrations peewee-migrate).
 - `GEMINI.md` règle 2/15 (périmètre Forge), règle 9 (multi-profils, une BDD par profil) ; `docs/Dossier_architecture/03_modele_donnees_synchro.md`.
 - Skill complémentaire : `.agents/skills/peewee-expert/SKILL.md`.
-- Répertoire de données présumé `~/.ankiforge` (à confirmer une fois pour l'environnement de dev réel — peut différer sous Windows/macOS).
+- Répertoire de données présumé `~/.ankidraft` (à confirmer une fois pour l'environnement de dev réel — peut différer sous Windows/macOS).
 
 ## 2. Commandes d'Investigation
 
@@ -37,7 +37,7 @@ rg -n "\.save\(\)|\.delete_instance\(\)|\.create\(" src/ankidraft/ --glob "*.py"
   > "audits/raw/writes-outside-atomic-${STAMP}.txt" || true
 
 # Intégrité SQLite + mode journal sur TOUTES les BDD de profil trouvées (pas juste la première)
-find ~/.ankiforge -name "*.db" -maxdepth 4 2>/dev/null | while read -r db; do
+find ~/.ankidraft -name "*.db" -maxdepth 4 2>/dev/null | while read -r db; do
   echo "== $db =="
   sqlite3 "$db" "PRAGMA integrity_check;"
   sqlite3 "$db" "PRAGMA journal_mode;"

@@ -13,7 +13,7 @@ sans perte de données et sans doublons.
 - **Collations** : `_register_anki_collations` enregistre les collations Anki (insensibilité casse/accents)
   avant toute requête sur les tables importées.
 - **Isolation profils** : chaque profil a sa BDD SQLite et son dossier médias
-  (`~/.ankiforge/profiles/<name>/`). Ne jamais croiser les données entre profils.
+  (`~/.ankidraft/profiles/<name>/`). Ne jamais croiser les données entre profils.
 
 ## 2. Import (.apkg / .colpkg)
 

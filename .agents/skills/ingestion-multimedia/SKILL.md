@@ -20,7 +20,7 @@ En tant qu'**Expert Ingestion & Parsing**, tu transformes toute source brute (fi
 - **Règles non négociables** :
   - Aucun appel réseau ou extraction lourde bloquante sur le thread principal de l'interface (déléguer aux workers `QThread` / `DocumentBatchWorker`).
   - Aucun secret ou token d'API en log (tokens STT, clés de transcription).
-  - Marker est un processus externe lourd (venv dédié sous `.ankiforge/marker_env`) : vérifier la disponibilité (`is_marker_available()`) avant de forcer une installation.
+  - Marker est un processus externe lourd (venv dédié sous `.ankidraft/marker_env`) : vérifier la disponibilité (`is_marker_available()`) avant de forcer une installation.
 
 ## 2. Procédure d'extraction
 
