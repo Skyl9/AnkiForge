@@ -43,7 +43,7 @@ Les fichiers typiquement concernés incluent :
 - Les compétences agentiques (`.agents/skills/*/SKILL.md`)
 - La documentation Zensical (`docs/Dossier_architecture/`, `docs/adr/`)
 - Le glossaire (`CONTEXT.md`)
-- Le code source Python sous `src/ankiforge/` (commentaires, docstrings)
+- Le code source Python sous `src/ankidraft/` (commentaires, docstrings)
 
 ---
 

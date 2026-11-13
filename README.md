@@ -1,4 +1,4 @@
-# AnkiForge
+# AnkiDraft
 
 ![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)
 ![PySide6](https://img.shields.io/badge/PySide6-Qt%206-green.svg)
@@ -7,15 +7,15 @@
 ![Protocol](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-**AnkiForge** est un environnement de développement intégré (IDE) et compagnon de création de cartes mémoire pour l'écosystème Anki. Conçu pour les étudiants, enseignants et passionnés d'apprentissage, AnkiForge structure, audite et optimise la génération de flashcards à partir de documents de cours (PDF, vidéos, notes), tout en conservant vos données en local (Air-gapped).
+**AnkiDraft** est un environnement de développement intégré (IDE) et compagnon de création de cartes mémoire pour l'écosystème Anki. Conçu pour les étudiants, enseignants et passionnés d'apprentissage, AnkiDraft structure, audite et optimise la génération de flashcards à partir de documents de cours (PDF, vidéos, notes), tout en conservant vos données en local (Air-gapped).
 
-> **Périmètre d'utilisation :** AnkiForge est un atelier de création et d'audit. Il ne remplace pas l'application officielle Anki pour les révisions quotidiennes (répétition espacée - SRS). La synchronisation s'effectue via l'import de paquets standard (`.apkg` et `.colpkg`) et l'export de paquets `.apkg`.
+> **Périmètre d'utilisation :** AnkiDraft est un atelier de création et d'audit. Il ne remplace pas l'application officielle Anki pour les révisions quotidiennes (répétition espacée - SRS). La synchronisation s'effectue via l'import de paquets standard (`.apkg` et `.colpkg`) et l'export de paquets `.apkg`.
 
 ---
 
 ## Flux de Données
 
-AnkiForge organise la transformation d'un document brut en cartes prêtes pour la mémorisation à travers un flux supervisé :
+AnkiDraft organise la transformation d'un document brut en cartes prêtes pour la mémorisation à travers un flux supervisé :
 
 ```mermaid
 flowchart LR
@@ -45,15 +45,15 @@ Créer votre premier paquet de cartes s'effectue en trois étapes simples :
 
 ## Positionnement et Comparatif
 
-Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une comparaison objective pour situer le rôle d'AnkiForge :
+Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une comparaison objective pour situer le rôle d'AnkiDraft :
 
-| Critère | Application Anki officielle | Outils IA Web / En ligne | AnkiForge |
+| Critère | Application Anki officielle | Outils IA Web / En ligne | AnkiDraft |
 | :--- | :--- | :--- | :--- |
 | **Objectif principal** | Réviser et mémoriser sur le long terme (algorithme SRS). | Créer rapidement des cartes depuis un navigateur sans installation. | Structurer, affiner et auditer des collections de cartes à partir de cours denses. |
 | **Création de cartes** | Manuelle, carte par carte. | Automatique via un prompt simple en une seule passe. | Assistée par étapes avec validation intermédiaire du plan par l'utilisateur. |
 | **Qualité des formulations** | Dépend uniquement de l'utilisateur. | Variable, risque de cartes trop longues ou verbeuses. | Contrôlée par un analyseur de qualité (règles pour des questions courtes, univoques et sans ambiguïté). |
 | **Confidentialité des cours** | Données stockées localement sur votre appareil. | Données envoyées et traitées sur des serveurs distants tiers. | Traitement local-first (compatible modèles locaux Ollama) et base SQLite privée. |
-| **Gestion des révisions (SRS)** | Optimale (application native de référence, applications mobiles). | Souvent absente ou basique. | Déléguée à Anki (AnkiForge ne gère pas les sessions de révision). |
+| **Gestion des révisions (SRS)** | Optimale (application native de référence, applications mobiles). | Souvent absente ou basique. | Déléguée à Anki (AnkiDraft ne gère pas les sessions de révision). |
 | **Facilité de prise en main** | Simple et directe. | Immédiate (zéro installation requise). | Courbe d'apprentissage modérée (nécessite l'installation locale de l'application). |
 
 ---
@@ -128,8 +128,8 @@ Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une co
 
 ### 1. Cloner le dépôt
 ```bash
-git clone https://github.com/votre-nom/AnkiForge.git
-cd AnkiForge
+git clone https://github.com/votre-nom/AnkiDraft.git
+cd AnkiDraft
 ```
 
 ### 2. Installer les dépendances avec `uv`
@@ -144,14 +144,14 @@ uv sync --group dev
 ### 3. (Optionnel) Compiler l'extension C
 ```bash
 # Sur macOS / Linux
-gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c
+gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c
 
-# Note: Si non compilé, AnkiForge utilise automatiquement le module de secours en pur Python.
+# Note: Si non compilé, AnkiDraft utilise automatiquement le module de secours en pur Python.
 ```
 
 ### 4. Lancer l'application
 ```bash
-uv run ankiforge
+uv run ankidraft
 ```
 
 ---
@@ -168,14 +168,14 @@ uv run pytest
 uv run ruff check .
 
 # Vérifier le typage statique
-uv run mypy src/ankiforge
+uv run mypy src/ankidraft
 ```
 
 ---
 
 ## Documentation de Référence
 
-La documentation technique complète d'AnkiForge est conçue pour être consultée via le générateur de documentation statique **Zensical**.
+La documentation technique complète d'AnkiDraft est conçue pour être consultée via le générateur de documentation statique **Zensical**.
 
 ### 1. Installer l'environnement de développement
 Assurez-vous d'avoir installé les dépendances de développement incluant Zensical :
@@ -241,7 +241,7 @@ Distribué sous licence MIT. Consultez le fichier [LICENSE.md](LICENSE.md) pour 
 
 <br/>
 
-# AnkiForge (English Version)
+# AnkiDraft (English Version)
 
 ![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)
 ![PySide6](https://img.shields.io/badge/PySide6-Qt%206-green.svg)
@@ -250,15 +250,15 @@ Distribué sous licence MIT. Consultez le fichier [LICENSE.md](LICENSE.md) pour 
 ![Protocol](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-**AnkiForge** is an Integrated Development Environment (IDE) and flashcard forging companion for the Anki ecosystem. Tailored for students, researchers, and lifelong learners, AnkiForge structures, audits, and streamlines AI-assisted flashcard generation from course materials (PDFs, videos, Markdown notes) while keeping your data **100% local and air-gapped**.
+**AnkiDraft** is an Integrated Development Environment (IDE) and flashcard forging companion for the Anki ecosystem. Tailored for students, researchers, and lifelong learners, AnkiDraft structures, audits, and streamlines AI-assisted flashcard generation from course materials (PDFs, videos, Markdown notes) while keeping your data **100% local and air-gapped**.
 
-> **Scope Notice:** AnkiForge is a dedicated creation and audit workshop. It does not replace the official Anki application for daily spaced repetition reviews (SRS). Synchronization is performed through standard `.apkg` and `.colpkg` package imports and `.apkg` exports.
+> **Scope Notice:** AnkiDraft is a dedicated creation and audit workshop. It does not replace the official Anki application for daily spaced repetition reviews (SRS). Synchronization is performed through standard `.apkg` and `.colpkg` package imports and `.apkg` exports.
 
 ---
 
 ## Dataflow Overview
 
-AnkiForge transforms raw materials into structured flashcards through a supervised pipeline:
+AnkiDraft transforms raw materials into structured flashcards through a supervised pipeline:
 
 ```mermaid
 flowchart LR
@@ -290,13 +290,13 @@ Create your first flashcard deck in three simple steps:
 
 Every tool serves a specific purpose in learning workflows. Here is an objective comparison:
 
-| Criteria | Official Anki Application | Online / Cloud AI Tools | AnkiForge |
+| Criteria | Official Anki Application | Online / Cloud AI Tools | AnkiDraft |
 | :--- | :--- | :--- | :--- |
 | **Primary Focus** | Daily spaced repetition review (SRS algorithm). | Quick browser-based card generation without local installation. | Structuring, refining, and auditing large flashcard collections from dense material. |
 | **Card Creation** | Manual, card by card. | Automatic one-shot prompts. | Multi-step assisted workflow with human outline validation. |
 | **Formulation Quality** | Fully dependent on the author. | Inconsistent; prone to verbose or ambiguous cards. | Monitored by a formulation quality analyzer (enforcing atomic, unambiguous cards). |
 | **Data Privacy** | Stored locally on user devices. | Transferred to and processed on remote cloud servers. | Local-first architecture (compatible with local Ollama models) and private SQLite store. |
-| **Study Sessions (SRS)** | Industry standard (desktop and mobile apps). | Frequently missing or basic. | Delegated to official Anki (AnkiForge does not host review sessions). |
+| **Study Sessions (SRS)** | Industry standard (desktop and mobile apps). | Frequently missing or basic. | Delegated to official Anki (AnkiDraft does not host review sessions). |
 | **Learning Curve** | Simple and direct. | Instant (no installation needed). | Moderate (requires local desktop application setup). |
 
 ---
@@ -341,7 +341,7 @@ Every tool serves a specific purpose in learning workflows. Here is an objective
 * **WebEngine preview:** Pixel-perfect rendering matching official Anki behavior.
 
 ### 8. Multi-Profile Isolation
-* **Full data segregation:** Separate SQLite databases and media folders under `~/.ankiforge/profiles/<profile_name>/`.
+* **Full data segregation:** Separate SQLite databases and media folders under `~/.ankidraft/profiles/<profile_name>/`.
 * **Instant switching:** Profile switcher available directly in the main window.
 
 ---
@@ -368,8 +368,8 @@ Every tool serves a specific purpose in learning workflows. Here is an objective
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/votre-nom/AnkiForge.git
-cd AnkiForge
+git clone https://github.com/votre-nom/AnkiDraft.git
+cd AnkiDraft
 ```
 
 ### 2. Install dependencies with `uv`
@@ -384,14 +384,14 @@ uv sync --group dev
 ### 3. (Optional) Compile the C extension
 ```bash
 # macOS / Linux
-gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c
+gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c
 
-# Note: If omitted, AnkiForge automatically falls back to pure Python execution.
+# Note: If omitted, AnkiDraft automatically falls back to pure Python execution.
 ```
 
-### 4. Run AnkiForge
+### 4. Run AnkiDraft
 ```bash
-uv run ankiforge
+uv run ankidraft
 ```
 
 ---
@@ -408,14 +408,14 @@ uv run pytest
 uv run ruff check .
 
 # Check static typing
-uv run mypy src/ankiforge
+uv run mypy src/ankidraft
 ```
 
 ---
 
 ## Reference Documentation
 
-AnkiForge's complete technical documentation is built to be served locally with **Zensical**.
+AnkiDraft's complete technical documentation is built to be served locally with **Zensical**.
 
 ### 1. Setup development dependencies
 Ensure the development dependencies (including Zensical) are installed:

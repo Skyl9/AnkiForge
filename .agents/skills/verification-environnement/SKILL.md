@@ -16,8 +16,8 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
 ## 2. Règles Non Négociables d'Écriture (Le Pourquoi)
 
 1. **Typage statique strict (`disallow_untyped_defs = true`)** :
-   - *Pourquoi* : Fiabilité du refactoring et sécurité d'exécution sur tout `ankiforge.*`. Utiliser la syntaxe moderne Python 3.12+ (unions `X | Y`, generics PEP 695). Zéro `type: ignore` non justifié, interdiction absolue des `disable_error_code` globaux masquant les erreurs. Seuls `ui.*` et `database.migrations.*` bénéficient d'overrides ciblés dans `pyproject.toml`.
-   - *Garantie automatique* : Mypy strict (`uv run mypy src/ankiforge`), étape 3 de `verify.py`.
+   - *Pourquoi* : Fiabilité du refactoring et sécurité d'exécution sur tout `ankidraft.*`. Utiliser la syntaxe moderne Python 3.12+ (unions `X | Y`, generics PEP 695). Zéro `type: ignore` non justifié, interdiction absolue des `disable_error_code` globaux masquant les erreurs. Seuls `ui.*` et `database.migrations.*` bénéficient d'overrides ciblés dans `pyproject.toml`.
+   - *Garantie automatique* : Mypy strict (`uv run mypy src/ankidraft`), étape 3 de `verify.py`.
 
 2. **Interdiction formelle de `print()` (Règle T20)** :
    - *Pourquoi* : Haute performance sans I/O bloquante grâce au pipeline asynchrone `QueueHandler`/`QueueListener` via `logger = logging.getLogger(__name__)`. Le filtre `SecretRedactionFilter` anonymise automatiquement clés d'API (`sk-*`, `AIza*`), en-têtes et tokens. Un appel à `print()` court-circuite cette sécurité vitale et ralentit l'exécution.
@@ -36,7 +36,7 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
    - *Garantie automatique* : `ANKIFORGE_ENV=testing` + suite de tests mockés.
 
 6. **Conventions d'arborescence et anglais technique** :
-   - *Pourquoi* : L'architecture interne s'organise exclusivement en anglais technique (`src/ankiforge/utils/`, `services/`, etc.). L'usage de répertoires francisés alternatifs (ex. `ressources/` au lieu de `utils/`) est banni pour éliminer les divergences d'import constatées dans `initial_seed.py`.
+   - *Pourquoi* : L'architecture interne s'organise exclusivement en anglais technique (`src/ankidraft/utils/`, `services/`, etc.). L'usage de répertoires francisés alternatifs (ex. `ressources/` au lieu de `utils/`) est banni pour éliminer les divergences d'import constatées dans `initial_seed.py`.
 
 7. **Fixtures audio et conteneurs multimédias valides (Zéro faux MP3 tronqué)** :
    - *Pourquoi* : Les composants de lecture et de synthèse (`QMediaPlayer`, `AudioPlayerWidget`, `TTSSettingsTab`) délèguent le décodage au backend FFmpeg natif. L'injection d'octets arbitraires ou de trames MPEG tronquées (`b"\xff\xfb\x90\x44" * 50`) provoque des avertissements de détection (`Format mp3 detected with low score`, `Failed to find two consecutive MPEG audio frames`) et pollue la sortie de tests.
@@ -47,14 +47,14 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
    - *Garantie automatique* : Dans tout test unitaire ou UI pilotant la synthèse ou la lecture vocale, mocker systématiquement `setSource` (et `play`) sur `QMediaPlayer` pour empêcher tout démarrage de threads natifs asynchrones non maîtrisés.
 
 9. **Synchronisation des catalogues de traduction `.ts` (Zéro dérive Linguist) (`T-32`)** :
-   - *Pourquoi* : Le test d'intégrité i18n (`tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction`) vérifie rigoureusement que les fichiers versionnés `src/ankiforge/resources/translations/ankiforge_{fr,en}.ts` sont strictement identiques à une extraction fraîche du code source. Tout ajout, modification ou **retrait/suppression** d'un appel `tr(...)` sans régénération des catalogues entraîne l'échec immédiat de la suite de tests. De plus, `ruff format` modifie les sauts de lignes et réordonne les imports, décalant les balises `<location line="N"/>` si l'extraction a eu lieu avant le formatage.
+   - *Pourquoi* : Le test d'intégrité i18n (`tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction`) vérifie rigoureusement que les fichiers versionnés `src/ankidraft/resources/translations/ankidraft_{fr,en}.ts` sont strictement identiques à une extraction fraîche du code source. Tout ajout, modification ou **retrait/suppression** d'un appel `tr(...)` sans régénération des catalogues entraîne l'échec immédiat de la suite de tests. De plus, `ruff format` modifie les sauts de lignes et réordonne les imports, décalant les balises `<location line="N"/>` si l'extraction a eu lieu avant le formatage.
    - *Garantie automatique* : Toujours exécuter `uv run python script/extract_translations.py` **APRÈS** `uv run ruff format .` et dès qu'un appel `tr(...)` est touché ou retiré.
 
 10. **Exécution des tests asynchrones via `asyncio.run()` (Zéro `@pytest.mark.asyncio`)** :
     - *Pourquoi* : Le projet n'active pas le plugin `pytest-asyncio` avec marqueur personnalisé. L'usage de `@pytest.mark.asyncio` déclenche des avertissements `PytestUnknownMarkWarning` ou des erreurs de collection. La convention unifiée du dépôt est d'encapsuler la coroutine dans une fonction de test synchrone classique `def test_...(): asyncio.run(_run())`.
 
 11. **Miroir strict des répertoires de tests (Zéro collision pytest `import file mismatch`)** :
-    - *Pourquoi* : Pour tout module sous `src/ankiforge/path/subpath/module.py`, le fichier de test correspondant doit se situer dans `tests/path/subpath/test_module.py`. Créer des fichiers de même nom dans des répertoires racourcis (ex: `tests/ai/test_staged_bundles.py` en parallèle de `tests/services/ai/test_staged_bundles.py`) provoque une erreur bloquante `import file mismatch` de pytest due à la collision de cache de bytecode `__pycache__`.
+    - *Pourquoi* : Pour tout module sous `src/ankidraft/path/subpath/module.py`, le fichier de test correspondant doit se situer dans `tests/path/subpath/test_module.py`. Créer des fichiers de même nom dans des répertoires racourcis (ex: `tests/ai/test_staged_bundles.py` en parallèle de `tests/services/ai/test_staged_bundles.py`) provoque une erreur bloquante `import file mismatch` de pytest due à la collision de cache de bytecode `__pycache__`.
 
 12. **Cession de tour sur commande en tâche de fond (Zéro boucle de polling)** :
     - *Pourquoi* : Lorsque la porte canonique ou une commande lourde passe en tâche d'arrière-plan, la plateforme assure un réveil réactif (Reactive Wakeup) automatique dès la fin du processus. Interroger manuellement le statut via des outils de polling consomme des tours de boucle et de l'énergie inutilement. L'agent doit informer brièvement l'utilisateur et terminer son tour sans outil supplémentaire.
@@ -81,7 +81,7 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
 
 18. **Triple synchronisation des outils FastMCP (Zéro outil orphelin)** :
     - *Pourquoi* : Depuis le découplage et la suppression de l'ancien moteur in-app (`consultant_engine.py`), le serveur FastMCP persistant in-process et le catalogue UI partagent le registre centralisé `mcp_tool_registry.py`. Omettre l'un des maillons rend l'outil invisible aux agents externes, non documenté dans l'IHM ou inaccessible aux schémas JSON.
-    - *Garantie automatique* : Tout nouvel outil FastMCP doit être synchronisé simultanément dans la triade : (1) `src/ankiforge/services/ai/mcp_server.py` (`@mcp.tool()`), (2) `src/ankiforge/services/ai/mcp_tool_registry.py` (méthode registre déléguée + schéma dans `DEFAULT_CONSULTANT_TOOLS`), et (3) `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py` (`TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP`).
+    - *Garantie automatique* : Tout nouvel outil FastMCP doit être synchronisé simultanément dans la triade : (1) `src/ankidraft/services/ai/mcp_server.py` (`@mcp.tool()`), (2) `src/ankidraft/services/ai/mcp_tool_registry.py` (méthode registre déléguée + schéma dans `DEFAULT_CONSULTANT_TOOLS`), et (3) `src/ankidraft/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py` (`TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP`).
 
 19. **Variables locales contextuelles qualifiées dans les grands répartiteurs (Zéro collision Mypy `[assignment]`)** :
     - *Pourquoi* : Dans une longue méthode de dispatching ou de routage (`ConsultantEngine._execute_tool_call()`, `_apply_patch_step()`, etc.), réutiliser un nom de variable court ou générique (`p_id`, `data`, `res`) assigné plus haut dans une autre branche avec un type distinct (`str` vs `int`) déclenche l'erreur bloquante Mypy strict `Incompatible types in assignment`.
@@ -113,7 +113,7 @@ En tant qu'**Agent de Développement opérant dans le dépôt AnkiForge**, ton r
 
 26. **Isolation du logger Peewee SQL en test de sentinelle caplog (`T-36`)** :
     - *Pourquoi* : Dans les tests vérifiant l'absence de fuite de données sensibles ou de contenu de cartes dans les logs (`assert sentinel not in caplog.text`), l'activation de `caplog.set_level(logging.DEBUG)` capture les requêtes SQL `INSERT INTO ...` générées par Peewee qui contiennent littéralement les valeurs des colonnes enregistrées en base. Cette capture produit des faux positifs d'audit de fuite en confondant le traçage SQL avec les journaux applicatifs.
-    - *Garantie automatique* : Dans tout test d'audit de fuite de logs par sentinelle, filtrer explicitement sur les enregistrements du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankiforge.<service>")]`) ou isoler le logger Peewee (`logging.getLogger("peewee").setLevel(logging.INFO)`).
+    - *Garantie automatique* : Dans tout test d'audit de fuite de logs par sentinelle, filtrer explicitement sur les enregistrements du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankidraft.<service>")]`) ou isoler le logger Peewee (`logging.getLogger("peewee").setLevel(logging.INFO)`).
 
 27. **Principe de Parcimonie d'Exécution de la Porte Canonique (Frugalité CI/Agentique)** :
     - *Pourquoi* : La suite pytest (> 3800 tests, ~45-90s) ne doit pas être relancée à l'aveugle sans modification de code. L'étape `crap-check` s'exécute en étape 8 après `pytest-fast` (étape 7) pour exploiter le rapport LCOV.
@@ -143,6 +143,6 @@ uv run python script/verify.py --all-tests  # vérification avec suite complète
 
 ## ⛔ Ne PAS utiliser ce skill si...
 
-- Audit global ou rapport formel sous `audits/` : utiliser `audit-qualite-code`, `audit-tests-ci` ou `audit-ankiforge`.
+- Audit global ou rapport formel sous `audits/` : utiliser `audit-qualite-code`, `audit-tests-ci` ou `audit-ankidraft`.
 - Formulation de propositions de commits atomiques : utiliser `proposer-commits`.
 - Modèle de données Peewee ou migration SQLite : utiliser `peewee-expert`.

@@ -45,7 +45,7 @@ Pour traiter de très volumineux corpus de texte ou générer des démonstration
     Toutes les clés d'API (OpenCode, OpenRouter, OpenAI, Anthropic, Gemini, Groq) sont stockées dans le **trousseau de clés sécurisé du système d'exploitation** (Keychain sur macOS, SecretService sur Linux, DPAPI sur Windows) et ne sont **jamais stockées en clair** dans la base SQLite. Les passerelles OpenCode et OpenRouter disposent également de points de terminaison configurables directement depuis l'onglet **Moteurs IA** des Préférences.
 
 !!! tip "Vérification des modèles"
-    La liste exhaustive et actualisée des `ModelSpec` (contexte, vitesse, coût, auto-détection des capacités vision) est disponible dans `src/ankiforge/services/ai/model_catalog.py`. Pour les modèles **Ollama locaux**, AnkiForge interroge `POST /api/show` et détecte automatiquement les capacités réelles du modèle présent sur votre machine.
+    La liste exhaustive et actualisée des `ModelSpec` (contexte, vitesse, coût, auto-détection des capacités vision) est disponible dans `src/ankidraft/services/ai/model_catalog.py`. Pour les modèles **Ollama locaux**, AnkiForge interroge `POST /api/show` et détecte automatiquement les capacités réelles du modèle présent sur votre machine.
 
 ---
 
@@ -76,5 +76,5 @@ L'utilisation d'APIs payantes peut susciter des craintes de surcoût imprévu. A
 ## 🌍 5. Références Utiles
 
 - [Fournisseurs & gestion des clés dans le guide d'installation](../installation.md)
-- [Code source du catalogue de modèles](https://github.com/Skyl9/AnkiForge/blob/main/src/ankiforge/services/ai/model_catalog.py)
+- [Code source du catalogue de modèles](https://github.com/Skyl9/AnkiForge/blob/main/src/ankidraft/services/ai/model_catalog.py)
 - [Depuis GitHub](https://github.com/Skyl9/AnkiForge)

@@ -5,13 +5,13 @@ Cette checklist constitue la référence opérationnelle pour l'**Axe 1 — Stan
 ---
 
 ## 1. Typage Statique Strict & Python 3.12+ (Règle 2)
-- [ ] 100 % des fonctions, méthodes et attributs publics de `src/ankiforge/` sont intégralement typés (`disallow_untyped_defs = true`).
+- [ ] 100 % des fonctions, méthodes et attributs publics de `src/ankidraft/` sont intégralement typés (`disallow_untyped_defs = true`).
 - [ ] Syntaxe moderne Python 3.12+ : unions `X | Y` (bannissement d'`Optional` et `Union`), types natifs `list[T]`, `dict[K, V]`, `tuple[T, ...]` (bannissement des imports `List`, `Dict`, `Tuple` depuis `typing`).
 - [ ] Aucun `disable_error_code` global ajouté dans `pyproject.toml`.
 - [ ] Utilisation adéquate des types stubs du projet (`types-peewee`, `types-requests`, `types-markdown`).
 
 ## 2. Logging Asynchrone & Règle T20 (Règle 3)
-- [ ] **Zéro `print()`** dans `src/ankiforge/` (application stricte de Ruff `T20`).
+- [ ] **Zéro `print()`** dans `src/ankidraft/` (application stricte de Ruff `T20`).
 - [ ] Instanciation canonique : `logger = logging.getLogger(__name__)`.
 - [ ] Niveau de log sémantique approprié : `DEBUG` pour le traçage verbeux, `INFO` pour les jalons métier, `WARNING` pour les replis tolérés, `ERROR` pour les défaillances capturées, `CRITICAL` pour les blocages majeurs.
 - [ ] Zéro secret interpolé en clair : clés d'API (`sk-*`, `AIza*`), tokens Bearer et identifiants doivent être anonymisés ou filtrés via `SecretRedactionFilter`.

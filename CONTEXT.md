@@ -208,14 +208,14 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
   _Avoid_ : largeur minimale rigide, setFixedWidth, sidebar élargie, conteneur adaptatif
 - **Lecteur de documentation embarqué (`DocReaderDialog`)** : boîte de dialogue autonome native basée sur `QTextBrowser` et `AppDocumentationService`, permettant de consulter les guides et la documentation officielle de l'application hors-ligne, avec rendu des illustrations vectorielles SVG locales, recherche textuelle incrémentale et zoom typographique, sans dépendre d'un moteur Chromium lourd ni d'une connexion réseau.
   _Avoid_ : webview de doc, browser externe obligatoire, aide en ligne, visionneuse web
-- **Galerie de widgets (mode développeur)** : fenêtre dédiée (`WidgetGalleryWindow`) permettant d'observer visuellement l'ensemble des widgets de l'application alimentés par des données factices déterministes, activée uniquement en mode développeur (`--dev`). Les widgets sont enregistrés via un registre déclaratif par famille ; les données factices vivent dans `src/ankiforge/dev/`.
+- **Galerie de widgets (mode développeur)** : fenêtre dédiée (`WidgetGalleryWindow`) permettant d'observer visuellement l'ensemble des widgets de l'application alimentés par des données factices déterministes, activée uniquement en mode développeur (`--dev`). Les widgets sont enregistrés via un registre déclaratif par famille ; les données factices vivent dans `src/ankidraft`.
   _Avoid_ : mocks d'interface, Storybook, bac à sable UI, galerie de tests
 
 ## Clavier & Raccourcis
 
 - **Raccourci clavier (shortcut)** : association déclarée entre une Séquence et une action nommée du Catalogue de raccourcis, à une Portée donnée. Un raccourci n'existe jamais sous la forme d'un `QShortcut` isolé dans une vue.
   _Avoid_ : hotkey, keybind, touche raccourcie
-- **Catalogue de raccourcis (registre)** : déclaration exhaustive et unique des raccourcis de l'application (`src/ankiforge/ui/shortcuts/`), source de vérité de tout binding, de tout libellé affiché et de la page de référence documentaire générée.
+- **Catalogue de raccourcis (registre)** : déclaration exhaustive et unique des raccourcis de l'application (`src/ankidraft`), source de vérité de tout binding, de tout libellé affiché et de la page de référence documentaire générée.
   _Avoid_ : table de raccourcis, config clavier, keymap
 - **Séquence** : combinaison physique de touches (`QKeySequence`) déclenchant un raccourci, distincte de l'action qu'elle sert — une même séquence peut porter des actions différentes selon la Portée.
   _Avoid_ : touche, combo, binding
@@ -433,7 +433,7 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 
 ## Bus d'Événements & MCP (Event Bus & MCP Protocol)
 
-- **Bus d'événements typé (Typed Event Bus)** : bus central `event_bus` singleton thread-safe (`src/ankiforge/utils/event_bus.py`) supportant publication/abonnement d'événements typés (`AppEvent` dataclasses). Garantit le découplage entre producteurs (services, MCP) et consommateurs (vues, widgets) avec marshalling automatique vers le thread principal Qt.
+- **Bus d'événements typé (Typed Event Bus)** : bus central `event_bus` singleton thread-safe (`src/ankidraft`) supportant publication/abonnement d'événements typés (`AppEvent` dataclasses). Garantit le découplage entre producteurs (services, MCP) et consommateurs (vues, widgets) avec marshalling automatique vers le thread principal Qt.
   _Avoid_ : signaux Qt directs entre services, callbacks globaux, event loop custom
 - **Événement Patch Stagé MCP (`MCPPatchStagedEvent`)** : événement émis lors de la proposition d'un patch en attente par un agent MCP externe (Two-Phase Commit). Contient `patch_id`, `patch_type`, `target_id`, `title`, `details`. Déclenche le rafraîchissement réactif de l'inspecteur Garde-Fou.
   _Avoid_ : notification patch, signal staged, event patch

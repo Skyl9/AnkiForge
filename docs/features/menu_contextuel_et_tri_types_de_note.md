@@ -9,9 +9,9 @@
 
 ## Problématique (Problem Statement)
 
-Dans AnkiForge, les types de note ([`NoteTypeModel`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/database/models/cards.py#L37-L46)) gouvernent la structure des champs et les gabarits de rendu des cartes Anki.
+Dans AnkiForge, les types de note ([`NoteTypeModel`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/database/models/cards.py#L37-L46)) gouvernent la structure des champs et les gabarits de rendu des cartes Anki.
 Cependant, l'expérience utilisateur souffre actuellement de plusieurs limitations majeures :
-1. **Absence d'interactions contextuelles (clic droit)** : dans le volet latéral de la vue Modèles de cartes ([`CardModelsView`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/views/card_models_view/view.py)) et dans le sélecteur modal ([`ModelSelectWindow`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/components/model_select_window.py)), le clic droit est inopérant. L'utilisateur doit naviguer entre les boutons du bas de panneau ou n'a aucun moyen d'accéder aux actions élémentaires sur un type de note ciblé.
+1. **Absence d'interactions contextuelles (clic droit)** : dans le volet latéral de la vue Modèles de cartes ([`CardModelsView`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/views/card_models_view/view.py)) et dans le sélecteur modal ([`ModelSelectWindow`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/components/model_select_window.py)), le clic droit est inopérant. L'utilisateur doit naviguer entre les boutons du bas de panneau ou n'a aucun moyen d'accéder aux actions élémentaires sur un type de note ciblé.
 2. **Impossibilité de renommer** : il n'existe aucune commande ni dialogue permettant de renommer un type de note existant sans passer par une modification directe manuelle de la base de données SQLite.
 3. **Ordre statique non configurable** : les types de note sont présentés dans un ordre figé (ordre d'insertion ou nom A-Z en dur), sans possibilité d'inverser l'ordre, de trier par date d'ajout ou par complexité (nombre de cartes).
 4. **Absence de désignation d'un modèle par défaut** : impossible d'indiquer quel type de note doit être pré-sélectionné lors de la création de nouvelles cartes ou dans les flux d'extraction par lot.
@@ -21,11 +21,11 @@ Cependant, l'expérience utilisateur souffre actuellement de plusieurs limitatio
 
 ## Solution proposée
 
-Mettre en place un dispositif complet et homogène de gestion contextuelle et d'ordonnancement pour les types de note, déployé à la fois sur la vue dédiée [`CardModelsView`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/views/card_models_view/view.py) et sur la fenêtre modale [`ModelSelectWindow`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/components/model_select_window.py) :
+Mettre en place un dispositif complet et homogène de gestion contextuelle et d'ordonnancement pour les types de note, déployé à la fois sur la vue dédiée [`CardModelsView`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/views/card_models_view/view.py) et sur la fenêtre modale [`ModelSelectWindow`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/components/model_select_window.py) :
 - **Menu contextuel (clic droit)** riche et standardisé : *Renommer*, *Dupliquer*, *Définir par défaut*, *Exporter (.afmodel / JSON)*, *Filtrer les notes associées (vers Vue Édition)*, et *Supprimer* (avec protection `RESTRICT`).
-- **Moteur de tri à 5 critères canoniques** (`name_asc`, `name_desc`, `created_desc`, `created_asc`, `template_count_desc`), accessible via un bouton dédié d'en-tête et un sous-menu contextuel, persisté par profil utilisateur via [`SettingsService`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/settings_service.py).
+- **Moteur de tri à 5 critères canoniques** (`name_asc`, `name_desc`, `created_desc`, `created_asc`, `template_count_desc`), accessible via un bouton dédié d'en-tête et un sous-menu contextuel, persisté par profil utilisateur via [`SettingsService`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/settings_service.py).
 - **Indicateur visuel de modèle par défaut** : matérialisation claire par badge ou étoile dorée (`★ Par défaut`).
-- **Passerelle de navigation fluide** : signal de bascule vers [`EditionView`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/views/edition_view/view.py) avec filtre pré-positionné.
+- **Passerelle de navigation fluide** : signal de bascule vers [`EditionView`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/views/edition_view/view.py) avec filtre pré-positionné.
 
 ---
 
@@ -61,7 +61,7 @@ Mettre en place un dispositif complet et homogène de gestion contextuelle et d'
 
 ### 1. Modules et interfaces touchés
 
-- [`src/ankiforge/ui/views/card_models_view/view.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/views/card_models_view/view.py) :
+- [`src/ankidraft/ui/views/card_models_view/view.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/views/card_models_view/view.py) :
   - `self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)`
   - Connexion du signal `self.list_widget.customContextMenuRequested` au slot `_on_models_list_context_menu(pos: QPoint)`.
   - Construction du menu `QMenu` :
@@ -76,14 +76,14 @@ Mettre en place un dispositif complet et homogène de gestion contextuelle et d'
   - Ajout d'un bouton de tri `self.btn_sort_models` (icône `ph.sort-ascending`, 28px) dans le bandeau de recherche (`search_row`).
   - Déclaration du signal de navigation : `request_navigation = Signal(str, object)`.
 
-- [`src/ankiforge/ui/components/model_select_window.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/components/model_select_window.py) :
+- [`src/ankidraft/ui/components/model_select_window.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/components/model_select_window.py) :
   - `self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)`
   - Connexion de `customContextMenuRequested` au slot `_on_tree_context_menu(pos: QPoint)`.
   - Exclusion du menu sur le nœud racine `Tous les types de note` (id -1).
   - Ajout du bouton de tri à côté du champ de recherche `search_input`.
   - Intégration des actions Renommer, Dupliquer, Définir par défaut, Exporter, Supprimer, avec réactualisation de la fenêtre via `_load_models()`.
 
-- [`src/ankiforge/ui/main_window.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/main_window.py) :
+- [`src/ankidraft/ui/main_window.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/main_window.py) :
   - Dans `_on_view_selected` (ligne 880), traitement du filtre de modèle lors de la bascule vers `edition` :
     ```python
     if view_id == "edition" and isinstance(data, dict):
@@ -93,7 +93,7 @@ Mettre en place un dispositif complet et homogène de gestion contextuelle et d'
             cast(Any, widget)._on_model_selected(data["note_type_id"], data.get("note_type_name", ""))
     ```
 
-- [`src/ankiforge/services/settings_service.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/settings_service.py) :
+- [`src/ankidraft/services/settings_service.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/settings_service.py) :
   - Utilisation des clés persistantes :
     - `card_models/sort_order` (défaut : `"name_asc"`)
     - `card_models/default_note_type_id` (défaut : `None`)

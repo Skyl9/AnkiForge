@@ -25,7 +25,7 @@ Commandes de croisement utiles :
 ```bash
 uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py --json
 grep -A5 '\[project.scripts\]' pyproject.toml
-rg -n "^class (?!.*Test)" src/ankiforge/ --glob "*.py"
+rg -n "^class (?!.*Test)" src/ankidraft/ --glob "*.py"
 rg -ln "~/.ankiforge|profiles|apkg|colpkg|pdf|pptx|docx|youtube|ocr" src/ tests/ docs/ | sort
 ```
 

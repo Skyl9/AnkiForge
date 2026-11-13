@@ -11,10 +11,10 @@ description: >-
 En tant qu'**Expert des Modèles de Cartes & Gabarits Anki**, tu conçois, fais évoluer et valides les types de notes, le templating Jinja2/HTML/CSS et les directives de formulation pédagogique de l'application.
 
 > **Code source clé** :
-> - `src/ankiforge/database/models/cards.py` : `NoteTypeModel`, `CardFieldModel`, `CardTemplateModel`.
-> - `src/ankiforge/ui/widgets/cloze_manager.py` : Gestion des occlusions de texte (`{{c1::...}}`).
-> - `src/ankiforge/services/cards/card_model_io.py` : Import/export de modèles au format bundle/JSON.
-> - `src/ankiforge/services/ai/linter.py` : Moteur de règles Wozniak (atomicité, interférences).
+> - `src/ankidraft/database/models/cards.py` : `NoteTypeModel`, `CardFieldModel`, `CardTemplateModel`.
+> - `src/ankidraft/ui/widgets/cloze_manager.py` : Gestion des occlusions de texte (`{{c1::...}}`).
+> - `src/ankidraft/services/cards/card_model_io.py` : Import/export de modèles au format bundle/JSON.
+> - `src/ankidraft/services/ai/linter.py` : Moteur de règles Wozniak (atomicité, interférences).
 
 ## 1. Modélisation des Types de Notes & Cartes
 

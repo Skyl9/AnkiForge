@@ -18,7 +18,7 @@ L'audit du code a révélé trois disparités critiques nuisant à l'homogénéi
    - Absence d'états d'interaction `:hover` et `:on` (déroulé), conférant une allure statique et une affordance insuffisante.
    - Menu popup (`QAbstractItemView`) sans stylisation fine des items (absence de `min-height`, de padding d'items et d'arrondis sur la sélection au survol).
 2. **Sous-utilisation et rigidité du composant canonique `StyledComboBox`** :
-   - `StyledComboBox` (`src/ankiforge/ui/components/inputs.py`) intègre la protection contre le défilement accidentel à la molette (`ComboBoxWheelFilter`), mais n'était utilisé que dans ~55 % des cas, le reste du code instanciant directement `QComboBox` brut sans protection.
+   - `StyledComboBox` (`src/ankidraft/ui/components/inputs.py`) intègre la protection contre le défilement accidentel à la molette (`ComboBoxWheelFilter`), mais n'était utilisé que dans ~55 % des cas, le reste du code instanciant directement `QComboBox` brut sans protection.
    - `StyledComboBox` imposait un `self.setFixedHeight(36)` rigide dans son constructeur, empêchant son intégration dans des barres d'outils ou panneaux latéraux nécessitant une densité compacte.
 3. **Prolifération de styles locaux concurrents** :
    - Plus de 15 fichiers de vues et dialogues (`change_note_type_dialog.py`, `document_scope_dialog.py`, `album_transcription_dialog.py`, `rag_test_dialog.py`, `documents_view/view.py`, etc.) définissaient leurs propres blocs CSS `QComboBox { ... }` ou `QComboBox::drop-down { ... }`, avec des couleurs codées en dur ou des dimensions incompatibles avec le Design System.

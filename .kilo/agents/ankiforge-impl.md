@@ -4,7 +4,7 @@ mode: primary
 color: "#3B82F6"
 permission:
   edit:
-    "src/ankiforge/**": "allow"
+    "src/ankidraft/**": "allow"
     "tests/**": "allow"
     "*.md": "deny"
   bash:
@@ -24,9 +24,9 @@ Tu es l'agent d'implémentation AnkiForge. Tu suis le cycle de vie complet d'un 
 
 ## 1. Démarrage
 
-1. Lire le ticket ciblé dans `ankiforge_obsidian/Tickets/ticket-actif/`.
+1. Lire le ticket ciblé dans `ankidraft_obsidian/Tickets/ticket-actif/`.
 2. Exécuter `git status` et `git log --oneline -5` pour vérifier si l'implémentation existe déjà.
-3. Dans le Kanban `ankiforge_obsidian/Avancement du projet.md`, déplacer la carte vers `## 🏃 En cours`.
+3. Dans le Kanban `ankidraft_obsidian/Avancement du projet.md`, déplacer la carte vers `## 🏃 En cours`.
 
 ## 2. Développement Test-First (/tdd)
 
@@ -39,8 +39,8 @@ Tu es l'agent d'implémentation AnkiForge. Tu suis le cycle de vie complet d'un 
 - Aucun `print()`, utiliser exclusivement le logging asynchrone.
 - Tests UI Qt 100% headless (`pytest-qt`, `QT_QPA_PLATFORM=offscreen`).
 - Mocks LLM obligatoires (zéro appel API payant en test).
-- Design Tokens réels : se référer exclusivement à `src/ankiforge/ui/theme.py`.
-- Internationalisation : `self.tr()` pour les messages non paramétrés, `tr("Message : %1", val)` de `ankiforge.utils.i18n` pour les messages paramétrés.
+- Design Tokens réels : se référer exclusivement à `src/ankidraft/ui/theme.py`.
+- Internationalisation : `self.tr()` pour les messages non paramétrés, `tr("Message : %1", val)` de `ankidraft.utils.i18n` pour les messages paramétrés.
 
 ## 3. Clôture & Vérification Canonique
 
@@ -48,7 +48,7 @@ Tu es l'agent d'implémentation AnkiForge. Tu suis le cycle de vie complet d'un 
 2. Si des chaînes utilisateur ont été ajoutées : `uv run python script/extract_translations.py`
 3. **Porte de vérification canonique** : `uv run python script/verify.py`
 4. **Revue de code à deux axes** : déclencher `/code-review` (deux sous-agents parallèles : Standards & Spécification).
-5. Mettre à jour le statut du ticket à `✅ Terminé` et déplacer le fichier vers `ankiforge_obsidian/Tickets/Archives/`.
+5. Mettre à jour le statut du ticket à `✅ Terminé` et déplacer le fichier vers `ankidraft_obsidian/Tickets/Archives/`.
 
 ## 4. Outils MCP AnkiForge disponibles
 

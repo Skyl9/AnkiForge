@@ -11,7 +11,7 @@ En tant qu'**Auditeur Design System & Accessibilité**, tu vérifies que l'inter
 
 - `DESIGN.md` : design system, matrice des tokens (`DesignTokens` / `ThemeProfile`), inventaire des 12 thèmes et 4 layouts, consignation obligatoire des nouveaux widgets.
 - `GEMINI.md` règle 18 : toute nouvelle UI s'appuie sur `docs/Dossier_architecture/07_inventaire_composants_ui.md` ; zéro couleur ou style codé en dur.
-- `src/ankiforge/ui/` dont `src/ankiforge/ui/theme.py` et `src/ankiforge/ui/style_engine/` (source légitime des profils `ThemeProfile` et couleurs de thèmes).
+- `src/ankidraft/ui/` dont `src/ankidraft/ui/theme.py` et `src/ankidraft/ui/style_engine/` (source légitime des profils `ThemeProfile` et couleurs de thèmes).
 
 ## 2. Commandes d'Investigation
 
@@ -20,7 +20,7 @@ Les sorties sont conservées sous `audits/raw/` (horodatées) pour permettre une
 ```bash
 mkdir -p audits/raw
 STAMP=$(date +%Y-%m-%d)
-UI_SRC="src/ankiforge/ui/"
+UI_SRC="src/ankidraft/ui/"
 EXCLUDES="--exclude-dir=tests --exclude-dir=__pycache__ --exclude-dir=.venv --exclude-dir=build --exclude-dir=style_engine"
 # Les définitions de palettes dans theme.py et style_engine/ sont la source légitime des tokens
 

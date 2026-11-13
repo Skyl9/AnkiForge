@@ -10,12 +10,12 @@
 
 Dans l'application AnkiForge, le changement de type de note pour des cartes existantes présentait des défaillances structurelles majeures :
 
-1. **Désynchronisation et corruption des cartes physiques ([`CardModel`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/database/models/cards.py#L177))** :
-   - L'implémentation historique de [`NoteTypeService.change_note_type`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/cards/note_type_service.py) ne créait ni ne supprimait jamais de cartes physiques.
+1. **Désynchronisation et corruption des cartes physiques ([`CardModel`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/database/models/cards.py#L177))** :
+   - L'implémentation historique de [`NoteTypeService.change_note_type`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/cards/note_type_service.py) ne créait ni ne supprimait jamais de cartes physiques.
    - En migrant d'un modèle à 1 gabarit (*Basique*) vers un modèle à 2 gabarits (*Basique et inversée*), la deuxième carte physique n'était jamais créée.
    - En migrant d'un modèle à 2 gabarits vers un modèle à 1 gabarit, la carte surnuméraire (`template_index = 1`) subsistait en base avec un index de gabarit invalide, causant des erreurs au rendu visuel et faussant les requêtes de révision.
 2. **Remappage aveugle et perte silencieuse de données dans l'interface** :
-   - Dans la vue d'Édition ([`EditionView`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/views/edition_view/view.py)), l'action ouvrait un simple sélecteur de modèle ([`ModelSelectWindow`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/dialogs/model_select_modal.py)) sans aucune interface de correspondance interactive.
+   - Dans la vue d'Édition ([`EditionView`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/views/edition_view/view.py)), l'action ouvrait un simple sélecteur de modèle ([`ModelSelectWindow`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/dialogs/model_select_modal.py)) sans aucune interface de correspondance interactive.
    - Les champs étaient assignés à l'aveugle selon la correspondance de nom ou la position brute (`0 -> 0`, `1 -> 1`), entraînant la perte irrémédiable de données lorsque les schémas divergeaient.
    - L'action ne prenait en charge qu'une seule note à la fois, sans support de la sélection multiple.
 3. **Fragilité et hallucinations des agents LLM via le protocole MCP** :
@@ -98,7 +98,7 @@ Afin d'**approuver en toute confiance la mutation de ma collection**.
 
 ### A. Architecture du Service Backend (`NoteTypeService`)
 
-Fichier : [`src/ankiforge/services/cards/note_type_service.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/cards/note_type_service.py)
+Fichier : [`src/ankidraft/services/cards/note_type_service.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/cards/note_type_service.py)
 
 #### 1. Signature enrichie de `change_note_type`
 ```python
@@ -170,7 +170,7 @@ def validate_field_mapping(
 ### B. Interface Utilisateur PySide6
 
 #### 1. Nouveau composant `ChangeNoteTypeDialog`
-Fichier : [`src/ankiforge/ui/dialogs/change_note_type_dialog.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/dialogs/change_note_type_dialog.py)
+Fichier : [`src/ankidraft/ui/dialogs/change_note_type_dialog.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/dialogs/change_note_type_dialog.py)
 
 - Hérite de `QDialog`.
 - Respect strict des jetons de style (`DesignTokens`, `DESIGN.md`) et de l'internationalisation `tr()` (`ADR 0013`).
@@ -186,7 +186,7 @@ Fichier : [`src/ankiforge/ui/dialogs/change_note_type_dialog.py`](file:///Users/
 - **Boutons d'action** : `Annuler` et `Appliquer la migration`.
 
 #### 2. Intégration dans `EditionView`
-Fichier : [`src/ankiforge/ui/views/edition_view/view.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/views/edition_view/view.py)
+Fichier : [`src/ankidraft/ui/views/edition_view/view.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/views/edition_view/view.py)
 
 - **Point 1 — Clic droit sur le tableau** :
   - L'action `Changer le type de note...` récupère `target_note_ids = self.get_target_note_ids(fallback_note_id)`.
@@ -203,8 +203,8 @@ Fichier : [`src/ankiforge/ui/views/edition_view/view.py`](file:///Users/tristanr
 ### C. Serveur MCP & Garde-Fous Agentiques
 
 Fichiers :
-- [`src/ankiforge/services/ai/mcp_server.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/ai/mcp_server.py)
-- [`src/ankiforge/services/ai/staged_patch_registry.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/ai/staged_patch_registry.py)
+- [`src/ankidraft/services/ai/mcp_server.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/ai/mcp_server.py)
+- [`src/ankidraft/services/ai/staged_patch_registry.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/ai/staged_patch_registry.py)
 
 #### 1. Signature tolérante de l'outil MCP
 ```python

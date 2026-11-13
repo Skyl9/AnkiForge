@@ -45,10 +45,10 @@ Implémenter l'introspection de schéma comme une **Resource MCP** native, expos
 
 | Fichier | Rôle | Changement |
 |---------|------|------------|
-| `src/ankiforge/services/ai/mcp_tool_registry.py` | Logique métier | Nouvelle méthode statique `_get_table_schema_data(table_name: str) -> dict` réutilisable |
-| `src/ankiforge/services/ai/mcp_server.py` | Serveur MCP | Enregistrement de la resource via `server.resource()` avec URI template |
-| `src/ankiforge/services/ai/tools_catalog.py` | Catalogue outils | **Aucun** — resource, pas tool (cohérence MCP) |
-| `src/ankiforge/database/models.py` | Modèles Peewee | Référence pour allow-list tables métier (`DeckModel`, `NoteModel`, `CardModel`, `DocumentModel`, `DocumentChunkModel`, `FolderModel`, `PersonaModel`, `PipelineModel`, `LLMConfigModel`, `NoteTypeModel`, `NoteVersionModel`, `MediaModel`, `AuditRecordModel`) |
+| `src/ankidraft` | Logique métier | Nouvelle méthode statique `_get_table_schema_data(table_name: str) -> dict` réutilisable |
+| `src/ankidraft` | Serveur MCP | Enregistrement de la resource via `server.resource()` avec URI template |
+| `src/ankidraft` | Catalogue outils | **Aucun** — resource, pas tool (cohérence MCP) |
+| `src/ankidraft` | Modèles Peewee | Référence pour allow-list tables métier (`DeckModel`, `NoteModel`, `CardModel`, `DocumentModel`, `DocumentChunkModel`, `FolderModel`, `PersonaModel`, `PipelineModel`, `LLMConfigModel`, `NoteTypeModel`, `NoteVersionModel`, `MediaModel`, `AuditRecordModel`) |
 
 ### Schéma de base de données / migrations
 
@@ -145,7 +145,7 @@ _ALLOWED_SCHEMA_TABLES = frozenset(
 
 ```python
 def test_get_table_schema_data_notes_table():
-    from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+    from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
 
     result = MCPToolRegistry._get_table_schema_data("notes")
     assert result["table_name"] == "notes"
@@ -155,7 +155,7 @@ def test_get_table_schema_data_notes_table():
 
 
 def test_get_table_schema_data_rejects_sqlite_master():
-    from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+    from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
 
     with pytest.raises(PermissionError):
         MCPToolRegistry._get_table_schema_data("sqlite_master")

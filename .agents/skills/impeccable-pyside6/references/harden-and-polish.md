@@ -47,7 +47,7 @@ Chaque élément interactif doit réagir immédiatement et sans ambiguïté :
 Au lieu d'ombres portées noires et brutales de l'époque Windows 95, AnkiForge utilise des ombres colorées, diffuses et élégantes :
 
 ```python
-from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankidraft.ui.theme import DesignTokens, apply_shadow
 
 # Ombre diffuse d'élévation sur une carte
 apply_shadow(card, blur=16, offset_y=4, color=DesignTokens.COLOR_SHADOW)
@@ -57,7 +57,7 @@ apply_shadow(primary_btn, blur=12, offset_y=0, color=DesignTokens.ACCENT_GLOW)
 ```
 
 ### C. Gestion des États Vides (Empty States)
-Ne jamais laisser un panneau vide afficher un rectangle grisâtre désert. Utiliser `EmptyStateWidget` (`src/ankiforge/ui/components/panels.py`) :
+Ne jamais laisser un panneau vide afficher un rectangle grisâtre désert. Utiliser `EmptyStateWidget` (`src/ankidraft/ui/components/panels.py`) :
 - Une icône Phosphor thématique en taille 32×32 ou 48×48px.
 - Un titre clair (13-14px, Semibold).
 - Un court texte explicatif orienté action (11-12px, Muted).

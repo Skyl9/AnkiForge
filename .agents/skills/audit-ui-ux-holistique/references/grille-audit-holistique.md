@@ -107,4 +107,4 @@ C'est le défaut classique des interfaces conçues par des développeurs : voulo
   - Toutes les chaînes visibles par l'utilisateur doivent passer par `self.tr("...")`.
   - Chaque `IconButton` sans texte doit définir un `setToolTip(self.tr("..."))` et un `setAccessibleName(self.tr("..."))`.
 - **Raccourcis Clavier (ADR 0032)** :
-  - Aucun `QShortcut` sauvage codé en dur hors du registre central `src/ankiforge/ui/shortcuts/catalog.py` (vérifié par `script/check_shortcuts_drift.py`).
+  - Aucun `QShortcut` sauvage codé en dur hors du registre central `src/ankidraft/ui/shortcuts/catalog.py` (vérifié par `script/check_shortcuts_drift.py`).

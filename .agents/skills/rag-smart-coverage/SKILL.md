@@ -13,7 +13,7 @@ En tant qu'**Expert RAG & Couverture Documentaire**, tu régis la chaîne de seg
 > **Références architecturales** :
 > - `docs/adr/0009-provenance-par-section-et-paliers-de-resolution.md` : identité durable par section `(document, fil d'Ariane)` et résolution à 4 paliers.
 > - `docs/adr/0010-adresse-de-region-et-exclusion-non-destructive.md` : adresses de région (`node:`, `heading:`, `page:`).
-> Code source : `src/ankiforge/services/parsing/chunking_service.py`, `src/ankiforge/services/rag/`.
+> Code source : `src/ankidraft/services/parsing/chunking_service.py`, `src/ankidraft/services/rag/`.
 
 ## 1. Périmètre & Principes
 

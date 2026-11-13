@@ -39,7 +39,7 @@ grep -cE "^\d+\. \*\*" GEMINI.md
 - `## Architecture Highlights` — bullets des piliers techniques
 - `## Testing Constraints (Critical)` — règles de test (LLM mocks, Qt headless)
 - `## Code Conventions (Enforced)` — ruff, mypy, pre-commit
-- `## Key Files / Entry Points` — fichiers clés `src/ankiforge/`
+- `## Key Files / Entry Points` — fichiers clés `src/ankidraft/`
 - `## CI/CD Pipeline` — jobs GitHub Actions
 - `## Environment Variables` — `.env`, flags CLI
 - `## Agent Skills Catalog (.agents/skills/)` — catalogue des 15 compétences spécialisées
@@ -58,7 +58,7 @@ grep -A1 "\[project.scripts\]" pyproject.toml | grep "=" | awk -F= '{print $1}' 
 done
 
 # Fichiers clés récents non documentés
-find src/ankiforge -name "*.py" -newer AGENTS.md -not -path "*/__pycache__/*" | head -10
+find src/ankidraft -name "*.py" -newer AGENTS.md -not -path "*/__pycache__/*" | head -10
 ```
 
 **Sections à mettre à jour :**
@@ -82,13 +82,13 @@ find src/ankiforge -name "*.py" -newer AGENTS.md -not -path "*/__pycache__/*" | 
 **Détection de désync :**
 ```bash
 # Classes QWidget custom non documentées dans DESIGN.md
-grep -rInE "^class \w+\(Q(Widget|Dialog|Frame|MainWindow)\)" src/ankiforge/ui/ --include="*.py" \
+grep -rInE "^class \w+\(Q(Widget|Dialog|Frame|MainWindow)\)" src/ankidraft/ui/ --include="*.py" \
   | grep -oE "class \w+" | awk '{print $2}' | while read cls; do
     grep -q "$cls" DESIGN.md || echo "⚠️ Widget '$cls' non documenté dans DESIGN.md"
   done
 
 # Thèmes dans theme.py non listés dans DESIGN.md
-grep -oE '"[a-z_]+"' src/ankiforge/ui/theme.py | sort -u | while read theme; do
+grep -oE '"[a-z_]+"' src/ankidraft/ui/theme.py | sort -u | while read theme; do
   grep -q "$theme" DESIGN.md || echo "⚠️ Thème $theme absent de DESIGN.md"
 done
 ```
@@ -103,21 +103,21 @@ done
 ## 4. `docs/Dossier_architecture/07_inventaire_composants_ui.md`
 
 **Structure attendue :**
-- `## 1. Composants Fondamentaux (src/ankiforge/ui/components/)` — fondations, structure, sélecteurs
-- `## 2. Smart Widgets Métier (src/ankiforge/ui/widgets/)` — widgets spécialisés par catégorie
-- `## 3. Boîtes de Dialogue Métier (src/ankiforge/ui/dialogs/)` — dialogues
+- `## 1. Composants Fondamentaux (src/ankidraft/ui/components/)` — fondations, structure, sélecteurs
+- `## 2. Smart Widgets Métier (src/ankidraft/ui/widgets/)` — widgets spécialisés par catégorie
+- `## 3. Boîtes de Dialogue Métier (src/ankidraft/ui/dialogs/)` — dialogues
 
 **Détection de désync :**
 ```bash
 # Fichiers dans ui/widgets/ non mentionnés dans l'inventaire
-for f in src/ankiforge/ui/widgets/*.py; do
+for f in src/ankidraft/ui/widgets/*.py; do
   base=$(basename "$f")
   grep -q "$base" docs/Dossier_architecture/07_inventaire_composants_ui.md \
     || echo "⚠️ $base absent de 07_inventaire_composants_ui.md"
 done
 
 # Idem pour ui/components/
-for f in src/ankiforge/ui/components/*.py 2>/dev/null; do
+for f in src/ankidraft/ui/components/*.py 2>/dev/null; do
   base=$(basename "$f")
   grep -q "$base" docs/Dossier_architecture/07_inventaire_composants_ui.md \
     || echo "⚠️ $base absent de 07_inventaire_composants_ui.md"
@@ -154,7 +154,7 @@ avec le même niveau de détail que les sections existantes.
 **Détection de désync :**
 ```bash
 # Nouveaux modèles Peewee non documentés
-grep -rInE "^class \w+Model\(BaseModel\)" src/ankiforge/database/ --include="*.py" \
+grep -rInE "^class \w+Model\(BaseModel\)" src/ankidraft/database/ --include="*.py" \
   | grep -oE "class \w+Model" | awk '{print $2}' | while read model; do
     grep -q "$model" docs/Dossier_architecture/03_modele_donnees_synchro.md \
       || echo "⚠️ Modèle '$model' non documenté dans 03_"

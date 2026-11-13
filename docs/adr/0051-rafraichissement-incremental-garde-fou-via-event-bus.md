@@ -123,10 +123,10 @@ L'`AppEventBus.publish()` utilise déjà `QMetaObject.invokeMethod` pour le mars
 
 ## Références
 
-- `src/ankiforge/utils/event_bus.py` — `MCPPatchStagedEvent`, `MCPBundleStagedEvent`, `event_bus`
-- `src/ankiforge/ui/views/consultant_view/widgets/mcp_garde_fou_widget.py` — `MCPGardeFouWidget`, `HierarchicalPatchTreeWidget`
-- `src/ankiforge/ui/views/consultant_view/widgets/mcp_dashboard_widget.py` — `MCPServerDashboardWidget`
-- `src/ankiforge/services/ai/staged_patch_registry.py` — `_notify_staged_patch`, `_notify_mcp_bundle_staged`
+- `src/ankidraft/utils/event_bus.py` — `MCPPatchStagedEvent`, `MCPBundleStagedEvent`, `event_bus`
+- `src/ankidraft/ui/views/consultant_view/widgets/mcp_garde_fou_widget.py` — `MCPGardeFouWidget`, `HierarchicalPatchTreeWidget`
+- `src/ankidraft/ui/views/consultant_view/widgets/mcp_dashboard_widget.py` — `MCPServerDashboardWidget`
+- `src/ankidraft/services/ai/staged_patch_registry.py` — `_notify_staged_patch`, `_notify_mcp_bundle_staged`
 
 ---
 

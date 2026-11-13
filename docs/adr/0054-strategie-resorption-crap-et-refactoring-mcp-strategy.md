@@ -3,13 +3,13 @@
 - **Statut** : Accepté
 - **Date** : 2026-11-03
 - **Décideurs** : Équipe d'ingénierie AnkiForge & Tristan Rigaud-Humbert
-- **Périmètre** : Qualité logicielle (`script/verify.py`, `script/crap.py`), suite de tests (`tests/`), moteur MCP (`src/ankiforge/services/ai/staged_patch_registry.py`), vues UI.
+- **Périmètre** : Qualité logicielle (`script/verify.py`, `script/crap.py`), suite de tests (`tests/`), moteur MCP (`src/ankidraft/services/ai/staged_patch_registry.py`), vues UI.
 
 ---
 
 ## 1. Contexte & Problématique
 
-L'introduction du calculateur d'indice CRAP (*Change Risk Anti-Patterns*, formule d'Alberto Savoia et Bob Evans : $\text{CRAP} = CC^2 \times (1 - cov)^3 + CC$) a permis d'auditer l'intégralité du codebase métier (`src/ankiforge/`, 6 244 fonctions).
+L'introduction du calculateur d'indice CRAP (*Change Risk Anti-Patterns*, formule d'Alberto Savoia et Bob Evans : $\text{CRAP} = CC^2 \times (1 - cov)^3 + CC$) a permis d'auditer l'intégralité du codebase métier (`src/ankidraft/`, 6 244 fonctions).
 
 L'inventaire met en évidence :
 1. **Un socle globalement sain** : 91.7 % du codebase (5 725 fonctions) est strictement conforme au seuil de qualité ($\text{CRAP} \le 25.0$).

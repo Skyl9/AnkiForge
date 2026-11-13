@@ -28,7 +28,7 @@ Ce fonctionnement présentait plusieurs limitations majeures :
 ## Décisions et Règles d'Architecture
 
 ### 1. Dataclass de configuration `MarkerOptions`
-Le module `src/ankiforge/services/parsing/marker_service.py` héberge la dataclass `MarkerOptions` encapsulant les paramètres d'extraction :
+Le module `src/ankidraft/services/parsing/marker_service.py` héberge la dataclass `MarkerOptions` encapsulant les paramètres d'extraction :
 - **Champs principaux** :
   - `page_range: str | None = None` : restriction de pages (ex: `"0-10"`).
   - `force_ocr: bool = False` : force la reconnaissance complète.

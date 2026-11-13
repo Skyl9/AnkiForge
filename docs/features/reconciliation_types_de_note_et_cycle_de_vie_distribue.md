@@ -4,10 +4,10 @@
 **ADR de Référence :** [ADR 0037 — Réconciliation des types de note, conformité du moteur de rendu Anki et cycle de vie distribué](../adr/0037-reconciliation-types-notes-cycle-de-vie-distribue.md)  
 **Glossaire Métier :** [CONTEXT.md](https://github.com/tristanrigaud-humbert/AnkiForge/blob/master/CONTEXT.md) (*Modèle basique amorce*, *Isomorphisme structurel*, *Règle de génération conditionnelle*, *Champ orphelin archivé*, *Réconciliation de types de note*, *Périmètre d'autorité distribuée*)  
 **Tickets Associés :**
-- `ankiforge_obsidian/Tickets/Sync - Reconciliation des Types de Note et Protection Anti-Corruption de Schema.md`
-- `ankiforge_obsidian/Tickets/Rendu - Moteur de Parser Conditionnel Recursif et Regle de Generation Anki.md`
-- `ankiforge_obsidian/Tickets/Modeles - Seed Minimaliste Unique et Adoption Transparente du Premier Import.md`
-- `ankiforge_obsidian/Tickets/Doc - Guide Visuel du Cycle de Vie Distribue AnkiForge et Schemas d Usage.md`
+- `ankidraft_obsidian/Tickets/Sync - Reconciliation des Types de Note et Protection Anti-Corruption de Schema.md`
+- `ankidraft_obsidian/Tickets/Rendu - Moteur de Parser Conditionnel Recursif et Regle de Generation Anki.md`
+- `ankidraft_obsidian/Tickets/Modeles - Seed Minimaliste Unique et Adoption Transparente du Premier Import.md`
+- `ankidraft_obsidian/Tickets/Doc - Guide Visuel du Cycle de Vie Distribue AnkiForge et Schemas d Usage.md`
 
 ---
 
@@ -16,13 +16,13 @@
 Dans l'écosystème Anki, les types de notes (`notetypes` / modèles) gouvernent la structure des données (`flds`), la logique de génération des cartes physiques et leur mise en page Recto/Verso (`tmpls` / `css`). L'interaction entre AnkiForge et les collections Anki de l'utilisateur souffrait de quatre défaillances majeures :
 
 1. **Corruption irrémédiable de données par écrasement de schéma :**
-   Dans [`import_manager.py`](file:///src/ankiforge/services/cards/import_manager.py#L983-L1020), l'importation d'un paquet `.apkg` contenant un modèle homonyme à un modèle local (ex. `"Basique"`) provoquait l'affectation immédiate d'`existing_nt.anki_id = int_mid`, ce qui déclenchait inconditionnellement `existing_nt.fields_schema = fields_schema`. Si les champs différaient (ex. `"Recto"`/`"Verso"` vs `"Front"`/`"Back"`, ou renommage), les notes locales préexistantes perdaient leur correspondance de champs, rendant leur contenu invisible dans l'éditeur et cassant le rendu.
+   Dans [`import_manager.py`](file:///src/ankidraft/services/cards/import_manager.py#L983-L1020), l'importation d'un paquet `.apkg` contenant un modèle homonyme à un modèle local (ex. `"Basique"`) provoquait l'affectation immédiate d'`existing_nt.anki_id = int_mid`, ce qui déclenchait inconditionnellement `existing_nt.fields_schema = fields_schema`. Si les champs différaient (ex. `"Recto"`/`"Verso"` vs `"Front"`/`"Back"`, ou renommage), les notes locales préexistantes perdaient leur correspondance de champs, rendant leur contenu invisible dans l'éditeur et cassant le rendu.
 2. **Prolifération de clones artificiels `(Importé X)` :**
    Lorsqu'un deck importé possédait un modèle structurellement identique à un modèle local mais avec un `anki_id` numérique différent, AnkiForge instanciat des doublons en cascade (`Basique (Importé)`, `Basique (Importé 1)`), polluant la collection et fragmentant les modèles.
 3. **Seed initial encombré et déconnecté d'Anki :**
    Au démarrage d'un profil vierge, AnkiForge injectait trois modèles en dur avec `anki_id = None`. Dès qu'un utilisateur importait sa collection Anki (contenant `Basic` ou `Basique` avec son ID officiel), AnkiForge créait des doublons au lieu d'adopter la collection entrante.
 4. **Non-respect des règles officielles de génération et des quantificateurs Anki (`#`, `^`) :**
-   Dans [`anki_renderer.py`](file:///src/ankiforge/utils/anki_renderer.py#L67-L75), la regex plate ne supportait pas les balises conditionnelles imbriquées et ignorait les champs absents. Par ailleurs, `NoteManager` créait aveuglément des cartes physiques pour tous les gabarits, y compris ceux dont le recto était totalement vide, générant des « cartes fantômes » inexistantes dans Anki.
+   Dans [`anki_renderer.py`](file:///src/ankidraft/utils/anki_renderer.py#L67-L75), la regex plate ne supportait pas les balises conditionnelles imbriquées et ignorait les champs absents. Par ailleurs, `NoteManager` créait aveuglément des cartes physiques pour tous les gabarits, y compris ceux dont le recto était totalement vide, générant des « cartes fantômes » inexistantes dans Anki.
 
 ---
 
@@ -98,7 +98,7 @@ flowchart TD
   Avant de créer un clone `(Importé)`, vérifier si un modèle local possède exactement la même liste ordonnée de champs (ou une équivalence multilingue canonique `["Recto", "Verso"]` ↔ `["Front", "Back"]`). Si oui, réutiliser ce modèle pour les nouvelles notes.
 
 ### B. Seed Initial Épuré (`initial_seed.py`)
-- Les définitions canoniques résident dans `src/ankiforge/database/note_type_catalog.py` (`basic_note_type_definition()`, `seed_default_note_types()`), consommées par le seed d'amorçage et les services de cartes sans cycle d'import.
+- Les définitions canoniques résident dans `src/ankidraft/database/note_type_catalog.py` (`basic_note_type_definition()`, `seed_default_note_types()`), consommées par le seed d'amorçage et les services de cartes sans cycle d'import.
 - Restreindre l'initialisation de la base à un seul modèle :
   - `name`: `"Basique"`
   - `fields_schema`: `json.dumps(["Recto", "Verso"])`
@@ -109,7 +109,7 @@ flowchart TD
 
 ### C. Moteur de Rendu et Règle de Génération Anki (`anki_renderer.py` & `note_manager.py`)
 - **Parser conditionnel récursif** :
-  Remplacer `_process_conditionals` dans [`anki_renderer.py`](file:///src/ankiforge/utils/anki_renderer.py) par un algorithme à base de pile capable d'évaluer les structures arborescentes :
+  Remplacer `_process_conditionals` dans [`anki_renderer.py`](file:///src/ankidraft/utils/anki_renderer.py) par un algorithme à base de pile capable d'évaluer les structures arborescentes :
   ```
   {{#Condition1}}
       Texte 1

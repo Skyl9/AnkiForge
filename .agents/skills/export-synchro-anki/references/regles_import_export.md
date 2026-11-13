@@ -1,6 +1,6 @@
 # Règles Import / Export / Médias — Synchronisation Anki
 
-Conventions et invariants de `src/ankiforge/services/cards/` pour importer/exporter des paquets Anki
+Conventions et invariants de `src/ankidraft/services/cards/` pour importer/exporter des paquets Anki
 sans perte de données et sans doublons.
 
 ---

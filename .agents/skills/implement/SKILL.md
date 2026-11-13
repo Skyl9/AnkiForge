@@ -9,14 +9,14 @@ disable-model-invocation: true
 
 # Implement — Implémentation Pilotée par les Tests et Suivi Obsidian
 
-Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticket Obsidian (`ankiforge_obsidian/Tickets/<Type> - <Titre>.md`).
+Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticket Obsidian (`ankidraft_obsidian/Tickets/<Type> - <Titre>.md`).
 
 ## 1. Démarrage et Cycle de Vie Obsidian
 
 1. **Prise en charge du ticket** :
-   - Lire la note du ticket ciblée dans `ankiforge_obsidian/Tickets/`.
+   - Lire la note du ticket ciblée dans `ankidraft_obsidian/Tickets/`.
    - **Vérification préalable de l'état réel** : exécuter `git status` et `git log --oneline -5` sur le dépôt principal pour déterminer si l'implémentation existe déjà (code et tests déjà présents). Si c'est le cas, ne pas réimplémenter — passer directement à la vérification canonique (`script/verify.py`) puis à la clôture du ticket.
-   - Dans le tableau Kanban `ankiforge_obsidian/Avancement du projet.md`, déplacer la carte correspondante vers la colonne `## 🏃 En cours`.
+   - Dans le tableau Kanban `ankidraft_obsidian/Avancement du projet.md`, déplacer la carte correspondante vers la colonne `## 🏃 En cours`.
    - **Règle anti-boucle** : appliquer la modification en une seule passe atomique (One-shot pass) sans relecture circulaire.
 2. **Clarifier la couture (Seam)** :
    - Vérifier les critères d'acceptation et identifier le point d'entrée modulaire (modèle, service, ou widget Qt).
@@ -41,11 +41,11 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Tests UI Qt 100% headless (`pytest-qt`, `QT_QPA_PLATFORM=offscreen`).
   - Attente impérative des threads : tout test pilotant un widget démarrant un worker en tâche de fond (`QThread`, worker d'arrière-plan) doit obligatoirement attendre sa fin (`if widget.worker and widget.worker.isRunning(): widget.worker.wait()` ou `qtbot.waitUntil(widget.worker.isFinished)`) pour immuniser le teardown de `mock_db` contre tout verrou SQLite concurrent.
   - Mocks LLM obligatoires (zéro appel API payant en test).
-  - Design Tokens réels : ne jamais présumer de tokens stylistiques non définis (`BG_SECONDARY`, `BORDER_HOVER` n'existent pas) ; se référer exclusivement à `src/ankiforge/ui/theme.py`.
-  - Internationalisation paramétrée : `self.tr()` ne réalisant pas de substitution `%1`, tout message paramétré emploie la fonction globale `tr("Message : %1", val)` de `ankiforge.utils.i18n`.
+  - Design Tokens réels : ne jamais présumer de tokens stylistiques non définis (`BG_SECONDARY`, `BORDER_HOVER` n'existent pas) ; se référer exclusivement à `src/ankidraft/ui/theme.py`.
+  - Internationalisation paramétrée : `self.tr()` ne réalisant pas de substitution `%1`, tout message paramétré emploie la fonction globale `tr("Message : %1", val)` de `ankidraft.utils.i18n`.
   - Nouveaux modèles Peewee : ajouter impérativement toute nouvelle classe `*Model` dans la liste `models` de la fixture `mock_db` dans `tests/conftest.py` pour éviter l'erreur `no such table`. Recharger via `Model.get_by_id()` (jamais `refresh_from_db`).
   - Nouveaux outils FastMCP : enregistrer tout `@mcp.tool()` dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `mcp_tool_catalog_widget.py`, assurer la parité de dispatch dans `ConsultantEngine` (`DEFAULT_CONSULTANT_TOOLS` et `_execute_tool_call()` dans `consultant_engine.py`), et actualiser de manière exhaustive l'ensemble des assertions de décompte dans les tests (recherche grep systématique `grep -rn "== <ancien_compte>" tests/` pour inclure les tests d'introspection et d'intégration du widget).
-  - Garde-fou anti-doublon de schéma (`T-25`) : avant toute insertion d'une nouvelle entrée dans `DEFAULT_CONSULTANT_TOOLS`, exécuter impérativement `grep '"name": "<nom_outil>"' src/ankiforge/services/ai/mcp_tool_registry.py` pour s'assurer qu'aucune déclaration du même outil n'existe déjà. Toute déclaration dupliquée doit être supprimée avant la porte canonique.
+  - Garde-fou anti-doublon de schéma (`T-25`) : avant toute insertion d'une nouvelle entrée dans `DEFAULT_CONSULTANT_TOOLS`, exécuter impérativement `grep '"name": "<nom_outil>"' src/ankidraft/services/ai/mcp_tool_registry.py` pour s'assurer qu'aucune déclaration du même outil n'existe déjà. Toute déclaration dupliquée doit être supprimée avant la porte canonique.
   - Vérification obligatoire du décompte d'outils : après ajout d'un outil MCP, exécuter `grep -rn "== <ancien_compte>" tests/` pour identifier et mettre à jour simultanément toutes les assertions de décompte (tests d'introspection FastMCP et tests d'intégration du widget catalogue) AVANT d'invoquer `script/verify.py`.
   - Internationalisation sans concaténation (`T-26`) : ne jamais assembler des fragments `tr("...") + tr("...")`. Rédiger des phrases entières complètes par branche (`tr("Cartes ciblées : %1 carte(s) dans le paquet '%2'.", n, p)` vs `tr("Cartes ciblées : %1 carte(s).", n)`).
   - Mutations de paquets hiérarchiques (`T-27`) : lors d'une suppression avec réassignation de cartes, interdire le déplacement vers un sous-paquet descendant (`target.name.startswith(f"{source.name}::")`), réassigner l'arborescence complète (paquet + descendants) et englober déplacement et suppression dans un unique `with db.atomic():`.
@@ -63,35 +63,35 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
   - Rollback de migration complet avec double suppression d'index (`T-31`) : dans tout `rollback()` Peewee-migrate, détruire systématiquement les deux variantes de nom d'index (`idx_<table_name>_<column_name>` et `<table_name>_<column_name>`), et valider l'aller-retour complet (`migrate` + `rollback`) dans le test de la migration.
   - Initialisation de table virtuelle en test (`T-33`) : dans tout test PySide6 impliquant une vue tabulaire à modèle paginé virtuel (`EditionView`, etc.), appeler impérativement `view.refresh_data()` avant de simuler des clics de souris, des ouvertures de menus contextuels ou des résolutions géométriques de cellules (`visualRect()`), les données n'étant pas peuplées de manière synchrone dans `__init__`.
   - Validation matérielle des icônes de ticket (`T-34`) : ne jamais implémenter aveuglément un nom d'icône suggéré dans un ticket sans vérifier au préalable son existence dans `src/ressources/icons_manifest.txt` (ex: `funnel` retenu à la place de `sort-ascending` inexistant). En cas d'écart, adopter l'icône canonique la plus proche et rectifier le critère d'acceptation du ticket.
-  - Caractères réservés dans les titres de tickets (`T-35`) : ne jamais inclure de barre oblique (`/`), d'anti-slash (`\`) ou de deux-points (`:`) dans le nom d'un fichier de ticket sous `ankiforge_obsidian/Tickets/` afin de prévenir la création accidentelle de sous-dossiers Unix parasites.
-  - Faux positifs de fuite sur requêtes SQL Peewee (`T-36`) : dans tout test d'audit de fuite de données vérifiant l'absence d'une sentinelle secrète dans les logs (`caplog`), filtrer impérativement sur les enregistrements du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankiforge.<service>")]`) pour éviter la capture des requêtes SQL brutes émises par Peewee au niveau `DEBUG`.
+  - Caractères réservés dans les titres de tickets (`T-35`) : ne jamais inclure de barre oblique (`/`), d'anti-slash (`\`) ou de deux-points (`:`) dans le nom d'un fichier de ticket sous `ankidraft_obsidian/Tickets/` afin de prévenir la création accidentelle de sous-dossiers Unix parasites.
+  - Faux positifs de fuite sur requêtes SQL Peewee (`T-36`) : dans tout test d'audit de fuite de données vérifiant l'absence d'une sentinelle secrète dans les logs (`caplog`), filtrer impérativement sur les enregistrements du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankidraft.<service>")]`) pour éviter la capture des requêtes SQL brutes émises par Peewee au niveau `DEBUG`.
   - Adaptation des libellés d'interface et anti-crop (`T-37`) : tout libellé d'onglet, bouton ou libellé d'interface susceptible d'être tronqué sur la largeur doit être raccourci pour tenir dans son conteneur, et le nom complet doit être porté par un `toolTip` et/ou un `accessibleName` en français. Ne jamais laisser un libellé texte se faire couper visuellement sans repli accessible.
   - Cohérence des propriétés publiques exposées après changement de type (`T-38`) : lorsqu'un attribut ou composant change de classe (ex: `QTabBar` → `SegmentedTabBar`), inspecter impérativement toutes les propriétés et méthodes du projet qui l'exposent (`@property`, signatures, appels externes) et mettre à jour leurs annotations de typage pour préserver la cohérence sous `mypy strict`, puis exécuter `script/verify.py` pour confirmer.
-  - Zéro couleur en dur dans les contrats de données de service (`T-39`) : toute valeur de couleur portée par les données retournées par un service (ex: `badge_color`, `color` de catégorie, `bg`) doit utiliser les jetons `DesignTokens` de `src/ankiforge/ui/theme.py` ; aucun littéral hexadécimal (`#RRGGBB`) ni `rgba(...)` en dur ne doit traverser un contrat de données. Vérifier par grep systématique `grep -rn '#[0-9a-fA-F]\{3,8\}\|rgba(' src/ankiforge/services/` avant la porte canonique.
+  - Zéro couleur en dur dans les contrats de données de service (`T-39`) : toute valeur de couleur portée par les données retournées par un service (ex: `badge_color`, `color` de catégorie, `bg`) doit utiliser les jetons `DesignTokens` de `src/ankidraft/ui/theme.py` ; aucun littéral hexadécimal (`#RRGGBB`) ni `rgba(...)` en dur ne doit traverser un contrat de données. Vérifier par grep systématique `grep -rn '#[0-9a-fA-F]\{3,8\}\|rgba(' src/ankidraft/services/` avant la porte canonique.
   - Source unique de vérité pour les constantes de contrat (`T-40`) : toute constante métier partagée (pénalités de score, seuils, seuils de similarité, couleurs de statut) doit être définie en un seul endroit et réutilisée par tous les consommateurs (service + UI + MCP). Interdiction de dupliquer une constante de contrat (ex: `_CATEGORY_PENALTY` dans `linter.py` et `wozniak_tab.py`) ; importer la définition unique ou exposer une fonction de calcul partagée. Revue systématique des assertions de test pour éliminer les tautologies (`or True`, `and True`, `== x or True`) avant la porte canonique.
   - Protocole Multimodal VL & Traduction en Assertions Programmatiques (`T-41`) : pour tout modèle à perception visuelle (Nemotron Super VL, etc.) opérant sur une anomalie graphique ou de layout :
     1. **Diagnostic visuel (Avant)** : exécuter `uv run python script/capture_view.py --view <nom_vue> --output temp/screens/<nom_vue>_before.png` et inspecter l'image via `view_file` pour analyser spatialement le défaut.
     2. **Interdiction de s'arrêter à la validation visuelle** : la conformité visuelle ne remplace jamais un test. La règle n°4 ("Zéro snapshot visuel en assertion") interdit formellement de valider par capture d'écran.
     3. **Traduction impérative en assertions programmatiques (`pytest-qt`)** : l'agent DOIT traduire son constat visuel en test unitaire rouge vérifiant des propriétés Qt réelles (marges `contentsMargins()`, largeurs maximales `maximumWidth()`, classes d'éléments `property("class")`, états `isEnabled()`, signaux).
     4. **Contrôle visuel final (Après)** : relancer `capture_view.py ... _after.png` pour confirmer l'absence de régression visuelle avant d'invoquer `script/verify.py`.
-  - Bannissement strict du CSS Web dans Qt QSS (`T-42`) : interdiction formelle d'injecter des propriétés CSS Web non supportées par le moteur QSS de PySide6/Qt6 (`display: flex`, `gap`, `box-shadow`, `overflow`, `transform`, `justify-content`). N'utiliser que les propriétés QSS valides (`padding`, `margin`, `border`, `background-color`, `border-radius`, sélecteurs d'ID `#mon_id`) et les jetons sémantiques `DesignTokens` de `src/ankiforge/ui/theme.py`.
+  - Bannissement strict du CSS Web dans Qt QSS (`T-42`) : interdiction formelle d'injecter des propriétés CSS Web non supportées par le moteur QSS de PySide6/Qt6 (`display: flex`, `gap`, `box-shadow`, `overflow`, `transform`, `justify-content`). N'utiliser que les propriétés QSS valides (`padding`, `margin`, `border`, `background-color`, `border-radius`, sélecteurs d'ID `#mon_id`) et les jetons sémantiques `DesignTokens` de `src/ankidraft/ui/theme.py`.
 
 ## 3. Clôture, Vérification Canonique & Revue
 
 1. **Pré-nettoyage Linter, Formatage & i18n (`ADR 0013`) — Ordre séquentiel strict (`T-32`)** :
-   - **Étape 1a (Formatage ciblé uniquement sur les fichiers modifiés)** : Exécuter la passe de formatage et de nettoyage des imports **uniquement sur les fichiers modifiés par la tâche en cours**, jamais sur la racine `.`. Identifier d'abord les fichiers cibles via `git diff --name-only HEAD` (et `git -C ankiforge_obsidian diff --name-only HEAD` pour le sous-dépôt), puis :
+   - **Étape 1a (Formatage ciblé uniquement sur les fichiers modifiés)** : Exécuter la passe de formatage et de nettoyage des imports **uniquement sur les fichiers modifiés par la tâche en cours**, jamais sur la racine `.`. Identifier d'abord les fichiers cibles via `git diff --name-only HEAD` (et `git -C ankidraft_obsidian diff --name-only HEAD` pour le sous-dépôt), puis :
      ```bash
      uv run ruff check --fix <fichier1> <fichier2> ... && uv run ruff format <fichier1> <fichier2> ...
      ```
    - ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT d'exécuter `uv run ruff check --fix .` ou `uv run ruff format .` (ou toute commande de linteur/formatteur sur la racine `.`), car elle retouche des fichiers hors périmètre et crée des impacts collatéraux sur l'ensemble du dépôt.
    - ⛔ **Garde-fou bloquant** : Il est formellement INTERDIT d'exécuter `git checkout --` ou `git restore` sur des fichiers qui n'ont pas été modifiés par soi-même dans le cadre de la tâche en cours. Ne jamais annuler des modifications extérieures à sa propre portée.
-   - **Vérification de scope obligatoire** : exécuter `git status --short` (et `git -C ankiforge_obsidian status --short`) **avant** et **après** chaque commande de linteur/formatteur. Confirmer que seul les fichiers cibles du ticket figurent dans le diff. Tout fichier étranger détecté doit être laissé en l'état et signalé à l'utilisateur, jamais reverté arbitrairement.
+   - **Vérification de scope obligatoire** : exécuter `git status --short` (et `git -C ankidraft_obsidian status --short`) **avant** et **après** chaque commande de linteur/formatteur. Confirmer que seul les fichiers cibles du ticket figurent dans le diff. Tout fichier étranger détecté doit être laissé en l'état et signalé à l'utilisateur, jamais reverté arbitrairement.
    - **Étape 1b (Extraction post-formatage)** : Si des chaînes utilisateur ont été ajoutées, modifiées ou retirées avec `tr()` dans l'UI :
      ```bash
      uv run python script/extract_translations.py
      ```
      > [!IMPORTANT]
-     > L'extraction doit impérativement s'exécuter **après** `ruff format`. Si `ruff format` intervient après l'extraction, il décale les numéros de ligne des chaînes sources et rend immédiatement obsolètes les balises `<location line="N"/>` des fichiers `.ts` versionnés (`ankiforge_fr.ts`, `ankiforge_en.ts`), provoquant l'échec de `test_committed_catalog_matches_a_fresh_extraction`.
+     > L'extraction doit impérativement s'exécuter **après** `ruff format`. Si `ruff format` intervient après l'extraction, il décale les numéros de ligne des chaînes sources et rend immédiatement obsolètes les balises `<location line="N"/>` des fichiers `.ts` versionnés (`ankidraft_fr.ts`, `ankidraft_en.ts`), provoquant l'échec de `test_committed_catalog_matches_a_fresh_extraction`.
 2. **Porte de vérification canonique** :
    ```bash
    uv run python script/verify.py
@@ -108,11 +108,11 @@ Prend en charge la réalisation d'une tâche, d'une spécification ou d'un ticke
      4. Ne passer à l'étape 4 qu'une fois la porte canonique 100% au vert post-remédiation.
 4. **Mise à jour du statut Obsidian & Archivage Physique (Post-Revue)** :
    - Mettre à jour l'en-tête du ticket : `**Statut :** ✅ Terminé` et cocher les critères d'acceptation.
-   - **Déplacement physique obligatoire** : déplacer la note du ticket de `ankiforge_obsidian/Tickets/ticket-actif/` vers `ankiforge_obsidian/Tickets/Archives/` (ainsi que les spécifications associées). La racine `Tickets/` ne doit jamais comporter de fichier à plat.
-   - Déplacer la carte dans `ankiforge_obsidian/Avancement du projet.md` vers `## ✅ Terminé (done)` en ajustant le lien vers `[[Tickets/Archives/<Nom>|<Titre>]]`.
+   - **Déplacement physique obligatoire** : déplacer la note du ticket de `ankidraft_obsidian/Tickets/ticket-actif/` vers `ankidraft_obsidian/Tickets/Archives/` (ainsi que les spécifications associées). La racine `Tickets/` ne doit jamais comporter de fichier à plat.
+   - Déplacer la carte dans `ankidraft_obsidian/Avancement du projet.md` vers `## ✅ Terminé (done)` en ajustant le lien vers `[[Tickets/Archives/<Nom>|<Titre>]]`.
    - Vérifier l'absence de fichiers fantômes résiduels de 0 octet à la racine de `Tickets/`.
    - Si la colonne `Terminé` dépasse 15 items, archiver les plus anciens dans `Archives - Tickets Terminés.md`.
-   - **Sous-Dépôt Git Autonome** : `ankiforge_obsidian/` dispose de son propre dépôt Git ignoré par la racine. Ne jamais l'inclure dans un `git add` du projet principal ; proposer un commit dédié via `git -C ankiforge_obsidian`.
+   - **Sous-Dépôt Git Autonome** : `ankidraft_obsidian/` dispose de son propre dépôt Git ignoré par la racine. Ne jamais l'inclure dans un `git add` du projet principal ; proposer un commit dédié via `git -C ankidraft_obsidian`.
    - **Arrêt immédiat** (One-shot pass).
 
 ## When NOT to use this skill

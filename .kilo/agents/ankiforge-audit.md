@@ -39,14 +39,14 @@ Lance un sous-agent par work package en parallèle :
 | WP | Mission | Skill dédié | Commande |
 |---|---|---|---|
 | W1 | Lint & format `ruff` | `audit-qualite-code` | `uv run ruff check . ; uv run ruff format --check .` |
-| W2 | Typage strict `mypy` | `audit-qualite-code` | `uv run mypy src/ankiforge` |
+| W2 | Typage strict `mypy` | `audit-qualite-code` | `uv run mypy src/ankidraft` |
 | W3 | Tests rapides pytest | `audit-tests-ci` | `uv run pytest tests/ -k "not slow" -q` |
 | W4 | Couverture + SÉRIEL | `audit-tests-ci` | `uv run pytest tests/ -k "not slow" -n 0 --cov=ankiforge --cov-fail-under=70` |
 | W5 | Sécurité `bandit`+`gitleaks` | `audit-securite` | `uv run bandit -c pyproject.toml -r src/` |
 | W6 | Dépendances `pip-audit`+outdated | `audit-dependances` | `uv run --with pip-audit pip-audit --local --skip-editable` |
-| W7 | BDD/Peewee (CASCADE, atomic, NOT NULL) | `audit-donnees` | inspection statique `src/ankiforge/database/` |
-| W8 | UI/Design System (tokens, WCAG, headless) | `audit-design-ui` | inspection `src/ankiforge/ui/` + `DESIGN.md` |
-| W9 | Pipeline IA/DAG/MCP | `audit-ia-pipeline` | inspection `src/ankiforge/services/ai/` |
+| W7 | BDD/Peewee (CASCADE, atomic, NOT NULL) | `audit-donnees` | inspection statique `src/ankidraft/database/` |
+| W8 | UI/Design System (tokens, WCAG, headless) | `audit-design-ui` | inspection `src/ankidraft/ui/` + `DESIGN.md` |
+| W9 | Pipeline IA/DAG/MCP | `audit-ia-pipeline` | inspection `src/ankidraft/services/ai/` |
 | W10 | Catalogue skills | `mise-a-jour-metadonnees` | `auditer_coherence_skills.py` |
 | W11 | Docs Zensical build | `documentation-zensical` | `uv run zensical build` |
 

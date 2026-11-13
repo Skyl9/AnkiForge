@@ -24,5 +24,5 @@ Les outils MCP `get_cards_by_deck_or_tag` et `get_notes_by_model` exposent un pa
 ## Références
 - FEEDBACK_DEV_AGENTIQUE.md § Axe 3 (ligne 155)
 - CONTEXT.md : entrées « Requête récursive de paquet » et « Paramètre `recursive` (MCP) »
-- `src/ankiforge/services/ai/mcp_server.py` : outils `get_cards_by_deck_or_tag`, `get_notes_by_model`
-- `src/ankiforge/services/ai/mcp_tool_registry.py` : implémentation `MCPToolRegistry.get_cards_by_deck_or_tag`
+- `src/ankidraft/services/ai/mcp_server.py` : outils `get_cards_by_deck_or_tag`, `get_notes_by_model`
+- `src/ankidraft/services/ai/mcp_tool_registry.py` : implémentation `MCPToolRegistry.get_cards_by_deck_or_tag`

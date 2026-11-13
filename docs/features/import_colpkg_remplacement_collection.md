@@ -4,7 +4,7 @@
 **ADR de Référence :** [ADR 0036 — Importation de collection (.colpkg) par remplacement intégral et préservation du studio](../adr/0036-import-colpkg-remplacement-collection-et-preservation-studio.md)  
 **Glossaire Métier :** [CONTEXT.md](https://github.com/tristanrigaud-humbert/AnkiForge/blob/master/CONTEXT.md#L328-L343) (*Import de collection (.colpkg)*, *Périmètre Collection Anki*, *Périmètre Studio / Forge*, *Sauvegarde pré-importation*)  
 
-**Ticket Associé :** `ankiforge_obsidian/Tickets/Import Colpkg - Remplacement Integral de Collection et Sanctuarisation Studio.md`
+**Ticket Associé :** `ankidraft_obsidian/Tickets/Import Colpkg - Remplacement Integral de Collection et Sanctuarisation Studio.md`
 
 ---
 
@@ -12,7 +12,7 @@
 
 Dans l'écosystème Anki, un fichier **`.colpkg`** (Collection Package) constitue une sauvegarde intégrale d'une collection (base SQLite compressée en Zstandard `collection.anki21b`, table des paquets, types de notes, cartes et médias).
 
-Jusqu'alors, AnkiForge traitait indifféremment les fichiers `.apkg` (paquets partagés de cartes) et les fichiers `.colpkg` à travers le même pipeline de fusion incrémentale ([`import_manager.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/cards/import_manager.py)) :
+Jusqu'alors, AnkiForge traitait indifféremment les fichiers `.apkg` (paquets partagés de cartes) et les fichiers `.colpkg` à travers le même pipeline de fusion incrémentale ([`import_manager.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/cards/import_manager.py)) :
 1. **Écrasement destructeur des modèles existants :** Lorsqu'un type de note homonyme présentait des champs différents, `ImportManager` écrasait inconditionnellement son `fields_schema`, rompant les notes locales existantes qui dépendaient de l'ancienne définition.
 2. **Prolifération des cartes zombies :** L'importation n'effectuait que des ajouts et des mises à jour. Les cartes, notes et paquets supprimés dans Anki n'étaient jamais purgés d'AnkiForge, puis réapparaissaient comme des cartes fantômes lors des exports ultérieurs.
 3. **Nettoyage de modèles inopérant :** Le nettoyage des modèles orphelins n'était déclenché que si le compte de notes locales était nul, ce qui n'arrivait jamais du fait de la conservation des notes fantômes.
@@ -34,7 +34,7 @@ flowchart TD
     Archive[".colpkg sélectionné"] --> CheckArchive["Analyse de l'archive (zstd, sqlite, media)"]
     CheckArchive --> UIAdapt["UI ImportDialog s'adapte :<br>- Option fusion masquée<br>- Alerte remplacement affichée<br>- Bouton 'Remplacer la collection'"]
     UIAdapt --> Confirm{"Confirmation utilisateur"}
-    Confirm -->|Validé| Backup["Sauvegarde pré-import automatique<br>(ankiforge_backup_precolpkg_*.db)"]
+    Confirm -->|Validé| Backup["Sauvegarde pré-import automatique<br>(ankidraft_backup_precolpkg_*.db)"]
     Backup --> AtomicTx["Transaction atomique db.atomic()"]
     
     subgraph AtomicTx["Périmètre d'Exécution Atomique"]
@@ -85,15 +85,15 @@ flowchart TD
 
 | Fichier | Nature des Modifications |
 |---|---|
-| [`src/ankiforge/services/cards/import_manager.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/cards/import_manager.py) | - Constante `MAX_COLPKG_DECOMPRESSED_BYTES = 5 * 1024 * 1024 * 1024` (5 Gio).<br>- Détection stricte `source_type == "colpkg"`.<br>- Méthode dédiée `_commit_colpkg_replacement(...)`.<br>- Purge ordonnée du Périmètre Anki respectant l'intégrité référentielle.<br>- Réalignement documentaire post-import via `CoverageAlignmentService`. |
-| [`src/ankiforge/database/backup.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/database/backup.py) | - Fonction `backup_before_colpkg_import() -> Path` générant un instantané horodaté `ankiforge_backup_precolpkg_<horodatage>.db` exclu de la rotation standard. |
-| [`src/ankiforge/services/workers/import_cards_worker.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/workers/import_cards_worker.py) | - Émission des statuts de progression spécifiques à la sauvegarde et au remplacement de collection. |
-| [`src/ankiforge/ui/dialogs/import_dialog.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/dialogs/import_dialog.py) | - Détection réactive de l'extension `.colpkg`.<br>- Masquage dynamique de `self.options_frame` (choix du paquet cible).<br>- Affichage de `self.colpkg_warning_card` (encart d'alerte explicite).<br>- Mise à jour du libellé du bouton : `Remplacer la collection`.<br>- Court-circuit de `SmartMergeDialog` lors d'un `.colpkg`. |
+| [`src/ankidraft/services/cards/import_manager.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/cards/import_manager.py) | - Constante `MAX_COLPKG_DECOMPRESSED_BYTES = 5 * 1024 * 1024 * 1024` (5 Gio).<br>- Détection stricte `source_type == "colpkg"`.<br>- Méthode dédiée `_commit_colpkg_replacement(...)`.<br>- Purge ordonnée du Périmètre Anki respectant l'intégrité référentielle.<br>- Réalignement documentaire post-import via `CoverageAlignmentService`. |
+| [`src/ankidraft/database/backup.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/database/backup.py) | - Fonction `backup_before_colpkg_import() -> Path` générant un instantané horodaté `ankidraft_backup_precolpkg_<horodatage>.db` exclu de la rotation standard. |
+| [`src/ankidraft/services/workers/import_cards_worker.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/workers/import_cards_worker.py) | - Émission des statuts de progression spécifiques à la sauvegarde et au remplacement de collection. |
+| [`src/ankidraft/ui/dialogs/import_dialog.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/ui/dialogs/import_dialog.py) | - Détection réactive de l'extension `.colpkg`.<br>- Masquage dynamique de `self.options_frame` (choix du paquet cible).<br>- Affichage de `self.colpkg_warning_card` (encart d'alerte explicite).<br>- Mise à jour du libellé du bouton : `Remplacer la collection`.<br>- Court-circuit de `SmartMergeDialog` lors d'un `.colpkg`. |
 
 ### 4.2 Périmètres de Persistance Peewee
 
 ```
-BASE DU PROFIL (ankiforge.db)
+BASE DU PROFIL (ankidraft.db)
 │
 ├── 🔴 PÉRIMÈTRE ANKI (PURGÉ & RÉINJECTÉ LORS D'UN .COLPKG)
 │   ├── CardModel (cascade)
@@ -174,7 +174,7 @@ BASE DU PROFIL (ankiforge.db)
    * **Test de purge des cartes zombies :** Créer des cartes A, B, C en base locale. Importer un `.colpkg` ne contenant que B et D. Vérifier après import que A et C n'existent plus, que B est synchronisée et que D est créée.
    * **Test de mise à jour des NoteTypes :** Vérifier que si un type de note `Basic` local avait 2 champs et que le `.colpkg` contient un type `Basic` à 3 champs, les nouvelles notes utilisent le nouveau schéma sans conflit ni crash.
    * **Test de réconciliation documentaire :** Vérifier que si une note importée porte le tag `section:Chapitre 1`, elle est réassociée au fragment documentaire existant correspondant.
-   * **Test de la sauvegarde automatique :** Vérifier la présence physique du fichier `ankiforge_backup_precolpkg_*.db` dans le dossier de backups du profil.
+   * **Test de la sauvegarde automatique :** Vérifier la présence physique du fichier `ankidraft_backup_precolpkg_*.db` dans le dossier de backups du profil.
 
 2. **Oracle Anki Officiel (`tests/integration/test_anki_colpkg_oracle.py` / `slow`) :**
    * Génération par le backend `anki` officiel d'un `.colpkg` complexe (contenant du Zstd `collection.anki21b`, du cloze et des médias).

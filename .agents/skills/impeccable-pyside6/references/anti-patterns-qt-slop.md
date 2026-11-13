@@ -49,13 +49,13 @@ QMessageBox.information(self, "Succès", "Le prompt a été enregistré.")
 ```
 
 ### Le remède "Impeccable Craft"
-- **Notifications discrètes (Toasts)** : Pour les confirmations asynchrones, utiliser le `ToastManager` (`src/ankiforge/ui/widgets/toast.py`) qui empile des alertes légères, fluides et élégantes avec barre de progression et auto-dismiss.
+- **Notifications discrètes (Toasts)** : Pour les confirmations asynchrones, utiliser le `ToastManager` (`src/ankidraft/ui/widgets/toast.py`) qui empile des alertes légères, fluides et élégantes avec barre de progression et auto-dismiss.
 - **Bannières d'état inline** : Afficher les avertissements non bloquants directement dans la vue, au-dessus de l'action concernée.
 - **Dialogues modaux dédiés** : Pour les confirmations critiques destructives (suppression irréversible), employer un dialogue custom dérivé du design system, jamais une boîte système native.
 
 ```python
 # ✅ IMPECCABLE : Toast élégant et non bloquant
-from ankiforge.ui.widgets.toast import ToastLevel, ToastManager
+from ankidraft.ui.widgets.toast import ToastLevel, ToastManager
 
 ToastManager.get_instance().show_toast(
     title=self.tr("Enregistré"),
@@ -79,12 +79,12 @@ btn.setStyleSheet("background-color: #3b82f6; color: white; border-radius: 6px;"
 
 ### Le remède "Impeccable Craft"
 - **Rôles sémantiques QSS** : Définir la propriété dynamique `btn.setProperty("role", "primary")` et laisser `StyleEngine` injecter les règles de thème.
-- **Composants d'infrastructure** : Utiliser `PrimaryButton`, `SecondaryButton`, `IconButton`, `Badge` (`src/ankiforge/ui/components/`).
-- **DesignTokens** : Si un style programmatique est impératif, importer `DesignTokens` depuis `ankiforge.ui.theme` ou interroger le profil de thème actif.
+- **Composants d'infrastructure** : Utiliser `PrimaryButton`, `SecondaryButton`, `IconButton`, `Badge` (`src/ankidraft/ui/components/`).
+- **DesignTokens** : Si un style programmatique est impératif, importer `DesignTokens` depuis `ankidraft.ui.theme` ou interroger le profil de thème actif.
 
 ```python
 # ✅ IMPECCABLE : Composant sémantique branché sur le Design System
-from ankiforge.ui.components.buttons import PrimaryButton
+from ankidraft.ui.components.buttons import PrimaryButton
 
 btn = PrimaryButton(self.tr("Générer les cartes"), parent=self)
 # Tout le style, le hover, le glow et le focus proviennent de DESIGN.md

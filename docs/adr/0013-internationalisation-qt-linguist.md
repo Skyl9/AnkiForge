@@ -20,17 +20,17 @@ Accepté
 
 ### Un seul module d'amorçage
 
-`src/ankiforge/utils/i18n.py` est **l'unique couture** de traduction au runtime : résolution du dossier, installation du `QTranslator`, exposition de `tr()`. Aucun autre module n'instancie de `QTranslator`, aucun n'essaie de deviner un chemin de catalogue.
+`src/ankidraft/utils/i18n.py` est **l'unique couture** de traduction au runtime : résolution du dossier, installation du `QTranslator`, exposition de `tr()`. Aucun autre module n'instancie de `QTranslator`, aucun n'essaie de deviner un chemin de catalogue.
 
 ### Un seul emplacement de ressources
 
-Les catalogues vivent dans `src/ankiforge/resources/translations/` et sont résolus par `utils.paths.get_resource_path`, jamais par `Path(__file__)` — qui échoue dans tout bundle. Le dépôt porte historiquement **deux racines de ressources** (`src/ressources` pour les icônes et prompts, `src/ankiforge/resources` pour KaTeX et l'i18n) ; c'est leur divergence qui a cassé `database/seeds/initial_seed.py`. Elles sont désormais copiées **indépendamment** dans le bundle : une racine manquante ne prive plus l'application de l'autre.
+Les catalogues vivent dans `src/ankidraft/resources/translations/` et sont résolus par `utils.paths.get_resource_path`, jamais par `Path(__file__)` — qui échoue dans tout bundle. Le dépôt porte historiquement **deux racines de ressources** (`src/ressources` pour les icônes et prompts, `src/ankidraft/resources` pour KaTeX et l'i18n) ; c'est leur divergence qui a cassé `database/seeds/initial_seed.py`. Elles sont désormais copiées **indépendamment** dans le bundle : une racine manquante ne prive plus l'application de l'autre.
 
 ### Trois états de catalogue, deux coutures de build
 
 Le `.ts` est **versionné** (source de vérité, relisible en diff), le `.qm` est un **artefact** produit par `script/extract_translations.py`. Aucun n'est compilé à l'exécution.
 
-Conséquence directe : le `.qm` est ignoré par Git, donc aussi par hatchling, qui respecte les fichiers d'exclusion du VCS. Sans déclaration explicite, le wheel partirait avec les `.ts` — utiles à l'extraction, inutiles à l'exécution — et **sans aucune traduction**. Le pilote compile les `.qm` avant Nuitka, puis `copy_app_resources_to_bundle()` recopie toute la racine `src/ankiforge/resources` dans le bundle (vers `Contents/Resources` pour macOS) ; Nuitka ne reçoit pas de glob de traduction, car sa destination serait résolue sous `Contents/MacOS` et entrerait en conflit avec l'exécutable. Le wheel conserve sa déclaration `artifacts` dans `pyproject.toml`. `tests/test_i18n_packaging.py` vérifie ces coutures.
+Conséquence directe : le `.qm` est ignoré par Git, donc aussi par hatchling, qui respecte les fichiers d'exclusion du VCS. Sans déclaration explicite, le wheel partirait avec les `.ts` — utiles à l'extraction, inutiles à l'exécution — et **sans aucune traduction**. Le pilote compile les `.qm` avant Nuitka, puis `copy_app_resources_to_bundle()` recopie toute la racine `src/ankidraft/resources` dans le bundle (vers `Contents/Resources` pour macOS) ; Nuitka ne reçoit pas de glob de traduction, car sa destination serait résolue sous `Contents/MacOS` et entrerait en conflit avec l'exécutable. Le wheel conserve sa déclaration `artifacts` dans `pyproject.toml`. `tests/test_i18n_packaging.py` vérifie ces coutures.
 
 ### Deux formes d'écriture, et une seule interdiction
 

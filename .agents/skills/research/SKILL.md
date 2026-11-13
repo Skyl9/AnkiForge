@@ -34,7 +34,7 @@ Si le ticket ou la demande n'est pas totalement explicite, interroger immédiate
 Explorer activement la documentation existante :
 - **Recherche sur le web** (`search_web`) : documentation officielle des projets amont, dépôts GitHub, comparatifs récents, RFCs et spécifications.
 - **Sources primaires exclusivement** : privilégier la documentation canonique des éditeurs/mainteneurs aux articles dérivés ou obsolètes.
-- **Confrontation au socle existant** : vérifier l'adéquation avec les contraintes d'AnkiForge (`src/ankiforge/`, ADRs existants, typage strict, fonctionnement hors ligne).
+- **Confrontation au socle existant** : vérifier l'adéquation avec les contraintes d'AnkiForge (`src/ankidraft/`, ADRs existants, typage strict, fonctionnement hors ligne).
 
 ### Étape 3 : Adaptation & Synthèse Contextualisée
 - Ne pas se contenter d'un copier-coller brut : **adapter directement la documentation trouvée aux besoins spécifiques de l'utilisateur** et aux contraintes du projet.

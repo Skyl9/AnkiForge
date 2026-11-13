@@ -3,7 +3,7 @@
 - **Statut** : Accepté
 - **Date** : 2026-11-04
 - **Décideurs** : Équipe d'ingénierie AnkiForge & Tristan Rigaud-Humbert
-- **Périmètre** : `src/ankiforge/ui/widgets/settings_modal/`, `SettingsModal`, tous les onglets (`tabs/`), moteur de recherche, persistance (`SettingsService` & `QSettings`).
+- **Périmètre** : `src/ankidraft/ui/widgets/settings_modal/`, `SettingsModal`, tous les onglets (`tabs/`), moteur de recherche, persistance (`SettingsService` & `QSettings`).
 
 ---
 

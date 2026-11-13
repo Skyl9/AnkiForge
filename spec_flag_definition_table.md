@@ -40,7 +40,7 @@ ProfileFlagLabelModel (personnalisations utilisateur)
 
 ## Décisions d'Implémentation
 
-### 1. Nouveaux Modèles Peewee (`src/ankiforge/database/models/flags.py` — nouveau fichier)
+### 1. Nouveaux Modèles Peewee (`src/ankidraft` — nouveau fichier)
 
 ```python
 class FlagDefinitionModel(BaseModel):
@@ -69,7 +69,7 @@ class ProfileFlagLabelModel(BaseModel):
         indexes = ((("profile", "flag_definition"), True),)  # Unique composite
 ```
 
-### 2. Migration Peewee (`src/ankiforge/database/migrations/049_flag_definition_table.py`)
+### 2. Migration Peewee (`src/ankidraft`)
 
 ```python
 """Migration 049 : Table de référence FlagDefinitionModel + ProfileFlagLabelModel + FK sur CardModel."""
@@ -113,7 +113,7 @@ def rollback(migrator, database, fake=False, **kwargs):
     migrator.remove_model("flag_definition")
 ```
 
-### 3. Refactor `CardModel` (`src/ankiforge/database/models/cards.py`)
+### 3. Refactor `CardModel` (`src/ankidraft`)
 
 ```python
 # Remplacer:
@@ -124,7 +124,7 @@ flags = IntegerField(default=0, constraints=[Check("flags BETWEEN 0 AND 7")])  #
 flag_definition = ForeignKeyField("FlagDefinitionModel", field="value", backref="cards", null=True, on_delete="SET NULL")
 ```
 
-### 4. Refactor `FlagService` (`src/ankiforge/services/cards/flag_service.py`)
+### 4. Refactor `FlagService` (`src/ankidraft`)
 
 - Supprimer `DEFAULT_FLAG_NAMES`, `DEFAULT_FLAG_COLORS`, `DEFAULT_FLAG_SEARCH_MAP`
 - `get_flag_labels()` → jointure `FlagDefinitionModel` + `ProfileFlagLabelModel` (LEFT JOIN)
@@ -133,7 +133,7 @@ flag_definition = ForeignKeyField("FlagDefinitionModel", field="value", backref=
 - `get_flag_search_map()` → construit dynamiquement depuis `FlagDefinitionModel` + overrides profil
 - Émettre `FlagLabelsUpdatedEvent` inchangé
 
-### 5. Mise à jour `DesignTokens` (`src/ankiforge/ui/theme.py`)
+### 5. Mise à jour `DesignTokens` (`src/ankidraft`)
 
 - `FLAG_COLORS`, `FLAG_NAMES`, `FLAG_SEARCH_MAP` → propriétés `@classmethod` qui délèguent à `FlagService`
 - Ou chargement au démarrage via `FlagService.get_flag_labels()` et cache
@@ -142,11 +142,11 @@ flag_definition = ForeignKeyField("FlagDefinitionModel", field="value", backref=
 
 | Composant | Fichier | Changement |
 |-----------|---------|------------|
-| `FlagItemDelegate` | `src/ankiforge/ui/models/delegates.py` | Utilise `FlagService.get_flag_name()` + `FlagService.get_flag_color()` |
-| `EditionView` (filtres, menus drapeaux) | `src/ankiforge/ui/views/edition_view/view.py` | Délégation à `FlagService` |
-| `Omnibox` | `src/ankiforge/ui/widgets/omnibox.py` | Délégation à `FlagService` |
-| `AnkiSyncTab` (paramètres drapeaux) | `src/ankiforge/ui/widgets/settings_modal/tabs/anki_sync_tab.py` | Lit/écrit via `FlagService` |
-| `NoteTableModel` | `src/ankiforge/ui/models/note_table_model.py` | Jointure `flag_definition` dans requête préchargée |
+| `FlagItemDelegate` | `src/ankidraft` | Utilise `FlagService.get_flag_name()` + `FlagService.get_flag_color()` |
+| `EditionView` (filtres, menus drapeaux) | `src/ankidraft` | Délégation à `FlagService` |
+| `Omnibox` | `src/ankidraft` | Délégation à `FlagService` |
+| `AnkiSyncTab` (paramètres drapeaux) | `src/ankidraft` | Lit/écrit via `FlagService` |
+| `NoteTableModel` | `src/ankidraft` | Jointure `flag_definition` dans requête préchargée |
 
 ### 7. Import/Export Anki (compatibilité)
 
@@ -198,16 +198,16 @@ flag_definition = ForeignKeyField("FlagDefinitionModel", field="value", backref=
 
 | Fichier | Action |
 |---------|--------|
-| `src/ankiforge/database/models/flags.py` | **Créer** — nouveaux modèles |
-| `src/ankiforge/database/migrations/049_flag_definition_table.py` | **Créer** — migration + seed + backfill |
-| `src/ankiforge/database/models/cards.py` | **Modifier** — ajouter `flag_definition` FK |
-| `src/ankiforge/services/cards/flag_service.py` | **Refactor** — délégation vers modèles BDD |
-| `src/ankiforge/ui/theme.py` | **Modifier** — `DesignTokens.FLAG_*` → `@classmethod` |
-| `src/ankiforge/ui/models/delegates.py` | **Modifier** — `FlagItemDelegate` |
-| `src/ankiforge/ui/views/edition_view/view.py` | **Modifier** — menus/filtres drapeaux |
-| `src/ankiforge/ui/widgets/omnibox.py` | **Modifier** — affichage drapeaux |
-| `src/ankiforge/ui/widgets/settings_modal/tabs/anki_sync_tab.py` | **Modifier** — onglet drapeaux |
-| `src/ankiforge/ui/models/note_table_model.py` | **Modifier** — préchargement jointure |
+| `src/ankidraft` | **Créer** — nouveaux modèles |
+| `src/ankidraft` | **Créer** — migration + seed + backfill |
+| `src/ankidraft` | **Modifier** — ajouter `flag_definition` FK |
+| `src/ankidraft` | **Refactor** — délégation vers modèles BDD |
+| `src/ankidraft` | **Modifier** — `DesignTokens.FLAG_*` → `@classmethod` |
+| `src/ankidraft` | **Modifier** — `FlagItemDelegate` |
+| `src/ankidraft` | **Modifier** — menus/filtres drapeaux |
+| `src/ankidraft` | **Modifier** — affichage drapeaux |
+| `src/ankidraft` | **Modifier** — onglet drapeaux |
+| `src/ankidraft` | **Modifier** — préchargement jointure |
 | `tests/unit/test_flag_definition.py` | **Créer** |
 | `tests/integration/test_flags_integration.py` | **Créer** |
 | `tests/ui/test_flags_ui.py` | **Créer** |

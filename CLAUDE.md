@@ -17,11 +17,11 @@ uv sync --group dev             # dépendances de développement, tests, linters
 
 ### Lancement de l'Application
 ```bash
-uv run ankiforge                # environnement de profil par défaut
-uv run ankiforge --dev          # environnement isolé de développement (~/.ankiforge-dev)
-uv run ankiforge --prod         # forcer l'environnement de production (~/.ankiforge)
-uv run ankiforge --smoke-test   # vérification d'intégrité binaire et de démarrage sans interface
-uv run ankiforge --clone-prod-to-dev # synchroniser la base prod vers dev pour investigation
+uv run ankidraft                # environnement de profil par défaut
+uv run ankidraft --dev          # environnement isolé de développement (~/.ankidraft-dev)
+uv run ankidraft --prod         # forcer l'environnement de production (~/.ankidraft)
+uv run ankidraft --smoke-test   # vérification d'intégrité binaire et de démarrage sans interface
+uv run ankidraft --clone-prod-to-dev # synchroniser la base prod vers dev pour investigation
 ```
 
 ### Exécution des Tests
@@ -48,7 +48,7 @@ uv run python script/verify.py --install-hook # installe et active le hook natif
 
 ### Analyse du Risque & Complexité (Score CRAP)
 ```bash
-uv run python script/crap.py                 # rapport de risque complet sur tout src/ankiforge/
+uv run python script/crap.py                 # rapport de risque complet sur tout src/ankidraft/
 uv run python script/crap.py --changed       # analyse ciblée sur le diff Git en cours
 uv run python script/crap.py --threshold 25  # garde-fou qualité (exit code 2 si CRAP > 25)
 uv run python script/crap.py --top 15        # top 15 des fonctions les plus à risque
@@ -85,7 +85,7 @@ uv run python script/capture_view.py --layout-thumbnails # régénère les minia
 Toutes les synthèses, explications, interactions, documentations et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, y compris lors de l'exécution de compétences dont la spécification ou les déclencheurs emploient l'anglais.
 
 ### 2. Typage Statique Strict 100% (`mypy`)
-- Tout le code du projet sous `src/ankiforge/` respecte le typage strict (`disallow_untyped_defs = true`).
+- Tout le code du projet sous `src/ankidraft` respecte le typage strict (`disallow_untyped_defs = true`).
 - Interdiction formelle d'ajouter des règles globales `disable_error_code` masquant les erreurs de typage.
 - Utiliser systématiquement les types stubs (`types-peewee`, `types-requests`, `types-markdown`) et la syntaxe moderne Python 3.12+ (unions `X | Y`, génériques PEP 695).
 
@@ -141,7 +141,7 @@ L'agent ne doit **JAMAIS** exécuter de `git commit` ou `git push` de manière a
 
 - **Multi-profils & Isolation stricte** : Chaque profil utilisateur possède sa propre base SQLite (`~/.ankiforge/profiles/<nom>/ankiforge.db`) et son dossier de médias dédié. Le verrou de profil (`ProfileManager`) garantit l'exclusivité d'accès mono-instance par profil tout en autorisant le multi-processus sur des profils disjoints.
 - **Dispositions d'interface (4 Layouts) & Miniatures** : 4 architectures interchangeables à chaud (`ide`, `macos`, `dashboard`, `glassmorphism`) sélectionnables via une grille 2x2 de miniatures d'aperçu haute résolution (`LayoutGridSelector` / `LayoutThumbnailCard`).
-- **Délimitation & Modes de portée exclusifs** : `ScopeModeExclusivityMixin` (`src/ankiforge/ui/dialogs/scope_mode_exclusivity.py`) constitue la couture unique gouvernant les modes de sélection documentaire (`sections`, `pages`, `chapitres`). `activate_scope_mode()` et `restore_scope_mode()` préservent fidèlement les sélections et délimitations utilisateur.
+- **Délimitation & Modes de portée exclusifs** : `ScopeModeExclusivityMixin` (`src/ankidraft/ui/dialogs/scope_mode_exclusivity.py`) constitue la couture unique gouvernant les modes de sélection documentaire (`sections`, `pages`, `chapitres`). `activate_scope_mode()` et `restore_scope_mode()` préservent fidèlement les sélections et délimitations utilisateur.
 - **Composition de lots (Batch Slice Composer)** : Dialogue modal unique `BatchSliceComposerDialog` permettant le découpage documentaire en mode Direct (`DocumentScopeWidget`, 1 partie cochée = 1 tâche) ou Auto (`AutoSliceWidget` avec règles de découpage paramétrables).
 - **Adresses de région & Exclusion non destructive (`ADR 0010`)** : Une exclusion est une règle de périmètre (`utils/region_address.py` : `node:`, `heading:`, `page:`), jamais une suppression physique. `DocumentRepository` est l'unique décideur (`is_region_excluded`, `set_region_excluded`, `set_region_neutralized`). Écarter sort du périmètre de calcul et de génération ; neutraliser retire un conteneur du dénominateur de couverture (`ContainerOrigin.DECLARED`).
 - **Provenance par section & Paliers de résolution (`ADR 0009`)** : L'identité durable d'une source est le couple (document, fil d'Ariane `heading_path`), jamais l'identifiant éphémère d'un fragment textuel. `CoverageAlignmentService.resolve_attachment()` applique la résolution déterministe à 4 paliers (`exact → section → page → lexical`). Le palier gagnant est persisté sur `NoteChunkLinkModel.resolution`.

@@ -23,7 +23,7 @@ uv run pytest --collect-only -q | tail -3
 uv run pytest tests/ -m "not slow" -n 0 -q
 
 # Couverture sur le sous-ensemble (CI exige ≥ 70)
-uv run pytest tests/ -m "not slow" -n 0 --cov=ankiforge --cov-report=term-missing -q | tail -20 || true
+uv run pytest tests/ -m "not slow" -n 0 --cov=ankidraft --cov-report=term-missing -q | tail -20 || true
 
 # Patterns interdits dans les tests
 grep -rInE "time\.sleep\(|sleep\(" tests/ || true

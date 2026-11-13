@@ -10,7 +10,7 @@ Le dépôt héberge 54 compétences agentiques autonomes conformes au standard i
 - `gouvernance-skills` (`.agents/skills/gouvernance-skills/SKILL.md`) : Méta-gouverneur du parc de skills, audit statique (`auditer_coherence_skills.py`), détection des collisions Jaccard et grille de maturité 5 axes.
 - `session-retrospective` (`.agents/skills/session-retrospective/SKILL.md`) : Rétrospective critique de session et auto-amélioration continue du catalogue de compétences agentiques face aux dérives et erreurs constatées.
 - `documentation-zensical` (`.agents/skills/documentation-zensical/SKILL.md`) : Audit proactif, enrichissement et validation de la documentation Zensical (`uv run zensical build`).
-- `audit-ankiforge` (`.agents/skills/audit-ankiforge/SKILL.md`) : Orchestration de la batterie complète d'audits et de tests du projet avec consolidation de rapport.
+- `audit-ankidraft` (`.agents/skills/audit-ankidraft/SKILL.md`) : Orchestration de la batterie complète d'audits et de tests du projet avec consolidation de rapport.
 - `obsidian-vault` (`.agents/skills/obsidian-vault/SKILL.md`) : Gestionnaire du vault Obsidian (`ankiforge_obsidian/`), Kanban (`Avancement du projet.md`) et tickets en mode atomique one-shot anti-boucle.
 - `proposer-commits` (`.agents/skills/proposer-commits/SKILL.md`) : Formulation de propositions de commits atomiques conformes à Conventional Commits v1.0.0 en français (garde-fou interdisant tout commit autonome).
 - `verification-environnement` (`.agents/skills/verification-environnement/SKILL.md`) : Règles d'ingénierie préventives, interdits non négociables et exécution de la porte canonique (`script/verify.py`).

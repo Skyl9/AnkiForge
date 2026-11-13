@@ -23,7 +23,7 @@ Si les fondations techniques de cette séparation ont été stabilisées par l'A
 
 ### 1. Lecteur applicatif natif et autonome (`DocReaderDialog`)
 
-Un dialogue modal/autonome `DocReaderDialog` est introduit dans `src/ankiforge/ui/dialogs/doc_reader_dialog.py` :
+Un dialogue modal/autonome `DocReaderDialog` est introduit dans `src/ankidraft/ui/dialogs/doc_reader_dialog.py` :
 - **Moteur de rendu natif `QTextBrowser`** : assure un rendu HTML/CSS rapide, léger et autonome, sans dépendance Chromium ni mock WebEngine requis.
 - **Support complet des illustrations vectorielles SVG locales** : exploitation du module `QtSvg` et de la résolution de chemins relatifs ou ressources pour afficher des diagrammes nets à toutes les résolutions d'écran et dans tous les thèmes.
 - **Confort de lecture** : intégration d'une barre d'outils avec recherche textuelle incrémentale en surbrillance, contrôle du niveau de zoom typographique, et respect des jetons sémantiques de design (`DesignTokens`).

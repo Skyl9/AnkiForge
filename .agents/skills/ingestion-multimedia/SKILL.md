@@ -11,11 +11,11 @@ description: >-
 En tant qu'**Expert Ingestion & Parsing**, tu transformes toute source brute (fichiers, médias, URLs) en Markdown propre avec extraction des images associées via `MediaManager`.
 
 > **Référence** : `references/catalogue_parsers.md` — mapping format → parseur, entrées/sorties, options et fallbacks.
-> Code source : `src/ankiforge/services/parsing/`.
+> Code source : `src/ankidraft/services/parsing/`.
 
 ## 1. Périmètre & Principes
 
-- **Périmètre** : `src/ankiforge/services/parsing/` (`DocumentParser`, `MarkerService`, `AudioParser`, `YouTubeParser`, `WebImporter`, `EpubParser`, `PptxParser`) et gestion des médias extraits (`src/ankiforge/services/cards/media_manager.py`).
+- **Périmètre** : `src/ankidraft/services/parsing/` (`DocumentParser`, `MarkerService`, `AudioParser`, `YouTubeParser`, `WebImporter`, `EpubParser`, `PptxParser`) et gestion des médias extraits (`src/ankidraft/services/cards/media_manager.py`).
 - **Sortie standard** : Markdown propre (`str`) avec références relatives aux médias extraits dédupliqués.
 - **Règles non négociables** :
   - Aucun appel réseau ou extraction lourde bloquante sur le thread principal de l'interface (déléguer aux workers `QThread` / `DocumentBatchWorker`).

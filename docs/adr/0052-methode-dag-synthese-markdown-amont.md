@@ -15,7 +15,7 @@ Une étape de **synthèse Markdown amont** placée en tout début de pipeline (v
 ## Décision
 1. **Documenter la méthodologie** dans `docs/Dossier_architecture/06_moteur_orchestration_ia.md` avec une section dédiée « Bonnes pratiques : Synthèse Markdown amont ».
 2. **Fournir un exemple concret** de pipeline YAML/JSON incluant une étape `PYTHON_TOOL` d'ordre 1 appelant `format_markdown_document`.
-3. **Référencer l'implémentation** : `src/ankiforge/services/markdown/formatter.py` (`MarkdownFormatter.format`) et l'outil MCP `format_markdown_document` (accessible via `ToolService`).
+3. **Référencer l'implémentation** : `src/ankidraft/services/markdown/formatter.py` (`MarkdownFormatter.format`) et l'outil MCP `format_markdown_document` (accessible via `ToolService`).
 4. **Créer cet ADR** pour tracer la décision d'architecture.
 
 ## Alternatives considérées
@@ -30,7 +30,7 @@ Une étape de **synthèse Markdown amont** placée en tout début de pipeline (v
 
 ## Références
 - `docs/Dossier_architecture/06_moteur_orchestration_ia.md` (section à ajouter)
-- `src/ankiforge/services/ai/orchestrator.py` : `_execute_python_tool`
-- `src/ankiforge/services/ai/mcp_tool_registry.py` : `format_markdown_document`
-- `src/ankiforge/services/markdown/formatter.py` : `MarkdownFormatter`
-- `src/ankiforge/services/tools/tool_service.py` : `ToolService.execute_tool`
+- `src/ankidraft/services/ai/orchestrator.py` : `_execute_python_tool`
+- `src/ankidraft/services/ai/mcp_tool_registry.py` : `format_markdown_document`
+- `src/ankidraft/services/markdown/formatter.py` : `MarkdownFormatter`
+- `src/ankidraft/services/tools/tool_service.py` : `ToolService.execute_tool`

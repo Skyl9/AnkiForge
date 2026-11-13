@@ -70,7 +70,7 @@ Pour chaque menu à refondre :
    - S'appuyer sur les composants du Design System : `DesignTokens`, `IdePanel`, `GlowLineEdit`, `IconButton`, `PillBadge`, `GlowButton`.
 
 3. **💻 Implémentation du Composant :**
-   - Modifier les fichiers cibles dans `src/ankiforge/ui/views/<view_name>_view.py` et sous-composants dans `src/ankiforge/ui/widgets/`.
+   - Modifier les fichiers cibles dans `src/ankidraft/ui/views/<view_name>_view.py` et sous-composants dans `src/ankidraft/ui/widgets/`.
    - Respecter les standards Qt (Signaux/Slots, layouting avec `setContentsMargins` et `setSpacing`, typage strict `mypy`).
 
 4. **📸 Validation Graphique (After) :**

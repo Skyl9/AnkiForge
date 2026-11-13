@@ -163,7 +163,7 @@ Placer une étape de **normalisation Markdown** en tout début de pipeline (ordr
 - **Gain de tokens** : suppression des artefacts avant envoi au LLM.
 
 ### 5.3 Implémentation de référence
-L'outil `format_markdown_document` (dans `src/ankiforge/services/ai/mcp_tool_registry.py`) délègue à `MarkdownFormatter` (`src/ankiforge/services/markdown/formatter.py`) avec les options :
+L'outil `format_markdown_document` (dans `src/ankidraft/services/ai/mcp_tool_registry.py`) délègue à `MarkdownFormatter` (`src/ankidraft/services/markdown/formatter.py`) avec les options :
 - `dehyphenate_ocr` : suppression des césures de fin de ligne (PDF/OCR)
 - `normalize_katex` : normalisation des délimiteurs LaTeX (`$...$`, `$$...$$`)
 - `align_tables` : alignement des tableaux GFM (pipes `|`)
@@ -243,6 +243,6 @@ steps:
 
 ### 5.6 Références
 - ADR 0052 : `docs/adr/0052-methode-dag-synthese-markdown-amont.md`
-- `PipelineOrchestrator._execute_python_tool` (`src/ankiforge/services/ai/orchestrator.py:1161`)
-- `ToolService.execute_tool` (`src/ankiforge/services/tools/tool_service.py`)
-- `MarkdownFormatter` (`src/ankiforge/services/markdown/formatter.py`)
+- `PipelineOrchestrator._execute_python_tool` (`src/ankidraft/services/ai/orchestrator.py:1161`)
+- `ToolService.execute_tool` (`src/ankidraft/services/tools/tool_service.py`)
+- `MarkdownFormatter` (`src/ankidraft/services/markdown/formatter.py`)

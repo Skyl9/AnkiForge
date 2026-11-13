@@ -19,7 +19,7 @@ Effectue une revue critique de niveau Senior UI/UX Designer & Architecte PySide6
 
 Ne jamais auditer un fichier isolé sans son contexte d'intégration. Pour chaque parcours ou groupe d'écrans soumis :
 
-- Comparer au moins 2 à 3 fichiers liés : la vue parente (`src/ankiforge/ui/views/...`), ses sous-widgets ou modales (`dialogs/`, `widgets/`), son `ViewModel` (`ui/viewmodels/`) et les composants partagés (`ui/components/`).
+- Comparer au moins 2 à 3 fichiers liés : la vue parente (`src/ankidraft/ui/views/...`), ses sous-widgets ou modales (`dialogs/`, `widgets/`), son `ViewModel` (`ui/viewmodels/`) et les composants partagés (`ui/components/`).
 - Si des captures d'écran (`script/capture_*.py`) sont fournies, croiser systématiquement le rendu visuel réel avec le code source PySide6/QSS.
 - Consulter `references/grille-audit-holistique.md` pour appliquer les 6 axes d'inspection Senior UI/UX.
 
@@ -41,13 +41,13 @@ Structurer la critique avant de générer les tickets :
 - **Synthèse Architecturale & Ressenti Visuel** : Ce qui fonctionne bien et où se situe la friction visuelle ou cognitive globale ("pourquoi ça fait dev UI").
 - **Matrice des frictions systémiques** : Classer les problèmes par impact (Critique / Structurel / Polish visuel) en citant les fichiers et lignes exacts.
 
-### 4. Génération des Tickets Obsidian Kanban (`ankiforge_obsidian/`)
+### 4. Génération des Tickets Obsidian Kanban (`ankidraft_obsidian/`)
 
 Regrouper les corrections cohérentes en tranches verticales atomiques (éviter les micro-tickets d'une ligne comme les tickets fourre-tout `🟣 XL`).
 
 - Respecter strictement le gabarit de `references/gabarit-tickets-obsidian.md` (en-tête canonique à 7 champs, sections Contexte, Constats, User Story, Critères d'Acceptation vérifiables par `pytest-qt`, et bloc `DESIGN.md`).
-- Générer les lignes prêtes à insérer dans `ankiforge_obsidian/Avancement du projet.md`.
-- **Règle One-Shot Action & Stop** (si écriture directe sur disque) : écrire les notes dans `ankiforge_obsidian/Tickets/<Nom>.md` et mettre à jour `Avancement du projet.md` en une seule passe atomique, sans jamais toucher au bloc `%% kanban:settings` ni relire circulairement les fichiers écrits.
+- Générer les lignes prêtes à insérer dans `ankidraft_obsidian/Avancement du projet.md`.
+- **Règle One-Shot Action & Stop** (si écriture directe sur disque) : écrire les notes dans `ankidraft_obsidian/Tickets/<Nom>.md` et mettre à jour `Avancement du projet.md` en une seule passe atomique, sans jamais toucher au bloc `%% kanban:settings` ni relire circulairement les fichiers écrits.
 
 ## Garde-fous & Gotchas
 

@@ -20,7 +20,7 @@ harmonisation stylistique).
 > **Ressources associées (Progressive Disclosure) :**
 > - `scripts/auditer_doc_zensical.py` : Audit rapide (intégrité `nav` ⟷ disque, liens relatifs, build).
 > - `references/bonnes_pratiques_zensical.md` : Guide des composants visuels (admonitions, tabs, KaTeX).
-> - `references/matrice_couverture_doc.md` : Matrice Codebase (`src/ankiforge/`) ⟷ Documentation (`docs/`).
+> - `references/matrice_couverture_doc.md` : Matrice Codebase (`src/ankidraft/`) ⟷ Documentation (`docs/`).
 
 ---
 
@@ -123,7 +123,7 @@ Après accord de l'utilisateur ou en mode ciblé :
 ---
 
 ## ⛔ Ne PAS utiliser ce skill si...
-- La tâche consiste à auditer la conformité architecturale du code Python source → `audit-ankiforge` ou audits spécialisés.
+- La tâche consiste à auditer la conformité architecturale du code Python source → `audit-ankidraft` ou audits spécialisés.
 - La tâche consiste à auditer/optimiser les skills agentiques (`.agents/skills/`) → `mise-a-jour-metadonnees`.
 - La modification concerne uniquement les métadonnées internes (`DESIGN.md`, `AGENTS.md`) sans impact
   sur le site Zensical → `mise-a-jour-metadonnees`.

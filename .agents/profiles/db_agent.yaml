@@ -1,4 +1,4 @@
-name: "ankiforge-db-agent"
+name: "ankidraft-db-agent"
 role: "Database Architect & Peewee Expert"
 description: "Agent spécialisé dans la gestion de la base de données SQLite et de l'ORM Peewee pour Ankiforge. À invoquer pour toute création de modèle, migration ou optimisation de requêtes."
 skills_to_load:

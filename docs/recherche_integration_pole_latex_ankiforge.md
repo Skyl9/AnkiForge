@@ -4,7 +4,7 @@
 **Date :** 11 novembre 2026  
 **Statut :** Synthèse d'architecture, état de l'art et étude prospective (Ticket Kanban `ready-for-spec`)  
 **Périmètre :** Rendu scientifique, compilation TeX locale, données annexes des types de notes (`NoteTypeModel`), rétrocompatibilité Anki APKG, sécurité des sous-processus et cache de médias  
-**Fichiers Associés :** `ankiforge_obsidian/Tickets/ticket-actif/Recherche - Integration d un Pole LaTeX Natif et Donnees Annexes des Modeles de Cartes.md`, `src/ankiforge/database/models/cards.py`, `src/ankiforge/utils/anki_renderer.py`
+**Fichiers Associés :** `ankidraft_obsidian/Tickets/ticket-actif/Recherche - Integration d un Pole LaTeX Natif et Donnees Annexes des Modeles de Cartes.md`, `src/ankidraft/database/models/cards.py`, `src/ankidraft/utils/anki_renderer.py`
 
 ---
 
@@ -12,7 +12,7 @@
 
 AnkiForge s'adresse à des apprenants et concepteurs de connaissances exigeants : étudiants en médecine, en classes préparatoires, ingénieurs, chercheurs en informatique, mathématiciens et linguistes. Pour ces profils, le formatage des expressions scientifiques ne se résume pas à de simples égalités algébriques inline : il implique fréquemment des **diagrammes commutatifs (TikZ)**, des **mécanismes réactionnels (chemfig)**, des **schémas de circuits électriques (circuitikz)** ou des **arbres syntaxiques formels**.
 
-Jusqu'à présent, AnkiForge a traité l'ensemble des besoins mathématiques via un unique prisme : **le bundle JavaScript KaTeX local** (`src/ankiforge/utils/anki_renderer.py`). Dans ce modèle, toute balise Anki native `[latex]...[/latex]` est convertie sans discernement en délimiteur de bloc KaTeX `\[...\]`.
+Jusqu'à présent, AnkiForge a traité l'ensemble des besoins mathématiques via un unique prisme : **le bundle JavaScript KaTeX local** (`src/ankidraft/utils/anki_renderer.py`). Dans ce modèle, toute balise Anki native `[latex]...[/latex]` est convertie sans discernement en délimiteur de bloc KaTeX `\[...\]`.
 
 Or, **KaTeX n'est pas LaTeX**. KaTeX est un moteur JavaScript ultra-rapide mais borné à un sous-ensemble restreint de macros mathématiques standard. Il est fondamentalement incapable d'interpréter des extensions TeX, de compiler des environnements graphiques ou de charger des paquets CTAN. De surcroît, le modèle relationnel d'AnkiForge (`NoteTypeModel`) ignore complètement les métadonnées officielles d'Anki que sont `latexPre`, `latexPost` et `latexsvg`. Par conséquent :
 1. Les modèles de cartes importés depuis Anki perdent leurs préambules spécialisés.
@@ -204,7 +204,7 @@ Un paquet de cartes téléchargé sur Internet pourrait théoriquement contenir 
 L'inspection chirurgicale du code source d'AnkiForge met en lumière 5 ruptures techniques majeures :
 
 ### 3.1 Carence dans le Schéma de Persistance (`cards.py`)
-Dans [`src/ankiforge/database/models/cards.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/database/models/cards.py#L39-L48) :
+Dans [`src/ankidraft/database/models/cards.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/database/models/cards.py#L39-L48) :
 ```python
 class NoteTypeModel(BaseModel):
     anki_id = BigIntegerField(unique=True, null=True)
@@ -217,7 +217,7 @@ class NoteTypeModel(BaseModel):
 *Constat :* Les champs `latex_pre`, `latex_post` et `latex_svg` n'existent pas dans la table `notetypemodel`. Aucune migration Peewee ne les a définis.
 
 ### 3.2 Perte de Données à l'Exportation APKG (`export_manager.py`)
-Dans [`src/ankiforge/services/cards/export_manager.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/cards/export_manager.py#L275-L282) :
+Dans [`src/ankidraft/services/cards/export_manager.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/cards/export_manager.py#L275-L282) :
 ```python
 g_model = genanki.Model(
     model_id=mid,
@@ -231,11 +231,11 @@ g_model = genanki.Model(
 *Constat :* Bien que la bibliothèque `genanki.Model` accepte dans son constructeur `latex_pre` et `latex_post`, AnkiForge ne les transmet pas. `genanki` injecte donc son préambule par défaut, écrasant les directives de l'utilisateur.
 
 ### 3.3 Troncature Silencieuse à l'Importation (`import_manager.py`)
-Dans [`src/ankiforge/services/cards/import_manager.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/cards/import_manager.py#L1519-L1524) :
+Dans [`src/ankidraft/services/cards/import_manager.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/services/cards/import_manager.py#L1519-L1524) :
 Lors de l'ingestion d'un fichier `.apkg` ou `.colpkg`, AnkiForge parse le JSON du modèle, mais n'extrait ni ne stocke les champs `latexPre`, `latexPost` ou `latexsvg`. Si un utilisateur importe son deck de médecine ou de maths dans AnkiForge puis le réexporte, ses configurations LaTeX sont définitivement perdues.
 
 ### 3.4 Détournement Destructeur dans le Rendu (`anki_renderer.py`)
-Dans [`src/ankiforge/utils/anki_renderer.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/utils/anki_renderer.py#L310) :
+Dans [`src/ankidraft/utils/anki_renderer.py`](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankidraft/utils/anki_renderer.py#L310) :
 ```python
 # Ligne 310 :
 html = re.sub(r"\[latex\](.*?)\[/latex\]", lambda m: r"\[" + m.group(1) + r"\]", html, flags=re.DOTALL | re.IGNORECASE)
@@ -244,7 +244,7 @@ html = re.sub(r"\[math\](.*?)\[/math\]", lambda m: r"\(" + m.group(1) + r"\)", h
 *Constat :* AnkiForge remplace brutalement la balise `[latex]` par le délimiteur bloc KaTeX `\[`. Dès qu'un paquet ou une macro TeX réelle est présent, KaTeX affiche une erreur de syntaxe rouge vif au milieu de la carte.
 
 ### 3.5 Absence de Couche d'Exécution et d'Environnement
-Il n'existe actuellement dans `src/ankiforge/` aucun module capable de :
+Il n'existe actuellement dans `src/ankidraft/` aucun module capable de :
 - Localiser les exécutables `latex` ou `dvisvgm` sur l'OS (notamment sur macOS où MacTeX s'installe dans `/Library/TeX/texbin` et n'est pas toujours dans le `PATH` des applications fenêtrées non lancées depuis un terminal).
 - Fournir un retour d'erreur lisible lorsque la compilation échoue (parsing des fichiers `.log` TeX).
 
@@ -332,7 +332,7 @@ flowchart TD
 La migration Peewee `052_add_latex_fields_to_notetype.py` ajoutera trois colonnes à `NoteTypeModel` avec des valeurs par défaut conformes au standard Anki :
 
 ```python
-# src/ankiforge/database/models/cards.py
+# src/ankidraft/database/models/cards.py
 
 DEFAULT_LATEX_PRE = r"""\documentclass[12pt]{article}
 \special{papersize=3in,5in}
@@ -362,7 +362,7 @@ class NoteTypeModel(BaseModel):
 
 ### 5.3 Service d'Environnement Système (`LatexEnvironmentService`)
 
-Implanté dans `src/ankiforge/services/cards/latex_environment_service.py`, ce service est chargé de détecter et certifier la chaîne logicielle locale :
+Implanté dans `src/ankidraft/services/cards/latex_environment_service.py`, ce service est chargé de détecter et certifier la chaîne logicielle locale :
 
 ```python
 class LatexEnvironmentService:
@@ -390,7 +390,7 @@ class LatexEnvironmentService:
 
 ### 5.4 Service de Compilation Sécurisé (`LatexCompilerService`)
 
-Implanté dans `src/ankiforge/services/cards/latex_compiler_service.py` :
+Implanté dans `src/ankidraft/services/cards/latex_compiler_service.py` :
 - **Calcul du Hash Déterministe :**
   ```python
   payload = f"{latex_pre}\n{snippet}\n{latex_post}\n{is_svg}".encode("utf-8")

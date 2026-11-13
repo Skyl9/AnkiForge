@@ -4,7 +4,7 @@
 Toutes les synthèses, explications, interactions, documentations et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, y compris lors de l'exécution de compétences dont la spécification ou les déclencheurs emploient l'anglais.
 
 ### 2. Typage Statique Strict 100% (`mypy`)
-- Tout le code du projet sous `src/ankiforge/` respecte le typage strict (`disallow_untyped_defs = true`).
+- Tout le code du projet sous `src/ankidraft` respecte le typage strict (`disallow_untyped_defs = true`).
 - Interdiction formelle d'ajouter des règles globales `disable_error_code` masquant les erreurs de typage.
 - Utiliser systématiquement les types stubs (`types-peewee`, `types-requests`, `types-markdown`) et la syntaxe moderne Python 3.12+ (unions `X | Y`, génériques PEP 695).
 

@@ -61,7 +61,7 @@ sans résultat est un succès avec `items: []`.
 
 ### Modules et interfaces touchés
 
-- `src/ankiforge/services/ai/mcp_tool_registry.py`
+- `src/ankidraft`
   - ajouter une méthode statique `get_flagged_cards(...)` ;
   - définir la table de normalisation couleur/entier, idéalement partagée avec
     la convention déjà utilisée par `set_card_flag` ;

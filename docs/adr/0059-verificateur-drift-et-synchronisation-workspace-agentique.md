@@ -4,7 +4,7 @@
 **Date** : 2026-11-11  
 **Décideurs** : Tristan Rigaud-Humbert, Agent Antigravity  
 **Contexte** : Cadrage `/grill-with-docs` sur le ticket `MCP et UI - Verificateur de Drift et Refonte de l Initialisation de Workspace Agentique`  
-**Référence Modèle** : `~/ankiforge_agentique/`
+**Référence Modèle** : `~/ankidraft_agentique/`
 
 ---
 
@@ -15,7 +15,7 @@ L'environnement de travail d'agents IA interagissant avec AnkiForge via le proto
    - L'amorçage via l'outil `init_agent_workspace` se limitait à injecter un fichier plat Markdown (`CLAUDE.md`, `GEMINI.md`, `.cursorrules` ou `ANKIFORGE_GUIDE.md`) contenant les instructions et un extrait figé des ~58 premiers outils MCP.
    - Le contrôle de version `check_guide_version` ne reposait que sur un simple hash SHA-256 dans l'en-tête de ce fichier unique.
    - L'IHM du sous-onglet `MCPWorkspaceGuideWidget` n'offrait qu'un formulaire rudimentaire avec un panneau d'aperçu statique.
-2. **Émergence du standard d'espace de travail agentique (`ankiforge_agentique`)** :
+2. **Émergence du standard d'espace de travail agentique (`ankidraft_agentique`)** :
    - Le modèle canonique introduit une véritable arborescence multi-niveaux articulée autour :
      - De fichiers maîtres universels (`AGENT.md`) et shims clients (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`).
      - D'un répertoire `.agents/` hébergeant le profil actif (`active-profile.md`), le glossaire technique et schéma relationnel SQLite (`glossary-and-internals.md`), le catalogue dynamique des 84+ outils FastMCP (`mcp-catalog.md`), les conventions de rapports (`rules/ankiforge-conventions.md`), les compétences transversales (`skills/general/**`) et d'évolution (`skills/meta/**`).
@@ -30,7 +30,7 @@ L'environnement de travail d'agents IA interagissant avec AnkiForge via le proto
 
 ```mermaid
 flowchart TD
-    subgraph Core["Cœur AnkiForge (src/ankiforge/)"]
+    subgraph Core["Cœur AnkiForge (src/ankidraft/)"]
         Templates["Templates Jinja2 Workspace<br>(templates/workspace/)"]
         LiveContext["État Live<br>(FastMCP 84+ outils, Profil, Peewee)"]
         SyncService["WorkspaceSyncService<br>(Moteur d'Audit & Sync)"]
@@ -52,7 +52,7 @@ flowchart TD
         QSettings <--> Widget
     end
 
-    subgraph Target["Workspace Agentique Cible (~/ankiforge_agentique/)"]
+    subgraph Target["Workspace Agentique Cible (~/ankidraft_agentique/)"]
         SysFiles["Fichiers Système (Niveau 1)<br>AGENT.md, shims, conventions, catalogue"]
         UserFiles["Fichiers Utilisateur (Niveau 2 - Sanctuarisés)<br>profiles/**, _shared_models/**"]
         SyncService -.->|Audit & Sync 3-Way| SysFiles
@@ -61,7 +61,7 @@ flowchart TD
 ```
 
 ### 1. Gabarits Jinja2 Dynamiques Embarqués Hors-Ligne
-- Les modèles de référence du workspace sont hébergés dans le package AnkiForge sous `src/ankiforge/services/ai/templates/workspace/`.
+- Les modèles de référence du workspace sont hébergés dans le package AnkiForge sous `src/ankidraft/services/ai/templates/workspace/`.
 - La génération ne consiste pas en une copie statique mais en une compilation Jinja2 dynamique injectant :
   - La liste intégrale des 84+ outils FastMCP et leurs descriptions normalisées.
   - Le profil actif sélectionné dans la session AnkiForge.

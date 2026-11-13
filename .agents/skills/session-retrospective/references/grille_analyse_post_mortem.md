@@ -18,7 +18,7 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Remédiation** : Imposer la vérification préalable de `git diff` / `git status` et restreindre les éditions à des cibles atomiques strictes.
 
 ### T-3 : Méconnaissance des Frontières Multi-Dépôts (Multi-Repo Blindness)
-- **Symptôme** : L'agent applique des commandes `git` sur la racine du projet en pensant englober un sous-dossier, alors que celui-ci est un sous-dépôt indépendant avec son propre `.git` (ex: `ankiforge_obsidian/` ignoré par le `.gitignore` racine).
+- **Symptôme** : L'agent applique des commandes `git` sur la racine du projet en pensant englober un sous-dossier, alors que celui-ci est un sous-dépôt indépendant avec son propre `.git` (ex: `ankidraft_obsidian/` ignoré par le `.gitignore` racine).
 - **Cause racine** : Omission de la topologie Git dans la spécification du skill concerné.
 - **Remédiation** : Documenter explicitement la structure multi-dépôts dans le `SKILL.md` et interdire les commandes globales transverses aveugles.
 
@@ -74,18 +74,18 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 
 ### T-14 : Présomption de Jetons de Design System Inexistants (DesignTokens Phantom Keys)
 - **Symptôme** : Crash à l'exécution ou en test UI avec `AttributeError: type object 'DesignTokens' has no attribute 'BORDER_HOVER'` ou `BG_SECONDARY`.
-- **Cause racine** : Biais de familiarité web/CSS où l'agent présume de l'existence de jetons plausibles (`BG_SECONDARY`, `BORDER_HOVER`, `BG_CARD`) sans vérifier la définition réelle dans `src/ankiforge/ui/theme.py`.
+- **Cause racine** : Biais de familiarité web/CSS où l'agent présume de l'existence de jetons plausibles (`BG_SECONDARY`, `BORDER_HOVER`, `BG_CARD`) sans vérifier la définition réelle dans `src/ankidraft/ui/theme.py`.
 - **Remédiation** : Formalisation dans `ui-pyside6-design/SKILL.md` et `implement/SKILL.md` du catalogue exhaustif des jetons réels de `DesignTokens` (`BG_MAIN`, `BG_SIDEBAR`, `BG_PANEL`, `BG_INPUT`, `BG_HOVER`, `BG_ACTIVE`, `BORDER_COLOR`, `BORDER_FOCUS`, `BORDER_LIGHT`) et interdiction d'utiliser un jeton sans inspection préalable de `theme.py`.
 
 ### T-15 : Désynchronisation Silencieuse des Catalogues de Traduction `.ts` (Translation Catalog Drift on `tr()` Alteration or Removal)
-- **Symptôme** : Échec inattendu en fin de suite de tests sur `tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction` avec `AssertionError: Catalogues périmés (ankiforge_fr.ts, ankiforge_en.ts). Régénérer : uv run python script/extract_translations.py`.
+- **Symptôme** : Échec inattendu en fin de suite de tests sur `tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction` avec `AssertionError: Catalogues périmés (ankidraft_fr.ts, ankidraft_en.ts). Régénérer : uv run python script/extract_translations.py`.
 - **Cause racine** : L'agent ajoute, modifie OU supprime un appel `tr("...")` (par exemple lors du remplacement d'un bouton textuel `QPushButton(self.tr("+"))` par un bouton d'icône `QToolButton`), mais oublie que la suppression d'une chaîne du code source invalide immédiatement l'exactitude du catalogue `.ts` versionné par rapport à l'extraction à chaud.
 - **Remédiation** : Règle impérative dans `ui-pyside6-design/SKILL.md`, `implement/SKILL.md`, `verification-environnement/SKILL.md` et `diagnosing-bugs/SKILL.md` : dès qu'une chaîne traduisible `tr()` est ajoutée, modifiée ou **supprimée/retirée**, ré-exécuter obligatoirement `uv run python script/extract_translations.py` AVANT de lancer la porte `script/verify.py`.
 
 ### T-16 : Couplage du Catalogue d'Outils MCP et Tests d'Introspection (MCP Catalog Drift on New Tool Addition)
-- **Symptôme** : L'ajout d'un nouvel outil FastMCP `@mcp.tool()` dans `src/ankiforge/services/ai/mcp_server.py` fait échouer `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`AssertionError: assert N == M`) ou `test_mcp_dashboard_widget_integration_catalog_tab` (`assert tool_list.count() == M`), et laisse l'outil orphelin sans domaine ni niveau de garde-fou.
+- **Symptôme** : L'ajout d'un nouvel outil FastMCP `@mcp.tool()` dans `src/ankidraft/services/ai/mcp_server.py` fait échouer `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`AssertionError: assert N == M`) ou `test_mcp_dashboard_widget_integration_catalog_tab` (`assert tool_list.count() == M`), et laisse l'outil orphelin sans domaine ni niveau de garde-fou.
 - **Cause racine** : Omission de la synchronisation entre le serveur FastMCP et le widget de catalogue d'outils IHM lors de l'extension de l'API MCP, et mise à jour partielle des assertions de décompte sans recherche exhaustive par grep.
-- **Remédiation** : Règle impérative dans `pipeline-dag-ia/SKILL.md` et `implement/SKILL.md` : tout nouvel outil FastMCP doit être enregistré dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py`, et une recherche grep systématique de l'ancien décompte (`grep -rn "== <ancien_compte>" tests/`) doit être menée pour actualiser simultanément l'ensemble des tests couplés au cardinal du catalogue.
+- **Remédiation** : Règle impérative dans `pipeline-dag-ia/SKILL.md` et `implement/SKILL.md` : tout nouvel outil FastMCP doit être enregistré dans `TOOL_DOMAIN_MAP` et `TOOL_SAFEGUARDS_MAP` de `src/ankidraft/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py`, et une recherche grep systématique de l'ancien décompte (`grep -rn "== <ancien_compte>" tests/`) doit être menée pour actualiser simultanément l'ensemble des tests couplés au cardinal du catalogue.
 
 ### T-17 : Omission du Nouveau Modèle Peewee dans la Fixture de Test `mock_db` (Missing Model in Shared In-Memory Test DB)
 - **Symptôme** : Lors de l'implémentation d'un nouveau modèle Peewee, les tests unitaires ou d'intégration échouent avec `sqlite3.OperationalError: no such table: <table_name>`.
@@ -176,7 +176,7 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 - **Remédiation** : Dans toute fonction `rollback()`, supprimer systématiquement les deux variantes de noms (`idx_<table_name>_<column_name>` et `<table_name>_<column_name>`), et tester obligatoirement l'aller-retour complet (`migrate` suivi de `rollback`) dans le test d'intégration de la migration.
 
 ### T-32 : Décalage de Coordonnées des Catalogues `.ts` suite au Formatage Ruff (Post-Formatting Translation Catalog Drift)
-- **Symptôme** : `script/verify.py` échoue sur `tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction` avec `AssertionError: Catalogues périmés (ankiforge_fr.ts, ankiforge_en.ts). Régénérer : uv run python script/extract_translations.py`.
+- **Symptôme** : `script/verify.py` échoue sur `tests/utils/test_i18n_audit.py::test_committed_catalog_matches_a_fresh_extraction` avec `AssertionError: Catalogues périmés (ankidraft_fr.ts, ankidraft_en.ts). Régénérer : uv run python script/extract_translations.py`.
 - **Cause racine** : Exécution de `script/extract_translations.py` AVANT le formatage automatique du code (`ruff check --fix . && ruff format .`). Le formateur Ruff réordonne les imports ou réajuste les sauts de lignes, décalant les numéros de ligne réels des chaînes `tr()` par rapport aux balises `<location line="N"/>` inscrites dans les fichiers `.ts`.
 - **Remédiation** : Respecter impérativement l'ordre séquentiel à 3 phases avant toute porte de vérification :
   1. `uv run ruff check --fix . && uv run ruff format .` (figer la géométrie du code source) ;
@@ -196,12 +196,12 @@ Ce document fournit la typologie canonique des défaillances agentiques observé
 ### T-35 : Caractères Réservés Unix et Slash dans les Titres de Tickets Obsidian (Slash in Ticket Note Names)
 - **Symptôme** : Un ticket créé ou référencé avec un slash dans son libellé (ex: `... (vue tabulaire / pagination unitaire).md`) scinde le chemin de fichier sur le système de fichiers Unix/macOS, générant un sous-dossier parasite non valide et rendant le ticket tronqué ou inatteignable.
 - **Cause racine** : En Unix/POSIX et dans les wikilinks Obsidian, le caractère `/` est réservé comme séparateur de sous-répertoire.
-- **Remédiation** : Interdiction formelle d'inclure des caractères séparateurs de chemin (`/`, `\`, `:`) dans les titres et noms de fichiers Markdown sous `ankiforge_obsidian/Tickets/`. Remplacer systématiquement par un tiret `-` ou une virgule. Règle inscrite dans `obsidian-vault/SKILL.md` et `to-tickets/SKILL.md`.
+- **Remédiation** : Interdiction formelle d'inclure des caractères séparateurs de chemin (`/`, `\`, `:`) dans les titres et noms de fichiers Markdown sous `ankidraft_obsidian/Tickets/`. Remplacer systématiquement par un tiret `-` ou une virgule. Règle inscrite dans `obsidian-vault/SKILL.md` et `to-tickets/SKILL.md`.
 
 ### T-36 : Capture Indifférenciée des Requêtes SQL Peewee en Test de Journalisation Sentinelle (Peewee SQL Query Leaks on `caplog`)
 - **Symptôme** : Un test validant qu'une valeur sentinelle secrète ou un contenu de carte ne fuite pas dans les logs (`assert sentinel not in caplog.text`) échoue avec une fausse fuite parce que `caplog.set_level(logging.DEBUG)` capture les requêtes SQL `INSERT INTO ...` brutes émises par le logger racine de `peewee`.
 - **Cause racine** : Au niveau `DEBUG`, le logger Peewee trace l'intégralité du texte SQL de chaque insertion, ce qui n'a rien à voir avec les logs applicatifs du service testé.
-- **Remédiation** : Dans tout test d'audit de fuite de logs par sentinelle, cibler explicitement les records du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankiforge.<service>")]`), ou isoler/désactiver le logger Peewee (`logging.getLogger("peewee").setLevel(logging.INFO)`). Règle inscrite dans `verification-environnement/SKILL.md` et `implement/SKILL.md`.
+- **Remédiation** : Dans tout test d'audit de fuite de logs par sentinelle, cibler explicitement les records du logger applicatif concerné (`[r for r in caplog.records if r.name.startswith("ankidraft.<service>")]`), ou isoler/désactiver le logger Peewee (`logging.getLogger("peewee").setLevel(logging.INFO)`). Règle inscrite dans `verification-environnement/SKILL.md` et `implement/SKILL.md`.
 
 ---
 
@@ -243,5 +243,5 @@ Lorsqu'un incident survient, appliquer la règle suivante :
 | Table virtuelle vide en test unitaire (`T-33`) | Appel obligatoire de `view.refresh_data()` avant simulation d'interaction de cellule | `ui-pyside6-design/SKILL.md`, `implement/SKILL.md` |
 | Hallucination d'icône dans un ticket (`T-34`) | Validation préalable contre `src/ressources/icons_manifest.txt` | `implement/SKILL.md`, `ui-pyside6-design/SKILL.md` |
 | Caractères slash dans les titres Obsidian (`T-35`) | Bannir `/` et `:` des noms de fichiers de tickets et wikilinks | `obsidian-vault/SKILL.md`, `to-tickets/SKILL.md` |
-| Faux positif de fuite sur requêtes SQL Peewee (`T-36`) | Filtrer sur le logger applicatif `ankiforge.*` en test de sentinelle caplog | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
+| Faux positif de fuite sur requêtes SQL Peewee (`T-36`) | Filtrer sur le logger applicatif `ankidraft.*` en test de sentinelle caplog | `verification-environnement/SKILL.md`, `implement/SKILL.md` |
 | Nouvelle famille d'erreurs récurrente (≥ 3 occurrences) | Admission d'un nouveau skill spécialisé ou script d'audit | `.agents/skills/<nouveau-skill>/` |

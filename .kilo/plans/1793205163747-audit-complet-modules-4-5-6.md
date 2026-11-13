@@ -1,6 +1,6 @@
 # Plan d'audit combiné — Modules 4 (repositories), 5 (services), 6 (ui)
 
-**Contexte :** Audit combiné (Code Mort + Clean Code + Architecture) de `src/ankiforge/`, continuation après les modules 1 (`utils`), 2 (`security`), 3 (`database`) déjà rédigés dans `ankiforge_obsidian/audit-complet-par-module-2026-10-28.md`. Ordre imposé : `repositories` → `services` → `ui`.
+**Contexte :** Audit combiné (Code Mort + Clean Code + Architecture) de `src/ankidraft/`, continuation après les modules 1 (`utils`), 2 (`security`), 3 (`database`) déjà rédigés dans `ankidraft_obsidian/audit-complet-par-module-2026-10-28.md`. Ordre imposé : `repositories` → `services` → `ui`.
 
 **Méthode par fichier (3 volets obligatoires) :**
 1. **Volet 1 — Code mort :** script Python AST pour lister tous les symboles définis (fonctions/classes/constants publiques et privées) avec leurs références dans `src/` (hors le fichier lui-même) et dans `tests/` + `script/`. Classification : Mort confirmé / Mort applicatif (zombie test uniquement) / Vivant. Vérification mécanique des faux-positifs AnkiForge (signaux/slots Qt, `WidgetGalleryWindow`/`registry.py`, `fake_services.py`, outils MCP dans `mcp_tool_registry.py`/`tools_catalog.py`, migrations dynamiques, hooks plugins).
@@ -11,7 +11,7 @@
 
 ---
 
-## MODULE 4 : `src/ankiforge/repositories/` (9 fichiers)
+## MODULE 4 : `src/ankidraft/repositories/` (9 fichiers)
 
 Fichiers à lire intégralement, un par un :
 1. `__init__.py`
@@ -34,7 +34,7 @@ Tâches pour chaque fichier :
 
 ---
 
-## MODULE 5 : `src/ankiforge/services/` (découpé en sous-parties)
+## MODULE 5 : `src/ankidraft/services/` (découpé en sous-parties)
 
 ### 5.1 Racine `services/` (10 fichiers)
 `auto_updater.py`, `crash_reporter_service.py`, `feedback_service.py`, `profile_content_transfer.py`, `profile_lock_service.py`, `profile_manager.py`, `reindex_activity_service.py`, `reindex_service.py`, `settings_service.py`, `update_checker.py`.
@@ -82,7 +82,7 @@ Pour chaque sous-partie : lecture intégrale de chaque fichier, script AST code 
 
 ---
 
-## MODULE 6 : `src/ankiforge/ui/` (découpé en sous-parties)
+## MODULE 6 : `src/ankidraft/ui/` (découpé en sous-parties)
 
 ### 6.1 Racine `ui/`
 `dispatch.py`, `main_window.py`, `preferences_dialog.py`, `theme.py`.
@@ -132,7 +132,7 @@ Pour chaque sous-partie : lecture intégrale, script AST, dépendances inversée
 ## Risques
 
 - **Volume important** : plusieurs centaines de fichiers à lire en profondeur. Le plan doit être itératif avec arrêts fréquents pour éviter la perte de contexte.
-- **Perte de données du rapport** : ne jamais utiliser `write` complet sur `ankiforge_obsidian/audit-complet-par-module-2026-10-28.md` (écrasement déjà subi). Utiliser uniquement des `edit` ciblés pour ajouter les sections module par module.
+- **Perte de données du rapport** : ne jamais utiliser `write` complet sur `ankidraft_obsidian/audit-complet-par-module-2026-10-28.md` (écrasement déjà subi). Utiliser uniquement des `edit` ciblés pour ajouter les sections module par module.
 - **Tentation de ne faire que du grep** : l'utilisateur a explicitement interdit. Chaque fichier doit être lu en entier (outil `read`) avant tout constat.
 - **Règles de rédaction strictes** : zéro bruit positif dans les tableaux, distinction zombie/test-hook, tranchage immédiat des cas limites, formatage Markdown strict.
 
@@ -149,4 +149,4 @@ Après chaque module (et chaque sous-partie de `services` et `ui`) :
 
 ## Livrable final attendu
 
-Sections MODULE 4, MODULE 5 (sous-parties 5.1 à 5.14), MODULE 6 (sous-parties 6.1 à 6.11) ajoutées dans `ankiforge_obsidian/audit-complet-par-module-2026-10-28.md`, rédigées selon le format obligatoire des 3 volets, sans aucune modification de code source.
+Sections MODULE 4, MODULE 5 (sous-parties 5.1 à 5.14), MODULE 6 (sous-parties 6.1 à 6.11) ajoutées dans `ankidraft_obsidian/audit-complet-par-module-2026-10-28.md`, rédigées selon le format obligatoire des 3 volets, sans aucune modification de code source.

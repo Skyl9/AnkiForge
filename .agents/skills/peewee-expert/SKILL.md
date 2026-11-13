@@ -5,7 +5,7 @@ description: >
   de "créer un modèle Peewee", "écrire une migration", "corriger une ForeignKey",
   "ajouter on_delete CASCADE", "utiliser db.atomic()", "requête N+1 Peewee",
   "prefetch Peewee", "index Peewee", "NOT NULL Peewee", "BDD SQLite AnkiForge",
-  "modèle de données", ou consulte src/ankiforge/database/. Couvre : intégrité
+  "modèle de données", ou consulte src/ankidraft/database/. Couvre : intégrité
   référentielle, atomicité, migrations, performance des requêtes et isolation des tests.
 ---
 
@@ -61,7 +61,7 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
 
 ## 4. Migrations
 
-- Toute modification de schéma (ajout/suppression de colonne, nouvel index) doit s'accompagner d'une **migration peewee-migrate** dans `src/ankiforge/database/migrations/`.
+- Toute modification de schéma (ajout/suppression de colonne, nouvel index) doit s'accompagner d'une **migration peewee-migrate** dans `src/ankidraft/database/migrations/`.
 - Les migrations doivent être **idempotentes** (`IF NOT EXISTS` ou `try/except`) pour survivre à un re-démarrage.
 - La migration est **appliquée automatiquement au démarrage** dans `__main__.py` — ne pas demander à l'utilisateur de la lancer manuellement.
 - **Rollback robuste et double suppression d'index (`T-31`)** :
@@ -74,9 +74,9 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
 - **Jamais de `MagicMock`** sur les modèles Peewee en test. Utiliser la fixture `mock_db` de `conftest.py` (SQLite in-memory `mode=memory&cache=shared`).
 - Les tests BDD doivent s'exécuter dans un contexte `db.atomic()` rollbacké après chaque test pour garantir l'isolation.
 - **Enregistrement obligatoire des nouveaux modèles dans `tests/conftest.py`** :
-  - Dès qu'un nouveau modèle Peewee (`*Model`) est créé sous `src/ankiforge/database/models/` :
-    1. L'exporter dans `src/ankiforge/database/models/__init__.py` (`ALL_MODELS` et `__all__`).
-    2. Déclarer sa migration dans `src/ankiforge/database/migrations/`.
+  - Dès qu'un nouveau modèle Peewee (`*Model`) est créé sous `src/ankidraft/database/models/` :
+    1. L'exporter dans `src/ankidraft/database/models/__init__.py` (`ALL_MODELS` et `__all__`).
+    2. Déclarer sa migration dans `src/ankidraft/database/migrations/`.
     3. **ET l'ajouter impérativement dans la liste `models = [...]` de la fixture `mock_db()` dans `tests/conftest.py`**. Sans cet ajout, la base SQLite in-memory ne crée pas la table correspondante, provoquant un échec immédiat `sqlite3.OperationalError: no such table: <table_name>` dans les tests de service et d'intégration.
 
 ## 6. Règles Métier AnkiForge
@@ -86,7 +86,7 @@ En tant qu'**expert Peewee ORM** pour le projet AnkiForge, tu appliques les règ
 - **Paquets hiérarchiques (`Parent::Enfant`) et relocalisation (`T-27`)** :
   - Tout déplacement de cartes avant suppression d'un paquet doit interdire une cible qui est un sous-paquet de la source (`target.name.startswith(f"{source.name}::")`).
   - La réassignation doit englober le paquet source ET l'ensemble de ses sous-paquets descendants (`where(CardModel.deck << all_decks_to_delete)`) avant d'appeler `DeckRepository.delete_deck()`.
-- Multi-profils : chaque profil a sa propre instance `db` sous `profiles/<name>/ankiforge.db` — ne jamais croiser les instances.
+- Multi-profils : chaque profil a sa propre instance `db` sous `profiles/<name>/ankidraft.db` — ne jamais croiser les instances.
 - Référence complémentaire : skill `audit-donnees` pour l'audit d'intégrité global.
 
 ## 7. Typage Statique Strict (types-peewee)

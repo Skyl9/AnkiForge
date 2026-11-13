@@ -1,6 +1,6 @@
 # Catalogue des Parseurs — Ingestion Multimédia
 
-Mapping source → parseur (`src/ankiforge/services/parsing/`), entrées/sorties, options et fallbacks.
+Mapping source → parseur (`src/ankidraft/services/parsing/`), entrées/sorties, options et fallbacks.
 Tous les parseurs renvoient du **Markdown** (`str`), sauf indication contraire.
 
 ---

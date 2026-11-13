@@ -1,6 +1,6 @@
 # Catalogue Exhaustif des Outils MCP 🗂️
 
-Le serveur MCP (`ankiforge.services.ai.mcp_server`) expose **29 outils**, **4 ressources** et **3 prompts** prédéfinis au Consultant IA et à tout client MCP compatible (Cursor, Claude Desktop, VS Code + Copilot).
+Le serveur MCP (`ankidraft.services.ai.mcp_server`) expose **29 outils**, **4 ressources** et **3 prompts** prédéfinis au Consultant IA et à tout client MCP compatible (Cursor, Claude Desktop, VS Code + Copilot).
 
 ---
 
@@ -106,7 +106,7 @@ Ces ressources exposées via le protocole MCP permettent aux clients (Claude Des
 
 | Prompt | Description | Paramètres |
 | :--- | :--- | :--- |
-| `explain_ankiforge_feature` | Explique pas à pas une fonctionnalité d'AnkiForge avec extraits de la doc officielle. | `feature_name` |
+| `explain_ankidraft_feature` | Explique pas à pas une fonctionnalité d'AnkiForge avec extraits de la doc officielle. | `feature_name` |
 | `audit_architecture_compliance` | Vérifie qu'un code respecte les principes architecturaux décrits dans le dossier d'architecture. | `target_code_or_rule` |
 | `run_with_agent` | Prépare une session de travail en adoptant la posture et les outils d'un agent dédié. | `agent_name`, `task` |
 
@@ -115,7 +115,7 @@ Ces ressources exposées via le protocole MCP permettent aux clients (Claude Des
 ## 🔗 Notes Techniques
 
 - **Serveur in-process** : le serveur MCP s'exécute dans le même processus que l'interface Qt — zéro surcoût réseau ni latence IPC.
-- **Liste source officielle** : `src/ankiforge/services/ai/mcp_server.py` + `src/ankiforge/services/ai/tools_catalog.py` (24 specs `ToolSpec` + 5 outils agents non catalogués).
+- **Liste source officielle** : `src/ankidraft/services/ai/mcp_server.py` + `src/ankidraft/services/ai/tools_catalog.py` (24 specs `ToolSpec` + 5 outils agents non catalogués).
 - **Complément** : la page [Consultant IA & Protocole MCP](../features/consultant_mcp.md) détaille la boucle ReAct et le fonctionnement du serveur en contexte.
 
 > 🐙 **Code source** : [https://github.com/Skyl9/AnkiForge](https://github.com/Skyl9/AnkiForge)

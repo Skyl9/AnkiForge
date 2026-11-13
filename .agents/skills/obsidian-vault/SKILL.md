@@ -135,4 +135,4 @@ Pour éviter d'alourdir le tableau Kanban actif `Avancement du projet.md` (qui c
 
 - La tâche consiste à rédiger ou modifier de la documentation générale d'AnkiForge : utiliser le skill `documentation-zensical` dans `docs/`.
 - La tâche consiste à implémenter du code source sans rapport avec le suivi de projet : utiliser `implement` ou les compétences de dev spécifiques.
-- La tâche consiste à auditer la conformité du code Python/Qt : utiliser `audit-qualite-code` ou `audit-ankiforge`.
+- La tâche consiste à auditer la conformité du code Python/Qt : utiliser `audit-qualite-code` ou `audit-ankidraft`.

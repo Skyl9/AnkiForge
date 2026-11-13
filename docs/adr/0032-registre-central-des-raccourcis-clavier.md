@@ -2,7 +2,7 @@
 
 **Statut :** accepté (ADR consolidé intégrant la sécurisation et la neutralisation de dialogue de l'ex-ADR 0031)
 
-Afin d'éliminer les séquences câblées en double et les gestes annoncés sans action, nous instaurons un **registre central déclaratif des raccourcis** (`src/ankiforge/ui/shortcuts/`) comme unique source de vérité de tout binding, de tout libellé affiché et de la documentation : quatre portées hiérarchiques (`Dialogue > Widget > Vue > Application`), activation des bindings par vue affichée, règle « la saisie de texte prime toujours », surcharges utilisateur persistées dans `SettingsService`, refus strict des conflits intra-portée et liste noire de séquences réservées.
+Afin d'éliminer les séquences câblées en double et les gestes annoncés sans action, nous instaurons un **registre central déclaratif des raccourcis** (`src/ankidraft/ui/shortcuts/`) comme unique source de vérité de tout binding, de tout libellé affiché et de la documentation : quatre portées hiérarchiques (`Dialogue > Widget > Vue > Application`), activation des bindings par vue affichée, règle « la saisie de texte prime toujours », surcharges utilisateur persistées dans `SettingsService`, refus strict des conflits intra-portée et liste noire de séquences réservées.
 
 ---
 
@@ -25,7 +25,7 @@ Afin d'éliminer les séquences câblées en double et les gestes annoncés sans
 ## Décisions et Règles d'Architecture
 
 ### 1. Registre déclaratif unique
-`src/ankiforge/ui/shortcuts/` porte `ShortcutId` (`StrEnum`), `ShortcutDefinition` (dataclass gelée : identifiant, catégorie, portée, séquence par défaut, libellé), `ShortcutScope` et le catalogue exhaustif. Les libellés sont **résolus paresseusement** (`tr()` à l'appel), conformément à l'ADR 0013 — jamais au chargement de module. Typage `mypy` strict, zéro `print()`.
+`src/ankidraft/ui/shortcuts/` porte `ShortcutId` (`StrEnum`), `ShortcutDefinition` (dataclass gelée : identifiant, catégorie, portée, séquence par défaut, libellé), `ShortcutScope` et le catalogue exhaustif. Les libellés sont **résolus paresseusement** (`tr()` à l'appel), conformément à l'ADR 0013 — jamais au chargement de module. Typage `mypy` strict, zéro `print()`.
 
 ### 2. Portées hiérarchiques et résolution
 Quatre portées : **Dialogue > Widget > Vue > Application**. À l'événement, la portée la plus spécifique active gagne. Les **touches nues** ne sont admises qu'en portée Widget, sur une liste ou une table focalisée.

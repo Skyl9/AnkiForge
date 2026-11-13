@@ -22,12 +22,12 @@ La compilation s'effectue via les scripts préparés dans `script/` ou via la li
 uv run python -m nuitka \
     --standalone \
     --enable-plugin=pyside6 \
-    --include-package=ankiforge \
-    --include-data-dir=src/ankiforge/resources=resources \
+    --include-package=ankidraft \
+    --include-data-dir=src/ankidraft/resources=resources \
     --macos-create-app-bundle \
     --macos-app-name="AnkiForge" \
     --output-dir=dist \
-    src/ankiforge/main.py
+    src/ankidraft/main.py
 ```
 
 ### Explications des Options Clés

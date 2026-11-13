@@ -18,7 +18,7 @@ Mène une interview méthodique, contradictoire et rigoureuse pour affûter une 
 1. **Décomposition** : modéliser la réflexion sous la forme d'un **arbre de décision** où chaque choix conditionne les arbitrages aval.
 2. **Identification de la frontière** : la **frontière** regroupe toutes les questions dont les prérequis sont déjà établis et qui peuvent être tranchées *immédiatement*, sans présumer des décisions futures.
 3. **Faits vs Décisions** :
-   - Les **faits** relèvent de la responsabilité de l'agent : chercher préalablement dans le code source (`src/ankiforge/`), les tests et les ADRs existants. Ne jamais interroger l'utilisateur sur un fait vérifiable par l'agent.
+   - Les **faits** relèvent de la responsabilité de l'agent : chercher préalablement dans le code source (`src/ankidraft/`), les tests et les ADRs existants. Ne jamais interroger l'utilisateur sur un fait vérifiable par l'agent.
    - Les **décisions** relèvent de l'utilisateur.
 
 ---

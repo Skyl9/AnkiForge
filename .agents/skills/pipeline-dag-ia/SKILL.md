@@ -11,9 +11,9 @@ description: >-
 En tant qu'**Architecte des Pipelines d'IA**, tu conçois, fais évoluer et débogues le moteur d'orchestration DAG d'AnkiForge (`PipelineOrchestrator`), les étapes de transformation IA et l'intégration des outils MCP.
 
 > **Code source clé** :
-> - `src/ankiforge/services/ai/orchestrator.py` : Moteur DAG et boucle d'exécution de `PipelineRunState`.
-> - `src/ankiforge/services/ai/persona_override.py` : Coutures uniques de surcharge locale de persona.
-> - `src/ankiforge/services/ai/mcp_server.py` : Serveur MCP in-process et outils sécurisés.
+> - `src/ankidraft/services/ai/orchestrator.py` : Moteur DAG et boucle d'exécution de `PipelineRunState`.
+> - `src/ankidraft/services/ai/persona_override.py` : Coutures uniques de surcharge locale de persona.
+> - `src/ankidraft/services/ai/mcp_server.py` : Serveur MCP in-process et outils sécurisés.
 > - `docs/Dossier_architecture/06_moteur_orchestration_ia.md` : Spécification complète du moteur DAG.
 
 ## 1. Principes & Types d'Étapes
@@ -50,12 +50,12 @@ La surcharge locale est **un réglage de l'étape du pipeline**, jamais une muta
 
 ## 5. Extension FastMCP & Synchronisation du Catalogue IHM
 
-Lors de l'ajout d'un nouvel outil décoré `@mcp.tool()` sur le serveur in-process (`src/ankiforge/services/ai/mcp_server.py`) :
-1. **Classification IHM obligatoire** : enregistrer l'outil dans les deux dictionnaires de `src/ankiforge/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py` :
+Lors de l'ajout d'un nouvel outil décoré `@mcp.tool()` sur le serveur in-process (`src/ankidraft/services/ai/mcp_server.py`) :
+1. **Classification IHM obligatoire** : enregistrer l'outil dans les deux dictionnaires de `src/ankidraft/ui/views/consultant_view/widgets/mcp_tool_catalog_widget.py` :
    - `TOOL_DOMAIN_MAP` : affectation au domaine métier (`DOMAIN_CARDS`, `DOMAIN_DOCS`, `DOMAIN_KNOWLEDGE`, `DOMAIN_PIPELINES`, `DOMAIN_MCP`, etc.).
    - `TOOL_SAFEGUARDS_MAP` : affectation du niveau de garde-fou (`SAFEGUARD_TWO_PHASE_COMMIT` pour toute mutation/staging, ou `SAFEGUARD_DIRECT_EXECUTION` pour la consultation en lecture seule).
 2. **Parité de dispatch `ConsultantEngine` obligatoire (`T-25`)** :
-   - Déclarer l'outil dans `DEFAULT_CONSULTANT_TOOLS` de `src/ankiforge/services/ai/consultant_engine.py`.
+   - Déclarer l'outil dans `DEFAULT_CONSULTANT_TOOLS` de `src/ankidraft/services/ai/consultant_engine.py`.
    - Ajouter impérativement son cas de traitement dans `ConsultantEngine._execute_tool_call()` avec routage vers `mcp_tool_registry.py` pour que l'agent conversationnel interne puisse l'invoquer sans déclencher `Tool execution failed: Tool <nom> not found`.
 3. **Synchronisation des assertions de tests d'introspection** : mettre à jour le décompte d'outils attendu dans `tests/ui/test_mcp_tool_catalog_widget.py::test_introspection_fastmcp_real_tools` (`assert len(tools) == N`) et dans `test_mcp_dashboard_widget_integration_catalog_tab`.
 4. **Contrat d'invocation de test FastMCP (`mcp.call_tool`) (`T-24`)** : `await mcp.call_tool(tool_name, arguments)` renvoie une instance typée `CallToolResult` et non une liste. Pour extraire la réponse textuelle, utiliser `res.content[0].text` (ou un helper `_extract_text`) sans jamais tenter d'indexer directement `res[0]` ou d'appeler `len(res)`.

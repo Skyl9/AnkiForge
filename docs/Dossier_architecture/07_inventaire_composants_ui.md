@@ -4,7 +4,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 
 ---
 
-## 1. Composants Fondamentaux (`src/ankiforge/ui/components/`)
+## 1. Composants Fondamentaux (`src/ankidraft/ui/components/`)
 
 ### A. Fondations Atomiques
 * **Boutons (`buttons.py`) :** Boutons primaires, secondaires, Ghost, Danger, boutons avec icônes (Phosphor Icons). Tous conformes aux tokens d'accessibilité (hover, focus ring).
@@ -27,7 +27,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 
 ---
 
-## 2. Smart Widgets Métier (`src/ankiforge/ui/widgets/`)
+## 2. Smart Widgets Métier (`src/ankidraft/ui/widgets/`)
 
 * **Édition & Mathématiques :**
   * `katex_editor.py` : Éditeur mathématique LaTeX avec rendu live KaTeX et autocomplétion.
@@ -59,7 +59,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 
 ---
 
-## 3. Boîtes de Dialogue Métier (`src/ankiforge/ui/dialogs/`)
+## 3. Boîtes de Dialogue Métier (`src/ankidraft/ui/dialogs/`)
 
 * **Validation Humaine Copilote (`human_validation_dialog.py`) :** Modale interactive pour les étapes DAG `HUMAN_VALIDATION` (consultation de l'état, ajustement du plan, injection de variables, reprise fluide).
 * **Délimitation & Portée Documentaire :**
@@ -82,7 +82,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 
 ---
 
-## 4. Outils Développeur (`src/ankiforge/ui/widget_gallery/`)
+## 4. Outils Développeur (`src/ankidraft/ui/widget_gallery/`)
 
 La galerie de widgets est un banc d'observation visuel réservé au mode développement (`ANKIFORGE_ENV=development`), accessible depuis **Paramètres → onglet Développeur → Galerie de widgets**.
 

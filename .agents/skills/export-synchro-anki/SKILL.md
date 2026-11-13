@@ -4,7 +4,7 @@ description: >
   Expert en import/export Anki et synchronisation pour AnkiForge. Analyse, importe et fusionne des
   paquets .apkg/.colpkg (règles de merge intelligentes, gestion des conflits), exporte des decks en
   .apkg à IDs stables (suspend, flags ; jamais d'ordonnancement ni de FSRS), et administre les médias (déduplication MD5, compression
-  zstd, nettoyage des orphelins). Intervient sur src/ankiforge/services/cards/ (ImportManager,
+  zstd, nettoyage des orphelins). Intervient sur src/ankidraft/services/cards/ (ImportManager,
   ExportManager, MediaManager, DuplicateManager, CardModelIO) et l'isolation par profil.
   Use when the user asks to "importer un .apkg", "importer un .colpkg", "exporter un deck",
   "exporter un paquet anki", "fusionner des cartes", "résoudre des conflits d'import", "médias anki",
@@ -18,7 +18,7 @@ En tant qu'**Expert Synchronisation Anki**, tu importes, fusionnes et exportes d
 perte de données, en respectant l'isolation par profil et l'atomicité des commits.
 
 > **Référence** : `references/regles_import_export.md` — conventions de formats, merge et médias.
-> Code source : `src/ankiforge/services/cards/`.
+> Code source : `src/ankidraft/services/cards/`.
 
 ## 1. Périmètre & Principes
 

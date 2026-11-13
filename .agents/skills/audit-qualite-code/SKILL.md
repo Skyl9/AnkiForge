@@ -10,8 +10,8 @@ En tant qu'**Auditeur Qualité & Typage Strict**, tu vérifies que le code respe
 ## 1. Périmètre & Sources de Vérité
 
 - `GEMINI.md` règle 20 : typage statique strict 100 % (`mypy`, `disallow_untyped_defs`), types modernes Python 3.12+ (unions `X | Y`, generics PEP 695), interdiction des `disable_error_code` globaux, types stubs (`types-peewee`, `types-requests`, `types-markdown`), bannissement de `print()` (T20).
-- `pyproject.toml` : config ruff (`E F B I UP T20 PT SIM`, line-length 200), config mypy (overrides `ankiforge.database.migrations.*` et `ankiforge.ui.*` détendus), config bandit.
-- Rapport cible : `src/ankiforge/` (migrations et UI ont des overrides mypy légitimes — à vérifier qu'ils restent justifiés).
+- `pyproject.toml` : config ruff (`E F B I UP T20 PT SIM`, line-length 200), config mypy (overrides `ankidraft.database.migrations.*` et `ankidraft.ui.*` détendus), config bandit.
+- Rapport cible : `src/ankidraft/` (migrations et UI ont des overrides mypy légitimes — à vérifier qu'ils restent justifiés).
 
 ## 2. Exécution des Outils (Obligatoire)
 
@@ -21,13 +21,13 @@ uv run ruff check .
 uv run ruff format --check .
 
 # Typage strict
-uv run mypy src/ankiforge
+uv run mypy src/ankidraft
 
 # Importations typing interdites (List/Dict/Tuple/Optional...)
-grep -rIn "^from typing import.*\b\(List\|Dict\|Tuple\|Optional\|Union\|AnyStr\)\b" src/ankiforge/ || true
+grep -rIn "^from typing import.*\b\(List\|Dict\|Tuple\|Optional\|Union\|AnyStr\)\b" src/ankidraft/ || true
 
 # print() dans le code applicatif (T20)
-grep -rInE "(^|[^A-Za-z_])print\(" src/ankiforge/ --include="*.py" || true
+grep -rInE "(^|[^A-Za-z_])print\(" src/ankidraft/ --include="*.py" || true
 
 # Règles de type désactivées en masse
 grep -rIn "disable_error_code" pyproject.toml src/ --include="*.py" --include="*.toml" || true
@@ -38,8 +38,8 @@ uv run python script/crap.py --top 15
 
 ## 3. Points de Contrôle
 
-1. **Typage strict** : toute fonction publique sans annotations de retour/paramètres dans `ankiforge.*` hors overrides autorisés (`database/migrations.*`, `ui.*`) est une violation. Vérifier que les overrides UI/migrations restent le périmètre minimal.
-2. **`print()`** : interdiction absolue dans `src/ankiforge/`. Toute occurrence doit être remplacée par `logging.getLogger(__name__)` (niveau adapté — règle 19). Les `script/*` et `tests/*` sont exemptés (per-file-ignores).
+1. **Typage strict** : toute fonction publique sans annotations de retour/paramètres dans `ankidraft.*` hors overrides autorisés (`database/migrations.*`, `ui.*`) est une violation. Vérifier que les overrides UI/migrations restent le périmètre minimal.
+2. **`print()`** : interdiction absolue dans `src/ankidraft/`. Toute occurrence doit être remplacée par `logging.getLogger(__name__)` (niveau adapté — règle 19). Les `script/*` et `tests/*` sont exemptés (per-file-ignores).
 3. **Importations typing périmées** : `list`, `dict`, `tuple`, `Optional` → `X | None`, `Union` → `X | Y` (Python 3.12+). Toute importation de `List`/`Dict`/`Tuple` depuis `typing` est une violation.
 4. **Ruff** : exécuter les règles `B` (bugbear), `SIM` (simplifications), `UP` (pyupgrade) et signaler les propositions non appliquées ; vérifier que les `# noqa` ajoutés ne masquent pas des erreurs réelles (chaque noqa doit être justifié).
 5. **Code mort & dette** : signaler les fonctions jamais appelées (heuristique greps d'usage), les `# TODO`/`# FIXME` et les blocs `except` vides dans `src/` (hors `B110` les skips bandit justifiés UI/fallbacks).

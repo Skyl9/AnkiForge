@@ -10,11 +10,11 @@ uv sync --group dev             # dépendances de développement, tests, linters
 
 ### Lancement de l'Application
 ```bash
-uv run ankiforge                # environnement de profil par défaut
-uv run ankiforge --dev          # environnement isolé de développement (~/.ankiforge-dev)
-uv run ankiforge --prod         # forcer l'environnement de production (~/.ankiforge)
-uv run ankiforge --smoke-test   # vérification d'intégrité binaire et de démarrage sans interface
-uv run ankiforge --clone-prod-to-dev # synchroniser la base prod vers dev pour investigation
+uv run ankidraft                # environnement de profil par défaut
+uv run ankidraft --dev          # environnement isolé de développement (~/.ankidraft-dev)
+uv run ankidraft --prod         # forcer l'environnement de production (~/.ankidraft)
+uv run ankidraft --smoke-test   # vérification d'intégrité binaire et de démarrage sans interface
+uv run ankidraft --clone-prod-to-dev # synchroniser la base prod vers dev pour investigation
 ```
 
 ### Exécution des Tests
@@ -41,7 +41,7 @@ uv run python script/verify.py --install-hook # installe et active le hook natif
 
 ### Analyse du Risque & Complexité (Score CRAP)
 ```bash
-uv run python script/crap.py                 # rapport de risque complet sur tout src/ankiforge/
+uv run python script/crap.py                 # rapport de risque complet sur tout src/ankidraft/
 uv run python script/crap.py --changed       # analyse ciblée sur le diff Git en cours
 uv run python script/crap.py --threshold 25  # garde-fou qualité (exit code 2 si CRAP > 25)
 uv run python script/crap.py --top 15        # top 15 des fonctions les plus à risque

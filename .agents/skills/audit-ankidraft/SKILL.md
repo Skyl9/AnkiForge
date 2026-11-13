@@ -1,17 +1,17 @@
 ---
-name: audit-ankiforge
+name: audit-ankidraft
 description: >
-  Orchestre la batterie complète des audits et tests d'AnkiForge (ruff, mypy, pytest, bandit,
+  Orchestre la batterie complète des audits et tests d'AnkiDraft (ruff, mypy, pytest, bandit,
   pip-audit, audits spécialisés, skills, docs) en la parallélisant via des sous-agents, en adaptant
   l'exécution à l'environnement de lancement (OS, uv, extension C, headless, réseau, CI, budget
   temps), puis consolide un rapport global priorisé sous audits/. Use when the user asks to
-  "audit ankiforge", "audit global", "audit complet", "lancer tous les tests", "auditer l'architecture",
+  "audit ankidraft", "audit global", "audit complet", "lancer tous les tests", "auditer l'architecture",
   "vérifier conformité GEMINI.md", "full battery", "audit de conformité", or runs an overarching review.
 ---
 
 # Instructions
 
-Tu es l'**Orchestrateur d'Audit Global** d'AnkiForge : tu décomposes le contrôle de conformité
+Tu es l'**Orchestrateur d'Audit Global** d'AnkiDraft : tu décomposes le contrôle de conformité
 (règles `GEMINI.md` + qualité + sécurité + tests + docs) en lots de travail indépendants, tu les
 délègues à des **sous-agents parallèles**, puis tu consolides un rapport unique, priorisé et
 contextualisé par l'environnement.
@@ -54,14 +54,14 @@ dans l'ordre de priorité ci-dessous). Chaque WP cartographie vers un skill d'au
 | WP | Mission du sous-agent | Skill dédié | Commande (ex.) | Activé quand |
 |---|---|---|---|---|
 | W1 | Lint & format `ruff` | `audit-qualite-code` | `uv run ruff check . ; uv run ruff format --check .` | toujours |
-| W2 | Typage strict `mypy` | `audit-qualite-code` | `uv run mypy src/ankiforge` | toujours |
+| W2 | Typage strict `mypy` | `audit-qualite-code` | `uv run mypy src/ankidraft` | toujours |
 | W3 | Tests rapides pytest | `audit-tests-ci` | `uv run pytest tests/ -k "not slow" -q` | toujours |
 | W4 | Couverture + SÉRIEL | `audit-tests-ci` | `uv run pytest tests/ -k "not slow" -n 0 --cov=ankiforge --cov-fail-under=70` | en mode full |
 | W5 | Sécurité `bandit`+`gitleaks` | `audit-securite` | `uv run bandit -c pyproject.toml -r src/` | toujours (bandit), gitleaks si dispo |
 | W6 | Dépendances `pip-audit`+outdated | `audit-dependances` | `uv run --with pip-audit pip-audit --local --skip-editable` | réseau OK |
-| W7 | BDD/Peewee (CASCADE, atomic, NOT NULL) | `audit-donnees` | inspection `src/ankiforge/database/` (statique) | toujours |
-| W8 | UI/Design System (tokens, WCAG, headless) | `audit-design-ui` | inspection `src/ankiforge/ui/` + `DESIGN.md` (statique) | mode full |
-| W9 | Pipeline IA/DAG/MCP (injections, JSON, coûts) | `audit-ia-pipeline` | inspection `src/ankiforge/services/ai/` (statique) | mode full |
+| W7 | BDD/Peewee (CASCADE, atomic, NOT NULL) | `audit-donnees` | inspection `src/ankidraft/database/` (statique) | toujours |
+| W8 | UI/Design System (tokens, WCAG, headless) | `audit-design-ui` | inspection `src/ankidraft/ui/` + `DESIGN.md` (statique) | mode full |
+| W9 | Pipeline IA/DAG/MCP (injections, JSON, coûts) | `audit-ia-pipeline` | inspection `src/ankidraft/services/ai/` (statique) | mode full |
 | W10 | Catalogue skills | `mise-a-jour-metadonnees` | charge le skill cible puis lance son script `auditer_coherence_skills.py` | toujours |
 | W11 | Docs Zensical build | `documentation-zensical` | `uv run zensical build` | mode full + réseau |
 
@@ -75,18 +75,18 @@ dans l'ordre de priorité ci-dessous). Chaque WP cartographie vers un skill d'au
 ## 3. Vérifications ciblées rapides (option, sans sous-agent)
 
 Pour des audits ciblés de volumes limités, tu peux exécuter toi-même des `grep` :
-`from typing import.*(List|Dict|Tuple)`, `print\(` hors comentaires dans `src/ankiforge/ui/`,
+`from typing import.*(List|Dict|Tuple)`, `print\(` hors comentaires dans `src/ankidraft/ui/`,
 `time.sleep\(|sleep\(` dans `tests/`, `MagicMock\(|patch\(` sur modèles Peewee dans `tests/`,
-marges CSS sur QLabel dans `src/ankiforge/ui/`, patterns de clés API dures.
+marges CSS sur QLabel dans `src/ankidraft/ui/`, patterns de clés API dures.
 
 ## 4. Consolidation du rapport global (artefact)
 
-Compile toutes les synthèses des sous-agents dans `audits/audit-ankiforge-<date>.md` :
+Compile toutes les synthèses des sous-agents dans `audits/audit-ankidraft-<date>.md` :
 
 1. **Contexte d'exécution** : matrice d'environnement (§1), mode quick/full, durée, WPs `SKIPPED` et leur cause.
 2. **📊 Tableau de synthèse** : anomalies par sévérité (Critique/Majeur/Mineur) et par WP (W1–W11).
 3. **🔍 Violations détaillées** : regroupées par WP ; chaque violation avec lien cliquable absolu, règle (GEMINI.md / ruff / mypy / bandit), extrait incriminé et correctif immédiat proposé (diff court).
-4. **🆚 Diff vs audit précédent** : charge le dernier rapport `audits/audit-ankiforge-*.md` (si présent) et liste les régressions et améliorations.
+4. **🆚 Diff vs audit précédent** : charge le dernier rapport `audits/audit-ankidraft-*.md` (si présent) et liste les régressions et améliorations.
 5. **🗺️ Plan de résolution priorisé** : ordonner par sévérité décroissante, contexté par l'environnement (ex. test lent uniquement sur `full`, CVE requérant le réseau).
 
 ## ⛔ Ne PAS utiliser ce skill si...

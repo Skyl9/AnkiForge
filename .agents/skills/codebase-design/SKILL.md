@@ -43,7 +43,7 @@ Employer ces termes avec rigueur :
 └─────────────────────────────────┘
 ```
 
-Lors de la conception d'un module sous `src/ankiforge/`, se poser 3 questions :
+Lors de la conception d'un module sous `src/ankidraft/`, se poser 3 questions :
 1. Peut-on réduire le nombre de méthodes publiques exposées ?
 2. Peut-on simplifier les paramètres requis (évitement des dictionnaires fourre-tout) ?
 3. Peut-on encapsuler davantage de complexité à l'intérieur ?

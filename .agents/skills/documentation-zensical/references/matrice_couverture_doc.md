@@ -6,7 +6,7 @@ Cette matrice permet à l'agent d'identifier en un coup d'œil les modules appli
 
 ## 📊 Tableau de Correspondance Fonctionnelle
 
-| Module Codebase (`src/ankiforge/`) | Page Doc (`docs/`) | Statut | Opportunités d'Améliorations Proactives |
+| Module Codebase (`src/ankidraft/`) | Page Doc (`docs/`) | Statut | Opportunités d'Améliorations Proactives |
 | :--- | :--- | :---: | :--- |
 | `services/ai/orchestrator.py` | `features/dag_et_rag.md` | ✅ Complet | Diagramme `stateDiagram` des sauts conditionnels on_success/on_failure ajouté (2026-09). |
 | `services/ai/mcp_server.py`, `consultant_engine.py` | `features/consultant_mcp.md` + `guides/catalogue_outils_mcp.md` | ✅ Complet | Catalogue exhaustif des 29 outils MCP, 4 ressources et 3 prompts désormais documenté. |

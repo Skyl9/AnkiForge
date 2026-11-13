@@ -582,12 +582,12 @@ sequenceDiagram
 Pour ne pas altérer les tables existantes sans nécessité, le diagnostic s'appuie sur une structure éphémère ou matérialisée dans une table dédiée aux sessions d'audit :
 
 ```python
-# Modélisation proposée dans src/ankiforge/database/models/domain_gap.py
+# Modélisation proposée dans src/ankidraft/database/models/domain_gap.py
 
 from peewee import CharField, ForeignKeyField, IntegerField, TextField, FloatField
-from ankiforge.database.base import BaseModel
-from ankiforge.database.models.cards import NoteModel
-from ankiforge.database.models.rag import DocumentModel
+from ankidraft.database.base import BaseModel
+from ankidraft.database.models.cards import NoteModel
+from ankidraft.database.models.rag import DocumentModel
 
 
 class DomainAuditSessionModel(BaseModel):

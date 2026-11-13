@@ -6,7 +6,7 @@ Le développement d'AnkiForge obéit à des standards de qualité logicielle de 
 
 ## 🎯 1. Typage Statique Strict 100% (`mypy`)
 
-Le projet impose le typage statique strict sur l'intégralité du code source (`src/ankiforge`) :
+Le projet impose le typage statique strict sur l'intégralité du code source (`src/ankidraft`) :
 - **Configuration** : `disallow_untyped_defs = true`, `disallow_incomplete_defs = true`, `check_untyped_defs = true`.
 - **Zéro exception globale** : Il est strictement interdit d'ajouter des règles `disable_error_code` globales masquant les erreurs de typage.
 - **Python 3.12+ Moderne** : Utilisation des syntaxes modernes, notamment les unions natives `X | Y` (au lieu de `Optional[X]` ou `Union[X, Y]`) et les génériques PEP 695.
@@ -14,7 +14,7 @@ Le projet impose le typage statique strict sur l'intégralité du code source (`
 
 Pour vérifier la conformité du typage :
 ```bash
-uv run mypy src/ankiforge
+uv run mypy src/ankidraft
 ```
 
 ---
@@ -60,7 +60,7 @@ uv run python script/verify.py --install-hook # Active le hook pre-push (.githoo
 Le script `script/verify.py` s'arrête à la première anomalie (mode *fail-fast*) et exécute séquentiellement :
 1. `ruff check .` : conformité des règles de style et interdiction des `print()`.
 2. `ruff format --check .` : respect strict du formatage uniforme.
-3. `mypy src/ankiforge` : typage statique strict à 100%.
+3. `mypy src/ankidraft` : typage statique strict à 100%.
 4. `bandit -c pyproject.toml -r src/` : audit des vulnérabilités statiques.
 5. `pytest -m "not slow"` : suite de tests unitaires et headless rapides (< 15s).
 
@@ -94,5 +94,5 @@ Le filtre de sanitisation intercepte tous les messages avant écriture disque et
 - Les en-têtes d'autorisation HTTP (`Bearer ...`) et mots de passe.
 
 ### Rétention et Gestion des Crashes
-- **Rotation** : Les fichiers journaux sont stockés dans `~/.ankiforge/logs/ankiforge.log` avec une limite stricte de 50 Mo (5 fichiers de 10 Mo en roulement).
+- **Rotation** : Les fichiers journaux sont stockés dans `~/.ankiforge/logs/ankidraft.log` avec une limite stricte de 50 Mo (5 fichiers de 10 Mo en roulement).
 - **Crash Dumps** : `install_crash_handlers()` capture les exceptions non interceptées (`sys.excepthook` et `threading.excepthook`) et génère un rapport technique anonymisé dans `~/.ankiforge/logs/crash.log`.

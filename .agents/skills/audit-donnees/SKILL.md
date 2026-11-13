@@ -9,8 +9,8 @@ En tant qu'**Auditeur Modèle de Données (Peewee)**, tu évalues l'intégrité 
 
 ## 1. Périmètre & Sources de Vérité
 
-- Modèles : `src/ankiforge/database/models/` (`cards.py`, `ai.py`, `pipelines.py`, `rag.py`, `audit.py`, `system.py`).
-- `src/ankiforge/database/base.py` (BaseModel et instance `db`), `src/ankiforge/database/migration.py`, `src/ankiforge/database/migrations/` (séquences de migrations peewee-migrate).
+- Modèles : `src/ankidraft/database/models/` (`cards.py`, `ai.py`, `pipelines.py`, `rag.py`, `audit.py`, `system.py`).
+- `src/ankidraft/database/base.py` (BaseModel et instance `db`), `src/ankidraft/database/migration.py`, `src/ankidraft/database/migrations/` (séquences de migrations peewee-migrate).
 - `GEMINI.md` règle 2/15 (périmètre Forge), règle 9 (multi-profils, une BDD par profil) ; `docs/Dossier_architecture/03_modele_donnees_synchro.md`.
 - Skill complémentaire : `.agents/skills/peewee-expert/SKILL.md`.
 - Répertoire de données présumé `~/.ankiforge` (à confirmer une fois pour l'environnement de dev réel — peut différer sous Windows/macOS).
@@ -22,7 +22,7 @@ Toutes les sorties sont conservées brutes sous `audits/raw/` (horodatées) pour
 ```bash
 mkdir -p audits/raw
 STAMP=$(date +%Y-%m-%d)
-DB_MODELS="src/ankiforge/database/"
+DB_MODELS="src/ankidraft/database/"
 
 # ForeignKeyField sans on_delete CASCADE — capture le bloc d'appel complet (multi-ligne)
 # pour ne pas signaler à tort une FK dont on_delete est sur une ligne suivante.
@@ -33,7 +33,7 @@ rg -U -P "ForeignKeyField\([\s\S]*?\)" "$DB_MODELS" --glob "*.py" -n -o \
 # à confirmer manuellement sur chaque occurrence signalée.
 
 # Écritures sur le modèle via .save()/.delete_instance()/.create() — sortie complète, non tronquée
-rg -n "\.save\(\)|\.delete_instance\(\)|\.create\(" src/ankiforge/ --glob "*.py" \
+rg -n "\.save\(\)|\.delete_instance\(\)|\.create\(" src/ankidraft/ --glob "*.py" \
   > "audits/raw/writes-outside-atomic-${STAMP}.txt" || true
 
 # Intégrité SQLite + mode journal sur TOUTES les BDD de profil trouvées (pas juste la première)
@@ -45,8 +45,8 @@ find ~/.ankiforge -name "*.db" -maxdepth 4 2>/dev/null | while read -r db; do
 done > "audits/raw/sqlite-integrity-${STAMP}.txt" || true
 
 # Migrations : liste complète + signal faible d'idempotence (présence de IF NOT EXISTS / try-except)
-ls src/ankiforge/database/migrations/ | sort > "audits/raw/migrations-list-${STAMP}.txt" || true
-rg -Ln "IF NOT EXISTS|try:" src/ankiforge/database/migrations/ --glob "*.py" \
+ls src/ankidraft/database/migrations/ | sort > "audits/raw/migrations-list-${STAMP}.txt" || true
+rg -Ln "IF NOT EXISTS|try:" src/ankidraft/database/migrations/ --glob "*.py" \
   > "audits/raw/migrations-non-idempotent-candidates-${STAMP}.txt" || true
 # Note : signal faible, pas une preuve d'idempotence — sert à cibler la revue manuelle
 # (les fichiers listés ici sont ceux qui n'ont NI garde IF NOT EXISTS NI try/except).

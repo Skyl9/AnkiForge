@@ -35,7 +35,7 @@ En tant que **Documentaliste Technique du Projet**, tu maintiens les 15 fichiers
 ```bash
 git diff --name-only HEAD~1 HEAD
 ```
-Identifier les couches modifiées : `src/ankiforge/ui/` (➔ DESIGN.md, 07), `src/ankiforge/database/` (➔ 03, AGENTS.md), `src/ankiforge/services/` (➔ 05, 06).
+Identifier les couches modifiées : `src/ankidraft/ui/` (➔ DESIGN.md, 07), `src/ankidraft/database/` (➔ 03, AGENTS.md), `src/ankidraft/services/` (➔ 05, 06).
 
 ## 3. Règle d'Application
 
@@ -47,4 +47,4 @@ Identifier les couches modifiées : `src/ankiforge/ui/` (➔ DESIGN.md, 07), `sr
 
 - L'objectif est d'**auditer la cohérence ou la qualité du parc de skills** → utiliser `gouvernance-skills`.
 - L'objectif est de **valider la compilation HTML de la documentation Zensical** → utiliser `documentation-zensical`.
-- L'objectif est d'**auditer la conformité du code Python aux règles GEMINI.md** → utiliser `audit-ankiforge` ou `audit-qualite-code`.
+- L'objectif est d'**auditer la conformité du code Python aux règles GEMINI.md** → utiliser `audit-ankidraft` ou `audit-qualite-code`.

@@ -47,7 +47,7 @@ fenêtre principale, seule à savoir appliquer une disposition (`ShellPreviewWin
 
 ## 3. Anatomie d'une entrée
 
-Le registre est déclaratif (`src/ankiforge/ui/widget_gallery/registry.py`) :
+Le registre est déclaratif (`src/ankidraft/ui/widget_gallery/registry.py`) :
 
 ```python
 @dataclass
@@ -99,7 +99,7 @@ on ne peut pas « oublier » silencieusement un composant.
 
 ## 5. Ajouter une famille
 
-Déposez un module dans `src/ankiforge/ui/widget_gallery/families/` :
+Déposez un module dans `src/ankidraft/ui/widget_gallery/families/` :
 
 - nom de fichier en `snake_case` (`^[a-z][a-z0-9_]*$`) : il devient le nom de la famille ;
 - fonction `register()` obligatoire ; son absence est journalisée et la famille ignorée ;
@@ -107,7 +107,7 @@ Déposez un module dans `src/ankiforge/ui/widget_gallery/families/` :
   sans empêcher l'ouverture de la galerie.
 
 ```python
-# src/ankiforge/ui/widget_gallery/families/charts.py
+# src/ankidraft/ui/widget_gallery/families/charts.py
 def register() -> None:
     for key, factory in CHART_FACTORIES.items():
         gallery_widget(family="charts", name=chart_labels()[key])(factory)
@@ -119,7 +119,7 @@ test de couverture par introspection sur le modèle des familles existantes.
 ## 6. Aperçus non visuels
 
 Les ViewModels, modèles Qt et délégués ne sont pas des widgets. Trois conteneurs génériques
-(`src/ankiforge/ui/widget_gallery/previews.py`) les rendent observables :
+(`src/ankidraft/ui/widget_gallery/previews.py`) les rendent observables :
 
 - `ObjectPreview` — identité, liste des signaux et journal borné des émissions ; appelle
   `dispose()` à la fermeture pour libérer les abonnements au bus d'événements ;
@@ -198,8 +198,8 @@ Pour une validation visuelle, capturez la vue en offscreen (voir la compétence
 ```python
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.ui.widget_gallery.families import load_families
-from ankiforge.ui.widget_gallery.registry import WidgetGalleryRegistry
+from ankidraft.ui.widget_gallery.families import load_families
+from ankidraft.ui.widget_gallery.registry import WidgetGalleryRegistry
 
 app = QApplication.instance() or QApplication([])
 load_families()

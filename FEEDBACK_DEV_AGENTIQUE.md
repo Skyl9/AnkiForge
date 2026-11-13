@@ -85,9 +85,9 @@ sequenceDiagram
 ```
 
 #### Correctifs appliqués le 26/10/2026 :
-1. **`src/ankiforge/services/ai/staged_patch_registry.py` (Ligne 703)** :
+1. **`src/ankidraft` (Ligne 703)** :
    Sécurisation de la résolution de `notes_list`. Si `payload.get("notes")` est un `str` ou n'est pas une liste valide, le système effectue un décodage robuste et se replie automatiquement sur la liste racine intacte `diff_data["notes"]`.
-2. **`src/ankiforge/ui/views/consultant_view/widgets/mcp_garde_fou_widget.py` (Lignes 763 et 813)** :
+2. **`src/ankidraft` (Lignes 763 et 813)** :
    Protection contre l'écrasement fantôme : `sync_direct_edit()` n'est plus appelé si `patch_type` est `batch_note_create` ou `batch_create`.
 
 #### Recommandation d'UI pérenne :

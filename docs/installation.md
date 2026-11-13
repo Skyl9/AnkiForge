@@ -131,7 +131,7 @@ AnkiForge propose deux moteurs de synthèse vocale pour oraliser vos flashcards 
 Une fois l'installation terminée, lancez AnkiForge d'une simple commande :
 
 ```bash
-uv run ankiforge
+uv run ankidraft
 ```
 
 Pour consulter la présente documentation localement avec rechargement à chaud :

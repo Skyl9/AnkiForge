@@ -28,7 +28,7 @@ La création de paquets et sous-paquets dans Anki repose conventionnellement sur
 `QInputDialog.getText()` est banni pour la création de paquets dans `CreationView`. Tous les points d'entrée applicatifs convergent vers `CreateDeckDialog`, garantissant une expérience homogène et testable.
 
 ### 2. Composant générique `HierarchyCompleter`
-Le composant vit dans `src/ankiforge/ui/components/` et hérite de `QCompleter` (ou pilote un popup de suggestions stylé selon `DESIGN.md`) :
+Le composant vit dans `src/ankidraft/ui/components/` et hérite de `QCompleter` (ou pilote un popup de suggestions stylé selon `DESIGN.md`) :
 - Il reçoit une collection de chemins complets (`list[str]`) et un séparateur (par défaut `SEPARATOR = "::"` de `hierarchy.py`).
 - Il analyse le préfixe courant de la saisie :
   - **Au niveau racine** (aucun séparateur) : il suggère les paquets racines existants ainsi que les correspondances textuelles.

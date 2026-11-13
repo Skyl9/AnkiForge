@@ -53,7 +53,7 @@ uv run pytest
 uv run pytest tests/test_tts_service.py
 
 # Afficher la couverture de code détaillée
-uv run pytest --cov=ankiforge --cov-report=term-missing
+uv run pytest --cov=ankidraft --cov-report=term-missing
 ```
 
 ---

@@ -20,7 +20,7 @@ Ne commence jamais par choisir une palette ou un composant. Commence par rédige
 un bref **design brief** : utilisateur, tâche, décision à prendre, contenu réel,
 états et contrainte principale. Lire `DESIGN.md`,
 `docs/Dossier_architecture/07_inventaire_composants_ui.md`, la vue concernée et
-les tokens réellement exposés par `src/ankiforge/ui/theme.py`.
+les tokens réellement exposés par `src/ankidraft/ui/theme.py`.
 
 Une direction n'est pas un thème. Elle associe une philosophie (fonctionnelle,
 éditoriale, informationnelle, expressive ou minimaliste chaleureuse), une

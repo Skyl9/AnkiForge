@@ -85,7 +85,7 @@ PySide6 repose sur un double système de gestion mémoire : le Garbage Collector
 L'audit doit vérifier mécaniquement le respect des règles de `DESIGN.md` :
 
 1. **Zéro couleur en dur hors exceptions documentées :**
-   - Aucune chaîne `#RRGGBB`, `rgb(...)`, `rgba(...)` ou `"white"` dans `src/ankiforge/ui/` hors `themes.py` et des 4 exceptions physiques documentées dans `DESIGN.md` §1.0.
+   - Aucune chaîne `#RRGGBB`, `rgb(...)`, `rgba(...)` ou `"white"` dans `src/ankidraft/ui/` hors `themes.py` et des 4 exceptions physiques documentées dans `DESIGN.md` §1.0.
    - Toute icône sur fond accentué doit passer par `load_on_accent_icon()` (`DesignTokens.TEXT_ON_ACCENT`).
 2. **Respect de la cascade QSS :**
    - Ne jamais surcharger `border:` ou `background:` localement sur un bouton portant un `role` (`primary`, `secondary`, `danger`, `ghost`) ou une `density="compact"`, sous peine de détruire ses états `:hover`, `:focus` et `:disabled`.
@@ -97,7 +97,7 @@ L'audit doit vérifier mécaniquement le respect des règles de `DESIGN.md` :
    - 100 % des chaînes utilisateur encapsulées dans `self.tr("...")`.
    - Zéro émoji Unicode dans les labels/boutons (exclusivement des icônes vectorielles Phosphor).
    - Tout `IconButton` sans texte possède un `setToolTip(self.tr(...))` et un `setAccessibleName(self.tr(...))`.
-   - Zéro `QShortcut` instancié en dehors du registre central `src/ankiforge/ui/shortcuts/catalog.py`.
+   - Zéro `QShortcut` instancié en dehors du registre central `src/ankidraft/ui/shortcuts/catalog.py`.
 
 ---
 
@@ -177,7 +177,7 @@ Une application desktop qui importe des paquets communautaires (`.apkg`, `.afmod
 
 ### 7.3 Compatibilité Compilation Nuitka & Multi-OS (`build_script/`, `utils/paths.py`)
 - **Résolution des chemins de ressources (`paths.py`) :**
-  - Bannir tout chemin relatif naïf `open("src/ankiforge/...")` ou `Path(__file__).parent.parent` non protégé qui casse une fois le binaire figé par Nuitka dans un bundle `.app` macOS, AppImage Linux ou installeur Windows.
+  - Bannir tout chemin relatif naïf `open("src/ankidraft/...")` ou `Path(__file__).parent.parent` non protégé qui casse une fois le binaire figé par Nuitka dans un bundle `.app` macOS, AppImage Linux ou installeur Windows.
 - **Imports dynamiques :**
   - Tout import dynamique (`importlib.import_module`) pour les migrations ou les plugins doit être déclaré dans `nuitka_config.json` et testé par `script/build_smoke_test.py`.
 

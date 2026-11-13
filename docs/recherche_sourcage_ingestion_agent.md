@@ -380,7 +380,7 @@ Tout acte d'ingestion par un agent externe doit s'accompagner d'un certificat JS
 
 ```json
 {
-  "$schema": "https://ankiforge.org/schemas/authority_certificate_v1.json",
+  "$schema": "https://ankidraft.org/schemas/authority_certificate_v1.json",
   "source_type": "RFC",
   "authority_tier": 1,
   "trust_score": 98.5,
@@ -415,7 +415,7 @@ Tout acte d'ingestion par un agent externe doit s'accompagner d'un certificat JS
 
 ### 5.2 Évolution du Modèle de Données Peewee (`DocumentModel`)
 
-Pour stocker ce certificat sans introduire de rupture de compatibilité, nous étendons `DocumentModel` dans `src/ankiforge/database/models/rag.py` :
+Pour stocker ce certificat sans introduire de rupture de compatibilité, nous étendons `DocumentModel` dans `src/ankidraft/database/models/rag.py` :
 
 ```python
 class DocumentModel(BaseModel):
