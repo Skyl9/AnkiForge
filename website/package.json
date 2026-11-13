@@ -7,6 +7,7 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "node scripts/check-i18n-parity.mjs && astro build",
+    "deploy": "wrangler deploy",
     "preview": "astro preview",
     "check:i18n": "node scripts/check-i18n-parity.mjs"
   },
@@ -14,5 +15,8 @@
     "@astrojs/starlight": "^0.32.0",
     "astro": "^5.1.0",
     "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "wrangler": "^4.14.0"
   }
 }
