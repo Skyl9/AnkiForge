@@ -29,7 +29,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
-from ankiforge.security.signatures import (
+from ankidraft.security.signatures import (
     TRUSTED_PUBLIC_KEYS,
     verify_manifest_signature,
 )

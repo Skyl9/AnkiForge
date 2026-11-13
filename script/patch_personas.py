@@ -1,10 +1,10 @@
 from pathlib import Path
 
-import ankiforge.database.models
-from ankiforge.database.models import PersonaModel, db
+import ankidraft.database.models
+from ankidraft.database.models import PersonaModel, db
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ankiforge.database.models.DEFAULT_DB_PATH = REPO_ROOT / ".ankiforge" / "ankiforge.db"
+ankidraft.database.models.DEFAULT_DB_PATH = REPO_ROOT / ".ankidraft" / "ankidraft.db"
 
 wozniak_prompt = (
     "You are an expert Anki flashcard auditor following Piotr Wozniak's '20 rules of formulating knowledge'.\n"
@@ -24,7 +24,7 @@ wozniak_prompt = (
     "Always wrap your response in standard JSON. Only provide suggestions if it fails."
 )
 
-db.init(ankiforge.database.models.DEFAULT_DB_PATH)
+db.init(ankidraft.database.models.DEFAULT_DB_PATH)
 db.connect(reuse_if_open=True)
 
 persona, created = PersonaModel.get_or_create(

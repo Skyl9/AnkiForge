@@ -1,8 +1,8 @@
 """Extraction et compilation des catalogues i18n AnkiForge (mécanique Qt Linguist).
 
-Ce script est l'unique producteur des fichiers ``src/ankiforge/resources/translations/`` :
+Ce script est l'unique producteur des fichiers ``src/ankidraft/resources/translations/`` :
 
-1. ``pyside6-lupdate`` balaie ``src/ankiforge`` et écrit un ``.ts`` par langue, en
+1. ``pyside6-lupdate`` balaie ``src/ankidraft`` et écrit un ``.ts`` par langue, en
    réécriture exhaustive (``-locations relative -noobsolete``) : un message disparu du code
    disparaît du catalogue au lieu d'y rester pour toujours ;
 2. ``pyside6-lrelease`` compile chaque ``.ts`` en ``.qm``, binaire que Qt charge à
@@ -40,9 +40,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("AnkiForgeTranslations")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SOURCE_DIR = PROJECT_ROOT / "src" / "ankiforge"
+SOURCE_DIR = PROJECT_ROOT / "src" / "ankidraft"
 TRANSLATIONS_DIR = SOURCE_DIR / "resources" / "translations"
-CATALOG_STEM = "ankiforge"
+CATALOG_STEM = "ankidraft"
 
 #: Langues dont un catalogue doit exister : la source (français) sert de référence, les
 #: autres sont des cibles de traduction humaine. Aucune n'est remplie automatiquement.
@@ -118,7 +118,7 @@ def _normalize_catalog_locations(catalog: bytes) -> bytes:
 
 
 def extract(language: str, target: Path | None = None) -> Path:
-    """Balaie ``src/ankiforge`` et écrit le ``.ts`` de la langue donnée.
+    """Balaie ``src/ankidraft`` et écrit le ``.ts`` de la langue donnée.
 
     Args:
         language: Code de langue ISO 639-1 (``"fr"``, ``"en"``).
@@ -163,7 +163,7 @@ def check() -> int:
         int: 0 si tout est à jour, 1 sinon.
     """
     stale: list[str] = []
-    with tempfile.TemporaryDirectory(prefix="ankiforge-i18n-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="ankidraft-i18n-") as tmp:
         tmp_dir = Path(tmp)
         for language in LANGUAGES:
             reference = ts_path(language)

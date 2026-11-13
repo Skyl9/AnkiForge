@@ -1,4 +1,4 @@
-from ankiforge.database.models import PersonaModel, db
+from ankidraft.database.models import PersonaModel, db
 
 db.connect()
 for p in PersonaModel.select():

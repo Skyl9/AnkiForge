@@ -86,12 +86,12 @@ def generate_icons() -> None:
     icons_dir = pathlib.Path(__file__).resolve().parent.parent / "src" / "ressources" / "icons"
     icons_dir.mkdir(parents=True, exist_ok=True)
 
-    svg_path = icons_dir / "ankiforge.svg"
+    svg_path = icons_dir / "ankidraft.svg"
     svg_path.write_text(SVG_ICON_CONTENT, encoding="utf-8")
     print(f"[SUCCESS] SVG écrit dans {svg_path}")
 
     # 1. Génération du PNG 512x512 et 1024x1024
-    png_512 = icons_dir / "ankiforge.png"
+    png_512 = icons_dir / "ankidraft.png"
     png_1024 = icons_dir / "ankiforge_1024.png"
 
     try:
@@ -105,7 +105,7 @@ def generate_icons() -> None:
     if png_1024.exists() or png_512.exists():
         src_png = png_1024 if png_1024.exists() else png_512
         img = Image.open(src_png)
-        ico_path = icons_dir / "ankiforge.ico"
+        ico_path = icons_dir / "ankidraft.ico"
         img.save(
             ico_path,
             format="ICO",
@@ -116,7 +116,7 @@ def generate_icons() -> None:
     # 3. Génération du fichier macOS .icns via iconutil
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            iconset_dir = pathlib.Path(tmp_dir) / "ankiforge.iconset"
+            iconset_dir = pathlib.Path(tmp_dir) / "ankidraft.iconset"
             iconset_dir.mkdir()
 
             sizes = [
@@ -138,7 +138,7 @@ def generate_icons() -> None:
                     check=True,
                 )
 
-            icns_path = icons_dir / "ankiforge.icns"
+            icns_path = icons_dir / "ankidraft.icns"
             subprocess.run(["iconutil", "-c", "icns", str(iconset_dir), "-o", str(icns_path)], check=True)
             print(f"[SUCCESS] ICNS Apple Retina généré dans {icns_path}")
     except Exception as e:

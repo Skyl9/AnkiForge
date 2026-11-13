@@ -6,13 +6,13 @@ avec la couverture de tests (LCOV / pytest-cov) selon la formule canonique :
     CRAP = CC² × (1 − coverage)³ + CC
 
 Utilisation :
-    uv run python script/crap.py                         # Analyse tout src/ankiforge/
+    uv run python script/crap.py                         # Analyse tout src/ankidraft/
     uv run python script/crap.py --changed               # Analyse uniquement le diff Git
     uv run python script/crap.py --threshold 25          # Exit code 2 si le seuil est dépassé
     uv run python script/crap.py --top 15                # Affiche le top 15 des fonctions à risque
     uv run python script/crap.py --no-coverage           # Complexité cyclomatique seule
     uv run python script/crap.py --lcov coverage/lcov.info # Spécifie le rapport LCOV
-    uv run python script/crap.py src/ankiforge/utils/    # Analyse un fichier ou dossier spécifique
+    uv run python script/crap.py src/ankidraft/utils/    # Analyse un fichier ou dossier spécifique
 """
 
 from __future__ import annotations
@@ -443,7 +443,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "paths",
         nargs="*",
         type=Path,
-        help="Fichiers ou répertoires à analyser (défaut : tout src/ankiforge/).",
+        help="Fichiers ou répertoires à analyser (défaut : tout src/ankidraft/).",
     )
     parser.add_argument(
         "--root",
@@ -511,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(
                 "Avis : Aucun rapport LCOV trouvé (ex: coverage/lcov.info). "
                 "La couverture est évaluée à 0.0% pour les fonctions non couvertes.\n"
-                "Pour générer un rapport LCOV : uv run pytest --cov=src/ankiforge --cov-report=lcov:coverage/lcov.info\n\n"
+                "Pour générer un rapport LCOV : uv run pytest --cov=src/ankidraft --cov-report=lcov:coverage/lcov.info\n\n"
             )
             coverage = CoverageReport()
 

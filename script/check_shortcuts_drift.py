@@ -2,7 +2,7 @@
 """Script de contrôle de dérive et de régénération de la documentation des raccourcis clavier.
 
 Génère la page de référence Zensical (docs/guides/raccourcis_clavier.md) directement depuis
-le catalogue central déclaratif (src/ankiforge/ui/shortcuts/catalog.py) conformément à l'ADR 0032.
+le catalogue central déclaratif (src/ankidraft/ui/shortcuts/catalog.py) conformément à l'ADR 0032.
 
 Utilisation :
     uv run python script/check_shortcuts_drift.py --check   # Vérifie la dérive (exit 1 si dérive)
@@ -17,8 +17,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from ankiforge.ui.shortcuts.catalog import get_shortcut_catalog
-from ankiforge.ui.shortcuts.models import (
+from ankidraft.ui.shortcuts.catalog import get_shortcut_catalog
+from ankidraft.ui.shortcuts.models import (
     ShortcutCategory,
     ShortcutDefinition,
     ShortcutId,
@@ -72,12 +72,12 @@ def generate_shortcuts_markdown(catalog: dict[ShortcutId, ShortcutDefinition] | 
     lines: list[str] = [
         "# Référence des Raccourcis Clavier ⌨️",
         "",
-        "<!-- ⚠️ DOCUMENT AUTO-GÉNÉRÉ DEPUIS src/ankiforge/ui/shortcuts/catalog.py - NE PAS MODIFIER MANUELLEMENT -->",
+        "<!-- ⚠️ DOCUMENT AUTO-GÉNÉRÉ DEPUIS src/ankidraft/ui/shortcuts/catalog.py - NE PAS MODIFIER MANUELLEMENT -->",
         "<!-- Exécutez 'uv run python script/check_shortcuts_drift.py --fix' pour régénérer -->",
         "",
         (
             "Cette page constitue la **référence officielle et exhaustive** de l'ensemble des raccourcis clavier d'AnkiForge, "
-            "issue du registre central déclaratif (`src/ankiforge/ui/shortcuts/`) conformément à l'**ADR 0032**."
+            "issue du registre central déclaratif (`src/ankidraft/ui/shortcuts/`) conformément à l'**ADR 0032**."
         ),
         "",
         "> [!NOTE]",

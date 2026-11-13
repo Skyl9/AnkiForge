@@ -1,4 +1,4 @@
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     DocumentChunkModel,
     DocumentModel,

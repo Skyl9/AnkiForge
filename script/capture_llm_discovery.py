@@ -10,13 +10,13 @@ os.environ["ANKIFORGE_ENV"] = "testing"
 from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import LLMConfigModel
-from ankiforge.database.seeds.initial_seed import seed_initial_data
-from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.ui.components.model_selector.dialog import ModelCardWidget, ModelDiscoveryDialog
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.ui.views.agents_view.view import AgentsView
-from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
+from ankidraft.database.models import LLMConfigModel
+from ankidraft.database.seeds.initial_seed import seed_initial_data
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.ui.components.model_selector.dialog import ModelCardWidget, ModelDiscoveryDialog
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.ui.views.agents_view.view import AgentsView
+from ankidraft.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 _artifact_env = os.getenv("ARTIFACT_DIR")
@@ -74,7 +74,7 @@ def main() -> None:
     app.processEvents()
 
     # 2bis. Capture de la modale Settings complète avec l'onglet Moteurs IA
-    from ankiforge.ui.widgets.settings_modal import SettingsModal
+    from ankidraft.ui.widgets.settings_modal import SettingsModal
 
     settings_modal = SettingsModal()
     settings_modal.stacked_widget.setCurrentIndex(1)  # Moteurs IA

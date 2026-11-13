@@ -19,11 +19,11 @@ from typing import Any
 
 from PySide6.QtCore import QCoreApplication
 
-from ankiforge.database.models import LLMConfigModel, PersonaModel, PipelineModel, PipelineStepModel, db
-from ankiforge.services.ai.base import LLMProvider
-from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.ai.orchestrator import PipelineOrchestrator
-from ankiforge.services.ai.state import PipelineRunState
+from ankidraft.database.models import LLMConfigModel, PersonaModel, PipelineModel, PipelineStepModel, db
+from ankidraft.services.ai.base import LLMProvider
+from ankidraft.services.ai.flexible_service import AIManager
+from ankidraft.services.ai.orchestrator import PipelineOrchestrator
+from ankidraft.services.ai.state import PipelineRunState
 
 # Couleurs ANSI pour un affichage CLI soigné
 C_RESET = "\033[0m"
@@ -95,7 +95,7 @@ class MockInteractiveProvider(LLMProvider):
 
 def setup_in_memory_db():
     """Initialise une base de données temporaire pour le test."""
-    from ankiforge.database.models import (
+    from ankidraft.database.models import (
         CardModel,
         DeckModel,
         NoteModel,

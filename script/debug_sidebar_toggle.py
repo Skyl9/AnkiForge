@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import init_db
-from ankiforge.ui.main_window import MainWindow
+from ankidraft.database.migration import run_migrations
+from ankidraft.database.models import init_db
+from ankidraft.ui.main_window import MainWindow
 
 
 def test_sidebar_toggle():

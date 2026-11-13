@@ -10,7 +10,7 @@ os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
@@ -20,15 +20,15 @@ from ankiforge.database.models import (
     StagedPatchModel,
     db,
 )
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
-from ankiforge.utils.paths import get_project_root
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
+from ankidraft.utils.paths import get_project_root
 
 
 def setup_test_db():
-    from ankiforge.database.models import (
+    from ankidraft.database.models import (
         FlagDefinitionModel,
         StagedBundleModel,
         StagedPatchModel,

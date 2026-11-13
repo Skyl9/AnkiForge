@@ -15,8 +15,8 @@ app = QApplication.instance() or QApplication(sys.argv)
 # Setup in-memory DB (same as conftest.py)
 from peewee import SqliteDatabase  # noqa: E402
 
-from ankiforge.database.base import db  # noqa: E402
-from ankiforge.database.models import (  # noqa: E402
+from ankidraft.database.base import db  # noqa: E402
+from ankidraft.database.models import (  # noqa: E402
     AuditRecordModel,
     CardModel,
     DeckModel,
@@ -135,7 +135,7 @@ out_dir = sys.argv[1] if len(sys.argv) > 1 else "temp/screens"
 os.makedirs(out_dir, exist_ok=True)
 
 # === Capture DelimitationDialog ===
-from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog  # noqa: E402
+from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog  # noqa: E402
 
 dlg1 = DocumentDelimitationDialog(doc)
 dlg1.show()
@@ -147,7 +147,7 @@ print("✅ delimitation_dialog.png")
 dlg1.close()
 
 # === Capture DocumentScopeDialog ===
-from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog  # noqa: E402
+from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog  # noqa: E402
 
 dlg2 = DocumentScopeDialog(doc)
 dlg2.show()

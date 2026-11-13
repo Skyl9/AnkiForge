@@ -8,10 +8,10 @@ from unittest.mock import patch
 
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import init_db
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.utils.paths import get_project_root
+from ankidraft.database.migration import run_migrations
+from ankidraft.database.models import init_db
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.utils.paths import get_project_root
 
 
 def test_transition():
@@ -24,7 +24,7 @@ def test_transition():
     engine.save_appearance_preference("default", engine.preference_from_theme_id("ide"))
     engine.apply_theme("ide", app)
 
-    from ankiforge.ui.main_window import MainWindow
+    from ankidraft.ui.main_window import MainWindow
 
     out_dir = get_project_root() / "temp" / "transition_debug"
     out_dir.mkdir(parents=True, exist_ok=True)

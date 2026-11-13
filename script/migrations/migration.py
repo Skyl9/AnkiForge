@@ -1,9 +1,9 @@
 from peewee import SQL, DateTimeField, SqliteDatabase
 from playhouse.migrate import SqliteMigrator, migrate
 
-from ankiforge.utils.paths import get_app_data_dir
+from ankidraft.utils.paths import get_app_data_dir
 
-db = SqliteDatabase(get_app_data_dir() / "ankiforge.db")
+db = SqliteDatabase(get_app_data_dir() / "ankidraft.db")
 migrator = SqliteMigrator(db)
 
 # Ajout de la colonne output_format

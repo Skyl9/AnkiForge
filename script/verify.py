@@ -7,7 +7,7 @@ typage, sécurité et tests pré-push du projet :
 2. python script/check_shortcuts_drift.py --check (Contrôle dérive doc raccourcis)
 3. ruff check .                (Linting et règles PEP8 / T20 no print)
 4. ruff format --check .       (Formatage uniforme)
-5. mypy src/ankiforge          (Typage statique strict 100%)
+5. mypy src/ankidraft          (Typage statique strict 100%)
 6. bandit -c pyproject.toml -r src/ (Audit sécurité statique)
 7. python script/crap.py --changed --threshold 25 (Contrôle score CRAP sur le diff Git)
 8. pytest -m "not slow"        (Tests unitaires et headless rapides < 15s)
@@ -40,7 +40,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-logger = logging.getLogger("ankiforge.verify")
+logger = logging.getLogger("ankidraft.verify")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GITHOOKS_DIR = REPO_ROOT / ".githooks"
@@ -115,7 +115,7 @@ CANONICAL_STEPS: list[VerificationStep] = [
     ),
     VerificationStep(
         name="mypy",
-        command=["mypy", "src/ankiforge"],
+        command=["mypy", "src/ankidraft"],
         description="Typage statique strict 100% (Mypy)",
         timeout=120.0,
     ),
@@ -132,7 +132,7 @@ CANONICAL_STEPS: list[VerificationStep] = [
             "-m",
             "not slow",
             "--max-worker-restart=0",
-            "--cov=ankiforge",
+            "--cov=ankidraft",
             "--cov-report=lcov:coverage/lcov.info",
             "--cov-fail-under=0",
         ],
@@ -599,7 +599,7 @@ def run_verification(
                     command=[
                         "pytest",
                         "--max-worker-restart=0",
-                        "--cov=ankiforge",
+                        "--cov=ankidraft",
                         "--cov-report=lcov:coverage/lcov.info",
                         "--cov-fail-under=0",
                     ],

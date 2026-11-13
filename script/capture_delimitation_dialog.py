@@ -8,10 +8,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPageSize, QPainter, QPdfWriter
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
-from ankiforge.utils.paths import get_project_root
+from ankidraft.database.models import DocumentModel
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+from ankidraft.utils.paths import get_project_root
 
 
 def create_sample_pdf(file_path: Path) -> None:
@@ -96,7 +96,7 @@ def create_sample_pdf(file_path: Path) -> None:
 
 
 def main() -> None:
-    from ankiforge.services.profile_manager import ProfileManager
+    from ankidraft.services.profile_manager import ProfileManager
 
     pm = ProfileManager()
     pm.switch_profile("default")
@@ -134,12 +134,12 @@ def main() -> None:
     # Chunks et Cartes associées pour l'aperçu réaliste
     import uuid
 
-    from ankiforge.database.models import DocumentChunkModel, NoteChunkLinkModel, NoteModel, NoteTypeModel
+    from ankidraft.database.models import DocumentChunkModel, NoteChunkLinkModel, NoteModel, NoteTypeModel
 
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name="Basic", fields_schema='["Front", "Back"]')
     chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc))
     if not chunks:
-        from ankiforge.services.parsing.chunking_service import ChunkingService
+        from ankidraft.services.parsing.chunking_service import ChunkingService
 
         raw_chunks = ChunkingService.extract_chunks(doc.content, file_type="pdf")
         for idx, rc in enumerate(raw_chunks):
@@ -220,7 +220,7 @@ def main() -> None:
         },
     )
     # Chunks pour le document markdown
-    from ankiforge.services.parsing.chunking_service import ChunkingService
+    from ankidraft.services.parsing.chunking_service import ChunkingService
 
     md_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == md_doc))
     if not md_chunks:

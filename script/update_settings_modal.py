@@ -1,7 +1,7 @@
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-path = REPO_ROOT / "src" / "ankiforge" / "ui" / "widgets" / "settings_modal.py"
+path = REPO_ROOT / "src" / "ankidraft" / "ui" / "widgets" / "settings_modal.py"
 with open(path, encoding="utf-8") as f:
     content = f.read()
 

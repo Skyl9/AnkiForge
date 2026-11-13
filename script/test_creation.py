@@ -2,9 +2,9 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import LLMConfigModel, db
-from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
+from ankidraft.database.models import LLMConfigModel, db
+from ankidraft.services.ai.flexible_service import AIManager
+from ankidraft.services.workers.creation_worker import CreationTaskPayload, CreationWorker
 
 app = QApplication(sys.argv)
 db.connect(reuse_if_open=True)

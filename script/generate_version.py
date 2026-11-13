@@ -54,7 +54,7 @@ def generate_version_file(
     commit: str | None = None,
     build_date: str | None = None,
 ) -> Path:
-    """Génère le fichier src/ankiforge/_version.py."""
+    """Génère le fichier src/ankidraft/_version.py."""
     # Résolution de la version
     if not version:
         env_ver = os.environ.get("BUILD_VERSION") or os.environ.get("ANKIFORGE_BUILD_VERSION") or ""
@@ -81,7 +81,7 @@ def generate_version_file(
     if not build_date:
         build_date = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    target_file = PROJECT_ROOT / "src" / "ankiforge" / "_version.py"
+    target_file = PROJECT_ROOT / "src" / "ankidraft" / "_version.py"
     target_file.parent.mkdir(parents=True, exist_ok=True)
 
     content = f'''"""Fichier généré automatiquement lors du build/packaging d'AnkiForge.

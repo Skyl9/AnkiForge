@@ -24,7 +24,7 @@ FIXTURE_PATH = FIXTURE_DIR / "witness.apkg"
 
 # Contenu médiatique déterministe : l'oracle en vérifie le MD5 après import.
 WITNESS_MEDIA_NAME = "witness.png"
-WITNESS_MEDIA_BYTES = b"\x89PNG\r\n\x1a\n" + b"ankiforge-oracle-witness\n"
+WITNESS_MEDIA_BYTES = b"\x89PNG\r\n\x1a\n" + b"ankidraft-oracle-witness\n"
 
 BASIC_MODEL_ID = 1000000001
 CLOZE_MODEL_ID = 1000000002

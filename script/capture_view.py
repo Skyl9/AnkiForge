@@ -16,7 +16,7 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -25,9 +25,9 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.paths import get_project_root
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.utils.paths import get_project_root
 
 
 def seed_rich_demo_data() -> None:
@@ -99,7 +99,7 @@ def capture(
     height: int = 900,
     populate_data: bool = True,
 ) -> None:
-    from ankiforge.services.profile_manager import ProfileManager
+    from ankidraft.services.profile_manager import ProfileManager
 
     pm = ProfileManager()
     pm.switch_profile(profile_name)
@@ -111,7 +111,7 @@ def capture(
 
     # Thème
     engine = get_style_engine()
-    from ankiforge.ui.layouts.layout_manager import LayoutManager
+    from ankidraft.ui.layouts.layout_manager import LayoutManager
 
     orig_preference = engine.get_appearance_preference(profile_name)
     orig_layout = LayoutManager.get_saved_layout_id(profile_name)
@@ -119,7 +119,7 @@ def capture(
         engine.save_appearance_preference(profile_name, engine.preference_from_theme_id(theme_id))
         engine.apply_theme(theme_id, app)
 
-        from ankiforge.ui.main_window import MainWindow
+        from ankidraft.ui.main_window import MainWindow
 
         with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
             window = MainWindow(ai_manager=None, profile_name=profile_name)
@@ -182,20 +182,20 @@ def generate_layout_thumbnails(
 ) -> list[Path]:
     """Génère les miniatures statiques des layouts d'AnkiForge pour la modale des paramètres.
 
-    Enregistre les fichiers PNG sous src/ankiforge/resources/layouts/<layout_id>.png.
+    Enregistre les fichiers PNG sous src/ankidraft/resources/layouts/<layout_id>.png.
     Ne modifie ni le thème ni le layout du profil utilisateur réel.
     """
     from PySide6.QtCore import QSize, Qt
     from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QApplication
 
-    from ankiforge.services.profile_manager import ProfileManager
-    from ankiforge.ui.layouts.layout_manager import LayoutManager
-    from ankiforge.ui.style_engine import get_style_engine
-    from ankiforge.ui.theme import DesignTokens
-    from ankiforge.utils.paths import get_project_root
+    from ankidraft.services.profile_manager import ProfileManager
+    from ankidraft.ui.layouts.layout_manager import LayoutManager
+    from ankidraft.ui.style_engine import get_style_engine
+    from ankidraft.ui.theme import DesignTokens
+    from ankidraft.utils.paths import get_project_root
 
-    dest_dir = output_dir or (get_project_root() / "src" / "ankiforge" / "resources" / "layouts")
+    dest_dir = output_dir or (get_project_root() / "src" / "ankidraft" / "resources" / "layouts")
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     pm = ProfileManager()
@@ -211,7 +211,7 @@ def generate_layout_thumbnails(
 
     generated: list[Path] = []
     try:
-        from ankiforge.ui.main_window import MainWindow
+        from ankidraft.ui.main_window import MainWindow
 
         with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
             window = MainWindow(ai_manager=None, profile_name=profile_name)
@@ -250,7 +250,7 @@ def main():
     parser.add_argument("--theme", type=str, default="ide", help="Identifiant du thème (ex: ide, dark_modern, catppuccin_mocha, nord)")
     parser.add_argument("--layout", type=str, default="ide", help="Identifiant du layout (ide, macos, dashboard, glassmorphism)")
     parser.add_argument("--profile", type=str, default="default", help="Nom du profil / espace de travail")
-    parser.add_argument("--layout-thumbnails", action="store_true", help="Générer les 4 miniatures statiques des layouts dans src/ankiforge/resources/layouts/")
+    parser.add_argument("--layout-thumbnails", action="store_true", help="Générer les 4 miniatures statiques des layouts dans src/ankidraft/resources/layouts/")
     parser.add_argument(
         "--preset", type=str, choices=["macbook13", "macbook14", "macbook16", "fhd", "hd"], default=None, help="Preset de résolution d'écran (macbook13: 1280x800, macbook14: 1512x982, etc.)"
     )

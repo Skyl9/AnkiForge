@@ -23,10 +23,10 @@ from typing import Any
 
 import zstandard as zstd
 
-from ankiforge.database.base import db
-from ankiforge.database.models import MediaModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.services.cards.import_manager import ImportManager
-from ankiforge.services.profile_manager import ProfileManager
+from ankidraft.database.base import db
+from ankidraft.database.models import MediaModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.services.cards.import_manager import ImportManager
+from ankidraft.services.profile_manager import ProfileManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,9 +48,9 @@ def repair_profile(
     # 1. Configuration de l'environnement et du gestionnaire de profil
     profile_mgr = ProfileManager()
     if env == "prod":
-        profile_mgr.profiles_dir = Path.home() / ".ankiforge" / "profiles"
+        profile_mgr.profiles_dir = Path.home() / ".ankidraft" / "profiles"
     elif env == "dev":
-        profile_mgr.profiles_dir = Path.home() / ".ankiforge-dev" / "profiles"
+        profile_mgr.profiles_dir = Path.home() / ".ankidraft-dev" / "profiles"
 
     db_path = profile_mgr.get_db_path(profile_name)
     media_dir = profile_mgr.get_media_dir(profile_name)

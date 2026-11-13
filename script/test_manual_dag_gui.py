@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     LLMConfigModel,
@@ -44,11 +44,11 @@ from ankiforge.database.models import (
     PipelineStepModel,
     db,
 )
-from ankiforge.services.ai.base import LLMProvider
-from ankiforge.services.ai.orchestrator import PipelineOrchestrator
-from ankiforge.services.ai.state import PipelineRunState
-from ankiforge.ui.components import DangerButton, IdePanel, PrimaryButton, SecondaryButton
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.services.ai.base import LLMProvider
+from ankidraft.services.ai.orchestrator import PipelineOrchestrator
+from ankidraft.services.ai.state import PipelineRunState
+from ankidraft.ui.components import DangerButton, IdePanel, PrimaryButton, SecondaryButton
+from ankidraft.ui.theme import DesignTokens
 
 
 class MockGuiProvider(LLMProvider):

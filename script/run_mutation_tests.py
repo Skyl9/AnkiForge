@@ -16,22 +16,22 @@ from typing import Any
 
 TARGET_CONFIGS: dict[str, dict[str, Any]] = {
     "c_bridge": {
-        "source": "src/ankiforge/utils/c_bridge.py",
+        "source": "src/ankidraft/utils/c_bridge.py",
         "test": "tests/utils/test_c_bridge.py",
         "description": "Calcul de distance Levenshtein (Bridge C & Fallback pur Python)",
     },
     "chunking": {
-        "source": "src/ankiforge/services/parsing/chunking_service.py",
+        "source": "src/ankidraft/services/parsing/chunking_service.py",
         "test": "tests/services/parsing/test_chunking_service.py",
         "description": "Découpage documentaire intelligent & métadonnées",
     },
     "anki_renderer": {
-        "source": "src/ankiforge/utils/anki_renderer.py",
+        "source": "src/ankidraft/utils/anki_renderer.py",
         "test": "tests/utils/test_anki_renderer.py",
         "description": "Moteur de rendu de cartes Anki (cloze, KaTeX, Jinja2)",
     },
     "vision_utils": {
-        "source": "src/ankiforge/utils/vision_utils.py",
+        "source": "src/ankidraft/utils/vision_utils.py",
         "test": "tests/utils/test_vision_utils.py",
         "description": "Traitement et encodage d'images pour LLM multimodal",
     },

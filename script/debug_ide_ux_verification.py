@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import init_db
-from ankiforge.ui.main_window import MainWindow
+from ankidraft.database.models import init_db
+from ankidraft.ui.main_window import MainWindow
 
 
 def main():

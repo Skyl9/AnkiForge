@@ -13,7 +13,7 @@ os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false"
 
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     LLMConfigModel,
@@ -24,8 +24,8 @@ from ankiforge.database.models import (
     SettingModel,
     db,
 )
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.ui.widgets.settings_modal import SettingsModal
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.ui.widgets.settings_modal import SettingsModal
 
 
 def seed_settings_data():

@@ -20,10 +20,10 @@ root_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root_dir / "src"))
 
 # ruff: noqa: E402
-from ankiforge.database.models import DocumentModel, NoteModel, db, init_db
-from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
-from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.utils.paths import get_profile_dir
+from ankidraft.database.models import DocumentModel, NoteModel, db, init_db
+from ankidraft.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.utils.paths import get_profile_dir
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("align_profile_sources")

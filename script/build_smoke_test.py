@@ -38,17 +38,17 @@ def main() -> None:
         subprocess.run(["gcc", "-shared", "-o", str(c_so), "-fPIC", str(c_source)], check=False)
 
     # 2. Construction PyInstaller onedir rapide
-    entrypoint = root_dir / "src" / "ankiforge" / "__main__.py"
+    entrypoint = root_dir / "src" / "ankidraft" / "__main__.py"
     cmd = [
         sys.executable,
         "-m",
         "PyInstaller",
-        "--name=ankiforge",
+        "--name=ankidraft",
         "--onedir",
         "--noconfirm",
         "--clean",
         f"--paths={root_dir / 'src'}",
-        "--hidden-import=ankiforge",
+        "--hidden-import=ankidraft",
         "--hidden-import=peewee",
         "--hidden-import=PySide6.QtCore",
         "--hidden-import=PySide6.QtGui",
@@ -62,14 +62,14 @@ def main() -> None:
 
     # 3. Localisation du binaire produit
     if sys.platform == "win32":
-        executable = dist_dir / "ankiforge" / "ankiforge.exe"
+        executable = dist_dir / "ankidraft" / "ankidraft.exe"
     elif sys.platform == "darwin":
-        # macOS onedir produit dist/ankiforge/ankiforge ou dist/ankiforge.app/Contents/MacOS/ankiforge
-        executable = dist_dir / "ankiforge" / "ankiforge"
+        # macOS onedir produit dist/ankidraft/ankidraft ou dist/ankidraft.app/Contents/MacOS/ankidraft
+        executable = dist_dir / "ankidraft" / "ankidraft"
         if not executable.exists():
-            executable = dist_dir / "ankiforge.app" / "Contents" / "MacOS" / "ankiforge"
+            executable = dist_dir / "ankidraft.app" / "Contents" / "MacOS" / "ankidraft"
     else:
-        executable = dist_dir / "ankiforge" / "ankiforge"
+        executable = dist_dir / "ankidraft" / "ankidraft"
 
     if not executable.exists():
         print(f"❌ Exécutable introuvable à l'emplacement : {executable}")

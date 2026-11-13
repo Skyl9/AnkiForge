@@ -10,10 +10,10 @@ from unittest.mock import patch
 
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import init_db
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.utils.paths import get_project_root
+from ankidraft.database.migration import run_migrations
+from ankidraft.database.models import init_db
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.utils.paths import get_project_root
 
 
 def capture_views(output_dir: Path, theme_id: str = "ide") -> None:
@@ -27,7 +27,7 @@ def capture_views(output_dir: Path, theme_id: str = "ide") -> None:
     engine.save_appearance_preference("default", engine.preference_from_theme_id(theme_id))
     engine.apply_theme(theme_id, app)
 
-    from ankiforge.ui.main_window import MainWindow
+    from ankidraft.ui.main_window import MainWindow
 
     with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="default")
