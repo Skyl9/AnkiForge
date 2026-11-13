@@ -61,6 +61,10 @@ audits/
 !tests/fixtures/anki_oracle/**
 !package.json
 !tsconfig.json
+!website/**/*.json
+website/node_modules/
+website/.astro/
+website/dist/
 
 experiment/
 
@@ -97,4 +101,4 @@ AnkiForge Release Logs/
 # --- Catalogues i18n (ADR 0013) ---
 # Les .ts sont versionnés (matière de la traduction humaine) ; les .qm sont des
 # artefacts de compilation, reproductibles par script/extract_translations.py.
-src/ankiforge/resources/translations/*.qm
+src/ankidraft/resources/translations/*.qm

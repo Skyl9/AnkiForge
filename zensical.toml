@@ -11,12 +11,12 @@
 # The site_name is shown in the page header and the browser window title
 #
 # Read more: https://zensical.org/docs/setup/basics/#site_name
-site_name = "AnkiDraft"
+site_name = "AnkiDraft — Documentation Développeur & Architecture"
 site_url = "https://skyl9.github.io/AnkiDraft/"
 
 # The site_description is included in the HTML head and should contain a
 # meaningful description of the site content for use by search engines.
-site_description = "L'Atelier d'Ingénierie de la Connaissance et la Forge de Flashcards de Nouvelle Génération."
+site_description = "Documentation technique, dossier d'architecture, ADRs et ingénierie d'AnkiDraft."
 
 # The site_author attribute. This is used in the HTML head element.
 site_author = "Skyl9 / AnkiDraft Team"

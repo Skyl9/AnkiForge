@@ -1,0 +1,318 @@
+---
+import { getLatestRelease } from '../../lib/release';
+
+const release = await getLatestRelease();
+---
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AnkiDraft — L'Atelier IA de Création et d'Audit de Flashcards Anki</title>
+    <meta
+      name="description"
+      content="Transformez vos cours PDF, vidéos YouTube et notes en paquets Anki atomiques. Application desktop rapide, hors ligne et respectueuse des 20 règles de Wozniak."
+    />
+    <meta
+      name="google-site-verification"
+      content="aoyROBDMk0qbvP7PuiHXrvPdCRpsJeLWc904iaDzvBc"
+    />
+    <link rel="canonical" href="https://ankidraft.app/fr/" />
+    <link rel="alternate" hreflang="fr" href="https://ankidraft.app/fr/" />
+    <link rel="alternate" hreflang="en" href="https://ankidraft.app/en/" />
+    <link rel="alternate" hreflang="x-default" href="https://ankidraft.app/en/" />
+    <style>
+      :root {
+        --bg: #0b0f19;
+        --bg-card: #131c31;
+        --border: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top, #172554 0%, var(--bg) 55%);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.6;
+      }
+      header {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .brand {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--text);
+        text-decoration: none;
+        letter-spacing: -0.02em;
+      }
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        margin-left: 1.5rem;
+        font-size: 0.95rem;
+      }
+      nav a:hover {
+        color: var(--text);
+      }
+      .hero {
+        max-width: 960px;
+        margin: 3.5rem auto 2.5rem;
+        padding: 0 1.5rem;
+        text-align: center;
+      }
+      .badge {
+        display: inline-block;
+        padding: 0.25rem 0.85rem;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        color: #93c5fd;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+      }
+      h1 {
+        font-size: clamp(2.2rem, 5vw, 3.6rem);
+        line-height: 1.12;
+        margin: 0 0 1.25rem;
+        letter-spacing: -0.03em;
+      }
+      .subtitle {
+        font-size: 1.15rem;
+        color: var(--muted);
+        max-width: 680px;
+        margin: 0 auto 2.25rem;
+      }
+      .cta-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+        margin-bottom: 1rem;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        padding: 0.85rem 1.6rem;
+        border-radius: 0.6rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: background 0.15s;
+      }
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn-secondary {
+        background: var(--bg-card);
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 0.85rem 1.5rem;
+        border-radius: 0.6rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .os-links {
+        font-size: 0.9rem;
+        color: var(--muted);
+        margin-top: 0.75rem;
+      }
+      .os-links a {
+        color: #93c5fd;
+        text-decoration: none;
+        margin: 0 0.4rem;
+      }
+      .grid {
+        max-width: 1120px;
+        margin: 3.5rem auto;
+        padding: 0 1.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.25rem;
+      }
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 0.85rem;
+        padding: 1.5rem;
+      }
+      .card h2 {
+        font-size: 1.15rem;
+        margin: 0 0 0.5rem;
+      }
+      .card p {
+        color: var(--muted);
+        margin: 0;
+        font-size: 0.95rem;
+      }
+      .downloads {
+        max-width: 960px;
+        margin: 4rem auto;
+        padding: 2rem 1.5rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+      }
+      .downloads h2 {
+        margin-top: 0;
+        text-align: center;
+      }
+      .dl-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+      }
+      .dl-box {
+        padding: 1.25rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: rgba(11, 15, 25, 0.5);
+      }
+      .dl-box h3 {
+        margin: 0 0 0.4rem;
+      }
+      .dl-box a {
+        display: inline-block;
+        margin-top: 0.75rem;
+        color: #60a5fa;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      footer {
+        max-width: 1120px;
+        margin: 4rem auto 2rem;
+        padding: 1.5rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.88rem;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      footer a {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/fr/">AnkiDraft</a>
+      <nav>
+        <a href="/fr/getting-started/quickstart/">Guides &amp; Aide</a>
+        <a href="#telecharger">Télécharger</a>
+        <a href="/fr/guides/raccourcis_clavier/">Raccourcis</a>
+        <a href="/fr/guides/faq_depannage/">FAQ</a>
+        <a href="/en/" hreflang="en">English</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <span class="badge">Version {release.version} disponible · 100 % Local-First</span>
+        <h1>Transformez vos cours en flashcards Anki mémorisables</h1>
+        <p class="subtitle">
+          Importez vos PDF, vidéos YouTube et pages web, générez des cartes atomiques avec l'IA de votre choix,
+          vérifiez leur qualité pédagogique et exportez-les directement vers Anki.
+        </p>
+        <div class="cta-group">
+          <a id="primary-dl" class="btn-primary" href={release.macos.url}>
+            Télécharger AnkiDraft v{release.version}
+          </a>
+          <a class="btn-secondary" href="/fr/getting-started/quickstart/">
+            Consulter le guide de démarrage
+          </a>
+        </div>
+        <div class="os-links">
+          Installateurs directs :
+          <a href={release.macos.url}>macOS (.dmg)</a> ·
+          <a href={release.windows.url}>Windows (.exe)</a> ·
+          <a href={release.linux.url}>Linux (.AppImage)</a>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>1. Importez tous vos supports</h2>
+          <p>
+            Glissez un cours PDF (avec formules mathématiques LaTeX), collez un lien YouTube ou une page web :
+            AnkiDraft découpe proprement vos chapitres et suit les parties déjà couvertes.
+          </p>
+        </article>
+        <article class="card">
+          <h2>2. Générez et éditez avec précision</h2>
+          <p>
+            Utilisez OpenAI, Gemini, Claude ou un modèle local gratuit via Ollama. Éditez vos cartes avec aperçu
+            mathématique KaTeX en direct, textes à trous et synthèse vocale.
+          </p>
+        </article>
+        <article class="card">
+          <h2>3. Auditez et synchronisez avec Anki</h2>
+          <p>
+            L'audit qualité intégré détecte les cartes trop longues ou ambiguës selon les 20 règles de Wozniak avant
+            l'export en paquet <code>.apkg</code> vers Anki Desktop et AnkiMobile.
+          </p>
+        </article>
+      </section>
+
+      <section id="telecharger" class="downloads">
+        <h2>Télécharger AnkiDraft v{release.version}</h2>
+        <div class="dl-grid">
+          <div class="dl-box">
+            <h3>macOS (Apple Silicon)</h3>
+            <p>macOS 13+ · Image disque signée (<code>.dmg</code>)</p>
+            <a href={release.macos.url}>Télécharger pour macOS →</a>
+          </div>
+          <div class="dl-box">
+            <h3>Windows (64-bit)</h3>
+            <p>Windows 10 / 11 · Installateur autonome (<code>.exe</code>)</p>
+            <a href={release.windows.url}>Télécharger pour Windows →</a>
+          </div>
+          <div class="dl-box">
+            <h3>Linux (x86_64)</h3>
+            <p>Exécutable portable sans installation (<code>.AppImage</code>)</p>
+            <a href={release.linux.url}>Télécharger pour Linux →</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>&copy; 2026 AnkiDraft · Application libre et locale</span>
+      <span>
+        <a href="/fr/getting-started/installation/">Guide d'installation</a> ·
+        <a href="https://github.com/Skyl9/AnkiDraft">Code source GitHub</a> ·
+        <a href="https://skyl9.github.io/AnkiDraft/">Documentation Développeur</a>
+      </span>
+    </footer>
+
+    <script is:inline define:vars={{ macosUrl: release.macos.url, windowsUrl: release.windows.url, linuxUrl: release.linux.url, version: release.version }}>
+      (function () {
+        var btn = document.getElementById('primary-dl');
+        if (!btn) return;
+        var ua = navigator.userAgent || '';
+        if (/Win/i.test(ua)) {
+          btn.href = windowsUrl;
+          btn.textContent = 'Télécharger pour Windows (v' + version + ')';
+        } else if (/Linux/i.test(ua) && !/Android/i.test(ua)) {
+          btn.href = linuxUrl;
+          btn.textContent = 'Télécharger pour Linux (v' + version + ')';
+        } else if (/Mac/i.test(ua)) {
+          btn.href = macosUrl;
+          btn.textContent = 'Télécharger pour macOS (v' + version + ')';
+        }
+      })();
+    </script>
+  </body>
+</html>
