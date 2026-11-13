@@ -11,7 +11,7 @@ Pour l'attacher à la release existante sur GitHub :
 4. Cliquez sur **« Update release »**
 
 ## 2. Configuration CI GitHub Actions (Releases futures)
-La clé publique active ajoutée à `TRUSTED_PUBLIC_KEYS` dans `src/ankiforge/security/signatures.py` est :
+La clé publique active ajoutée à `TRUSTED_PUBLIC_KEYS` dans `src/ankidraft/security/signatures.py` est :
 `04e2b926e7bb5069118799aa85744ad4c6c5c691e018d6feee984d4d8aa2057a`
 
 La clé privée correspondante doit être ajoutée comme Secret de dépôt :

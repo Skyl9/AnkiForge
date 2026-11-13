@@ -1,4 +1,4 @@
-"""Pilote de compilation universel AnkiForge avec Nuitka (Single Source of Truth).
+"""Pilote de compilation universel AnkiDraft avec Nuitka (Single Source of Truth).
 
 Lit la configuration centralisée depuis build_script/nuitka_config.json,
 calibre dynamiquement les cœurs CPU et orchestre les étapes de packaging.
@@ -26,7 +26,7 @@ from extract_translations import LANGUAGES, compile_catalog  # noqa: E402
 from generate_version import generate_version_file, read_pyproject_version, sync_project_files  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("AnkiForgeBuilder")
+logger = logging.getLogger("AnkiDraftBuilder")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "build_script" / "nuitka_config.json"
@@ -146,13 +146,13 @@ def build_nuitka_command(config: dict[str, Any], target_os: str, jobs: int, vers
         cmd.append(f"--nofollow-import-to={nofollow}")
 
     # Métadonnées globales d'application
-    cmd.append("--company-name=AnkiForge")
-    cmd.append("--product-name=AnkiForge")
+    cmd.append("--company-name=AnkiDraft")
+    cmd.append("--product-name=AnkiDraft")
     cmd.append(f"--product-version={version}")
 
     # 7. Flags spécifiques à la plateforme
     if target_os == "darwin":
-        app_name = plat_cfg.get("app_name", "AnkiForge")
+        app_name = plat_cfg.get("app_name", "AnkiDraft")
         cmd.append(f"--macos-app-name={app_name}")
         cmd.append(f"--macos-app-version={version}")
         icon = plat_cfg.get("icon")
@@ -162,8 +162,8 @@ def build_nuitka_command(config: dict[str, Any], target_os: str, jobs: int, vers
         win_ver = f"{version}.0" if len(version.split(".")) == 3 else version
         cmd.append(f"--windows-product-version={win_ver}")
         cmd.append(f"--windows-file-version={win_ver}")
-        cmd.append("--windows-company-name=AnkiForge")
-        cmd.append("--windows-product-name=AnkiForge")
+        cmd.append("--windows-company-name=AnkiDraft")
+        cmd.append("--windows-product-name=AnkiDraft")
         icon = plat_cfg.get("icon")
         if icon and (PROJECT_ROOT / icon).exists():
             cmd.append(f"--windows-icon-from-ico={icon}")
@@ -176,7 +176,7 @@ def build_nuitka_command(config: dict[str, Any], target_os: str, jobs: int, vers
         cmd.append(extra)
 
     out_dir = plat_cfg.get("output_dir", "dist_prod")
-    out_file = plat_cfg.get("output_filename", "AnkiForge")
+    out_file = plat_cfg.get("output_filename", "AnkiDraft")
     cmd.append(f"--output-dir={out_dir}")
     cmd.append(f"--output-filename={out_file}")
 
@@ -184,14 +184,14 @@ def build_nuitka_command(config: dict[str, Any], target_os: str, jobs: int, vers
     cmd.append(f"--jobs={jobs}")
 
     # 9. Point d'entrée de l'application
-    cmd.append("src/ankiforge")
+    cmd.append("src/ankidraft")
 
     return cmd
 
 
 def copy_migrations_to_bundle(dist_dir: Path, target_os: str) -> None:
     """Copie les scripts de migration SQL SQLite dans les emplacements attendus par l'application."""
-    migrations_src = PROJECT_ROOT / "src" / "ankiforge" / "database" / "migrations"
+    migrations_src = PROJECT_ROOT / "src" / "ankidraft" / "database" / "migrations"
     if not migrations_src.exists():
         logger.warning("Dossier de migrations source introuvable : %s", migrations_src)
         return
@@ -201,12 +201,12 @@ def copy_migrations_to_bundle(dist_dir: Path, target_os: str) -> None:
         # Sur macOS, les ressources doivent être dans Contents/Resources
         res_dir = dist_dir / "Contents" / "Resources"
         target_migrations = res_dir / "migrations"
-        target_migrations_py = res_dir / "src" / "ankiforge" / "database" / "migrations"
+        target_migrations_py = res_dir / "src" / "ankidraft" / "database" / "migrations"
         shutil.copytree(migrations_src, target_migrations, dirs_exist_ok=True)
         shutil.copytree(migrations_src, target_migrations_py, dirs_exist_ok=True)
     else:
         target_migrations = dist_dir / "migrations"
-        target_migrations_py = dist_dir / "src" / "ankiforge" / "database" / "migrations"
+        target_migrations_py = dist_dir / "src" / "ankidraft" / "database" / "migrations"
         shutil.copytree(migrations_src, target_migrations, dirs_exist_ok=True)
         shutil.copytree(migrations_src, target_migrations_py, dirs_exist_ok=True)
 
@@ -217,7 +217,7 @@ def copy_app_resources_to_bundle(dist_dir: Path, target_os: str) -> None:
     Deux racines coexistent dans le dépôt et chacune est copiée **indépendamment** :
 
     - ``src/ressources`` : icônes, prompts Jinja2, métadonnées de paquet ;
-    - ``src/ankiforge/resources`` : catalogues i18n (ADR 0013), KaTeX, miniatures de layouts.
+    - ``src/ankidraft/resources`` : catalogues i18n (ADR 0013), KaTeX, miniatures de layouts.
 
     L'indépendance est délibérée : l'ancien code sortait dès que ``src/ressources``
     manquait, ce qui faisait silencieusement disparaître les catalogues d'un bundle.
@@ -229,7 +229,7 @@ def copy_app_resources_to_bundle(dist_dir: Path, target_os: str) -> None:
 
     for source_dir, targets in (
         (PROJECT_ROOT / "src" / "ressources", (("",), ("src", "ressources"))),
-        (PROJECT_ROOT / "src" / "ankiforge" / "resources", (("resources",), ("src", "ankiforge", "resources"))),
+        (PROJECT_ROOT / "src" / "ankidraft" / "resources", (("resources",), ("src", "ankidraft", "resources"))),
     ):
         if not source_dir.is_dir():
             logger.warning("Dossier de ressources source introuvable, ignoré : %s", source_dir)
@@ -245,7 +245,7 @@ def strip_binary_symbols(dist_dir: Path, target_os: str) -> None:
         try:
             for so_file in dist_dir.glob("*.so"):
                 subprocess.run(["strip", "--strip-unneeded", str(so_file)], check=False)
-            main_bin = dist_dir / "AnkiForge"
+            main_bin = dist_dir / "AnkiDraft"
             if main_bin.exists():
                 subprocess.run(["strip", "--strip-unneeded", str(main_bin)], check=False)
         except Exception as err:
@@ -365,7 +365,7 @@ def update_macos_plist_metadata(dist_dir: Path, version: str) -> None:
 
 def main() -> None:
     """Point d'entrée principal du pilote de compilation."""
-    parser = argparse.ArgumentParser(description="Pilote de compilation Nuitka multi-plateformes AnkiForge.")
+    parser = argparse.ArgumentParser(description="Pilote de compilation Nuitka multi-plateformes AnkiDraft.")
     parser.add_argument("--dry-run", action="store_true", help="Affiche la commande Nuitka générée sans l'exécuter.")
     parser.add_argument("--jobs", type=int, default=0, help="Nombre de cœurs CPU (0 = auto-détection).")
     parser.add_argument("--target-os", choices=["darwin", "linux", "windows"], default="", help="OS cible forcé.")
@@ -386,7 +386,7 @@ def main() -> None:
     jobs = args.jobs or min(os.cpu_count() or 4, 8)
 
     # 0. Résolution et génération des métadonnées de version (vx.x.x -> x.x.x)
-    raw_version = args.version or os.environ.get("BUILD_VERSION") or os.environ.get("ANKIFORGE_BUILD_VERSION") or ""
+    raw_version = args.version or os.environ.get("BUILD_VERSION") or os.environ.get("ANKIDRAFT_BUILD_VERSION") or os.environ.get("ANKIFORGE_BUILD_VERSION") or ""
     if not raw_version:
         ref_name = os.environ.get("GITHUB_REF_NAME", "")
         raw_version = ref_name if (ref_name.startswith(("v", "V")) and "." in ref_name) else read_pyproject_version()
@@ -407,7 +407,7 @@ def main() -> None:
         print(f"OS cible : {target_os} | Version : {build_version} | CPU Jobs : {jobs}\n")
         return
 
-    logger.info("Démarrage de la compilation AnkiForge v%s pour %s (Jobs: %d)...", build_version, target_os, jobs)
+    logger.info("Démarrage de la compilation AnkiDraft v%s pour %s (Jobs: %d)...", build_version, target_os, jobs)
     os.chdir(PROJECT_ROOT)
 
     # Les `.qm` sont générés localement dans le runner : ils sont volontairement
@@ -426,19 +426,19 @@ def main() -> None:
 
     # Détermination du dossier produit
     if target_os == "darwin":
-        lower_app = PROJECT_ROOT / "dist_prod" / "ankiforge.app"
-        upper_app = PROJECT_ROOT / "dist_prod" / "AnkiForge.app"
+        lower_app = PROJECT_ROOT / "dist_prod" / "ankidraft.app"
+        upper_app = PROJECT_ROOT / "dist_prod" / "AnkiDraft.app"
         if lower_app.exists() and not upper_app.exists():
-            temp_app = PROJECT_ROOT / "dist_prod" / "temp_ankiforge.app"
+            temp_app = PROJECT_ROOT / "dist_prod" / "temp_ankidraft.app"
             lower_app.rename(temp_app)
             temp_app.rename(upper_app)
         dist_dir = upper_app if upper_app.exists() else lower_app
         target_site_packages = dist_dir / "Contents" / "Resources"
     else:
-        # Nuitka nomme par défaut le dossier de distribution 'ankiforge.dist' (minuscules).
-        # On le normalise vers 'AnkiForge.dist' pour compatibilité avec tous les scripts et la CI.
-        lower_dist = PROJECT_ROOT / "dist_prod" / "ankiforge.dist"
-        upper_dist = PROJECT_ROOT / "dist_prod" / "AnkiForge.dist"
+        # Nuitka nomme par défaut le dossier de distribution 'ankidraft.dist' (minuscules).
+        # On le normalise vers 'AnkiDraft.dist' pour compatibilité avec tous les scripts et la CI.
+        lower_dist = PROJECT_ROOT / "dist_prod" / "ankidraft.dist"
+        upper_dist = PROJECT_ROOT / "dist_prod" / "AnkiDraft.dist"
         if lower_dist.exists() and not upper_dist.exists():
             logger.info("Normalisation du dossier : %s -> %s", lower_dist.name, upper_dist.name)
             lower_dist.rename(upper_dist)

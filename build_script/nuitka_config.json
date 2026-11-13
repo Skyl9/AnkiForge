@@ -1,7 +1,7 @@
 {
   "common": {
     "include_packages": [
-      "ankiforge",
+      "ankidraft",
       "playhouse",
       "peewee_migrate",
       "unittest",
@@ -86,24 +86,24 @@
   },
   "platforms": {
     "darwin": {
-      "app_name": "AnkiForge",
+      "app_name": "AnkiDraft",
       "output_dir": "dist_prod",
-      "output_filename": "AnkiForge",
-      "icon": "src/ressources/icons/ankiforge.icns",
+      "output_filename": "AnkiDraft",
+      "icon": "src/ressources/icons/ankidraft.icns",
       "extra_flags": [
         "--macos-create-app-bundle"
       ]
     },
     "linux": {
       "output_dir": "dist_prod",
-      "output_filename": "AnkiForge",
-      "icon": "src/ressources/icons/ankiforge.png",
+      "output_filename": "AnkiDraft",
+      "icon": "src/ressources/icons/ankidraft.png",
       "extra_flags": []
     },
     "windows": {
       "output_dir": "dist_prod",
-      "output_filename": "AnkiForge.exe",
-      "icon": "src\\ressources\\icons\\ankiforge.ico",
+      "output_filename": "AnkiDraft.exe",
+      "icon": "src\\ressources\\icons\\ankidraft.ico",
       "extra_flags": [
         "--windows-console-mode=disable",
         "--msvc=latest"

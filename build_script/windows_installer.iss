@@ -1,9 +1,9 @@
-; Script Inno Setup 6 pour AnkiForge Desktop
-#define MyAppName "AnkiForge"
+; Script Inno Setup 6 pour AnkiDraft Desktop
+#define MyAppName "AnkiDraft"
 #define MyAppVersion "1.3.0"
-#define MyAppPublisher "AnkiForgeOrg"
-#define MyAppURL "https://github.com/Skyl9/AnkiForge"
-#define MyAppExeName "AnkiForge.exe"
+#define MyAppPublisher "AnkiDraftOrg"
+#define MyAppURL "https://github.com/Skyl9/AnkiDraft"
+#define MyAppExeName "AnkiDraft.exe"
 
 [Setup]
 AppId={{D37E84B1-2F18-49A8-9B7C-A5A6D5E9110B}
@@ -17,8 +17,8 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=.
-OutputBaseFilename=AnkiForge-Setup-x64
-SetupIconFile=..\src\ressources\icons\ankiforge.ico
+OutputBaseFilename=AnkiDraft-Setup-x64
+SetupIconFile=..\src\ressources\icons\ankidraft.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -35,12 +35,12 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\dist_prod\AnkiForge.dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist_prod\AnkiDraft.dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\src\ressources\icons\ankiforge.ico"
-Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; IconFilename: "{app}\src\ressources\icons\ankiforge.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\src\ressources\icons\ankiforge.ico"; Tasks: desktopicon
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\src\ressources\icons\ankidraft.ico"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; IconFilename: "{app}\src\ressources\icons\ankidraft.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\src\ressources\icons\ankidraft.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

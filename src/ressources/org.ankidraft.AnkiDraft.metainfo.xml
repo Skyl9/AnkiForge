@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.ankidraft.AnkiDraft</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>AnkiDraft</name>
+  <summary>Générateur et atelier avancé de création de cartes Anki assisté par IA</summary>
+  <description>
+    <p>
+      AnkiDraft est un studio autonome et puissant permettant d'orchestrer la génération, l'audit qualité (Linter Wozniak),
+      la déduplication vectorielle et la création de cartes mémoire pour Anki.
+    </p>
+  </description>
+  <launchable type="desktop-id">ankidraft.desktop</launchable>
+  <provides>
+    <binary>AnkiDraft</binary>
+  </provides>
+  <categories>
+    <category>Education</category>
+    <category>Utility</category>
+    <category>Qt</category>
+  </categories>
+</component>

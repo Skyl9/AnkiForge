@@ -58,7 +58,7 @@ def generate_dmg_backgrounds(output_dir: Path) -> tuple[Path, Path]:
     label_font = _get_font(bold_fonts, 24)
 
     # Titre principal en haut
-    title_text = "Installer AnkiForge"
+    title_text = "Installer AnkiDraft"
     subtitle_text = "Glissez l'application dans le dossier Applications"
 
     # Calcul du centrage du texte
@@ -131,7 +131,7 @@ def generate_dmg_backgrounds(output_dir: Path) -> tuple[Path, Path]:
     )
 
     # Libellé discret en bas
-    footer_text = "AnkiForge • Environnement de création de cartes optimisé par l'IA"
+    footer_text = "AnkiDraft • Environnement de création de cartes optimisé par l'IA"
     footer_font = _get_font(system_fonts, 18)
     footer_bbox = draw.textbbox((0, 0), footer_text, font=footer_font)
     footer_w = footer_bbox[2] - footer_bbox[0]

@@ -18,12 +18,12 @@ _repo_root = _this_dir if os.path.isfile(os.path.join(_this_dir, "pyproject.toml
 _defines = globals().get("defines") or {}
 
 # Nom de volume affiché dans le Finder et format de compression
-volume_name = "AnkiForge"
+volume_name = "AnkiDraft"
 format = "UDZO"
 
 # Contenu à intégrer dans l'image disque
-app_path = _defines.get("app_path", os.path.join(_repo_root, "dist_prod", "AnkiForge.app"))
-files = [(app_path, "AnkiForge.app")]
+app_path = _defines.get("app_path", os.path.join(_repo_root, "dist_prod", "AnkiDraft.app"))
+files = [(app_path, "AnkiDraft.app")]
 symlinks = {"Applications": "/Applications"}
 
 # Géométrie de la fenêtre DMG (position initiale (x, y) et dimensions (largeur, hauteur))
@@ -34,7 +34,7 @@ default_view = "icon-view"
 icon_size = 120
 text_size = 13
 icon_locations = {
-    "AnkiForge.app": (160, 205),
+    "AnkiDraft.app": (160, 205),
     "Applications": (480, 205),
 }
 
@@ -48,4 +48,4 @@ show_sidebar = False
 background = os.path.join(_this_dir, "assets", "dmg_background.png")
 
 # Icône du volume monté
-icon = os.path.join(_repo_root, "src", "ressources", "icons", "ankiforge.icns")
+icon = os.path.join(_repo_root, "src", "ressources", "icons", "ankidraft.icns")

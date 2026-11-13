@@ -1,11 +1,11 @@
 #!/bin/bash
-# Script de création d'image disque .dmg personnalisée pour macOS (AnkiForge)
+# Script de création d'image disque .dmg personnalisée pour macOS (AnkiDraft)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_PATH="dist_prod/AnkiForge.app"
-OUTPUT_DMG="${1:-AnkiForge-macos-arm64.dmg}"
+APP_PATH="dist_prod/AnkiDraft.app"
+OUTPUT_DMG="${1:-AnkiDraft-macos-arm64.dmg}"
 SETTINGS_FILE="build_script/dmg_settings.py"
 BG_1X="build_script/assets/dmg_background.png"
 BG_2X="build_script/assets/dmg_background@2x.png"
@@ -31,7 +31,7 @@ echo "[INFO] Construction de l'image disque stylisée avec dmgbuild..."
 uv run dmgbuild \
   -s "$SETTINGS_FILE" \
   -D app_path="$(pwd)/$APP_PATH" \
-  "AnkiForge" \
+  "AnkiDraft" \
   "$OUTPUT_DMG"
 
 echo "[INFO] Signature Ad-Hoc du fichier DMG..."
