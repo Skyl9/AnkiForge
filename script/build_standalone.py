@@ -230,6 +230,10 @@ def copy_app_resources_to_bundle(dist_dir: Path, target_os: str) -> None:
     for source_dir, targets in (
         (PROJECT_ROOT / "src" / "ressources", (("",), ("src", "ressources"))),
         (PROJECT_ROOT / "src" / "ankidraft" / "resources", (("resources",), ("src", "ankidraft", "resources"))),
+        (
+            PROJECT_ROOT / "website" / "src" / "content" / "docs",
+            (("resources", "user_docs"), ("src", "ankidraft", "resources", "user_docs")),
+        ),
     ):
         if not source_dir.is_dir():
             logger.warning("Dossier de ressources source introuvable, ignoré : %s", source_dir)

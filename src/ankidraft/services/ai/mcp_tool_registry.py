@@ -2763,32 +2763,32 @@ class MCPToolRegistry:
             return f"Erreur lors de l'exécution de l'outil Python '{tool_name}' : {e}"
 
     @staticmethod
-    def search_app_documentation(query: str, category: str = "", limit: int = 5) -> str:
+    def search_app_documentation(query: str, category: str = "", limit: int = 5, scope: str = "user") -> str:
         """Recherche des extraits pertinents dans la documentation officielle d'AnkiForge via SQLite FTS5 BM25."""
         from ankidraft.services.documentation.doc_service import search_app_documentation as _search_doc
 
-        return _search_doc(query=query, category=category, limit=limit)
+        return _search_doc(query=query, category=category, limit=limit, scope=scope)
 
     @staticmethod
-    def read_app_doc_page(doc_path: str, section_anchor: str = "") -> str:
+    def read_app_doc_page(doc_path: str, section_anchor: str = "", scope: str = "user") -> str:
         """Lit le contenu complet d'une page ou d'une section ciblée de la documentation officielle."""
         from ankidraft.services.documentation.doc_service import read_app_doc_page as _read_doc
 
-        return _read_doc(doc_path=doc_path, section_anchor=section_anchor)
+        return _read_doc(doc_path=doc_path, section_anchor=section_anchor, scope=scope)
 
     @staticmethod
-    def list_app_doc_topics(category: str = "") -> str:
-        """Liste la table des matières et les chapitres disponibles dans la documentation Zensical."""
+    def list_app_doc_topics(category: str = "", scope: str = "user") -> str:
+        """Liste la table des matières et les chapitres disponibles dans la documentation officielle."""
         from ankidraft.services.documentation.doc_service import list_app_doc_topics as _list_topics
 
-        return _list_topics(category=category)
+        return _list_topics(category=category, scope=scope)
 
     @staticmethod
-    def get_feature_quick_help(feature_name: str) -> str:
+    def get_feature_quick_help(feature_name: str, scope: str = "user") -> str:
         """Retourne une fiche synthétique d'aide sur une fonctionnalité d'AnkiForge."""
         from ankidraft.services.documentation.doc_service import get_feature_quick_help as _quick_help
 
-        return _quick_help(feature_name=feature_name)
+        return _quick_help(feature_name=feature_name, scope=scope)
 
     @staticmethod
     def list_mcp_agents(scope: str = "mcp") -> str:

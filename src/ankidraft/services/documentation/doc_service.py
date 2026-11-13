@@ -11,9 +11,52 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ankidraft.utils.paths import get_docs_path, get_zensical_config_path
+from ankidraft.utils.paths import get_docs_path, get_user_docs_path, get_zensical_config_path
 
 logger = logging.getLogger(__name__)
+
+
+def strip_yaml_frontmatter(raw_text: str) -> tuple[dict[str, str], str]:
+    """Extrait un bloc de frontmatter YAML situé strictement à la ligne 0 du fichier.
+
+    Si le corps nettoyé ne commence pas par un titre `# `, et qu'une clé `title` figure
+    dans le frontmatter, préfixe le corps par `# {title}` pour préserver la cohérence
+    du découpage et de l'affichage dans `DocReaderDialog`.
+
+    Args:
+        raw_text: Texte Markdown brut tel que lu sur disque.
+
+    Returns:
+        Un tuple `(meta_dict, cleaned_body)`.
+    """
+    meta: dict[str, str] = {}
+    if not (raw_text.startswith("---\n") or raw_text.startswith("---\r\n")):
+        return meta, raw_text
+
+    lines = raw_text.splitlines(keepends=True)
+    end_idx: int | None = None
+    for idx in range(1, len(lines)):
+        if lines[idx].strip() == "---":
+            end_idx = idx
+            break
+
+    if end_idx is None:
+        return meta, raw_text
+
+    for line in lines[1:end_idx]:
+        if ":" in line:
+            key, _, val = line.partition(":")
+            clean_key = key.strip().lower()
+            clean_val = val.strip().strip("\"'")
+            if clean_key and clean_val:
+                meta[clean_key] = clean_val
+
+    body = "".join(lines[end_idx + 1 :]).lstrip("\r\n")
+    title = meta.get("title", "").strip()
+    if title and not body.lstrip().startswith("# "):
+        body = f"# {title}\n\n{body}"
+
+    return meta, body
 
 
 @dataclass
@@ -75,10 +118,27 @@ class AppDocumentationService:
     """
 
     _instance: AppDocumentationService | None = None
+    _instances: dict[tuple[str, str], AppDocumentationService] = {}
     _lock = threading.Lock()
 
-    def __init__(self, docs_dir: Path | None = None, config_path: Path | None = None) -> None:
-        self.docs_dir = docs_dir or get_docs_path()
+    def __init__(
+        self,
+        docs_dir: Path | None = None,
+        config_path: Path | None = None,
+        *,
+        language: str | None = None,
+        scope: str = "user",
+    ) -> None:
+        from ankidraft.utils.i18n import FALLBACK_LANGUAGE, normalize_language, preferred_language
+
+        self._language = normalize_language(language if language is not None else preferred_language(), default=FALLBACK_LANGUAGE)
+        self._scope = scope.strip().lower() if scope else "user"
+        if docs_dir is not None:
+            self.docs_dir = docs_dir
+        elif self._scope == "dev":
+            self.docs_dir = get_docs_path()
+        else:
+            self.docs_dir = get_user_docs_path(self._language)
         self.config_path = config_path or get_zensical_config_path()
         self._db_lock = threading.Lock()
         self._db: sqlite3.Connection | None = None
@@ -87,12 +147,21 @@ class AppDocumentationService:
         self._indexed = False
 
     @classmethod
-    def get_instance(cls) -> AppDocumentationService:
-        """Retourne l'instance singleton thread-safe du service."""
+    def get_instance(cls, language: str | None = None, scope: str = "user") -> AppDocumentationService:
+        """Retourne l'instance thread-safe du service pour la langue et la portée demandées."""
+        from ankidraft.utils.i18n import FALLBACK_LANGUAGE, normalize_language, preferred_language
+
+        norm_lang = normalize_language(language if language is not None else preferred_language(), default=FALLBACK_LANGUAGE)
+        norm_scope = scope.strip().lower() if scope else "user"
+        key = (norm_lang, norm_scope)
         with cls._lock:
-            if cls._instance is None:
-                cls._instance = cls()
-            return cls._instance
+            inst = cls._instances.get(key)
+            if inst is None:
+                inst = cls(language=norm_lang, scope=norm_scope)
+                cls._instances[key] = inst
+                if norm_scope == "user":
+                    cls._instance = inst
+            return inst
 
     def _init_db(self) -> sqlite3.Connection:
         """Initialise la table FTS5 en mémoire avec le tokenizer unicode61."""
@@ -149,23 +218,43 @@ class AppDocumentationService:
         if rel_path in self._page_meta_cache:
             return self._page_meta_cache[rel_path]
 
+        front_meta, clean_body = strip_yaml_frontmatter(raw_content)
+
         # Catégorie basée sur le dossier parent
         parts = Path(rel_path).parts
         if len(parts) > 1:
             parent = parts[0]
-            cat_map = {
-                "features": "Fonctionnalités",
-                "Dossier_architecture": "Architecture",
-                "guides": "Guides & Prompts",
-                "dev": "Développement",
-            }
+            if self._language == "en":
+                cat_map = {
+                    "getting-started": "Getting Started",
+                    "sources": "Sources & Import",
+                    "cards": "Cards & Editing",
+                    "anki-sync": "Anki Sync",
+                    "ai-setup": "AI Setup",
+                    "guides": "Guides & Help",
+                    "features": "Features",
+                    "Dossier_architecture": "Architecture",
+                    "dev": "Development",
+                }
+            else:
+                cat_map = {
+                    "getting-started": "Démarrage",
+                    "sources": "Sources & Import",
+                    "cards": "Cartes & Édition",
+                    "anki-sync": "Synchronisation Anki",
+                    "ai-setup": "Configuration IA",
+                    "features": "Fonctionnalités",
+                    "Dossier_architecture": "Architecture",
+                    "guides": "Guides & Prompts",
+                    "dev": "Développement",
+                }
             category = cat_map.get(parent, parent.capitalize())
         else:
             category = "Démarrage" if "guide" in rel_path or "install" in rel_path else "Accueil"
 
-        # Titre basé sur le premier header H1 (# ...)
-        title = Path(rel_path).stem.replace("_", " ").title()
-        for line in raw_content.splitlines():
+        # Titre basé sur le frontmatter ou le premier header H1 (# ...)
+        title = front_meta.get("title") or Path(rel_path).stem.replace("_", " ").title()
+        for line in clean_body.splitlines():
             sline = line.strip()
             if sline.startswith("# "):
                 title = _clean_header_text(sline)
@@ -175,8 +264,9 @@ class AppDocumentationService:
 
     def _chunk_markdown_file(self, rel_path: str, raw_content: str, default_title: str, category: str) -> list[DocSection]:
         """Découpe un fichier Markdown en sections hiérarchiques (H1, H2, H3)."""
+        _, clean_content = strip_yaml_frontmatter(raw_content)
         sections: list[DocSection] = []
-        lines = raw_content.splitlines()
+        lines = clean_content.splitlines()
 
         current_header = default_title
         current_anchor = ""
@@ -224,7 +314,7 @@ class AppDocumentationService:
                 )
 
         # Si le fichier était complètement vide de headers
-        if not sections and raw_content.strip():
+        if not sections and clean_content.strip():
             sections.append(
                 DocSection(
                     page_path=rel_path,
@@ -232,7 +322,7 @@ class AppDocumentationService:
                     category=category,
                     section_title=default_title,
                     anchor="",
-                    content=raw_content.strip(),
+                    content=clean_content.strip(),
                 )
             )
 
@@ -247,61 +337,72 @@ class AppDocumentationService:
             if self._indexed and self._db is not None:
                 return
 
-            self._page_meta_cache = self._parse_zensical_nav()
+            self._page_meta_cache = self._parse_zensical_nav() if self._scope in ("dev", "all") else {}
             self._db = self._init_db()
             self._topics_cache = []
 
-            if not self.docs_dir.is_dir():
+            dirs_to_index: list[Path] = [self.docs_dir]
+            if self._scope == "all":
+                dev_dir = get_docs_path()
+                if dev_dir != self.docs_dir and dev_dir.is_dir():
+                    dirs_to_index.append(dev_dir)
+
+            if not any(d.is_dir() for d in dirs_to_index):
                 logger.warning("Répertoire de documentation introuvable : %s", self.docs_dir)
                 self._indexed = True
                 return
 
-            md_files = sorted(self.docs_dir.rglob("*.md"))
             sections_count = 0
+            total_files = 0
 
-            for fpath in md_files:
-                try:
-                    rel_path = str(fpath.relative_to(self.docs_dir))
-                    raw_text = fpath.read_text(encoding="utf-8", errors="replace")
-                    page_title, category = self._infer_category_and_title(rel_path, raw_text)
+            for base_dir in dirs_to_index:
+                if not base_dir.is_dir():
+                    continue
+                md_files = sorted(base_dir.rglob("*.md"))
+                total_files += len(md_files)
+                for fpath in md_files:
+                    try:
+                        rel_path = str(fpath.relative_to(base_dir))
+                        raw_text = fpath.read_text(encoding="utf-8", errors="replace")
+                        page_title, category = self._infer_category_and_title(rel_path, raw_text)
 
-                    file_sections = self._chunk_markdown_file(rel_path, raw_text, page_title, category)
-                    section_titles = [s.section_title for s in file_sections if s.section_title != page_title]
+                        file_sections = self._chunk_markdown_file(rel_path, raw_text, page_title, category)
+                        section_titles = [s.section_title for s in file_sections if s.section_title != page_title]
 
-                    self._topics_cache.append(
-                        DocTopic(
-                            title=page_title,
-                            path=rel_path,
-                            category=category,
-                            sections=section_titles,
+                        self._topics_cache.append(
+                            DocTopic(
+                                title=page_title,
+                                path=rel_path,
+                                category=category,
+                                sections=section_titles,
+                            )
                         )
-                    )
 
-                    for sec in file_sections:
-                        self._db.execute(
-                            """
-                            INSERT INTO app_docs_fts (page_path, page_title, category, section_title, anchor, content)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                            """,
-                            (
-                                sec.page_path,
-                                sec.page_title,
-                                sec.category,
-                                sec.section_title,
-                                sec.anchor,
-                                sec.content,
-                            ),
-                        )
-                        sections_count += 1
+                        for sec in file_sections:
+                            self._db.execute(
+                                """
+                                INSERT INTO app_docs_fts (page_path, page_title, category, section_title, anchor, content)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                                """,
+                                (
+                                    sec.page_path,
+                                    sec.page_title,
+                                    sec.category,
+                                    sec.section_title,
+                                    sec.anchor,
+                                    sec.content,
+                                ),
+                            )
+                            sections_count += 1
 
-                except Exception as e:
-                    logger.error("Erreur lors de l'indexation de %s : %s", fpath, e)
+                    except Exception as e:
+                        logger.error("Erreur lors de l'indexation de %s : %s", fpath, e)
 
             self._db.commit()
             self._indexed = True
             logger.info(
                 "Base de connaissances Zensical indexée : %d fichiers Markdown, %d sections.",
-                len(md_files),
+                total_files,
                 sections_count,
             )
 
@@ -399,12 +500,24 @@ class AppDocumentationService:
         if cand_direct.is_file():
             matched_file = cand_direct
         else:
+            # Si le chemin comporte un dossier parent explicite qui n'existe pas dans user,
+            # mais existe dans dev (ex: features/consultant_mcp.md), on bascule d'abord sur dev
+            # avant de tenter une correspondance par basename seul.
+            if self._scope == "user" and "/" in target_path and self.docs_dir != get_docs_path():
+                dev_cand = get_docs_path() / target_path
+                if dev_cand.is_file():
+                    dev_service = AppDocumentationService.get_instance(language=self._language, scope="dev")
+                    return dev_service.get_page_content(doc_path, section_anchor)
+
             for f in self.docs_dir.rglob("*.md"):
                 if str(f.relative_to(self.docs_dir)) == target_path or f.name == Path(target_path).name:
                     matched_file = f
                     break
 
         if not matched_file or not matched_file.is_file():
+            if self._scope == "user" and self.docs_dir != get_docs_path():
+                dev_service = AppDocumentationService.get_instance(language=self._language, scope="dev")
+                return dev_service.get_page_content(doc_path, section_anchor)
             return None
 
         # Garde anti path traversal : toute page lue doit résider sous docs_dir,
@@ -414,7 +527,7 @@ class AppDocumentationService:
             logger.warning("Chemin documentation refusé hors périmètre : %s", target_path)
             return None
 
-        raw_text = matched_file.read_text(encoding="utf-8", errors="replace")
+        _, raw_text = strip_yaml_frontmatter(matched_file.read_text(encoding="utf-8", errors="replace"))
         if not section_anchor.strip():
             return raw_text
 
@@ -512,10 +625,13 @@ class AppDocumentationService:
 # =====================================================================
 
 
-def search_app_documentation(query: str, category: str = "", limit: int = 5) -> str:
+def search_app_documentation(query: str, category: str = "", limit: int = 5, scope: str = "user") -> str:
     """Recherche des extraits pertinents dans la documentation officielle d'AnkiForge."""
-    service = AppDocumentationService.get_instance()
+    service = AppDocumentationService.get_instance(scope=scope)
     results = service.search(query=query, category=category, limit=limit)
+    if not results and scope == "user":
+        dev_service = AppDocumentationService.get_instance(scope="dev")
+        results = dev_service.search(query=query, category=category, limit=limit)
     if not results:
         return f"Aucun résultat trouvé dans la documentation pour la recherche : '{query}'" + (f" (catégorie: {category})" if category else "") + "."
 
@@ -526,9 +642,9 @@ def search_app_documentation(query: str, category: str = "", limit: int = 5) -> 
     return "\n\n".join(lines)
 
 
-def read_app_doc_page(doc_path: str, section_anchor: str = "") -> str:
+def read_app_doc_page(doc_path: str, section_anchor: str = "", scope: str = "user") -> str:
     """Lit le contenu complet d'une page ou d'une section de la documentation officielle."""
-    service = AppDocumentationService.get_instance()
+    service = AppDocumentationService.get_instance(scope=scope)
     content = service.get_page_content(doc_path=doc_path, section_anchor=section_anchor)
     if not content:
         return f"Erreur : La page de documentation '{doc_path}' n'a pas été trouvée."
@@ -537,9 +653,9 @@ def read_app_doc_page(doc_path: str, section_anchor: str = "") -> str:
     return header + content
 
 
-def list_app_doc_topics(category: str = "") -> str:
+def list_app_doc_topics(category: str = "", scope: str = "user") -> str:
     """Liste la table des matières et les chapitres disponibles dans la documentation Zensical."""
-    service = AppDocumentationService.get_instance()
+    service = AppDocumentationService.get_instance(scope=scope)
     topics = service.get_topics(category=category)
     if not topics:
         return "Aucun chapitre trouvé dans la documentation" + (f" pour la catégorie '{category}'" if category else "") + "."
@@ -559,7 +675,7 @@ def list_app_doc_topics(category: str = "") -> str:
     return "\n".join(lines)
 
 
-def get_feature_quick_help(feature_name: str) -> str:
+def get_feature_quick_help(feature_name: str, scope: str = "user") -> str:
     """Retourne une fiche synthétique d'aide sur une fonctionnalité d'AnkiForge."""
-    service = AppDocumentationService.get_instance()
+    service = AppDocumentationService.get_instance(scope=scope)
     return service.get_feature_quick_help(feature_name)

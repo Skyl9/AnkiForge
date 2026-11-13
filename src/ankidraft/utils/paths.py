@@ -307,7 +307,7 @@ def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
 
 
 def get_docs_path() -> Path:
-    """Localise le répertoire de documentation de l'application (`docs/`).
+    """Localise le répertoire de documentation développeur de l'application (`docs/`).
 
     Compatible mode développement, tests et packaging standalone Nuitka/PyInstaller.
     """
@@ -321,6 +321,42 @@ def get_docs_path() -> Path:
         return res_docs
 
     return dev_docs
+
+
+def get_user_docs_path(language: str | None = None) -> Path:
+    """Localise le répertoire de documentation utilisateur bilingue (`fr` / `en`).
+
+    Cherche d'abord le corpus Starlight (`website/src/content/docs/<lang>`) en mode
+    développement, puis la ressource embarquée (`resources/user_docs/<lang>`) en mode
+    packagé Nuitka/PyInstaller, avec repli sur le français (`"fr"`) puis `get_docs_path()`.
+
+    Args:
+        language: Code ISO 639-1 ou endonyme optionnel ; si omis, interroge `preferred_language()`.
+
+    Returns:
+        Chemin absolu vers le dossier de documentation utilisateur.
+    """
+    from ankidraft.utils.i18n import FALLBACK_LANGUAGE, normalize_language, preferred_language
+
+    raw_lang = language if language is not None else preferred_language()
+    lang = normalize_language(raw_lang, default=FALLBACK_LANGUAGE)
+    langs_to_try = (lang, FALLBACK_LANGUAGE) if lang != FALLBACK_LANGUAGE else (FALLBACK_LANGUAGE,)
+
+    root = get_project_root()
+    for code in langs_to_try:
+        dev_user_docs = root / "website" / "src" / "content" / "docs" / code
+        if dev_user_docs.is_dir():
+            return dev_user_docs
+
+        res_user_docs = get_resource_path("src", "ankidraft", "resources", "user_docs", code)
+        if res_user_docs.is_dir():
+            return res_user_docs
+
+        res_user_docs_short = get_resource_path("resources", "user_docs", code)
+        if res_user_docs_short.is_dir():
+            return res_user_docs_short
+
+    return get_docs_path()
 
 
 def get_zensical_config_path() -> Path:

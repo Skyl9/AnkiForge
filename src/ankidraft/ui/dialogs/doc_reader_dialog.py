@@ -25,11 +25,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ankidraft.services.documentation.doc_service import strip_yaml_frontmatter
 from ankidraft.ui.components import IconButton
 from ankidraft.ui.theme import DesignTokens
 from ankidraft.utils.i18n import tr
 from ankidraft.utils.icon_loader import load_phosphor_icon
-from ankidraft.utils.paths import get_docs_path
+from ankidraft.utils.paths import get_docs_path, get_user_docs_path
 
 logger = logging.getLogger(__name__)
 
@@ -176,14 +177,16 @@ class DocReaderDialog(QDialog):
 
     def load_markdown(self, markdown_text: str, base_dir: Path | None = None, title: str = "") -> None:
         """Parse le Markdown, résout les ressources locales et injecte le HTML stylisé."""
-        self._base_dir = base_dir or get_docs_path()
-        if title:
-            self.lbl_title.setText(title)
-            self.setWindowTitle(title)
+        self._base_dir = base_dir or get_user_docs_path()
+        front_meta, cleaned_md = strip_yaml_frontmatter(markdown_text)
+        effective_title = title or front_meta.get("title", "")
+        if effective_title:
+            self.lbl_title.setText(effective_title)
+            self.setWindowTitle(effective_title)
 
         # Conversion Markdown vers HTML avec extensions de tables et blocs de code
         html_body = markdown.markdown(
-            markdown_text,
+            cleaned_md,
             extensions=["tables", "fenced_code", "nl2br"],
         )
 
@@ -375,27 +378,39 @@ class DocReaderDialog(QDialog):
 
     @classmethod
     def open_guide(cls, guide_name: str = "cycle_de_vie_distribue.md", parent: QWidget | None = None) -> DocReaderDialog:
-        """Instancie et charge un guide stocké dans docs/guides/."""
+        """Instancie et charge un guide stocké dans le corpus utilisateur ou docs/guides/."""
         dlg = cls(parent=parent)
+        user_docs_path = get_user_docs_path()
         docs_path = get_docs_path()
-        guide_file = docs_path / "guides" / guide_name
-        if not guide_file.is_file():
-            guide_file = docs_path / guide_name
 
-        if guide_file.is_file():
-            content = guide_file.read_text(encoding="utf-8", errors="replace")
-            # Extraction du titre du premier H1
-            title = guide_name.replace("_", " ").replace(".md", "").title()
+        candidates = [
+            user_docs_path / "guides" / guide_name,
+            user_docs_path / guide_name,
+            docs_path / "guides" / guide_name,
+            docs_path / guide_name,
+        ]
+        guide_file: Path | None = next((cand for cand in candidates if cand.is_file()), None)
+        if guide_file is None and user_docs_path.is_dir():
+            target_name = Path(guide_name).name
+            for fpath in user_docs_path.rglob("*.md"):
+                if fpath.name == target_name:
+                    guide_file = fpath
+                    break
+
+        if guide_file is not None and guide_file.is_file():
+            raw_content = guide_file.read_text(encoding="utf-8", errors="replace")
+            front_meta, content = strip_yaml_frontmatter(raw_content)
+            title = front_meta.get("title") or guide_name.replace("_", " ").replace(".md", "").title()
             for line in content.splitlines():
                 if line.startswith("# "):
                     title = line.replace("# ", "").strip()
                     break
             dlg.load_markdown(content, base_dir=guide_file.parent, title=title)
         else:
-            logger.warning("Fichier de guide introuvable : %s", guide_file)
+            logger.warning("Fichier de guide introuvable : %s", guide_name)
             dlg.load_markdown(
                 tr("# Guide Introuvable\n\nLe document `%1` n'a pas pu être chargé.", guide_name),
-                base_dir=docs_path,
+                base_dir=user_docs_path,
                 title=cls.tr("Erreur"),
             )
         return dlg

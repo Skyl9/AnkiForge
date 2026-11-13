@@ -9,6 +9,7 @@ from ankidraft.services.documentation.doc_service import (
     list_app_doc_topics,
     read_app_doc_page,
     search_app_documentation,
+    strip_yaml_frontmatter,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "list_app_doc_topics",
     "read_app_doc_page",
     "search_app_documentation",
+    "strip_yaml_frontmatter",
 ]

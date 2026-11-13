@@ -1630,27 +1630,27 @@ def reindex_document(
 
 
 @mcp.tool()
-def search_app_documentation(query: str, category: str = "", limit: int = 5) -> str:
+def search_app_documentation(query: str, category: str = "", limit: int = 5, scope: str = "user") -> str:
     """Recherche des explications, guides et références d'architecture dans la documentation officielle d'AnkiForge via SQLite FTS5 BM25."""
-    return MCPToolRegistry.search_app_documentation(query, category, limit)
+    return MCPToolRegistry.search_app_documentation(query, category, limit, scope=scope)
 
 
 @mcp.tool()
-def read_app_doc_page(doc_path: str, section_anchor: str = "") -> str:
+def read_app_doc_page(doc_path: str, section_anchor: str = "", scope: str = "user") -> str:
     """Consulte le contenu intégral ou une section d'une page de documentation officielle d'AnkiForge (ex: 'features/consultant_mcp.md')."""
-    return MCPToolRegistry.read_app_doc_page(doc_path, section_anchor)
+    return MCPToolRegistry.read_app_doc_page(doc_path, section_anchor, scope=scope)
 
 
 @mcp.tool()
-def list_app_doc_topics(category: str = "") -> str:
+def list_app_doc_topics(category: str = "", scope: str = "user") -> str:
     """Consulte le sommaire exhaustif de la documentation officielle d'AnkiForge classé par thématiques."""
-    return MCPToolRegistry.list_app_doc_topics(category)
+    return MCPToolRegistry.list_app_doc_topics(category, scope=scope)
 
 
 @mcp.tool()
-def get_feature_quick_help(feature_name: str) -> str:
+def get_feature_quick_help(feature_name: str, scope: str = "user") -> str:
     """Obtient une synthèse immédiate d'une fonctionnalité clé (Ollama, KaTeX, DAG, RAG, Wozniak, Nuitka, Smart Merge, MCP)."""
-    return MCPToolRegistry.get_feature_quick_help(feature_name)
+    return MCPToolRegistry.get_feature_quick_help(feature_name, scope=scope)
 
 
 # =====================================================================

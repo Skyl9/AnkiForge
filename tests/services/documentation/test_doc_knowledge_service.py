@@ -12,7 +12,9 @@ from ankidraft.services.documentation.doc_service import (
     list_app_doc_topics,
     read_app_doc_page,
     search_app_documentation,
+    strip_yaml_frontmatter,
 )
+from ankidraft.utils.paths import get_user_docs_path
 
 pytestmark = pytest.mark.unit
 
@@ -158,3 +160,35 @@ def test_real_docs_service_singleton():
 
     quick_dag = get_feature_quick_help("dag")
     assert "Moteur d'Orchestration DAG" in quick_dag
+
+
+def test_strip_yaml_frontmatter_preserves_body_and_hr() -> None:
+    """Le frontmatter YAML en ligne 0 doit être extrait sans altérer les séparateurs --- internes."""
+    raw = "---\ntitle: Guide Rapide\ndescription: Un guide simple.\n---\n\nContenu d'introduction.\n\n---\n\n## Section 2\nSuite du texte.\n"
+    meta, body = strip_yaml_frontmatter(raw)
+    assert meta["title"] == "Guide Rapide"
+    assert meta["description"] == "Un guide simple."
+    assert body.startswith("# Guide Rapide\n\nContenu d'introduction.")
+    assert "\n---\n\n## Section 2" in body
+
+
+def test_bilingual_user_docs_and_scopes() -> None:
+    """Vérifie la résolution bilingue FR/EN de get_user_docs_path et le cloisonnement scope user/dev."""
+    fr_dir = get_user_docs_path("fr")
+    en_dir = get_user_docs_path("en")
+    assert fr_dir.is_dir() and fr_dir.name == "fr"
+    assert en_dir.is_dir() and en_dir.name == "en"
+
+    svc_fr = AppDocumentationService.get_instance(language="fr", scope="user")
+    svc_en = AppDocumentationService.get_instance(language="en", scope="user")
+
+    assert len(svc_fr.get_topics()) >= 20
+    assert len(svc_en.get_topics()) >= 20
+
+    res_en = svc_en.search("Quickstart")
+    assert len(res_en) >= 1
+    assert any("quickstart.md" in r.page_path for r in res_en)
+
+    # Repli transparent vers dev pour un chemin d'architecture explicite
+    arch_page = read_app_doc_page("Dossier_architecture/02_architecture_technique.md", scope="user")
+    assert "02_architecture_technique.md" in arch_page

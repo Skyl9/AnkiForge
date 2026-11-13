@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QTextDocument
 
 from ankidraft.ui.dialogs.doc_reader_dialog import DocReaderDialog
-from ankidraft.utils.paths import get_docs_path
+from ankidraft.utils.paths import get_user_docs_path
 
 
 @pytest.mark.ui
@@ -47,6 +47,19 @@ Ceci est un paragraphe de test avec du **texte gras**.
 
 
 @pytest.mark.ui
+def test_doc_reader_dialog_strips_starlight_frontmatter(qtbot: Any) -> None:
+    dialog = DocReaderDialog()
+    qtbot.addWidget(dialog)
+
+    md_with_frontmatter = "---\ntitle: Titre Starlight\ndescription: Meta description cachee\n---\n\n# Titre Starlight\n\nParagraphe visible pour l'utilisateur."
+    dialog.load_markdown(md_with_frontmatter)
+    plain = dialog.text_browser.toPlainText()
+    assert "Meta description cachee" not in plain
+    assert "Paragraphe visible pour l'utilisateur." in plain
+    assert dialog.lbl_title.text() == "Titre Starlight"
+
+
+@pytest.mark.ui
 def test_doc_reader_dialog_open_lifecycle_guide_and_svg_assets(qtbot: Any) -> None:
     dialog = DocReaderDialog.open_guide("cycle_de_vie_distribue.md")
     qtbot.addWidget(dialog)
@@ -56,9 +69,9 @@ def test_doc_reader_dialog_open_lifecycle_guide_and_svg_assets(qtbot: Any) -> No
     assert "Sanctuarisation" in html
     assert "Zombies" in html
 
-    # Vérification que la base URL est positionnée sur le dossier des guides
-    docs_path = get_docs_path()
-    guides_dir = docs_path / "guides"
+    # Vérification que la base URL est positionnée sur le dossier des guides utilisateurs
+    user_docs_path = get_user_docs_path()
+    guides_dir = user_docs_path / "guides"
     base_url = dialog.text_browser.document().baseUrl()
     assert base_url.toLocalFile() == str(guides_dir) + "/"
 
