@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 480" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #181825; }
+      .title { font-family: system-ui, -apple-system, sans-serif; font-size: 19px; font-weight: 700; fill: #cdd6f4; text-anchor: middle; }
+      .subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; fill: #a6adc8; text-anchor: middle; }
+      .card { fill: #1e1e2e; stroke: #313244; stroke-width: 1.5; rx: 12px; }
+      .branch-title { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; font-weight: 700; fill: #cdd6f4; }
+      .branch-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #bac2de; }
+      .action-badge { rx: 6px; }
+      .badge-text { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 800; fill: #181825; }
+      .feature-pill { fill: #313244; rx: 4px; }
+      .feature-text { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 600; fill: #cdd6f4; }
+      .arrow { stroke: #89b4fa; stroke-width: 2; fill: none; }
+      .root-box { fill: #313244; stroke: #cba6f7; stroke-width: 2; rx: 10px; }
+      .root-text { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; font-weight: 700; fill: #cdd6f4; text-anchor: middle; }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#89b4fa"/>
+    </marker>
+  </defs>
+
+  <!-- Arrière-plan global -->
+  <rect width="920" height="480" class="bg" rx="16"/>
+
+  <!-- Titre -->
+  <text x="460" y="38" class="title">Arbre de Décision : Quel Format d'Échange Utiliser ?</text>
+  <text x="460" y="58" class="subtitle">Choisir le bon format pour chaque opération d'import/export sans risque pour vos données</text>
+
+  <!-- Nœud racine : Quel est votre objectif ? -->
+  <rect x="330" y="80" width="260" height="42" class="root-box"/>
+  <text x="460" y="106" class="root-text">🎯 Quel est votre objectif ?</text>
+
+  <!-- Lignes directrices depuis la racine -->
+  <path d="M 370 122 L 175 165" class="arrow" marker-end="url(#arr)"/>
+  <path d="M 460 122 L 460 165" class="arrow" marker-end="url(#arr)"/>
+  <path d="M 550 122 L 745 165" class="arrow" marker-end="url(#arr)"/>
+
+  <!-- COLONNE 1 : Transférer vers Anki -->
+  <g transform="translate(30, 175)">
+    <rect width="270" height="275" class="card" stroke="#89b4fa" stroke-width="2"/>
+    <rect x="16" y="16" width="115" height="24" class="action-badge" fill="#89b4fa"/>
+    <text x="73" y="32" class="badge-text" text-anchor="middle">EXPORT .APKG</text>
+    
+    <text x="16" y="62" class="branch-title">Transférer vers Anki</text>
+    <text x="16" y="82" class="branch-desc">Envoyer vos fiches validées dans Anki pour vos séances de révision quotidiennes.</text>
+
+    <!-- Puces caractéristiques -->
+    <rect x="16" y="110" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="128" class="feature-text">✅ GUID stables (conserve l'historique)</text>
+
+    <rect x="16" y="145" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="163" class="feature-text">✅ Emporte modèles, paquets et médias</text>
+
+    <rect x="16" y="180" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="198" class="feature-text">✅ Ne touche pas au SRS dans Anki</text>
+
+    <rect x="16" y="215" width="238" height="42" class="feature-pill"/>
+    <text x="26" y="233" class="feature-text">ℹ️ Pas de date d'échéance : Anki</text>
+    <text x="26" y="247" class="feature-text">calcule lui-même les révisions.</text>
+  </g>
+
+  <!-- COLONNE 2 : Importer un deck partagé -->
+  <g transform="translate(325, 175)">
+    <rect width="270" height="275" class="card" stroke="#cba6f7" stroke-width="2"/>
+    <rect x="16" y="16" width="115" height="24" class="action-badge" fill="#cba6f7"/>
+    <text x="73" y="32" class="badge-text" text-anchor="middle">IMPORT .APKG</text>
+    
+    <text x="16" y="62" class="branch-title">Ajouter un paquet externe</text>
+    <text x="16" y="82" class="branch-desc">Intégrer un deck partagé par un tiers ou un paquet ciblé sans toucher au reste.</text>
+
+    <!-- Puces caractéristiques -->
+    <rect x="16" y="110" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="128" class="feature-text">✅ Fusion incrémentale (additive)</text>
+
+    <rect x="16" y="145" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="163" class="feature-text">✅ Arbitrage Smart Merge si conflit</text>
+
+    <rect x="16" y="180" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="198" class="feature-text">✅ Isomorphisme (zéro clone modèle)</text>
+
+    <rect x="16" y="215" width="238" height="42" class="feature-pill"/>
+    <text x="26" y="233" class="feature-text">⚠️ Ne supprime aucune carte locale</text>
+    <text x="26" y="247" class="feature-text">(ne purge pas les cartes supprimées).</text>
+  </g>
+
+  <!-- COLONNE 3 : Synchroniser & Purger -->
+  <g transform="translate(620, 175)">
+    <rect width="270" height="275" class="card" stroke="#a6e3a1" stroke-width="2"/>
+    <rect x="16" y="16" width="125" height="24" class="action-badge" fill="#a6e3a1"/>
+    <text x="78" y="32" class="badge-text" text-anchor="middle">IMPORT .COLPKG</text>
+    
+    <text x="16" y="62" class="branch-title">Synchroniser avec Anki</text>
+    <text x="16" y="82" class="branch-desc">Mettre à jour vos stats et purger les cartes que vous avez supprimées dans Anki.</text>
+
+    <!-- Puces caractéristiques -->
+    <rect x="16" y="110" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="128" class="feature-text">✅ Reflète exactement l'état d'Anki</text>
+
+    <rect x="16" y="145" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="163" class="feature-text">✅ Purge les cartes zombies supprimées</text>
+
+    <rect x="16" y="180" width="238" height="28" class="feature-pill"/>
+    <text x="26" y="198" class="feature-text">✅ Sauvegarde pré-import automatique</text>
+
+    <rect x="16" y="215" width="238" height="42" class="feature-pill"/>
+    <text x="26" y="233" class="feature-text">🛡️ Vos cours, agents et pipelines RAG</text>
+    <text x="26" y="247" class="feature-text">sont 100% sanctuarisés et préservés.</text>
+  </g>
+</svg>

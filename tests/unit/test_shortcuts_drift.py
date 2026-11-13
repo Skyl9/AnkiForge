@@ -9,8 +9,10 @@ import pytest
 from ankidraft.ui.shortcuts.catalog import get_shortcut_catalog
 from script.check_shortcuts_drift import (
     DOCS_SHORTCUTS_PATH,
+    USER_FR_SHORTCUTS_PATH,
     check_shortcuts_drift,
     generate_shortcuts_markdown,
+    generate_starlight_fr_shortcuts_markdown,
     main,
     write_shortcuts_doc,
 )
@@ -105,3 +107,11 @@ def test_official_shortcuts_doc_is_in_sync() -> None:
     """La page officielle docs/guides/raccourcis_clavier.md doit être strictement synchronisée."""
     is_ok, diff_or_msg = check_shortcuts_drift(DOCS_SHORTCUTS_PATH)
     assert is_ok, f"La documentation officielle est désynchronisée du catalogue : {diff_or_msg}"
+
+
+def test_starlight_fr_shortcuts_doc_has_frontmatter_and_is_in_sync() -> None:
+    """La page utilisateur Starlight FR doit commencer par un frontmatter YAML et contenir le catalogue complet."""
+    expected_starlight = generate_starlight_fr_shortcuts_markdown()
+    assert expected_starlight.startswith("---\ntitle: Référence des Raccourcis Clavier\n")
+    assert USER_FR_SHORTCUTS_PATH.is_file()
+    assert USER_FR_SHORTCUTS_PATH.read_text(encoding="utf-8") == expected_starlight
